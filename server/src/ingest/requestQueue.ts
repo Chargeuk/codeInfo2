@@ -30,6 +30,13 @@ export type EnqueueIngestRequestResult = {
   queueRequest: IngestQueueRequest;
 };
 
+export type CurrentQueueRequestPositionResult = {
+  requestId: string;
+  queueState: IngestQueueState | null;
+  queuePosition: number | null;
+  runId: string | null;
+};
+
 export type QueueRequestDocumentFilter = {
   canonicalTargetPath?: string;
   queueState?: IngestQueueState;
@@ -364,6 +371,31 @@ export async function findOldestCleanupBlockedQueueRequest() {
 
 export async function findQueueRequestById(requestId: string) {
   return IngestQueueRequestModel.findById(requestId).exec();
+}
+
+export async function getCurrentQueueRequestPosition(
+  requestId: string,
+): Promise<CurrentQueueRequestPositionResult> {
+  const queueRequest = await findQueueRequestById(requestId);
+
+  if (!queueRequest) {
+    return {
+      requestId,
+      queueState: null,
+      queuePosition: null,
+      runId: null,
+    };
+  }
+
+  return {
+    requestId,
+    queueState: queueRequest.queueState,
+    queuePosition:
+      queueRequest.queueState === 'waiting'
+        ? await countOlderWaitingRequests(queueRequest)
+        : null,
+    runId: queueRequest.runId ?? null,
+  };
 }
 
 export async function findQueueRequestByRunId(runId: string) {

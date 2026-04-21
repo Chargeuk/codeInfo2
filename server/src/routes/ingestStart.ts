@@ -20,6 +20,7 @@ import {
 } from '../ingest/requestContracts.js';
 import {
   enqueueOrReuseIngestRequest,
+  getCurrentQueueRequestPosition,
   QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
 } from '../ingest/requestQueue.js';
 import { append } from '../logStore.js';
@@ -29,6 +30,7 @@ type Deps = {
   clientFactory: (baseUrl: string) => LMStudioClient;
   getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
   enqueueOrReuseIngestRequest?: typeof enqueueOrReuseIngestRequest;
+  getCurrentQueueRequestPosition?: typeof getCurrentQueueRequestPosition;
   pumpIngestQueue?: typeof pumpIngestQueue;
 };
 
@@ -82,6 +84,8 @@ export function createIngestStartRouter({
     getLockedEmbeddingModelOverride = getLockedEmbeddingModel,
   enqueueOrReuseIngestRequest:
     enqueueOrReuseIngestRequestOverride = enqueueOrReuseIngestRequest,
+  getCurrentQueueRequestPosition:
+    getCurrentQueueRequestPositionOverride = getCurrentQueueRequestPosition,
   pumpIngestQueue: pumpIngestQueueOverride = pumpIngestQueue,
 }: Deps) {
   const router = Router();
@@ -185,11 +189,18 @@ export function createIngestStartRouter({
         },
       });
       const pumpResult = await pumpIngestQueueOverride();
+      const currentQueuePosition = await getCurrentQueueRequestPositionOverride(
+        queueResult.requestId,
+      );
       const runId =
         queueResult.runId ??
+        currentQueuePosition.runId ??
         (pumpResult.requestId === queueResult.requestId
           ? (pumpResult.runId ?? null)
           : null);
+      const waitingQueuePosition = runId
+        ? undefined
+        : currentQueuePosition.queuePosition;
       if (queueResult.updatedExisting) {
         append({
           level: 'info',
@@ -203,7 +214,7 @@ export function createIngestStartRouter({
             canonicalTargetPath: queueResult.canonicalTargetPath,
             runId,
             queued: !runId,
-            queuePosition: runId ? undefined : queueResult.queuePosition,
+            queuePosition: waitingQueuePosition,
             reusedExisting: queueResult.reusedExisting,
             updatedExisting: queueResult.updatedExisting,
           },
@@ -221,7 +232,7 @@ export function createIngestStartRouter({
           canonicalTargetPath: queueResult.canonicalTargetPath,
           runId,
           queued: !runId,
-          queuePosition: runId ? undefined : queueResult.queuePosition,
+          queuePosition: waitingQueuePosition,
         },
       });
       return res.status(202).json(
@@ -234,7 +245,7 @@ export function createIngestStartRouter({
           : {
               queued: true,
               requestId: queueResult.requestId,
-              queuePosition: queueResult.queuePosition,
+              queuePosition: waitingQueuePosition,
             },
       );
     } catch (err) {

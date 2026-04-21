@@ -31,9 +31,11 @@ import { release } from '../../ingest/lock.js';
 import {
   __resetIngestQueueAvailabilityForTest,
   enqueueOrReuseIngestRequest,
+  getCurrentQueueRequestPosition,
   markIngestQueueUnavailable,
 } from '../../ingest/requestQueue.js';
 import type {
+  CurrentQueueRequestPositionResult,
   EnqueueIngestRequestInput,
   EnqueueIngestRequestResult,
 } from '../../ingest/requestQueue.js';
@@ -100,10 +102,14 @@ function buildApp(options?: {
   enqueueOrReuseIngestRequest?: (
     input: EnqueueIngestRequestInput,
   ) => Promise<EnqueueIngestRequestResult>;
+  getCurrentQueueRequestPosition?: (
+    requestId: string,
+  ) => Promise<CurrentQueueRequestPositionResult>;
   useRealQueueRequest?: boolean;
   pumpIngestQueue?: () => Promise<PumpIngestQueueResult>;
 }) {
   const app = express();
+  let lastQueueResult: EnqueueIngestRequestResult | null = null;
   app.use(express.json());
   app.use(
     createIngestReembedRouter({
@@ -112,14 +118,28 @@ function buildApp(options?: {
         options?.listIngestedRepositories
           ? options.listIngestedRepositories()
           : buildListReposResult(),
-      enqueueOrReuseIngestRequest: async (input) =>
-        options?.useRealQueueRequest
-          ? enqueueOrReuseIngestRequest(input)
+      enqueueOrReuseIngestRequest: async (input) => {
+        const result = options?.useRealQueueRequest
+          ? await enqueueOrReuseIngestRequest(input)
           : options?.enqueueOrReuseIngestRequest
-            ? options.enqueueOrReuseIngestRequest(input)
+            ? await options.enqueueOrReuseIngestRequest(input)
             : buildQueueResult({
                 canonicalTargetPath: input.canonicalTargetPath,
-              }),
+              });
+        lastQueueResult = result;
+        return result;
+      },
+      getCurrentQueueRequestPosition: async (requestId) =>
+        options?.getCurrentQueueRequestPosition
+          ? options.getCurrentQueueRequestPosition(requestId)
+          : options?.useRealQueueRequest
+            ? getCurrentQueueRequestPosition(requestId)
+            : {
+                requestId,
+                queueState: lastQueueResult?.queueState ?? null,
+                queuePosition: lastQueueResult?.queuePosition ?? null,
+                runId: lastQueueResult?.runId ?? null,
+              },
       pumpIngestQueue: async () =>
         options?.pumpIngestQueue
           ? options.pumpIngestQueue()
@@ -427,6 +447,76 @@ test('ingest-reembed waiting queue-aware contract returns queued state without r
   assert.equal('runId' in response.body, false);
 });
 
+test('ingest-reembed post-pump promotion returns the refreshed waiting queuePosition in the response', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          requestId: 'queue-request-new-reembed',
+          queuePosition: 2,
+        }),
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-older',
+        runId: 'run-promoted-older',
+      }),
+      getCurrentQueueRequestPosition: async (requestId) => {
+        assert.equal(requestId, 'queue-request-new-reembed');
+        return {
+          requestId,
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+        };
+      },
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-new-reembed',
+    queuePosition: 1,
+  });
+});
+
+test('ingest-reembed post-pump promotion logs the refreshed waiting queuePosition in the accepted marker', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          requestId: 'queue-request-new-reembed-log',
+          queuePosition: 2,
+        }),
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-older',
+        runId: 'run-promoted-older',
+      }),
+      getCurrentQueueRequestPosition: async (requestId) => ({
+        requestId,
+        queueState: 'waiting',
+        queuePosition: 1,
+        runId: null,
+      }),
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  const entries = query({ text: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID' }, 20);
+  const acceptanceEntry = entries.find(
+    (entry) =>
+      entry.context?.endpoint === '/ingest/reembed/:root' &&
+      entry.context?.queueRequestId === 'queue-request-new-reembed-log',
+  );
+  assert.ok(acceptanceEntry, 'expected accepted marker for queued re-embed');
+  assert.equal(acceptanceEntry.context?.queuePosition, 1);
+});
+
 test('ingest-reembed promoted duplicate returns immediate acceptance with runId instead of stale waiting semantics', async () => {
   const response = await request(
     buildApp({
@@ -452,6 +542,39 @@ test('ingest-reembed promoted duplicate returns immediate acceptance with runId 
     queued: false,
     requestId: 'queue-request-123',
     runId: '00000000-0000-0000-0000-000000000124',
+  });
+  assert.equal('queuePosition' in response.body, false);
+});
+
+test('ingest-reembed immediate-start response includes runId and omits waiting queuePosition after the current-position lookup', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          requestId: 'queue-request-immediate-reembed',
+          queuePosition: 1,
+        }),
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-immediate-reembed',
+        runId: 'run-immediate-reembed',
+      }),
+      getCurrentQueueRequestPosition: async (requestId) => ({
+        requestId,
+        queueState: 'running',
+        queuePosition: null,
+        runId: 'run-immediate-reembed',
+      }),
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: false,
+    requestId: 'queue-request-immediate-reembed',
+    runId: 'run-immediate-reembed',
   });
   assert.equal('queuePosition' in response.body, false);
 });
@@ -494,6 +617,61 @@ test('ingest-reembed logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTa
     updateEntry,
     'expected updated-in-place queue marker with shared canonicalTargetPath',
   );
+});
+
+test('ingest-reembed updated waiting request uses refreshed queuePosition in the response and queue logs', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          reusedExisting: true,
+          updatedExisting: true,
+          requestId: 'queue-request-updated-reembed',
+          queuePosition: 2,
+        }),
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-older',
+        runId: 'run-promoted-older',
+      }),
+      getCurrentQueueRequestPosition: async (requestId) => ({
+        requestId,
+        queueState: 'waiting',
+        queuePosition: 1,
+        runId: null,
+      }),
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Frepo');
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-updated-reembed',
+    queuePosition: 1,
+  });
+
+  const updatedEntries = query({ text: 'QUEUE_REQUEST_UPDATED_IN_PLACE' }, 20);
+  const updateEntry = updatedEntries.find(
+    (entry) =>
+      entry.context?.endpoint === '/ingest/reembed/:root' &&
+      entry.context?.queueRequestId === 'queue-request-updated-reembed',
+  );
+  assert.ok(updateEntry, 'expected updated queue marker');
+  assert.equal(updateEntry.context?.queuePosition, 1);
+
+  const acceptedEntries = query(
+    { text: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID' },
+    20,
+  );
+  const acceptanceEntry = acceptedEntries.find(
+    (entry) =>
+      entry.context?.endpoint === '/ingest/reembed/:root' &&
+      entry.context?.queueRequestId === 'queue-request-updated-reembed',
+  );
+  assert.ok(acceptanceEntry, 'expected accepted marker for updated request');
+  assert.equal(acceptanceEntry.context?.queuePosition, 1);
 });
 
 test('ingest-reembed updated-in-place queue response preserves reused-row semantics without a duplicate queue item', async () => {

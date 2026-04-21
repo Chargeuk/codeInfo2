@@ -23,10 +23,12 @@ import { release } from '../../ingest/lock.js';
 import { resolveRequestEmbeddingSelection } from '../../ingest/requestContracts.js';
 import {
   __resetIngestQueueAvailabilityForTest,
+  getCurrentQueueRequestPosition,
   markIngestQueueUnavailable,
   enqueueOrReuseIngestRequest,
 } from '../../ingest/requestQueue.js';
 import type {
+  CurrentQueueRequestPositionResult,
   EnqueueIngestRequestInput,
   EnqueueIngestRequestResult,
 } from '../../ingest/requestQueue.js';
@@ -65,23 +67,41 @@ function buildApp(options?: {
   enqueueOrReuseIngestRequest?: (
     input: EnqueueIngestRequestInput,
   ) => Promise<EnqueueIngestRequestResult>;
+  getCurrentQueueRequestPosition?: (
+    requestId: string,
+  ) => Promise<CurrentQueueRequestPositionResult>;
   useRealQueueRequest?: boolean;
   pumpIngestQueue?: () => Promise<PumpIngestQueueResult>;
 }) {
   const app = express();
+  let lastQueueResult: EnqueueIngestRequestResult | null = null;
   app.use(express.json());
   app.use(
     createIngestStartRouter({
       clientFactory: () => ({}) as never,
       getLockedEmbeddingModel: async () => options?.locked ?? null,
-      enqueueOrReuseIngestRequest: async (input) =>
-        options?.useRealQueueRequest
-          ? enqueueOrReuseIngestRequest(input)
+      enqueueOrReuseIngestRequest: async (input) => {
+        const result = options?.useRealQueueRequest
+          ? await enqueueOrReuseIngestRequest(input)
           : options?.enqueueOrReuseIngestRequest
-            ? options.enqueueOrReuseIngestRequest(input)
+            ? await options.enqueueOrReuseIngestRequest(input)
             : buildQueueResult({
                 canonicalTargetPath: input.canonicalTargetPath,
-              }),
+              });
+        lastQueueResult = result;
+        return result;
+      },
+      getCurrentQueueRequestPosition: async (requestId) =>
+        options?.getCurrentQueueRequestPosition
+          ? options.getCurrentQueueRequestPosition(requestId)
+          : options?.useRealQueueRequest
+            ? getCurrentQueueRequestPosition(requestId)
+            : {
+                requestId,
+                queueState: lastQueueResult?.queueState ?? null,
+                queuePosition: lastQueueResult?.queuePosition ?? null,
+                runId: lastQueueResult?.runId ?? null,
+              },
       pumpIngestQueue: async () =>
         options?.pumpIngestQueue
           ? options.pumpIngestQueue()
@@ -628,6 +648,88 @@ test('ingest-start waiting queue-aware contract returns queued true with request
   assert.equal('deduped' in response.body, false);
 });
 
+test('ingest-start post-pump promotion returns the refreshed waiting queuePosition in the response', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          requestId: 'queue-request-new-start',
+          queuePosition: 2,
+        }),
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-older',
+        runId: 'run-promoted-older',
+      }),
+      getCurrentQueueRequestPosition: async (requestId) => {
+        assert.equal(requestId, 'queue-request-new-start');
+        return {
+          requestId,
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+        };
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-new-start',
+    queuePosition: 1,
+  });
+});
+
+test('ingest-start post-pump promotion logs the refreshed waiting queuePosition in the accepted marker', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          requestId: 'queue-request-new-start-log',
+          queuePosition: 2,
+        }),
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-older',
+        runId: 'run-promoted-older',
+      }),
+      getCurrentQueueRequestPosition: async (requestId) => ({
+        requestId,
+        queueState: 'waiting',
+        queuePosition: 1,
+        runId: null,
+      }),
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  const entries = query({ text: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID' }, 20);
+  const acceptanceEntry = entries.find(
+    (entry) =>
+      entry.context?.endpoint === '/ingest/start' &&
+      entry.context?.queueRequestId === 'queue-request-new-start-log',
+  );
+  assert.ok(acceptanceEntry, 'expected accepted marker for queued request');
+  assert.equal(acceptanceEntry.context?.queuePosition, 1);
+});
+
 test('ingest-start promoted duplicate returns immediate acceptance with runId instead of stale waiting semantics', async () => {
   const response = await request(
     buildApp({
@@ -662,6 +764,45 @@ test('ingest-start promoted duplicate returns immediate acceptance with runId in
   });
   assert.equal('queuePosition' in response.body, false);
   assert.equal('deduped' in response.body, false);
+});
+
+test('ingest-start immediate-start response includes runId and omits waiting queuePosition after the current-position lookup', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          requestId: 'queue-request-immediate-start',
+          queuePosition: 1,
+        }),
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-immediate-start',
+        runId: 'run-immediate-start',
+      }),
+      getCurrentQueueRequestPosition: async (requestId) => ({
+        requestId,
+        queueState: 'running',
+        queuePosition: null,
+        runId: 'run-immediate-start',
+      }),
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: false,
+    requestId: 'queue-request-immediate-start',
+    runId: 'run-immediate-start',
+  });
+  assert.equal('queuePosition' in response.body, false);
 });
 
 test('ingest-start logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTargetPath', async () => {

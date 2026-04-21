@@ -13302,7 +13302,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `166, 169`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `plan_contract_issue`: the shared `server/src/test/integration/flows.run.loop.test.ts` stop-cleanup proof has regressed again and now blocks downstream Task `169` from rerunning its honest full `server:unit` gate
 
@@ -13357,6 +13357,7 @@ Repair the reintroduced shared `flows.run.loop` stop-cleanup regression that is 
 - Testing 3: full `npm run test:summary:server:unit` initially failed in the owned stopped-loop scenario because the proof could still race into a second loop iteration before the cancel request was observed. I added an awaitable `runStartLoopStep.before_next_iteration` checkpoint, made the test issue cancellation at that explicit boundary, removed the no-longer-honest stopped-turn wait for the no-inflight boundary, reran the targeted scenario successfully (`test-results/server-unit-tests-2026-04-21T02-57-21-867Z.log`), then reran the full wrapper successfully with 1739/1739 passing in `test-results/server-unit-tests-2026-04-21T02-57-33-656Z.log`.
 - Testing 4: `npm run lint` passed with exit code 0 and no lint fixes were required.
 - Testing 5: `npm run format:check` initially flagged the edited `server/src/test/integration/flows.run.loop.test.ts`; I ran `npm run format` as the task-listed repair path, then reran `npm run format:check` successfully with `All matched files use Prettier code style!`.
+- Automated-proof audit on 2026-04-21: all Task 168 subtasks and testing gates are checked on current disk with no live blocker, so this audit normalized the task status to `__done__`.
 
 ### Task 169. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
 

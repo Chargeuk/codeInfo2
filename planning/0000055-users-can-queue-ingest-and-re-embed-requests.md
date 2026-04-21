@@ -13867,7 +13867,7 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F4` (`should_fix`): the machine-readable OpenAPI contract documents queue-aware success responses but omits the required REST `503 QUEUE_UNAVAILABLE` failure envelope for queueable producer routes.
 
@@ -13926,6 +13926,7 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 - Testing 3: `npm run test:summary:server:cucumber` passed with `tests run: 105`, `passed: 105`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-21T11-46-45-227Z.log`; no log inspection was needed.
 - Testing 4: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 5: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
+- Automated-proof audit: Task 175 is complete because all implementation subtasks and automated testing gates are checked, the parser reports no live blockers, and no prose-only remaining gate is present.
 
 ### Task 176. Re-Validate Story 55 After Review Pass `0000055-20260421T050131Z-a77661de`
 

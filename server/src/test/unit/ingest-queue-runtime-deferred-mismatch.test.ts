@@ -3,11 +3,11 @@ import test from 'node:test';
 import {
   __setQueueRuntimeOpsForTest,
   pumpIngestQueue,
-  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import {
   createQueueRequest,
   installQueueRuntimeTestHooks,
+  waitForQueueManagedTerminalStatus,
   waitForNextTurn,
 } from './ingest-queue-runtime.helpers.js';
 
@@ -55,17 +55,16 @@ test('queue-managed deferred reembed rejects mismatched persisted requestPayload
   assert.equal(started.started, true);
   assert.ok(started.runId);
 
-  const terminal = await waitForTerminalIngestStatus(started.runId!, {
-    timeoutMs: 1_000,
-    pollMs: 10,
-  });
+  const terminal = await waitForQueueManagedTerminalStatus(
+    started.requestId!,
+    1_000,
+  );
   await waitForNextTurn();
   await waitForNextTurn();
 
-  assert.equal(terminal.reason, 'terminal');
-  assert.equal(terminal.status?.state, 'error');
+  assert.equal(terminal.state, 'error');
   assert.equal(
-    terminal.status?.lastError,
+    terminal.lastError,
     'queued reembed requestPayload.path must match canonicalTargetPath',
   );
   assert.ok(deletedRequestIds.length >= 1);

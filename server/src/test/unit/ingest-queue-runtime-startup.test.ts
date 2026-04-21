@@ -3,7 +3,6 @@ import test, { mock } from 'node:test';
 import {
   __setQueueRuntimeOpsForTest,
   recoverIngestQueueOnStartup,
-  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { getIngestQueueAvailability } from '../../ingest/requestQueue.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
@@ -19,6 +18,7 @@ import {
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
+  waitForQueueManagedTerminalStatus,
 } from './ingest-queue-runtime.helpers.js';
 
 installQueueRuntimeTestHooks();
@@ -70,17 +70,13 @@ test('startup recovery rejects error root drift before queued reembed delta work
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
 
-    const terminal = await waitForTerminalIngestStatus(
-      recoveryQueueRequest.runId!,
-      {
-        timeoutMs: 1_000,
-        pollMs: 10,
-      },
+    const terminal = await waitForQueueManagedTerminalStatus(
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+      1_000,
     );
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.state, 'error');
+    assert.equal(terminal.lastError, 'INVALID_REEMBED_STATE');
     assert.equal(listRootCalls.mock.calls.length, 0);
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
@@ -123,19 +119,15 @@ test('startup recovery preserves INVALID_REEMBED_STATE when persisted error root
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
 
-    const terminal = await waitForTerminalIngestStatus(
-      recoveryQueueRequest.runId!,
-      {
-        timeoutMs: 1_000,
-        pollMs: 10,
-      },
+    const terminal = await waitForQueueManagedTerminalStatus(
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+      1_000,
     );
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
-    assert.equal(terminal.status?.error?.provider, 'ingest');
-    assert.equal(terminal.status?.error?.retryable, false);
+    assert.equal(terminal.state, 'error');
+    assert.equal(terminal.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.error?.provider, 'ingest');
+    assert.equal(terminal.error?.retryable, false);
   } finally {
     await cleanup();
   }
@@ -168,19 +160,15 @@ test('startup recovery fails closed when the live root-state read degrades befor
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
 
-    const terminal = await waitForTerminalIngestStatus(
-      recoveryQueueRequest.runId!,
-      {
-        timeoutMs: 1_000,
-        pollMs: 10,
-      },
+    const terminal = await waitForQueueManagedTerminalStatus(
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+      1_000,
     );
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
-    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
-    assert.equal(terminal.status?.error?.provider, 'ingest');
+    assert.equal(terminal.state, 'error');
+    assert.equal(terminal.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.error?.provider, 'ingest');
   } finally {
     await cleanup();
   }

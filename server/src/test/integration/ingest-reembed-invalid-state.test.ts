@@ -5,7 +5,6 @@ import request from 'supertest';
 import {
   __setQueueRuntimeOpsForTest,
   pumpIngestQueue,
-  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import {
@@ -13,6 +12,7 @@ import {
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
+  waitForQueueManagedTerminalStatus,
   waitForNextTurn,
 } from '../unit/ingest-queue-runtime.helpers.js';
 
@@ -147,18 +147,17 @@ test('deferred queue replay keeps the immediate INVALID_REEMBED_STATE contract w
     assert.equal(started.started, true);
     assert.ok(started.runId);
 
-    const terminal = await waitForTerminalIngestStatus(started.runId!, {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    });
+    const terminal = await waitForQueueManagedTerminalStatus(
+      started.requestId!,
+      1_000,
+    );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
-    assert.equal(terminal.status?.error?.error, 'INVALID_REEMBED_STATE');
-    assert.equal(terminal.status?.error?.provider, 'ingest');
+    assert.equal(terminal.state, 'error');
+    assert.equal(terminal.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.error?.error, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.error?.provider, 'ingest');
   } finally {
     await cleanup();
   }

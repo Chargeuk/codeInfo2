@@ -10,7 +10,6 @@ import {
   getStatus,
   pumpIngestQueue,
   recoverIngestQueueOnStartup,
-  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
@@ -19,6 +18,7 @@ import {
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
+  waitForQueueManagedTerminalStatus,
   waitForNextTurn,
 } from './ingest-queue-runtime.helpers.js';
 
@@ -237,20 +237,16 @@ test('startup recovery rejects mismatched persisted reembed paths before discove
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
 
-  const terminal = await waitForTerminalIngestStatus(
-    'run-recovered-mismatched-path',
-    {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    },
+  const terminal = await waitForQueueManagedTerminalStatus(
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+    1_000,
   );
   await waitForNextTurn();
   await waitForNextTurn();
 
-  assert.equal(terminal.reason, 'terminal');
-  assert.equal(terminal.status?.state, 'error');
+  assert.equal(terminal.state, 'error');
   assert.equal(
-    terminal.status?.lastError,
+    terminal.lastError,
     'queued reembed requestPayload.path must match canonicalTargetPath',
   );
   assert.ok(deletedRequestIds.length >= 1);
@@ -335,23 +331,19 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
 
-  const terminal = await waitForTerminalIngestStatus(
-    recoveryQueueRequest.runId!,
-    {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    },
+  const terminal = await waitForQueueManagedTerminalStatus(
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+    1_000,
   );
   await waitForNextTurn();
   await waitForNextTurn();
 
-  assert.equal(terminal.reason, 'terminal');
-  assert.equal(terminal.status?.state, 'error');
+  assert.equal(terminal.state, 'error');
   assert.equal(
-    terminal.status?.lastError,
+    terminal.lastError,
     'path must stay within /allowed/workdir',
   );
-  assert.equal(terminal.status?.error?.error, 'VALIDATION');
+  assert.equal(terminal.error?.error, 'VALIDATION');
   assert.equal(getOrCreateCollectionCalls, 0);
   assert.deepEqual(deletedRequestIds, [
     requestQueue.getQueueRequestId(recoveryQueueRequest),
@@ -393,23 +385,19 @@ test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR 
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
 
-  const terminal = await waitForTerminalIngestStatus(
-    recoveryQueueRequest.runId!,
-    {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    },
+  const terminal = await waitForQueueManagedTerminalStatus(
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+    1_000,
   );
   await waitForNextTurn();
   await waitForNextTurn();
 
-  assert.equal(terminal.reason, 'terminal');
-  assert.equal(terminal.status?.state, 'error');
+  assert.equal(terminal.state, 'error');
   assert.equal(
-    terminal.status?.lastError,
+    terminal.lastError,
     'CODEINFO_CODEX_WORKDIR must be an absolute normalized repository root path or the exact placeholder "$CODEINFO_CODEX_WORKDIR"',
   );
-  assert.equal(terminal.status?.error?.error, 'CONFIGURATION');
+  assert.equal(terminal.error?.error, 'CONFIGURATION');
   assert.equal(getOrCreateCollectionCalls, 0);
   assert.deepEqual(deletedRequestIds, [
     requestQueue.getQueueRequestId(recoveryQueueRequest),
@@ -453,23 +441,19 @@ test('startup recovery rejects blank canonical model even when a legacy model is
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
 
-    const terminal = await waitForTerminalIngestStatus(
-      'run-recovered-invalid-payload',
-      {
-        timeoutMs: 1_000,
-        pollMs: 10,
-      },
+    const terminal = await waitForQueueManagedTerminalStatus(
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+      1_000,
     );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.state, 'error');
     assert.equal(
-      terminal.status?.lastError,
+      terminal.lastError,
       'embeddingProvider and embeddingModel are required when canonical fields are present',
     );
-    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.equal(terminal.error?.error, 'VALIDATION');
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
     ]);
@@ -523,23 +507,19 @@ test('startup recovery rejects non-string canonical provider payloads and does n
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
 
-    const terminal = await waitForTerminalIngestStatus(
-      recoveryQueueRequest.runId!,
-      {
-        timeoutMs: 1_000,
-        pollMs: 10,
-      },
+    const terminal = await waitForQueueManagedTerminalStatus(
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+      1_000,
     );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.state, 'error');
     assert.equal(
-      terminal.status?.lastError,
+      terminal.lastError,
       'embeddingProvider and embeddingModel are required when canonical fields are present',
     );
-    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.equal(terminal.error?.error, 'VALIDATION');
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
     ]);
@@ -591,23 +571,19 @@ test('startup recovery rejects non-string canonical model payloads and does not 
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
 
-    const terminal = await waitForTerminalIngestStatus(
-      recoveryQueueRequest.runId!,
-      {
-        timeoutMs: 1_000,
-        pollMs: 10,
-      },
+    const terminal = await waitForQueueManagedTerminalStatus(
+      requestQueue.getQueueRequestId(recoveryQueueRequest),
+      1_000,
     );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.state, 'error');
     assert.equal(
-      terminal.status?.lastError,
+      terminal.lastError,
       'embeddingProvider and embeddingModel are required when canonical fields are present',
     );
-    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.equal(terminal.error?.error, 'VALIDATION');
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
     ]);

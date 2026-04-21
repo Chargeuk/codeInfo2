@@ -12,6 +12,7 @@ import {
   __setRunProcessorForTest,
   __setRunSchedulerForTest,
   setIngestDeps,
+  waitForQueueRequestTerminalStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import { __resetIngestQueueAvailabilityForTest } from '../../ingest/requestQueue.js';
@@ -24,6 +25,28 @@ export function waitForNextTurn() {
   return new Promise<void>((resolve) => {
     setImmediate(resolve);
   });
+}
+
+export async function waitForQueueManagedTerminalResult(
+  requestId: string,
+  timeoutMs = 20_000,
+) {
+  return await waitForQueueRequestTerminalStatus(requestId, {
+    timeoutMs,
+  });
+}
+
+export async function waitForQueueManagedTerminalStatus(
+  requestId: string,
+  timeoutMs = 20_000,
+) {
+  const result = await waitForQueueManagedTerminalResult(requestId, timeoutMs);
+  if (result.reason === 'terminal' && result.status) {
+    return result.status;
+  }
+  throw new Error(
+    `Timed out waiting for queue request ${requestId} (reason=${result.reason}, runId=${result.runId ?? 'missing'}, lastKnown=${result.lastKnown?.state ?? 'missing'})`,
+  );
 }
 
 export function createQueueRequest(params: {

@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import { hashFile } from '../../ingest/hashing.js';
 import {
   __finalizeQueueRequestForRunForTest,
+  __getIngestEventListenerCountForTest,
   __getQueueRequestTerminalStatusCountForTest,
   __persistQueueTerminalBarrierForTest,
   __setQueueRequestIdForRunForTest,
@@ -16,11 +17,12 @@ import {
   __setRunSchedulerForTest,
   __setStatusAndPublishForTest,
   __setStatusForTest,
+  QUEUE_READ_FAILED_WAIT_REASON,
   getStatus,
   pumpIngestQueue,
   recoverIngestQueueOnStartup,
   startIngest,
-  waitForTerminalIngestStatus,
+  waitForQueueRequestTerminalStatus,
 } from '../../ingest/ingestJob.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
@@ -28,23 +30,11 @@ import {
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
+  waitForQueueManagedTerminalStatus,
   waitForNextTurn,
 } from './ingest-queue-runtime.helpers.js';
 
 installQueueRuntimeTestHooks();
-
-async function waitForTerminal(runId: string) {
-  const result = await waitForTerminalIngestStatus(runId, {
-    timeoutMs: 20_000,
-    pollMs: 10,
-  });
-  if (result.reason === 'terminal' && result.status) {
-    return result.status;
-  }
-  throw new Error(
-    `Timed out waiting for ingest ${runId} (reason=${result.reason}, lastKnown=${result.lastKnown?.state ?? 'missing'})`,
-  );
-}
 
 function buildIngestDeps() {
   return {
@@ -114,6 +104,84 @@ test('terminal queue request cache retains completed entries until expiry and ev
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
   advanceTerminalStatusTime(1);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
+});
+
+test('request-aware queue wait uses timeout fallback only when no terminal state can be read and still cleans up listeners', async () => {
+  const initialListeners = __getIngestEventListenerCountForTest();
+
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () => null,
+  });
+
+  const result = await waitForQueueRequestTerminalStatus('queue-timeout', {
+    timeoutMs: 5,
+  });
+
+  assert.equal(result.reason, 'timeout');
+  assert.equal(result.runId, null);
+  assert.equal(result.status, null);
+  assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
+  assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
+});
+
+test('request-aware queue wait cleans up listeners on queue-read failure, cancellation, and immediate cached terminal reuse', async () => {
+  const initialListeners = __getIngestEventListenerCountForTest();
+
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () => {
+      throw new Error('queue read failed');
+    },
+  });
+
+  const queueReadFailed = await waitForQueueRequestTerminalStatus(
+    'queue-read-failed',
+    {
+      timeoutMs: 20,
+    },
+  );
+
+  assert.equal(queueReadFailed.reason, QUEUE_READ_FAILED_WAIT_REASON);
+  assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
+  assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
+
+  __setStatusForTest('run-cancelled-live', {
+    runId: 'run-cancelled-live',
+    state: 'queued',
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    message: 'Queued',
+    lastError: null,
+  });
+  __setQueueRequestIdForRunForTest('run-cancelled-live', 'queue-cancelled-live');
+
+  const cancelledPromise = waitForQueueRequestTerminalStatus(
+    'queue-cancelled-live',
+    {
+      timeoutMs: 1_000,
+    },
+  );
+  await waitForNextTurn();
+  __setStatusAndPublishForTest('run-cancelled-live', {
+    runId: 'run-cancelled-live',
+    state: 'cancelled',
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    message: 'Cancelled',
+    lastError: 'Cancelled',
+  });
+
+  const cancelled = await cancelledPromise;
+  assert.equal(cancelled.reason, 'terminal');
+  assert.equal(cancelled.status?.state, 'cancelled');
+  assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
+
+  const immediate = await waitForQueueRequestTerminalStatus(
+    'queue-cancelled-live',
+    {
+      timeoutMs: 20,
+    },
+  );
+  assert.equal(immediate.reason, 'terminal');
+  assert.equal(immediate.status?.state, 'cancelled');
+  assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
 });
 
 test('cleanup-blocked queue records stay visible and stall newer waiting work', async () => {
@@ -234,7 +302,7 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
     const executeScheduledTask = scheduledTask as () => void;
     executeScheduledTask();
 
-    const status = await waitForTerminal(runId);
+    const status = await waitForQueueManagedTerminalStatus('11');
     for (
       let attempt = 0;
       attempt < 5 && cleanupBlockedRequestId === null;

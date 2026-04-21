@@ -6,7 +6,6 @@ import {
   __setRunProcessorForTest,
   getStatus,
   pumpIngestQueue,
-  waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
 import * as requestQueue from '../../ingest/requestQueue.js';
@@ -16,6 +15,7 @@ import {
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
+  waitForQueueManagedTerminalStatus,
   waitForNextTurn,
 } from './ingest-queue-runtime.helpers.js';
 
@@ -201,16 +201,15 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
     assert.equal(result.started, true);
     assert.ok(result.runId);
 
-    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    });
+    const terminal = await waitForQueueManagedTerminalStatus(
+      result.requestId as string,
+      1_000,
+    );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.lastError, 'MODEL_LOCKED');
+    assert.equal(terminal.state, 'error');
+    assert.equal(terminal.lastError, 'MODEL_LOCKED');
     assert.ok(
       deletedRequestIds.length >= 1,
       'promotion-time rejection should still finalize and release the queued request',
@@ -272,20 +271,19 @@ test('queue promotion rejects bogus canonical provider even when a legacy model 
     assert.equal(result.started, true);
     assert.ok(result.runId);
 
-    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    });
+    const terminal = await waitForQueueManagedTerminalStatus(
+      result.requestId as string,
+      1_000,
+    );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.state, 'error');
     assert.equal(
-      terminal.status?.lastError,
+      terminal.lastError,
       'embeddingProvider and embeddingModel are required when canonical fields are present',
     );
-    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.equal(terminal.error?.error, 'VALIDATION');
     assert.ok(
       deletedRequestIds.length >= 1,
       'invalid canonical provider payloads should still finalize and release the queued request',
@@ -349,20 +347,19 @@ test('queue promotion rejects non-string canonical provider payloads instead of 
     assert.equal(result.started, true);
     assert.ok(result.runId);
 
-    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    });
+    const terminal = await waitForQueueManagedTerminalStatus(
+      result.requestId as string,
+      1_000,
+    );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.state, 'error');
     assert.equal(
-      terminal.status?.lastError,
+      terminal.lastError,
       'embeddingProvider and embeddingModel are required when canonical fields are present',
     );
-    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.equal(terminal.error?.error, 'VALIDATION');
     assert.deepEqual(deletedRequestIds, ['000000000000000000000026']);
 
     const afterTerminal = await pumpIngestQueue();
@@ -421,20 +418,19 @@ test('queue promotion rejects non-string canonical model payloads instead of fal
     assert.equal(result.started, true);
     assert.ok(result.runId);
 
-    const terminal = await waitForTerminalIngestStatus(result.runId as string, {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    });
+    const terminal = await waitForQueueManagedTerminalStatus(
+      result.requestId as string,
+      1_000,
+    );
     await waitForNextTurn();
     await waitForNextTurn();
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
+    assert.equal(terminal.state, 'error');
     assert.equal(
-      terminal.status?.lastError,
+      terminal.lastError,
       'embeddingProvider and embeddingModel are required when canonical fields are present',
     );
-    assert.equal(terminal.status?.error?.error, 'VALIDATION');
+    assert.equal(terminal.error?.error, 'VALIDATION');
     assert.deepEqual(deletedRequestIds, ['000000000000000000000027']);
 
     const afterTerminal = await pumpIngestQueue();
@@ -495,14 +491,13 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
     assert.equal(started.started, true);
     assert.ok(started.runId);
 
-    const terminal = await waitForTerminalIngestStatus(started.runId!, {
-      timeoutMs: 1_000,
-      pollMs: 10,
-    });
+    const terminal = await waitForQueueManagedTerminalStatus(
+      started.requestId!,
+      1_000,
+    );
 
-    assert.equal(terminal.reason, 'terminal');
-    assert.equal(terminal.status?.state, 'error');
-    assert.equal(terminal.status?.lastError, 'INVALID_REEMBED_STATE');
+    assert.equal(terminal.state, 'error');
+    assert.equal(terminal.lastError, 'INVALID_REEMBED_STATE');
     assert.equal(listRootCalls.mock.calls.length, 0);
     assert.ok(deletedRequestIds.length >= 1);
     assert.equal(

@@ -13685,7 +13685,7 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2` (`should_fix`): start-ingest and re-embed REST responses and queue log payloads can report a stale pre-pump `queuePosition` when `pumpIngestQueue()` promotes an older waiting request.
 

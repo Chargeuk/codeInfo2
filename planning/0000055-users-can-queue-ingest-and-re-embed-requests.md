@@ -13621,8 +13621,8 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 
 #### Proof Mapping
 
-- `P1.` Requirement: terminal status and queue cleanup ordering are atomic from the perspective of request waiters. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`. Proof homes: subtasks 1 through 5; Testing 1 through 5.
-- `P2.` Requirement: cleanup-blocked remains visible to blocking MCP, flow, command, and service callers as a failure outcome. Owners: `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`. Proof homes: subtasks 2 through 5; Testing 2 through 5.
+- `P1.` Requirement: terminal status and queue cleanup ordering are atomic from the perspective of request waiters. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`. Proof homes: subtasks 1, 3, 4, 6, and 7; Testing 1 through 5.
+- `P2.` Requirement: cleanup-blocked remains visible to blocking MCP, flow, command, and service callers as a failure outcome. Owners: `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`. Proof homes: subtasks 2, 5, 6, and 7; Testing 2 through 5.
 
 #### Documentation Locations
 
@@ -13635,11 +13635,13 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 
 #### Subtasks
 
-1. [ ] Re-read finding `F1`, `waitForQueueRequestTerminalStatus()`, `publishTerminalStatus()`, `persistQueueTerminalBarrier()`, `finalizeQueueRequestForRun()`, `completeReembedFastPathWithFence()`, and `runReingestRepository()` so the repair keeps cleanup-blocked semantics distinct from ordinary terminal success.
-2. [ ] Refactor the request-scoped terminal publication or waiter-settlement flow so `completed` and `skipped` request outcomes are visible to blocking waiters only after queue cleanup finalization has succeeded.
-3. [ ] Ensure queue delete failure publishes or preserves a request-scoped cleanup-blocked outcome that `waitForQueueRequestTerminalStatus()` and `runReingestRepository()` map to a failed queued request rather than `ok: true`.
-4. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for the normal terminal path where queue deletion fails after work completion. The proof must show the request waiter does not settle as success, the request/run status remains `cleanup-blocked`, and later queue advancement stays blocked until cleanup is resolved.
-5. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-reembed.test.ts` or `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for a zero-work or deletions-only re-embed fast path where queue deletion fails after terminal work. The proof must show the fast path returns the same blocking-caller cleanup-blocked failure semantics rather than a false success.
+1. [ ] Re-read finding `F1` and the terminal cleanup helpers in `server/src/ingest/ingestJob.ts`: `publishTerminalStatus()`, `persistQueueTerminalBarrier()`, `finalizeQueueRequestForRun()`, and `completeReembedFastPathWithFence()`. Purpose: locate every code path that can publish success before queue cleanup is finalized.
+2. [ ] Re-read `waitForQueueRequestTerminalStatus()` and `runReingestRepository()` in `server/src/ingest/reingestService.ts`. Purpose: locate the blocking waiter boundary that must distinguish cleanup-blocked from ordinary terminal success.
+3. [ ] Refactor `server/src/ingest/ingestJob.ts` terminal publication so `completed` request outcomes become visible to request-scoped waiters only after queue cleanup finalization succeeds.
+4. [ ] Refactor `server/src/ingest/ingestJob.ts` terminal publication so `skipped` request outcomes become visible to request-scoped waiters only after queue cleanup finalization succeeds.
+5. [ ] Update `server/src/ingest/reingestService.ts` so queue delete failure or cleanup-blocked terminal state maps to a failed queued request rather than `ok: true`.
+6. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for the normal terminal path where queue deletion fails after work completion. The proof must show the request waiter does not settle as success, the request/run status remains `cleanup-blocked`, and later queue advancement stays blocked until cleanup is resolved.
+7. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-reembed.test.ts` or `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for a zero-work or deletions-only re-embed fast path where queue deletion fails after terminal work. The proof must show the fast path returns the same blocking-caller cleanup-blocked failure semantics rather than a false success.
 
 #### Testing
 
@@ -13672,8 +13674,8 @@ Repair the REST queue-admission response builders so waiting responses and queue
 
 #### Proof Mapping
 
-- `P1.` Requirement: REST queue responses use current waiting-only queue position after route-side pump transitions. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`. Proof homes: subtasks 1 through 5; Testing 1 through 5.
-- `P2.` Requirement: queue log markers do not preserve stale pre-pump queue positions. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, route unit tests. Proof homes: subtasks 2 through 5; Testing 2 through 5.
+- `P1.` Requirement: REST queue responses use current waiting-only queue position after route-side pump transitions. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`. Proof homes: subtasks 1, 2, 3, 5, 7, and 8; Testing 1 through 5.
+- `P2.` Requirement: queue log markers do not preserve stale pre-pump queue positions. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, route unit tests. Proof homes: subtasks 1, 2, 4, 6, 7, and 8; Testing 2 through 5.
 
 #### Documentation Locations
 
@@ -13684,11 +13686,14 @@ Repair the REST queue-admission response builders so waiting responses and queue
 
 #### Subtasks
 
-1. [ ] Re-read finding `F2` and the start-ingest and re-embed route response builders so the repair preserves immediate-start, waiting, and updated-in-place response shapes.
-2. [ ] Update `server/src/routes/ingestStart.ts` so waiting response payloads and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` log metadata use the accepted request's current post-pump waiting position.
-3. [ ] Update `server/src/routes/ingestReembed.ts` so waiting response payloads and both accepted/updated queue log metadata use the current post-pump waiting position.
-4. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-start.test.ts` where an older waiting request is promoted by the pump and the newly accepted start-ingest request is returned and logged with its current waiting-only queue position instead of the stale pre-pump position.
-5. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-reembed.test.ts` where an older waiting request is promoted by the pump and the newly accepted or updated re-embed request is returned and logged with its current waiting-only queue position instead of the stale pre-pump position.
+1. [ ] Re-read finding `F2` and the response/log builder code in `server/src/routes/ingestStart.ts`. Purpose: preserve immediate-start behavior while changing only waiting-state metadata.
+2. [ ] Re-read finding `F2` and the response/log builder code in `server/src/routes/ingestReembed.ts`. Purpose: preserve accepted, updated-in-place, and immediate-start behavior while changing only waiting-state metadata.
+3. [ ] Update `server/src/routes/ingestStart.ts` so waiting response payloads use the accepted request's current post-pump waiting position.
+4. [ ] Update `server/src/routes/ingestStart.ts` so `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` log metadata uses the accepted request's current post-pump waiting position.
+5. [ ] Update `server/src/routes/ingestReembed.ts` so waiting response payloads for accepted and updated requests use the current post-pump waiting position.
+6. [ ] Update `server/src/routes/ingestReembed.ts` so accepted and updated queue log metadata uses the current post-pump waiting position.
+7. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-start.test.ts` where an older waiting request is promoted by the pump and the newly accepted start-ingest request is returned and logged with its current waiting-only queue position instead of the stale pre-pump position.
+8. [ ] Add or update server-unit proof in `server/src/test/unit/ingest-reembed.test.ts` where an older waiting request is promoted by the pump and the newly accepted or updated re-embed request is returned and logged with its current waiting-only queue position instead of the stale pre-pump position.
 
 #### Testing
 
@@ -13722,8 +13727,8 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 
 #### Proof Mapping
 
-- `P1.` Requirement: initial Mongo outage reaches the retryable queue-unavailable contract instead of process exit. Owners: `server/src/index.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/ingest/requestQueue.ts`. Proof homes: subtasks 1, 2, 3, 6, and 7; Testing 1 through 9.
-- `P2.` Requirement: blocking re-ingest transports preserve producer diagnostics for `QUEUE_UNAVAILABLE`. Owners: `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/mcp/server.ts`. Proof homes: subtasks 1, 4, 5, 8, and 9; Testing 2 through 9.
+- `P1.` Requirement: initial Mongo outage reaches the retryable queue-unavailable contract instead of process exit. Owners: `server/src/index.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/ingest/requestQueue.ts`. Proof homes: subtasks 1, 3, 4, 5, 12, 13, and 14; Testing 1 through 9.
+- `P2.` Requirement: blocking re-ingest transports preserve producer diagnostics for `QUEUE_UNAVAILABLE`. Owners: `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`. Proof homes: subtasks 2, 6 through 11, and 15 through 19; Testing 2 through 9.
 
 #### Documentation Locations
 
@@ -13735,6 +13740,7 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 - `server/src/agents/commandsRunner.ts`
 - `server/src/flows/service.ts`
 - `server/src/mcp/server.ts`
+- `server/src/mcp2/tools/reingestRepository.ts`
 - `server/src/test/unit/ingest-queue-runtime-startup.test.ts`
 - `server/src/test/unit/ingest-start.test.ts`
 - `server/src/test/unit/ingest-reembed.test.ts`
@@ -13747,15 +13753,25 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 
 #### Subtasks
 
-1. [ ] Re-read findings `F3` and `F5`, the default startup sequence, queue availability markers, `createQueueUnavailableError()`, `runReingestRepository()`, and blocking re-ingest error formatting so the repair preserves fail-closed queue persistence while keeping retryable error surfaces reachable.
-2. [ ] Update `server/src/index.ts` and `server/src/startup/ingestQueueStartup.ts` so initial Mongo connection failure records a Mongo-backed queue-unavailable reason and keeps the server reachable enough for REST and MCP queueable callers to receive `QUEUE_UNAVAILABLE`.
-3. [ ] Update queue availability checks in `server/src/ingest/requestQueue.ts` or its startup integration only as needed so degraded startup remains fail-closed: queue work must not run without Mongo persistence, and health/readiness or queue metadata must not imply the queue backend is healthy.
-4. [ ] Preserve the producer-provided `QUEUE_UNAVAILABLE` message, retryable flag, and structured error data through `runReingestRepository()` and `formatReingestPrestartReason()` instead of replacing them with the generic disconnected-Mongo message.
-5. [ ] Update command, flow, classic MCP, and MCP2 blocking re-ingest consumers only where their formatting currently strips or rewrites the enriched `QUEUE_UNAVAILABLE` diagnostic; keep transport-specific wording minimal and driven by the shared `ReingestError` data.
-6. [ ] Add or update startup proof in `server/src/test/unit/ingest-queue-runtime-startup.test.ts` for initial Mongo outage reachability. The proof must show startup records the unavailable queue reason and does not proceed as if queue persistence were usable.
-7. [ ] Add or update REST route proof in `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` showing queueable requests receive retryable `503 QUEUE_UNAVAILABLE` during degraded startup rather than connection failure or ordinary success.
-8. [ ] Add or update blocking service proof in `server/src/test/unit/reingestService.test.ts` showing `runReingestRepository()` preserves the original `QUEUE_UNAVAILABLE` message, retryable classification, and structured data.
-9. [ ] Add or update transport proof in `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/reingestExecution.test.ts`, `server/src/test/integration/commands.markdown-file.test.ts`, or `server/src/test/integration/flows.run.command.test.ts` so classic MCP, MCP2, command, and flow surfaces preserve the same degraded-startup diagnostic without rewriting it to the disconnected-Mongo message.
+1. [ ] Re-read finding `F3`, the default startup sequence in `server/src/index.ts`, and queue startup helpers in `server/src/startup/ingestQueueStartup.ts`. Purpose: identify the process-exit path that currently prevents retryable queue-unavailable responses.
+2. [ ] Re-read finding `F5`, `createQueueUnavailableError()` in `server/src/ingest/requestQueue.ts`, `runReingestRepository()` in `server/src/ingest/reingestService.ts`, and `formatReingestPrestartReason()` in `server/src/ingest/reingestError.ts`. Purpose: identify where the specific producer diagnostic is currently replaced.
+3. [ ] Update `server/src/index.ts` so initial Mongo connection failure no longer exits before queueable REST and MCP surfaces can return a retryable `QUEUE_UNAVAILABLE` response.
+4. [ ] Update `server/src/startup/ingestQueueStartup.ts` so the initial Mongo connection failure records the Mongo-backed queue-unavailable reason that downstream queue checks can report.
+5. [ ] Update `server/src/ingest/requestQueue.ts` or its startup integration only as needed so degraded startup remains fail-closed: queue work must not run without Mongo persistence, and health/readiness or queue metadata must not imply the queue backend is healthy.
+6. [ ] Update `server/src/ingest/reingestService.ts` so `runReingestRepository()` preserves the producer-provided `QUEUE_UNAVAILABLE` message, retryable flag, and structured error data.
+7. [ ] Update `server/src/ingest/reingestError.ts` so `formatReingestPrestartReason()` formats the preserved `QUEUE_UNAVAILABLE` diagnostic without replacing it with the generic disconnected-Mongo message.
+8. [ ] Update `server/src/agents/commandsRunner.ts` only if its command-facing formatting strips or rewrites the enriched `ReingestError` data.
+9. [ ] Update `server/src/flows/service.ts` only if its flow-facing formatting strips or rewrites the enriched `ReingestError` data.
+10. [ ] Update `server/src/mcp/server.ts` only where classic MCP-facing formatting strips or rewrites the enriched `ReingestError` data.
+11. [ ] Update `server/src/mcp2/tools/reingestRepository.ts` only where MCP2-facing formatting strips or rewrites the enriched `ReingestError` data.
+12. [ ] Add or update startup proof in `server/src/test/unit/ingest-queue-runtime-startup.test.ts` for initial Mongo outage reachability. The proof must show startup records the unavailable queue reason and does not proceed as if queue persistence were usable.
+13. [ ] Add or update REST route proof in `server/src/test/unit/ingest-start.test.ts` showing `POST /ingest/start` receives retryable `503 QUEUE_UNAVAILABLE` during degraded startup rather than connection failure or ordinary success.
+14. [ ] Add or update REST route proof in `server/src/test/unit/ingest-reembed.test.ts` showing `POST /ingest/reembed/:root` receives retryable `503 QUEUE_UNAVAILABLE` during degraded startup rather than connection failure or ordinary success.
+15. [ ] Add or update blocking service proof in `server/src/test/unit/reingestService.test.ts` showing `runReingestRepository()` preserves the original `QUEUE_UNAVAILABLE` message, retryable classification, and structured data.
+16. [ ] Add or update classic MCP proof in `server/src/test/unit/mcp.reingest.classic.test.ts` showing the degraded-startup diagnostic is not rewritten to the disconnected-Mongo message.
+17. [ ] Add or update MCP2 proof in `server/src/test/unit/mcp2.reingest.tool.test.ts` showing the degraded-startup diagnostic is not rewritten to the disconnected-Mongo message.
+18. [ ] Add or update command proof in `server/src/test/integration/commands.markdown-file.test.ts` or `server/src/test/unit/reingestExecution.test.ts` showing the degraded-startup diagnostic is not rewritten to the disconnected-Mongo message.
+19. [ ] Add or update flow proof in `server/src/test/integration/flows.run.command.test.ts` or `server/src/test/unit/reingestExecution.test.ts` showing the degraded-startup diagnostic is not rewritten to the disconnected-Mongo message.
 
 #### Testing
 
@@ -13792,8 +13808,8 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 
 #### Proof Mapping
 
-- `P1.` Requirement: machine-readable REST docs expose the required retryable queue outage envelope. Owners: `openapi.json`, `server/src/test/unit/openapi.contract.test.ts`. Proof homes: subtasks 1 through 5; Testing 1 through 5.
-- `P2.` Requirement: OpenAPI remains aligned with runtime route behavior. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `README.md` if touched. Proof homes: subtasks 2 through 5; Testing 2 through 5.
+- `P1.` Requirement: machine-readable REST docs expose the required retryable queue outage envelope. Owners: `openapi.json`, `server/src/test/unit/openapi.contract.test.ts`. Proof homes: subtasks 1, 2, 3, 4, 5, and 6; Testing 1 through 5.
+- `P2.` Requirement: OpenAPI remains aligned with runtime route behavior. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `README.md` if touched. Proof homes: subtasks 2 through 7; Testing 2 through 5.
 
 #### Documentation Locations
 
@@ -13805,11 +13821,13 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 
 #### Subtasks
 
-1. [ ] Re-read finding `F4`, the existing OpenAPI success response blocks, and the REST route `QUEUE_UNAVAILABLE` runtime envelopes before editing the contract.
-2. [ ] Update `openapi.json` so `POST /ingest/start` documents the `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope with `status: "error"`, `code: "QUEUE_UNAVAILABLE"`, `retryable: true`, `message`, and the existing retry guidance such as `Retry-After` when present at runtime.
-3. [ ] Update `openapi.json` so `POST /ingest/reembed/{root}` documents the same `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope without weakening or removing the existing `202` queue-aware success variants.
-4. [ ] Update `server/src/test/unit/openapi.contract.test.ts` so each producer route has an explicit assertion for the documented `503 QUEUE_UNAVAILABLE` response and retains its existing queue-aware success-shape assertions.
-5. [ ] Check adjacent README/API prose touched by this task and keep wording aligned with the final OpenAPI and runtime route contracts.
+1. [ ] Re-read finding `F4` and the existing `openapi.json` success response blocks for `POST /ingest/start` and `POST /ingest/reembed/{root}`. Purpose: preserve the existing queue-aware `202` variants while adding only the missing failure contract.
+2. [ ] Re-read the `QUEUE_UNAVAILABLE` runtime envelopes in `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`. Purpose: mirror the actual runtime shape instead of inventing a documentation-only response.
+3. [ ] Update `openapi.json` so `POST /ingest/start` documents the `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope with `status: "error"`, `code: "QUEUE_UNAVAILABLE"`, `retryable: true`, `message`, and the existing retry guidance such as `Retry-After` when present at runtime.
+4. [ ] Update `openapi.json` so `POST /ingest/reembed/{root}` documents the same `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope without weakening or removing the existing `202` queue-aware success variants.
+5. [ ] Update `server/src/test/unit/openapi.contract.test.ts` with an explicit assertion for the documented `POST /ingest/start` `503 QUEUE_UNAVAILABLE` response.
+6. [ ] Update `server/src/test/unit/openapi.contract.test.ts` with an explicit assertion for the documented `POST /ingest/reembed/{root}` `503 QUEUE_UNAVAILABLE` response.
+7. [ ] Check adjacent `README.md` or API-contract prose touched by this task and keep wording aligned with the final OpenAPI and runtime route contracts.
 
 #### Testing
 
@@ -13843,8 +13861,8 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Proof Mapping
 
-- `P1.` Requirement: Tasks `172` through `175` are complete on current disk and close the actionable findings for review pass `0000055-20260421T050131Z-a77661de`. Owners: Tasks `172` through `175`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
-- `P2.` Requirement: the durable review close-out records repaired proof homes, retained weak proof, and the current review-pass adjudication honestly. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 5; Testing 1 through 11.
+- `P1.` Requirement: Tasks `172` through `175` are complete on current disk and close the actionable findings for review pass `0000055-20260421T050131Z-a77661de`. Owners: Tasks `172` through `175`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, 3, and 7; Testing 1 through 11.
+- `P2.` Requirement: the durable review close-out records repaired proof homes, retained weak proof, and the current review-pass adjudication honestly. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 4 through 6; Testing 1 through 11.
 - `P3.` Requirement: the supported main runtime path still starts, probes, and shuts down cleanly after the review-created repairs land. Owners: `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: Testing 6 through 9.
 
 #### Documentation Locations
@@ -13858,11 +13876,12 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260421T050131Z-a77661de` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
-2. [ ] Re-open the completed proof-owner sections for Tasks `172` through `175` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, confirm each task is `__done__` with no unchecked subtasks, unchecked testing, or live blocker, and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
-3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `172` through `175`. Purpose: make the durable close-out name the current repaired owner set explicitly.
-4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
-5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
-6. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260421T050131Z-a77661de` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.
+2. [ ] Re-open the completed proof-owner sections for Tasks `172` through `175` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and confirm each task is `__done__` with no unchecked subtasks, unchecked testing, or live blocker. Purpose: prevent final close-out from hiding unfinished review-fix ownership.
+3. [ ] Collect the final proof homes claimed by Tasks `172` through `175` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
+4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `172` through `175`. Purpose: make the durable close-out name the current repaired owner set explicitly.
+5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
+6. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
+7. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260421T050131Z-a77661de` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.
 
 #### Testing
 

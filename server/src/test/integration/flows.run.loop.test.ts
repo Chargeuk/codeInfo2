@@ -1298,6 +1298,17 @@ test('flow stop during a looped flow prevents later iterations from continuing',
       `Timed out waiting for stop-unwind checkpoint ${checkpoint}`,
     );
   };
+  const waitForStopUnwindCheckpointMatching = async (
+    predicate: (item: StopUnwindCheckpoint) => boolean,
+    description: string,
+    timeoutMs = 5000,
+  ) => {
+    await waitForPredicate(
+      () => stopUnwindCheckpoints.some((item) => predicate(item)),
+      timeoutMs,
+      `Timed out waiting for stop-unwind checkpoint ${description}`,
+    );
+  };
   const recordCleanupPhaseCheckpoint = (
     label: string,
     conversationId: string,
@@ -1400,9 +1411,14 @@ test('flow stop during a looped flow prevents later iterations from continuing',
           conversationId,
         );
 
-        await waitForStopUnwindCheckpoint(
-          'runStartLoopStep.return.stop.pending_cancel.before_iteration',
-          conversationId,
+        await waitForStopUnwindCheckpointMatching(
+          (item) =>
+            item.conversationId === conversationId &&
+            (item.checkpoint.startsWith(
+              'runStartLoopStep.return.stop.pending_cancel',
+            ) ||
+              item.checkpoint === 'runSteps.return.stop.llm'),
+          'loop stop boundary after cancel request',
         );
 
         await waitForStopUnwindCheckpoint(

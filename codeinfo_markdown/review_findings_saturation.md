@@ -27,7 +27,7 @@ Read all of the following from disk:
 
 If the review handoff includes `external_review_input_file`, treat it only as additive context already filtered by the findings pass; the findings artifact remains the canonical endorsed-findings source.
 
-Use the review handoff's stored remote-first base metadata as already resolved evidence. Do not re-resolve `resolved_base_branch`; if any repository used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the saturation artifact when it affects the sibling scan.
+Use the review handoff's stored local-HEAD-vs-resolved-base comparison metadata as already resolved evidence. Do not re-resolve `comparison_base_ref` or replace local `HEAD` with `origin/<current-story-branch>`; if any repository used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the saturation artifact when it affects the sibling scan.
 
 Treat the findings artifact's actionable findings, `Finding Saturation Seeds`, `Checked Defect Families`, and `Rejected Risk Notes` as the primary input set for this step.
 

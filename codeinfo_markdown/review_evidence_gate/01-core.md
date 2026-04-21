@@ -55,16 +55,19 @@ If any of those checks fail, stop and say the current-plan handoff is stale and 
 
 For each repository in review scope, resolve the review base branch using this order:
 
-1. First attempt to refresh the repository's `origin` remote, for example with `git -C <repo_root> fetch --prune origin`. If `origin` is missing or fetch fails, continue with local fallback resolution and record the exact failure reason.
-2. First try to determine where the current story branch was originally branched from by using the information available in `codeInfoStatus/flow-state/current-plan.json`. Treat that ancestry information as a helpful hint, not as absolute truth.
-3. If you can confidently determine a branched-from branch or ref for that repository, then determine whether it has already been merged into the repository's default branch.
-4. If that branched-from branch has already been merged into the repository's default branch, choose the default branch as the logical review base.
-5. If that branched-from branch has NOT been merged into the repository's default branch, choose the branched-from branch itself as the logical review base.
-6. If you cannot confidently determine the branched-from branch, or the ref is missing, unreadable, or otherwise unusable, choose Git's configured default branch as the logical review base. Prefer `origin/HEAD` or equivalent default-branch metadata. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`.
-7. Resolve the actual diff base from that logical review base by preferring the remote-tracking ref when it exists, such as `origin/main` for logical base `main` or `origin/feature/example` for logical base `feature/example`.
-8. Use a local branch or local ref only when the `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that as a `local_fallback` with the concrete fallback reason.
+1. The review comparison is always the local working branch against the resolved base: use local `HEAD` as the comparison head and never compare `origin/<current-story-branch>` against the base.
+2. First attempt to refresh the repository's `origin` remote, for example with `git -C <repo_root> fetch --prune origin`. If `origin` is missing or fetch fails, continue with local fallback resolution and record the exact failure reason.
+3. First try to determine where the current story branch was originally branched from by using the information available in `codeInfoStatus/flow-state/current-plan.json`. Treat that ancestry information as a helpful hint, not as absolute truth.
+4. Resolve the repository default branch as a logical branch name. Prefer `origin/HEAD` or equivalent default-branch metadata, but normalize it to the target branch name such as `main`, not the symbolic ref `origin/HEAD`. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`.
+5. If you can confidently determine a branched-from branch or ref for that repository, determine whether it has already been merged into the repository's default branch by comparing remote-tracking refs where possible, such as `origin/feature/example` against `origin/main`.
+6. Use local refs for the mergedness check only when the needed remote-tracking ref is unavailable because `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that remote-unavailable reason if it affects the final base.
+7. If the branched-from branch has already been merged into the repository's default branch, choose the default branch as the logical review base.
+8. If the branched-from branch has NOT been merged into the repository's default branch, choose the branched-from branch itself as the logical review base.
+9. If you cannot confidently determine the branched-from branch, or the ref is missing, unreadable, or otherwise unusable, choose the normalized default branch as the logical review base.
+10. Resolve the actual comparison base from that logical review base by preferring the remote-tracking ref when it exists, such as `origin/main` for logical base `main` or `origin/feature/example` for logical base `feature/example`.
+11. Use a local branch or local ref as the comparison base only when the `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that as a `local_fallback` with the concrete fallback reason.
 
-Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, and `local_fallback_reason`, and use that resolved base branch for all review diffs and later review-step validation. `resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable.
+Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, and use that comparison base for all review diffs and later review-step validation. `resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. `comparison_base_ref` must match `resolved_base_branch`, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
 
 </base_branch_rules>
 
@@ -72,9 +75,9 @@ Record the final per-repository `resolved_base_branch`, `resolved_base_source`, 
 
 1. Re-read the canonical plan from disk.
 2. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and re-check each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
-3. Inspect each repository in review scope against its resolved base branch, preferring the remote-tracking ref and using local fallback only when recorded by the base-branch rules.
+3. Inspect each repository in review scope using the local `HEAD` against its resolved comparison base, preferring a remote-tracking base ref and using local fallback only when recorded by the base-branch rules.
 4. Extract the Description, Acceptance Criteria, Out of Scope, and final completed tasks from the canonical plan.
-5. Inspect `git -C <repo_root> diff --name-status <resolved_base_branch>...HEAD` plus recent branch commits for every repository in scope, using direct git commands such as `git log --oneline -3` or `git -C <repo_root> log --oneline -3`.
+5. Inspect `git -C <repo_root> diff --name-status <comparison_base_ref>...HEAD` plus recent local branch commits for every repository in scope, using direct git commands such as `git log --oneline -3` or `git -C <repo_root> log --oneline -3`. Do not substitute `origin/<current-story-branch>` for local `HEAD`.
 6. Group changed files by repository, then within each repository group them into:
    - planned implementation files;
    - planned docs/tests;
@@ -92,7 +95,7 @@ Record the final per-repository `resolved_base_branch`, `resolved_base_source`, 
 10. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
 11. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
 12. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-13. Record the per-repository stable aliases, HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, and local fallback reasons separately in the evidence summary and handoff.
+13. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, local fallback reasons, comparison base refs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
 
 </step_order>
 
@@ -126,6 +129,9 @@ The handoff file MUST contain at least:
   - `remote_name`
   - `remote_fetch_status`
   - `local_fallback_reason`
+  - `comparison_base_ref`
+  - `comparison_head_ref`
+  - `comparison_rule`
   - `head_commit`
 
 Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the canonical plan already defines a clearer repository name.
@@ -141,8 +147,9 @@ This handoff file is the ONLY review file the next step may use. Do not rely on 
 - Confirm the current-plan handoff was normalized correctly.
 - Confirm the canonical plan exists in the current repository.
 - Confirm every repository in scope is on the correct story branch.
-- Confirm every repository was reviewed against its resolved base branch.
-- Confirm every repository attempted remote-first base resolution and used a local fallback only when the remote path was unavailable.
+- Confirm every repository was reviewed as local `HEAD` against its resolved comparison base.
+- Confirm every repository attempted remote-first base resolution for the comparison base and used a local fallback only when the remote path was unavailable.
+- Confirm no repository was reviewed as `origin/<current-story-branch>` against the base.
 - Confirm any local fallback recorded the concrete fetch failure, missing remote, or missing remote-tracking ref that forced it.
 - Confirm the generated review handoff `plan_path` matches the canonical plan path.
 - Confirm every repository in scope has a stable alias recorded in the handoff.

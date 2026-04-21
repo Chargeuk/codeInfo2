@@ -13604,7 +13604,7 @@ Review saturation artifact `codeInfoTmp/reviews/0000055-20260421T050131Z-a77661d
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F1` (`must_fix`): blocking re-embed callers can observe `completed` or `skipped` before queue cleanup deletion has succeeded or failed.
 

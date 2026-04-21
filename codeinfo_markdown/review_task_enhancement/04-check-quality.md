@@ -35,6 +35,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - If a selected task still feels materially weaker than the story's earlier well-tasked tasks, continue editing it in this same step until the gap is closed or the task is explicitly rewritten as a bounded diagnostic task with an honest stopping rule.
 - Do not allow a selected task to add manual testing checklist items or subtasks that depend on future automated or manual proof output.
 - Do not allow a selected task to route automated screenshots or browser artifacts into tracked repository paths; keep them in ignored artifact storage.
+- Do not allow selected-task Manual Testing Guidance to imply that Playwright MCP saves screenshots directly into the target repository or that `$CODEINFO_ROOT/playwright-output-local` is the final target artifact destination.
 - Do not allow the latest `Code Review Findings` section or its review-created tasks to remain inserted into older parts of the plan; they must be normalized into one contiguous appended end-of-file block.
 - Do not merge, delete, absorb, or otherwise identity-shift the selected review-created tasks during this scoped quality pass.
 - Do not absorb selected work into older pre-existing story tasks.
@@ -57,6 +58,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Check that no selected task repeats broad wrapper, full-suite, browser, Compose, or Docker proof without a task-specific reason.
 - Check that no selected task still contains manual testing checklist items or subtasks gated on future proof output.
 - Check that no selected task still contains absolute filesystem paths or production-owned test bypasses.
+- Check that any selected-task Manual Testing Guidance mentioning Playwright MCP screenshots explains capture to Playwright output followed by transfer into the target repository artifact destination.
 - Check that any automated screenshot or browser-artifact path points only to ignored artifact storage.
 - Check that the selected review-created task identities remain the same ones chosen by the scoped review-task-up command.
 - Check that each selected task still carries clear `Addresses Findings` coverage, and that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`.

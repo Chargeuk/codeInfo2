@@ -24,6 +24,7 @@ Give selected review-created tasks realistic automated proof and testing without
 - If the final revalidation task is missing, vague, too narrow, or does not own full relevant regression proof, repair that final task instead of removing broad proof from selected review-created tasks.
 - If targeted task-local proof cannot directly reach the review fix, or if the selected task changes wrappers, harnesses, startup paths, default routing, runtime lifecycle, shared state, or cross-repository behavior, add broader task-local proof instead of relying only on final revalidation.
 - Keep optional manual-testing-agent, browser, API, or live-runtime follow-up only in `Manual Testing Guidance`.
+- For Playwright MCP screenshots, Manual Testing Guidance should name both steps: capture to the Playwright output directory first, then transfer into the target repository's `codeInfoTmp/manual-testing/<story-number>/` or `codeInfoStatus/manual-testing/<story-number>/` destination as appropriate.
 - Do not add manual testing checklist items or testing steps.
 - Do not make subtasks depend on later automated or manual testing output.
 - Preserve required lint and formatter or format-check steps when the repository workflow expects them, but do not duplicate broad test suites solely for symmetry with full story tasks.
@@ -38,6 +39,7 @@ Give selected review-created tasks realistic automated proof and testing without
 - Check that no task-local testing section repeats broad suites without a reason tied to that task's own change.
 - Check that testing remains runnable at the point the task completes.
 - Check that proof quality was reduced only in duplication, not in behavioral coverage.
+- Check whether any Manual Testing Guidance that mentions Playwright MCP screenshots distinguishes the Playwright output staging path from the final target repository artifact destination.
 
 </verification_loop>
 

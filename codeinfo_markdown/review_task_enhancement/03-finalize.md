@@ -23,6 +23,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Confirm that no eligible review-created task still contains absolute filesystem paths, usernames, or machine-specific checkout roots.
 - Confirm that any test-enablement seam such as alternate auth, seeded identities, mocked providers, or bypassed 2FA remains test-owned rather than shipped in the production path.
 - Confirm that any automated screenshot or browser-artifact path points only to ignored artifact storage.
+- Confirm that any Playwright MCP screenshot guidance explains the staging-and-transfer flow instead of treating `$CODEINFO_ROOT/playwright-output-local` or the Playwright output directory as the final target repository artifact destination.
 - Confirm that vague review-task wording such as “investigate,” “fix issue,” or “address review comment” was either rewritten concretely or converted into a bounded diagnostic task with an explicit stopping rule.
 - Confirm that prerequisite review-created tasks are ordered and statused so the implementation loop will pick the next real task directly.
 - Confirm that the latest `Code Review Findings` section is still at the end of the plan file except for the newly appended review-fix task block and the fresh final revalidation task that follow it.

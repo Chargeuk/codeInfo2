@@ -18,13 +18,14 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 1. Validate that the stored handoff plan exists and that the current repository branch story number still matches the selected plan filename.
 2. Validate that every additional repository in scope still exists, is readable, and remains on a branch whose story number matches the selected plan filename.
 3. Read the stored review handoff and confirm that its `story_id`, `plan_path`, `review_pass_id`, `evidence_file`, `findings_file`, and repository scope still match the current handoff scope and repository state.
-4. Confirm every repository entry in the stored review handoff includes `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`, plus `remote_fetch_error` only when `remote_fetch_status: fetch_failed` and `remote_fetch_exit_code` only when `remote_fetch_status: fetch_failed` and an exit code is available.
+4. Confirm every repository entry in the stored review handoff includes `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`, plus sanitized `remote_fetch_error` only when `remote_fetch_status: fetch_failed` and `remote_fetch_exit_code` only when `remote_fetch_status: fetch_failed` and an exit code is available.
 5. Confirm every repository entry preserves the review comparison contract:
    - `remote_name` is `origin`;
    - `comparison_base_commit` is present and resolves to a commit object in the repository;
    - `comparison_head_ref` is `HEAD`;
    - `comparison_rule` is `local_head_vs_resolved_base`;
    - `remote_fetch_error` and `remote_fetch_exit_code` are omitted for every non-`fetch_failed` `remote_fetch_status`;
+   - `remote_fetch_error`, when present, is a categorized or sanitized summary rather than raw `git fetch` stderr and contains no URL credentials, userinfo, access tokens, or query strings;
    - `resolved_base_source: remote` means `remote_fetch_status: success`, `comparison_base_ref` is the remote-tracking ref used for review, and `local_fallback_reason` is `null`;
    - `resolved_base_source: local_fallback` means `remote_fetch_status` is one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` is the local branch or ref used for review, and `local_fallback_reason` is non-empty.
 6. Read the findings artifact referenced by the review handoff. Read the challenge artifact when present.

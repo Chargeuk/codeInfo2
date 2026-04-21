@@ -13679,6 +13679,7 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 - Testing 5 revalidation: final Testing 2 bookkeeping changed this plan file after the previous format check, so Testing 5 was unchecked and must be rerun against the final tracked text.
 - Testing 5 revalidation: `npm run format:check` passed again with `All matched files use Prettier code style!`.
 - Automated-proof audit: parser state showed all Task 172 subtasks and Testing steps checked with no live blocker after proof commit `324a1705`; normalized the task status to `__done__` so the plan reflects the completed implementation and automated proof state.
+- Manual testing: task-scoped runtime proof restarted the main compose stack because freshness was not provable, then `npm run compose:build` and `npm run compose:up` succeeded; `curl` probes showed `/health` returned 200 with `mongoConnected=true`, `/ingest/roots` returned the queue-aware roots payload, and the client root returned 200. The cleanup-delete failure seam was not manually fault-injected because the repository exposes no supported manual DB-delete-failure harness; Task 172's automated tests remain the owned proof for that edge. Proof artifact: `codeInfoTmp/manual-testing/0000055/task-172-runtime-probes.txt`; `npm run compose:down` stopped the stack cleanly, no screenshots were needed for this server-runtime task, and no additional subtasks were needed.
 
 ### Task 173. Recompute Waiting Queue Position After Route Pump Transitions
 

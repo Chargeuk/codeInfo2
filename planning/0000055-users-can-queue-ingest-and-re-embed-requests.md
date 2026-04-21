@@ -13909,11 +13909,11 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13921,6 +13921,11 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 - Subtasks 3 and 4: added `503` OpenAPI responses for `POST /ingest/start` and `POST /ingest/reembed/{root}` with the runtime `QUEUE_UNAVAILABLE` body shape and optional `Retry-After` header schema, leaving the existing queue-aware `202` variants unchanged.
 - Subtasks 5 and 6: added dedicated OpenAPI unit-contract assertions titled around each route's `503 QUEUE_UNAVAILABLE` response while preserving the existing queue-aware `202` success-shape tests.
 - Subtask 7: left `README.md` and adjacent prose unchanged because this implementation only touched the machine-readable OpenAPI contract and its unit-contract proof home.
+- Testing 1: `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-server-latest.log`; no log inspection was needed.
+- Testing 2: `npm run test:summary:server:unit` passed with `tests run: 1764`, `passed: 1764`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-21T11-30-36-638Z.log`; no log inspection was needed.
+- Testing 3: `npm run test:summary:server:cucumber` passed with `tests run: 105`, `passed: 105`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-21T11-46-45-227Z.log`; no log inspection was needed.
+- Testing 4: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
+- Testing 5: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
 
 ### Task 176. Re-Validate Story 55 After Review Pass `0000055-20260421T050131Z-a77661de`
 

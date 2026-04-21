@@ -13685,7 +13685,7 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2` (`should_fix`): start-ingest and re-embed REST responses and queue log payloads can report a stale pre-pump `queuePosition` when `pumpIngestQueue()` promotes an older waiting request.
 
@@ -13753,6 +13753,7 @@ Repair the REST queue-admission response builders so waiting responses and queue
 - Testing 3: full `npm run test:summary:server:cucumber` passed on rerun with `tests run: 105`, `passed: 105`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-cucumber-tests-2026-04-21T09-49-25-655Z.log`; no log inspection was needed after the clean run.
 - Testing 4: `npm run lint` exited 0 with no output, so `npm run lint:fix` was not needed.
 - Testing 5: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
+- Automated-proof audit: parser state showed all Task 173 subtasks and Testing steps checked with no live blocker after proof commit `bf4c36a6`; normalized the task status to `__done__` so the plan reflects the completed implementation and automated proof state.
 
 ### Task 174. Restore Queue-Unavailable Reachability And Diagnostic Preservation
 

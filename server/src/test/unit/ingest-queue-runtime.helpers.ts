@@ -59,8 +59,14 @@ export function createQueueRequest(params: {
   terminalPublishedAt?: Date | null;
 }) {
   const operation = params.operation ?? 'reembed';
+  const objectIdHex = /^[0-9a-f]+$/iu.test(params.requestId)
+    ? params.requestId.toLowerCase().slice(0, 24).padStart(24, '0')
+    : Buffer.from(params.requestId, 'utf8')
+        .toString('hex')
+        .slice(0, 24)
+        .padStart(24, '0');
   return {
-    _id: new mongoose.Types.ObjectId(params.requestId.padStart(24, '0')),
+    _id: new mongoose.Types.ObjectId(objectIdHex),
     canonicalTargetPath: params.root,
     operation,
     queueState: params.queueState,

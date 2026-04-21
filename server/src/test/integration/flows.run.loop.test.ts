@@ -188,7 +188,7 @@ const withFlowServer = async (
       checkpoint: string;
       conversationId: string;
       detail?: string;
-    }) => void;
+    }) => void | Promise<void>;
   },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -1209,6 +1209,8 @@ test('flow stop during a looped flow prevents later iterations from continuing',
   const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
   const cleanupPhaseCheckpointLimit = 12;
   const cleanupPhaseCheckpoints: CleanupPhaseCheckpoint[] = [];
+  let stopWs: WebSocket | null = null;
+  let stopRequestedAtBoundary = false;
   const cleanupEvents: Array<
     {
       label: string;
@@ -1352,6 +1354,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-stop-boundary-conv';
+      stopWs = wsUrl;
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       try {
         await supertest(baseUrl)
@@ -1373,41 +1376,17 @@ test('flow stop during a looped flow prevents later iterations from continuing',
           'after first outer break observed',
           conversationId,
         );
-        await waitForPredicate(
-          () =>
-            !getInflight(conversationId) &&
-            Boolean(getActiveRunOwnership(conversationId)),
-          5000,
-          'Timed out waiting for between-iteration stop gap',
+        await waitForStopUnwindCheckpoint(
+          'runStartLoopStep.before_next_iteration',
+          conversationId,
         );
         recordCleanupPhaseCheckpoint(
           'after between-iteration gap observed',
           conversationId,
         );
 
-        sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
-        recordCleanupPhaseCheckpoint('after stop request sent', conversationId);
-
-        await waitForEvent({
-          ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
-          timeoutMs: 5000,
-        });
         recordCleanupPhaseCheckpoint(
-          'after stopped final observed',
+          'after stop request reached loop boundary',
           conversationId,
         );
 
@@ -1516,7 +1495,33 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         });
         return released;
       },
-      onStopUnwindCheckpoint: recordStopUnwindCheckpoint,
+      onStopUnwindCheckpoint: async (params) => {
+        recordStopUnwindCheckpoint(params);
+        if (
+          params.conversationId === 'flow-loop-stop-boundary-conv' &&
+          params.checkpoint === 'runStartLoopStep.before_next_iteration' &&
+          !stopRequestedAtBoundary
+        ) {
+          assert.ok(
+            stopWs,
+            'Expected loop-stop websocket before stop boundary',
+          );
+          stopRequestedAtBoundary = true;
+          sendJson(stopWs, {
+            type: 'cancel_inflight',
+            conversationId: params.conversationId,
+          });
+          recordCleanupPhaseCheckpoint(
+            'after stop request sent',
+            params.conversationId,
+          );
+          await waitForPredicate(
+            () => Boolean(getPendingConversationCancel(params.conversationId)),
+            1000,
+            'Timed out waiting for pending cancel at loop boundary',
+          );
+        }
+      },
     },
   );
 });

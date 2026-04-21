@@ -1111,7 +1111,7 @@ const runFlowInstruction = async (params: {
     checkpoint: string;
     conversationId: string;
     detail?: string;
-  }) => void;
+  }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
 }): Promise<FlowInstructionResult> => {
   const createdAtIso = new Date().toISOString();
@@ -2412,7 +2412,7 @@ async function runFlowUnlocked(params: {
     checkpoint: string;
     conversationId: string;
     detail?: string;
-  }) => void;
+  }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
 }) {
@@ -3420,6 +3420,11 @@ async function runFlowUnlocked(params: {
         loopStack.pop();
         return outcome;
       }
+      await params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runStartLoopStep.before_next_iteration',
+        conversationId: params.conversationId,
+        detail: `loopDepth=${loopStack.length} loopPath=${nextPath.join('.')}`,
+      });
       const pendingCancel = consumePendingConversationCancel({
         conversationId: params.conversationId,
         runToken: params.runToken,

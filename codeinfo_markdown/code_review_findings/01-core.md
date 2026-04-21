@@ -35,8 +35,9 @@ Continue the current story review using ONLY the stored review handoff, perform 
   - its `story_id` matches the story number derived from the canonical current-plan `plan_path` filename;
   - its `review_pass_id` is present;
   - its referenced evidence file exists;
-  - its `repos` entries still match the selected repositories, current branch names, resolved base branches, and current HEAD commits.
-- Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come either from the repository default branch or from branch ancestry hinted by `current-plan.json`, so do not re-resolve a different base in this step unless the review handoff is stale and must be regenerated.
+  - its `repos` entries still match the selected repositories, current branch names, resolved base branches, resolved base sources, logical base branches, remote fetch statuses, local fallback reasons, and current HEAD commits.
+- Treat each stored `resolved_base_branch` as the already-resolved review base chosen by the evidence step. It may come from the remote-tracking version of the logical review base, or from an explicit local fallback when the remote path was unavailable. Do not re-resolve a different base in this step unless the review handoff is stale and must be regenerated.
+- If any repository has `resolved_base_source: local_fallback`, preserve that fact in the findings artifact's residual-risk or rejected-risk notes so the review does not silently imply it used a fresh remote base.
 
 </scope_rules>
 
@@ -91,6 +92,7 @@ This findings file is a high-quality local review artifact for the active flow r
 - Confirm the current-plan handoff was normalized correctly.
 - Confirm the canonical plan and story branch still match the scope.
 - Confirm the review handoff still matches the current scope and HEAD commits.
+- Confirm the review handoff still includes the remote-first base metadata for every repository and that any local fallback is carried into residual-risk notes.
 - Confirm the plan-based review was completed for every repository in scope.
 - Confirm the cross-repository integration pass was completed when required.
 - Confirm the generic engineering pass and the adversarial review were both completed.

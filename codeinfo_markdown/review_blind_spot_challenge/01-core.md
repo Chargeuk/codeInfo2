@@ -24,6 +24,8 @@ Read all of the following from disk:
 - the findings artifact referenced by that handoff.
 - the saturation artifact referenced by that handoff when `saturation_file` is present.
 
+Use the review handoff's stored remote-first base metadata as already resolved evidence. Do not re-resolve `resolved_base_branch`; if any repository used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the challenge artifact when it affects the blind-spot conclusion.
+
 Treat the evidence artifact's `Risk-Invariant Matrix`, the findings artifact's `Rejected Risk Notes`, and any saturation artifact's sibling-scan outcome as the primary input set for this challenge.
 
 </scope_rules>

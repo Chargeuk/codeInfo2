@@ -55,13 +55,16 @@ If any of those checks fail, stop and say the current-plan handoff is stale and 
 
 For each repository in review scope, resolve the review base branch using this order:
 
-1. First try to determine where the current story branch was originally branched from by using the information available in `codeInfoStatus/flow-state/current-plan.json`. Treat that ancestry information as a helpful hint, not as absolute truth.
-2. If you can confidently determine a branched-from branch or ref for that repository, then determine whether it has already been merged into the repository's default branch.
-3. If that branched-from branch has already been merged into the repository's default branch, use the default branch as the review base.
-4. If that branched-from branch has NOT been merged into the repository's default branch, use the branched-from branch itself as the review base.
-5. If you cannot confidently determine the branched-from branch, or the ref is missing, unreadable, or otherwise unusable, fall back to Git's configured remote default branch. Prefer `origin/HEAD` or equivalent default-branch metadata. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`.
+1. First attempt to refresh the repository's `origin` remote, for example with `git -C <repo_root> fetch --prune origin`. If `origin` is missing or fetch fails, continue with local fallback resolution and record the exact failure reason.
+2. First try to determine where the current story branch was originally branched from by using the information available in `codeInfoStatus/flow-state/current-plan.json`. Treat that ancestry information as a helpful hint, not as absolute truth.
+3. If you can confidently determine a branched-from branch or ref for that repository, then determine whether it has already been merged into the repository's default branch.
+4. If that branched-from branch has already been merged into the repository's default branch, choose the default branch as the logical review base.
+5. If that branched-from branch has NOT been merged into the repository's default branch, choose the branched-from branch itself as the logical review base.
+6. If you cannot confidently determine the branched-from branch, or the ref is missing, unreadable, or otherwise unusable, choose Git's configured default branch as the logical review base. Prefer `origin/HEAD` or equivalent default-branch metadata. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`.
+7. Resolve the actual diff base from that logical review base by preferring the remote-tracking ref when it exists, such as `origin/main` for logical base `main` or `origin/feature/example` for logical base `feature/example`.
+8. Use a local branch or local ref only when the `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that as a `local_fallback` with the concrete fallback reason.
 
-Record the final per-repository resolved base branch and the reason it was chosen, and use that resolved base branch for all review diffs and later review-step validation.
+Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, and `local_fallback_reason`, and use that resolved base branch for all review diffs and later review-step validation. `resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable.
 
 </base_branch_rules>
 
@@ -69,7 +72,7 @@ Record the final per-repository resolved base branch and the reason it was chose
 
 1. Re-read the canonical plan from disk.
 2. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and re-check each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
-3. Inspect each repository in review scope against its resolved base branch.
+3. Inspect each repository in review scope against its resolved base branch, preferring the remote-tracking ref and using local fallback only when recorded by the base-branch rules.
 4. Extract the Description, Acceptance Criteria, Out of Scope, and final completed tasks from the canonical plan.
 5. Inspect `git -C <repo_root> diff --name-status <resolved_base_branch>...HEAD` plus recent branch commits for every repository in scope, using direct git commands such as `git log --oneline -3` or `git -C <repo_root> log --oneline -3`.
 6. Group changed files by repository, then within each repository group them into:
@@ -89,7 +92,7 @@ Record the final per-repository resolved base branch and the reason it was chose
 10. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
 11. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
 12. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-13. Record the per-repository stable aliases, HEAD short SHA values, and resolved base branches separately in the evidence summary and handoff.
+13. Record the per-repository stable aliases, HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, and local fallback reasons separately in the evidence summary and handoff.
 
 </step_order>
 
@@ -118,6 +121,11 @@ The handoff file MUST contain at least:
   - `repo_root`
   - `branch`
   - `resolved_base_branch`
+  - `resolved_base_source`
+  - `logical_base_branch`
+  - `remote_name`
+  - `remote_fetch_status`
+  - `local_fallback_reason`
   - `head_commit`
 
 Use a stable `repo_alias` for each repository so later review artifacts do not have to rely on raw absolute paths alone. Use `current_repository` for the current repository and a stable directory-name-based alias for each additional repository unless the canonical plan already defines a clearer repository name.
@@ -134,6 +142,8 @@ This handoff file is the ONLY review file the next step may use. Do not rely on 
 - Confirm the canonical plan exists in the current repository.
 - Confirm every repository in scope is on the correct story branch.
 - Confirm every repository was reviewed against its resolved base branch.
+- Confirm every repository attempted remote-first base resolution and used a local fallback only when the remote path was unavailable.
+- Confirm any local fallback recorded the concrete fetch failure, missing remote, or missing remote-tracking ref that forced it.
 - Confirm the generated review handoff `plan_path` matches the canonical plan path.
 - Confirm every repository in scope has a stable alias recorded in the handoff.
 - Confirm every acceptance criterion has a proof source or an explicit weak/missing-proof note.

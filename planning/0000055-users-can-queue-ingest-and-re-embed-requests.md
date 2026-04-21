@@ -13359,7 +13359,7 @@ Repair the reintroduced shared `flows.run.loop` stop-cleanup regression that is 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: queue-runtime proof owners still rely on `runId` polling instead of the request-aware terminal wait boundary the runtime now exposes
 
@@ -13425,6 +13425,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 - Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `agent_action: skip_log`; all 105 cucumber scenarios passed in `test-results/server-cucumber-tests-2026-04-21T02-21-11-791Z.log`.
 - Testing 4: `npm run lint` passed with exit code 0 and no lint fixes were required.
 - Testing 5: `npm run format:check` initially flagged `server/src/flows/service.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, and `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`; I ran `npm run format` as the task-listed repair path, then reran `npm run format:check` successfully with `All matched files use Prettier code style!`.
+- Automated-proof audit on 2026-04-21: all Task 169 subtasks and testing gates are checked on current disk with no live blocker, so this audit normalized the task status to `__done__`.
 
 ### Task 170. Reject Malformed Classic MCP Arguments Before Domain Validation
 

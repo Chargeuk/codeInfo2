@@ -13980,18 +13980,18 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:server:cucumber`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
-7. [ ] Run `npm run compose:build:summary`.
-8. [ ] Run `npm run compose:up`.
-9. [ ] Run `npm run test:summary:host-network:main`.
-10. [ ] Run `npm run compose:down`.
-11. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-12. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run test:summary:server:cucumber`.
+5. [x] Run `npm run test:summary:client`.
+6. [x] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
+7. [x] Run `npm run compose:build:summary`.
+8. [x] Run `npm run compose:up`.
+9. [x] Run `npm run test:summary:host-network:main`.
+10. [x] Run `npm run compose:down`.
+11. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+12. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -14008,3 +14008,15 @@ Focus any optional browser/API proof on the repaired externally observable seams
 - Subtasks 3 and 4: refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` to list the current repaired owner set and proof homes: Task 172 queue cleanup ordering tests, Task 173 post-pump queue-position route tests, Task 174 degraded queue-unavailable startup/transport tests, and Task 175 OpenAPI contract tests.
 - Subtasks 5 and 6: updated the PR summary to distinguish retained task-level proof from Task 176's still-pending final wrapper reruns, and carried forward the honest residual-risk notes for automation-owned cleanup-delete, degraded-Mongo startup, and static OpenAPI manual-proof boundaries.
 - Subtask 7: re-opened the plan after the summary refresh and confirmed the `0000055-20260421T050131Z-a77661de` findings block still maps to the final on-disk disposition: Tasks 172 through 175 are the repaired owner set, and Task 176 remains the final automated-proof owner.
+- Testing 1: `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-server-latest.log`; no log inspection was needed.
+- Testing 2: `npm run build:summary:client` passed through typecheck and build with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-client-latest.log`; no log inspection was needed.
+- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 1764`, `passed: 1764`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-21T12-09-46-831Z.log`; no log inspection was needed.
+- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 105`, `passed: 105`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-21T12-26-10-923Z.log`; no log inspection was needed.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 697`, `passed: 697`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-21T12-28-00-409Z.log`; no log inspection was needed.
+- Testing 6: `npm run test:summary:e2e` passed through the wrapper's automated setup, build, Playwright execution, and teardown path with `tests run: 60`, `passed: 60`, `failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/e2e-tests-latest.log`; no log inspection was needed.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/compose-build-latest.log`; no log inspection was needed.
+- Testing 8: `npm run compose:up` exited 0 through `scripts/docker-compose-with-env.sh`; the normal stack started, `codeinfo2-server-1` reached healthy, and `codeinfo2-client-1` started.
+- Testing 9: `npm run test:summary:host-network:main` passed with all probed endpoints reachable (`classicMcp`, `chatMcp`, `agentsMcp`, and `playwrightMcp`), `agent_action: skip_log`, and retained log `logs/test-summaries/host-network-main-latest.log`; no log inspection was needed.
+- Testing 10: `npm run compose:down` exited 0 through `scripts/docker-compose-with-env.sh`; the main stack containers were stopped and removed, and the `codeinfo2_internal` network was removed.
+- Testing 11: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
+- Testing 12: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.

@@ -13302,7 +13302,7 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `166, 169`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `plan_contract_issue`: the shared `server/src/test/integration/flows.run.loop.test.ts` stop-cleanup proof has regressed again and now blocks downstream Task `169` from rerunning its honest full `server:unit` gate
 

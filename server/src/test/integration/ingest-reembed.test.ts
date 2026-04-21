@@ -16,7 +16,10 @@ import {
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
-import type { EnqueueIngestRequestResult } from '../../ingest/requestQueue.js';
+import type {
+  CurrentQueueRequestPositionResult,
+  EnqueueIngestRequestResult,
+} from '../../ingest/requestQueue.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 
@@ -67,8 +70,12 @@ function buildReembedRepo(): RepoEntry {
 function buildReembedApp(options?: {
   listIngestedRepositories?: () => Promise<ListReposResult>;
   enqueueOrReuseIngestRequest?: () => Promise<EnqueueIngestRequestResult>;
+  getCurrentQueueRequestPosition?: (
+    requestId: string,
+  ) => Promise<CurrentQueueRequestPositionResult>;
 }) {
   const app = express();
+  let lastQueueResult: EnqueueIngestRequestResult | null = null;
   app.use(express.json());
   app.use(
     createIngestReembedRouter({
@@ -80,18 +87,31 @@ function buildReembedApp(options?: {
               repos: [buildReembedRepo()],
               lockedModelId: 'embed-1',
             },
-      enqueueOrReuseIngestRequest: async () =>
-        options?.enqueueOrReuseIngestRequest
-          ? options.enqueueOrReuseIngestRequest()
+      enqueueOrReuseIngestRequest: async () => {
+        const result: EnqueueIngestRequestResult =
+          options?.enqueueOrReuseIngestRequest
+            ? await options.enqueueOrReuseIngestRequest()
+            : {
+                requestId: 'queue-request-123',
+                canonicalTargetPath: '/tmp/reembed-root',
+                queueState: 'waiting',
+                queuePosition: 1,
+                runId: null,
+                reusedExisting: false,
+                updatedExisting: false,
+                queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+              };
+        lastQueueResult = result;
+        return result;
+      },
+      getCurrentQueueRequestPosition: async (requestId) =>
+        options?.getCurrentQueueRequestPosition
+          ? options.getCurrentQueueRequestPosition(requestId)
           : {
-              requestId: 'queue-request-123',
-              canonicalTargetPath: '/tmp/reembed-root',
-              queueState: 'waiting',
-              queuePosition: 1,
-              runId: null,
-              reusedExisting: false,
-              updatedExisting: false,
-              queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+              requestId,
+              queueState: lastQueueResult?.queueState ?? null,
+              queuePosition: lastQueueResult?.queuePosition ?? null,
+              runId: lastQueueResult?.runId ?? null,
             },
       pumpIngestQueue: async () => ({
         started: false,

@@ -366,6 +366,20 @@ Then(
 );
 
 Then('ingest manage roots first status is {string}', async (state: string) => {
+  for (let i = 0; i < 50; i += 1) {
+    const roots = getCapturedRootsPayload();
+    if (
+      roots.length > 0 &&
+      (roots[0] as { status?: string }).status === state
+    ) {
+      return;
+    }
+
+    const res = await fetch(`${baseUrl}/ingest/roots`);
+    capturedRootsResponse = { status: res.status, body: await res.json() };
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
   const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
   assert.equal((roots[0] as { status?: string }).status, state);

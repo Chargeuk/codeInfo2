@@ -13731,17 +13731,28 @@ Repair the REST queue-admission response builders so waiting responses and queue
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
 - Subtasks 1 and 2: re-read finding `F2` plus `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`; both routes recomputed immediate-start `runId` after `pumpIngestQueue()` but still reused stale pre-pump `queueResult.queuePosition` for waiting response and log metadata.
 - Subtasks 3-6: added `getCurrentQueueRequestPosition()` in `server/src/ingest/requestQueue.ts` and wired both queueable REST routes to call it after `pumpIngestQueue()` so accepted and updated waiting payloads and log metadata use current waiting-only positions.
 - Subtasks 7-12: added route-unit proof cases for post-pump promotion refreshing start-ingest and re-embed response/log `queuePosition` from stale `2` to current `1`, plus explicit immediate-start response proofs that keep `runId` and omit waiting `queuePosition`.
+- Testing 1: `npm run build:summary:server` passed with `agent_action: skip_log` and no warnings; no log inspection was needed.
+- Testing 2 repair: first `npm run test:summary:server:unit` failed in `server/src/test/integration/ingest-reembed.test.ts` because the integration route harness mocked queue admission without injecting the new current-position helper, causing the route to hit the real Mongo-backed lookup and return `500` instead of queued `202`.
+- Testing 2 repair: the first targeted rerun of the failing integration proof exposed a TypeScript inference error in the same harness; tightened the mocked `EnqueueIngestRequestResult` type so `queueState` remains the literal queue-state union.
+- Testing 2 diagnosis: targeted `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed.test.ts --test-name "ingest-reembed keeps the queue-aware acceptance contract"` passed with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`.
+- Testing 2: full `npm run test:summary:server:unit` passed on rerun with `tests run: 1757`, `passed: 1757`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-unit-tests-2026-04-21T09-27-51-228Z.log`; no log inspection was needed after the clean run.
+- Testing 3 repair: first `npm run test:summary:server:cucumber` failed in two `ingest-start-body.feature` scenarios because that route harness mocked queue admission without the new current-position helper, causing mocked accepted requests to return `500` instead of `202`; injected the same post-pump running-state seam into the cucumber harness.
+- Testing 3 repair: the targeted cancel scenario still failed because the cucumber step asserted `/ingest/roots` immediately after status reached `cancelled`, before async cancelled-root metadata was always visible; updated that step to poll the supported route briefly instead of treating transient empty roots as a terminal proof failure.
+- Testing 3 diagnosis: targeted cucumber reruns for `ingest-start-body.feature` and the `cancel an in-flight ingest` scenario both passed with `agent_action: skip_log` before the full rerun.
+- Testing 3: full `npm run test:summary:server:cucumber` passed on rerun with `tests run: 105`, `passed: 105`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-cucumber-tests-2026-04-21T09-49-25-655Z.log`; no log inspection was needed after the clean run.
+- Testing 4: `npm run lint` exited 0 with no output, so `npm run lint:fix` was not needed.
+- Testing 5: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
 
 ### Task 174. Restore Queue-Unavailable Reachability And Diagnostic Preservation
 

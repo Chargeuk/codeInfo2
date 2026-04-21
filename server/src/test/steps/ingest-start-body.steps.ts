@@ -21,7 +21,10 @@ import {
   clearVectorsCollection,
 } from '../../ingest/chromaClient.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
-import type { EnqueueIngestRequestInput } from '../../ingest/requestQueue.js';
+import type {
+  CurrentQueueRequestPositionResult,
+  EnqueueIngestRequestInput,
+} from '../../ingest/requestQueue.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import {
@@ -94,6 +97,14 @@ Before(async () => {
         started: true,
         blockedByCleanup: false,
         requestId: 'queue-request-123',
+        runId: '00000000-0000-0000-0000-000000000001',
+      }),
+      getCurrentQueueRequestPosition: async (
+        requestId: string,
+      ): Promise<CurrentQueueRequestPositionResult> => ({
+        requestId,
+        queueState: 'running',
+        queuePosition: null,
         runId: '00000000-0000-0000-0000-000000000001',
       }),
     }),

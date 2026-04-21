@@ -5,39 +5,84 @@ Users can queue ingest and re-embed requests
 # Acceptance
 
 1. Users can submit ingest and re-embed requests while another ingest run is active, and the system remembers that work instead of rejecting it as busy.
-2. Users can see queued repository work in the ingest repository list with a clear waiting position.
-3. Users and automation receive separate `requestId` and `runId` values so waiting work and actively running work are not confused.
-4. Users are protected from false success when queue cleanup fails; blocked cleanup remains visible and prevents newer queued work from starting too early.
-5. Users and automation receive a clear retryable `QUEUE_UNAVAILABLE` response when the Mongo-backed queue is unavailable.
-6. Support and engineering users can rely on documented REST failure contracts and wrapper-first automated proof before the story closes again.
+2. Users can see queued repository work in the ingest repository list, including a clear waiting position when work has not started yet.
+3. Users and automation receive both a durable `requestId` for queued work and a `runId` once execution actually starts.
+4. Users are protected from unsafe queue recovery; cleanup-blocked work stays visible and prevents newer queued work from starting too early.
+5. Users and automation receive clear retryable queue errors when Mongo-backed queue persistence is unavailable.
+6. Business users can rely on the final reviewed contract: queue state, repo-list identity, OpenAPI documentation, and blocking automation behavior stay aligned.
 
 # Description
 
-This story makes ingest and re-embed work durable and visible when the server is already busy. Instead of asking users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The latest tasked review block tightens the final queue behavior so blocking callers do not see success before cleanup is complete, waiting positions stay current after queue promotions, queue-unavailable errors remain reachable and specific, and the REST documentation matches the runtime contract.
+This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final tasked plan also closes review findings around cleanup-blocked visibility, malformed request validation, repo-list identity, startup replay safety, and proof quality before the story is closed again.
 
 # Tasks
 
-1. [codeInfo2] - Repair blocking re-embed cleanup ordering.
+1. [codeInfo2] - Add durable queue storage and canonical queue admission.
 
-- Update `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts` so blocking callers do not receive success until queue cleanup is finalized.
-- Add server unit proof for normal, skipped, zero-work, deletions-only, cleanup-failed, waiter-cleanup, and retained-success paths.
+- Create the Mongo-backed request queue and normalize ingest or re-embed requests before dedupe.
+- Prove queue persistence, duplicate handling, and queue-unavailable behavior through server tests.
 
-2. [codeInfo2] - Recompute waiting queue positions after route pump transitions.
+2. [codeInfo2] - Add queue runtime lifecycle and startup recovery.
 
-- Update `server/src/ingest/requestQueue.ts`, `server/src/routes/ingestStart.ts`, and `server/src/routes/ingestReembed.ts` so responses and logs use the current post-pump waiting position.
-- Add server unit proof that start-ingest and re-embed payloads and queue logs do not reuse stale pre-pump queue positions.
+- Keep waiting, running, and cleanup-blocked queue states small and explicit.
+- Prove cleanup-before-next ordering, startup recovery, cancellation, and cleanup-blocked retry behavior.
 
-3. [codeInfo2] - Restore reachable queue-unavailable behavior and preserve diagnostics.
+3. [codeInfo2] - Replace queueable REST, MCP, command, and flow contracts.
 
-- Update startup, queue availability, re-ingest service, and re-ingest error formatting so degraded Mongo startup can surface retryable `QUEUE_UNAVAILABLE`.
-- Add server unit and integration proof that REST, command, flow, classic MCP, and MCP2 surfaces preserve the specific degraded-startup diagnostic.
+- Return queue-aware response fields and preserve blocking automation behavior through shared service paths.
+- Prove REST, MCP, command, and flow callers receive the correct queued, running, and unavailable results.
 
-4. [codeInfo2] - Document the REST `QUEUE_UNAVAILABLE` failure contract.
+4. [codeInfo2] - Show queued work in the shared repository list and ingest UI.
 
-- Update `openapi.json` so `POST /ingest/start` and `POST /ingest/reembed/{root}` document the `503 QUEUE_UNAVAILABLE` response envelope.
-- Add OpenAPI contract proof that the new failure responses are documented without weakening existing queue-aware success responses.
+- Update the shared repo-list payload, client normalization, and table behavior so queued rows and queue positions are visible.
+- Prove queued visibility through client tests, server contract tests, and e2e coverage.
 
-5. [codeInfo2] - Revalidate the current review-created findings block.
+5. [codeInfo2] - Repair test baselines and proof harnesses exposed during queue implementation.
 
-- Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes and any still-honest residual risk.
-- Run the repository's wrapper-first server, client, e2e, compose smoke, lint, and format proof before closing the story again.
+- Restore trustworthy server-unit, Cucumber, client, e2e, Compose, lint, and format wrapper proof as blockers are found.
+- Keep unrelated harness or baseline repairs isolated so queue feature proof remains honest.
+
+6. [codeInfo2] - Close earlier review-created queue contract repairs.
+
+- Harden deferred validation, canonical row identity, queue diagnostics, stale-state cleanup, and OpenAPI contracts from previous review passes.
+- Revalidate each review-created block with repository-supported wrapper proof and durable summary updates.
+
+7. [codeInfo2] - Treat cleanup-blocked as a client terminal queue state.
+
+- Update client terminal-state consumers so `cleanup-blocked` refreshes roots, preserves the error state, and removes stale cancellation affordances.
+- Add client proof for live cleanup-blocked updates, active-run rendering, and stale action payload exclusion.
+
+8. [codeInfo2] - Make blocking re-embed waits use a long safety guard.
+
+- Update the shared re-embed service so normal queue delay does not trip the old short wait timeout.
+- Prove the production default, injected timeout tests, and MCP, command, and flow propagation paths.
+
+9. [codeInfo2] - Reject malformed start-ingest body fields before queue admission.
+
+- Validate `name`, `description`, `dryRun`, and unexpected body keys before any queue document is created.
+- Prove malformed bodies are rejected, valid queue responses remain intact, and OpenAPI/Cucumber contracts match.
+
+10. [codeInfo2] - Realign repo-list runtime, OpenAPI, and queue overlay identity.
+
+- Align runtime repo-list fields, OpenAPI schemas, MCP/tool consumers, and client normalization around one canonical identity.
+- Prove fresh running model metadata, mismatched-path isolation, documented fields, and stale selected-row exclusion.
+
+11. [codeInfo2] - Persist a replay barrier before non-idempotent finalization side effects.
+
+- Persist `nonReplayableAt` before finalization side effects that must not be repeated after restart.
+- Prove barrier ordering, fail-closed barrier writes, startup recovery, and cleanup/delete-before-next behavior.
+
+12. [codeInfo2] - Make BDD queue-start proof distinguish attempts from accepted starts.
+
+- Record attempted queue processor execution separately from validation-passed started paths in the Cucumber helper.
+- Prove no-attempt, attempted-but-rejected, and unfinished replay scenarios with clear feature wording.
+
+13. [codeInfo2] - Deduplicate queue-state literals in the queue schema index.
+
+- Replace duplicated live-state literals with a named queue-state contract for the partial index.
+- Prove the live-target index still covers exactly `waiting`, `running`, and `cleanup-blocked`.
+
+14. [codeInfo2] - Revalidate Story 55 after the final review-created findings block.
+
+- Refresh the durable PR summary so findings map to the repaired implementation and proof homes.
+- Run the supported server, client, e2e, Compose smoke, lint, and format wrappers before closing the story again.

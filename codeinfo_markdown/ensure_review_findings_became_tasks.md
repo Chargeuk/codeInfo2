@@ -18,7 +18,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 1. Validate that the stored handoff plan exists and that the current repository branch story number still matches the selected plan filename.
 2. Validate that every additional repository in scope still exists, is readable, and remains on a branch whose story number matches the selected plan filename.
 3. Read the stored review handoff and confirm that its `story_id`, `plan_path`, `review_pass_id`, `evidence_file`, `findings_file`, and repository scope still match the current handoff scope and repository state.
-4. Confirm every repository entry in the stored review handoff includes `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, plus `remote_fetch_error` and `remote_fetch_exit_code` when required by the evidence-step schema.
+4. Confirm every repository entry in the stored review handoff includes `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, plus `remote_fetch_error` and `remote_fetch_exit_code` when required by the evidence-step schema.
 5. Confirm every repository entry preserves the review comparison contract:
    - `remote_name` is `origin`;
    - `comparison_head_ref` is `HEAD`;

@@ -7,6 +7,7 @@ Decide whether the current blocker proves that the plan itself is wrong or incom
 Read the stored current-plan handoff and use only that scope for this step.
 Use the same current-task context and blocker-owner conclusion from the immediately preceding blocker-solution step rather than re-reading `current-task.json` again in this same planning-agent pass.
 Re-open the exact plan file from disk before deciding whether the blocker changes the plan.
+Read the selected task's latest `**BLOCKING ANSWER**` from the reopened plan and extract any blocker-family and ownership conclusion before deciding whether to repair the plan.
 If there is no blocker, or there was a blocker but no plan repair is needed, state that explicitly.
 If the blocker proves the plan is wrong or incomplete, repair the story before work continues.
 
@@ -33,6 +34,19 @@ If the blocker proves the plan is wrong or incomplete, repair the story before w
 - If you retire, preserve, or rewrite a live blocker during this step, rerun the parser before finalizing your answer so blocker state and task status match current disk state.
 
 </blocker_detection_rules>
+
+<blocker_family_rehydration_rules>
+
+- After reopening the plan, find the selected task's latest `**BLOCKING ANSWER**` implementation note when one exists.
+- Extract these conclusions from that note before applying decision or handoff rules:
+  - blocker family;
+  - whether the current task owns the blocker;
+  - whether the evidence points to prerequisite baseline, harness, runtime-handoff, or task-shape repair.
+- If the latest `**BLOCKING ANSWER**` does not clearly classify the blocker, classify it now from current plan evidence before deciding plan impact.
+- Use one of these blocker families: product or story seam; proof or test harness seam; shared wrapper or baseline seam; manual or runtime environment seam; task-shape or planning seam.
+- Do not rely only on conversational memory for blocker-family or ownership conclusions when the written plan can be read from disk.
+
+</blocker_family_rehydration_rules>
 
 <decision_rules>
 
@@ -63,6 +77,11 @@ If there is or was a blocker, decide whether it reveals any of the following:
 <execution_handoff_rules>
 
 - If blocker repair proves that a different prerequisite task must happen before the currently blocked task can continue, you MUST rewrite task order, dependencies, and task statuses so that prerequisite becomes the next active executable task in the normal implementation loop.
+- If the extracted blocker family is product or story seam and the current task owns the implementation bug, keep the repair on the current task unless a prerequisite is still required.
+- If the extracted blocker family is proof or test harness seam, add or move the harness proof owner before downstream product continuation when the harness is not already proven.
+- If the extracted blocker family is shared wrapper or baseline seam, add baseline or prerequisite ownership instead of returning downstream product tasks to broad-wrapper retries.
+- If the extracted blocker family is manual or runtime environment seam, repair the runtime handoff before mutating product code unless the product code clearly owns the runtime failure.
+- If the extracted blocker family is task-shape or planning seam, split or rewrite the task into bounded executable work before returning to implementation.
 - If the blocker belongs to a shared wrapper, baseline, manual-runtime, or harness family rather than the current task's product seam, prefer explicit prerequisite ownership over repeatedly returning the same task to implementation with broader retries.
 - If the blocker belongs to a task-shape or planning family, rewrite the task into bounded executable work before returning to implementation.
 - Do not leave the blocked task as the highest-numbered `__in_progress__` task when a different task now owns the next real work.

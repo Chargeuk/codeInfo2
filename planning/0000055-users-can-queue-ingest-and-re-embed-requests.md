@@ -13533,12 +13533,12 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260420T140453Z-d9e38eba` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
-2. [ ] Re-open the completed proof-owner sections for Tasks `161` through `170` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
-3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `170`. Purpose: make the durable close-out name the current repaired owner set explicitly.
-4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
-5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
-6. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260420T140453Z-d9e38eba` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.
+1. [x] Re-read the `Code Review Findings` block for review pass `0000055-20260420T140453Z-d9e38eba` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
+2. [x] Re-open the completed proof-owner sections for Tasks `161` through `170` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
+3. [x] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `170`. Purpose: make the durable close-out name the current repaired owner set explicitly.
+4. [x] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
+5. [x] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
+6. [x] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260420T140453Z-d9e38eba` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.
 
 #### Testing
 
@@ -13566,4 +13566,9 @@ Save any final manual-testing screenshots, logs, or notes under `codeInfoStatus/
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: re-read the appended `Code Review Findings` block for review pass `0000055-20260420T140453Z-d9e38eba`; confirmed this final pass must close two `must_fix` findings and five `should_fix` findings through Tasks 162 through 170, with Task 161 as the formatter prerequisite.
+- Subtask 2: re-opened Tasks 161 through 170 from the active plan and collected their final proof-owner set: `.prettierignore`, queue rewrite, request-queue build prerequisite, cleanup-blocked fast path, admission-time reembed validation, shared flow-loop prerequisites, roots canonical identity, request-aware queue-runtime proof, and classic MCP dispatcher argument-shape validation.
+- Subtask 3: refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the durable close-out now names the current Task 161 through Task 170 repaired proof homes instead of the older Task 153 through Task 160 review pass.
+- Subtask 4: refreshed the summary's proof-boundary language so current Task 161 through Task 170 reruns are separated from retained earlier Story 55 evidence, and Task 171's final wrapper reruns remain explicitly pending for the automated-proof step.
+- Subtask 5: refreshed the summary's residual-risk and rejected-risk sections so retained weak proof, automation-owned seams, unavailable live negative setup, and future Task 171 blocker handling are explicit instead of silently reclosing the story.
+- Subtask 6: re-opened the appended `0000055-20260420T140453Z-d9e38eba` findings block and the refreshed durable summary; confirmed the two `must_fix` and five `should_fix` findings still map to Tasks 162 through 170, Task 161 remains the formatter prerequisite, and Task 171 final wrappers remain pending for automated proof.

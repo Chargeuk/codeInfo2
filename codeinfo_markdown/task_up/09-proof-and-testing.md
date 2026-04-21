@@ -51,6 +51,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Automated screenshots, browser captures, and similar generated proof artifacts must be saved only under an ignored artifact location and must never be planned as checked-in repository files.
 - If a task will rely on non-final manual-proof artifacts and the current repository does not already ignore `codeInfoTmp/`, add the minimal `.gitignore` update needed before later proof depends on that scratch path.
 - When a non-final task needs manual-testing proof guidance, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/` and state that those artifacts must not be committed because `codeInfoTmp/` is ignored.
+- For Playwright MCP screenshots, Manual Testing Guidance should name both steps: capture to the Playwright output directory first, then transfer into the target repository's `codeInfoTmp/manual-testing/<story-number>/` or `codeInfoStatus/manual-testing/<story-number>/` destination as appropriate.
 - End each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
   - a prettier or format-check step that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
@@ -119,6 +120,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether any automated screenshot or browser artifact path points only to ignored artifact storage rather than tracked repository files.
 - Check whether any task that relies on non-final manual-proof artifacts also includes the required `.gitignore` update when `codeInfoTmp/` was not already ignored.
 - Check whether any non-final-task manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/` and states that those artifacts must not be committed.
+- Check whether any Manual Testing Guidance that mentions Playwright MCP screenshots distinguishes the Playwright output staging path from the final target repository artifact destination.
 - Check whether manual-testing guidance prefers the normal human Docker stack whenever repository evidence supports it.
 - Check whether the final task's manual-testing proof guidance uses `codeInfoStatus/manual-testing/<story-number>/` and states that those artifacts should be committed.
   </verification_loop>

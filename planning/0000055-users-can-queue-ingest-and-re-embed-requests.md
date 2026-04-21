@@ -13933,7 +13933,7 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `172, 173, 174, 175`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260421T050131Z-a77661de`, covering `F1`, `F2`, `F3`, `F4`, and `F5`.
 
@@ -14020,3 +14020,523 @@ Focus any optional browser/API proof on the repaired externally observable seams
 - Testing 10: `npm run compose:down` exited 0 through `scripts/docker-compose-with-env.sh`; the main stack containers were stopped and removed, and the `codeinfo2_internal` network was removed.
 - Testing 11: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 12: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
+
+## Code Review Findings: `0000055-20260421T213927Z-9a3752e6`
+
+Review disposition used the stored handoff at `codeInfoTmp/reviews/0000055-current-review.json`, the evidence artifact at `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-evidence.md`, the findings artifact at `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-findings.md`, the saturation artifact at `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-findings-saturation.md`, and the blind-spot challenge artifact at `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-blind-spot-challenge.md`.
+
+The normalized review scope is the current repository only. The current-plan handoff selects `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, the current branch is `feature/0000055-users-can-queue-ingest-and-re-embed-requests`, and the plan filename story number `0000055` matches the branch story number. No additional repositories were explicitly identified, so no cross-repository tasks are required.
+
+The review compared local `HEAD` `9a3752e68a04086023b744e72df58e7d3cc2db25` against pinned remote base `e18364622aa84c53417d1c9c4959e37d5f777d39` from `origin/main` using the `local_head_vs_resolved_base` rule. The evidence recorded `remote_fetch_status: success`, `resolved_base_source: remote`, and no local fallback reason.
+
+The findings artifact is the canonical endorsed-findings source for this pass. It reports five `must_fix` findings, three `should_fix` findings, and one localized `optional_simplification`. The saturation and challenge artifacts generated no additional actionable findings, and they reinforced the same owner seams instead of changing the disposition.
+
+### Endorsed Findings
+
+- `F1` (`must_fix`, current repository): `cleanup-blocked` realtime updates are omitted from client terminal-state consumers. Client page, websocket, and active-run-card terminal-state sets do not treat `cleanup-blocked` as terminal, so the ingest page may not refresh roots or surface the cleanup-blocked error state when the live update arrives.
+- `F2` (`must_fix`, current repository): blocking re-embed callers still use a 90-second default queue wait timeout. Correctly queued MCP, command, and flow re-embed work can return early with `WAIT_TIMEOUT` during normal queue delay.
+- `F3` (`must_fix`, current repository): malformed typed fields on `POST /ingest/start` can be queued and silently defaulted during deferred execution. Non-string `name` or `description`, non-boolean `dryRun`, or unexpected body fields should be rejected at admission instead of being normalized away later.
+- `F4` (`must_fix`, current repository): repo-list OpenAPI schemas disallow fields that runtime responses now emit. `/ingest/roots` emits `id` and may emit structured `error`, while `/tools/ingested-repos` emits `name`, but the documented schemas omit those keys under `additionalProperties: false`.
+- `F5` (`must_fix`, current repository): startup recovery can replay a committed running queue item if the process exits after final side effects but before the durable replay barrier is recorded.
+- `F6` (`should_fix`, current repository): running queue overlays can show stale persisted model metadata instead of the active queued request's model.
+- `F7` (`should_fix`, current repository): queue repo-list overlays can attach a queued request to the wrong persisted row by using stale `requestPayload.path` as a lookup identity alongside `canonicalTargetPath`.
+- `F8` (`should_fix`, current repository): BDD queue-start proof can pass when execution was attempted but rejected before the helper records the path, so an empty started-path assertion does not always prove no execution was attempted.
+- `F9` (`optional_simplification`, current repository): the queue schema partial-index state list duplicates the nearby named queue-state constant. This is localized, low-risk, and objectively testable, so it is reopened inside this review-created block.
+
+### Disposition Notes
+
+- The story is reopened because actionable `must_fix` and `should_fix` findings exist.
+- No `flows/**` changes were reopened for scope reasons; the review artifacts did not identify workflow behavior defects in `flows/**`.
+- Allowed support files were not reopened merely because they changed. No support-file secret, tracked ignored-artifact, local-config, or runtime-artifact hygiene finding was endorsed in this pass.
+- The optional simplification is not deferred because it is localized to the queue schema changed by this story, has a clear stopping point, and reduces a duplicated queue-state contract literal.
+- The review-fix tasks below are all in `Current Repository`, and the final revalidation task owns the broad proof for this review-created findings block.
+
+### Task 177. Treat Cleanup-Blocked As A Client Terminal Queue State
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `176`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F1` (`must_fix`): `cleanup-blocked` realtime updates are omitted from client terminal-state consumers.
+
+#### Overview
+
+Repair the client realtime terminal-state contract so `cleanup-blocked` is handled consistently with the server terminal state and with the already-rendered cleanup-blocked repository-list row. The page should refresh shared roots after a cleanup-blocked live update, show the cleanup-blocked error state, and stop treating the active run as cancellable or still active.
+
+#### Task Exit Criteria
+
+- `R1.` Client websocket/status types accept `cleanup-blocked` wherever ingest status updates can surface queue terminal states.
+- `R2.` `IngestPage` treats `cleanup-blocked` as terminal for roots/model refresh and error-banner behavior.
+- `R3.` `ActiveRunCard` treats `cleanup-blocked` as terminal and does not present it as a cancellable active run.
+- `R4.` Page-level and component-level tests prove the realtime cleanup-blocked transition, not only preloaded repo-list rendering.
+
+#### Proof Mapping
+
+- `P1.` Requirement: cleanup-blocked updates trigger the same terminal refresh path as other terminal ingest states (`R1`, `R2`). Owners: `client/src/pages/IngestPage.tsx`, `client/src/hooks/useChatWs.ts`, `client/src/hooks/useIngestStatus.ts`. Proof homes: subtasks 1 through 4; Testing 1 through 5.
+- `P2.` Requirement: cleanup-blocked active-run UI renders as terminal/error state instead of active/cancellable state (`R3`). Owners: `client/src/components/ingest/ActiveRunCard.tsx`. Proof homes: subtasks 2 and 5; Testing 1 through 5.
+- `P3.` Requirement: tests exercise the live update path and card rendering (`R4`). Owners: `client/src/test/ingestStatus.test.tsx` and adjacent ingest page/card tests. Proof homes: subtasks 4 and 5; Testing 2 through 5.
+
+#### Documentation Locations
+
+- `client/src/pages/IngestPage.tsx`
+- `client/src/hooks/useChatWs.ts`
+- `client/src/hooks/useIngestStatus.ts`
+- `client/src/components/ingest/ActiveRunCard.tsx`
+- `client/src/test/ingestStatus.test.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-read Finding `F1`, the server terminal-state producer in `server/src/ingest/ingestJob.ts`, and the existing cleanup-blocked row rendering in `client/src/components/ingest/RootsTable.tsx`. Purpose: keep the client terminal-state set aligned with the server and with the existing row-level display.
+2. [ ] Update the client status type definitions and shared terminal-state predicates so `cleanup-blocked` is an explicit terminal state wherever websocket or status updates are consumed.
+3. [ ] Update `IngestPage` so cleanup-blocked live updates trigger roots/model refresh and preserve or surface the cleanup-blocked error banner instead of clearing it as if work were still active.
+4. [ ] Add or update page-level tests that emit a cleanup-blocked realtime update and prove the page refreshes repository roots and surfaces the cleanup-blocked error state.
+5. [ ] Add or update `ActiveRunCard` proof so cleanup-blocked displays as a terminal cleanup failure and does not expose active-run cancellation affordances.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client`.
+2. [ ] Run `npm run test:summary:client`.
+3. [ ] Run `npm run test:summary:e2e`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Manual Testing Guidance
+
+If a manual-testing pass is requested for this task, use the normal Docker stack and focus on a cleanup-blocked repository-list or live-update scenario. Capture whether the ingest page refreshes roots and shows the cleanup-blocked error state without offering active-run cancellation.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 178. Make Blocking Re-Embed Queue Waits Use A Long Safety Guard
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `177`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F2` (`must_fix`): blocking re-embed callers still use a 90-second default wait timeout, so normal queue delay can return early as `WAIT_TIMEOUT`.
+
+#### Overview
+
+Keep the blocking MCP, command, and flow re-embed contract queue-aware by making queue wait time a normal part of the wait instead of an ordinary failure path. The production default should be a clearly named long safety guard, while tests may still inject short wait options for timeout-specific proof.
+
+#### Task Exit Criteria
+
+- `R1.` The production default timeout used by `runReingestRepository(...)` is no longer the old short 90-second wait budget.
+- `R2.` MCP, command, and flow callers continue to share the same blocking service behavior without adding separate shorter production timeouts.
+- `R3.` Timeout tests still prove explicit short timeout behavior through injected wait options, while a separate test proves the production default is the long safety guard.
+- `R4.` The implementation avoids adding a new runtime knob unless direct repo evidence proves one is needed.
+
+#### Proof Mapping
+
+- `P1.` Requirement: queue delay is not converted to normal failure by a short production default (`R1`, `R3`). Owners: `server/src/ingest/reingestService.ts`, `server/src/test/unit/reingestService.test.ts`. Proof homes: subtasks 1, 3, and 4; Testing 1 through 6.
+- `P2.` Requirement: transport wrappers preserve the shared service behavior and do not add sibling short timeouts (`R2`). Owners: `server/src/mcp/server.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`. Proof homes: subtasks 2 and 5; Testing 2 through 6.
+- `P3.` Requirement: no unnecessary configuration branch is introduced (`R4`). Owners: `server/src/ingest/reingestService.ts` and tests. Proof homes: subtasks 3 and 4; Testing 1 through 6.
+
+#### Documentation Locations
+
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/reingestExecution.ts`
+- `server/src/mcp/server.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read Finding `F2`, `runReingestRepository(...)`, and `waitForQueueRequestTerminalStatus(...)`. Purpose: confirm the only endorsed production timeout defect is the shared blocking service default.
+2. [ ] Inspect MCP, command, and flow re-embed callers for sibling production timeouts and leave them unchanged if they simply reuse `runReingestRepository(...)`.
+3. [ ] Replace the 90-second production default with a named long safety guard in `server/src/ingest/reingestService.ts`, keeping explicit injected wait options available for tests and diagnostic callers.
+4. [ ] Add or update unit proof that the production default is the long safety guard and that explicit short wait options still produce deterministic `WAIT_TIMEOUT` behavior.
+5. [ ] Add or update transport-adjacent proof only where a caller adds its own wait budget; otherwise preserve existing transport tests and document that they inherit the shared service default.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 179. Reject Malformed Start-Ingest Body Fields Before Queue Admission
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `178`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F3` (`must_fix`): malformed `POST /ingest/start` typed fields can be queued and silently defaulted during deferred execution instead of being rejected at request admission.
+
+#### Overview
+
+Move request-body type enforcement for `POST /ingest/start` to the admission boundary. The route should reject malformed typed fields before any queue document is inserted, so deferred replay no longer has to silently repair invalid `name`, `description`, `dryRun`, or unknown-body-field input.
+
+#### Task Exit Criteria
+
+- `R1.` `POST /ingest/start` rejects non-string `name`, non-string `description`, non-boolean `dryRun`, and unknown body properties with a clear 400-style request validation error before queue admission.
+- `R2.` Valid start-ingest requests continue to enqueue with the same canonical path/model validation and queue-aware response shape.
+- `R3.` Deferred execution no longer turns malformed typed request fields into surprising defaults for queue-admitted work.
+- `R4.` OpenAPI request schema and route tests stay aligned with the runtime validation contract.
+
+#### Proof Mapping
+
+- `P1.` Requirement: malformed typed fields are rejected before enqueue (`R1`, `R3`). Owners: `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`. Proof homes: subtasks 1 through 4; Testing 1 through 6.
+- `P2.` Requirement: existing valid queue admission and queue-aware response behavior remains intact (`R2`). Owners: `server/src/routes/ingestStart.ts`, `server/src/ingest/requestQueue.ts`. Proof homes: subtasks 2, 4, and 5; Testing 1 through 6.
+- `P3.` Requirement: OpenAPI and request validation proof agree (`R4`). Owners: `openapi.json`, `server/src/test/unit/openapi.contract.test.ts`, `server/src/test/unit/ingest-start.test.ts`. Proof homes: subtasks 3 through 5; Testing 2 through 6.
+
+#### Documentation Locations
+
+- `server/src/routes/ingestStart.ts`
+- `server/src/ingest/requestContracts.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/openapi.contract.test.ts`
+- `openapi.json`
+- `client/src/components/ingest/IngestForm.tsx`
+
+#### Subtasks
+
+1. [ ] Re-read Finding `F3`, the `POST /ingest/start` route admission code, and the queue replay helper that currently defaults malformed payload fields. Purpose: keep validation at the upstream producer boundary.
+2. [ ] Add a small start-ingest body validation helper or route-local validation block that rejects non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected body keys before queue admission.
+3. [ ] Confirm the existing OpenAPI start-ingest request schema already describes the desired shape; update only if runtime and schema drift is found during implementation.
+4. [ ] Add route-level tests proving malformed `name`, `description`, `dryRun`, and unknown body fields return validation errors and do not call the queue admission helper.
+5. [ ] Preserve or update valid queue-admission tests so successful start-ingest responses still expose the existing queue-aware `requestId`, `runId`, `queued`, and `queuePosition` contract.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 180. Realign Shared Repo-List Runtime, OpenAPI, And Queue Overlay Identity
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `179`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F4` (`must_fix`): repo-list OpenAPI schemas disallow fields the runtime now emits.
+  - `F6` (`should_fix`): running queue overlays can show stale persisted model metadata instead of the active queued request's model.
+  - `F7` (`should_fix`): queue repo-list overlays can attach a queued request to the wrong persisted row by using stale `requestPayload.path` as a lookup identity.
+
+#### Overview
+
+Repair the shared repository-list contract as one coherent producer surface. Runtime REST schemas must document the keys the shared repo-list producer emits, running queue overlays must use the active queued request's model metadata, and queue overlays must not match an existing repository row through a contradictory stale payload path.
+
+#### Task Exit Criteria
+
+- `R1.` `/ingest/roots` OpenAPI item schemas include runtime-emitted `id` and structured `error` fields without weakening the existing queue-aware schema.
+- `R2.` `/tools/ingested-repos` OpenAPI item schemas include runtime-emitted `name` and stay aligned with the shared tool/MCP repo-list producer.
+- `R3.` Running queue overlays apply the queued request's embedding provider/model and lock metadata with the same precedence already used for waiting rows.
+- `R4.` Repo-list queue overlays use `canonicalTargetPath` as the authoritative lookup identity and only use `requestPayload.path` as an alias after proving it refers to the same canonical target.
+- `R5.` Contract and repo-list tests prove documented response keys, running model metadata freshness, and mismatched canonical-target/payload-path row isolation.
+
+#### Proof Mapping
+
+- `P1.` Requirement: REST OpenAPI schemas match emitted repo-list response keys (`R1`, `R2`). Owners: `openapi.json`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/test/unit/openapi.contract.test.ts`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 7.
+- `P2.` Requirement: running overlays expose current queued request model metadata rather than stale persisted metadata (`R3`). Owners: `server/src/lmstudio/toolService.ts`, `common/src/lmstudio.ts`. Proof homes: subtasks 3 and 7; Testing 1 through 7.
+- `P3.` Requirement: queue overlays do not attach a canonical target to the wrong persisted row through stale payload path lookup (`R4`). Owners: `server/src/lmstudio/toolService.ts`. Proof homes: subtasks 4 and 8; Testing 1 through 7.
+- `P4.` Requirement: shared REST, tool, MCP, and client mirrors remain aligned (`R5`). Owners: `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `client/src/hooks/useIngestRoots.ts`, and shared tests. Proof homes: subtasks 5 through 8; Testing 2 through 7.
+
+#### Documentation Locations
+
+- `server/src/lmstudio/toolService.ts`
+- `server/src/routes/ingestRoots.ts`
+- `server/src/routes/toolsIngestedRepos.ts`
+- `server/src/mcp/server.ts`
+- `common/src/lmstudio.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `openapi.json`
+- `server/src/test/unit/openapi.contract.test.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/integration/mcp-ingested-repositories.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-read Findings `F4`, `F6`, and `F7`, then inspect the shared repo-list producer and REST/OpenAPI serializers before editing. Purpose: keep the repair centered on the shared repository-list contract.
+2. [ ] Update `openapi.json` and OpenAPI contract proof so `/ingest/roots` documents `id` and structured `error`, and `/tools/ingested-repos` documents required `name` alongside the existing queue fields.
+3. [ ] Update running queue overlay logic so it applies queued request embedding provider/model and lock metadata with the same effective precedence as waiting queue overlays.
+4. [ ] Update queue overlay lookup logic so `canonicalTargetPath` owns the existing-row match, and `requestPayload.path` cannot match a different persisted row unless it canonicalizes to the same target.
+5. [ ] Inspect MCP/tool repo-list output schemas and client normalization to confirm they consume the repaired shared producer without adding separate downstream fixes.
+6. [ ] Add or update contract tests that compare the runtime repo-list REST key set against OpenAPI for `/ingest/roots` and `/tools/ingested-repos`.
+7. [ ] Add or update repo-list producer tests proving a running queue item with fresh model metadata overrides stale persisted model metadata.
+8. [ ] Add or update repo-list producer tests proving a queue request with mismatched `canonicalTargetPath` and `requestPayload.path` does not overlay the wrong persisted row.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+7. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Manual Testing Guidance
+
+If a manual-testing pass is requested for this task, use the repository-list REST and browser ingest surfaces to inspect a running queued item and a queued/waiting row. Confirm the displayed model metadata and row identity match the intended canonical target.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 181. Persist A Replay Barrier Before Non-Idempotent Queue Finalization Side Effects
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `180`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F5` (`must_fix`): startup recovery can replay a committed running queue item if the process exits after final side effects but before the durable replay barrier is recorded.
+
+#### Overview
+
+Close the committed-but-barrier-lost recovery window by recording the durable non-replayable barrier before non-idempotent finalization side effects can commit for a queue-managed run. Startup recovery should still retry genuinely unfinished work, but it must not replay a queue request after useful terminal side effects have already crossed the non-replayable boundary.
+
+#### Task Exit Criteria
+
+- `R1.` Queue-managed runs persist a durable non-replayable marker before non-idempotent finalization side effects such as provider/vector/root metadata, ingest-file, or AST writes can commit.
+- `R2.` If terminal marker publication fails after the non-replayable marker, startup recovery still treats the queue request as not replayable and routes through cleanup or terminal-state recovery instead of restarting discovery.
+- `R3.` Genuinely unfinished running rows without side-effect commit evidence continue to be retried on startup.
+- `R4.` Cancel and cleanup-blocked paths continue to use the same cleanup ownership and delete-before-next ordering.
+- `R5.` Tests prove the committed-side-effect-before-lost-terminal-marker crash shape and preserve existing barrier-present and barrier-missing recovery behavior.
+
+#### Proof Mapping
+
+- `P1.` Requirement: non-replayable barrier is persisted before non-idempotent side effects (`R1`, `R2`). Owners: `server/src/ingest/ingestJob.ts`. Proof homes: subtasks 1 through 4 and 7; Testing 1 through 6.
+- `P2.` Requirement: unfinished running rows remain recoverable (`R3`). Owners: `server/src/ingest/ingestJob.ts`, `server/src/startup/ingestQueueStartup.ts`. Proof homes: subtasks 2, 5, and 8; Testing 1 through 6.
+- `P3.` Requirement: cancellation, cleanup-blocked, and delete-before-next behavior remain intact (`R4`). Owners: `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestCancel.ts`. Proof homes: subtasks 3, 5, and 8; Testing 2 through 6.
+- `P4.` Requirement: crash-window proof is direct rather than inferred (`R5`). Owners: `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, and related runtime tests. Proof homes: subtasks 6 through 8; Testing 2 through 6.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/startup/ingestQueueStartup.ts`
+- `server/src/routes/ingestCancel.ts`
+- `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-pump.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
+
+#### Subtasks
+
+1. [ ] Re-read Finding `F5`, the current finalization sequence in `server/src/ingest/ingestJob.ts`, and startup recovery skip logic. Purpose: identify the first non-idempotent side-effect boundary that needs the durable barrier.
+2. [ ] Move or split the queue terminal barrier logic so a non-replayable marker is persisted before finalization side effects that must not be repeated after restart.
+3. [ ] Preserve terminal publication, cleanup-blocked, cancellation, cleanup retry, and delete-before-next behavior after the earlier barrier write.
+4. [ ] Ensure barrier write failure before non-idempotent finalization fails closed rather than proceeding into side effects that startup cannot safely classify.
+5. [ ] Re-check startup recovery for `cleanup-blocked`, barrier-present `running`, and genuinely unfinished barrier-missing `running` rows after the barrier-order change.
+6. [ ] Add or update direct unit proof for the crash-window shape: side effects are considered committed or non-replayable, terminal publication is missing or failed, and startup does not replay the queue request.
+7. [ ] Add or update proof that a barrier-write failure before finalization prevents unsafe side effects and surfaces a retryable or cleanup-blocked state according to the existing queue lifecycle.
+8. [ ] Preserve existing recovery, cancellation, cleanup-blocked, and queue-pump tests by updating expected ordering only where the earlier barrier write changes observable state.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 182. Make BDD Queue Start Proof Distinguish Attempts From Accepted Starts
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `181`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F8` (`should_fix`): BDD queue-start proof can pass when execution was attempted but rejected before the helper records the path.
+
+#### Overview
+
+Repair the Cucumber proof helper so scenarios that claim no replay, no start, or no advancement can distinguish "processor was never invoked" from "processor was invoked and validation rejected before recording a started path." The proof should make attempted execution visible even when validation fails.
+
+#### Task Exit Criteria
+
+- `R1.` The ingest-manage queue runtime test helper records processor attempts before replay validation can throw.
+- `R2.` Feature steps can assert no processor attempt separately from no validation-passed started path.
+- `R3.` Existing scenarios whose wording claims no replay or no start use the stronger no-attempt assertion.
+- `R4.` Scenarios that intentionally prove fail-closed replay rejection assert both the attempted execution and the rejected terminal/error outcome when that is the real contract.
+
+#### Proof Mapping
+
+- `P1.` Requirement: attempted queue processor invocation is recorded before validation (`R1`). Owners: `server/src/test/steps/ingest-manage.steps.ts`. Proof homes: subtasks 1 through 3; Testing 1 through 5.
+- `P2.` Requirement: feature wording and assertions match the actual invariant (`R2`, `R3`, `R4`). Owners: `server/src/test/features/ingest-reembed.feature`, `server/src/test/features/ingest-status.feature`, and step definitions. Proof homes: subtasks 2 through 5; Testing 2 through 5.
+
+#### Documentation Locations
+
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/features/ingest-status.feature`
+- `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read Finding `F8`, the current queue runtime Cucumber helper, and every feature step that asserts empty started paths. Purpose: separate no-attempt proof from rejected-execution proof.
+2. [ ] Extend the Cucumber helper state to record attempted queue processor paths before validation runs, while keeping the existing started-path record for validation-passed starts.
+3. [ ] Add step definitions for asserting no attempted queue execution and, where needed, attempted-but-rejected execution.
+4. [ ] Update feature scenarios whose wording says "does not replay" or "before start" to use the stronger no-attempt assertion.
+5. [ ] Update feature scenarios that intentionally exercise fail-closed validation to assert the attempted path and the rejected status rather than relying only on an empty started-path list.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:cucumber`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 183. Deduplicate Queue-State Literals In The Queue Schema Index
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `182`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F9` (`optional_simplification`): the queue schema partial-index state list duplicates the nearby named queue-state constant.
+
+#### Overview
+
+Remove the localized duplicated queue-state literal in the queue schema's live-target partial index. The schema enum and the index live-state list should derive from one named contract, or from two intentionally named constants when the live-target subset must be explicit.
+
+#### Task Exit Criteria
+
+- `R1.` The partial index live-state filter in `server/src/mongo/ingestQueueRequest.ts` no longer repeats anonymous queue-state string literals beside the owning enum.
+- `R2.` The index still covers exactly `waiting`, `running`, and `cleanup-blocked` for the Story 55 live-target uniqueness contract.
+- `R3.` Schema/index tests prove the unique live-target index remains present and scoped to the intended live states.
+
+#### Proof Mapping
+
+- `P1.` Requirement: queue-state literals are not duplicated in the schema partial index (`R1`). Owners: `server/src/mongo/ingestQueueRequest.ts`. Proof homes: subtasks 1 and 2; Testing 1 through 5.
+- `P2.` Requirement: live-target uniqueness behavior remains unchanged (`R2`, `R3`). Owners: `server/src/test/unit/ingest-request-queue.test.ts` and queue schema tests. Proof homes: subtasks 3 and 4; Testing 2 through 5.
+
+#### Documentation Locations
+
+- `server/src/mongo/ingestQueueRequest.ts`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/test/unit/ingest-request-queue.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read Finding `F9`, `ingestQueueStates`, and the current live-target partial index definition in `server/src/mongo/ingestQueueRequest.ts`.
+2. [ ] Introduce or reuse a named live queue-state constant so the partial index filter derives from the schema's owned state contract instead of repeating anonymous literals.
+3. [ ] Confirm request-queue live-target selectors stay aligned with the schema live-state contract without widening unrelated query behavior.
+4. [ ] Update schema/index proof so it still asserts the unique live-target index and its live-state filter.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 184. Re-Validate Story 55 After Review Pass `0000055-20260421T213927Z-9a3752e6`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `177, 178, 179, 180, 181, 182, 183`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - Final validation for review pass `0000055-20260421T213927Z-9a3752e6`, covering `F1`, `F2`, `F3`, `F4`, `F5`, `F6`, `F7`, `F8`, and `F9`.
+
+#### Overview
+
+Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 177 through 183 close the current review findings, refresh the durable close-out summary honestly, and rerun the supported automated proof needed to revalidate the repaired client terminal-state, blocking-wait, start-admission, repo-list/OpenAPI, replay-barrier, BDD proof, and schema-contract seams.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks `177` through `183` are `__done__` and close findings `F1` through `F9` from review pass `0000055-20260421T213927Z-9a3752e6`.
+- `R2.` The appended `Code Review Findings` block for review pass `0000055-20260421T213927Z-9a3752e6` is revalidated on disk rather than left as artifact-only review intent.
+- `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes and any still-honest residual risk for this review-created block.
+- `R4.` Fresh automated validation reruns the supported server build, client build, server unit, server cucumber, client test, e2e, compose build, compose up, host-network main probe, compose down, lint, and format wrappers needed to revalidate the repaired seams plus the story's supported browser-visible and main runtime paths.
+- `R5.` If any repaired seam remains partially proven, the close-out records that residual risk explicitly instead of silently reclosing the story.
+
+#### Proof Mapping
+
+- `P1.` Requirement: Tasks `177` through `183` are complete with no unchecked subtasks/testing/live blockers and close `F1` through `F9` (`R1`). Owners: Tasks `177` through `183`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 through 3; Testing 1 through 12.
+- `P2.` Requirement: the appended findings block for review pass `0000055-20260421T213927Z-9a3752e6` is revalidated against current disk state (`R2`). Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 and 7; Testing 1 through 12.
+- `P3.` Requirement: the durable PR summary cites repaired proof homes, fresh reruns, retained evidence, residual risk, rejected-risk notes, and challenge carry-forward honestly (`R3`, `R5`). Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 6; Testing 1 through 12.
+- `P4.` Requirement: the supported automated browser and main runtime paths still build, start, probe, and shut down cleanly after review-created repairs land (`R4`). Owners: `docker-compose.yml`, `docker-compose.e2e.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-e2e.mjs`, `scripts/test-summary-host-network-main.mjs`, and `e2e/ingest.spec.ts`. Proof homes: Testing 6 through 10.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `client/src/pages/IngestPage.tsx`
+- `client/src/components/ingest/ActiveRunCard.tsx`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/hooks/useIngestRoots.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/routes/ingestStart.ts`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `server/src/mongo/ingestQueueRequest.ts`
+- `openapi.json`
+- `docker-compose.yml`
+- `docker-compose.e2e.yml`
+- `scripts/docker-compose-with-env.sh`
+- `scripts/test-summary-e2e.mjs`
+- `scripts/test-summary-host-network-main.mjs`
+- `e2e/ingest.spec.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260421T213927Z-9a3752e6` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
+2. [ ] Re-open the completed proof-owner sections for Tasks `177` through `183` and confirm each task is `__done__` with no unchecked subtasks, unchecked testing, or live blocker.
+3. [ ] List the final proof homes claimed by Tasks `177` through `183`, including exact test files, route/service/client owners, wrapper results, and retained proof artifacts that each task uses.
+4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `177` through `183`.
+5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence.
+6. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, saturation results, and blind-spot challenge carry-forward that remain true after the current review-created block lands.
+7. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the `0000055-20260421T213927Z-9a3752e6` findings block still matches the final on-disk disposition.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
+7. [ ] Run `npm run compose:build:summary`.
+8. [ ] Run `npm run compose:up`.
+9. [ ] Run `npm run test:summary:host-network:main`.
+10. [ ] Run `npm run compose:down`.
+11. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+12. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Manual Testing Guidance
+
+For the final manual-testing pass after Tasks 177 through 183, use the normal human Docker stack rather than a test-only runtime. Start from the repository root with `npm run compose:build`, then `npm run compose:up`; when proof is complete, stop it with `npm run compose:down`.
+
+Focus optional browser/API proof on the repaired externally observable seams: cleanup-blocked realtime behavior on the ingest page, queued blocking re-embed behavior over a longer queue delay, start-ingest malformed-body rejection, repo-list identity/model metadata while queued or running, and normal queue startup/recovery visibility after the replay-barrier repair. Save final manual-testing screenshots, logs, and notes under `codeInfoStatus/manual-testing/0000055/` if manual proof is performed.
+
+#### Implementation Notes
+
+- Pending.

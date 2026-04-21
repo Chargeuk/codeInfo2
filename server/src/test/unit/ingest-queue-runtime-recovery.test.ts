@@ -339,10 +339,7 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
   await waitForNextTurn();
 
   assert.equal(terminal.state, 'error');
-  assert.equal(
-    terminal.lastError,
-    'path must stay within /allowed/workdir',
-  );
+  assert.equal(terminal.lastError, 'path must stay within /allowed/workdir');
   assert.equal(terminal.error?.error, 'VALIDATION');
   assert.equal(getOrCreateCollectionCalls, 0);
   assert.deepEqual(deletedRequestIds, [

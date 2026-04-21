@@ -3396,7 +3396,8 @@ async function runFlowUnlocked(params: {
       });
       if (pendingCancelBeforeIteration) {
         params.onStopUnwindCheckpoint?.({
-          checkpoint: 'runStartLoopStep.return.stop.pending_cancel.before_iteration',
+          checkpoint:
+            'runStartLoopStep.return.stop.pending_cancel.before_iteration',
           conversationId: params.conversationId,
           detail: `loopDepth=${loopStack.length} loopPath=${nextPath.join('.')}`,
         });

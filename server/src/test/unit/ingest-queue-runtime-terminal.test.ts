@@ -167,7 +167,10 @@ test('request-aware queue wait cleans up listeners on cancellation and immediate
     message: 'Queued',
     lastError: null,
   });
-  __setQueueRequestIdForRunForTest('run-cancelled-live', 'queue-cancelled-live');
+  __setQueueRequestIdForRunForTest(
+    'run-cancelled-live',
+    'queue-cancelled-live',
+  );
 
   const cancelledPromise = waitForQueueRequestTerminalStatus(
     'queue-cancelled-live',
@@ -290,7 +293,9 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
           ? createQueueRequest({
               requestId,
               root,
-              queueState: cleanupBlockedRequestId ? 'cleanup-blocked' : 'running',
+              queueState: cleanupBlockedRequestId
+                ? 'cleanup-blocked'
+                : 'running',
               runId: activeRunId,
             })
           : null,

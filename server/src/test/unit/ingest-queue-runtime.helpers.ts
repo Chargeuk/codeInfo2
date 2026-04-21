@@ -211,6 +211,7 @@ export function installQueueRuntimeTestHooks() {
     resetCollectionsForTests();
     resetStore();
     process.env.NODE_ENV = 'test';
+    delete process.env.CODEINFO_CODEX_WORKDIR;
     __resetIngestJobsForTest();
     __resetIngestQueueAvailabilityForTest();
     release();

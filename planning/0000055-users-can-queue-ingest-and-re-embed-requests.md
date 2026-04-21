@@ -13409,9 +13409,9 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 1. [x] Run `npm run build:summary:server`.
 2. [x] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13422,6 +13422,9 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 - **RESOLVED ISSUE** Earlier blocker research correctly parked this task behind fresh shared prerequisite Task `168`, but that answer is now superseded. The targeted `flows.run.loop` owner is green on current disk, and the remaining full-wrapper contradiction has moved into this task's own request-aware queue wait helper and terminal-proof files, so Task `169` is now the honest active owner again.
 - Planner repair on 2026-04-21: reactivated this task after Task 168's targeted shared proof passed and its remaining full wrapper now fails in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` plus `server/src/test/unit/ingest-queue-runtime.helpers.ts`. I removed Task `168` as a prerequisite, set this task to `__in_progress__`, and left its existing unchecked automated proof gates in place so the implementation loop resumes at the real queue-runtime owner.
 - **RESOLVED ISSUE** Testing 2 (`npm run test:summary:server:unit`) initially failed in Task 169’s own request-aware queue-runtime proof owners. A deeper diagnose pass showed the contradiction was proof-owned, not runtime-owned: `server/src/test/unit/ingest-queue-runtime.helpers.ts` built invalid Mongo ObjectIds from human-readable request ids such as `queue-cancelled-live`, so queue-request reads threw before the repaired wait seam could observe cancellation or deferred mismatch states. I updated the helper to preserve hex-compatible ids and deterministically encode non-hex ids, then reran the narrowed task-owned files (`server/src/test/unit/ingest-queue-runtime-terminal.test.ts`, `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`, `server/src/test/unit/ingest-queue-runtime-pump.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`) before rerunning the full wrapper successfully in `test-results/server-unit-tests-2026-04-21T01-57-36-594Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed cleanly with `agent_action: skip_log`; all 105 cucumber scenarios passed in `test-results/server-cucumber-tests-2026-04-21T02-21-11-791Z.log`.
+- Testing 4: `npm run lint` passed with exit code 0 and no lint fixes were required.
+- Testing 5: `npm run format:check` initially flagged `server/src/flows/service.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, and `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`; I ran `npm run format` as the task-listed repair path, then reran `npm run format:check` successfully with `All matched files use Prettier code style!`.
 
 ### Task 170. Reject Malformed Classic MCP Arguments Before Domain Validation
 

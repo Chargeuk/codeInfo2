@@ -13467,13 +13467,13 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 #### Subtasks
 
-1. [ ] Re-read the Story 55 MCP retryable-error and request-shape acceptance criteria plus this review finding so the dispatcher repair keeps malformed-payload handling distinct from domain validation. Purpose: keep the fix scoped to dispatcher shape validation.
-2. [ ] Repair the shared `tools/call` argument normalization in `server/src/mcp/server.ts` so non-object `arguments` payloads are rejected honestly before tool-specific validation receives them. Purpose: stop malformed request shape from being silently coerced into `{}`.
-3. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that string-valued `arguments` are rejected as malformed request shape before tool-specific domain validation runs. Purpose: give one malformed non-object payload family its own explicit dispatcher proof home.
-4. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that array-valued `arguments` are rejected as malformed request shape before tool-specific domain validation runs. Purpose: give a second malformed non-object payload family its own explicit dispatcher proof home.
-5. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that malformed non-object `arguments` still return the dispatcher-owned JSON-RPC error envelope and do not drift into the tool-owned `INVALID_PARAMS` field-error contract. Purpose: keep the producer and consumer error vocabulary explicit at the classic MCP boundary.
-6. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still follow the intended happy-path contract after the malformed-shape guard lands. Purpose: preserve the green object-shaped request path while tightening malformed-shape handling.
-7. [ ] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still reach the intended domain-error mapping after the malformed-shape guard lands. Purpose: preserve domain validation coverage for legitimate object payloads after the new guard lands.
+1. [x] Re-read the Story 55 MCP retryable-error and request-shape acceptance criteria plus this review finding so the dispatcher repair keeps malformed-payload handling distinct from domain validation. Purpose: keep the fix scoped to dispatcher shape validation.
+2. [x] Repair the shared `tools/call` argument normalization in `server/src/mcp/server.ts` so non-object `arguments` payloads are rejected honestly before tool-specific validation receives them. Purpose: stop malformed request shape from being silently coerced into `{}`.
+3. [x] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that string-valued `arguments` are rejected as malformed request shape before tool-specific domain validation runs. Purpose: give one malformed non-object payload family its own explicit dispatcher proof home.
+4. [x] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that array-valued `arguments` are rejected as malformed request shape before tool-specific domain validation runs. Purpose: give a second malformed non-object payload family its own explicit dispatcher proof home.
+5. [x] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that malformed non-object `arguments` still return the dispatcher-owned JSON-RPC error envelope and do not drift into the tool-owned `INVALID_PARAMS` field-error contract. Purpose: keep the producer and consumer error vocabulary explicit at the classic MCP boundary.
+6. [x] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still follow the intended happy-path contract after the malformed-shape guard lands. Purpose: preserve the green object-shaped request path while tightening malformed-shape handling.
+7. [x] Test type: server unit. Location: `server/src/test/unit/mcp.reingest.classic.test.ts`. Description: author or update proof that well-formed object payloads still reach the intended domain-error mapping after the malformed-shape guard lands. Purpose: preserve domain validation coverage for legitimate object payloads after the new guard lands.
 
 #### Testing
 
@@ -13485,7 +13485,10 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: re-read the Task 170 request-shape exit criteria, proof mapping, and review finding; confirmed the repair must stay at the classic MCP `tools/call` dispatcher boundary and keep malformed non-object payloads distinct from reingest domain validation.
+- Subtask 2: updated `server/src/mcp/server.ts` so present non-object `tools/call.params.arguments` values now return dispatcher-owned `INVALID_PARAMS` before any tool-specific validation, while omitted `arguments` still follow the existing `{}` domain-validation path.
+- Subtasks 3 through 5: added classic MCP unit coverage in `server/src/test/unit/mcp.reingest.classic.test.ts` proving string and array `arguments` are rejected before `runReingestRepository(...)` is called and that malformed non-object arguments return the dispatcher JSON-RPC error envelope without tool-owned field-error data.
+- Subtasks 6 and 7: added classic MCP unit coverage proving well-formed object arguments still reach the reingest happy path and still preserve the existing domain-error JSON-RPC mapping after the malformed-shape guard.
 
 ### Task 171. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
 

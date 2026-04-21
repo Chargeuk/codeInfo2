@@ -763,7 +763,13 @@ export function createMcpRouter(
           if (typeof toolCall.name !== 'string' || !toolCall.name.trim()) {
             return invalidParams(id, 'name is required');
           }
-          const args = isObject(toolCall.arguments) ? toolCall.arguments : {};
+          if (
+            toolCall.arguments !== undefined &&
+            !isObject(toolCall.arguments)
+          ) {
+            return invalidParams(id, 'arguments must be an object');
+          }
+          const args = toolCall.arguments ?? {};
 
           try {
             if (toolCall.name === 'ListIngestedRepositories') {

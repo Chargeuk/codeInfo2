@@ -91,7 +91,7 @@ const parityQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
   },
 };
 
-function createApp(result: ReingestResult) {
+function createApp(result: ReingestResult, onRun?: (args: unknown) => void) {
   const app = express();
   app.use(express.json());
   app.use(
@@ -123,10 +123,34 @@ function createApp(result: ReingestResult) {
         ],
         lockedModelId: 'embed-model',
       }),
-      runReingestRepository: async () => result,
+      runReingestRepository: async (args) => {
+        onRun?.(args);
+        return result;
+      },
     }),
   );
   return app;
+}
+
+async function callClassicReingestWithArguments(args: unknown) {
+  let runCalled = false;
+  const app = createApp({ ok: true, value: terminalCompleted }, () => {
+    runCalled = true;
+  });
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'malformed-arguments',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: args,
+      },
+    });
+
+  return { res, runCalled };
 }
 
 test('tools/list includes reingest_repository metadata', async () => {
@@ -377,6 +401,86 @@ test('classic MCP uses JSON-RPC envelope for pre-run validation and queue outage
     assert.equal(res.body.result, undefined);
     assert.deepEqual(res.body.error, error);
   }
+});
+
+test('classic MCP rejects string arguments as malformed request shape before domain validation', async () => {
+  const { res, runCalled } =
+    await callClassicReingestWithArguments('/data/repo-a');
+
+  assert.equal(res.status, 200);
+  assert.equal(runCalled, false);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'arguments must be an object');
+});
+
+test('classic MCP rejects array arguments as malformed request shape before domain validation', async () => {
+  const { res, runCalled } = await callClassicReingestWithArguments([
+    ['sourceId', '/data/repo-a'],
+  ]);
+
+  assert.equal(res.status, 200);
+  assert.equal(runCalled, false);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'arguments must be an object');
+});
+
+test('classic MCP malformed arguments use dispatcher envelope instead of tool field errors', async () => {
+  const { res } = await callClassicReingestWithArguments('sourceId=/data/repo-a');
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'arguments must be an object');
+  assert.equal(res.body.error.data, undefined);
+});
+
+test('classic MCP well-formed object arguments still reach reingest happy path', async () => {
+  let capturedArgs: unknown;
+  const app = createApp({ ok: true, value: terminalCompleted }, (args) => {
+    capturedArgs = args;
+  });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'well-formed-success',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.error, undefined);
+  assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+  const payload = JSON.parse(res.body.result.content[0].text);
+  assert.equal(payload.status, 'completed');
+});
+
+test('classic MCP well-formed object arguments still reach domain error mapping', async () => {
+  let runCalled = false;
+  const app = createApp({ ok: false, error: parityInvalidParamsError }, () => {
+    runCalled = true;
+  });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'well-formed-domain-error',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: {},
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(runCalled, true);
+  assert.equal(res.body.result, undefined);
+  assert.deepEqual(res.body.error, parityInvalidParamsError);
 });
 
 test('classic MCP post-start failure remains terminal result (not JSON-RPC error)', async () => {

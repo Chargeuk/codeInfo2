@@ -3390,6 +3390,19 @@ async function runFlowUnlocked(params: {
     loopStack.push(loopFrame);
     let resumeForLoop = resumePath;
     while (true) {
+      const pendingCancelBeforeIteration = consumePendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+      });
+      if (pendingCancelBeforeIteration) {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runStartLoopStep.return.stop.pending_cancel.before_iteration',
+          conversationId: params.conversationId,
+          detail: `loopDepth=${loopStack.length} loopPath=${nextPath.join('.')}`,
+        });
+        loopStack.pop();
+        return 'stopped';
+      }
       loopFrame.iteration += 1;
       const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
       if (resumeForLoop) resumeForLoop = null;

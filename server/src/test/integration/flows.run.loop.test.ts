@@ -1362,6 +1362,17 @@ test('flow stop during a looped flow prevents later iterations from continuing',
           'after first outer break observed',
           conversationId,
         );
+        await waitForPredicate(
+          () =>
+            !getInflight(conversationId) &&
+            Boolean(getActiveRunOwnership(conversationId)),
+          5000,
+          'Timed out waiting for between-iteration stop gap',
+        );
+        recordCleanupPhaseCheckpoint(
+          'after between-iteration gap observed',
+          conversationId,
+        );
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
         recordCleanupPhaseCheckpoint('after stop request sent', conversationId);
@@ -1384,6 +1395,15 @@ test('flow stop during a looped flow prevents later iterations from continuing',
           },
           timeoutMs: 5000,
         });
+        recordCleanupPhaseCheckpoint(
+          'after stopped final observed',
+          conversationId,
+        );
+
+        await waitForStopUnwindCheckpoint(
+          'runStartLoopStep.return.stop.pending_cancel.before_iteration',
+          conversationId,
+        );
 
         await waitForStopUnwindCheckpoint(
           'runFlowUnlocked.finalize.exit',

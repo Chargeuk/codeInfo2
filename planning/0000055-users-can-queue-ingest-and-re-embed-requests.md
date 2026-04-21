@@ -13298,11 +13298,61 @@ Repair the `/ingest/roots` contract and its proof owners together so the route k
 - Automated-proof audit on 2026-04-20: normalized Task 167 from `__in_progress__` to `__done__` after the reopened fixture and browser-proof follow-up closed cleanly, because the current plan and parser now show all 14 subtasks complete, all 8 Testing steps complete, and no live blocker.
 - Manual testing on 2026-04-20 stayed task-scoped and restarted the supported e2e runtime from a stale-or-unknown state with `npm run compose:e2e:down`, `npm run compose:e2e:build`, `npm run compose:e2e:up`, and `npm run compose:e2e:down`. Direct API proof saved in `codeInfoTmp/manual-testing/0000055/task-167-roots-before.json`, `task-167-roots-while-queued.json`, and `task-167-roots-after-handoff.json` showed `/ingest/roots` preserved one canonical `/fixtures/repo/docs` row with no `lastError` through the queued-to-running handoff, and the browser-visible `/ingest` pass saved `task-167-queued-state-success.png` plus `task-167-handoff-success.png` while confirming the reloaded page showed one surviving completed `fixtures-e2e-startup-next-manual-artifact` row for `/fixtures/repo/docs` with no queued or error state. Additional scratch artifacts in `codeInfoTmp/manual-testing/0000055/` include `task-167-browser-summary.json`, `task-167-browser-console.json`, `task-167-browser-request-failures.json`, `task-167-logs-enoent-after.json`, `task-167-logs-queued-path-after.json`, and `task-167-compose-e2e-down.txt`; the captured browser proof saw zero failed requests and the fresh server logs contained no `ENOENT`, so no follow-up subtasks were needed.
 
-### Task 168. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
+### Task 168. Repair Reintroduced Shared `flows.run.loop` Stop-Finalize Ownership Release Regression
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `161`
+- Task Dependencies: `166`
 - Task Status: `__in_progress__`
+- Addresses Findings:
+  - `plan_contract_issue`: the shared `server/src/test/integration/flows.run.loop.test.ts` stop-cleanup proof has regressed again and now blocks downstream Task `169` from rerunning its honest full `server:unit` gate
+
+#### Overview
+
+Repair the reintroduced shared `flows.run.loop` stop-cleanup regression that is currently blocking the full server-unit wrapper again. This task owns only the named stopped-loop scenario, its `waitForRuntimeCleanup(...)` teardown boundary, and the exact stop-unwind or ownership-release seam it reaches in `server/src/flows/service.ts`; it must not widen back into Task 169's queue-runtime proof owners.
+
+#### Task Exit Criteria
+
+- `R1.` The named `flow stop during a looped flow prevents later iterations from continuing` scenario reaches an honest stop-unwind completion boundary on current disk without relying on longer sleeps or looser later-iteration assertions.
+- `R2.` The stopped loop path releases its conversation ownership and clears runtime cleanup state before the scenario's teardown helper finishes waiting.
+- `R3.` Any repair stays local to `server/src/test/integration/flows.run.loop.test.ts` and the exact supporting stop-unwind seam it reaches in `server/src/flows/service.ts`.
+- `R4.` The targeted named scenario passes on current disk and the full `npm run test:summary:server:unit` wrapper runs past this shared blocker again.
+- `R5.` The repair records why this regression is different from the earlier Task 166 proof-boundary drift so later tasks do not repeat the same misdiagnosis.
+
+#### Proof Mapping
+
+- `P1.` Requirement: the named stopped-loop scenario still proves that a stop prevents later iterations from continuing while reaching a deterministic stop-unwind completion boundary. Owners: `server/src/test/integration/flows.run.loop.test.ts`. Proof homes: subtasks 2 through 4; Testing 2 and 3.
+- `P2.` Requirement: the stopped loop path now reaches ownership release and runtime cleanup settlement instead of leaving teardown waiting on stale inflight or lock state. Owners: `server/src/flows/service.ts`, `server/src/test/integration/flows.run.loop.test.ts`. Proof homes: subtasks 2 through 4; Testing 2 and 3.
+
+#### Documentation Locations
+
+- `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.loop.test.ts`
+- `test-results/server-unit-tests-2026-04-21T00-02-30-968Z.log`
+
+#### Subtasks
+
+1. [ ] Re-read `test-results/server-unit-tests-2026-04-21T00-02-30-968Z.log`, the named stopped-loop scenario, Task 166's repaired proof notes, and the current stop-unwind finalize path in `server/src/flows/service.ts`. Purpose: keep this repair anchored to the exact regressed boundary rather than to the already-closed earlier blocker.
+2. [ ] Trace the stopped-loop path from the stop request through `runFlowUnlocked.finalize.exit`, `cleanupPendingConversationCancel(...)`, and `releaseConversationLockFn(...)`, and identify the minimum owner on current disk that now prevents ownership release from being reached. Purpose: keep the repair bounded to the true shared stop-unwind owner instead of widening into downstream queue-runtime proof files.
+3. [ ] Repair the named scenario and any exact stop-unwind seam it reaches so the stopped loop path settles ownership and runtime cleanup honestly without reopening later iterations and without hiding timing drift behind fixed-delay sleeps. Purpose: restore the shared server-unit prerequisite as a deterministic proof owner again.
+4. [ ] Test type: server integration under `node:test`. Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: author or update direct proof that the stopped loop path reaches the repaired finalize or release boundary and that teardown observes cleared inflight and ownership state before `waitForRuntimeCleanup(...)` returns. Purpose: keep the blocker repair owned by the proof file that currently fails in the full wrapper.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "flow stop during a looped flow prevents later iterations from continuing"`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation notes
+
+- Planner repair on 2026-04-21: inserted this fresh prerequisite after Task 169's full `server:unit` rerun regressed on the same shared `flows.run.loop.test.ts` owner that Task 166 had already repaired once. The new blocker evidence is different from Task 166's proof-boundary drift: the latest saved log shows repeated cleanupInflight progress but no `runFlowUnlocked.finalize.exit` and no `releaseConversationLockFn(...)` reach, so the next honest work is a new bounded shared stop-unwind owner rather than more queue-runtime proof churn.
+
+### Task 169. Re-Anchor Queue-Runtime Proof Owners On The Request-Aware Wait Boundary
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `161, 168`
+- Task Status: `__to_do__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: queue-runtime proof owners still rely on `runId` polling instead of the request-aware terminal wait boundary the runtime now exposes
 
@@ -13360,11 +13410,11 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 - Subtask 1: re-read the Story 55 blocking-wait acceptance criteria and current review finding, and confirmed this task stays on proof-boundary honesty around the existing request-aware queue contract rather than widening into queue-runtime redesign.
 - Subtasks 2 through 9: added a shared `waitForQueueManagedTerminalStatus(...)` helper in `server/src/test/unit/ingest-queue-runtime.helpers.ts`, rewired the pump, startup, recovery, deferred-mismatch, and invalid-state proof owners onto request-scoped queue waiting, and updated `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` with explicit timeout-fallback-only coverage plus listener-cleanup proof for timeout, queue-read-failed, cancellation, and immediate cached-terminal reuse.
-- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the Task 168 request-aware queue wait proof owners still compile on current disk.
-- **BLOCKER** Testing 2 (`npm run test:summary:server:unit`): the full server-unit wrapper failed in out-of-scope shared proof owner `server/src/test/integration/flows.run.loop.test.ts` on `flow stop during a looped flow prevents later iterations from continuing`, stopping in `waitForRuntimeCleanup(...)` from `test-results/server-unit-tests-2026-04-21T00-02-30-968Z.log`. I ran the required full wrapper, inspected the saved failure block, and confirmed the regression is not in Task 168’s request-aware ingest queue proof files. This task should be split or reordered behind a fresh shared `flows.run.loop` prerequisite repair before Task 168 automated proof can continue honestly.
-- **BLOCKING ANSWER** Repository precedents show the honest fix is a fresh shared prerequisite repair, not more Task 168 proof churn. In this repo, Task `166` already owned the earlier `flows.run.loop` stop-cleanup blocker before Task `167` resumed, and the runtime cleanup seam still pairs `cleanupInflight(...)`, `cleanupPendingConversationCancel(...)`, and `releaseConversationLock(...)` in one finalize path in `server/src/flows/service.ts` and `server/src/routes/chat.ts`, while nearby success-path proof owners such as `server/src/test/integration/agents-run-ws-cancel.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, and `server/src/test/integration/chat-tools-wire.test.ts` all treat runtime cleanup as incomplete until inflight, ownership, and pending-cancel state are gone together. Current disk shows this blocker is now below Task 168 and different from the proof-drift Task `166` fixed: the saved `test-results/server-unit-tests-2026-04-21T00-02-30-968Z.log` records repeated `after cleanupInflightFn` events with ownership still present, `ownershipRelease.branch=\"never_reached\"`, and no observed `runFlowUnlocked.finalize.exit`, which means the shared stop-unwind or lock-release path is no longer being reached before teardown waits on `waitForRuntimeCleanup(...)`. External/framework precedent agrees with that diagnosis instead of with a timeout bump: the official Node `node:test` docs and Context7 show `--test-name-pattern` is a focused diagnosis tool rather than a replacement for full-wrapper validation, `node:test` still reports async activity that outlives a completed test, and `context.signal` is the supported cancellation mechanism for test subtasks; DeepWiki's `nodejs/node` summary points to the same `node:test` async-cleanup and `AbortSignal` model. Targeted web research on the official docs also matters here: Node's `node:test` docs say outstanding async work is still surfaced after test completion, and MDN's `try...catch...finally` docs explain that cleanup in `finally` always runs and later cleanup failures can overtake an earlier failure, which fits this scenario's `finally { await waitForRuntimeCleanup(...); }` masking the more important missing-finalize boundary. The best technical solution is therefore to split or reorder Task 168 behind a new prerequisite owner on `server/src/test/integration/flows.run.loop.test.ts` plus the exact stop-unwind seam it reaches in `server/src/flows/service.ts`, and to repair why `runFlowUnlocked.finalize.exit` and `releaseConversationLockFn(...)` no longer fire for the stopped loop path before rerunning Task 168's full `server:unit` gate. Rejected alternatives are not suitable: increasing `waitForRuntimeCleanup(...)` timeouts or adding sleeps would only hide stuck ownership; patching Task 168's queue-runtime proof files cannot affect this owner; replacing the full wrapper with targeted runs would violate the repo's wrapper contract; and repeatedly rerunning until green would hide a real shared regression instead of assigning it honestly. The `code_info` MCP tool was attempted first for repository-pattern research in this step but returned `Method not found`, so this proof is anchored to direct on-disk evidence plus official Node and MDN documentation.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the Task 169 request-aware queue wait proof owners still compile on current disk.
+- **RESOLVED ISSUE** Testing 2 (`npm run test:summary:server:unit`) failed in out-of-scope shared proof owner `server/src/test/integration/flows.run.loop.test.ts` on `flow stop during a looped flow prevents later iterations from continuing`, stopping in `waitForRuntimeCleanup(...)` from `test-results/server-unit-tests-2026-04-21T00-02-30-968Z.log`. Planner repair on 2026-04-21 converted that live blocker into new Task `168`, returned this queue-runtime proof task to `__to_do__`, and preserved the completed implementation work plus Testing 1 on disk so this task can resume only after the shared server-unit prerequisite is green again.
+- **BLOCKING ANSWER** Repository precedents show the honest fix is a fresh shared prerequisite repair, not more Task 169 proof churn. In this repo, Task `166` already owned the earlier `flows.run.loop` stop-cleanup blocker before Task `167` resumed, and the runtime cleanup seam still pairs `cleanupInflight(...)`, `cleanupPendingConversationCancel(...)`, and `releaseConversationLock(...)` in one finalize path in `server/src/flows/service.ts` and `server/src/routes/chat.ts`, while nearby success-path proof owners such as `server/src/test/integration/agents-run-ws-cancel.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, and `server/src/test/integration/chat-tools-wire.test.ts` all treat runtime cleanup as incomplete until inflight, ownership, and pending-cancel state are gone together. Current disk shows this blocker is now below Task 169 and different from the proof-drift Task `166` fixed: the saved `test-results/server-unit-tests-2026-04-21T00-02-30-968Z.log` records repeated `after cleanupInflightFn` events with ownership still present, `ownershipRelease.branch=\"never_reached\"`, and no observed `runFlowUnlocked.finalize.exit`, which means the shared stop-unwind or lock-release path is no longer being reached before teardown waits on `waitForRuntimeCleanup(...)`. External/framework precedent agrees with that diagnosis instead of with a timeout bump: the official Node `node:test` docs and Context7 show `--test-name-pattern` is a focused diagnosis tool rather than a replacement for full-wrapper validation, `node:test` still reports async activity that outlives a completed test, and `context.signal` is the supported cancellation mechanism for test subtasks; DeepWiki's `nodejs/node` summary points to the same `node:test` async-cleanup and `AbortSignal` model. Targeted web research on the official docs also matters here: Node's `node:test` docs say outstanding async work is still surfaced after test completion, and MDN's `try...catch...finally` docs explain that cleanup in `finally` always runs and later cleanup failures can overtake an earlier failure, which fits this scenario's `finally { await waitForRuntimeCleanup(...); }` masking the more important missing-finalize boundary. The best technical solution is therefore to keep Task 169 behind new Task `168`, repair the exact stop-unwind seam in `server/src/test/integration/flows.run.loop.test.ts` plus `server/src/flows/service.ts`, and rerun Task 169's full `server:unit` gate only after that shared prerequisite closes. Rejected alternatives are not suitable: increasing `waitForRuntimeCleanup(...)` timeouts or adding sleeps would only hide stuck ownership; patching Task 169's queue-runtime proof files cannot affect this owner; replacing the full wrapper with targeted runs would violate the repo's wrapper contract; and repeatedly rerunning until green would hide a real shared regression instead of assigning it honestly. The `code_info` MCP tool was attempted first for repository-pattern research in this step but returned `Method not found`, so this proof is anchored to direct on-disk evidence plus official Node and MDN documentation.
 
-### Task 169. Reject Malformed Classic MCP Arguments Before Domain Validation
+### Task 170. Reject Malformed Classic MCP Arguments Before Domain Validation
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
@@ -13418,21 +13468,21 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 - Pending.
 
-### Task 170. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
+### Task 171. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `161, 162, 163, 164, 165, 166, 167, 168, 169`
+- Task Dependencies: `161, 162, 163, 164, 165, 166, 167, 168, 169, 170`
 - Task Status: `__to_do__`
 - Addresses Findings:
-  - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `162` through `169`, plus the Task `161` formatter-prerequisite repair that keeps that review-created block runnable
+  - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `162` through `170`, plus the Task `161` formatter-prerequisite repair that keeps that review-created block runnable
 
 #### Overview
 
-Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 162 through 169 close the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba`, that Task 161 keeps the repo-wide format gate runnable for that block, refresh the durable close-out summary honestly, and confirm the story’s supported runtime, queue, and repository-list contracts still hold after the review repairs.
+Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 162 through 170 close the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba`, that Task 161 keeps the repo-wide format gate runnable for that block, refresh the durable close-out summary honestly, and confirm the story’s supported runtime, queue, and repository-list contracts still hold after the review repairs.
 
 #### Task Exit Criteria
 
-- `R1.` Tasks `161` through `169` are `__done__`, Tasks `162` through `169` close the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba`, and the shared formatter prerequisite from Task `161` no longer blocks repo-wide proof.
+- `R1.` Tasks `161` through `170` are `__done__`, Tasks `162` through `170` close the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba`, and the shared formatter prerequisite from Task `161` no longer blocks repo-wide proof.
 - `R2.` The exact review-created findings block for review pass `0000055-20260420T140453Z-d9e38eba` is revalidated on disk rather than left as artifact-only review intent.
 - `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes and any still-honest residual risk for this review-created block.
 - `R4.` Fresh automated validation reruns the supported build, test, and stack wrappers needed to revalidate the repaired seams and the story’s supported main runtime path.
@@ -13440,7 +13490,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Proof Mapping
 
-- `P1.` Requirement: Tasks `161` through `169` are complete on current disk, with Tasks `162` through `169` closing the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba` and Task `161` keeping the repo-wide formatting gate runnable for that block. Owners: Tasks `161` through `169`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
+- `P1.` Requirement: Tasks `161` through `170` are complete on current disk, with Tasks `162` through `170` closing the actionable findings and prerequisite repairs for review pass `0000055-20260420T140453Z-d9e38eba` and Task `161` keeping the repo-wide formatting gate runnable for that block. Owners: Tasks `161` through `170`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
 - `P2.` Requirement: the durable review close-out records the repaired proof homes, any retained weak proof, and the current review-pass adjudication honestly. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 5; Testing 1 through 11.
 - `P3.` Requirement: the supported main runtime path still starts, probes, and shuts down cleanly after the repaired review-created block lands. Owners: `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: Testing 6 through 9.
 
@@ -13455,8 +13505,8 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260420T140453Z-d9e38eba` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
-2. [ ] Re-open the completed proof-owner sections for Tasks `161` through `169` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
-3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `169`. Purpose: make the durable close-out name the current repaired owner set explicitly.
+2. [ ] Re-open the completed proof-owner sections for Tasks `161` through `170` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
+3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `161` through `170`. Purpose: make the durable close-out name the current repaired owner set explicitly.
 4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
 5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
 6. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260420T140453Z-d9e38eba` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.

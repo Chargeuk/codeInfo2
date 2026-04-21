@@ -13501,7 +13501,7 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161, 162, 163, 164, 165, 166, 167, 168, 169, 170`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `162` through `170`, plus the Task `161` formatter-prerequisite repair that keeps that review-created block runnable
 

@@ -427,7 +427,9 @@ test('classic MCP rejects array arguments as malformed request shape before doma
 });
 
 test('classic MCP malformed arguments use dispatcher envelope instead of tool field errors', async () => {
-  const { res } = await callClassicReingestWithArguments('sourceId=/data/repo-a');
+  const { res } = await callClassicReingestWithArguments(
+    'sourceId=/data/repo-a',
+  );
 
   assert.equal(res.status, 200);
   assert.equal(res.body.result, undefined);

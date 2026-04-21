@@ -13477,11 +13477,11 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13489,6 +13489,11 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 - Subtask 2: updated `server/src/mcp/server.ts` so present non-object `tools/call.params.arguments` values now return dispatcher-owned `INVALID_PARAMS` before any tool-specific validation, while omitted `arguments` still follow the existing `{}` domain-validation path.
 - Subtasks 3 through 5: added classic MCP unit coverage in `server/src/test/unit/mcp.reingest.classic.test.ts` proving string and array `arguments` are rejected before `runReingestRepository(...)` is called and that malformed non-object arguments return the dispatcher JSON-RPC error envelope without tool-owned field-error data.
 - Subtasks 6 and 7: added classic MCP unit coverage proving well-formed object arguments still reach the reingest happy path and still preserve the existing domain-error JSON-RPC mapping after the malformed-shape guard.
+- Testing 1: `npm run build:summary:server` passed with clean wrapper output and `agent_action: skip_log`; no log inspection was needed.
+- Testing 2: `npm run test:summary:server:unit` passed with 1744 tests run, 1744 passed, and `agent_action: skip_log`; no log inspection was needed.
+- Testing 3: `npm run test:summary:server:cucumber` passed with 105 tests run, 105 passed, and `agent_action: skip_log`; no log inspection was needed.
+- Testing 4: `npm run lint` completed successfully; no `npm run lint:fix` pass was needed.
+- Testing 5: initial `npm run format:check` reported Prettier style issues in `server/src/test/unit/mcp.reingest.classic.test.ts`; ran targeted Prettier formatting on that task-owned file to avoid rewriting unrelated dirty worktree files, then reran `npm run format:check` successfully.
 
 ### Task 171. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
 

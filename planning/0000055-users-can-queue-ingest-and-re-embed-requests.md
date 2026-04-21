@@ -13760,7 +13760,7 @@ Repair the REST queue-admission response builders so waiting responses and queue
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F3` (`should_fix`): initial Mongo startup failure exits before queueable callers can receive retryable `QUEUE_UNAVAILABLE`.
   - `F5` (`should_fix`): blocking re-ingest callers collapse specific queue-unavailable diagnostics into the generic disconnected-Mongo message.
@@ -13858,6 +13858,7 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 - Testing 7: `npm run compose:down` exited 0 after removing the supported stack containers and `codeinfo2_internal` network.
 - Testing 8: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 9: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
+- Automated-proof audit: parser state showed all Task 174 subtasks and Testing steps checked with no live blocker after proof commit `3b5a6378`; normalized the task status to `__done__` so the plan reflects the completed implementation and automated proof state.
 
 ### Task 175. Add The REST `QUEUE_UNAVAILABLE` Failure Contract To OpenAPI
 

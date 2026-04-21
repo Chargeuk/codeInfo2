@@ -73,6 +73,8 @@ If the bounded sibling scan produces no new actionable findings, update the same
 - `saturation_outcome`
 - `saturation_generated_findings: false`
 
+When updating the handoff for saturation results, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed. Only update findings counts, disposition hints, and the saturation-owned fields listed above.
+
 This artifact is additive context for later blind-spot challenge and disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
 
 - Report the saturation artifact path and whether the saturation pass generated any new actionable findings.
@@ -83,6 +85,7 @@ This artifact is additive context for later blind-spot challenge and disposition
 
 - Confirm the current-plan handoff still matches the canonical plan and story branch.
 - Confirm the review handoff still matches the current scope and referenced artifacts.
+- Confirm the review handoff still preserves the existing repository comparison metadata after this step's update.
 - Confirm the bounded sibling scan inspected same-class surfaces instead of restarting the whole review.
 - Confirm the saturation artifact path matches the `saturation_file` value written into the handoff.
 - Confirm the artifact explicitly says whether any new actionable finding was generated.

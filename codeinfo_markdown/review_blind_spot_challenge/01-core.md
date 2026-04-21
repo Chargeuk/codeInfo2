@@ -55,6 +55,8 @@ If the challenge produces no new finding, update the same review handoff so it i
 - `challenge_outcome`
 - `challenge_generated_findings: false`
 
+When updating the handoff for challenge results, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed. Only add or update the challenge-owned fields listed above.
+
 This artifact is additive context for disposition. Downstream steps must still work when it is absent because an older flow snapshot may still be running.
 
 - Report the challenge artifact path and whether the challenge generated any new findings.
@@ -65,6 +67,7 @@ This artifact is additive context for disposition. Downstream steps must still w
 
 - Confirm the current-plan handoff still matches the canonical plan and story branch.
 - Confirm the review handoff still matches the current scope and referenced artifacts.
+- Confirm the review handoff still preserves the existing repository comparison metadata after this step's update.
 - Confirm the challenge consumed the saturation artifact when it was present, and still remained backward-compatible when it was absent.
 - Confirm the challenge inspected the top-risk helpers/functions rather than restarting the entire review.
 - Confirm the challenge artifact path matches the `challenge_file` value written into the handoff.

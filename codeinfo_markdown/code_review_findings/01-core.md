@@ -89,6 +89,8 @@ If no findings exist:
 
 Update the same handoff file so `findings_file` points to the exact findings artifact, and include any useful counts or disposition hints, including repo-local versus cross-repository grouping when relevant.
 
+When updating the handoff, preserve all existing top-level fields and every existing `repos[]` entry exactly unless this step explicitly owns the field being changed. In particular, preserve `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, conditional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, `comparison_rule`, and `head_commit`.
+
 This findings file is a high-quality local review artifact for the active flow run. It MUST NOT be committed.
 
 </output_contract>

@@ -10,6 +10,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Use the stored review handoff plus the artifacts it references as the sole source of review outcome for this step.
 - Do not fail this step because a previous disposition pass underperformed. Repair the plan instead.
 - Do not rediscover the story, review pass, or review comments independently.
+- Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the referenced artifacts, current-plan handoff, and direct git state to infer the safest usable meaning.
+- Do not repeatedly rerun or ask to regenerate review artifacts solely to satisfy handoff formatting. If the review outcome cannot be determined even after safe inference, repair the plan with a visible incomplete-review follow-up instead of claiming no findings.
 
 </critical_rules>
 
@@ -18,18 +20,11 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 1. Validate that the stored handoff plan exists and that the current repository branch story number still matches the selected plan filename.
 2. Validate that every additional repository in scope still exists, is readable, and remains on a branch whose story number matches the selected plan filename.
 3. Read the stored review handoff and confirm that its `story_id`, `plan_path`, `review_pass_id`, `evidence_file`, `findings_file`, and repository scope still match the current handoff scope and repository state.
-4. Confirm every repository entry in the stored review handoff includes `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`, plus optional sanitized `remote_fetch_error` only when `remote_fetch_status: fetch_failed` and optional `remote_fetch_exit_code` only when `remote_fetch_status: fetch_failed` and an exit code is available.
-5. Confirm every repository entry preserves the review comparison contract:
-   - `remote_name` is `origin`;
-   - `comparison_base_commit` is present and resolves to a commit object in the repository;
-   - `comparison_head_ref` is `HEAD`;
-   - `comparison_rule` is `local_head_vs_resolved_base`;
-   - `remote_fetch_error` and `remote_fetch_exit_code` are omitted for every non-`fetch_failed` `remote_fetch_status`;
-   - `remote_fetch_error`, when present, is a categorized or sanitized summary rather than raw `git fetch` stderr and contains no URL credentials, userinfo, access tokens, or query strings;
-   - `resolved_base_source: remote` means `remote_fetch_status: success`, `comparison_base_ref` is the remote-tracking ref used for review, and `local_fallback_reason` is `null`;
-   - `resolved_base_source: local_fallback` means `remote_fetch_status` is one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` is the local branch or ref used for review, and `local_fallback_reason` exactly matches `remote_fetch_status`.
-6. Read the findings artifact referenced by the review handoff. Read the challenge artifact when present.
-7. Re-open the canonical plan from disk immediately before deciding whether repair is needed.
+4. For every repository entry, combine the handoff, referenced artifacts, and current git state to confirm enough context to understand the repository scope, current branch, current local `HEAD`, and the local-HEAD-vs-resolved-base comparison used by the review.
+5. Prefer stored comparison metadata when present, including `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`. If some of these fields are missing, infer only the pieces needed to encode the review outcome honestly, record the inference in the plan text when it affects confidence, and ignore unknown extra fields.
+6. When present, treat `remote_fetch_error` and `remote_fetch_exit_code` as optional fetch-failure diagnostics. Do not copy raw `remote_fetch_error` text into plan output unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.
+7. Read the findings artifact referenced by the review handoff. Read the challenge artifact when present.
+8. Re-open the canonical plan from disk immediately before deciding whether repair is needed.
 
 </scope_rules>
 
@@ -48,9 +43,10 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
    - tiny unrelated cleanup-only findings are not left as a trail of micro-tasks when they could be absorbed into a nearby substantive task or grouped into one cleanup task honestly.
-3. If `finding_counts.must_fix + finding_counts.should_fix == 0`, the plan must instead contain the required no-findings close-out for the current `review_pass_id`, including the stored local-HEAD-vs-resolved-base comparison details for every repository in scope.
-4. If the current plan already satisfies the correct postcondition for the stored review outcome, make no plan change.
-5. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
+3. If `finding_counts.must_fix + finding_counts.should_fix == 0`, the plan must instead contain the required no-findings close-out for the current `review_pass_id`, including the stored or safely inferred local-HEAD-vs-resolved-base comparison details for every repository in scope.
+4. If the review outcome cannot be interpreted safely enough to decide findings-present versus no-findings, the plan must contain a bounded incomplete-review follow-up task instead of a no-findings close-out.
+5. If the current plan already satisfies the correct postcondition for the stored review outcome, make no plan change.
+6. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
 
 </decision_rules>
 
@@ -74,15 +70,16 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 16. Ensure each review-created task and the fresh final revalidation task preserve durable finding-to-task coverage in the plan itself.
 17. Keep the repair concrete and executable by a junior developer. If a finding is still too unclear for a direct code-change task, create a bounded diagnostic task with an explicit stopping rule rather than leaving the finding un-tasked.
 18. When no findings are present and the required close-out section is missing, append the required `Post-Implementation Code Review` section for the current `review_pass_id`.
-19. If a no-findings close-out section exists but lacks the stored comparison metadata, repair it instead of treating it as complete.
+19. If a no-findings close-out section exists but lacks stored or safely inferred comparison metadata, repair it instead of treating it as complete.
 20. Any repaired no-findings close-out must state, for every repository in scope:
     - that the review compared local `HEAD` against `comparison_base_ref`;
-    - the `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`;
-    - whether `resolved_base_source` was `remote` or `local_fallback`;
-    - `remote_name` and `remote_fetch_status`;
-    - the fallback reason when `resolved_base_source` is `local_fallback`;
+    - the stored or inferred `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`;
+    - whether `resolved_base_source` was `remote`, `local_fallback`, or unavailable from the artifacts;
+    - `remote_name` and `remote_fetch_status` when available;
+    - the fallback reason when `resolved_base_source` is `local_fallback` and that reason is available;
     - that `origin/<current-story-branch>` was not used as the review head.
-21. After repairing the plan, re-open it from disk and verify that the required postcondition now exists before finishing this step.
+21. If the stored review outcome cannot be interpreted safely enough to choose the findings-present or no-findings path, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review.
+22. After repairing the plan, re-open it from disk and verify that the required postcondition now exists before finishing this step.
 
 </repair_rules>
 
@@ -99,7 +96,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 - Leave the canonical plan in a state that matches the stored review outcome:
   - findings present => review-fix tasks plus final revalidation task;
-  - no findings => required post-review close-out section.
+  - no findings => required post-review close-out section;
+  - outcome unclear after safe inference => bounded incomplete-review follow-up task.
 - Make no plan changes only when the current plan already satisfies the correct postcondition.
 
 </output_contract>
@@ -109,7 +107,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm you re-read `current-plan.json` first.
 - Confirm you re-opened the exact canonical plan from disk before deciding whether repair was needed.
 - Confirm you read the stored review handoff and findings artifact for the same story.
-- Confirm the stored review handoff schema was validated, including local-HEAD-vs-resolved-base comparison metadata, `comparison_base_commit`, and remote/fallback consistency.
+- Confirm the stored review handoff and referenced artifacts were interpreted semantically, including local-HEAD-vs-resolved-base comparison context and any remote/fallback uncertainty that affects confidence.
 - Confirm that a findings-present handoff did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
 - Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, owns full relevant regression proof for the affected repositories, and was not forced into bogus single-repository ownership.
@@ -123,7 +121,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm that no merged review-created task has become an unfocused catch-all or vague cleanup bucket.
 - Confirm that no collapsed cleanup task hides materially different ownership or proof.
 - Confirm that a no-findings handoff did not leave the plan without the required close-out section.
-- Confirm that any repaired no-findings close-out preserves the stored `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, `remote_name`, `remote_fetch_status`, and any local fallback reason for every repository in scope.
+- Confirm that any repaired no-findings close-out preserves the stored or safely inferred `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, `remote_name`, `remote_fetch_status`, and any local fallback reason for every repository in scope.
 - Confirm the repaired plan now matches the stored review outcome on disk.
 
 </verification_loop>

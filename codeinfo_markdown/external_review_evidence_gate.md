@@ -16,4 +16,5 @@ Apply these external-review-specific additions after that shared base sequence:
 9. When writing or overwriting `codeInfoTmp/reviews/<story-number>-current-review.json`, extend the base handoff with:
    - `external_review_input_file`
 10. Keep the rest of the handoff contract aligned with the shared `review_evidence_gate` base sequence, including stable repo aliases, remote-first ancestry-aware resolved base branches, `resolved_base_source`, `logical_base_branch`, `remote_name: "origin"`, `remote_fetch_status`, optional fetch-failed-only sanitized `remote_fetch_error`, optional fetch-failed-only `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, current HEAD commits for every repository in scope, and the risk-invariant matrix for the top risky helpers/functions.
-11. Report the evidence summary and the exact handoff file path when done.
+11. Treat those structured fields as the preferred writer format for downstream confidence, while downstream reader prompts remain responsible for semantic best-effort interpretation of older or partially shaped handoffs.
+12. Report the evidence summary and the exact handoff file path when done.

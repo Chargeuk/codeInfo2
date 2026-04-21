@@ -8,7 +8,8 @@ Run a bounded same-class sibling scan after the findings pass and before the bli
 - Re-read `codeInfoStatus/flow-state/current-plan.json` first, derive the canonical `plan_path`, and re-open that exact plan from disk.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk and use only the artifacts referenced there.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated.
-- If the review handoff is stale or incomplete, stop and say the review handoff is stale and must be regenerated.
+- Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the evidence and findings artifacts, current-plan handoff, and direct git state to infer the safest usable meaning.
+- If the review handoff cannot provide the minimum usable findings and repository scope even after safe inference, write a visible incomplete saturation outcome when enough path information exists and do not ask for repeated regeneration.
 - This step does not edit the canonical plan.
 - This step does not replace the findings pass. It expands the same findings outcome across bounded sibling surfaces before blind-spot challenge and disposition continue.
 - Keep the sibling scan bounded to the same repository unless a finding is already cross-repository.
@@ -27,7 +28,9 @@ Read all of the following from disk:
 
 If the review handoff includes `external_review_input_file`, treat it only as additive context already filtered by the findings pass; the findings artifact remains the canonical endorsed-findings source.
 
-Use the review handoff's stored local-HEAD-vs-resolved-base comparison metadata, including `comparison_base_commit`, as already resolved evidence. Do not re-resolve `comparison_base_ref` or replace local `HEAD` with `origin/<current-story-branch>`; if any repository used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the saturation artifact when it affects the sibling scan.
+Prefer the review handoff's stored local-HEAD-vs-resolved-base comparison metadata, including `comparison_base_commit`, as already resolved evidence. If some metadata is absent, infer only what is needed from the evidence artifact and git state, record that inference in the saturation artifact when it affects confidence, and do not replace local `HEAD` with `origin/<current-story-branch>`. If any repository used or appears to have used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the saturation artifact when it affects the sibling scan.
+
+Do not repeatedly rerun or ask to regenerate review artifacts solely to satisfy handoff formatting. Make one best-effort interpretation from the existing handoff, referenced artifacts, and git state.
 
 Treat the findings artifact's actionable findings, `Finding Saturation Seeds`, `Checked Defect Families`, and `Rejected Risk Notes` as the primary input set for this step.
 
@@ -85,7 +88,7 @@ This artifact is additive context for later blind-spot challenge and disposition
 
 - Confirm the current-plan handoff still matches the canonical plan and story branch.
 - Confirm the review handoff still matches the current scope and referenced artifacts.
-- Confirm the review handoff still preserves the existing repository comparison metadata, including `comparison_base_commit`, after this step's update.
+- Confirm the review handoff still preserves existing repository comparison metadata after this step's update, and that any safely inferred comparison context is documented in the saturation artifact when it affects confidence.
 - Confirm the bounded sibling scan inspected same-class surfaces instead of restarting the whole review.
 - Confirm the saturation artifact path matches the `saturation_file` value written into the handoff.
 - Confirm the artifact explicitly says whether any new actionable finding was generated.

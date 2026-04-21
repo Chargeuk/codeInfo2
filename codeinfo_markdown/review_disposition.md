@@ -9,7 +9,8 @@ Finish the current story review using ONLY the stored review handoff and the art
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
 - Then read `codeInfoTmp/reviews/<story-number>-current-review.json`, derived from the shared story number.
 - If the current-plan handoff checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do not edit any plan.
-- If the review handoff is stale or incomplete, stop and say the review must be rerun. Do not edit any plan.
+- Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the evidence artifact, findings artifact, optional additive artifacts, current-plan handoff, and direct git state to infer the safest usable meaning.
+- If the stored review outcome cannot be determined even after safe inference, do not ask for repeated reruns. Mutate the canonical plan only to record a visible incomplete-review follow-up or bounded diagnostic task, and do not close the review as no-findings.
 - Treat `flows/**` as approved workflow configuration. Do not reopen the story or record scope-creep findings solely because those files changed without being named in the active plan.
 - Only reopen if the review shows those `flows/**` changes introduced incorrect workflow behavior, broke repository contracts, or require explicit follow-up validation work.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
@@ -30,28 +31,21 @@ Finish the current story review using ONLY the stored review handoff and the art
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
-- Read `codeInfoTmp/reviews/<story-number>-current-review.json`, derived from the shared story number, and verify that its:
+- Read `codeInfoTmp/reviews/<story-number>-current-review.json`, derived from the shared story number, and confirm the minimum usable review context:
   - `story_id`
   - `plan_path`
   - `review_pass_id`
   - `evidence_file`
   - `findings_file`
   - optional `saturation_file`
-  - `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, optional fetch-failed-only sanitized `remote_fetch_error`, optional fetch-failed-only `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, and `head_commit`.
-- Verify that repo paths, branch names, comparison base refs, comparison base commits, comparison head refs, comparison rules, and current HEAD commits still match the normalized review scope and current repository state for every selected repository.
-- Verify that each `comparison_base_commit` still resolves to a commit object in its repository.
-- Treat each stored `comparison_base_ref` as the already-resolved review base chosen by the evidence step and each stored `comparison_base_commit` as the pinned base object for review diffs. The ref may come from the remote-tracking version of the logical review base, or from an explicit local fallback when the remote path was unavailable. Do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
-- Treat each stored `comparison_head_ref` as local `HEAD`. The review result must represent the local working branch against the stored comparison base, not `origin/<current-story-branch>` against the base.
-- Treat `remote_name`, `remote_fetch_status`, `local_fallback_reason`, and any `remote_fetch_error` or `remote_fetch_exit_code` fields as recorded evidence from the evidence step.
-  - Verify that `remote_name` is `origin` and `remote_fetch_status` is exactly one of `success`, `missing_remote`, `fetch_failed`, or `missing_remote_ref`.
-  - Verify field presence and omission according to the evidence-step schema:
-    - `remote_fetch_error` is present only when `remote_fetch_status: fetch_failed`.
-    - `remote_fetch_error` must be a categorized or sanitized summary rather than raw `git fetch` stderr and must not contain URL credentials, userinfo, access tokens, or query strings.
-    - `remote_fetch_exit_code` is present only when `remote_fetch_status: fetch_failed` and an exit code is available.
-  - Verify `resolved_base_source` consistency:
-    - When `resolved_base_source` is `remote`, `remote_fetch_status` must be `success`, `comparison_base_ref` must be the remote-tracking ref used for review, and `local_fallback_reason` must be `null`.
-    - When `resolved_base_source` is `local_fallback`, `remote_fetch_status` must be one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` must be the local branch or ref used for review, and `local_fallback_reason` must exactly match `remote_fetch_status`.
+  - `repos` entries that identify the selected repositories and current branches, either directly or by safe inference from the artifacts and current git state.
+- Prefer stored comparison metadata when present, including `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`. If `comparison_base_commit` is missing but the base is clear from `comparison_base_ref`, `resolved_base_branch`, or the evidence artifact, resolve that base once and record that the disposition used an inferred base.
+- Treat each stored or inferred `comparison_head_ref` as local `HEAD`. The review result must represent the local working branch against the stored or inferred comparison base, not `origin/<current-story-branch>` against the base.
+- Treat `remote_name`, `remote_fetch_status`, `resolved_base_source`, `local_fallback_reason`, and any `remote_fetch_error` or `remote_fetch_exit_code` fields as recorded evidence from the evidence step when present. They improve confidence but are not required for older or partially shaped handoffs.
+  - Preserve remote-vs-local fallback context when it is present or safely inferable.
   - Do not re-fetch solely to make those past observations match current network or remote availability.
+  - If `remote_fetch_error` is present, do not copy raw error text into plan output unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.
+- Do not repeatedly rerun or ask to regenerate review artifacts solely to satisfy handoff formatting. Make one best-effort interpretation from the existing handoff, referenced artifacts, and git state; if the review outcome or comparison basis still cannot be determined, encode that incomplete-review state visibly in the plan rather than closing the review.
 - If the review handoff includes `saturation_file`, treat it as optional additive context for this pass. Read it when present.
 - If the review handoff includes `challenge_file`, treat it as optional additive context for this pass. Read it when present.
 - If `challenge_file` is absent, derive the same reasoning directly from the evidence and findings artifacts instead of failing or asking for a rerun.
@@ -66,11 +60,11 @@ Before deciding disposition, validate all of the following:
 - the canonical plan exists;
 - the canonical plan filename story number still matches the current repository branch story number;
 - every repository in scope is still on a branch whose story number matches the canonical plan filename;
-- the review handoff is complete and still matches the normalized review scope, canonical `plan_path`, and current repository state.
+- the review handoff, after safe inference from referenced artifacts when needed, still describes the normalized review scope, canonical `plan_path`, review outcome, and current repository state well enough to act.
 
 If the current-plan checks fail, stop and say the current-plan handoff is stale and must be regenerated.
 
-If the review handoff is stale or incomplete, stop and say the review must be rerun.
+If the review handoff cannot provide the minimum usable review outcome even after safe inference, do not ask for repeated reruns. Record a visible incomplete-review follow-up in the plan and do not treat the pass as no-findings.
 
 </validation_rules>
 
@@ -105,8 +99,8 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 24. This `optional_simplification` rule does not permit reopening an allowed support file for anything other than spelling, grammar, or wording corrections.
 25. If there are no findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
     - the branch-vs-base checks performed across all repositories in scope;
-    - whether each repository reviewed local `HEAD` against a remote-tracking review base or a local fallback, including the fallback reason when applicable;
-    - the stored `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule` for every repository in scope;
+    - whether each repository reviewed local `HEAD` against a remote-tracking review base or a local fallback, including the fallback reason when available;
+    - the stored or inferred `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule` for every repository in scope;
     - the acceptance-evidence checks performed;
     - the files inspected;
     - why each repository in scope remains complete;
@@ -138,6 +132,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 38. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
 39. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
 40. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
+41. If the stored review outcome cannot be interpreted safely enough to decide findings-present versus no-findings, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review. Do not create a no-findings close-out in that case.
 
 </disposition_rules>
 
@@ -168,16 +163,17 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 - Produce the correct plan mutations for the findings outcome:
   - reopen the canonical plan and add review-fix tasks when `must_fix` or `should_fix` findings exist;
   - reopen or defer localized `optional_simplification` findings according to the rules above;
-  - append `Post-Implementation Code Review` when there are no findings.
+  - append `Post-Implementation Code Review` when there are no findings;
+  - add a bounded incomplete-review follow-up task when the review outcome remains unclear after safe inference.
 - If this review mutates plans, commit only the resulting plan and code changes. Do not include the scratch review artifacts in the commit history.
-- Do not finish this step while the stored review handoff and the canonical plan disagree about whether actionable findings exist.
+- Do not finish this step while the stored review handoff and the canonical plan disagree about whether actionable findings exist, unless the handoff outcome remains unclear after safe inference and the plan now records a bounded incomplete-review follow-up task.
 
 </output_contract>
 
 <verification_loop>
 
 - Confirm the current-plan handoff and review handoff still match the current repository state.
-- Confirm the review handoff still includes local-HEAD-vs-resolved-base comparison metadata, including `comparison_base_commit`, for every repository in scope.
+- Confirm the review handoff or safely inferred context identifies the local-HEAD-vs-resolved-base comparison for every repository in scope.
 - Confirm every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership.
 - Confirm cross-repository findings produced explicit sequencing in the canonical plan and final validation.
 - Confirm no allowed support file was reopened for anything other than spelling, grammar, wording, or an explicit secret/artifact-hygiene correction.

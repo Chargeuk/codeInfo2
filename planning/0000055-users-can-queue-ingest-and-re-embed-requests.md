@@ -13585,3 +13585,290 @@ Save any final manual-testing screenshots, logs, or notes under `codeInfoStatus/
 - Testing 11: `npm run format:check` completed successfully with `All matched files use Prettier code style!`; no `npm run format` pass was needed.
 - Automated-proof audit: parser and on-disk proof notes showed all six subtasks and all eleven automated testing gates complete with no live blockers, so Task 171 was normalized to `__done__` before manual testing.
 - Manual testing: full-story proof ran for final Task 171 after restarting the freshness-unknown main stack with the documented compose workflow; live re-embed API proof showed `requestId`/`runId` split and a queued waiting row before the queue drained, browser proof confirmed queued, running, cleanup-blocked, refresh/transition, and replacement-metadata row identity behavior, screenshots and logs were saved under committed durable proof path `codeInfoStatus/manual-testing/0000055/`, and no additional subtasks or testing steps were needed.
+
+## Code Review Findings: `0000055-20260421T050131Z-a77661de`
+
+Stored review handoff `codeInfoTmp/reviews/0000055-current-review.json` validated the current repository on branch `feature/0000055-users-can-queue-ingest-and-re-embed-requests` at reviewed HEAD `a77661de` against base `main`. No additional repositories were in scope.
+
+Actionable findings from `codeInfoTmp/reviews/0000055-20260421T050131Z-a77661de-findings.md`:
+
+- `F1` (`must_fix`): Blocking re-embed callers can return success before queue cleanup has proven the request is really complete. Affected seams: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`.
+- `F2` (`should_fix`): Waiting REST responses can report a stale `queuePosition` after a route starts an older queued item. Affected seams: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`.
+- `F3` (`should_fix`): Initial Mongo startup failure still exits before the retryable queue-unavailable contract is reachable. Affected seams: `server/src/index.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/ingest/requestQueue.ts`.
+- `F4` (`should_fix`): OpenAPI documents queue success shapes but omits the required REST `QUEUE_UNAVAILABLE` `503` failure contract. Affected seams: `openapi.json`, `server/src/test/unit/openapi.contract.test.ts`, REST route contract docs.
+- `F5` (`should_fix`): Blocking re-ingest callers collapse specific queue-unavailable diagnostics into the disconnected-Mongo message. Affected seams: `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/mcp/server.ts`.
+
+Review saturation artifact `codeInfoTmp/reviews/0000055-20260421T050131Z-a77661de-findings-saturation.md` generated no new actionable findings. Blind-spot challenge artifact `codeInfoTmp/reviews/0000055-20260421T050131Z-a77661de-blind-spot-challenge.md` generated no new actionable findings and reinforced `F1`, `F3`, and `F5` plus the rejected-risk notes around admission races, UI stale-selection parity, runtime-id role separation, bulk refresh cardinality, provider/bootstrap-free fast paths, deferred execution validation, and stale-state precedence.
+
+### Task 172. Repair Blocking Re-Embed Completion Ordering Across Queue Cleanup
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `171`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F1` (`must_fix`): blocking re-embed callers can observe `completed` or `skipped` before queue cleanup deletion has succeeded or failed.
+
+#### Overview
+
+Repair the queue terminal-settlement path so request-scoped blocking callers do not return success until the queue record has been finalized successfully. If cleanup deletion fails after an otherwise successful run, blocking callers must observe the cleanup-blocked failure outcome instead of an earlier success event.
+
+#### Task Exit Criteria
+
+- `R1.` Normal completion, skipped completion, and zero-work or deletions-only fast-path completion no longer let request waiters settle as success before queue cleanup finalization succeeds.
+- `R2.` Cleanup delete failure after terminal work publishes a request-scoped cleanup-blocked outcome that blocking callers treat as a failed queued request.
+- `R3.` `runReingestRepository()` and downstream blocking callers still map genuinely successful queue requests to success after cleanup succeeds.
+- `R4.` Regression tests cover the normal terminal path and at least one fast-path terminal path with queue deletion failure.
+
+#### Proof Mapping
+
+- `P1.` Requirement: terminal status and queue cleanup ordering are atomic from the perspective of request waiters. Owners: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`. Proof homes: subtasks 1 through 4; Testing 1 through 5.
+- `P2.` Requirement: cleanup-blocked remains visible to blocking MCP, flow, command, and service callers as a failure outcome. Owners: `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`. Proof homes: subtasks 2 through 5; Testing 2 through 5.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/reingestError.ts`
+- `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`
+- `server/src/test/unit/reingestService.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read finding `F1`, `waitForQueueRequestTerminalStatus()`, `publishTerminalStatus()`, `persistQueueTerminalBarrier()`, `finalizeQueueRequestForRun()`, `completeReembedFastPathWithFence()`, and `runReingestRepository()` so the repair keeps cleanup-blocked semantics distinct from ordinary terminal success.
+2. [ ] Refactor the request-scoped terminal publication or waiter-settlement flow so `completed` and `skipped` request outcomes are visible to blocking waiters only after queue cleanup finalization has succeeded.
+3. [ ] Ensure queue delete failure publishes or preserves a request-scoped cleanup-blocked outcome that `waitForQueueRequestTerminalStatus()` and `runReingestRepository()` map to a failed queued request rather than `ok: true`.
+4. [ ] Add or update server-unit proof for the normal terminal path where queue deletion fails after work completion, proving the blocking caller does not return success and the cleanup-blocked state remains observable.
+5. [ ] Add or update server-unit proof for a zero-work or deletions-only re-embed fast path where queue deletion fails after terminal work, proving the same blocking-caller cleanup-blocked behavior.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation notes
+
+### Task 173. Recompute Waiting Queue Position After Route Pump Transitions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `171`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F2` (`should_fix`): start-ingest and re-embed REST responses and queue log payloads can report a stale pre-pump `queuePosition` when `pumpIngestQueue()` promotes an older waiting request.
+
+#### Overview
+
+Repair the REST queue-admission response builders so waiting responses and queue-accepted log markers report the request's current waiting-only `queuePosition` after any pump transition that may have promoted older queued work.
+
+#### Task Exit Criteria
+
+- `R1.` `POST /ingest/start` recomputes or reloads the accepted request's current waiting state after `pumpIngestQueue()` before returning waiting response metadata or queue-position log metadata.
+- `R2.` `POST /ingest/reembed/:root` follows the same post-pump current-position contract for both accepted and updated waiting requests.
+- `R3.` If the just-accepted request starts immediately, responses continue to report non-waiting state with `runId` and without waiting `queuePosition`.
+- `R4.` Tests cover the case where an older waiting item is promoted and the newly accepted request's response position changes from `2` to `1`.
+
+#### Proof Mapping
+
+- `P1.` Requirement: REST queue responses use current waiting-only queue position after route-side pump transitions. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`. Proof homes: subtasks 1 through 4; Testing 1 through 5.
+- `P2.` Requirement: queue log markers do not preserve stale pre-pump queue positions. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, route unit tests. Proof homes: subtasks 2 through 4; Testing 2 through 5.
+
+#### Documentation Locations
+
+- `server/src/routes/ingestStart.ts`
+- `server/src/routes/ingestReembed.ts`
+- `server/src/test/unit/ingest-start.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read finding `F2` and the start-ingest and re-embed route response builders so the repair preserves immediate-start, waiting, and updated-in-place response shapes.
+2. [ ] Update `server/src/routes/ingestStart.ts` so waiting response payloads and `QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID` log metadata use the accepted request's current post-pump waiting position.
+3. [ ] Update `server/src/routes/ingestReembed.ts` so waiting response payloads and both accepted/updated queue log metadata use the current post-pump waiting position.
+4. [ ] Add or update server-unit proof for both REST routes where an older waiting request is promoted by the pump and the newly accepted request is returned with its current waiting-only queue position.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation notes
+
+### Task 174. Restore Queue-Unavailable Reachability And Diagnostic Preservation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `171`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F3` (`should_fix`): initial Mongo startup failure exits before queueable callers can receive retryable `QUEUE_UNAVAILABLE`.
+  - `F5` (`should_fix`): blocking re-ingest callers collapse specific queue-unavailable diagnostics into the generic disconnected-Mongo message.
+
+#### Overview
+
+Repair the runtime queue-unavailable contract across startup and blocking re-ingest transports. Initial Mongo outage must leave queueable surfaces able to report retryable `QUEUE_UNAVAILABLE` instead of exiting before the contract is reachable, and blocking MCP, flow, and command callers must preserve the producer's specific queue-unavailable diagnostic text.
+
+#### Task Exit Criteria
+
+- `R1.` The default server startup path no longer exits before queueable REST/MCP/flow/command callers can receive a retryable queue-unavailable response when the initial Mongo dependency is unavailable.
+- `R2.` Startup and health/readiness behavior remain honest about degraded Mongo-backed queue availability and do not start queue work without Mongo persistence.
+- `R3.` `runReingestRepository()` preserves the original `QUEUE_UNAVAILABLE` message and retryable classification from queue producers instead of replacing it with the disconnected-Mongo message.
+- `R4.` Command, flow, and classic MCP proof covers a degraded-startup queue-unavailable reason and verifies the specific diagnostic survives through their blocking re-ingest error surfaces.
+
+#### Proof Mapping
+
+- `P1.` Requirement: initial Mongo outage reaches the retryable queue-unavailable contract instead of process exit. Owners: `server/src/index.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/ingest/requestQueue.ts`. Proof homes: subtasks 1 through 4; Testing 1 through 8.
+- `P2.` Requirement: blocking re-ingest transports preserve producer diagnostics for `QUEUE_UNAVAILABLE`. Owners: `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/mcp/server.ts`. Proof homes: subtasks 3 through 5; Testing 2 through 8.
+
+#### Documentation Locations
+
+- `server/src/index.ts`
+- `server/src/startup/ingestQueueStartup.ts`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/reingestError.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/service.ts`
+- `server/src/mcp/server.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/mcp.reingest.classic.test.ts`
+- `server/src/test/integration/commands.markdown-file.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read findings `F3` and `F5`, the default startup sequence, queue availability markers, and blocking re-ingest error formatting so the repair preserves fail-closed queue persistence while keeping retryable error surfaces reachable.
+2. [ ] Update startup handling so initial Mongo connection failure marks Mongo-backed queue availability unavailable and keeps the server reachable enough for queueable callers to receive `QUEUE_UNAVAILABLE`, without permitting queue work to run without persistence.
+3. [ ] Preserve the producer-provided `QUEUE_UNAVAILABLE` message and retryable metadata through `runReingestRepository()` and `formatReingestPrestartReason()`.
+4. [ ] Add or update proof for initial Mongo startup outage reachability, including route or host-level evidence that queueable requests receive retryable `QUEUE_UNAVAILABLE` rather than connection failure.
+5. [ ] Add or update proof for MCP, flow, and command blocking re-ingest callers showing a degraded-startup queue-unavailable diagnostic survives without being rewritten to the disconnected-Mongo message.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run `npm run compose:up`.
+6. [ ] Run `npm run test:summary:host-network:main`.
+7. [ ] Run `npm run compose:down`.
+8. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+9. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation notes
+
+### Task 175. Add The REST `QUEUE_UNAVAILABLE` Failure Contract To OpenAPI
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `171`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F4` (`should_fix`): the machine-readable OpenAPI contract documents queue-aware success responses but omits the required REST `503 QUEUE_UNAVAILABLE` failure envelope for queueable producer routes.
+
+#### Overview
+
+Bring the OpenAPI contract and contract tests into alignment with the implemented REST outage behavior and Story 55's `QUEUE_UNAVAILABLE` requirement.
+
+#### Task Exit Criteria
+
+- `R1.` `openapi.json` documents a `503 Service Unavailable` response for `POST /ingest/start` with `status: "error"`, `code: "QUEUE_UNAVAILABLE"`, `retryable: true`, and `message`.
+- `R2.` `openapi.json` documents the same `503 QUEUE_UNAVAILABLE` response for `POST /ingest/reembed/{root}`.
+- `R3.` OpenAPI contract tests assert the failure response shape for both queueable producer routes in addition to the existing queue-aware success shapes.
+- `R4.` Any adjacent README or API-contract prose touched by this task remains consistent with the OpenAPI contract and runtime route behavior.
+
+#### Proof Mapping
+
+- `P1.` Requirement: machine-readable REST docs expose the required retryable queue outage envelope. Owners: `openapi.json`, `server/src/test/unit/openapi.contract.test.ts`. Proof homes: subtasks 1 through 4; Testing 1 through 5.
+- `P2.` Requirement: OpenAPI remains aligned with runtime route behavior. Owners: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `README.md` if touched. Proof homes: subtasks 2 through 4; Testing 2 through 5.
+
+#### Documentation Locations
+
+- `openapi.json`
+- `server/src/test/unit/openapi.contract.test.ts`
+- `server/src/routes/ingestStart.ts`
+- `server/src/routes/ingestReembed.ts`
+- `README.md`
+
+#### Subtasks
+
+1. [ ] Re-read finding `F4`, the existing OpenAPI success response blocks, and the REST route `QUEUE_UNAVAILABLE` runtime envelopes before editing the contract.
+2. [ ] Update `openapi.json` so both queueable producer routes document the `503 QUEUE_UNAVAILABLE` response envelope and retryable semantics.
+3. [ ] Update `server/src/test/unit/openapi.contract.test.ts` so both producer routes must retain the documented `503 QUEUE_UNAVAILABLE` response.
+4. [ ] Check adjacent README/API prose touched by this task and keep wording aligned with the final OpenAPI and runtime route contracts.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Implementation notes
+
+### Task 176. Re-Validate Story 55 After Review Pass `0000055-20260421T050131Z-a77661de`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `172, 173, 174, 175`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - Final validation for review pass `0000055-20260421T050131Z-a77661de`, covering `F1`, `F2`, `F3`, `F4`, and `F5`.
+
+#### Overview
+
+Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks 172 through 175 close the current review findings, refresh the durable close-out summary honestly, and rerun the supported automated proof needed to revalidate the repaired queue lifecycle, REST response, startup, transport diagnostic, and OpenAPI contracts.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks `172` through `175` are `__done__` and close findings `F1` through `F5` from review pass `0000055-20260421T050131Z-a77661de`.
+- `R2.` The appended `Code Review Findings` block for review pass `0000055-20260421T050131Z-a77661de` is revalidated on disk rather than left as artifact-only review intent.
+- `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes and any still-honest residual risk for this review-created block.
+- `R4.` Fresh automated validation reruns the supported build, test, and stack wrappers needed to revalidate the repaired seams and the story's supported main runtime path.
+- `R5.` If any repaired seam remains partially proven, the close-out records that residual risk explicitly instead of silently reclosing the story.
+
+#### Proof Mapping
+
+- `P1.` Requirement: Tasks `172` through `175` are complete on current disk and close the actionable findings for review pass `0000055-20260421T050131Z-a77661de`. Owners: Tasks `172` through `175`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 6; Testing 1 through 11.
+- `P2.` Requirement: the durable review close-out records repaired proof homes, retained weak proof, and the current review-pass adjudication honestly. Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 5; Testing 1 through 11.
+- `P3.` Requirement: the supported main runtime path still starts, probes, and shuts down cleanly after the review-created repairs land. Owners: `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: Testing 6 through 9.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `docker-compose.yml`
+- `scripts/docker-compose-with-env.sh`
+- `scripts/test-summary-host-network-main.mjs`
+
+#### Subtasks
+
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260421T050131Z-a77661de` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Purpose: anchor final revalidation to the exact repaired findings block on disk.
+2. [ ] Re-open the completed proof-owner sections for Tasks `172` through `175` in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and collect the final proof homes they claim. Purpose: verify the final close-out cites the exact repaired owners rather than stale earlier Story 55 evidence.
+3. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it cites the repaired proof homes for Tasks `172` through `175`. Purpose: make the durable close-out name the current repaired owner set explicitly.
+4. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so it distinguishes fresh reruns from retained earlier Story 55 evidence. Purpose: keep the final summary honest about which proof was re-executed for this reopened review block.
+5. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with any still-honest weak proof, rejected-risk notes, and challenge carry-forward that remain true after the current review-created block lands. Purpose: keep the final adjudication honest if any repaired seam still has bounded residual risk.
+6. [ ] Re-open `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` after the summary refresh and verify the appended review-created findings block for pass `0000055-20260421T050131Z-a77661de` still matches the final on-disk disposition. Purpose: confirm the plan and durable summary still agree before closing the reopened review pass.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run compose:build:summary`.
+7. [ ] Run `npm run compose:up`.
+8. [ ] Run `npm run test:summary:host-network:main`.
+9. [ ] Run `npm run compose:down`.
+10. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+11. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Manual Testing Guidance
+
+For the final manual-testing pass after Tasks 172 through 175, use the normal human Docker stack rather than a test-only runtime: start with `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down` when proof is complete.
+
+Focus any optional browser/API proof on the repaired externally observable seams: cleanup-blocked surfacing for blocking re-embed, current waiting queue position after an older queued item is promoted, `QUEUE_UNAVAILABLE` diagnostics when the queue backend is unavailable, and the documented REST `503 QUEUE_UNAVAILABLE` contract.
+
+#### Implementation notes

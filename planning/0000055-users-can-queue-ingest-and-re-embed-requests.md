@@ -13886,6 +13886,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `README.md`
 - `docker-compose.yml`
 - `scripts/docker-compose-with-env.sh`
 - `scripts/test-summary-host-network-main.mjs`
@@ -13916,8 +13917,10 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Manual Testing Guidance
 
-For the final manual-testing pass after Tasks 172 through 175, use the normal human Docker stack rather than a test-only runtime: start with `npm run compose:build`, then `npm run compose:up`, and stop with `npm run compose:down` when proof is complete.
+For the final manual-testing pass after Tasks 172 through 175, use the normal human Docker stack rather than a test-only runtime. Start from the repository root with `npm run compose:build`, then `npm run compose:up`; when proof is complete, stop it with `npm run compose:down`. The normal stack starts the supported server, client, Mongo, Chroma, telemetry, and Playwright MCP services through `docker-compose.yml` using the repository env-file contract (`server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`) without inlining secrets.
 
-Focus any optional browser/API proof on the repaired externally observable seams: cleanup-blocked surfacing for blocking re-embed, current waiting queue position after an older queued item is promoted, `QUEUE_UNAVAILABLE` diagnostics when the queue backend is unavailable, and the documented REST `503 QUEUE_UNAVAILABLE` contract.
+Use the supported browser/API surfaces exposed by that stack: the client at `http://localhost:5001`, the REST API at `http://localhost:5010`, the classic/chat/agents MCP ports at `5010`, `5011`, and `5012` when relevant, and the Playwright MCP control URL at `http://localhost:8932/mcp` when the manual-testing agent needs browser control. No special login or seed account is required for this review-fix proof beyond the normal stack configuration.
+
+Focus any optional browser/API proof on the repaired externally observable seams: cleanup-blocked surfacing for blocking re-embed, current waiting queue position after an older queued item is promoted, `QUEUE_UNAVAILABLE` diagnostics when the queue backend is unavailable, and the documented REST `503 QUEUE_UNAVAILABLE` contract. Save final manual-testing screenshots, logs, and notes under `codeInfoStatus/manual-testing/0000055/`; those artifacts should be committed as durable final story proof.
 
 #### Implementation notes

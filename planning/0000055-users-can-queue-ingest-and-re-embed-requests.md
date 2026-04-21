@@ -13426,6 +13426,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 - Testing 4: `npm run lint` passed with exit code 0 and no lint fixes were required.
 - Testing 5: `npm run format:check` initially flagged `server/src/flows/service.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, and `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`; I ran `npm run format` as the task-listed repair path, then reran `npm run format:check` successfully with `All matched files use Prettier code style!`.
 - Automated-proof audit on 2026-04-21: all Task 169 subtasks and testing gates are checked on current disk with no live blocker, so this audit normalized the task status to `__done__`.
+- Manual testing on 2026-04-21: assessed as `not_applicable` and kept task-scoped because Task 169 only repairs automated queue-runtime proof owners and shared test helpers, with no task-owned runnable, browser-visible, HTTP, or paired frontend surface to exercise. No screenshots or runtime artifacts were captured, and no additional subtasks were needed.
 
 ### Task 170. Reject Malformed Classic MCP Arguments Before Domain Validation
 

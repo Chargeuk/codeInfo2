@@ -9,8 +9,11 @@ import * as requestQueue from '../../ingest/requestQueue.js';
 import { query } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import {
+  INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_EVENT,
+  INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE,
   INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_EVENT,
   INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+  recordIngestQueueStartupMongoUnavailable,
   recoverIngestQueueForStartup,
 } from '../../startup/ingestQueueStartup.js';
 import {
@@ -232,6 +235,39 @@ test('post-connect startup recovery degradation keeps the standard startup path 
     available: false,
     message: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
   });
+});
+
+test('initial Mongo outage records queue unavailable state without pretending persistence is usable', () => {
+  const result = recordIngestQueueStartupMongoUnavailable({
+    error: new Error('initial Mongo refused connection'),
+    now: () => '2026-04-21T10:00:00.000Z',
+  });
+
+  assert.equal(result.reachable, true);
+  assert.equal(result.degraded, true);
+  assert.equal(result.recovery, null);
+  assert.equal(
+    result.diagnosticEvent,
+    INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_EVENT,
+  );
+  assert.equal(result.causeMessage, 'initial Mongo refused connection');
+  assert.deepEqual(getIngestQueueAvailability(), {
+    available: false,
+    message: INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE,
+  });
+
+  const entries = query(
+    { text: INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_EVENT },
+    10,
+  );
+  const degradedEntry = entries.find(
+    (entry) =>
+      entry.level === 'error' &&
+      entry.message === INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_EVENT &&
+      entry.context?.queueUnavailableMessage ===
+        INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE,
+  );
+  assert.ok(degradedEntry, 'expected initial Mongo outage diagnostic log');
 });
 
 test('post-connect startup recovery degradation emits an explicit diagnostic result and log', async () => {

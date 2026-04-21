@@ -2023,7 +2023,7 @@ test('top-level flow target working fails fast when there is no owning repositor
   );
 });
 
-test('flow-owned command target plan_scope publishes success with warnings, continues after failures, and keeps updated wording', async () => {
+test('flow-owned command target plan_scope preserves degraded-startup diagnostics in warnings while continuing after failures', async () => {
   const repos: RepoEntry[] = [];
   const calls: string[] = [];
 
@@ -2183,6 +2183,12 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
           toolEvent.event.result?.warnings?.map((warning) => warning.code),
           ['repository_skipped', 'repository_skipped', 'repository_failed'],
         );
+        assert.equal(
+          toolEvent.event.result?.warnings?.[2]?.message.includes(
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+          ),
+          true,
+        );
         assert.deepEqual(calls, [
           fixture.workingRepositoryPath,
           fixture.additionalRepositoryPaths[0],
@@ -2203,6 +2209,12 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
         assert.deepEqual(
           toolCall?.result?.warnings?.map((warning) => warning.code),
           ['repository_skipped', 'repository_skipped', 'repository_failed'],
+        );
+        assert.equal(
+          toolCall?.result?.warnings?.[2]?.message.includes(
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+          ),
+          true,
         );
         assert.match(
           turns[0]?.content ?? '',
@@ -2267,7 +2279,7 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
                       field: 'sourceId',
                       reason: 'invalid_state',
                       message:
-                        'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+                        'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
                     },
                   ],
                 },

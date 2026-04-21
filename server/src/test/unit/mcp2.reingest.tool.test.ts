@@ -320,6 +320,47 @@ test('MCP v2 failures use JSON-RPC error envelope for pre-run validation and que
   }
 });
 
+test('MCP v2 preserves degraded-startup QUEUE_UNAVAILABLE diagnostic without rewriting it', async () => {
+  const degradedStartupError: Extract<ReingestError, { code: 503 }> = {
+    ...parityQueueUnavailableError,
+    data: {
+      ...parityQueueUnavailableError.data,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message:
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+        },
+      ],
+    },
+  };
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: degradedStartupError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'degraded-startup-queue-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, degradedStartupError);
+    assert.equal(body.error.data.retryable, true);
+    assert.equal(
+      body.error.data.fieldErrors[0].message,
+      'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+    );
+  });
+});
+
 test('MCP v2 post-start failure returns terminal result payload (not JSON-RPC error)', async () => {
   setToolDeps({
     runReingestRepository: async () =>

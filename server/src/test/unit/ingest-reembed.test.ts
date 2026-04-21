@@ -43,7 +43,7 @@ import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
-import { INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE } from '../../startup/ingestQueueStartup.js';
+import { INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE } from '../../startup/ingestQueueStartup.js';
 
 type PumpIngestQueueResult = Awaited<
   ReturnType<typeof import('../../ingest/ingestJob.js').pumpIngestQueue>
@@ -961,9 +961,9 @@ test('ingest-reembed queue outage mapping returns retryable 503 QUEUE_UNAVAILABL
   assert.ok(warnEntry, 'expected retryable reembed queue outage warn log');
 });
 
-test('ingest-reembed degraded startup queue outage still returns retryable 503 QUEUE_UNAVAILABLE', async () => {
+test('ingest-reembed initial Mongo outage returns retryable 503 QUEUE_UNAVAILABLE without starting queue work', async () => {
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
-  markIngestQueueUnavailable(INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE);
+  markIngestQueueUnavailable(INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE);
 
   const response = await request(buildApp({ useRealQueueRequest: true })).post(
     '/ingest/reembed/%2Ftmp%2Frepo',
@@ -974,7 +974,7 @@ test('ingest-reembed degraded startup queue outage still returns retryable 503 Q
     status: 'error',
     code: 'QUEUE_UNAVAILABLE',
     retryable: true,
-    message: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+    message: INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE,
   });
 
   const entries = query(
@@ -986,7 +986,7 @@ test('ingest-reembed degraded startup queue outage still returns retryable 503 Q
       entry.level === 'warn' &&
       entry.context?.surface === 'ingest/reembed' &&
       entry.context?.code === 'QUEUE_UNAVAILABLE' &&
-      entry.context?.message === INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+      entry.context?.message === INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE,
   );
   assert.ok(
     warnEntry,

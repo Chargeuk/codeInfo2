@@ -245,6 +245,13 @@ function queueUnavailableError(
   };
 }
 
+function getQueueUnavailableMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return 'Mongo-backed ingest queue is unavailable while Mongo is disconnected';
+}
+
 function queueCleanupBlockedError(params: {
   retryLists: ReingestRetryLists;
   sourceId: string;
@@ -726,7 +733,7 @@ export async function runReingestRepository(
     if (code === 'QUEUE_UNAVAILABLE') {
       const err = queueUnavailableError(
         retryLists,
-        'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+        getQueueUnavailableMessage(error),
       );
       logValidationResult(appendLog, { kind: 'error', error: err });
       return { ok: false, error: err };

@@ -23,9 +23,7 @@ import {
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
 import './flows/flowSchema.js';
 import './ingest/index.js';
-import {
-  setIngestDeps,
-} from './ingest/ingestJob.js';
+import { setIngestDeps } from './ingest/ingestJob.js';
 import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { append } from './logStore.js';
@@ -71,7 +69,10 @@ import { createToolsAstListSymbolsRouter } from './routes/toolsAstListSymbols.js
 import { createToolsAstModuleImportsRouter } from './routes/toolsAstModuleImports.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
-import { recoverIngestQueueForStartup } from './startup/ingestQueueStartup.js';
+import {
+  recoverIngestQueueForStartup,
+  recordIngestQueueStartupMongoUnavailable,
+} from './startup/ingestQueueStartup.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
@@ -392,15 +393,16 @@ const start = async () => {
   try {
     await connectMongo(mongoUri);
   } catch (err) {
-    baseLogger.error({ err }, 'Failed to connect to Mongo');
-    process.exit(1);
+    recordIngestQueueStartupMongoUnavailable({ error: err });
   }
 
   setIngestDeps({
     lmClientFactory: clientFactory,
     baseUrl: toWebSocketUrl(process.env.CODEINFO_LMSTUDIO_BASE_URL ?? ''),
   });
-  await recoverIngestQueueForStartup();
+  if (isMongoConnected()) {
+    await recoverIngestQueueForStartup();
+  }
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });

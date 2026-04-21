@@ -35,7 +35,7 @@ import type {
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
-import { INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE } from '../../startup/ingestQueueStartup.js';
+import { INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE } from '../../startup/ingestQueueStartup.js';
 
 type PumpIngestQueueResult = Awaited<ReturnType<typeof pumpIngestQueue>>;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
@@ -118,6 +118,7 @@ function buildApp(options?: {
 
 beforeEach(() => {
   resetStore();
+  delete process.env.CODEINFO_CODEX_WORKDIR;
 });
 
 afterEach(() => {
@@ -851,6 +852,40 @@ test('ingest-start logs QUEUE_REQUEST_UPDATED_IN_PLACE with shared canonicalTarg
   );
 });
 
+test('ingest-start updated-in-place queue response preserves the reused requestId and queuePosition', async () => {
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async (input) =>
+        buildQueueResult({
+          canonicalTargetPath: input.canonicalTargetPath,
+          reusedExisting: true,
+          updatedExisting: true,
+          requestId: 'queue-request-reused-start',
+          queuePosition: 4,
+        }),
+      pumpIngestQueue: async () => ({
+        started: false,
+        blockedByCleanup: false,
+        requestId: null,
+        runId: 'other-run',
+      }),
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.body, {
+    queued: true,
+    requestId: 'queue-request-reused-start',
+    queuePosition: 4,
+  });
+});
+
 test('ingest-start rejects non-allowlisted OpenAI model ids deterministically', async () => {
   const response = await request(buildApp()).post('/ingest/start').send({
     path: '/tmp/repo',
@@ -1009,9 +1044,9 @@ test('ingest-start maps queue outages to retryable 503 without Retry-After by de
   assert.ok(warnEntry, 'expected retryable warn log for queue outage');
 });
 
-test('ingest-start degraded startup queue outage still returns retryable 503 QUEUE_UNAVAILABLE', async () => {
+test('ingest-start initial Mongo outage returns retryable 503 QUEUE_UNAVAILABLE without starting queue work', async () => {
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
-  markIngestQueueUnavailable(INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE);
+  markIngestQueueUnavailable(INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE);
 
   const response = await request(buildApp({ useRealQueueRequest: true }))
     .post('/ingest/start')
@@ -1026,7 +1061,7 @@ test('ingest-start degraded startup queue outage still returns retryable 503 QUE
     status: 'error',
     code: 'QUEUE_UNAVAILABLE',
     retryable: true,
-    message: INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+    message: INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE,
   });
 
   const entries = query(
@@ -1038,7 +1073,7 @@ test('ingest-start degraded startup queue outage still returns retryable 503 QUE
       entry.level === 'warn' &&
       entry.context?.surface === 'ingest/start' &&
       entry.context?.code === 'QUEUE_UNAVAILABLE' &&
-      entry.context?.message === INGEST_QUEUE_STARTUP_RECOVERY_DEGRADED_MESSAGE,
+      entry.context?.message === INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE,
   );
   assert.ok(
     warnEntry,
@@ -1126,37 +1161,3 @@ test('fresh ingest with valid and blank files succeeds while embedding only vali
     await cleanup();
   }
 });
-test('ingest-start updated-in-place queue response preserves the reused requestId and queuePosition', async () => {
-  const response = await request(
-    buildApp({
-      enqueueOrReuseIngestRequest: async (input) =>
-        buildQueueResult({
-          canonicalTargetPath: input.canonicalTargetPath,
-          reusedExisting: true,
-          updatedExisting: true,
-          requestId: 'queue-request-reused-start',
-          queuePosition: 4,
-        }),
-      pumpIngestQueue: async () => ({
-        started: false,
-        blockedByCleanup: false,
-        requestId: null,
-        runId: 'other-run',
-      }),
-    }),
-  )
-    .post('/ingest/start')
-    .send({
-      path: '/tmp/repo',
-      name: 'repo',
-      model: 'nomic-embed',
-    });
-
-  assert.equal(response.status, 202);
-  assert.deepEqual(response.body, {
-    queued: true,
-    requestId: 'queue-request-reused-start',
-    queuePosition: 4,
-  });
-});
-

@@ -11,6 +11,7 @@ import {
   __setStatusAndPublishForTest,
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
+import { formatReingestPrestartReason } from '../../ingest/reingestError.js';
 import {
   runReingestRepository,
   type ReingestSuccess,
@@ -939,7 +940,7 @@ test('queue-aware wait observed cancelled terminal state unregisters listeners b
   assert.equal(result.value.errorCode, null);
 });
 
-test('queue unavailable maps to the canonical retryable QUEUE_UNAVAILABLE contract', async () => {
+test('producer diagnostic preservation keeps raw QUEUE_UNAVAILABLE message and retryable contract', async () => {
   const listIngestedRepositories = async () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
     lockedModelId: 'model',
@@ -951,7 +952,7 @@ test('queue unavailable maps to the canonical retryable QUEUE_UNAVAILABLE contra
       listIngestedRepositories,
       enqueueOrReuseIngestRequest: async () => {
         const error = new Error(
-          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+          'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
         );
         (error as { code?: string }).code = 'QUEUE_UNAVAILABLE';
         throw error;
@@ -966,7 +967,39 @@ test('queue unavailable maps to the canonical retryable QUEUE_UNAVAILABLE contra
     assert.equal(queueUnavailableResult.error.message, 'QUEUE_UNAVAILABLE');
     assert.equal(queueUnavailableResult.error.data.code, 'QUEUE_UNAVAILABLE');
     assert.equal(queueUnavailableResult.error.data.retryable, true);
+    assert.equal(
+      queueUnavailableResult.error.data.fieldErrors[0]?.message,
+      'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+    );
   }
+});
+
+test('formatted prestart diagnostic preservation keeps QUEUE_UNAVAILABLE producer reason', () => {
+  const reason = formatReingestPrestartReason({
+    code: 503,
+    message: 'QUEUE_UNAVAILABLE',
+    data: {
+      tool: 'reingest_repository',
+      code: 'QUEUE_UNAVAILABLE',
+      retryable: true,
+      retryMessage: 'retry later',
+      reingestableRepositoryIds: ['repo-a'],
+      reingestableSourceIds: ['/data/repo-a'],
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message:
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+        },
+      ],
+    },
+  });
+
+  assert.equal(
+    reason,
+    'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+  );
 });
 
 test('pre-run invalid states remain protocol-level INVALID_PARAMS errors', async () => {

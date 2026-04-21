@@ -403,6 +403,43 @@ test('classic MCP uses JSON-RPC envelope for pre-run validation and queue outage
   }
 });
 
+test('classic MCP preserves degraded-startup QUEUE_UNAVAILABLE diagnostic without rewriting it', async () => {
+  const degradedStartupError: Extract<ReingestError, { code: 503 }> = {
+    ...parityQueueUnavailableError,
+    data: {
+      ...parityQueueUnavailableError.data,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message:
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+        },
+      ],
+    },
+  };
+  const app = createApp({ ok: false, error: degradedStartupError });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'degraded-startup-queue-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.error, degradedStartupError);
+  assert.equal(res.body.error.data.retryable, true);
+  assert.equal(
+    res.body.error.data.fieldErrors[0].message,
+    'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+  );
+});
+
 test('classic MCP rejects string arguments as malformed request shape before domain validation', async () => {
   const { res, runCalled } =
     await callClassicReingestWithArguments('/data/repo-a');

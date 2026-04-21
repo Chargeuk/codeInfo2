@@ -56,18 +56,30 @@ If any of those checks fail, stop and say the current-plan handoff is stale and 
 For each repository in review scope, resolve the review base branch using this order:
 
 1. The review comparison is always the local working branch against the resolved base: use local `HEAD` as the comparison head and never compare `origin/<current-story-branch>` against the base.
-2. First attempt to refresh the repository's `origin` remote, for example with `git -C <repo_root> fetch --prune origin`. If `origin` is missing or fetch fails, continue with local fallback resolution and record the exact failure reason.
-3. First try to determine where the current story branch was originally branched from by using the information available in `codeInfoStatus/flow-state/current-plan.json`. Treat that ancestry information as a helpful hint, not as absolute truth.
-4. Resolve the repository default branch as a logical branch name. Prefer `origin/HEAD` or equivalent default-branch metadata, but normalize it to the target branch name such as `main`, not the symbolic ref `origin/HEAD`. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`.
-5. If you can confidently determine a branched-from branch or ref for that repository, determine whether it has already been merged into the repository's default branch by comparing remote-tracking refs where possible, such as `origin/feature/example` against `origin/main`.
-6. Use local refs for the mergedness check only when the needed remote-tracking ref is unavailable because `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that remote-unavailable reason if it affects the final base.
-7. If the branched-from branch has already been merged into the repository's default branch, choose the default branch as the logical review base.
-8. If the branched-from branch has NOT been merged into the repository's default branch, choose the branched-from branch itself as the logical review base.
-9. If you cannot confidently determine the branched-from branch, or the ref is missing, unreadable, or otherwise unusable, choose the normalized default branch as the logical review base.
-10. Resolve the actual comparison base from that logical review base by preferring the remote-tracking ref when it exists, such as `origin/main` for logical base `main` or `origin/feature/example` for logical base `feature/example`.
-11. Use a local branch or local ref as the comparison base only when the `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that as a `local_fallback` with the concrete fallback reason.
+2. Use `remote_name: "origin"` for this flow. Do not select a different remote unless a future prompt explicitly defines a remote-selection policy.
+3. First attempt to refresh the repository's `origin` remote, for example with `git -C <repo_root> fetch --prune origin`. If `origin` is missing or fetch fails, continue with local fallback resolution and record the exact failure reason.
+4. First try to determine where the current story branch was originally branched from by using the information available in `codeInfoStatus/flow-state/current-plan.json`. Treat that ancestry information as a helpful hint, not as absolute truth.
+5. Resolve the repository default branch as a logical branch name. Prefer `origin/HEAD` or equivalent default-branch metadata, but normalize it to the target branch name such as `main`, not the symbolic ref `origin/HEAD`. If Git cannot provide a default branch, fall back in order to `main`, `master`, then `develop`.
+6. If you can confidently determine a branched-from branch or ref for that repository, determine whether it has already been merged into the repository's default branch by comparing remote-tracking refs where possible, such as `origin/feature/example` against `origin/main`.
+7. Use local refs for the mergedness check only when the needed remote-tracking ref is unavailable because `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that remote-unavailable reason if it affects the final base.
+8. If the branched-from branch has already been merged into the repository's default branch, choose the default branch as the logical review base.
+9. If the branched-from branch has NOT been merged into the repository's default branch, choose the branched-from branch itself as the logical review base.
+10. If you cannot confidently determine the branched-from branch, or the ref is missing, unreadable, or otherwise unusable, choose the normalized default branch as the logical review base.
+11. Resolve the actual comparison base from that logical review base by preferring the remote-tracking ref when it exists, such as `origin/main` for logical base `main` or `origin/feature/example` for logical base `feature/example`.
+12. Use a local branch or local ref as the comparison base only when the `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that as a `local_fallback` with the concrete fallback reason.
 
-Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, and use that comparison base for all review diffs and later review-step validation. `resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. `comparison_base_ref` must match `resolved_base_branch`, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
+Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, conditional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, and use that comparison base for all review diffs and later review-step validation.
+
+`remote_fetch_status` is a required string enum describing the remote/ref availability result for review-base resolution. It must be exactly one of:
+
+- `success`: `origin` exists and fetch/ref inspection succeeded sufficiently to use or reject the remote-tracking ref normally.
+- `missing_remote`: `origin` does not exist or is unavailable in this repository.
+- `fetch_failed`: an attempted fetch from `origin` failed.
+- `missing_remote_ref`: `origin` exists, but the matching remote-tracking ref needed for the logical base does not exist after inspection.
+
+When `remote_fetch_status` is `fetch_failed`, the handoff must also include `remote_fetch_error` as a short stderr/error summary and `remote_fetch_exit_code` when available. When `remote_fetch_status` is `missing_remote` or `missing_remote_ref`, `local_fallback_reason` must name that same concrete reason if the final comparison base uses a local fallback. When `remote_fetch_status` is `success`, omit `remote_fetch_error` and `remote_fetch_exit_code` unless they are needed for debugging.
+
+`resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. `local_fallback_reason` must be `null` when `resolved_base_source` is `remote`, and must be a non-empty concrete reason when `resolved_base_source` is `local_fallback`. `comparison_base_ref` must match `resolved_base_branch`, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
 
 </base_branch_rules>
 
@@ -95,7 +107,7 @@ Record the final per-repository `resolved_base_branch`, `resolved_base_source`, 
 10. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
 11. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
 12. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-13. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, local fallback reasons, comparison base refs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
+13. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, conditional remote fetch errors and exit codes, local fallback reasons, comparison base refs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
 
 </step_order>
 
@@ -128,6 +140,8 @@ The handoff file MUST contain at least:
   - `logical_base_branch`
   - `remote_name`
   - `remote_fetch_status`
+  - `remote_fetch_error` when `remote_fetch_status` is `fetch_failed`
+  - `remote_fetch_exit_code` when `remote_fetch_status` is `fetch_failed` and an exit code is available
   - `local_fallback_reason`
   - `comparison_base_ref`
   - `comparison_head_ref`

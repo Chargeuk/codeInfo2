@@ -36,7 +36,9 @@ Continue the current story review using ONLY the stored review handoff, perform 
   - its `review_pass_id` is present;
   - its referenced evidence file exists;
   - its `repos` entries still match the selected repositories, current branch names, resolved base branches, resolved base sources, logical base branches, comparison base refs, comparison head refs, comparison rules, and current HEAD commits.
-  - its recorded `remote_fetch_status` and `local_fallback_reason` fields are present and internally consistent with `resolved_base_source`, but do not treat them as live repository state that must be re-fetched or revalidated.
+  - each repo entry has `remote_name: "origin"`.
+  - each repo entry has `remote_fetch_status` set to exactly one of `success`, `missing_remote`, `fetch_failed`, or `missing_remote_ref`.
+  - each repo entry's recorded `remote_fetch_status`, `local_fallback_reason`, and any `remote_fetch_error` or `remote_fetch_exit_code` fields are present or omitted according to the evidence-step schema and internally consistent with `resolved_base_source`, but do not treat them as live repository state that must be re-fetched or revalidated.
 - Treat each stored `comparison_base_ref` as the already-resolved review base chosen by the evidence step. It may come from the remote-tracking version of the logical review base, or from an explicit local fallback when the remote path was unavailable. Do not re-resolve a different base in this step unless the review handoff is stale and must be regenerated.
 - Treat each stored `comparison_head_ref` as local `HEAD`. Review the local working branch against the stored comparison base, and do not compare `origin/<current-story-branch>` against the base.
 - If any repository has `resolved_base_source: local_fallback`, preserve that fact in the findings artifact's residual-risk or rejected-risk notes so the review does not silently imply it used a fresh remote base.

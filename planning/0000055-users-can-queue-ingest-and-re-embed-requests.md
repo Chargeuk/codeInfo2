@@ -13604,7 +13604,7 @@ Review saturation artifact `codeInfoTmp/reviews/0000055-20260421T050131Z-a77661d
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F1` (`must_fix`): blocking re-embed callers can observe `completed` or `skipped` before queue cleanup deletion has succeeded or failed.
 
@@ -13678,6 +13678,7 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 - Testing 5: first `npm run format:check` reported Prettier drift in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/reingestService.test.ts`; formatting those reported proof files and rerunning `npm run format:check` passed with `All matched files use Prettier code style!`.
 - Testing 5 revalidation: final Testing 2 bookkeeping changed this plan file after the previous format check, so Testing 5 was unchecked and must be rerun against the final tracked text.
 - Testing 5 revalidation: `npm run format:check` passed again with `All matched files use Prettier code style!`.
+- Automated-proof audit: parser state showed all Task 172 subtasks and Testing steps checked with no live blocker after proof commit `324a1705`; normalized the task status to `__done__` so the plan reflects the completed implementation and automated proof state.
 
 ### Task 173. Recompute Waiting Queue Position After Route Pump Transitions
 

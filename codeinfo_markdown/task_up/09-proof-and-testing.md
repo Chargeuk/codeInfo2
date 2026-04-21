@@ -43,12 +43,15 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Keep the normal-system smoke proof separate from any special runtime variant that may later be used for manual testing.
 - If a proof step is not applicable, state why instead of inventing it.
 - If a new harness is required, create an earlier task for that harness and include at least one proof step that demonstrates the harness itself is runnable.
+- If a broad wrapper, Compose stack, Docker image, browser runtime, or shared service is known or likely to be an independent baseline dependency, separate its ownership from task-local proof. Add an earlier prerequisite task or explicit baseline proof step rather than letting unrelated baseline failures become ambiguous blockers inside every downstream task.
+- For each task that includes full-suite or broad-wrapper validation, state the task-owned proof files or behavior that the wrapper is expected to cover. If failures outside those owners should become shared-baseline work, make that ownership boundary visible in the task wording.
 - If a task changes behavior that needs explicit logs, screenshots, or other observable signals to prove, add:
   - proof-authoring subtasks for the code, tests, markers, or harness changes that make those signals available; and
   - automated `Testing` steps or optional `Manual Testing Guidance` entries that describe how those signals will later be observed.
 - Automated screenshots, browser captures, and similar generated proof artifacts must be saved only under an ignored artifact location and must never be planned as checked-in repository files.
 - If a task will rely on non-final manual-proof artifacts and the current repository does not already ignore `codeInfoTmp/`, add the minimal `.gitignore` update needed before later proof depends on that scratch path.
 - When a non-final task needs manual-testing proof guidance, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/` and state that those artifacts must not be committed because `codeInfoTmp/` is ignored.
+- For Playwright MCP screenshots, Manual Testing Guidance should name both steps: capture to the Playwright output directory first, then transfer into the target repository's `codeInfoTmp/manual-testing/<story-number>/` or `codeInfoStatus/manual-testing/<story-number>/` destination as appropriate.
 - End each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
   - a prettier or format-check step that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
@@ -63,6 +66,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - For the final task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoStatus/manual-testing/<story-number>/` and state that those artifacts should be committed as durable final story proof.
 - When manual testing is applicable, prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access or credentials already exist for that normal stack.
 - Only if the normal human Docker stack is not enough should the plan introduce the absolute minimum test-only harness or configuration needed for the `manual_testing_agent` to log on and prove the behavior, and that enablement must stay out of the shipped production code path.
+- When manual or live-runtime validation is applicable, require guidance to name the supported stack, env files, mounted path namespace, ports, readiness checks, seed/setup source, and artifact destination. If those facts are not known during tasking, add a prerequisite runtime-handoff task or proof-authoring subtask instead of leaving the manual tester to discover them by failure.
   </proof_and_testing_rules>
 
 <coverage_rules>
@@ -77,6 +81,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - When a task changes persisted artifacts, cleanup paths, or stale-state handling, ensure the proof covers reader and writer compatibility, partial-state tolerance where relevant, and who is allowed to delete or reset state.
 - When a task changes selectors, wrappers, startup paths, CI routing, or feature flags, ensure the proof demonstrates the changed behavior still runs through the repository's normal execution path instead of only a targeted or manual route.
 - When a task changes lifecycle-sensitive orchestration, ensure the proof covers cancellation, retry, failure, or teardown behavior when those paths are relevant to the story.
+- When a task changes ordering-sensitive lifecycle behavior, ensure the proof covers the exact transition ordering in one scenario, not only adjacent before-state and after-state assertions.
 - When a task changes async coordination helpers or test-support utilities that register shared waiters, listeners, callbacks, subscriptions, or queue entries, ensure the proof covers timeout, rejection, cancellation, or early-return cleanup rather than only the successful resolution path.
 - When a task changes fallback or precedence helpers that may compare stale persisted hints against fresh observed values, ensure the proof covers both the degraded-history path and the later successful path.
 - Add explicit test-authoring subtasks when code must be written or updated to create the proof. Those subtasks must name the exact existing or new test files, proof artifacts, or screenshots to update for each acceptance path and important edge case.
@@ -101,6 +106,8 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 - Before finishing this pass, check whether each task's exit criteria can actually be proved by its testing steps.
 - Check whether each task's implementation subtasks name the exact proof files that must be added or updated, instead of leaving the proof implied by only wrapper commands.
+- Check whether broad wrapper, Compose, Docker, browser, or runtime proof has an explicit task-owned versus shared-baseline ownership boundary.
+- Check whether manual/runtime guidance has enough current env, mount, port, seed, and artifact facts to avoid stale-handoff blockers.
 - Check whether the necessary runtime, harness, dependencies, scripts, and repos will exist by the point each proof step is reached.
 - Check whether each task's testing section reflects the task's repository and affected projects rather than copying a generic list blindly.
 - Check whether the generated testing order matches the repository's primary proof workflow, including Docker or Compose build steps where those are the primary build mechanism.
@@ -113,6 +120,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether any automated screenshot or browser artifact path points only to ignored artifact storage rather than tracked repository files.
 - Check whether any task that relies on non-final manual-proof artifacts also includes the required `.gitignore` update when `codeInfoTmp/` was not already ignored.
 - Check whether any non-final-task manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/` and states that those artifacts must not be committed.
+- Check whether any Manual Testing Guidance that mentions Playwright MCP screenshots distinguishes the Playwright output staging path from the final target repository artifact destination.
 - Check whether manual-testing guidance prefers the normal human Docker stack whenever repository evidence supports it.
 - Check whether the final task's manual-testing proof guidance uses `codeInfoStatus/manual-testing/<story-number>/` and states that those artifacts should be committed.
   </verification_loop>

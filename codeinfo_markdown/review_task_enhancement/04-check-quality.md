@@ -7,6 +7,9 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Follow `review_task_enhancement/01-shared-contract.md` and keep the scope limited to the selected newly added review-created `__to_do__` tasks.
 - Use fresh disk reads and current git state, not conversational memory.
 - Treat thin review notes, under-specified subtasks, and under-scoped testing as defects to repair now rather than acceptable output.
+- Treat over-fragmented subtasks, micro-subtasks, and duplicated broad testing inside selected review-created tasks as defects to repair now.
+- If the selected review-created task set itself is over-fragmented across multiple task identities, do not merge, delete, absorb, renumber, or identity-shift those tasks in this pass. Stop and report an upstream packaging defect so review disposition or stored-review repair can regroup the tasks before scoped enhancement continues.
+- If any selected review-created task is over-grouped across unrelated repair seams, root causes, contract or lifecycle surfaces, prerequisite chains, or proof stories, do not split, delete, renumber, or identity-shift that task in this pass. Stop and report an upstream packaging defect so review disposition or stored-review repair can split the task before scoped enhancement continues.
 
 </instruction_priority>
 
@@ -16,33 +19,46 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Re-open the exact `plan_path` from disk after the scoped review-task-up command has edited it.
 - Re-identify the same newly added review-created `__to_do__` tasks that were eligible for the scoped review-task-up command. Keep edits focused on those tasks except for minimal dependency, numbering, cross-reference, or testing-honesty fixes elsewhere in the plan.
 - Compare the selected review-created tasks against the story's stronger pre-existing tasks. Review-created tasks should read like normal first-class story tasks, not lightweight review notes.
+- Review-created tasks should also read like compact patch tasks for known findings, not miniature full-story task plans.
+- If adjacent selected review-created tasks share repository ownership, repair seam, root cause, implementation owner, and proof story, treat that as task-level over-fragmentation. Do not merge, delete, absorb, renumber, or identity-shift those tasks in this pass. Stop and report that the selected review-created task block must be regrouped by review disposition or stored-review repair before scoped enhancement continues.
+- If one selected review-created task combines findings only because they share repository ownership or likely implementation owner, treat that as task-level over-grouping. Do not split, delete, renumber, or identity-shift that task in this pass. Stop and report that the selected review-created task block must be split by review disposition or stored-review repair before scoped enhancement continues.
 - If a selected task still has any subtask that would force a junior implementer to infer the real file target, proof owner, order of operations, or stopping rule, rewrite that subtask now.
 - If a selected task still has any subtask that depends on future automated or manual proof output, rewrite that subtask now.
+- If a selected task contains several micro-subtasks that touch one coherent patch area or proof file, compact them into one concrete subtask with inline file targets, assertions, and outcomes unless that would hide sequencing, ownership, or proof risk.
 - If a selected task writes absolute filesystem paths, usernames, or machine-specific checkout roots into the plan, rewrite that wording now using portable repository-relative or logical locations.
-- If a selected task changes back-end behavior in the current repository, require wrapper-first server proof that is at least as strong as the story's normal server-task standard, including server unit plus server cucumber coverage unless the plan itself now makes a narrower automated boundary explicit and honest.
-- If a selected task changes front-end or UI behavior in the current repository, require wrapper-first client proof that is at least as strong as the story's normal UI-task standard, including client tests plus automated e2e or browser-proof coverage unless the plan itself now makes a narrower automated boundary explicit and honest.
+- If a selected task changes back-end behavior in the current repository, require targeted wrapper-first server proof that honestly reaches the review fix, and rely on the fresh final revalidation task for broader server regression proof when that shared proof location is explicit.
+- If a selected task changes front-end or UI behavior in the current repository, require targeted wrapper-first client proof that honestly reaches the review fix, and rely on the fresh final revalidation task for broader client or browser regression proof when that shared proof location is explicit.
+- Prefer targeted task-local proof plus the fresh final revalidation task for broad regression proof. Do not require every selected review-created task to repeat full broad suites when the final revalidation task honestly covers the current review-created findings block.
 - If a selected task would benefit from manual-testing-agent browser or runtime checks, express those only in `Manual Testing Guidance`, not as manual testing checklist items.
 - If a selected task plans auth bypasses, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams in shipped production behavior, rewrite that work so it lives in test-only harnesses, fixtures, support code, or test configuration.
-- Do not let the final revalidation task become the excuse for omitting task-local suites that original story tasks of the same kind would normally carry.
+- Do not let the final revalidation task become the excuse for omitting targeted task-local proof that the selected review-created task needs to prove its own fix.
 - If a selected task still feels materially weaker than the story's earlier well-tasked tasks, continue editing it in this same step until the gap is closed or the task is explicitly rewritten as a bounded diagnostic task with an honest stopping rule.
 - Do not allow a selected task to add manual testing checklist items or subtasks that depend on future automated or manual proof output.
 - Do not allow a selected task to route automated screenshots or browser artifacts into tracked repository paths; keep them in ignored artifact storage.
+- Do not allow selected-task Manual Testing Guidance to imply that Playwright MCP saves screenshots directly into the target repository or that `$CODEINFO_ROOT/playwright-output-local` is the final target artifact destination.
 - Do not allow the latest `Code Review Findings` section or its review-created tasks to remain inserted into older parts of the plan; they must be normalized into one contiguous appended end-of-file block.
 - Do not merge, delete, absorb, or otherwise identity-shift the selected review-created tasks during this scoped quality pass.
 - Do not absorb selected work into older pre-existing story tasks.
 - Preserve and improve any existing `Addresses Findings` coverage in the selected tasks.
 - If the fresh final revalidation task is missing explicit coverage of the current review-created findings block for this `review_pass_id`, add or repair that wording now instead of only preserving what is already there.
+- If the fresh final revalidation task does not explicitly own full relevant regression proof for the affected repositories in the current review-created findings block, add or repair that wording now instead of adding duplicated broad proof to every selected review-created task.
 
 </quality_check_rules>
 
 <verification_loop>
 
 - Check that the selected review-created tasks now look comparable in detail and proof quality to the story's earlier strong tasks.
+- Check that the selected review-created tasks are compact enough to avoid unnecessary token, task, subtask, and testing duplication.
+- Check whether task-level over-fragmentation exists across selected review-created task identities. If it does, stop and report an upstream packaging defect instead of compacting around it.
+- Check whether task-level over-grouping exists inside any selected review-created task. If it does, stop and report an upstream packaging defect instead of compacting around it.
 - Check that no selected task still relies on vague verbs such as “fix,” “handle,” or “update tests” without explicit file targets and intended outcomes.
-- Check that each selected task now names the relevant wrapper-first suites honestly instead of deferring all broad proof to the final revalidation task.
+- Check that each selected task names targeted task-local proof honestly and that any broad wrapper proof deferred to final revalidation is explicitly covered there.
+- Check that any broad wrapper proof deferred to final revalidation is owned by a fresh final revalidation task with full relevant regression proof for the current review-created findings block.
 - Check that each selected task keeps `Testing` automated-only and moves any optional manual-testing-agent scenarios into `Manual Testing Guidance`.
+- Check that no selected task repeats broad wrapper, full-suite, browser, Compose, or Docker proof without a task-specific reason.
 - Check that no selected task still contains manual testing checklist items or subtasks gated on future proof output.
 - Check that no selected task still contains absolute filesystem paths or production-owned test bypasses.
+- Check that any selected-task Manual Testing Guidance mentioning Playwright MCP screenshots explains capture to Playwright output followed by transfer into the target repository artifact destination.
 - Check that any automated screenshot or browser-artifact path points only to ignored artifact storage.
 - Check that the selected review-created task identities remain the same ones chosen by the scoped review-task-up command.
 - Check that each selected task still carries clear `Addresses Findings` coverage, and that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`.

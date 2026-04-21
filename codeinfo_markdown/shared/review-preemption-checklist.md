@@ -17,12 +17,21 @@ Provide one shared checklist of review-hotspot categories that planning and task
 - Lifecycle transitions:
   - Does the story change create, acquire, in-progress, steady-state, retry, cancel, release, teardown, or crash-recovery behavior?
   - If yes, make those transitions explicit in the plan and task proof.
+- Adversarial state ordering:
+  - Could the happy-path proof pass while the real invariant fails because an event, response, log, cleanup, delete, retry, or state transition happens in the wrong order?
+  - If yes, require proof for the exact ordering boundary rather than separate adjacent proofs for each side of the boundary.
 - Default-path reachability:
   - Does the story change a selector, launcher, wrapper, startup path, CI path, feature flag, or harness-registration rule?
   - If yes, prove the changed behavior still runs in the default path rather than only through a manual or targeted route.
 - Producer and consumer alignment:
   - Does the story change a shared contract, error taxonomy, persisted shape, config shape, log schema, or alias-migration path?
   - If yes, make both sides explicit and require proof that they still agree.
+- Baseline and harness ownership:
+  - Does the story rely on broad wrappers, Compose, Docker, browser runtimes, shared ports, generated images, or long-running external services?
+  - If yes, distinguish task-owned proof failures from shared baseline or harness failures before implementation begins, and add prerequisite ownership for known red baselines instead of letting unrelated failures block every task.
+- Manual or runtime handoff:
+  - Will the story need later manual-testing-agent, browser, API, or live-runtime proof?
+  - If yes, identify the supported runtime path, env files, mounted paths, ports, seed/setup source, and artifact destination early enough that stale runtime assumptions do not become implementation blockers.
 - Config-domain enforcement:
   - Does the story change a constrained env/config input?
   - If yes, define blank-input behavior, whitespace behavior, lower bounds, upper bounds, and whether invalid values clamp, fallback, or fail.

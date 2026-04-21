@@ -75,6 +75,7 @@ certs/task6-valid/*.key
 server/tmp-flows-*/
 codeInfoTmp/
 codeInfoStatus/flow-state/current-task.json
+codeInfoStatus/flow-state/manual-testing-runtime.json
 planning/**/*.png
 planning/**/*.jpg
 planning/**/*.jpeg

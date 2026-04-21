@@ -142,6 +142,16 @@ For every recorded startup path, identify:
 - whether any part of the bound task guidance was ignored because it conflicted with fresher repository evidence
 
 If the best supported proof surface for a task would actually live in a connected repository, record that linked proof surface explicitly.
+When browser proof may use Playwright MCP, also record the artifact-transfer path:
+
+- `CODEINFO_ROOT` is the harness repository root, not the target repository root
+- the target artifact repository root that owns the active `plan_path`
+- how that target artifact repository root was resolved, such as the active working repository path or `git rev-parse --show-toplevel` from the directory containing `plan_path`
+- the intended target artifact destination relative to that target repository
+- the Playwright MCP output root inside the Playwright runtime, normally `/tmp/playwright-output`
+- whether the harness repo exposes that output as `$CODEINFO_ROOT/playwright-output-local`
+- the supported copy-out fallback when no host bind mount exposes the output, such as copying from the documented `playwright-mcp` container for the Compose file in use
+- do not claim Playwright MCP can write directly to the target repository unless repository/runtime evidence proves that exact write path exists
 
 </dependency_checks>
 
@@ -207,6 +217,13 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
             "consulted": true,
             "artifact_destination": "codeInfoTmp/manual-testing/0000059/",
             "notes": "Bound task Manual Testing Guidance requested frontend proof through the paired UI and non-final-task scratch artifact storage."
+          },
+          "artifacts": {
+            "target_repository_root": "/abs/path/to/repo-that-owns-plan",
+            "target_destination": "codeInfoTmp/manual-testing/0000059/",
+            "playwright_mcp_output_root": "/tmp/playwright-output",
+            "harness_playwright_output_bind": "$CODEINFO_ROOT/playwright-output-local",
+            "copy_out": "Capture with a relative Playwright MCP filename, then copy from the harness output bind when present or from the documented playwright-mcp container output path into the target destination."
           }
         }
       ]
@@ -245,6 +262,8 @@ Before finishing:
 - confirm undiscoverable credential sources were recorded as unknown rather than guessed
 - confirm bound-task `Manual Testing Guidance` was consulted when present
 - confirm any task-guidance conflict with fresher repository evidence was recorded honestly rather than silently followed or ignored
+- confirm Playwright MCP artifact handling distinguishes the harness root from the target repository root
+- confirm browser-proof artifacts have a supported transfer path from `/tmp/playwright-output` or its harness bind into the target repository destination
 
 </verification_loop>
 

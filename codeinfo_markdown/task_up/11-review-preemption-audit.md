@@ -21,9 +21,12 @@ Audit the draft task list against the shared review-hotspot checklist and force 
   - realistic testing steps.
 - When persisted artifacts, locks, caches, cleanup paths, or stale-state deletion are touched, ensure the tasks name both the writer and reader surfaces plus cleanup ownership and partial-state handling proof.
 - When lifecycle-sensitive orchestration is touched, ensure the tasks include cancel, retry, failure, teardown, or crash-recovery proof when those paths are relevant.
+- When lifecycle-sensitive orchestration is touched, ensure at least one proof obligation targets the exact ordering boundary that would otherwise be covered only by adjacent before/after proof.
 - When launchers, selectors, wrappers, startup paths, CI paths, or feature flags are touched, ensure the tasks include proof that the changed behavior runs through the default path.
 - When contracts, error vocabularies, or wrapped-vs-raw errors are touched, ensure the tasks include explicit producer and consumer proof rather than only one side.
 - When tests rely on shared state, ports, files, caches, retries, or negative assertions, ensure the tasks make deterministic boundaries, teardown behavior, and worker or parallel-safety explicit.
+- When broad wrappers, Compose, Docker, browser runtimes, or shared services are required for proof, ensure the tasks distinguish task-owned failures from shared baseline, harness, or environment failures and add prerequisite ownership where the baseline is known to be unhealthy or unproved.
+- When later manual/runtime proof is likely, ensure the tasks or final manual guidance name the current supported runtime contract: stack, env files, mounted path namespace, ports, readiness checks, seed/setup source, and artifact location.
 - Add or rewrite subtasks where needed so a later implementer does not have to infer these review hotspots from broad task wording.
 - When a likely review hotspot would benefit from manual browser validation, express that as optional `Manual Testing Guidance`, not as a required subtask or testing checklist item.
 - When a hotspot needs proof, prefer proof-authoring subtasks plus automated `Testing` coverage wherever realistic.
@@ -32,6 +35,7 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 <verification_loop>
 
 - Check whether any likely review hotspot from the checklist would still be discovered for the first time only after code is written.
+- Check whether any likely blocker family would still be discovered for the first time only during broad-wrapper proof or manual runtime validation.
 - Check whether each applicable hotspot now has a concrete implementation home and a named proof home in the task list.
 - Check whether the final validation task still proves the story through the repository's normal execution path rather than only targeted routes.
   </verification_loop>

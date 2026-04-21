@@ -10,6 +10,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Keep `Testing` automated-only and place any optional manual-testing-agent scenarios in `Manual Testing Guidance`.
 - Keep testing proportional to the actual change surface.
 - Prefer updating review-created `__to_do__` tasks and newly added revalidation tasks first.
+- For newly added review-created `__to_do__` tasks, keep targeted task-local proof compact when a fresh final revalidation task explicitly owns full relevant regression proof for the current review-created findings block.
 - Only update older `__done__` or `__in_progress__` tasks when a minimal testing-ownership, proof-path, dependency, or sequencing correction is required to keep the plan honest.
 - If you add any new unchecked testing step or proof-owning unchecked subtask to a task that is currently `__done__`, you must reopen that task to `__in_progress__` unless a different prerequisite task now owns the next real work and the repaired task should honestly return to `__to_do__`.
 
@@ -35,6 +36,18 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - If no wrapper guidance exists for a repository, use the highest-level safe commands discoverable from that repository's evidence rather than inventing low-level direct commands.
 
 </testing_derivation_rules>
+
+<review_created_task_rules>
+
+- When a task is a newly added review-created `__to_do__` task from the current review-created findings block, do not add full broad build, test, browser, Compose, Docker, smoke, or wrapper proof to that individual task solely because normal story tasks would carry it.
+- Keep the individual review-created task's `Testing` focused on the narrowest repository-supported automated proof that honestly reaches that task's changed behavior.
+- This compact treatment is allowed only when a fresh final revalidation task exists after the review-created tasks and explicitly owns full relevant regression proof for the current review-created findings block across every affected repository.
+- The final revalidation task must name the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns, or state why a category is not applicable.
+- If the final revalidation task is missing, vague, too narrow, or fails to own full relevant regression proof, repair that final revalidation task instead of duplicating broad proof across every review-created task.
+- If targeted task-local proof cannot directly reach a review fix, or if that review-created task changes wrappers, harnesses, startup paths, default routing, runtime lifecycle, shared state, or cross-repository behavior, add the broader task-local proof needed for that task.
+- Do not reduce proof coverage. Reduce only duplicated placement of broad regression proof when the final revalidation task owns that proof explicitly.
+
+</review_created_task_rules>
 
 <proof_and_testing_rules>
 
@@ -100,6 +113,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Check whether the generated testing order reaches the changed behavior through the repository's default launcher, wrapper, startup path, CI path, or selector flow when one exists.
 - Check whether the necessary runtime, harnesses, dependencies, scripts, and repos will exist by the point each proof step is reached.
 - Check whether each task's implementation subtasks name the exact proof files that must be added or updated, instead of leaving the proof implied by only wrapper commands.
+- Check whether newly added review-created tasks rely on compact targeted proof only when a fresh final revalidation task explicitly owns full relevant regression proof for the current review-created findings block.
 - Check whether manual testing steps were avoided here so that manual validation remains owned by the implementation flows.
 - Check whether no subtask now depends on future automated or manual proof output.
 

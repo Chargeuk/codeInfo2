@@ -32,10 +32,10 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
-- Read `codeInfoTmp/reviews/<story-number>-current-review.json` and confirm the minimum usable review context:
-  - its `story_id` matches the story number derived from the canonical current-plan `plan_path` filename;
-  - its `review_pass_id` is present;
-  - its referenced evidence file exists;
+- Read `codeInfoTmp/reviews/<story-number>-current-review.json` and identify the minimum usable review context either from named handoff fields or by safe inference from the handoff path, canonical `plan_path`, artifact filenames, artifact content, and current git state:
+  - the story identifier matches the story number derived from the canonical current-plan `plan_path` filename;
+  - the review pass identifier can be identified or safely inferred;
+  - the evidence artifact can be identified and exists;
   - its `repos` entries, combined with current git state, identify the selected repositories, current branch names, and current local `HEAD` commits;
   - each repository has either a stored `comparison_base_commit`, a stored `comparison_base_ref` or `resolved_base_branch` that can be resolved safely, or enough evidence summary detail to infer the review base without guessing.
 - Prefer each stored `comparison_base_commit` as the pinned base object for review diffs when it resolves to a commit object. If it is missing but `comparison_base_ref`, `resolved_base_branch`, or the evidence summary identifies the base clearly, resolve that base once, record the inference in the findings artifact, and use it for this pass.

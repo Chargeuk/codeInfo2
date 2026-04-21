@@ -19,19 +19,20 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 1. Validate that the stored handoff plan exists and that the current repository branch story number still matches the selected plan filename.
 2. Validate that every additional repository in scope still exists, is readable, and remains on a branch whose story number matches the selected plan filename.
-3. Read the stored review handoff and confirm that its `story_id`, `plan_path`, `review_pass_id`, `evidence_file`, `findings_file`, and repository scope still match the current handoff scope and repository state.
+3. Read the stored review handoff and identify the story, plan path, review pass, evidence artifact, findings artifact, and repository scope either from named handoff fields or by safe inference from the handoff path, canonical `plan_path`, artifact filenames, artifact content, and current git state.
 4. For every repository entry, combine the handoff, referenced artifacts, and current git state to confirm enough context to understand the repository scope, current branch, current local `HEAD`, and the local-HEAD-vs-resolved-base comparison used by the review.
 5. Prefer stored comparison metadata when present, including `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`. If some of these fields are missing, infer only the pieces needed to encode the review outcome honestly, record the inference in the plan text when it affects confidence, and ignore unknown extra fields.
 6. When present, treat `remote_fetch_error` and `remote_fetch_exit_code` as optional fetch-failure diagnostics. Do not copy raw `remote_fetch_error` text into plan output unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.
-7. Read the findings artifact referenced by the review handoff. Read the challenge artifact when present.
+7. Read the findings artifact identified from the handoff or safe inference. Read the challenge artifact when present or safely inferable.
 8. Re-open the canonical plan from disk immediately before deciding whether repair is needed.
 
 </scope_rules>
 
 <decision_rules>
 
-1. If `finding_counts.must_fix + finding_counts.should_fix > 0`, the plan must visibly encode that review outcome on disk before this step finishes.
-2. A findings-present plan is considered correctly encoded only when all of the following are true:
+1. Determine the review outcome primarily from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the findings artifact, trust the artifact and record the mismatch in the repair notes.
+2. If the findings artifact communicates actionable `must_fix` or `should_fix` findings, the plan must visibly encode that review outcome on disk before this step finishes.
+3. A findings-present plan is considered correctly encoded only when all of the following are true:
    - the plan contains a new `Code Review Findings` section for the current `review_pass_id`;
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
@@ -43,10 +44,10 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
    - tiny unrelated cleanup-only findings are not left as a trail of micro-tasks when they could be absorbed into a nearby substantive task or grouped into one cleanup task honestly.
-3. If `finding_counts.must_fix + finding_counts.should_fix == 0`, the plan must instead contain the required no-findings close-out for the current `review_pass_id`, including the stored or safely inferred local-HEAD-vs-resolved-base comparison details for every repository in scope.
-4. If the review outcome cannot be interpreted safely enough to decide findings-present versus no-findings, the plan must contain a bounded incomplete-review follow-up task instead of a no-findings close-out.
-5. If the current plan already satisfies the correct postcondition for the stored review outcome, make no plan change.
-6. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
+4. If the findings artifact communicates no actionable findings after a complete review, the plan must instead contain the required no-findings close-out for the current `review_pass_id`, including the stored or safely inferred local-HEAD-vs-resolved-base comparison details for every repository in scope.
+5. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of a no-findings close-out.
+6. If the current plan already satisfies the correct postcondition for the stored review outcome, make no plan change.
+7. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
 
 </decision_rules>
 

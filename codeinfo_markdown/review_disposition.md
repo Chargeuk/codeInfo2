@@ -31,13 +31,13 @@ Finish the current story review using ONLY the stored review handoff and the art
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
 - The canonical plan always lives in the current repository at `plan_path`.
 - Review scope is the current repository plus the repository paths extracted from `additional_repositories`.
-- Read `codeInfoTmp/reviews/<story-number>-current-review.json`, derived from the shared story number, and confirm the minimum usable review context:
-  - `story_id`
-  - `plan_path`
-  - `review_pass_id`
-  - `evidence_file`
-  - `findings_file`
-  - optional `saturation_file`
+- Read `codeInfoTmp/reviews/<story-number>-current-review.json`, derived from the shared story number, and identify the minimum usable review context either from named handoff fields or by safe inference from the handoff path, canonical `plan_path`, artifact filenames, artifact content, and current git state:
+  - story identifier
+  - plan path
+  - review pass identifier
+  - evidence artifact
+  - findings artifact
+  - optional saturation artifact
   - `repos` entries that identify the selected repositories and current branches, either directly or by safe inference from the artifacts and current git state.
 - Prefer stored comparison metadata when present, including `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`. If `comparison_base_commit` is missing but the base is clear from `comparison_base_ref`, `resolved_base_branch`, or the evidence artifact, resolve that base once and record that the disposition used an inferred base.
 - Treat each stored or inferred `comparison_head_ref` as local `HEAD`. The review result must represent the local working branch against the stored or inferred comparison base, not `origin/<current-story-branch>` against the base.
@@ -120,19 +120,20 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 30. The current pass `evidence_file`, `findings_file`, optional `saturation_file`, and optional `challenge_file` are high-quality local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
 31. When the saturation step exists, treat its artifact as additive context for the reopen or no-findings decision. When the saturation step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's endorsed findings and, when present, its `Finding Saturation Seeds` and `Checked Defect Families` sections as the fallback source of that reasoning. Treat those named sections as optional for backward compatibility with older findings artifacts; if they are absent, derive equivalent sibling-scan reasoning from the endorsed findings when possible, or proceed without those sections when that reasoning is not explicitly available.
 32. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
-33. When `finding_counts.must_fix + finding_counts.should_fix > 0`, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
+33. Determine the review outcome primarily from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the findings artifact, trust the artifact and record the mismatch in the disposition notes.
+34. When the findings artifact communicates actionable `must_fix` or `should_fix` findings, do not stop after artifact capture, wording cleanup, or support-file-only edits. Re-open the canonical plan from disk and verify that it now contains:
     - a new `Code Review Findings` section for the current `review_pass_id`;
     - at least one new review-created `Task Status: __to_do__` task that responds to the endorsed findings;
     - durable finding-to-task coverage inside those review-created tasks;
     - a fresh final re-test or revalidation task after those new review-fix tasks.
-34. Do not insert new review-created tasks into the middle or top of the plan file, even when they describe a prerequisite. Keep them appended at the end of the plan file and express any prerequisite relationship through task wording, dependencies, sequencing notes, and task status rather than insertion position.
-35. Before finalizing a findings-present plan, explicitly check whether any adjacent new review-created tasks inside the appended review-created block should be merged because they share repository ownership plus a repair seam, root cause, contract or lifecycle surface, prerequisite chain, or coherent proof story, even when they need multiple proof files. Also check whether any tiny low-risk cleanup-only tasks inside that same block should be absorbed into another new review-created task or grouped into one cleanup task instead of remaining separate.
-36. Before finalizing any merged or grouped review-created task, check that the combined task still has one clear stopping point, one coherent proof story, and no finding that was grouped only because it shares a repository or likely implementer.
-37. Do not repair fragmentation by absorbing work into pre-existing non-review-created story tasks. Keep the findings response self-contained inside the new appended review-created block.
-38. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
-39. When `finding_counts.must_fix + finding_counts.should_fix == 0`, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
-40. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
-41. If the stored review outcome cannot be interpreted safely enough to decide findings-present versus no-findings, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review. Do not create a no-findings close-out in that case.
+35. Do not insert new review-created tasks into the middle or top of the plan file, even when they describe a prerequisite. Keep them appended at the end of the plan file and express any prerequisite relationship through task wording, dependencies, sequencing notes, and task status rather than insertion position.
+36. Before finalizing a findings-present plan, explicitly check whether any adjacent new review-created tasks inside the appended review-created block should be merged because they share repository ownership plus a repair seam, root cause, contract or lifecycle surface, prerequisite chain, or coherent proof story, even when they need multiple proof files. Also check whether any tiny low-risk cleanup-only tasks inside that same block should be absorbed into another new review-created task or grouped into one cleanup task instead of remaining separate.
+37. Before finalizing any merged or grouped review-created task, check that the combined task still has one clear stopping point, one coherent proof story, and no finding that was grouped only because it shares a repository or likely implementer.
+38. Do not repair fragmentation by absorbing work into pre-existing non-review-created story tasks. Keep the findings response self-contained inside the new appended review-created block.
+39. If the required findings-present plan mutations are still missing after your first edit, keep editing the plan in this same step until those mutations exist on disk. Do not leave a findings-present review pass encoded only in review artifacts.
+40. When the findings artifact communicates no actionable findings after a complete review, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
+41. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
+42. If the findings artifact is missing, unreadable, or ambiguous even after safe inference from the handoff and referenced artifacts, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review. Do not create a no-findings close-out in that case.
 
 </disposition_rules>
 

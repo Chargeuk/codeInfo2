@@ -13542,17 +13542,17 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:server:cucumber`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run compose:build:summary`.
-7. [ ] Run `npm run compose:up`.
-8. [ ] Run `npm run test:summary:host-network:main`.
-9. [ ] Run `npm run compose:down`.
-10. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-11. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run test:summary:server:cucumber`.
+5. [x] Run `npm run test:summary:client`.
+6. [x] Run `npm run compose:build:summary`.
+7. [x] Run `npm run compose:up`.
+8. [x] Run `npm run test:summary:host-network:main`.
+9. [x] Run `npm run compose:down`.
+10. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+11. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -13572,3 +13572,14 @@ Save any final manual-testing screenshots, logs, or notes under `codeInfoStatus/
 - Subtask 4: refreshed the summary's proof-boundary language so current Task 161 through Task 170 reruns are separated from retained earlier Story 55 evidence, and Task 171's final wrapper reruns remain explicitly pending for the automated-proof step.
 - Subtask 5: refreshed the summary's residual-risk and rejected-risk sections so retained weak proof, automation-owned seams, unavailable live negative setup, and future Task 171 blocker handling are explicit instead of silently reclosing the story.
 - Subtask 6: re-opened the appended `0000055-20260420T140453Z-d9e38eba` findings block and the refreshed durable summary; confirmed the two `must_fix` and five `should_fix` findings still map to Tasks 162 through 170, Task 161 remains the formatter prerequisite, and Task 171 final wrappers remain pending for automated proof.
+- Testing 1: `npm run build:summary:server` passed with clean wrapper output and `agent_action: skip_log`; no log inspection was needed.
+- Testing 2: `npm run build:summary:client` passed with clean wrapper output and `agent_action: skip_log`; no log inspection was needed.
+- Testing 3: `npm run test:summary:server:unit` passed with 1744 tests run, 1744 passed, and `agent_action: skip_log`; no log inspection was needed.
+- Testing 4: `npm run test:summary:server:cucumber` passed with 105 tests run, 105 passed, and `agent_action: skip_log`; no log inspection was needed.
+- Testing 5: `npm run test:summary:client` passed with 697 tests run, 697 passed, and `agent_action: skip_log`; no log inspection was needed.
+- Testing 6: `npm run compose:build:summary` passed with 2 items passed, 0 failed, and `agent_action: skip_log`; no log inspection was needed.
+- Testing 7: `npm run compose:up` completed successfully; Mongo and server reached healthy state and the client container started.
+- Testing 8: `npm run test:summary:host-network:main` passed; classic MCP, chat MCP, agents MCP, and Playwright MCP probes were all reachable with HTTP 200.
+- Testing 9: `npm run compose:down` completed successfully and removed the main-stack containers and `codeinfo2_internal` network.
+- Testing 10: `npm run lint` completed successfully; no `npm run lint:fix` pass was needed.
+- Testing 11: `npm run format:check` completed successfully with `All matched files use Prettier code style!`; no `npm run format` pass was needed.

@@ -13501,7 +13501,7 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161, 162, 163, 164, 165, 166, 167, 168, 169, 170`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Review pass `0000055-20260420T140453Z-d9e38eba` final validation across Tasks `162` through `170`, plus the Task `161` formatter-prerequisite repair that keeps that review-created block runnable
 
@@ -13583,3 +13583,4 @@ Save any final manual-testing screenshots, logs, or notes under `codeInfoStatus/
 - Testing 9: `npm run compose:down` completed successfully and removed the main-stack containers and `codeinfo2_internal` network.
 - Testing 10: `npm run lint` completed successfully; no `npm run lint:fix` pass was needed.
 - Testing 11: `npm run format:check` completed successfully with `All matched files use Prettier code style!`; no `npm run format` pass was needed.
+- Automated-proof audit: parser and on-disk proof notes showed all six subtasks and all eleven automated testing gates complete with no live blockers, so Task 171 was normalized to `__done__` before manual testing.

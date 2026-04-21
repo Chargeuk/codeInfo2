@@ -24,7 +24,7 @@ Read all of the following from disk:
 - the findings artifact referenced by that handoff.
 - the saturation artifact referenced by that handoff when `saturation_file` is present.
 
-Use the review handoff's stored local-HEAD-vs-resolved-base comparison metadata as already resolved evidence. Do not re-resolve `comparison_base_ref` or replace local `HEAD` with `origin/<current-story-branch>`; if any repository used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the challenge artifact when it affects the blind-spot conclusion.
+Use the review handoff's stored local-HEAD-vs-resolved-base comparison metadata, including `comparison_base_commit`, as already resolved evidence. Do not re-resolve `comparison_base_ref` or replace local `HEAD` with `origin/<current-story-branch>`; if any repository used `resolved_base_source: local_fallback`, keep that residual-risk context visible in the challenge artifact when it affects the blind-spot conclusion.
 
 Treat the evidence artifact's `Risk-Invariant Matrix`, the findings artifact's `Rejected Risk Notes`, and any saturation artifact's sibling-scan outcome as the primary input set for this challenge.
 
@@ -67,7 +67,7 @@ This artifact is additive context for disposition. Downstream steps must still w
 
 - Confirm the current-plan handoff still matches the canonical plan and story branch.
 - Confirm the review handoff still matches the current scope and referenced artifacts.
-- Confirm the review handoff still preserves the existing repository comparison metadata after this step's update.
+- Confirm the review handoff still preserves the existing repository comparison metadata, including `comparison_base_commit`, after this step's update.
 - Confirm the challenge consumed the saturation artifact when it was present, and still remained backward-compatible when it was absent.
 - Confirm the challenge inspected the top-risk helpers/functions rather than restarting the entire review.
 - Confirm the challenge artifact path matches the `challenge_file` value written into the handoff.

@@ -37,9 +37,10 @@ Finish the current story review using ONLY the stored review handoff and the art
   - `evidence_file`
   - `findings_file`
   - optional `saturation_file`
-  - `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, conditional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, `comparison_rule`, and `head_commit`.
-- Verify that repo paths, branch names, comparison base refs, comparison head refs, comparison rules, and current HEAD commits still match the normalized review scope and current repository state for every selected repository.
-- Treat each stored `comparison_base_ref` as the already-resolved review base chosen by the evidence step. It may come from the remote-tracking version of the logical review base, or from an explicit local fallback when the remote path was unavailable. Do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
+  - `repos` entries, including stable `repo_alias`, `repo_root`, `branch`, `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, conditional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, and `head_commit`.
+- Verify that repo paths, branch names, comparison base refs, comparison base commits, comparison head refs, comparison rules, and current HEAD commits still match the normalized review scope and current repository state for every selected repository.
+- Verify that each `comparison_base_commit` still resolves to a commit object in its repository.
+- Treat each stored `comparison_base_ref` as the already-resolved review base chosen by the evidence step and each stored `comparison_base_commit` as the pinned base object for review diffs. The ref may come from the remote-tracking version of the logical review base, or from an explicit local fallback when the remote path was unavailable. Do not re-resolve a different base in this step unless the review handoff is stale and must be rerun.
 - Treat each stored `comparison_head_ref` as local `HEAD`. The review result must represent the local working branch against the stored comparison base, not `origin/<current-story-branch>` against the base.
 - Treat `remote_name`, `remote_fetch_status`, `local_fallback_reason`, and any `remote_fetch_error` or `remote_fetch_exit_code` fields as recorded evidence from the evidence step. Verify that `remote_name` is `origin`, `remote_fetch_status` is exactly one of `success`, `missing_remote`, `fetch_failed`, or `missing_remote_ref`, and those fields are present or omitted according to the evidence-step schema. When `resolved_base_source` is `remote`, verify that `remote_fetch_status` is `success`, `comparison_base_ref` is the remote-tracking ref used for review, and `local_fallback_reason` is `null`. When `resolved_base_source` is `local_fallback`, verify that `remote_fetch_status` is one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` is the local branch or ref used for review, and `local_fallback_reason` is non-empty. Do not re-fetch solely to make those past observations match current network or remote availability.
 - If the review handoff includes `saturation_file`, treat it as optional additive context for this pass. Read it when present.
@@ -96,6 +97,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 25. If there are no findings, append a `Post-Implementation Code Review` section to the end of the canonical plan detailing:
     - the branch-vs-base checks performed across all repositories in scope;
     - whether each repository reviewed local `HEAD` against a remote-tracking review base or a local fallback, including the fallback reason when applicable;
+    - the stored `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule` for every repository in scope;
     - the acceptance-evidence checks performed;
     - the files inspected;
     - why each repository in scope remains complete;
@@ -166,7 +168,7 @@ If the review handoff is stale or incomplete, stop and say the review must be re
 <verification_loop>
 
 - Confirm the current-plan handoff and review handoff still match the current repository state.
-- Confirm the review handoff still includes local-HEAD-vs-resolved-base comparison metadata for every repository in scope.
+- Confirm the review handoff still includes local-HEAD-vs-resolved-base comparison metadata, including `comparison_base_commit`, for every repository in scope.
 - Confirm every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership.
 - Confirm cross-repository findings produced explicit sequencing in the canonical plan and final validation.
 - Confirm no allowed support file was reopened for anything other than spelling, grammar, wording, or an explicit secret/artifact-hygiene correction.

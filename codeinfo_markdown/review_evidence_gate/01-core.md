@@ -68,7 +68,7 @@ For each repository in review scope, resolve the review base branch using this o
 11. Resolve the actual comparison base from that logical review base by preferring the remote-tracking ref when it exists, such as `origin/main` for logical base `main` or `origin/feature/example` for logical base `feature/example`.
 12. Use a local branch or local ref as the comparison base only when the `origin` fetch failed, `origin` is unavailable, or the matching remote-tracking ref does not exist. Record that as a `local_fallback` with the concrete fallback reason.
 
-Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, conditional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, and use that comparison base for all review diffs and later review-step validation.
+Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, conditional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`, and use that pinned comparison base commit for all review diffs and later review-step validation.
 
 `remote_fetch_status` is a required string enum describing the remote/ref availability result for the final `comparison_base_ref` lookup only. Earlier candidate refs inspected during base resolution do not change `remote_fetch_status`; record those candidate-ref details in the evidence summary instead, unless they caused the final comparison base to fall back locally. `remote_fetch_status` must be exactly one of:
 
@@ -79,7 +79,7 @@ Record the final per-repository `resolved_base_branch`, `resolved_base_source`, 
 
 When `remote_fetch_status` is `fetch_failed`, the handoff must also include `remote_fetch_error` as a short stderr/error summary and `remote_fetch_exit_code` when available. When `remote_fetch_status` is `missing_remote` or `missing_remote_ref`, `local_fallback_reason` must name that same concrete reason. When `remote_fetch_status` is `success`, omit `remote_fetch_error` and `remote_fetch_exit_code` unless they are needed for debugging.
 
-`resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. When `resolved_base_source` is `remote`, `remote_fetch_status` must be `success`, `comparison_base_ref` must be the remote-tracking ref used for review, and `local_fallback_reason` must be `null`. When `resolved_base_source` is `local_fallback`, `remote_fetch_status` must be one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` must be the local branch or ref used for review, and `local_fallback_reason` must be a non-empty concrete reason. `comparison_base_ref` must match `resolved_base_branch`, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
+`resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. When `resolved_base_source` is `remote`, `remote_fetch_status` must be `success`, `comparison_base_ref` must be the remote-tracking ref used for review, and `local_fallback_reason` must be `null`. When `resolved_base_source` is `local_fallback`, `remote_fetch_status` must be one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` must be the local branch or ref used for review, and `local_fallback_reason` must be a non-empty concrete reason. `comparison_base_ref` must match `resolved_base_branch`, `comparison_base_commit` must be the full commit object ID that `comparison_base_ref` resolved to when the evidence step selected the base, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
 
 </base_branch_rules>
 
@@ -89,7 +89,7 @@ When `remote_fetch_status` is `fetch_failed`, the handoff must also include `rem
 2. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and re-check each additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
 3. Inspect each repository in review scope using the local `HEAD` against its resolved comparison base, preferring a remote-tracking base ref and using local fallback only when recorded by the base-branch rules.
 4. Extract the Description, Acceptance Criteria, Out of Scope, and final completed tasks from the canonical plan.
-5. Inspect `git -C <repo_root> diff --name-status <comparison_base_ref>...HEAD` plus recent local branch commits for every repository in scope, using direct git commands such as `git log --oneline -3` or `git -C <repo_root> log --oneline -3`. Do not substitute `origin/<current-story-branch>` for local `HEAD`.
+5. Inspect `git -C <repo_root> diff --name-status <comparison_base_commit>...HEAD` plus recent local branch commits for every repository in scope, using direct git commands such as `git log --oneline -3` or `git -C <repo_root> log --oneline -3`. Do not substitute `origin/<current-story-branch>` for local `HEAD`, and do not let a moving remote-tracking ref change the comparison after `comparison_base_commit` has been recorded.
 6. Group changed files by repository, then within each repository group them into:
    - planned implementation files;
    - planned docs/tests;
@@ -107,7 +107,7 @@ When `remote_fetch_status` is `fetch_failed`, the handoff must also include `rem
 10. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
 11. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
 12. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-13. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, conditional remote fetch errors and exit codes, local fallback reasons, comparison base refs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
+13. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, conditional remote fetch errors and exit codes, local fallback reasons, comparison base refs, pinned comparison base commit IDs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
 
 </step_order>
 
@@ -144,6 +144,7 @@ The handoff file MUST contain at least:
   - `remote_fetch_exit_code` when `remote_fetch_status` is `fetch_failed` and an exit code is available
   - `local_fallback_reason`
   - `comparison_base_ref`
+  - `comparison_base_commit`
   - `comparison_head_ref`
   - `comparison_rule`
   - `head_commit`
@@ -165,6 +166,7 @@ This handoff file is the ONLY review file the next step may use. Do not rely on 
 - Confirm every repository attempted remote-first base resolution for the comparison base and used a local fallback only when the remote path was unavailable.
 - Confirm no repository was reviewed as `origin/<current-story-branch>` against the base.
 - Confirm any local fallback recorded the concrete fetch failure, missing remote, or missing remote-tracking ref that forced it.
+- Confirm every repository recorded the pinned `comparison_base_commit` used for review diffs.
 - Confirm the generated review handoff `plan_path` matches the canonical plan path.
 - Confirm every repository in scope has a stable alias recorded in the handoff.
 - Confirm every acceptance criterion has a proof source or an explicit weak/missing-proof note.

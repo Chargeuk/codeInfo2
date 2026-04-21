@@ -18,9 +18,10 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 1. Validate that the stored handoff plan exists and that the current repository branch story number still matches the selected plan filename.
 2. Validate that every additional repository in scope still exists, is readable, and remains on a branch whose story number matches the selected plan filename.
 3. Read the stored review handoff and confirm that its `story_id`, `plan_path`, `review_pass_id`, `evidence_file`, `findings_file`, and repository scope still match the current handoff scope and repository state.
-4. Confirm every repository entry in the stored review handoff includes `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, plus `remote_fetch_error` and `remote_fetch_exit_code` when required by the evidence-step schema.
+4. Confirm every repository entry in the stored review handoff includes `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`, plus `remote_fetch_error` and `remote_fetch_exit_code` when required by the evidence-step schema.
 5. Confirm every repository entry preserves the review comparison contract:
    - `remote_name` is `origin`;
+   - `comparison_base_commit` is present and resolves to a commit object in the repository;
    - `comparison_head_ref` is `HEAD`;
    - `comparison_rule` is `local_head_vs_resolved_base`;
    - `resolved_base_source: remote` means `remote_fetch_status: success`, `comparison_base_ref` is the remote-tracking ref used for review, and `local_fallback_reason` is `null`;
@@ -74,7 +75,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 19. If a no-findings close-out section exists but lacks the stored comparison metadata, repair it instead of treating it as complete.
 20. Any repaired no-findings close-out must state, for every repository in scope:
     - that the review compared local `HEAD` against `comparison_base_ref`;
-    - the `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`;
+    - the `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`;
     - whether `resolved_base_source` was `remote` or `local_fallback`;
     - `remote_name` and `remote_fetch_status`;
     - the fallback reason when `resolved_base_source` is `local_fallback`;
@@ -106,7 +107,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm you re-read `current-plan.json` first.
 - Confirm you re-opened the exact canonical plan from disk before deciding whether repair was needed.
 - Confirm you read the stored review handoff and findings artifact for the same story.
-- Confirm the stored review handoff schema was validated, including local-HEAD-vs-resolved-base comparison metadata and remote/fallback consistency.
+- Confirm the stored review handoff schema was validated, including local-HEAD-vs-resolved-base comparison metadata, `comparison_base_commit`, and remote/fallback consistency.
 - Confirm that a findings-present handoff did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
 - Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, owns full relevant regression proof for the affected repositories, and was not forced into bogus single-repository ownership.
@@ -120,7 +121,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm that no merged review-created task has become an unfocused catch-all or vague cleanup bucket.
 - Confirm that no collapsed cleanup task hides materially different ownership or proof.
 - Confirm that a no-findings handoff did not leave the plan without the required close-out section.
-- Confirm that any repaired no-findings close-out preserves the stored `comparison_base_ref`, `comparison_head_ref`, `comparison_rule`, `remote_name`, `remote_fetch_status`, and any local fallback reason for every repository in scope.
+- Confirm that any repaired no-findings close-out preserves the stored `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, `remote_name`, `remote_fetch_status`, and any local fallback reason for every repository in scope.
 - Confirm the repaired plan now matches the stored review outcome on disk.
 
 </verification_loop>

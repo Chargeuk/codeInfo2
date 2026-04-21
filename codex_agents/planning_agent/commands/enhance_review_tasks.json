@@ -14,12 +14,27 @@
     {
       "type": "message",
       "role": "user",
+      "markdownFile": "review_task_enhancement/02b-risk-and-prerequisite-scan.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
       "markdownFile": "task_up/05-subtask-granularity.md"
     },
     {
       "type": "message",
       "role": "user",
       "markdownFile": "task_up/06-proof-matrix.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/07-test-case-expansion.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/08-stateful-ui-proof.md"
     },
     {
       "type": "message",

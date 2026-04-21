@@ -28,6 +28,9 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that no subtask depends on future automated or manual proof output.
 - Check that no manual testing checklist items remain in `Subtasks` or `Testing`.
 - Check that no task plans production-code changes whose only purpose is to disable, bypass, mock, or weaken real production behavior for tests.
+- Check that the highest-risk invariants identified during tasking have explicit task and proof ownership, especially ordering-sensitive lifecycle boundaries, producer-consumer contracts, and default-path reachability.
+- Check that broad wrapper, Compose, Docker, browser, or runtime proof has a visible task-owned versus shared-baseline ownership boundary.
+- Check that manual-testing guidance, when present, is backed by current runtime facts rather than stale assumptions about env, mounted paths, ports, seed/setup, or artifact destinations.
 - Check that each task ends with separate lint and prettier or format-check subtasks in that order.
 - Check that each `Testing` section ends with separate lint and prettier or format-check steps in that order.
 - Check the final task in the story.

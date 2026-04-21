@@ -43,6 +43,7 @@ If there is or was a blocker, decide whether it reveals any of the following:
 - a task that assumes a runtime seam, readiness contract, dependency, test harness, environment mapping, or startup contract that does not yet exist;
 - a task with testing steps that cannot honestly be run at the point the task is supposed to complete;
 - a task that has remained `__in_progress__` across repeated passes without closing its remaining subtasks, showing that it is too broad, too open-ended, too investigative, or insufficiently concrete for the implementation loop;
+- a recurring blocker-family mismatch, classified as product or story seam, proof or test harness seam, shared wrapper or baseline seam, manual or runtime environment seam, or task-shape or planning seam;
 - later tasks that now require renumbering or reference updates.
 
 </decision_rules>
@@ -62,6 +63,8 @@ If there is or was a blocker, decide whether it reveals any of the following:
 <execution_handoff_rules>
 
 - If blocker repair proves that a different prerequisite task must happen before the currently blocked task can continue, you MUST rewrite task order, dependencies, and task statuses so that prerequisite becomes the next active executable task in the normal implementation loop.
+- If the blocker belongs to a shared wrapper, baseline, manual-runtime, or harness family rather than the current task's product seam, prefer explicit prerequisite ownership over repeatedly returning the same task to implementation with broader retries.
+- If the blocker belongs to a task-shape or planning family, rewrite the task into bounded executable work before returning to implementation.
 - Do not leave the blocked task as the highest-numbered `__in_progress__` task when a different task now owns the next real work.
 - When inserting or splitting out a prerequisite owner:
   - move the blocked task out of active `__in_progress__` state;
@@ -116,6 +119,7 @@ If any of those are true, you MUST repair the story before continuing:
 - Do not encode manual testing itself as a required subtask or testing checklist item.
 - If later manual-testing-agent browser or runtime validation would still help after the repair, place it only in `Manual Testing Guidance`.
 - Do not keep or create open-ended subtasks like `investigate X until the cause is found` after manual-testing blocker repair.
+- If the manual-testing blocker was caused by stale runtime assumptions such as env files, mounted path namespace, ports, seed/setup, stack startup, or artifact location, repair the runtime handoff or add a prerequisite runtime-handoff owner rather than mutating product code first.
 - When repairing a blocker that originated from a manual-testing failure, add a separate automated proof-authoring subtask for that failed manual scenario whenever realistic in the affected repository and harness.
 - If realistic automated proof is not possible for that manual-testing failure, record that limitation explicitly in the implementation notes instead of silently omitting it.
 - Only update the task's `Testing` section when the existing harness-level testing steps would not already run that new proof, and keep any such testing-step additions at the harness or wrapper level only.

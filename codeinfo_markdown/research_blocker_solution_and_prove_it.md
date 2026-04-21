@@ -57,6 +57,11 @@ If the implementation notes contain a blocker, your research must cover all of t
 - identify how other engineers resolve the same concrete issue in practice
 - distinguish between temporary workarounds, proper fixes, and anti-patterns
 
+4. Blocker-family classification
+
+- classify the blocker as one of: product or story seam; proof or test harness seam; shared wrapper or baseline seam; manual or runtime environment seam; task-shape or planning seam
+- state whether the current task actually owns the blocker, or whether the evidence points to prerequisite baseline, harness, runtime-handoff, or task-shape repair
+
 </research_rules>
 
 <proof_rules>
@@ -67,6 +72,7 @@ Before editing the plan, you MUST prove the chosen solution by recording:
 - the external-library precedents you found;
 - the issue-resolution references you found;
 - why the chosen fix fits the current local repo state;
+- which blocker family applies and why the current task does or does not own it;
 - why the rejected alternatives were not suitable.
 
 Write that answer into the implementation notes marked as `**BLOCKING ANSWER**`.
@@ -79,6 +85,7 @@ Write that answer into the implementation notes marked as `**BLOCKING ANSWER**`.
 - Do not leave the blocker unresearched if repository evidence and external evidence can settle it.
 - Do not mutate the plan structure here unless a tiny note is absolutely required to make the blocker answer visible.
 - Do not invent unsupported runtime seams, test harnesses, or library behavior.
+- Do not recommend repeated broad-wrapper reruns, longer waits, or manual-runtime retries when the blocker family shows a missing baseline, harness, runtime handoff, or task-shape owner.
 
 </behavior_rules>
 

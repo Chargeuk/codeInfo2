@@ -1012,6 +1012,7 @@ test('blank-only delta reembed returns a zero-count completed terminal result wh
 });
 
 test('zero-work re-embed fast path with queue deletion failure returns cleanup-blocked failure semantics', async () => {
+  process.env.NODE_ENV = 'test';
   let scheduledTask: (() => void) | null = null;
   __setRunSchedulerForTest((task) => {
     scheduledTask = task;
@@ -1023,6 +1024,7 @@ test('zero-work re-embed fast path with queue deletion failure returns cleanup-b
   });
 
   try {
+    process.env.CODEINFO_CODEX_WORKDIR = '$CODEINFO_CODEX_WORKDIR';
     const fileHash = await hashFile(path.join(root, 'src/blank.ts'));
     mockPersistedIngestFiles([{ relPath: 'src/blank.ts', fileHash }]);
     let activeRunId: string | null = null;
@@ -1067,7 +1069,11 @@ test('zero-work re-embed fast path with queue deletion failure returns cleanup-b
 
     const waitResult = await waitResultPromise;
     assert.equal(waitResult.reason, 'terminal');
-    assert.equal(waitResult.status?.state, 'cleanup-blocked');
+    assert.equal(
+      waitResult.status?.state,
+      'cleanup-blocked',
+      JSON.stringify(waitResult.status),
+    );
     assert.equal(
       waitResult.status?.lastError,
       'queue delete failed after zero-work re-embed',
@@ -1332,6 +1338,7 @@ test('deletions-only delta reembed returns a zero-count completed terminal resul
 });
 
 test('deletions-only delta reembed queue deletion failure returns caller-visible cleanup-blocked failure semantics', async () => {
+  process.env.NODE_ENV = 'test';
   let scheduledTask: (() => void) | null = null;
   __setRunSchedulerForTest((task) => {
     scheduledTask = task;
@@ -1344,6 +1351,7 @@ test('deletions-only delta reembed queue deletion failure returns caller-visible
   });
 
   try {
+    process.env.CODEINFO_CODEX_WORKDIR = '$CODEINFO_CODEX_WORKDIR';
     const keepHash = await hashFile(path.join(root, 'docs/keep.md'));
     mockPersistedIngestFiles([
       { relPath: 'docs/keep.md', fileHash: keepHash },
@@ -1393,7 +1401,11 @@ test('deletions-only delta reembed queue deletion failure returns caller-visible
 
     const waitResult = await waitResultPromise;
     assert.equal(waitResult.reason, 'terminal');
-    assert.equal(waitResult.status?.state, 'cleanup-blocked');
+    assert.equal(
+      waitResult.status?.state,
+      'cleanup-blocked',
+      JSON.stringify(waitResult.status),
+    );
     assert.equal(
       waitResult.status?.lastError,
       'queue delete failed after deletions-only re-embed',

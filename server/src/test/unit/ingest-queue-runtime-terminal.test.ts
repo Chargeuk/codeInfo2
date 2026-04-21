@@ -111,7 +111,7 @@ test('normal terminal path with queue deletion failure does not settle the reque
   __setQueueRequestIdForRunForTest('run-cleanup-fails', 'queue-cleanup-fails');
   __setStatusForTest('run-cleanup-fails', {
     runId: 'run-cleanup-fails',
-    state: 'running',
+    state: 'embedding',
     counts: { files: 1, chunks: 1, embedded: 1 },
     message: 'Running',
     lastError: null,
@@ -155,9 +155,8 @@ test('normal terminal path with queue deletion failure does not settle the reque
   );
   await waitForNextTurn();
 
-  const cleaned = await __finalizeQueueRequestForRunForTest(
-    'run-cleanup-fails',
-  );
+  const cleaned =
+    await __finalizeQueueRequestForRunForTest('run-cleanup-fails');
   const waitResult = await waitResultPromise;
 
   assert.equal(cleaned, false);
@@ -170,10 +169,13 @@ test('normal terminal path with queue deletion failure does not settle the reque
 
 test('skipped terminal path with queue deletion failure does not settle the request waiter as success before cleanup is finalized', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
-  __setQueueRequestIdForRunForTest('run-skipped-cleanup-fails', 'queue-skipped');
+  __setQueueRequestIdForRunForTest(
+    'run-skipped-cleanup-fails',
+    'queue-skipped',
+  );
   __setStatusForTest('run-skipped-cleanup-fails', {
     runId: 'run-skipped-cleanup-fails',
-    state: 'running',
+    state: 'embedding',
     counts: { files: 0, chunks: 0, embedded: 0 },
     message: 'Running',
     lastError: null,
@@ -225,7 +227,10 @@ test('skipped terminal path with queue deletion failure does not settle the requ
   assert.equal(waitResult.reason, 'terminal');
   assert.equal(waitResult.status?.state, 'cleanup-blocked');
   assert.equal(waitResult.status?.lastError, 'skipped queue delete failed');
-  assert.equal(getStatus('run-skipped-cleanup-fails')?.state, 'cleanup-blocked');
+  assert.equal(
+    getStatus('run-skipped-cleanup-fails')?.state,
+    'cleanup-blocked',
+  );
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
 });
 

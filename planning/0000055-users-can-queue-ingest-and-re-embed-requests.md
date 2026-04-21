@@ -13651,11 +13651,11 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13665,6 +13665,19 @@ Repair the queue terminal-settlement path so request-scoped blocking callers do 
 - Subtasks 6 and 11: added dedicated runtime terminal tests proving normal completed and skipped statuses do not settle request waiters as success when queue deletion fails; both now resolve as cleanup-blocked.
 - Subtasks 7 and 8: added zero-work and deletions-only re-embed fast-path tests proving queue deletion failure is caller-visible through cleanup-blocked queue waiter semantics.
 - Subtasks 9 and 10: added re-ingest service tests for genuine success after cleanup succeeds and cleanup-blocked failure returning `ok: false`, while preserving the existing timeout, setup-read rejection, timeout-fallback rejection, and cancelled listener-cleanup tests.
+- Testing 1 repair: first `npm run build:summary:server` failed because two new runtime-terminal tests used invalid ingest status `running`; updated those setup statuses to the valid nonterminal `embedding` state before rerunning the same wrapper.
+- Testing 1: `npm run build:summary:server` passed on rerun with `agent_action: skip_log`; no log inspection was needed after the clean run.
+- Testing 2 repair: first `npm run test:summary:server:unit` failed in three new Task 172 tests; fixed test-only setup by setting `NODE_ENV=test` before scheduler hooks and stubbing queue advancement after cleanup success to avoid default Mongo-backed queue reads.
+- Testing 2 repair: targeted rerun showed queue-managed re-embed fast-path tests failed before cleanup because `CODEINFO_CODEX_WORKDIR` was unset; set the accepted placeholder in those tests and installed test ingest deps for the service cleanup-success path.
+- Testing 2 diagnosis: targeted server-unit wrapper reruns for the zero-work re-embed, deletions-only re-embed, and genuine cleanup-success service cases passed with `agent_action: skip_log` before the full server-unit rerun.
+- Testing 2: `npm run test:summary:server:unit` passed on the full rerun with `tests run: 1750`, `passed: 1750`, `failed: 0`, and `agent_action: skip_log`; no log inspection was needed after the clean run.
+- Testing 2 revalidation: removed a temporary diagnostic `CODEINFO_CODEX_WORKDIR` assignment from an older neighboring re-embed test after diff review, so Testing 2 was unchecked and must be rerun against the final proof file state.
+- Testing 2 revalidation: `npm run test:summary:server:unit` passed again against the final proof file state with `tests run: 1750`, `passed: 1750`, `failed: 0`, `agent_action: skip_log`, and retained `test-results/server-unit-tests-2026-04-21T08-19-39-351Z.log`.
+- Testing 3: `npm run test:summary:server:cucumber` passed with `tests run: 105`, `passed: 105`, `failed: 0`, and `agent_action: skip_log`; no log inspection was needed.
+- Testing 4: `npm run lint` exited 0 with no output, so `npm run lint:fix` was not needed.
+- Testing 5: first `npm run format:check` reported Prettier drift in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/reingestService.test.ts`; formatting those reported proof files and rerunning `npm run format:check` passed with `All matched files use Prettier code style!`.
+- Testing 5 revalidation: final Testing 2 bookkeeping changed this plan file after the previous format check, so Testing 5 was unchecked and must be rerun against the final tracked text.
+- Testing 5 revalidation: `npm run format:check` passed again with `All matched files use Prettier code style!`.
 
 ### Task 173. Recompute Waiting Queue Position After Route Pump Transitions
 

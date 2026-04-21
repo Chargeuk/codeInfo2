@@ -9,6 +9,7 @@ import {
   __setQueueRequestTerminalStatusTtlForTest,
   __setQueueRuntimeOpsForTest,
   __setStatusAndPublishForTest,
+  setIngestDeps,
 } from '../../ingest/ingestJob.js';
 import {
   runReingestRepository,
@@ -216,8 +217,14 @@ test('internal skipped maps to completed with skipped completionMode', async () 
 
 test('genuinely successful queued re-embed still returns success after queue cleanup succeeds', async () => {
   process.env.NODE_ENV = 'test';
+  setIngestDeps({
+    baseUrl: 'http://lmstudio.local',
+    lmClientFactory: () => ({}) as never,
+  });
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => null,
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
   });
 
   const result = await runReingestRepository(
@@ -226,11 +233,9 @@ test('genuinely successful queued re-embed still returns success after queue cle
       ...buildDeps(),
       pumpIngestQueue: async () => {
         __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
-        __setStatusAndPublishForTest(
-          'ingest-123',
-          buildTerminal('completed'),
-          { publishQueueTerminal: false },
-        );
+        __setStatusAndPublishForTest('ingest-123', buildTerminal('completed'), {
+          publishQueueTerminal: false,
+        });
         await __finalizeQueueRequestForRunForTest('ingest-123');
         return {
           started: true,
@@ -265,11 +270,9 @@ test('cleanup-blocked queued re-embed returns a failed request result instead of
       ...buildDeps(),
       pumpIngestQueue: async () => {
         __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
-        __setStatusAndPublishForTest(
-          'ingest-123',
-          buildTerminal('completed'),
-          { publishQueueTerminal: false },
-        );
+        __setStatusAndPublishForTest('ingest-123', buildTerminal('completed'), {
+          publishQueueTerminal: false,
+        });
         await __finalizeQueueRequestForRunForTest('ingest-123');
         return {
           started: true,

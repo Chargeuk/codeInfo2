@@ -28,7 +28,8 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Confirm that the latest `Code Review Findings` section is still at the end of the plan file except for the newly appended review-fix task block and the fresh final revalidation task that follow it.
 - Confirm that the new review-created tasks form one contiguous appended block rather than being inserted into older parts of the plan.
 - Confirm that the selected review-created task identities were preserved throughout enhancement rather than deleted, absorbed, or renumbered out of scope.
-- Confirm that each selected review-created task still carries durable `Addresses Findings` coverage and that the fresh final revalidation task still clearly covers the current review-created findings block.
+- Confirm that each selected review-created task still carries durable `Addresses Findings` coverage and that the fresh final revalidation task explicitly covers the current review-created findings block and owns full relevant regression proof for every affected repository.
+- Confirm that the fresh final revalidation task names the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns, or states why a category is not applicable.
 - Confirm that any older-task edits were limited to minimal numbering, dependency, testing-alignment, or cross-reference changes required to keep the plan honest.
 - If the enhancement pass reveals that a selected review-created task cannot be made concrete honestly, replace it with a bounded diagnostic task rather than leaving a vague repair task in the plan.
 
@@ -45,6 +46,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 - Check that the selected review-created task identities remain stable from selection through finalization.
 - Check that durable finding-to-task coverage remains visible in the plan after enhancement.
 - Check that the latest `Code Review Findings` section plus its review-fix tasks and fresh revalidation task now occupy one contiguous end-of-file block.
+- Check that compact targeted testing on selected review-created tasks is used only when the fresh final revalidation task owns full relevant regression proof explicitly and concretely.
 
 </verification_loop>
 

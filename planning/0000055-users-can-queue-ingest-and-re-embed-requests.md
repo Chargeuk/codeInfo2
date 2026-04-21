@@ -13760,7 +13760,7 @@ Repair the REST queue-admission response builders so waiting responses and queue
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F3` (`should_fix`): initial Mongo startup failure exits before queueable callers can receive retryable `QUEUE_UNAVAILABLE`.
   - `F5` (`should_fix`): blocking re-ingest callers collapse specific queue-unavailable diagnostics into the generic disconnected-Mongo message.
@@ -13867,7 +13867,7 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `171`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F4` (`should_fix`): the machine-readable OpenAPI contract documents queue-aware success responses but omits the required REST `503 QUEUE_UNAVAILABLE` failure envelope for queueable producer routes.
 

@@ -14,6 +14,11 @@
     {
       "type": "message",
       "role": "user",
+      "markdownFile": "review_task_enhancement/02b-risk-and-prerequisite-scan.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
       "markdownFile": "task_up/05-subtask-granularity.md"
     },
     {

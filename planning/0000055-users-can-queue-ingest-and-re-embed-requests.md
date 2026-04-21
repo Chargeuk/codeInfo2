@@ -13437,7 +13437,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `161`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `should_fix` `generic_engineering_issue`: classic MCP `tools/call` currently coerces malformed non-object `arguments` payloads to `{}` before validation
 
@@ -13494,6 +13494,7 @@ Repair the classic MCP dispatcher so malformed non-object `arguments` payloads a
 - Testing 3: `npm run test:summary:server:cucumber` passed with 105 tests run, 105 passed, and `agent_action: skip_log`; no log inspection was needed.
 - Testing 4: `npm run lint` completed successfully; no `npm run lint:fix` pass was needed.
 - Testing 5: initial `npm run format:check` reported Prettier style issues in `server/src/test/unit/mcp.reingest.classic.test.ts`; ran targeted Prettier formatting on that task-owned file to avoid rewriting unrelated dirty worktree files, then reran `npm run format:check` successfully.
+- Automated-proof audit on 2026-04-21: all Task 170 subtasks and testing gates are checked on current disk with no live blocker, so this audit normalized the task status to `__done__`.
 
 ### Task 171. Re-Validate Story 55 After Review Pass `0000055-20260420T140453Z-d9e38eba`
 

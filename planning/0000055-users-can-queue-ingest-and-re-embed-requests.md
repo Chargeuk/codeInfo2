@@ -13350,7 +13350,7 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
+1. [x] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit`.
 3. [ ] Run `npm run test:summary:server:cucumber`.
 4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
@@ -13360,6 +13360,8 @@ Repair the queue-runtime proof owners so their primary completion boundary match
 
 - Subtask 1: re-read the Story 55 blocking-wait acceptance criteria and current review finding, and confirmed this task stays on proof-boundary honesty around the existing request-aware queue contract rather than widening into queue-runtime redesign.
 - Subtasks 2 through 9: added a shared `waitForQueueManagedTerminalStatus(...)` helper in `server/src/test/unit/ingest-queue-runtime.helpers.ts`, rewired the pump, startup, recovery, deferred-mismatch, and invalid-state proof owners onto request-scoped queue waiting, and updated `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` with explicit timeout-fallback-only coverage plus listener-cleanup proof for timeout, queue-read-failed, cancellation, and immediate cached-terminal reuse.
+- Testing 1: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the Task 168 request-aware queue wait proof owners still compile on current disk.
+- **BLOCKER** Testing 2 (`npm run test:summary:server:unit`): the full server-unit wrapper failed in out-of-scope shared proof owner `server/src/test/integration/flows.run.loop.test.ts` on `flow stop during a looped flow prevents later iterations from continuing`, stopping in `waitForRuntimeCleanup(...)` from `test-results/server-unit-tests-2026-04-21T00-02-30-968Z.log`. I ran the required full wrapper, inspected the saved failure block, and confirmed the regression is not in Task 168’s request-aware ingest queue proof files. This task should be split or reordered behind a fresh shared `flows.run.loop` prerequisite repair before Task 168 automated proof can continue honestly.
 
 ### Task 169. Reject Malformed Classic MCP Arguments Before Domain Validation
 

@@ -13829,15 +13829,15 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run compose:build:summary`.
-5. [ ] Run `npm run compose:up`.
-6. [ ] Run `npm run test:summary:host-network:main`.
-7. [ ] Run `npm run compose:down`.
-8. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-9. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run compose:build:summary`.
+5. [x] Run `npm run compose:up`.
+6. [x] Run `npm run test:summary:host-network:main`.
+7. [x] Run `npm run compose:down`.
+8. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+9. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
 
@@ -13846,6 +13846,18 @@ Repair the runtime queue-unavailable contract across startup and blocking re-ing
 - Subtasks 6 and 7: updated `runReingestRepository()` to preserve the producer `QUEUE_UNAVAILABLE` message in the structured field error that `formatReingestPrestartReason()` already surfaces unchanged.
 - Subtasks 8-11: inspected command, flow, classic MCP, and MCP2 formatting; classic MCP and MCP2 already preserve the structured `ReingestError` envelope, while command and flow surfaces use `formatReingestPrestartReason()` and now inherit the preserved producer diagnostic.
 - Subtasks 12-20: added or retitled proof-home assertions for initial Mongo outage state, REST `503 QUEUE_UNAVAILABLE`, producer diagnostic preservation, formatted prestart preservation, and degraded-startup diagnostic preservation across classic MCP, MCP2, command, and flow surfaces. No `Testing` wrapper was run in this implementation-only pass.
+- Testing 1 repair: first `npm run build:summary:server` exposed strict TypeScript typing gaps in the new flow warning assertions; widened the local warning shapes to include `message` and guarded optional message access before rerunning the same wrapper.
+- Testing 1: `npm run build:summary:server` passed on rerun with `agent_action: skip_log`, `warning_count: 0`, and log `logs/test-summaries/build-server-latest.log`; no log inspection was needed after the clean run.
+- Testing 2 repair: first full `npm run test:summary:server:unit` failed only in `runAgentCommand preserves command-owned degraded-startup QUEUE_UNAVAILABLE diagnostic`; the fixture repository had `lastIngestAt: null`, so the command path stopped at the existing not-reingestable prestart guard before reaching the mocked queue-unavailable producer.
+- Testing 2 diagnosis: targeted `npm run test:summary:server:unit -- --file server/src/test/integration/commands.markdown-file.test.ts --test-name "runAgentCommand preserves command-owned degraded-startup QUEUE_UNAVAILABLE diagnostic"` passed with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log` after making that fixture explicitly reingestable.
+- Testing 2: full `npm run test:summary:server:unit` passed on rerun with `tests run: 1762`, `passed: 1762`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-21T10-42-46-040Z.log`; no log inspection was needed after the clean run.
+- Testing 3: `npm run test:summary:server:cucumber` passed with `tests run: 105`, `passed: 105`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-21T10-58-52-588Z.log`; no log inspection was needed.
+- Testing 4: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/compose-build-latest.log`; no log inspection was needed.
+- Testing 5: `npm run compose:up` exited 0 after the supported stack reached `up 8/8`, with Mongo and server healthy and the client started.
+- Testing 6: `npm run test:summary:host-network:main` passed with classic MCP, chat MCP, agents MCP, and Playwright MCP all reachable over host networking; the wrapper ended with `agent_action: skip_log` and retained log `logs/test-summaries/host-network-main-latest.log`.
+- Testing 7: `npm run compose:down` exited 0 after removing the supported stack containers and `codeinfo2_internal` network.
+- Testing 8: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
+- Testing 9: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
 
 ### Task 175. Add The REST `QUEUE_UNAVAILABLE` Failure Contract To OpenAPI
 

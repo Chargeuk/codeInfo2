@@ -2113,7 +2113,7 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
               stage?: string;
               result?: {
                 targetMode?: string;
-                warnings?: Array<{ code?: string }>;
+                warnings?: Array<{ code?: string; message?: string }>;
               };
             };
           } => {
@@ -2125,7 +2125,7 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
                 stage?: string;
                 result?: {
                   targetMode?: string;
-                  warnings?: Array<{ code?: string }>;
+                  warnings?: Array<{ code?: string; message?: string }>;
                 };
               };
             };
@@ -2172,7 +2172,7 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
               result?: {
                 targetMode?: string;
                 repositories?: Array<{ sourceId?: string }>;
-                warnings?: Array<{ code?: string }>;
+                warnings?: Array<{ code?: string; message?: string }>;
               };
             }>;
           } | null
@@ -2184,7 +2184,7 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
           ['repository_skipped', 'repository_skipped', 'repository_failed'],
         );
         assert.equal(
-          toolEvent.event.result?.warnings?.[2]?.message.includes(
+          toolEvent.event.result?.warnings?.[2]?.message?.includes(
             'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
           ),
           true,
@@ -2211,7 +2211,7 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
           ['repository_skipped', 'repository_skipped', 'repository_failed'],
         );
         assert.equal(
-          toolCall?.result?.warnings?.[2]?.message.includes(
+          toolCall?.result?.warnings?.[2]?.message?.includes(
             'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
           ),
           true,

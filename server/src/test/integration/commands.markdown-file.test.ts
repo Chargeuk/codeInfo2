@@ -69,12 +69,13 @@ class FlagsCapturingChat extends ChatInterface {
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
+  lastIngestAt?: string | null;
 }): RepoEntry => ({
   id: params.id,
   description: null,
   containerPath: params.containerPath,
   hostPath: params.containerPath,
-  lastIngestAt: null,
+  lastIngestAt: params.lastIngestAt ?? null,
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,
@@ -192,6 +193,7 @@ test('runAgentCommand preserves command-owned degraded-startup QUEUE_UNAVAILABLE
           buildRepoEntry({
             id: 'repo-a',
             containerPath: '/repo/source-a',
+            lastIngestAt: '2026-04-21T10:00:00.000Z',
           }),
         ],
         lockedModelId: null,

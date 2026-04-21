@@ -328,11 +328,17 @@ function evictExpiredQueueRequestTerminalStatuses(
   }
 }
 
-function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
+function setStatusAndPublish(
+  runId: string,
+  nextStatus: IngestJobStatus,
+  options: { publishQueueTerminal?: boolean } = {},
+) {
   jobs.set(runId, nextStatus);
   broadcastIngestUpdate(nextStatus);
   const requestId = queueRequestIdsByRunId.get(runId) ?? null;
-  if (requestId && terminalStates.has(nextStatus.state)) {
+  const isTerminal = terminalStates.has(nextStatus.state);
+  const publishQueueTerminal = options.publishQueueTerminal ?? true;
+  if (requestId && isTerminal && publishQueueTerminal) {
     queueRequestTerminalStatuses.set(requestId, {
       runId,
       status: nextStatus,
@@ -353,9 +359,11 @@ function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
     evictionTimer.unref?.();
     queueRequestTerminalStatusEvictionTimers.set(requestId, evictionTimer);
   }
+  const eventRequestId =
+    requestId && (!isTerminal || publishQueueTerminal) ? requestId : null;
   ingestEvents.emit('run-status', {
     runId,
-    requestId,
+    requestId: eventRequestId,
     status: nextStatus,
   } satisfies RunStatusEvent);
 }
@@ -612,6 +620,14 @@ async function scheduleQueueCleanupRetry(params: {
   queueCleanupRetryTimers.set(params.requestId, handle);
 }
 
+function publishQueueTerminalAfterCleanup(runId: string) {
+  const terminalStatus =
+    blockedCleanupStatusSnapshots.get(runId) ?? jobs.get(runId) ?? null;
+  if (terminalStatus && terminalStates.has(terminalStatus.state)) {
+    setStatusAndPublish(runId, terminalStatus);
+  }
+}
+
 async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
   const existing = queueCleanupFinalizers.get(runId);
   if (existing) {
@@ -627,15 +643,13 @@ async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
     try {
       const deleted = await queueRuntimeOps.deleteQueueRequestById(requestId);
       if (!deleted) {
+        publishQueueTerminalAfterCleanup(runId);
         releaseRunOwnership(runId);
         clearQueueCleanupRetryState(requestId);
         return true;
       }
 
-      const blockedSnapshot = blockedCleanupStatusSnapshots.get(runId);
-      if (blockedSnapshot) {
-        setStatusAndPublish(runId, blockedSnapshot);
-      }
+      publishQueueTerminalAfterCleanup(runId);
       releaseRunOwnership(runId);
       clearQueueCleanupRetryState(requestId);
       return true;
@@ -1772,19 +1786,23 @@ async function processRun(runId: string, input: IngestJobInput) {
           if (cancelledRuns.has(runId) || cancelCleanupStarted) {
             return false;
           }
-          setStatusAndPublish(runId, {
+          setStatusAndPublish(
             runId,
-            state: 'completed',
-            counts,
-            ast: astCounts,
-            message,
-            lastError: null,
-            error: null,
-            fileIndex: 0,
-            fileTotal: 0,
-            percent: 100,
-            etaMs: 0,
-          });
+            {
+              runId,
+              state: 'completed',
+              counts,
+              ast: astCounts,
+              message,
+              lastError: null,
+              error: null,
+              fileIndex: 0,
+              fileTotal: 0,
+              percent: 100,
+              etaMs: 0,
+            },
+            { publishQueueTerminal: false },
+          );
           logLifecycle('info', 'ingest completed', {
             runId,
             operation,
@@ -2148,23 +2166,27 @@ async function processRun(runId: string, input: IngestJobInput) {
         if (cancelledRuns.has(runId) || cancelCleanupStarted) {
           return false;
         }
-        setStatusAndPublish(runId, {
+        setStatusAndPublish(
           runId,
-          state: resultState,
-          counts,
-          ast: astCounts,
-          message:
-            resultState === 'skipped'
-              ? (finalSkipMessage ?? 'No changes detected')
-              : 'Completed',
-          lastError: null,
-          error: null,
-          currentFile: lastFileRelPath,
-          fileIndex: fileTotal,
-          fileTotal,
-          percent: fileTotal > 0 ? 100 : 0,
-          etaMs: 0,
-        });
+          {
+            runId,
+            state: resultState,
+            counts,
+            ast: astCounts,
+            message:
+              resultState === 'skipped'
+                ? (finalSkipMessage ?? 'No changes detected')
+                : 'Completed',
+            lastError: null,
+            error: null,
+            currentFile: lastFileRelPath,
+            fileIndex: fileTotal,
+            fileTotal,
+            percent: fileTotal > 0 ? 100 : 0,
+            etaMs: 0,
+          },
+          { publishQueueTerminal: false },
+        );
         logLifecycle(
           'info',
           resultState === 'skipped' ? 'ingest skipped' : 'ingest completed',
@@ -3226,13 +3248,14 @@ export function __setStatusForTest(runId: string, status: IngestJobStatus) {
 export function __setStatusAndPublishForTest(
   runId: string,
   status: IngestJobStatus,
+  options?: { publishQueueTerminal?: boolean },
 ) {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error(
       '__setStatusAndPublishForTest is only available in test mode',
     );
   }
-  setStatusAndPublish(runId, status);
+  setStatusAndPublish(runId, status, options);
 }
 
 export function __setBeforeTerminalStatusPublishHookForTest(

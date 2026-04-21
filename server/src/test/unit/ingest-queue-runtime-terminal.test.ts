@@ -106,6 +106,129 @@ test('terminal queue request cache retains completed entries until expiry and ev
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
 });
 
+test('normal terminal path with queue deletion failure does not settle the request waiter as success and leaves cleanup-blocked status', async () => {
+  const initialListeners = __getIngestEventListenerCountForTest();
+  __setQueueRequestIdForRunForTest('run-cleanup-fails', 'queue-cleanup-fails');
+  __setStatusForTest('run-cleanup-fails', {
+    runId: 'run-cleanup-fails',
+    state: 'running',
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    message: 'Running',
+    lastError: null,
+  });
+
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () =>
+      createQueueRequest({
+        requestId: 'queue-cleanup-fails',
+        root: '/data/repo-cleanup-fails',
+        queueState: 'running',
+        runId: 'run-cleanup-fails',
+      }),
+    deleteQueueRequestById: async () => {
+      throw new Error('queue delete failed');
+    },
+    markQueueRequestCleanupBlocked: async () =>
+      createQueueRequest({
+        requestId: 'queue-cleanup-fails',
+        root: '/data/repo-cleanup-fails',
+        queueState: 'cleanup-blocked',
+        runId: 'run-cleanup-fails',
+      }),
+  });
+
+  const waitResultPromise = waitForQueueRequestTerminalStatus(
+    'queue-cleanup-fails',
+    { timeoutMs: 1_000 },
+  );
+  await waitForNextTurn();
+  __setStatusAndPublishForTest(
+    'run-cleanup-fails',
+    {
+      runId: 'run-cleanup-fails',
+      state: 'completed',
+      counts: { files: 1, chunks: 1, embedded: 1 },
+      message: 'Completed',
+      lastError: null,
+    },
+    { publishQueueTerminal: false },
+  );
+  await waitForNextTurn();
+
+  const cleaned = await __finalizeQueueRequestForRunForTest(
+    'run-cleanup-fails',
+  );
+  const waitResult = await waitResultPromise;
+
+  assert.equal(cleaned, false);
+  assert.equal(waitResult.reason, 'terminal');
+  assert.equal(waitResult.status?.state, 'cleanup-blocked');
+  assert.equal(waitResult.status?.lastError, 'queue delete failed');
+  assert.equal(getStatus('run-cleanup-fails')?.state, 'cleanup-blocked');
+  assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
+});
+
+test('skipped terminal path with queue deletion failure does not settle the request waiter as success before cleanup is finalized', async () => {
+  const initialListeners = __getIngestEventListenerCountForTest();
+  __setQueueRequestIdForRunForTest('run-skipped-cleanup-fails', 'queue-skipped');
+  __setStatusForTest('run-skipped-cleanup-fails', {
+    runId: 'run-skipped-cleanup-fails',
+    state: 'running',
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    message: 'Running',
+    lastError: null,
+  });
+
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () =>
+      createQueueRequest({
+        requestId: 'queue-skipped',
+        root: '/data/repo-skipped',
+        queueState: 'running',
+        runId: 'run-skipped-cleanup-fails',
+      }),
+    deleteQueueRequestById: async () => {
+      throw new Error('skipped queue delete failed');
+    },
+    markQueueRequestCleanupBlocked: async () =>
+      createQueueRequest({
+        requestId: 'queue-skipped',
+        root: '/data/repo-skipped',
+        queueState: 'cleanup-blocked',
+        runId: 'run-skipped-cleanup-fails',
+      }),
+  });
+
+  const waitResultPromise = waitForQueueRequestTerminalStatus('queue-skipped', {
+    timeoutMs: 1_000,
+  });
+  await waitForNextTurn();
+  __setStatusAndPublishForTest(
+    'run-skipped-cleanup-fails',
+    {
+      runId: 'run-skipped-cleanup-fails',
+      state: 'skipped',
+      counts: { files: 0, chunks: 0, embedded: 0 },
+      message: 'No changes detected',
+      lastError: null,
+    },
+    { publishQueueTerminal: false },
+  );
+  await waitForNextTurn();
+
+  const cleaned = await __finalizeQueueRequestForRunForTest(
+    'run-skipped-cleanup-fails',
+  );
+  const waitResult = await waitResultPromise;
+
+  assert.equal(cleaned, false);
+  assert.equal(waitResult.reason, 'terminal');
+  assert.equal(waitResult.status?.state, 'cleanup-blocked');
+  assert.equal(waitResult.status?.lastError, 'skipped queue delete failed');
+  assert.equal(getStatus('run-skipped-cleanup-fails')?.state, 'cleanup-blocked');
+  assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
+});
+
 test('request-aware queue wait uses timeout fallback only when no terminal state can be read and still cleans up listeners', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
 

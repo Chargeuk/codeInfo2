@@ -78,6 +78,16 @@ type QueueUnavailableData = ReingestRetryLists & {
   fieldErrors: ValidationFieldError[];
 };
 
+type QueueCleanupBlockedData = ReingestRetryLists & {
+  tool: typeof TOOL_NAME;
+  code: 'QUEUE_CLEANUP_BLOCKED';
+  retryable: true;
+  retryMessage: string;
+  fieldErrors: ValidationFieldError[];
+  sourceId: string;
+  runId: string | null;
+};
+
 export type ReingestError =
   | {
       code: -32602;
@@ -93,6 +103,11 @@ export type ReingestError =
       code: 503;
       message: 'QUEUE_UNAVAILABLE';
       data: QueueUnavailableData;
+    }
+  | {
+      code: 503;
+      message: 'QUEUE_CLEANUP_BLOCKED';
+      data: QueueCleanupBlockedData;
     };
 
 type ReingestTerminalStatus = 'completed' | 'cancelled' | 'error';
@@ -226,6 +241,34 @@ function queueUnavailableError(
         },
       ],
       ...retryLists,
+    },
+  };
+}
+
+function queueCleanupBlockedError(params: {
+  retryLists: ReingestRetryLists;
+  sourceId: string;
+  runId: string | null;
+  message: string;
+}): ReingestError {
+  return {
+    code: 503,
+    message: 'QUEUE_CLEANUP_BLOCKED',
+    data: {
+      ...params.retryLists,
+      tool: TOOL_NAME,
+      code: 'QUEUE_CLEANUP_BLOCKED',
+      retryable: true,
+      retryMessage: RETRY_MESSAGE,
+      sourceId: params.sourceId,
+      runId: params.runId,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message: params.message,
+        },
+      ],
     },
   };
 }
@@ -599,6 +642,32 @@ export async function runReingestRepository(
     } else {
       terminalStatus = 'error';
       errorCode = 'UNKNOWN_TERMINAL_STATE';
+    }
+
+    if (errorCode === 'QUEUE_CLEANUP_BLOCKED') {
+      const runId = waitResult.runId ?? queueRunId ?? null;
+      const err = queueCleanupBlockedError({
+        retryLists,
+        sourceId: normalizedSourceId,
+        runId,
+        message:
+          waitResult.status?.lastError ??
+          'Queued re-embed finished, but queue cleanup is blocked',
+      });
+      appendLog({
+        level: 'info',
+        source: 'server',
+        timestamp: new Date().toISOString(),
+        message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=error requestId=${queueRequest.requestId} runId=${runId ?? 'unknown-run'} errorCode=QUEUE_CLEANUP_BLOCKED`,
+        context: {
+          status: 'error',
+          requestId: queueRequest.requestId,
+          runId,
+          errorCode: 'QUEUE_CLEANUP_BLOCKED',
+        },
+      });
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
     }
 
     const success: ReingestSuccess = {

@@ -20,7 +20,11 @@ import {
 import { hashFile } from '../../ingest/hashing.js';
 import {
   __resetIngestJobsForTest,
+  __setQueueRequestIdForRunForTest,
+  __setQueueRuntimeOpsForTest,
+  __setRunSchedulerForTest,
   startIngest,
+  waitForQueueRequestTerminalStatus,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
@@ -1007,6 +1011,72 @@ test('blank-only delta reembed returns a zero-count completed terminal result wh
   }
 });
 
+test('zero-work re-embed fast path with queue deletion failure returns cleanup-blocked failure semantics', async () => {
+  let scheduledTask: (() => void) | null = null;
+  __setRunSchedulerForTest((task) => {
+    scheduledTask = task;
+  });
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'src/blank.ts': '   \n\t\n',
+  });
+
+  try {
+    const fileHash = await hashFile(path.join(root, 'src/blank.ts'));
+    mockPersistedIngestFiles([{ relPath: 'src/blank.ts', fileHash }]);
+    let activeRunId: string | null = null;
+    __setQueueRuntimeOpsForTest({
+      findQueueRequestById: async () =>
+        activeRunId
+          ? ({
+              _id: { toString: () => 'queue-zero-work-delete-fails' },
+              canonicalTargetPath: root,
+              operation: 'reembed',
+              queueState: 'running',
+              requestPayload: {},
+              runId: activeRunId,
+            } as never)
+          : null,
+      deleteQueueRequestById: async () => {
+        throw new Error('queue delete failed after zero-work re-embed');
+      },
+      markQueueRequestCleanupBlocked: async () => null,
+    });
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'zero-work-queue-delete-fails',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    activeRunId = runId;
+    __setQueueRequestIdForRunForTest(runId, 'queue-zero-work-delete-fails');
+    const waitResultPromise = waitForQueueRequestTerminalStatus(
+      'queue-zero-work-delete-fails',
+      { timeoutMs: 20_000 },
+    );
+    if (scheduledTask === null) {
+      throw new Error('expected captured zero-work re-embed task');
+    }
+    const executeScheduledTask = scheduledTask as () => void;
+    executeScheduledTask();
+
+    const waitResult = await waitResultPromise;
+    assert.equal(waitResult.reason, 'terminal');
+    assert.equal(waitResult.status?.state, 'cleanup-blocked');
+    assert.equal(
+      waitResult.status?.lastError,
+      'queue delete failed after zero-work re-embed',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test('successful ingest prefers the observed vector dimension over stale persisted hints', async () => {
   const { roots } = setupIngestChromaMocks();
   const rootsWithDimension = roots as typeof roots & { dimension?: number };
@@ -1255,6 +1325,78 @@ test('deletions-only delta reembed returns a zero-count completed terminal resul
       getOrCreateCollection.mock.calls.length,
       bootstrapCallsBeforeRun,
       'deletions-only fast path should not add a late Chroma bootstrap after validation passes',
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('deletions-only delta reembed queue deletion failure returns caller-visible cleanup-blocked failure semantics', async () => {
+  let scheduledTask: (() => void) | null = null;
+  __setRunSchedulerForTest((task) => {
+    scheduledTask = task;
+  });
+  setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'docs/keep.md': '# keep\n',
+    'docs/delete-a.md': '# delete a\n',
+  });
+
+  try {
+    const keepHash = await hashFile(path.join(root, 'docs/keep.md'));
+    mockPersistedIngestFiles([
+      { relPath: 'docs/keep.md', fileHash: keepHash },
+      { relPath: 'docs/delete-a.md', fileHash: 'delete-a-hash' },
+    ]);
+    await fs.rm(path.join(root, 'docs/delete-a.md'));
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
+    let activeRunId: string | null = null;
+    __setQueueRuntimeOpsForTest({
+      findQueueRequestById: async () =>
+        activeRunId
+          ? ({
+              _id: { toString: () => 'queue-deletions-delete-fails' },
+              canonicalTargetPath: root,
+              operation: 'reembed',
+              queueState: 'running',
+              requestPayload: {},
+              runId: activeRunId,
+            } as never)
+          : null,
+      deleteQueueRequestById: async () => {
+        throw new Error('queue delete failed after deletions-only re-embed');
+      },
+      markQueueRequestCleanupBlocked: async () => null,
+    });
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'deletions-only-queue-delete-fails',
+        model: 'embed-model',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    activeRunId = runId;
+    __setQueueRequestIdForRunForTest(runId, 'queue-deletions-delete-fails');
+    const waitResultPromise = waitForQueueRequestTerminalStatus(
+      'queue-deletions-delete-fails',
+      { timeoutMs: 20_000 },
+    );
+    if (scheduledTask === null) {
+      throw new Error('expected captured deletions-only re-embed task');
+    }
+    const executeScheduledTask = scheduledTask as () => void;
+    executeScheduledTask();
+
+    const waitResult = await waitResultPromise;
+    assert.equal(waitResult.reason, 'terminal');
+    assert.equal(waitResult.status?.state, 'cleanup-blocked');
+    assert.equal(
+      waitResult.status?.lastError,
+      'queue delete failed after deletions-only re-embed',
     );
   } finally {
     await cleanup();

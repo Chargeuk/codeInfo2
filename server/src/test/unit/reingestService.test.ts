@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach, mock } from 'node:test';
 
 import {
+  __finalizeQueueRequestForRunForTest,
   __getIngestEventListenerCountForTest,
   __resetIngestJobsForTest,
   __setQueueRequestIdForRunForTest,
@@ -77,7 +78,7 @@ const buildRepoEntry = (params: {
 });
 
 const buildTerminal = (
-  state: 'completed' | 'cancelled' | 'error' | 'skipped',
+  state: 'completed' | 'cancelled' | 'error' | 'skipped' | 'cleanup-blocked',
   counts = { files: 3, chunks: 8, embedded: 5 },
 ) => ({
   runId: 'ingest-123',
@@ -211,6 +212,86 @@ test('internal skipped maps to completed with skipped completionMode', async () 
   assert.equal(result.value.status, 'completed');
   assert.equal(result.value.completionMode, 'skipped');
   assert.equal(result.value.errorCode, null);
+});
+
+test('genuinely successful queued re-embed still returns success after queue cleanup succeeds', async () => {
+  process.env.NODE_ENV = 'test';
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => null,
+  });
+
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      pumpIngestQueue: async () => {
+        __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
+        __setStatusAndPublishForTest(
+          'ingest-123',
+          buildTerminal('completed'),
+          { publishQueueTerminal: false },
+        );
+        await __finalizeQueueRequestForRunForTest('ingest-123');
+        return {
+          started: true,
+          blockedByCleanup: false,
+          requestId: 'queue-request-123',
+          runId: 'ingest-123',
+        };
+      },
+      waitOptions: { timeoutMs: 5_000 },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'completed');
+  assert.equal(result.value.completionMode, 'reingested');
+  assert.equal(result.value.errorCode, null);
+});
+
+test('cleanup-blocked queued re-embed returns a failed request result instead of ok true', async () => {
+  process.env.NODE_ENV = 'test';
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => {
+      throw new Error('queue delete failed after re-embed');
+    },
+    markQueueRequestCleanupBlocked: async () => null,
+  });
+
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      pumpIngestQueue: async () => {
+        __setQueueRequestIdForRunForTest('ingest-123', 'queue-request-123');
+        __setStatusAndPublishForTest(
+          'ingest-123',
+          buildTerminal('completed'),
+          { publishQueueTerminal: false },
+        );
+        await __finalizeQueueRequestForRunForTest('ingest-123');
+        return {
+          started: true,
+          blockedByCleanup: true,
+          requestId: 'queue-request-123',
+          runId: 'ingest-123',
+        };
+      },
+      waitOptions: { timeoutMs: 5_000 },
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, 503);
+  assert.equal(result.error.message, 'QUEUE_CLEANUP_BLOCKED');
+  assert.equal(result.error.data.code, 'QUEUE_CLEANUP_BLOCKED');
+  assert.equal(result.error.data.runId, 'ingest-123');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'queue delete failed after re-embed',
+  );
 });
 
 test('cancelled returns last-known counters, null completionMode, and errorCode null', async () => {

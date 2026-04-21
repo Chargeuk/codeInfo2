@@ -13873,15 +13873,15 @@ Re-validate Story 55 after the current review-created findings block lands. This
 - `R1.` Tasks `172` through `175` are `__done__` and close findings `F1` through `F5` from review pass `0000055-20260421T050131Z-a77661de`.
 - `R2.` The appended `Code Review Findings` block for review pass `0000055-20260421T050131Z-a77661de` is revalidated on disk rather than left as artifact-only review intent.
 - `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes and any still-honest residual risk for this review-created block.
-- `R4.` Fresh automated validation reruns the supported build, test, and stack wrappers needed to revalidate the repaired seams and the story's supported main runtime path.
+- `R4.` Fresh automated validation reruns the supported build, test, e2e, and stack wrappers needed to revalidate the repaired seams plus the story's supported browser-visible and main runtime paths.
 - `R5.` If any repaired seam remains partially proven, the close-out records that residual risk explicitly instead of silently reclosing the story.
 
 #### Proof Mapping
 
-- `P1.` Requirement: Tasks `172` through `175` are `__done__`, have no unchecked subtasks/testing/live blockers, and close findings `F1` through `F5` (`R1`). Owners: Tasks `172` through `175`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 3; Testing 1 through 11.
-- `P2.` Requirement: the appended `Code Review Findings` block for review pass `0000055-20260421T050131Z-a77661de` is revalidated against current disk state (`R2`). Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 and 7; Testing 1 through 11.
-- `P3.` Requirement: the durable PR summary cites repaired proof homes, fresh reruns, retained evidence, residual risk, rejected-risk notes, and challenge carry-forward honestly (`R3`, `R5`). Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 6; Testing 1 through 11.
-- `P4.` Requirement: the supported main runtime path still builds, starts, probes, and shuts down cleanly after review-created repairs land (`R4`). Owners: `docker-compose.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-host-network-main.mjs`. Proof homes: `scripts/test-summary-host-network-main.mjs` and Testing 6 through 9.
+- `P1.` Requirement: Tasks `172` through `175` are `__done__`, have no unchecked subtasks/testing/live blockers, and close findings `F1` through `F5` (`R1`). Owners: Tasks `172` through `175`, `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1, 2, and 3; Testing 1 through 12.
+- `P2.` Requirement: the appended `Code Review Findings` block for review pass `0000055-20260421T050131Z-a77661de` is revalidated against current disk state (`R2`). Owners: `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Proof homes: subtasks 1 and 7; Testing 1 through 12.
+- `P3.` Requirement: the durable PR summary cites repaired proof homes, fresh reruns, retained evidence, residual risk, rejected-risk notes, and challenge carry-forward honestly (`R3`, `R5`). Owners: `codeInfoStatus/pr-summaries/0000055-pr-summary.md`. Proof homes: subtasks 3 through 6; Testing 1 through 12.
+- `P4.` Requirement: the supported automated e2e and main runtime paths still build, start, probe, and shut down cleanly after review-created repairs land (`R4`). Owners: `docker-compose.yml`, `docker-compose.e2e.yml`, `scripts/docker-compose-with-env.sh`, `scripts/test-summary-e2e.mjs`, `scripts/test-summary-host-network-main.mjs`, `e2e/ingest.spec.ts`. Proof homes: `scripts/test-summary-e2e.mjs`, `scripts/test-summary-host-network-main.mjs`, and Testing 6 through 10.
 
 #### Documentation Locations
 
@@ -13889,8 +13889,11 @@ Re-validate Story 55 after the current review-created findings block lands. This
 - `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
 - `README.md`
 - `docker-compose.yml`
+- `docker-compose.e2e.yml`
 - `scripts/docker-compose-with-env.sh`
+- `scripts/test-summary-e2e.mjs`
 - `scripts/test-summary-host-network-main.mjs`
+- `e2e/ingest.spec.ts`
 
 #### Subtasks
 
@@ -13909,12 +13912,13 @@ Re-validate Story 55 after the current review-created findings block lands. This
 3. [ ] Run `npm run test:summary:server:unit`.
 4. [ ] Run `npm run test:summary:server:cucumber`.
 5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run compose:build:summary`.
-7. [ ] Run `npm run compose:up`.
-8. [ ] Run `npm run test:summary:host-network:main`.
-9. [ ] Run `npm run compose:down`.
-10. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-11. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+6. [ ] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
+7. [ ] Run `npm run compose:build:summary`.
+8. [ ] Run `npm run compose:up`.
+9. [ ] Run `npm run test:summary:host-network:main`.
+10. [ ] Run `npm run compose:down`.
+11. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+12. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 

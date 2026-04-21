@@ -7,7 +7,8 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Follow `review_task_enhancement/01-shared-contract.md` and keep the scope limited to the selected newly added review-created `__to_do__` tasks.
 - Use fresh disk reads and current git state, not conversational memory.
 - Treat thin review notes, under-specified subtasks, and under-scoped testing as defects to repair now rather than acceptable output.
-- Treat over-fragmented review-created tasks, micro-subtasks, and duplicated broad testing as defects when compact wording can stay concrete and honest.
+- Treat over-fragmented subtasks, micro-subtasks, and duplicated broad testing inside selected review-created tasks as defects to repair now.
+- If the selected review-created task set itself is over-fragmented across multiple task identities, do not merge, delete, absorb, renumber, or identity-shift those tasks in this pass. Stop and report an upstream packaging defect so review disposition or stored-review repair can regroup the tasks before scoped enhancement continues.
 
 </instruction_priority>
 
@@ -18,7 +19,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Re-identify the same newly added review-created `__to_do__` tasks that were eligible for the scoped review-task-up command. Keep edits focused on those tasks except for minimal dependency, numbering, cross-reference, or testing-honesty fixes elsewhere in the plan.
 - Compare the selected review-created tasks against the story's stronger pre-existing tasks. Review-created tasks should read like normal first-class story tasks, not lightweight review notes.
 - Review-created tasks should also read like compact patch tasks for known findings, not miniature full-story task plans.
-- If adjacent selected tasks share repository ownership, repair seam, root cause, implementation owner, and proof story, do not further fragment them during this scoped pass. Preserve wording that makes the shared seam clear while leaving any task-identity repair to disposition or stored-review repair steps.
+- If adjacent selected review-created tasks share repository ownership, repair seam, root cause, implementation owner, and proof story, treat that as task-level over-fragmentation. Do not merge, delete, absorb, renumber, or identity-shift those tasks in this pass. Stop and report that the selected review-created task block must be regrouped by review disposition or stored-review repair before scoped enhancement continues.
 - If a selected task still has any subtask that would force a junior implementer to infer the real file target, proof owner, order of operations, or stopping rule, rewrite that subtask now.
 - If a selected task still has any subtask that depends on future automated or manual proof output, rewrite that subtask now.
 - If a selected task contains several micro-subtasks that touch one coherent patch area or proof file, compact them into one concrete subtask with inline file targets, assertions, and outcomes unless that would hide sequencing, ownership, or proof risk.
@@ -44,6 +45,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 
 - Check that the selected review-created tasks now look comparable in detail and proof quality to the story's earlier strong tasks.
 - Check that the selected review-created tasks are compact enough to avoid unnecessary token, task, subtask, and testing duplication.
+- Check whether task-level over-fragmentation exists across selected review-created task identities. If it does, stop and report an upstream packaging defect instead of compacting around it.
 - Check that no selected task still relies on vague verbs such as “fix,” “handle,” or “update tests” without explicit file targets and intended outcomes.
 - Check that each selected task names targeted task-local proof honestly and that any broad wrapper proof deferred to final revalidation is explicitly covered there.
 - Check that each selected task keeps `Testing` automated-only and moves any optional manual-testing-agent scenarios into `Manual Testing Guidance`.

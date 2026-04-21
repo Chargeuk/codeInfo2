@@ -70,16 +70,16 @@ For each repository in review scope, resolve the review base branch using this o
 
 Record the final per-repository `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, conditional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule`, and use that comparison base for all review diffs and later review-step validation.
 
-`remote_fetch_status` is a required string enum describing the remote/ref availability result for review-base resolution. It must be exactly one of:
+`remote_fetch_status` is a required string enum describing the remote/ref availability result for the final `comparison_base_ref` lookup only. Earlier candidate refs inspected during base resolution do not change `remote_fetch_status`; record those candidate-ref details in the evidence summary instead, unless they caused the final comparison base to fall back locally. `remote_fetch_status` must be exactly one of:
 
-- `success`: `origin` exists and fetch/ref inspection succeeded sufficiently to use or reject the remote-tracking ref normally.
-- `missing_remote`: `origin` does not exist or is unavailable in this repository.
-- `fetch_failed`: an attempted fetch from `origin` failed.
-- `missing_remote_ref`: `origin` exists, but the matching remote-tracking ref needed for the logical base does not exist after inspection.
+- `success`: the final `comparison_base_ref` is a remote-tracking ref from `origin`, such as `origin/main`.
+- `missing_remote`: `origin` does not exist or is unavailable, so the final `comparison_base_ref` had to use a local fallback.
+- `fetch_failed`: an attempted fetch from `origin` failed while resolving the final `comparison_base_ref`, so the final base had to use a local fallback.
+- `missing_remote_ref`: `origin` exists, but the remote-tracking ref corresponding to the final logical base does not exist after inspection, so the final `comparison_base_ref` had to use a local fallback.
 
-When `remote_fetch_status` is `fetch_failed`, the handoff must also include `remote_fetch_error` as a short stderr/error summary and `remote_fetch_exit_code` when available. When `remote_fetch_status` is `missing_remote` or `missing_remote_ref`, `local_fallback_reason` must name that same concrete reason if the final comparison base uses a local fallback. When `remote_fetch_status` is `success`, omit `remote_fetch_error` and `remote_fetch_exit_code` unless they are needed for debugging.
+When `remote_fetch_status` is `fetch_failed`, the handoff must also include `remote_fetch_error` as a short stderr/error summary and `remote_fetch_exit_code` when available. When `remote_fetch_status` is `missing_remote` or `missing_remote_ref`, `local_fallback_reason` must name that same concrete reason. When `remote_fetch_status` is `success`, omit `remote_fetch_error` and `remote_fetch_exit_code` unless they are needed for debugging.
 
-`resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. `local_fallback_reason` must be `null` when `resolved_base_source` is `remote`, and must be a non-empty concrete reason when `resolved_base_source` is `local_fallback`. `comparison_base_ref` must match `resolved_base_branch`, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
+`resolved_base_source` must be `remote` when a remote-tracking ref such as `origin/main` is used, and `local_fallback` when a local branch or ref is used because the remote path was unavailable. When `resolved_base_source` is `remote`, `remote_fetch_status` must be `success`, `comparison_base_ref` must be the remote-tracking ref used for review, and `local_fallback_reason` must be `null`. When `resolved_base_source` is `local_fallback`, `remote_fetch_status` must be one of `missing_remote`, `fetch_failed`, or `missing_remote_ref`, `comparison_base_ref` must be the local branch or ref used for review, and `local_fallback_reason` must be a non-empty concrete reason. `comparison_base_ref` must match `resolved_base_branch`, `comparison_head_ref` must be `HEAD`, and `comparison_rule` must be `local_head_vs_resolved_base`.
 
 </base_branch_rules>
 

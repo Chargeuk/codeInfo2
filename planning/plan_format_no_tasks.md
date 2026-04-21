@@ -22,6 +22,7 @@ When tasks are later added to this story, use this section contract:
 - For any non-final task, put manual-testing screenshots, logs, and similar proof artifacts in `codeInfoTmp/manual-testing/<story-number>/` and do not commit them.
 - If a story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, add or update that ignore rule before later proof depends on the scratch path.
 - For the final task, put manual-testing screenshots, logs, and similar proof artifacts in `codeInfoStatus/manual-testing/<story-number>/` and commit them as durable final story proof.
+- When Manual Testing Guidance mentions Playwright MCP screenshots, state that screenshots are captured in the Playwright output directory first and then transferred into the target repository artifact destination. `CODEINFO_ROOT` is the harness root and may expose staging paths such as `$CODEINFO_ROOT/playwright-output-local`, but it is not the target artifact root unless the active plan is in the harness repository.
 
 ### Description
 

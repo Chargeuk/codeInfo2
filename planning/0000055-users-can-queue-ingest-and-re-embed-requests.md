@@ -13899,13 +13899,13 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 
 #### Subtasks
 
-1. [ ] Re-read finding `F4` and the existing `openapi.json` success response blocks for `POST /ingest/start` and `POST /ingest/reembed/{root}`. Purpose: preserve the existing queue-aware `202` variants while adding only the missing failure contract.
-2. [ ] Re-read the `QUEUE_UNAVAILABLE` runtime envelopes in `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`. Purpose: mirror the actual runtime shape instead of inventing a documentation-only response.
-3. [ ] Update `openapi.json` so `POST /ingest/start` documents the `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope with `status: "error"`, `code: "QUEUE_UNAVAILABLE"`, `retryable: true`, `message`, and the existing retry guidance such as `Retry-After` when present at runtime.
-4. [ ] Update `openapi.json` so `POST /ingest/reembed/{root}` documents the same `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope without weakening or removing the existing `202` queue-aware success variants.
-5. [ ] Test type: server unit contract proof. Location: `server/src/test/unit/openapi.contract.test.ts`. Description: create or update one assertion whose test title names the documented `POST /ingest/start` `503 QUEUE_UNAVAILABLE` response while preserving the existing queue-aware `202` success assertions. If an existing `202` contract test is reused, split or rename it before adding the `503` assertion so the title names the failure invariant. Purpose: prevent the start-ingest failure contract from disappearing from generated docs.
-6. [ ] Test type: server unit contract proof. Location: `server/src/test/unit/openapi.contract.test.ts`. Description: create or update one assertion whose test title names the documented `POST /ingest/reembed/{root}` `503 QUEUE_UNAVAILABLE` response while preserving the existing queue-aware `202` success assertions. If an existing `202` contract test is reused, split or rename it before adding the `503` assertion so the title names the failure invariant. Purpose: prevent the re-embed failure contract from disappearing from generated docs.
-7. [ ] If this task touches `README.md` or adjacent API-contract prose, edit the exact touched section so it names the same `503 QUEUE_UNAVAILABLE` envelope, retryable flag, and retry guidance as `openapi.json` and the runtime route behavior; otherwise leave those docs unchanged.
+1. [x] Re-read finding `F4` and the existing `openapi.json` success response blocks for `POST /ingest/start` and `POST /ingest/reembed/{root}`. Purpose: preserve the existing queue-aware `202` variants while adding only the missing failure contract.
+2. [x] Re-read the `QUEUE_UNAVAILABLE` runtime envelopes in `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`. Purpose: mirror the actual runtime shape instead of inventing a documentation-only response.
+3. [x] Update `openapi.json` so `POST /ingest/start` documents the `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope with `status: "error"`, `code: "QUEUE_UNAVAILABLE"`, `retryable: true`, `message`, and the existing retry guidance such as `Retry-After` when present at runtime.
+4. [x] Update `openapi.json` so `POST /ingest/reembed/{root}` documents the same `503 Service Unavailable` `QUEUE_UNAVAILABLE` response envelope without weakening or removing the existing `202` queue-aware success variants.
+5. [x] Test type: server unit contract proof. Location: `server/src/test/unit/openapi.contract.test.ts`. Description: create or update one assertion whose test title names the documented `POST /ingest/start` `503 QUEUE_UNAVAILABLE` response while preserving the existing queue-aware `202` success assertions. If an existing `202` contract test is reused, split or rename it before adding the `503` assertion so the title names the failure invariant. Purpose: prevent the start-ingest failure contract from disappearing from generated docs.
+6. [x] Test type: server unit contract proof. Location: `server/src/test/unit/openapi.contract.test.ts`. Description: create or update one assertion whose test title names the documented `POST /ingest/reembed/{root}` `503 QUEUE_UNAVAILABLE` response while preserving the existing queue-aware `202` success assertions. If an existing `202` contract test is reused, split or rename it before adding the `503` assertion so the title names the failure invariant. Purpose: prevent the re-embed failure contract from disappearing from generated docs.
+7. [x] If this task touches `README.md` or adjacent API-contract prose, edit the exact touched section so it names the same `503 QUEUE_UNAVAILABLE` envelope, retryable flag, and retry guidance as `openapi.json` and the runtime route behavior; otherwise leave those docs unchanged.
 
 #### Testing
 
@@ -13916,6 +13916,11 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation notes
+
+- Subtasks 1 and 2: re-read finding `F4`, the current `202` OpenAPI response blocks for both queueable producer routes, and the runtime `QUEUE_UNAVAILABLE` branches; both routes return `503` with `{ status, code, retryable, message }` and conditionally set `Retry-After` from `retryAfterMs`.
+- Subtasks 3 and 4: added `503` OpenAPI responses for `POST /ingest/start` and `POST /ingest/reembed/{root}` with the runtime `QUEUE_UNAVAILABLE` body shape and optional `Retry-After` header schema, leaving the existing queue-aware `202` variants unchanged.
+- Subtasks 5 and 6: added dedicated OpenAPI unit-contract assertions titled around each route's `503 QUEUE_UNAVAILABLE` response while preserving the existing queue-aware `202` success-shape tests.
+- Subtask 7: left `README.md` and adjacent prose unchanged because this implementation only touched the machine-readable OpenAPI contract and its unit-contract proof home.
 
 ### Task 176. Re-Validate Story 55 After Review Pass `0000055-20260421T050131Z-a77661de`
 

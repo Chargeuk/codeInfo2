@@ -680,6 +680,44 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Queue backend unavailable; retry the queueable ingest request later",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying when the server can estimate a retry delay.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["error"]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": ["QUEUE_UNAVAILABLE"]
+                    },
+                    "retryable": {
+                      "type": "boolean",
+                      "enum": [true]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status", "code", "retryable", "message"],
+                  "additionalProperties": false
+                }
+              }
+            }
           }
         }
       }
@@ -739,6 +777,44 @@
                       "additionalProperties": false
                     }
                   ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Queue backend unavailable; retry the queueable re-embed request later",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying when the server can estimate a retry delay.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["error"]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": ["QUEUE_UNAVAILABLE"]
+                    },
+                    "retryable": {
+                      "type": "boolean",
+                      "enum": [true]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status", "code", "retryable", "message"],
+                  "additionalProperties": false
                 }
               }
             }

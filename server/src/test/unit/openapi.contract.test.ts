@@ -13,7 +13,7 @@ function readOpenApi() {
   };
 }
 
-function getResponseSchema(
+function getResponse(
   openapi: ReturnType<typeof readOpenApi>,
   pathName: string,
   method: 'get' | 'post',
@@ -22,17 +22,61 @@ function getResponseSchema(
   const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
     pathName
   ] as Record<string, unknown> | undefined;
-  const response = (
+  return (
     ((schema?.[method] as Record<string, unknown>)?.responses ?? {}) as Record<
       string,
       Record<string, unknown>
     >
   )[statusCode];
+}
+
+function getResponseSchema(
+  openapi: ReturnType<typeof readOpenApi>,
+  pathName: string,
+  method: 'get' | 'post',
+  statusCode: string,
+) {
+  const response = getResponse(openapi, pathName, method, statusCode);
   return (((
     ((response?.content as Record<string, unknown>) ?? {})[
       'application/json'
     ] as Record<string, unknown>
   )?.schema ?? null) as Record<string, unknown> | null)!;
+}
+
+function assertQueueUnavailableResponse(
+  openapi: ReturnType<typeof readOpenApi>,
+  pathName: '/ingest/start' | '/ingest/reembed/{root}',
+) {
+  const response = getResponse(openapi, pathName, 'post', '503');
+  assert.ok(response, `missing ${pathName} 503 response`);
+
+  const headers = (response.headers ?? {}) as Record<string, unknown>;
+  const retryAfter = headers['Retry-After'] as
+    | Record<string, unknown>
+    | undefined;
+  assert.ok(retryAfter, `missing ${pathName} Retry-After header`);
+  assert.deepEqual(retryAfter.schema, { type: 'integer', minimum: 1 });
+
+  const bodySchema = getResponseSchema(openapi, pathName, 'post', '503');
+  assert.ok(bodySchema, `missing ${pathName} 503 schema`);
+  assert.equal(bodySchema.type, 'object');
+  assert.deepEqual(bodySchema.required, [
+    'status',
+    'code',
+    'retryable',
+    'message',
+  ]);
+  assert.equal(bodySchema.additionalProperties, false);
+
+  const props = (bodySchema.properties ?? {}) as Record<string, unknown>;
+  assert.deepEqual(props.status, { type: 'string', enum: ['error'] });
+  assert.deepEqual(props.code, {
+    type: 'string',
+    enum: ['QUEUE_UNAVAILABLE'],
+  });
+  assert.deepEqual(props.retryable, { type: 'boolean', enum: [true] });
+  assert.deepEqual(props.message, { type: 'string' });
 }
 
 test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', () => {
@@ -175,6 +219,12 @@ test('OpenAPI /ingest/start queue-aware 202 response documents immediate and wai
   );
 });
 
+test('OpenAPI /ingest/start documents POST /ingest/start 503 QUEUE_UNAVAILABLE response', () => {
+  const openapi = readOpenApi();
+
+  assertQueueUnavailableResponse(openapi, '/ingest/start');
+});
+
 test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediate and waiting acceptance shapes', () => {
   const openapi = readOpenApi();
   const bodySchema = getResponseSchema(
@@ -220,6 +270,12 @@ test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediat
       (((waitingSchema?.properties ?? {}) as Record<string, unknown>) ?? {}),
     false,
   );
+});
+
+test('OpenAPI /ingest/reembed/{root} documents POST /ingest/reembed/{root} 503 QUEUE_UNAVAILABLE response', () => {
+  const openapi = readOpenApi();
+
+  assertQueueUnavailableResponse(openapi, '/ingest/reembed/{root}');
 });
 
 test('OpenAPI /codex/device-auth schema enforces empty request and shared provider-auth responses', () => {

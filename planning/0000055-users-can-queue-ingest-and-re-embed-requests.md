@@ -13927,6 +13927,7 @@ Bring the OpenAPI contract and contract tests into alignment with the implemente
 - Testing 4: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 5: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
 - Automated-proof audit: Task 175 is complete because all implementation subtasks and automated testing gates are checked, the parser reports no live blockers, and no prose-only remaining gate is present.
+- Manual testing: assessed as `not_applicable` for this task-scoped pass because Task 175 only changed the static `openapi.json` contract and its unit-contract assertions, and current runtime research found no supported endpoint or browser surface that serves that contract for manual proof. No stack was started, no screenshots or manual-proof artifacts were captured, no subtasks or testing steps were added, and the task remains `__done__`.
 
 ### Task 176. Re-Validate Story 55 After Review Pass `0000055-20260421T050131Z-a77661de`
 

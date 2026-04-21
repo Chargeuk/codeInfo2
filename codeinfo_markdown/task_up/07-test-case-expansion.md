@@ -50,7 +50,7 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
   - “Test type: server unit. Location: `server/src/test/unit/openai-provider.test.ts`. Description: prove overflow inputs still split into multiple provider calls. Purpose: preserve batching behavior while the constant source changes.”
 - Bad: “Run the browser proof and save the screenshot for the disabled-state case.”
 - Good: “Extend the relevant Playwright proof and screenshot naming so the disabled-state case can be captured during later automated or manual validation.”
-    </mini_example>
+  </mini_example>
 
 <output_contract>
 

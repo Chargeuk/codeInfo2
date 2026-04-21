@@ -17,21 +17,17 @@ export type MockScenario =
   | 'chat-tools';
 
 let scenario: MockScenario = 'many';
-let lastPrediction:
-  | {
-      cancelled: boolean;
-      emittedEventCount: number;
-      roundStartCount: number;
-      abortListenerRemoved: boolean;
-    }
-  | null = null;
-let lastControlledEmbedding:
-  | {
-      preAborted: boolean;
-      liveWorkRegistered: boolean;
-      abortListenerRemoved: boolean;
-    }
-  | null = null;
+let lastPrediction: {
+  cancelled: boolean;
+  emittedEventCount: number;
+  roundStartCount: number;
+  abortListenerRemoved: boolean;
+} | null = null;
+let lastControlledEmbedding: {
+  preAborted: boolean;
+  liveWorkRegistered: boolean;
+  abortListenerRemoved: boolean;
+} | null = null;
 let lastChatHistory: Array<{ role?: string; content?: string }> = [];
 type ControlledEmbeddingCall = {
   text: string;

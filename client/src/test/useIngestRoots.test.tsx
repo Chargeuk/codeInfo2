@@ -806,8 +806,12 @@ describe('useIngestRoots', () => {
 
     const olderRefresh = createDeferredRootsRequest();
     const newerRefresh = createDeferredRootsRequest();
-    mockFetch.mockImplementationOnce(asFetchImplementation(olderRefresh.request));
-    mockFetch.mockImplementationOnce(asFetchImplementation(newerRefresh.request));
+    mockFetch.mockImplementationOnce(
+      asFetchImplementation(olderRefresh.request),
+    );
+    mockFetch.mockImplementationOnce(
+      asFetchImplementation(newerRefresh.request),
+    );
 
     await act(async () => {
       void result.current.refetch();
@@ -967,8 +971,12 @@ describe('useIngestRoots', () => {
 
     const olderRefresh = createDeferredRootsRequest();
     const newerRefresh = createDeferredRootsRequest();
-    mockFetch.mockImplementationOnce(asFetchImplementation(olderRefresh.request));
-    mockFetch.mockImplementationOnce(asFetchImplementation(newerRefresh.request));
+    mockFetch.mockImplementationOnce(
+      asFetchImplementation(olderRefresh.request),
+    );
+    mockFetch.mockImplementationOnce(
+      asFetchImplementation(newerRefresh.request),
+    );
 
     await act(async () => {
       void result.current.refetch();

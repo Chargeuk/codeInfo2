@@ -84,6 +84,8 @@ function createApp() {
 }
 
 test('ingest route failure coverage emits structured warn/error entries via /logs and /logs/stream', async () => {
+  const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   resetStore();
   const app = createApp();
 
@@ -183,6 +185,11 @@ test('ingest route failure coverage emits structured warn/error entries via /log
     assert.ok(streamBody.includes('DEV-0000036:T17:ingest_provider_failure'));
     assert.ok(streamBody.includes('"surface":"ingest/start"'));
   } finally {
+    if (originalCodexWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalCodexWorkdir;
+    }
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });

@@ -149,9 +149,7 @@ test('pre-aborted controlled embed short-circuits before registering live work',
   );
 });
 
-test(
-  'pre-aborted controlled embed returns the mock short-circuit shape without rejection',
-  async () => {
+test('pre-aborted controlled embed returns the mock short-circuit shape without rejection', async () => {
   startMock({ scenario: 'controlled-embedding' });
 
   const controller = new AbortController();
@@ -166,8 +164,7 @@ test(
     });
     assert.deepEqual(result, { modelKey: 'embed-model', embedding: [] });
   });
-  },
-);
+});
 
 test('pre-aborted controlled embed clears abort-listener cleanup state before return', async () => {
   startMock({ scenario: 'controlled-embedding' });

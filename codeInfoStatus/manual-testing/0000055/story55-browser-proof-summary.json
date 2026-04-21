@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-21T04:48:38Z",
+  "scope": "full-story proof for final Task 171",
+  "runtime": {
+    "startup": "Restarted freshness-unknown main stack with npm run compose:down, npm run compose:build, npm run compose:up.",
+    "probe": "npm run test:summary:host-network:main passed before browser proof.",
+    "surface": "http://localhost:5001/ingest served by the normal main compose stack."
+  },
+  "live_api_proof": {
+    "artifact": "codeInfoStatus/manual-testing/0000055/live-reembed-queue-proof.jsonl",
+    "summary": "Live product re-embed calls returned one immediate running request with runId and one queued request with requestId plus queuePosition, and /ingest/roots exposed the queued row with queueState waiting before the queue drained."
+  },
+  "browser_proof": {
+    "route_control_reason": "The browser proof mirrors the repository e2e/ingest.spec.ts route-controlled Story 55 UI proof pattern while the normal main compose stack serves the client. This avoids relying on a transient persistent-main-stack queue state for screenshots after the live API proof already showed the real queue admission contract.",
+    "screenshots": [
+      "codeInfoStatus/manual-testing/0000055/story55-initial-queue-states.png",
+      "codeInfoStatus/manual-testing/0000055/story55-transitioned-running-row.png"
+    ],
+    "assertions": {
+      "initial_queued_running_cleanup_blocked_rows_visible": true,
+      "queued_details_showed_request_id_and_pending_queue_start": true,
+      "transitioned_queued_root_rows_after_refresh": 1,
+      "transitioned_row_text": "queued-retry-after/manual/queued-rootopenai / text-embedding-3-smallingesting (embedding)4/21/2026, 4:45:00 AMFiles:2Chunks:4Embedded:1AST Supported:2AST Skipped:0AST Failed:0Re-embedRemoveDetails",
+      "transitioned_row_kept_stable_path_identity": true,
+      "transitioned_row_replaced_earlier_metadata": true,
+      "cleanup_blocked_row_visible_and_locked": true,
+      "row_actions_disabled_for_queue_blocked_rows": true
+    }
+  },
+  "console_and_network": {
+    "warning_or_error_console_messages": [],
+    "network_summary": [
+      "GET http://host.docker.internal:5010/ingest/models => 200 OK",
+      "GET http://host.docker.internal:5010/ingest/roots => 200 OK",
+      "POST http://host.docker.internal:5010/logs => 202 Accepted"
+    ],
+    "known_reload_artifact": "One /ingest/models request was aborted by the deliberate page reload between screenshots; the later network capture showed the same endpoint returning 200 OK."
+  },
+  "visual_assessment": "The queued, running, and cleanup-blocked rows were aligned and readable in the table; disabled queue-blocked actions were visibly consistent, and the details drawer exposed request identity without layout breakage."
+}

@@ -42,6 +42,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
   - any needed login, seed, or setup path;
   - where credentials or access come from without inlining secrets.
 - Verify that the final task's manual-testing proof guidance uses `codeInfoStatus/manual-testing/<story-number>/` and states that those artifacts should be committed as durable final story proof.
+- Check that any Playwright MCP screenshot guidance explains the staging-and-transfer flow instead of treating `$CODEINFO_ROOT/playwright-output-local` or the Playwright output directory as the final target repository artifact destination.
 - Verify that manual-testing guidance prefers the unmodified human Docker stack whenever repository evidence shows it is runnable, and only falls back to minimal test-only enablement when the normal stack is not enough.
 - Check that any planned screenshot or browser-artifact output path points only to ignored artifact storage rather than tracked repository files.
 - Check that no actual secrets, passwords, or tokens were written into the plan.

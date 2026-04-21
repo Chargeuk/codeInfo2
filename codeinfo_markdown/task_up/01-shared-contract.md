@@ -30,6 +30,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Manual-testing proof paths must stay repository-relative and use this split:
   - for any non-final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeInfoTmp/manual-testing/<story-number>/` and must not be committed;
   - for the final task, manual-testing screenshots, logs, and similar proof artifacts belong in `codeInfoStatus/manual-testing/<story-number>/` and should be committed as durable story-closeout proof.
+- When Manual Testing Guidance mentions Playwright MCP screenshots, do not imply that Playwright MCP writes directly into the target repository. State that screenshots are first captured with a relative staging filename in the Playwright output directory, then transferred into the target repository artifact destination. `CODEINFO_ROOT` is the harness root and may expose staging paths such as `$CODEINFO_ROOT/playwright-output-local`, but it is not the target artifact root unless the active plan is in the harness repository.
 - If the story needs a durable reviewer-facing PR summary artifact, place it at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md` rather than under `planning/`. The executable plan remains the source of truth; the PR summary is a derived close-out artifact.
 
 </portability_and_test_boundary_contract>

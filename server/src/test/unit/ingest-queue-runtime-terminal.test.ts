@@ -124,7 +124,7 @@ test('request-aware queue wait uses timeout fallback only when no terminal state
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
 });
 
-test('request-aware queue wait cleans up listeners on queue-read failure, cancellation, and immediate cached terminal reuse', async () => {
+test('request-aware queue wait cleans up listeners on queue-read failure', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
 
   __setQueueRuntimeOpsForTest({
@@ -143,6 +143,22 @@ test('request-aware queue wait cleans up listeners on queue-read failure, cancel
   assert.equal(queueReadFailed.reason, QUEUE_READ_FAILED_WAIT_REASON);
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
+});
+
+test('request-aware queue wait cleans up listeners on cancellation and immediate cached terminal reuse', async () => {
+  const initialListeners = __getIngestEventListenerCountForTest();
+
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async (requestId) =>
+      requestId === 'queue-cancelled-live'
+        ? createQueueRequest({
+            requestId,
+            root: '/data/repo-cancelled-live',
+            queueState: 'running',
+            runId: 'run-cancelled-live',
+          })
+        : null,
+  });
 
   __setStatusForTest('run-cancelled-live', {
     runId: 'run-cancelled-live',
@@ -172,6 +188,16 @@ test('request-aware queue wait cleans up listeners on queue-read failure, cancel
   assert.equal(cancelled.reason, 'terminal');
   assert.equal(cancelled.status?.state, 'cancelled');
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
+  assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
+
+  __setQueueRuntimeOpsForTest({
+    findQueueRequestById: async () => {
+      throw new Error('queue read failed');
+    },
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+  });
+  await __persistQueueTerminalBarrierForTest('run-cancelled-live');
 
   const immediate = await waitForQueueRequestTerminalStatus(
     'queue-cancelled-live',
@@ -238,6 +264,7 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
   let cleanupBlockedRequestId: string | null = null;
   let deletedDuringFinalize = false;
   let promotedDuringCleanupBlocked = false;
+  let activeRunId: string | null = null;
 
   try {
     vectors.delete = mock.fn(async () => {
@@ -258,6 +285,15 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
     process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
 
     __setQueueRuntimeOpsForTest({
+      findQueueRequestById: async (requestId) =>
+        requestId === '11' && activeRunId
+          ? createQueueRequest({
+              requestId,
+              root,
+              queueState: cleanupBlockedRequestId ? 'cleanup-blocked' : 'running',
+              runId: activeRunId,
+            })
+          : null,
       deleteQueueRequestById: async () => {
         deletedDuringFinalize = true;
         return null;
@@ -295,6 +331,7 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
       },
       buildIngestDeps(),
     );
+    activeRunId = runId;
     __setQueueRequestIdForRunForTest(runId, '11');
     if (scheduledTask === null) {
       throw new Error('expected captured run task before execution');
@@ -310,7 +347,15 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
     ) {
       await waitForNextTurn();
     }
-    const stalled = await pumpIngestQueue();
+    let stalled = await pumpIngestQueue();
+    for (
+      let attempt = 0;
+      attempt < 5 && !stalled.blockedByCleanup && !stalled.started;
+      attempt += 1
+    ) {
+      await waitForNextTurn();
+      stalled = await pumpIngestQueue();
+    }
 
     assert.equal(status.state, 'cleanup-blocked');
     assert.equal(cleanupBlockedRequestId, '11');

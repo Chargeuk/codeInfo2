@@ -659,7 +659,12 @@
                           "enum": ["running"]
                         }
                       },
-                      "required": ["queued", "requestId", "runId", "queueState"],
+                      "required": [
+                        "queued",
+                        "requestId",
+                        "runId",
+                        "queueState"
+                      ],
                       "additionalProperties": false
                     },
                     {
@@ -763,7 +768,12 @@
                           "enum": ["running"]
                         }
                       },
-                      "required": ["queued", "requestId", "runId", "queueState"],
+                      "required": [
+                        "queued",
+                        "requestId",
+                        "runId",
+                        "queueState"
+                      ],
                       "additionalProperties": false
                     },
                     {

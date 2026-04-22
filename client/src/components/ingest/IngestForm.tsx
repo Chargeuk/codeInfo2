@@ -257,9 +257,7 @@ export default function IngestForm({
       onAccepted?.({
         queued: isWaiting,
         requestId: data.requestId,
-        ...(hasRunId
-          ? { runId: data.runId }
-          : {}),
+        ...(hasRunId ? { runId: data.runId } : {}),
         ...(data.queueState === 'running' && !isWaiting
           ? { queueState: data.queueState }
           : {}),

@@ -14978,14 +14978,14 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
-6. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
-7. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-8. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
+5. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
+6. [x] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
+7. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+8. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14997,6 +14997,14 @@ Restore the queue-state contract across immediate REST queue success responses, 
 - Subtask 5: updated ingest form and root-table response parsing to accept immediate `queueState: 'running'` without carrying waiting-only `queuePosition`, and retitled the client re-embed proof fixture so stale queued metadata on an immediate running response stays on the non-queued path.
 - Subtask 6: replaced the repository-list overlay's duplicated live queue-state literal with `ingestLiveQueueTargetStates`, keeping the existing created-at/id ordering and queue overlay behavior intact.
 - Subtask 7: added repository-list overlay proof that captures the queue request filter and sort, requiring `$in: [...ingestLiveQueueTargetStates]` and the existing `{ createdAt: 1, _id: 1 }` ordering; the queue-state export already has adjacent drift coverage in `ingest-request-queue.test.ts`.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` passed with 30 tests, 0 failures; wrapper reported `agent_action: skip_log`.
+- Testing 2: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` passed with 31 tests, 0 failures; wrapper reported `agent_action: skip_log`.
+- Testing 3: `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts` passed with 13 tests, 0 failures; wrapper reported `agent_action: skip_log`.
+- Testing 4: `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` passed with 15 tests, 0 failures; wrapper reported `agent_action: skip_log`.
+- Testing 5: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` passed with 13 tests, 0 failures; wrapper reported `agent_action: skip_log`.
+- Testing 6: `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` passed with 40 tests, 0 failures; wrapper reported `agent_action: skip_log`.
+- Testing 7: `npm run lint` passed with no reported ESLint issues.
+- Testing 8: initial `npm run format:check` reported style drift in `client/src/components/ingest/IngestForm.tsx`, `openapi.json`, and `server/src/test/unit/openapi.contract.test.ts`; ran `npm run format`, then reran `npm run format:check` and it passed with all files matching Prettier style.
 
 ### Task 188. Add Observed-Row Ownership To Waiting Queue Rewrites
 

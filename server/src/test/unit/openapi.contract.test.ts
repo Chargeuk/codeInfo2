@@ -295,10 +295,7 @@ test('OpenAPI /ingest/start queue-aware 202 response documents immediate running
     type: 'string',
     enum: ['running'],
   });
-  assert.equal(
-    'queuePosition' in immediateProps,
-    false,
-  );
+  assert.equal('queuePosition' in immediateProps, false);
 
   const waitingSchema = variants.find((entry) => {
     const queuedEnum = ((
@@ -318,14 +315,8 @@ test('OpenAPI /ingest/start queue-aware 202 response documents immediate running
     string,
     unknown
   >;
-  assert.equal(
-    'runId' in waitingProps,
-    false,
-  );
-  assert.equal(
-    'queueState' in waitingProps,
-    false,
-  );
+  assert.equal('runId' in waitingProps, false);
+  assert.equal('queueState' in waitingProps, false);
 });
 
 test('OpenAPI /ingest/start documents POST /ingest/start 503 QUEUE_UNAVAILABLE response', () => {
@@ -392,14 +383,8 @@ test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediat
     string,
     unknown
   >;
-  assert.equal(
-    'runId' in waitingProps,
-    false,
-  );
-  assert.equal(
-    'queueState' in waitingProps,
-    false,
-  );
+  assert.equal('runId' in waitingProps, false);
+  assert.equal('queueState' in waitingProps, false);
 });
 
 test('OpenAPI /ingest/reembed/{root} documents POST /ingest/reembed/{root} 503 QUEUE_UNAVAILABLE response', () => {

@@ -15423,6 +15423,15 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 - Subtask 4: renamed the cancel cleanup-order proof and replaced the fixed `setTimeout(20)` negative assertion with a deterministic pending-promise check while `deleteGate` is unresolved.
 - Subtask 5: added a repository-list tool proof that a cleanup-blocked queue overlay without runtime status overrides a stale persisted `lastError` with the current `Queue cleanup blocked` diagnostic.
 - Subtask 6: added the matching `/ingest/roots` dedupe-surface proof that cleanup-blocked diagnostic precedence overrides stale persisted diagnostics without weakening waiting or running overlay behavior.
+- Testing 1 repair: the first `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts` run failed because the new partial-failure proof expected only the explicit post-cleanup pump; successful cleanup also schedules a queue-advance pump, so the assertion now records both unblocked pump attempts.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts` passed on rerun with `tests run: 14`, `passed: 14`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T14-25-42-814Z.log`.
+- Testing 2: `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts` passed with `tests run: 16`, `passed: 16`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T14-26-17-703Z.log`.
+- Testing 3: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts` passed with `tests run: 31`, `passed: 31`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T14-26-36-831Z.log`.
+- Testing 4: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts` passed with `tests run: 14`, `passed: 14`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T14-26-58-549Z.log`.
+- Testing 5: `npm run lint` passed with exit code 0 and no lint fixes were required.
+- Testing 6 repair: `npm run format:check` reported Prettier drift in `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`; reopened Testing 5 before running `npm run format` because formatting changes will land after the prior lint proof.
+- Testing 5 rerun: after `npm run format` rewrote the task-owned files, `npm run lint` passed again with exit code 0 and no lint fixes were required.
+- Testing 6: `npm run format:check` passed on rerun with `All matched files use Prettier code style!`.
 
 #### Subtasks
 
@@ -15435,12 +15444,12 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts`.
-5. [ ] Run `npm run lint`.
-6. [ ] Run `npm run format:check`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts`.
+5. [x] Run `npm run lint`.
+6. [x] Run `npm run format:check`.
 
 ### Task 193. Align `/ingest/start` OpenAPI Request Schema With Admission Validation
 

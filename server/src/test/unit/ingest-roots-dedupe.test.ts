@@ -899,9 +899,7 @@ test('GET /ingest/roots applies cleanup-blocked diagnostic precedence over stale
           sort: () => ({
             exec: async () => [
               {
-                _id: new mongoose.Types.ObjectId(
-                  '000000000000000000000057',
-                ),
+                _id: new mongoose.Types.ObjectId('000000000000000000000057'),
                 canonicalTargetPath: '/data/repo-stale-error',
                 operation: 'start',
                 queueState: 'cleanup-blocked',

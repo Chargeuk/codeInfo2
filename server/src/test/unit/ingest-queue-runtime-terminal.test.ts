@@ -418,8 +418,9 @@ test('delete failure plus cleanup-blocked persistence failure leaves retry owner
     },
   });
 
-  const cleaned =
-    await __finalizeQueueRequestForRunForTest('run-partial-cleanup');
+  const cleaned = await __finalizeQueueRequestForRunForTest(
+    'run-partial-cleanup',
+  );
   const stalled = await pumpIngestQueue();
   const startup = await recoverIngestQueueOnStartup();
 
@@ -438,8 +439,9 @@ test('delete failure plus cleanup-blocked persistence failure leaves retry owner
   assert.equal(getStatus('run-partial-cleanup')?.state, 'cleanup-blocked');
   assert.deepEqual(events, ['delete-1', 'mark-cleanup-blocked']);
 
-  const cleanedAfterRemoval =
-    await __finalizeQueueRequestForRunForTest('run-partial-cleanup');
+  const cleanedAfterRemoval = await __finalizeQueueRequestForRunForTest(
+    'run-partial-cleanup',
+  );
   const unblocked = await pumpIngestQueue();
 
   assert.equal(cleanedAfterRemoval, true);
@@ -449,6 +451,8 @@ test('delete failure plus cleanup-blocked persistence failure leaves retry owner
     'delete-1',
     'mark-cleanup-blocked',
     'delete-2',
+    'cleanup-blocked-lookup',
+    'waiting-promote',
     'cleanup-blocked-lookup',
     'waiting-promote',
   ]);

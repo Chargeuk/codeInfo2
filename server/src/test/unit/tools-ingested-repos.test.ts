@@ -816,9 +816,7 @@ test('cleanup-blocked overlay without runtime status overrides persisted stale l
           sort: () => ({
             exec: async () => [
               {
-                _id: new mongoose.Types.ObjectId(
-                  '000000000000000000000081',
-                ),
+                _id: new mongoose.Types.ObjectId('000000000000000000000081'),
                 canonicalTargetPath: '/data/repo-stale-error',
                 operation: 'start',
                 queueState: 'cleanup-blocked',

@@ -439,12 +439,10 @@ function clearQueueCleanupRetryState(requestId: string) {
   queueCleanupRetryAttempts.delete(requestId);
 }
 
-function getPendingQueueCleanupOwner():
-  | {
-      requestId: string | null;
-      runId: string;
-    }
-  | null {
+function getPendingQueueCleanupOwner(): {
+  requestId: string | null;
+  runId: string;
+} | null {
   const finalizerRunId = queueCleanupFinalizers.keys().next().value;
   if (typeof finalizerRunId === 'string' && finalizerRunId.length > 0) {
     return {

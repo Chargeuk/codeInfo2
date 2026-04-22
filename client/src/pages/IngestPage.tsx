@@ -51,7 +51,14 @@ export default function IngestPage() {
   const ingest = useIngestStatus();
 
   const terminalStates = useMemo(
-    () => new Set(['completed', 'cancelled', 'error', 'skipped']),
+    () =>
+      new Set([
+        'completed',
+        'cancelled',
+        'error',
+        'skipped',
+        'cleanup-blocked',
+      ]),
     [],
   );
   const lastFinishedRef = useRef<string | null>(null);
@@ -122,7 +129,10 @@ export default function IngestPage() {
       setTerminalErrorStatus(null);
       return;
     }
-    if (ingest.status.state === 'error') {
+    if (
+      ingest.status.state === 'error' ||
+      ingest.status.state === 'cleanup-blocked'
+    ) {
       setTerminalErrorStatus(ingest.status);
       return;
     }
@@ -164,9 +174,9 @@ export default function IngestPage() {
         {rootsIsError && rootsError ? (
           <Alert severity="error">{rootsError}</Alert>
         ) : null}
-        {terminalErrorStatus?.lastError ? (
+        {terminalErrorStatus?.lastError || terminalErrorStatus?.message ? (
           <Alert severity="error" data-testid="ingest-terminal-error">
-            {terminalErrorStatus.lastError}
+            {terminalErrorStatus.lastError ?? terminalErrorStatus.message}
           </Alert>
         ) : null}
         {ingest.connectionState === 'connecting' ? (

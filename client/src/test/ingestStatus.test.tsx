@@ -194,6 +194,35 @@ describe('useIngestStatus', () => {
     expect(cancelCalls).toHaveLength(0);
   });
 
+  it('does not post cancel for cleanup-blocked terminal status', async () => {
+    const { result } = renderHook(() => useIngestStatus());
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 1,
+        status: {
+          runId: 'run-cleanup-blocked',
+          state: 'cleanup-blocked',
+          counts: { files: 1 },
+          message: 'Queue cleanup blocked',
+          lastError: 'Queue record delete failed',
+        },
+      });
+    });
+
+    await act(async () => {
+      await result.current.cancel();
+    });
+
+    const cancelCalls = mockFetch.mock.calls.filter(([input]) =>
+      String(input).includes('/ingest/cancel/'),
+    );
+    expect(cancelCalls).toHaveLength(0);
+  });
+
   it('sends unsubscribe_ingest on unmount', async () => {
     const { unmount } = renderHook(() => useIngestStatus());
     await openSocket();
@@ -596,6 +625,82 @@ describe('IngestPage realtime status UI', () => {
       expect(screen.getByTestId('ingest-terminal-error')).toHaveTextContent(
         'No eligible files found in /blank-repo',
       );
+    });
+  });
+
+  it('treats cleanup-blocked realtime updates as terminal, refreshes shared state, and excludes stale cancel actions', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-cleanup-blocked',
+          state: 'embedding',
+          counts: { files: 1 },
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ingest-status-chip')).toHaveTextContent(
+        'embedding',
+      );
+      expect(
+        screen.getByRole('button', { name: /cancel ingest/i }),
+      ).toBeInTheDocument();
+    });
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 2,
+        status: {
+          runId: 'run-cleanup-blocked',
+          state: 'cleanup-blocked',
+          counts: { files: 1, embedded: 1 },
+          message: 'Queue cleanup blocked',
+          lastError: 'Queue record delete failed',
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      const modelCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/models'),
+      );
+      const rootCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/roots'),
+      );
+      const cancelCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/cancel/'),
+      );
+      expect(modelCalls.length).toBeGreaterThan(1);
+      expect(rootCalls.length).toBeGreaterThan(1);
+      expect(screen.queryByText('Active ingest')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /cancel ingest/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByTestId('ingest-terminal-error')).toHaveTextContent(
+        'Queue record delete failed',
+      );
+      expect(cancelCalls).toHaveLength(0);
     });
   });
 });

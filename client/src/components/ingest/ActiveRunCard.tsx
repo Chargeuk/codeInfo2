@@ -20,7 +20,8 @@ export type ActiveRunCardProps = {
     | 'completed'
     | 'skipped'
     | 'cancelled'
-    | 'error';
+    | 'error'
+    | 'cleanup-blocked';
   counts?: {
     files?: number;
     chunks?: number;
@@ -63,6 +64,7 @@ const statusColor: Record<
   skipped: 'info',
   cancelled: 'warning',
   error: 'error',
+  'cleanup-blocked': 'error',
 };
 
 export default function ActiveRunCard({
@@ -87,7 +89,8 @@ export default function ActiveRunCard({
     status === 'completed' ||
     status === 'cancelled' ||
     status === 'error' ||
-    status === 'skipped';
+    status === 'skipped' ||
+    status === 'cleanup-blocked';
   const showCancel = !isTerminal;
   const logsHref = `/logs?text=${encodeURIComponent(runId)}`;
   const lastErrorText =
@@ -177,14 +180,16 @@ export default function ActiveRunCard({
       ) : null}
 
       <Stack direction="row" spacing={2} alignItems="center">
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={() => void onCancel()}
-          disabled={!showCancel || isCancelling || isLoading}
-        >
-          {isCancelling ? 'Cancelling…' : 'Cancel ingest'}
-        </Button>
+        {showCancel ? (
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={() => void onCancel()}
+            disabled={isCancelling || isLoading}
+          >
+            {isCancelling ? 'Cancelling…' : 'Cancel ingest'}
+          </Button>
+        ) : null}
         <MuiLink component={RouterLink} to={logsHref} underline="hover">
           View logs for this run
         </MuiLink>

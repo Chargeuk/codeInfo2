@@ -9,11 +9,11 @@ Users can queue ingest and re-embed requests
 3. Users and automation receive both a durable `requestId` for queued work and a `runId` once execution actually starts.
 4. Users are protected from unsafe queue recovery; cleanup-blocked work stays visible and prevents newer queued work from starting too early.
 5. Users and automation receive clear retryable queue errors when Mongo-backed queue persistence is unavailable.
-6. Business users can rely on the final reviewed contract: queue state, repo-list identity, OpenAPI documentation, and blocking automation behavior stay aligned.
+6. Business users can rely on the final reviewed contract: queue state, repo-list identity, OpenAPI documentation, artifact hygiene, destructive actions, and blocking automation behavior stay aligned.
 
 # Description
 
-This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final tasked plan also closes review findings around cleanup-blocked visibility, malformed request validation, repo-list identity, startup replay safety, and proof quality before the story is closed again.
+This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final tasked plan also closes review findings around mounted re-embed paths, queue response state, waiting-row rewrite safety, destructive remove payloads, support-artifact hygiene, cleanup-blocked visibility, malformed request validation, repo-list identity, startup replay safety, and proof quality before the story is closed again.
 
 # Tasks
 
@@ -82,7 +82,32 @@ This story makes ingest and re-embed work durable, visible, and predictable when
 - Replace duplicated live-state literals with a named queue-state contract for the partial index.
 - Prove the live-target index still covers exactly `waiting`, `running`, and `cleanup-blocked`.
 
-14. [codeInfo2] - Revalidate Story 55 after the final review-created findings block.
+14. [codeInfo2] - Preserve mounted execution paths for queued re-embed.
 
-- Refresh the durable PR summary so findings map to the repaired implementation and proof homes.
+- Keep queue identity separate from the mounted filesystem path used when queued work finally runs.
+- Prove REST, MCP, command, and flow callers use the repaired queued re-embed contract.
+
+15. [codeInfo2] - Restore queue-state response and live-state contracts.
+
+- Add the non-waiting `running` queue state to immediate ingest and re-embed responses.
+- Reuse the shared live-state set for repository-list overlays and prove OpenAPI, server, and client consumers stay aligned.
+
+16. [codeInfo2] - Guard waiting queue rewrites with the observed row.
+
+- Require waiting duplicate rewrites to match the specific queue row that was observed.
+- Prove stale duplicate intent cannot overwrite a newer waiting row.
+
+17. [codeInfo2] - Keep destructive remove actions on root-path payloads.
+
+- Separate re-embed identity from the root path used by row and bulk Remove.
+- Prove stale selected rows stay local-only and bulk Remove refreshes once after the batch.
+
+18. [codeInfo2] - Clean review-exposed runtime artifact hygiene.
+
+- Redact provider account metadata from retained manual proof and scan sibling artifacts for the same risk.
+- Move generated screenshots out of tracked payload paths and keep future automated screenshots in ignored storage.
+
+19. [codeInfo2] - Revalidate Story 55 after the latest review-created findings block.
+
+- Refresh the durable PR summary so findings `F1` through `F7` map to the repaired implementation and proof homes.
 - Run the supported server, client, e2e, Compose smoke, lint, and format wrappers before closing the story again.

@@ -211,7 +211,7 @@ test('classic MCP success/cancel/error errorCode constraints', async () => {
   }
 });
 
-test('classic MCP canonicalizes reingest sourceId selectors before dispatch', async () => {
+test('classic MCP canonicalizes reingest sourceId selectors and preserves shared default wait dispatch', async () => {
   let capturedArgs: unknown;
   const app = express();
   app.use(express.json());
@@ -265,6 +265,12 @@ test('classic MCP canonicalizes reingest sourceId selectors before dispatch', as
 
   assert.equal(res.status, 200);
   assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+  assert.equal(
+    typeof capturedArgs === 'object' &&
+      capturedArgs !== null &&
+      'waitOptions' in capturedArgs,
+    false,
+  );
 });
 
 test('classic MCP resolves stable repository ids even when an active overlay exposes a transient runId', async () => {

@@ -13,6 +13,7 @@ import {
 } from '../../ingest/ingestJob.js';
 import { formatReingestPrestartReason } from '../../ingest/reingestError.js';
 import {
+  REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS,
   runReingestRepository,
   type ReingestSuccess,
 } from '../../ingest/reingestService.js';
@@ -352,7 +353,30 @@ test('terminal error contract includes null completionMode, non-null errorCode, 
   assert.equal(typeof payload.embedded, 'number');
 });
 
-test('timeout during wait returns deterministic terminal error payload', async () => {
+test('omitted reingest wait options use the long production safety guard', async () => {
+  let capturedTimeoutMs: number | undefined;
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitForQueueRequestTerminalStatus: async (_requestId, options) => {
+        capturedTimeoutMs = options.timeoutMs;
+        return {
+          reason: 'terminal',
+          requestId: 'queue-request-123',
+          runId: 'ingest-123',
+          status: buildTerminal('completed'),
+          lastKnown: buildTerminal('completed'),
+        };
+      },
+    },
+  );
+
+  assert.equal(capturedTimeoutMs, REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS);
+  assert.equal(result.ok, true);
+});
+
+test('injected short timeout during wait returns deterministic terminal error payload', async () => {
   const result = await runReingestRepository(
     { sourceId: '/data/repo-a' },
     {
@@ -368,6 +392,7 @@ test('timeout during wait returns deterministic terminal error payload', async (
           embedded: 1,
         }),
       }),
+      waitOptions: { timeoutMs: 5_000 },
     },
   );
 
@@ -816,7 +841,7 @@ test('queue-aware wait cleanup uses the request identity and preserves timeout e
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
-test('queue-aware wait genuine timeout still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
+test('queue-aware wait injected short timeout still settles as WAIT_TIMEOUT and unregisters listeners', async () => {
   process.env.NODE_ENV = 'test';
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () => null,

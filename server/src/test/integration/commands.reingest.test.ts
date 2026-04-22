@@ -697,10 +697,10 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
   }
 });
 
-test('repo id selectors resolve to the canonical container path before direct command reingest starts', async () => {
+test('repo id selectors resolve to the canonical container path and preserve shared reingest default wait dispatch', async () => {
   const harness = await setupRepoCommandHarness('selector-id');
   const selectedRoot = path.join(harness.tempRoot, 'repo-selected');
-  let capturedSourceId: string | undefined;
+  let capturedArgs: unknown;
 
   try {
     await writeCommandFile({
@@ -724,9 +724,13 @@ test('repo id selectors resolve to the canonical container path before direct co
       }),
     });
     __setAgentCommandRunnerDepsForTests({
-      runReingestRepository: async ({ sourceId }) => {
-        capturedSourceId = sourceId;
-        return { ok: true, value: buildReingestSuccess({ sourceId }) };
+      runReingestRepository: async (args) => {
+        capturedArgs = args;
+        const sourceId = args.sourceId;
+        return {
+          ok: true,
+          value: buildReingestSuccess({ sourceId: sourceId ?? '/missing' }),
+        };
       },
     });
 
@@ -736,7 +740,13 @@ test('repo id selectors resolve to the canonical container path before direct co
       source: 'REST',
     });
 
-    assert.equal(capturedSourceId, selectedRoot);
+    assert.deepEqual(capturedArgs, { sourceId: selectedRoot });
+    assert.equal(
+      typeof capturedArgs === 'object' &&
+        capturedArgs !== null &&
+        'waitOptions' in capturedArgs,
+      false,
+    );
   } finally {
     await harness.restore();
   }

@@ -31,6 +31,7 @@ const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
   'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.';
 const QUEUE_READ_FAILED_ERROR_CODE = 'QUEUE_READ_FAILED';
+export const REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 type ValidationReason =
   | 'missing'
@@ -535,7 +536,8 @@ export async function runReingestRepository(
   args: unknown,
   deps: ReingestServiceDeps = {},
 ): Promise<ReingestResult> {
-  const WAIT_TIMEOUT_MS = deps.waitOptions?.timeoutMs ?? 90_000;
+  const WAIT_TIMEOUT_MS =
+    deps.waitOptions?.timeoutMs ?? REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS;
   const listRepos = deps.listIngestedRepositories ?? listIngestedRepositories;
   const appendLog = deps.appendLog ?? append;
   const enqueueRequest =

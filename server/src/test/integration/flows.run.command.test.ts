@@ -1663,9 +1663,9 @@ test('flow-owned commands can execute reingest items', async () => {
   );
 });
 
-test('top-level flow target working reuses the selected working repository path', async () => {
+test('top-level flow target working reuses the selected repository path and preserves shared reingest default wait dispatch', async () => {
   const repos: RepoEntry[] = [];
-  const calls: string[] = [];
+  const calls: unknown[] = [];
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -1715,7 +1715,16 @@ test('top-level flow target working reuses the selected working repository path'
           }>;
         } | null
       )?.calls?.[0];
-      assert.deepEqual(calls, [workingRoot]);
+      assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      assert.equal(
+        calls.every(
+          (call) =>
+            typeof call !== 'object' ||
+            call === null ||
+            !('waitOptions' in call),
+        ),
+        true,
+      );
       assert.equal(toolCall?.stage, 'success');
       assert.equal(toolCall?.result?.targetMode, 'working');
       assert.equal(toolCall?.result?.sourceId, workingRoot);
@@ -1734,8 +1743,9 @@ test('top-level flow target working reuses the selected working repository path'
         lockedModelId: null,
       }),
       flowServiceDeps: {
-        runReingestRepository: async ({ sourceId }) => {
-          calls.push(sourceId ?? '(missing)');
+        runReingestRepository: async (args) => {
+          calls.push(args);
+          const sourceId = args.sourceId;
           return {
             ok: true,
             value: buildReingestSuccess({

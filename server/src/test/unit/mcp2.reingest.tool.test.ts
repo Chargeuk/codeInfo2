@@ -193,7 +193,7 @@ test('MCP v2 completed/cancelled/error errorCode constraints', async () => {
   }
 });
 
-test('MCP v2 canonicalizes reingest sourceId selectors before dispatch', async () => {
+test('MCP v2 canonicalizes reingest sourceId selectors and preserves shared default wait dispatch', async () => {
   let capturedArgs: unknown;
   setToolDeps({
     listIngestedRepositories: async () => ({
@@ -241,6 +241,12 @@ test('MCP v2 canonicalizes reingest sourceId selectors before dispatch', async (
 
     assert.equal(body.error, undefined);
     assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+    assert.equal(
+      typeof capturedArgs === 'object' &&
+        capturedArgs !== null &&
+        'waitOptions' in capturedArgs,
+      false,
+    );
   });
 });
 

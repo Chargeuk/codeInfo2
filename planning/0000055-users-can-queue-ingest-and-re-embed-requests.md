@@ -14178,11 +14178,11 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 
 #### Subtasks
 
-1. [ ] Re-read Finding `F2`, `runReingestRepository(...)`, `waitForQueueRequestTerminalStatus(...)`, and the MCP, command, and flow re-embed callers. Purpose: prove the shared blocking service default is the only production timeout seam and callers do not need separate shorter wait budgets.
-2. [ ] Patch `server/src/ingest/reingestService.ts` so the production default is a named long safety guard, explicit injected wait options still drive timeout-specific tests, and no new runtime knob is introduced.
-3. [ ] Add or update `server/src/test/unit/reingestService.test.ts` proof so omitted wait options use the long default, explicit short injected options still produce deterministic `WAIT_TIMEOUT`, and terminal, timeout, cancellation, setup-read failure, and queue-read failure paths unregister listeners/timers without dangling wait state. Rename or split any reused queue-delay or timeout test so one title names the long production safety guard and another names the injected short-timeout path, with deterministic fake wait boundaries rather than arbitrary elapsed time.
-4. [ ] Add or update the MCP proof surface in `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so classic and MCP2 re-embed tool callers do not pass sibling short wait options. If reusing request-shape or terminal-payload tests, rename or split them so their titles claim shared-service propagation and captured call options, not merely schema rejection or payload formatting.
-5. [ ] Add or update the command/flow propagation proof surface in `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts` so both callers reach `runReingestRepository(...)` through the shared default path without a separate production timeout budget. Ensure any reused command or flow test title names the re-embed default-wait propagation invariant instead of only command execution or ordering.
+1. [x] Re-read Finding `F2`, `runReingestRepository(...)`, `waitForQueueRequestTerminalStatus(...)`, and the MCP, command, and flow re-embed callers. Purpose: prove the shared blocking service default is the only production timeout seam and callers do not need separate shorter wait budgets.
+2. [x] Patch `server/src/ingest/reingestService.ts` so the production default is a named long safety guard, explicit injected wait options still drive timeout-specific tests, and no new runtime knob is introduced.
+3. [x] Add or update `server/src/test/unit/reingestService.test.ts` proof so omitted wait options use the long default, explicit short injected options still produce deterministic `WAIT_TIMEOUT`, and terminal, timeout, cancellation, setup-read failure, and queue-read failure paths unregister listeners/timers without dangling wait state. Rename or split any reused queue-delay or timeout test so one title names the long production safety guard and another names the injected short-timeout path, with deterministic fake wait boundaries rather than arbitrary elapsed time.
+4. [x] Add or update the MCP proof surface in `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so classic and MCP2 re-embed tool callers do not pass sibling short wait options. If reusing request-shape or terminal-payload tests, rename or split them so their titles claim shared-service propagation and captured call options, not merely schema rejection or payload formatting.
+5. [x] Add or update the command/flow propagation proof surface in `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts` so both callers reach `runReingestRepository(...)` through the shared default path without a separate production timeout budget. Ensure any reused command or flow test title names the re-embed default-wait propagation invariant instead of only command execution or ordering.
 
 #### Testing
 
@@ -14192,7 +14192,11 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 
 #### Implementation Notes
 
-- Pending.
+- Subtask 1: re-read `F2`, confirmed `server/src/ingest/reingestService.ts` owns the current `90_000` fallback passed to `waitForQueueRequestTerminalStatus(...)`, and confirmed MCP, command, and flow callers route through `runReingestRepository(...)` without their own production wait budget.
+- Subtask 2: replaced the old 90-second production fallback in `server/src/ingest/reingestService.ts` with named `REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS`, kept explicit injected `waitOptions.timeoutMs` precedence, and did not add any new runtime configuration knob.
+- Subtask 3: updated `server/src/test/unit/reingestService.test.ts` to assert omitted wait options use the named long safety guard, renamed the short-timeout proof to make injected timeout behavior explicit, and kept the existing listener/timer cleanup proofs for terminal, timeout, cancellation, setup-read failure, and queue-read failure paths.
+- Subtask 4: updated `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so the canonicalized reingest dispatch tests now explicitly prove classic MCP and MCP2 callers preserve the shared service default by not passing sibling `waitOptions`.
+- Subtask 5: updated `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts` so command and flow re-embed propagation tests capture the full `runReingestRepository(...)` argument object, assert canonical `sourceId` dispatch, and prove no caller-owned `waitOptions` are passed.
 
 ### Task 179. Reject Malformed Start-Ingest Body Fields Before Queue Admission
 

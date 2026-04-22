@@ -14446,6 +14446,7 @@ Close the committed-but-barrier-lost recovery window by recording the durable no
 - Updated `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` wording so the barrier-backed recovery proof names the lost-terminal-marker no-replay shape while the existing unfinished-running proof remains distinct.
 - Updated `server/src/test/unit/ingest-queue-runtime-pump.test.ts` so a pump-adjacent rejection path proves the replay barrier is recorded before queue deletion finalization, preserving cleanup/delete ordering before later work can start.
 - Updated `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts` so the barrier-backed startup recovery scenario and step explicitly assert no processor attempt, while the unfinished replay scenario remains separate.
+- Audit: confirmed the implementation-only pass closed Subtasks 1 through 6 against the queue finalization, startup recovery, terminal, pump, and BDD proof surfaces; no live blocker is present, and Testing 1 through 4 remain unchecked for the automated-proof step.
 
 ### Task 182. Make BDD Queue Start Proof Distinguish Attempts From Accepted Starts
 

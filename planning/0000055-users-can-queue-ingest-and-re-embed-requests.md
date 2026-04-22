@@ -14567,15 +14567,18 @@ Remove the localized duplicated queue-state literal in the queue schema's live-t
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
-2. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-3. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
+2. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+3. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
 - Re-read Finding `F9`, `ingestQueueStates`, the live-target partial index, and request-queue live-target selectors. The duplicated live-state contract is the schema partial index plus `requestQueue` live-target lookup, and it must remain exactly `waiting`, `running`, and `cleanup-blocked`.
 - Patched `server/src/mongo/ingestQueueRequest.ts` to expose a named `ingestLiveQueueTargetStates` contract derived from the owned queue-state constants, and wired both the schema partial index and `server/src/ingest/requestQueue.ts` live-target lookup to that shared list.
 - Updated `server/src/test/unit/ingest-request-queue.test.ts` so the schema/index proof names the live-target partial unique index, asserts the exact live-state list, and verifies a request-queue live duplicate selector uses the same shared state subset.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`; the wrapper reported 13 tests run, 13 passed, 0 failed with clean success.
+- Ran `npm run lint`; ESLint completed with exit code 0 and no fixes required.
+- Ran `npm run format:check`; Prettier reported all matched files use the expected code style.
 
 ### Task 184. Re-Validate Story 55 After Review Pass `0000055-20260421T213927Z-9a3752e6`
 

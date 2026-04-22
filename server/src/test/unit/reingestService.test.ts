@@ -818,6 +818,66 @@ test('queued reembed requests fall back to the canonical-target basename when no
   }
 });
 
+test('queued reembed preserves OpenAI model lock instead of falling back to LM Studio', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/openai-repo' },
+    {
+      ...buildDeps(),
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            ...buildRepoEntry({
+              id: 'openai-run',
+              containerPath: '/data/openai-repo',
+            }),
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-3-small',
+            model: 'text-embedding-3-small',
+            modelId: 'text-embedding-3-small',
+            lock: {
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-3-small',
+              embeddingDimensions: 1536,
+              lockedModelId: 'text-embedding-3-small',
+              modelId: 'text-embedding-3-small',
+            },
+          },
+        ],
+        lockedModelId: 'text-embedding-3-small',
+      }),
+      enqueueOrReuseIngestRequest: async (input) => {
+        assert.equal(input.requestPayload.embeddingProvider, 'openai');
+        assert.equal(
+          input.requestPayload.embeddingModel,
+          'text-embedding-3-small',
+        );
+        assert.equal(input.requestPayload.model, 'text-embedding-3-small');
+        return buildQueueResult({
+          requestId: 'queue-request-openai',
+          canonicalTargetPath: String(input.canonicalTargetPath),
+        });
+      },
+      pumpIngestQueue: async () => ({
+        started: true,
+        blockedByCleanup: false,
+        requestId: 'queue-request-openai',
+        runId: 'ingest-openai',
+      }),
+      waitForQueueRequestTerminalStatus: async () => ({
+        reason: 'terminal',
+        requestId: 'queue-request-openai',
+        runId: 'ingest-openai',
+        status: buildTerminal('completed'),
+        lastKnown: buildTerminal('completed'),
+      }),
+      appendLog: noopLog,
+      waitOptions: { timeoutMs: 5_000 },
+    },
+  );
+
+  assert.equal(result.ok, true);
+});
+
 test('queue-aware wait cleanup uses the request identity and preserves timeout errors without dangling listener assumptions', async () => {
   process.env.NODE_ENV = 'test';
   __setQueueRuntimeOpsForTest({

@@ -59,6 +59,7 @@ import {
   isOpenAiAllowlistedEmbeddingModel,
   logOpenAiContractMapping,
   mapLmStudioIngestError,
+  type OpenAiClientLike,
   resolveOpenAiRestStatus,
   toNormalizedOpenAiErrorPayload,
   OpenAiEmbeddingError,
@@ -165,6 +166,8 @@ export type ActiveIngestRunContext = {
 type Deps = {
   lmClientFactory: (baseUrl: string) => LMStudioClient;
   baseUrl: string;
+  openAiClientFactory?: (apiKey: string) => OpenAiClientLike;
+  openAiRetrySleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 };
 
 type QueueRuntimeRequest = {
@@ -980,6 +983,8 @@ async function getEmbeddingModel(
   if (selection.providerId === 'openai') {
     const provider = createOpenAiEmbeddingProvider({
       apiKey: process.env.CODEINFO_OPENAI_EMBEDDING_KEY,
+      clientFactory: d.openAiClientFactory,
+      retrySleep: d.openAiRetrySleep,
       ingestFailureContext: options?.ingestFailureContext,
     });
     return provider.getModel(selection.modelKey);

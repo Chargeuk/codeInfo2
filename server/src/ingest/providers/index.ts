@@ -1,5 +1,8 @@
 export { createLmStudioEmbeddingProvider } from './lmstudioEmbeddingProvider.js';
-export { createOpenAiEmbeddingProvider } from './openaiEmbeddingProvider.js';
+export {
+  createOpenAiEmbeddingProvider,
+  type OpenAiClientLike,
+} from './openaiEmbeddingProvider.js';
 export {
   OPENAI_EMBEDDING_MODEL_ALLOWLIST,
   OPENAI_RETRY_DEFAULT_MAX_RETRIES,

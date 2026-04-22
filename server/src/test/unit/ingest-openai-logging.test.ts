@@ -66,7 +66,11 @@ test('OpenAI retry exhaustion appends terminal error log with ingest context', a
       }),
       sleep: async () => {},
       runStep: async () => {
-        throw { status: 503, message: 'upstream unavailable' };
+        throw {
+          status: 503,
+          message:
+            'upstream unavailable for organization org-b0ryOxiEjneU4p7xMv88rMQr',
+        };
       },
     }),
   );
@@ -86,4 +90,8 @@ test('OpenAI retry exhaustion appends terminal error log with ingest context', a
   assert.equal(terminalError?.context?.code, 'OPENAI_UNAVAILABLE');
   assert.equal(terminalError?.context?.retryable, true);
   assert.equal(terminalError?.context?.currentFile, 'src/b.ts');
+  assert.equal(
+    String(terminalError?.context?.message ?? '').includes('org-b0ry'),
+    false,
+  );
 });

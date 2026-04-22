@@ -67,6 +67,7 @@ export function isRetryableOpenAiCode(code: OpenAiErrorCode): boolean {
 export function sanitizeOpenAiErrorMessage(message: string): string {
   return message
     .replace(/sk-[a-zA-Z0-9_-]+/g, 'sk-***')
+    .replace(/org-[a-zA-Z0-9]{20,}/g, 'org-***')
     .replace(/bearer\s+[a-zA-Z0-9._-]+/gi, 'bearer ***')
     .replace(/authorization\s*:\s*[^\s]+/gi, 'authorization:***');
 }

@@ -14197,6 +14197,7 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 - Subtask 3: updated `server/src/test/unit/reingestService.test.ts` to assert omitted wait options use the named long safety guard, renamed the short-timeout proof to make injected timeout behavior explicit, and kept the existing listener/timer cleanup proofs for terminal, timeout, cancellation, setup-read failure, and queue-read failure paths.
 - Subtask 4: updated `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so the canonicalized reingest dispatch tests now explicitly prove classic MCP and MCP2 callers preserve the shared service default by not passing sibling `waitOptions`.
 - Subtask 5: updated `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts` so command and flow re-embed propagation tests capture the full `runReingestRepository(...)` argument object, assert canonical `sourceId` dispatch, and prove no caller-owned `waitOptions` are passed.
+- Audit: confirmed the implementation-only pass closed Subtasks 1 through 5 against the touched reingest service and propagation proof files; no live blocker is present, and Testing 1 through 3 remain unchecked for the automated-proof step.
 
 ### Task 179. Reject Malformed Start-Ingest Body Fields Before Queue Admission
 

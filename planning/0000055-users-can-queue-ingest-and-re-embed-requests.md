@@ -14133,7 +14133,7 @@ If a manual-testing pass is requested for this task, use the normal Docker stack
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `177`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2` (`must_fix`): blocking re-embed callers still use a 90-second default wait timeout, so normal queue delay can return early as `WAIT_TIMEOUT`.
 

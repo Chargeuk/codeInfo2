@@ -15677,6 +15677,11 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 - Updated `server/src/test/features/ingest-remove.feature` and `server/src/test/steps/ingest-manage.steps.ts` with production-route scenarios for waiting, running, cleanup-blocked, partial cleanup-blocked, and active-run-owned rejection; each blocked scenario keeps a rooted fixture present after removal is rejected.
 - Inspected `server/src/routes/ingestE2eCleanup.ts` and `server/src/test/integration/ingest-e2e-cleanup.test.ts`; the production guard is route-local and does not alter the env-gated fixture cleanup boundary, so no cleanup-route patch was needed.
 - Inspected `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`; the existing stale-key and Remove-payload filtering contract already excludes queue-owned and active-run-owned rows, and the server success payload shape was unchanged.
+- Automated proof passed for `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature` with 6 scenarios passed.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts` with 6 tests passed.
+- Automated proof passed for `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` with 44 tests passed.
+- Automated proof passed for `npm run lint` with exit code 0.
+- Automated proof passed for `npm run format:check`; all matched files use Prettier code style.
 
 #### Subtasks
 
@@ -15688,11 +15693,11 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
-3. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
+1. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
+3. [x] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
+4. [x] Run `npm run lint`.
+5. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 

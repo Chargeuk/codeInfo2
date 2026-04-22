@@ -15623,7 +15623,7 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F5`: production remove can bypass queue-state guards that block destructive UI actions.
 
@@ -15682,6 +15682,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 - Automated proof passed for `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` with 44 tests passed.
 - Automated proof passed for `npm run lint` with exit code 0.
 - Automated proof passed for `npm run format:check`; all matched files use Prettier code style.
+- Automated-proof audit marked Task 195 done because all subtasks and testing are complete and the parser reports no live blocker.
 
 #### Subtasks
 

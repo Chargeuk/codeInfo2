@@ -1222,6 +1222,8 @@ test('zero-work re-embed fast path with queue deletion failure returns cleanup-b
         throw new Error('queue delete failed after zero-work re-embed');
       },
       markQueueRequestCleanupBlocked: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
     });
 
     const runId = await startIngest(
@@ -1554,6 +1556,8 @@ test('deletions-only delta reembed queue deletion failure returns caller-visible
         throw new Error('queue delete failed after deletions-only re-embed');
       },
       markQueueRequestCleanupBlocked: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
     });
 
     const runId = await startIngest(

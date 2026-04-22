@@ -57,7 +57,20 @@ This summary is refreshed for review pass `0000055-20260421T213927Z-9a3752e6`. T
 
 ## Task 184 Automated Testing Results
 
-- Pending. Record each Task 184 automated wrapper result here after the corresponding `Testing` item runs in the later automated-proof step, including the command, outcome, and retained log path when the wrapper provides one.
+- `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-server-latest.log`.
+- `npm run build:summary:client` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-client-latest.log`.
+- `npm run test:summary:server:unit` initially failed in three queue cleanup tests because one assertion raced the asynchronous queue deletion finalizer and two fake queue request IDs reached default Mongo-backed barrier persistence; after patching the tests, the targeted wrapper rerun passed with 38 tests, and the full wrapper passed with `tests run: 1772`, `passed: 1772`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T04-06-35-258Z.log`.
+- `npm run test:summary:server:cucumber` passed with `tests run: 109`, `passed: 109`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-22T04-22-28-741Z.log`.
+- `npm run test:summary:client` passed with `tests run: 701`, `passed: 701`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-22T04-24-23-779Z.log`.
+- `npm run test:summary:e2e` passed with `tests run: 60`, `passed: 60`, `failed: 0`, `agent_action: skip_log`, retained log `logs/test-summaries/e2e-tests-latest.log`, and wrapper output confirming `browserBaseUrl: http://host.docker.internal:6001` plus `mcpControlUrl: http://host.docker.internal:8932/mcp`.
+- `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, retained log `logs/test-summaries/compose-build-latest.log`, and wrapper output confirming `DEV-0000050:T10:image_runtime_assets_baked` for `codeinfo2-server`.
+- `npm run compose:up` passed; compose preflight reported `result: passed` for ports `5010`, `5011`, `5012`, and `8932`, then Docker started the stack with `mongo_db_CodeInfo` and `codeinfo2-server-1` reaching healthy before `codeinfo2-client-1` started.
+- `npm run test:summary:host-network:main` passed with `classicMcp`, `chatMcp`, `agentsMcp`, and `playwrightMcp` all reachable over `host.docker.internal`, emitted `DEV-0000050:T12:main_stack_probe_completed`, used `agent_action: skip_log`, and retained log `logs/test-summaries/host-network-main-latest.log`.
+- `npm run compose:down` passed and removed `codeinfo2-client-1`, `codeinfo2-server-1`, `mongo_db_CodeInfo`, `codeinfo2-chroma-1`, `codeinfo2-zipkin-1`, `codeinfo2-otel-collector-1`, `codeinfo2-playwright-mcp-1`, and the `codeinfo2_internal` network.
+- `npm run lint` passed with exit code 0 and no fixes required.
+- `npm run format:check` initially failed because `server/src/test/unit/ingest-queue-runtime-startup.test.ts` needed Prettier wrapping after the test-helper repair; ran `npm run format`, then `npm run format:check` passed with `All matched files use Prettier code style!`. The earlier lint result was produced before formatting rewrote that test file, so lint was reopened for a final rerun against the formatted tree.
+- Final `npm run lint` rerun passed with exit code 0 after the Prettier rewrite, so the lint proof is current for the formatted tree.
+- Final `npm run format:check` rerun passed with `All matched files use Prettier code style!` after removing accidental formatter side effects from retained screenshot artifacts, so the format proof is current for the final tree.
 
 ## Bounded Residual-Risk Slot
 

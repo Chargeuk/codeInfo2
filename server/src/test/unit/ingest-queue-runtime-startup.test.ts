@@ -26,6 +26,21 @@ import {
 
 installQueueRuntimeTestHooks();
 
+async function waitForDeletedRequestIds(
+  deletedRequestIds: string[],
+  expectedIds: readonly string[],
+) {
+  const deadline = Date.now() + 1_000;
+  while (Date.now() < deadline) {
+    if (
+      expectedIds.every((expectedId) => deletedRequestIds.includes(expectedId))
+    ) {
+      return;
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+}
+
 test('startup recovery rejects error root drift before queued reembed delta work resumes', async () => {
   const { root, cleanup } = await createTempRepo({
     'src/recovery-error.ts': 'export const recoveryError = true;\n',
@@ -81,9 +96,14 @@ test('startup recovery rejects error root drift before queued reembed delta work
     assert.equal(terminal.state, 'error');
     assert.equal(terminal.lastError, 'INVALID_REEMBED_STATE');
     assert.equal(listRootCalls.mock.calls.length, 0);
-    assert.deepEqual(deletedRequestIds, [
+    const expectedDeletedRequestIds = [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
-    ]);
+    ];
+    await waitForDeletedRequestIds(
+      deletedRequestIds,
+      expectedDeletedRequestIds,
+    );
+    assert.deepEqual(deletedRequestIds, expectedDeletedRequestIds);
   } finally {
     await cleanup();
   }

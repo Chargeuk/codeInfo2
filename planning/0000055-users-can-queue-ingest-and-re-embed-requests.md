@@ -14661,18 +14661,18 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:server:cucumber`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
-7. [ ] Run `npm run compose:build:summary`.
-8. [ ] Run `npm run compose:up`.
-9. [ ] Run `npm run test:summary:host-network:main`.
-10. [ ] Run `npm run compose:down`.
-11. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-12. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run test:summary:server:cucumber`.
+5. [x] Run `npm run test:summary:client`.
+6. [x] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
+7. [x] Run `npm run compose:build:summary`.
+8. [x] Run `npm run compose:up`.
+9. [x] Run `npm run test:summary:host-network:main`.
+10. [x] Run `npm run compose:down`.
+11. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+12. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -14685,3 +14685,18 @@ Focus optional browser/API proof on the repaired externally observable seams: cl
 - Re-read the `0000055-20260421T213927Z-9a3752e6` Code Review Findings block and the completed proof-owner sections for Tasks 177 through 183. `python3 scripts/plan_status.py --include-tasks` reports Tasks 177 through 183 are all `__done__`, with zero unchecked subtasks, zero unchecked testing items, and no live blockers, so Subtask 1 is honestly complete.
 - Refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` for review pass `0000055-20260421T213927Z-9a3752e6`, replacing the prior active-pass summary with the required `F1` through `F9` proof map, retained artifact homes, weak-proof notes, rejected-risk notes, saturation/blind-spot carry-forward, baseline-vs-task-owned failure guidance, and a reserved Task 184 automated-testing results section.
 - Re-opened the plan after the summary refresh, compared the `0000055-20260421T213927Z-9a3752e6` findings block against `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, and added a matching revalidation summary to the plan block so both files name the same closed findings, proof homes, retained artifact locations, residual risks, and pending final automated disposition.
+- Testing 1: `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-client-latest.log`.
+- Testing 3: `npm run test:summary:server:unit` initially failed in three queue cleanup tests because one assertion raced the asynchronous queue deletion finalizer and two fake queue request IDs reached default Mongo-backed barrier persistence; patched the tests to wait for deletion and stub barrier persistence, confirmed the affected files with a targeted wrapper rerun, then the full wrapper passed with `tests run: 1772`, `passed: 1772`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T04-06-35-258Z.log`.
+- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 109`, `passed: 109`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-22T04-22-28-741Z.log`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 701`, `passed: 701`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-22T04-24-23-779Z.log`.
+- Testing 6: `npm run test:summary:e2e` passed with `tests run: 60`, `passed: 60`, `failed: 0`, `agent_action: skip_log`, retained log `logs/test-summaries/e2e-tests-latest.log`, and wrapper output confirming `browserBaseUrl: http://host.docker.internal:6001` plus `mcpControlUrl: http://host.docker.internal:8932/mcp`.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, retained log `logs/test-summaries/compose-build-latest.log`, and wrapper output confirming `DEV-0000050:T10:image_runtime_assets_baked` for `codeinfo2-server`.
+- Testing 8: `npm run compose:up` passed; compose preflight reported `result: passed` for ports `5010`, `5011`, `5012`, and `8932`, then Docker started the stack with `mongo_db_CodeInfo` and `codeinfo2-server-1` reaching healthy before `codeinfo2-client-1` started.
+- Testing 9: `npm run test:summary:host-network:main` passed with `classicMcp`, `chatMcp`, `agentsMcp`, and `playwrightMcp` all reachable over `host.docker.internal`, emitted `DEV-0000050:T12:main_stack_probe_completed`, used `agent_action: skip_log`, and retained log `logs/test-summaries/host-network-main-latest.log`.
+- Testing 10: `npm run compose:down` passed and removed `codeinfo2-client-1`, `codeinfo2-server-1`, `mongo_db_CodeInfo`, `codeinfo2-chroma-1`, `codeinfo2-zipkin-1`, `codeinfo2-otel-collector-1`, `codeinfo2-playwright-mcp-1`, and the `codeinfo2_internal` network.
+- Testing 11: `npm run lint` passed with exit code 0 and no fixes required.
+- Testing 12: `npm run format:check` initially failed because `server/src/test/unit/ingest-queue-runtime-startup.test.ts` needed Prettier wrapping after the test-helper repair; ran `npm run format`, then `npm run format:check` passed with `All matched files use Prettier code style!`.
+- Testing 11 rerun required: the earlier lint result was produced before `npm run format` rewrote `server/src/test/unit/ingest-queue-runtime-startup.test.ts`, so Testing 11 was reopened and will be rerun against the formatted tree before audit.
+- Testing 11 final rerun: `npm run lint` passed again with exit code 0 after the Prettier rewrite, so the lint proof is current for the formatted tree.
+- Testing 12 final rerun: after removing accidental formatter side effects from retained screenshot artifacts, `npm run format:check` passed again with `All matched files use Prettier code style!`, so the format proof is current for the final tree.

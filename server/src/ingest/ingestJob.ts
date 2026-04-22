@@ -228,6 +228,7 @@ const queueRequestTerminalStatusEvictionTimers = new Map<
 >();
 const queueRequestTerminalStatusExpiresAtMs = new Map<string, number>();
 const queueCleanupRetryAttempts = new Map<string, number>();
+const queueNonReplayableBarrierPersistedRuns = new Set<string>();
 const blockedCleanupStatusSnapshots = new Map<string, IngestJobStatus>();
 const queueRequestTerminalStatuses = new Map<
   string,
@@ -596,6 +597,7 @@ function resolveQueuedReembedExecutionPath(input: IngestJobInput): string {
 
 function releaseRunOwnership(runId: string) {
   queueRequestIdsByRunId.delete(runId);
+  queueNonReplayableBarrierPersistedRuns.delete(runId);
   blockedCleanupStatusSnapshots.delete(runId);
 }
 
@@ -677,6 +679,24 @@ async function finalizeQueueRequestForRun(runId: string): Promise<boolean> {
   }
 }
 
+async function persistQueueNonReplayableBarrier(runId: string) {
+  const requestId = queueRequestIdsByRunId.get(runId);
+  if (!requestId) {
+    return false;
+  }
+
+  if (queueNonReplayableBarrierPersistedRuns.has(runId)) {
+    return true;
+  }
+
+  await queueRuntimeOps.markQueueRequestNonReplayable({
+    requestId,
+    runId,
+  });
+  queueNonReplayableBarrierPersistedRuns.add(runId);
+  return true;
+}
+
 async function persistQueueTerminalBarrier(runId: string): Promise<void> {
   const requestId = queueRequestIdsByRunId.get(runId);
   if (!requestId) {
@@ -684,10 +704,7 @@ async function persistQueueTerminalBarrier(runId: string): Promise<void> {
   }
 
   try {
-    await queueRuntimeOps.markQueueRequestNonReplayable({
-      requestId,
-      runId,
-    });
+    await persistQueueNonReplayableBarrier(runId);
   } catch (error) {
     logWarning('queue replay barrier persistence failed', {
       runId,
@@ -2051,6 +2068,10 @@ async function processRun(runId: string, input: IngestJobInput) {
       finalSkipMessage = undefined;
     }
 
+    const ensureNonReplayableBarrierBeforeFinalization = async () => {
+      await persistQueueNonReplayableBarrier(runId);
+    };
+
     const handleCancellation = async (
       fileIndex: number,
       currentFile: string,
@@ -2077,6 +2098,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           ((fileIndex / Math.max(1, fileTotal)) * 100).toFixed(1),
         ),
       });
+      await ensureNonReplayableBarrierBeforeFinalization();
       await deleteVectors({ where: { runId } });
       await deleteRoots({ where: { root } });
       await deleteVectorsCollectionIfEmpty();
@@ -2129,6 +2151,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     };
 
     const withFinalizationBarrier = async <T>(step: () => Promise<T>) => {
+      await ensureNonReplayableBarrierBeforeFinalization();
       const stepPromise = step();
       const barrier = stepPromise.then(
         () => undefined,
@@ -3410,6 +3433,7 @@ export function __resetIngestJobsForTest() {
   cancelledRuns.clear();
   activeDispatchers.clear();
   finalizationBarriers.clear();
+  queueNonReplayableBarrierPersistedRuns.clear();
   queueCleanupFinalizers.clear();
   blockedCleanupStatusSnapshots.clear();
   queueRequestTerminalStatuses.clear();

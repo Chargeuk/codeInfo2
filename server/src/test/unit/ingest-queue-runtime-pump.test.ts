@@ -141,6 +141,7 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
     'src/blank.ts': '   \n\t\n',
   });
   const deletedRequestIds: string[] = [];
+  const events: string[] = [];
 
   try {
     const blankFileHash = 'blank-file-hash';
@@ -170,11 +171,21 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
     let promotedOnce = false;
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async (deletedRequestId: string) => {
+        events.push(`delete:${deletedRequestId}`);
         deletedRequestIds.push(deletedRequestId);
         return null;
       },
       findOldestCleanupBlockedQueueRequest: async () => null,
-      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestNonReplayable: async ({ requestId, runId }) => {
+        events.push(`barrier:${runId}:${requestId}`);
+        return createQueueRequest({
+          requestId,
+          root,
+          queueState: 'running',
+          runId,
+          nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
+        });
+      },
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async (runId: string) => {
         if (promotedOnce) {
@@ -214,6 +225,8 @@ test('queue promotion rejects queued zero-work reembed drift at execution time a
       deletedRequestIds.length >= 1,
       'promotion-time rejection should still finalize and release the queued request',
     );
+    assert.equal(events[0]?.startsWith('barrier:'), true);
+    assert.equal(events[1], `delete:${deletedRequestIds[0]}`);
 
     const afterTerminal = await pumpIngestQueue();
     assert.equal(afterTerminal.started, false);

@@ -53,14 +53,14 @@ Feature: Ingest re-embed
     Then ingest manage queue runtime started paths are "/tmp/recover-waiting"
 
   @mongo
-  Scenario: startup recovery does not replay barrier-backed committed running work
+  Scenario: startup recovery makes no processor attempt for barrier-backed committed running work
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has barrier-backed running request for "/tmp/recover-finished" with run id "run-recovered-finished"
     And ingest manage mongo queue has waiting request for "/tmp/recover-second"
     And ingest manage queue runtime records started paths
     When ingest manage startup recovery runs
-    Then ingest manage queue runtime started paths are empty
+    Then ingest manage queue runtime made no processor attempt
 
   @mongo
   Scenario: startup recovery resumes genuinely unfinished running work before newer waiting work

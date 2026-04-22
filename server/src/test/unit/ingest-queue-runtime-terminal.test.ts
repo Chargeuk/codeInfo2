@@ -385,6 +385,7 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
   __setRunSchedulerForTest((task) => {
     scheduledTask = task;
   });
+  const events: string[] = [];
   const { vectors } = setupIngestChromaMocks();
   (mongoose.connection as unknown as { readyState: number }).readyState = 1;
   const { root, cleanup } = await createTempRepo({
@@ -399,6 +400,7 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
 
   try {
     vectors.delete = mock.fn(async () => {
+      events.push('vector-delete');
       (mongoose.connection as unknown as { readyState: number }).readyState = 0;
     });
     const keepHash = await hashFile(`${root}/docs/keep.md`);
@@ -449,6 +451,27 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
           runId,
         });
       },
+      markQueueRequestNonReplayable: async ({ requestId, runId }) => {
+        events.push(`barrier:${runId}:${requestId}`);
+        return createQueueRequest({
+          requestId,
+          root,
+          queueState: 'running',
+          runId,
+          nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
+        });
+      },
+      markQueueRequestTerminalPublished: async ({ requestId, runId }) => {
+        events.push(`terminal:${runId}:${requestId}`);
+        return createQueueRequest({
+          requestId,
+          root,
+          queueState: 'running',
+          runId,
+          nonReplayableAt: new Date('2026-01-01T00:00:05.000Z'),
+          terminalPublishedAt: new Date('2026-01-01T00:00:06.000Z'),
+        });
+      },
       promoteOldestWaitingQueueRequest: async () => {
         promotedDuringCleanupBlocked = true;
         return null;
@@ -496,6 +519,100 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
     assert.equal(promotedDuringCleanupBlocked, false);
     assert.equal(stalled.started, false);
     assert.equal(stalled.blockedByCleanup, true);
+    assert.deepEqual(events.slice(0, 2), [
+      `barrier:${runId}:11`,
+      'vector-delete',
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue-managed finalization fails closed when replay barrier persistence fails before modeled side effects', async () => {
+  let scheduledTask: (() => void) | null = null;
+  __setRunSchedulerForTest((task) => {
+    scheduledTask = task;
+  });
+  const events: string[] = [];
+  const { vectors } = setupIngestChromaMocks();
+  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  const { root, cleanup } = await createTempRepo({
+    'docs/keep.md': '# keep\n',
+    'docs/delete-a.md': '# delete a\n',
+  });
+
+  try {
+    vectors.delete = mock.fn(async () => {
+      events.push('vector-delete');
+    });
+    const keepHash = await hashFile(`${root}/docs/keep.md`);
+    mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => [
+            { relPath: 'docs/keep.md', fileHash: keepHash },
+            { relPath: 'docs/delete-a.md', fileHash: 'delete-a-hash' },
+          ],
+        }),
+      }),
+    }));
+    await fs.rm(`${root}/docs/delete-a.md`);
+    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
+
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (requestId) => {
+        events.push(`delete:${requestId}`);
+        return null;
+      },
+      findQueueRequestById: async (requestId) =>
+        requestId === '12'
+          ? createQueueRequest({
+              requestId,
+              root,
+              queueState: 'running',
+              runId: 'run-barrier-fails',
+            })
+          : null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async ({ requestId, runId }) => {
+        events.push(`barrier-failed:${runId}:${requestId}`);
+        throw new Error('non-replayable barrier write failed');
+      },
+      markQueueRequestTerminalPublished: async ({ requestId, runId }) => {
+        events.push(`terminal:${runId}:${requestId}`);
+        return null;
+      },
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'queue-barrier-failure-reembed',
+        model: 'embed-1',
+        operation: 'reembed',
+      },
+      buildIngestDeps(),
+    );
+    __setQueueRequestIdForRunForTest(runId, '12');
+    if (scheduledTask === null) {
+      throw new Error('expected captured run task before execution');
+    }
+    const executeScheduledTask = scheduledTask as () => void;
+    executeScheduledTask();
+
+    const status = await waitForQueueManagedTerminalStatus('12');
+
+    assert.equal(status.state, 'error');
+    assert.equal(
+      status.lastError?.includes('non-replayable barrier write failed'),
+      true,
+    );
+    assert.deepEqual(events, [
+      `barrier-failed:${runId}:12`,
+      `barrier-failed:${runId}:12`,
+      'delete:12',
+    ]);
   } finally {
     await cleanup();
   }

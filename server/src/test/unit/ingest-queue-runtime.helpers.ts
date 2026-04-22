@@ -187,7 +187,7 @@ export function setupIngestChromaMocks(options?: {
   );
   (mongoose.connection as unknown as { readyState: number }).readyState = 0;
   process.env.NODE_ENV = 'test';
-  return { vectors };
+  return { roots, vectors };
 }
 
 function setNoopQueueRuntimeOps() {

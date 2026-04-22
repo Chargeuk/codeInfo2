@@ -1124,6 +1124,10 @@ Then('ingest manage queue runtime started paths are empty', () => {
   assert.deepEqual(queueRuntimeStartedPaths, []);
 });
 
+Then('ingest manage queue runtime made no processor attempt', () => {
+  assert.deepEqual(queueRuntimeStartedPaths, []);
+});
+
 Then(
   'ingest manage runtime status for the last queue run is error {string} with message {string}',
   async (expectedCode: string, expectedMessage: string) => {

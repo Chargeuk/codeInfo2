@@ -33,7 +33,7 @@ test.afterEach(() => {
   }
 });
 
-test('startup recovery skips replay for running rows whose durable replay barrier was already recorded before cleanup', async () => {
+test('startup recovery skips replay for lost-terminal-marker running rows whose durable replay barrier was already recorded before cleanup', async () => {
   const events: string[] = [];
   const deletedRequestIds: string[] = [];
 

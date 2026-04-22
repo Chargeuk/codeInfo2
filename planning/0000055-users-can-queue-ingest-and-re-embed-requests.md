@@ -15530,7 +15530,7 @@ Repair the published `/ingest/start` request contract so generated clients and u
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F3`: queue read failures during blocking re-embed return a success-shaped terminal payload instead of the retryable `QUEUE_UNAVAILABLE` contract.
 

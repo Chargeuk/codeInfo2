@@ -14730,7 +14730,7 @@ The saturation and blind-spot challenge artifacts generated no new actionable fi
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `184`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F1` `must_fix`: queued re-embed admission can persist a mounted execution path that delayed execution later rejects.
 
@@ -14817,6 +14817,7 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 - Testing 8: `npm run format:check` initially reported a Prettier issue in `server/src/ingest/ingestJob.ts`; ran `npm run format`, then reran `npm run format:check`, which passed with "All matched files use Prettier code style!".
 - Testing 7 rerun needed: reopened `npm run lint` because `npm run format` touched `server/src/ingest/ingestJob.ts` after the prior lint pass.
 - Testing 7 rerun: `npm run lint` passed again on the final formatted file state with exit code 0 and no reported lint issues.
+- Automated-proof audit: Task 185 is complete because all subtasks and Testing steps are checked, the final lint rerun covered the post-format file state, and `plan_status.py --task-number 185` reported no live blockers.
 
 ### Task 186. Restore The Queue-State Response Contract And Reuse The Live-State Constant
 

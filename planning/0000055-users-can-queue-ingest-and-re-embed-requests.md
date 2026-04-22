@@ -14730,7 +14730,7 @@ The saturation and blind-spot challenge artifacts generated no new actionable fi
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `184`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F1` `must_fix`: queued re-embed admission can persist a mounted execution path that delayed execution later rejects.
 
@@ -14818,6 +14818,7 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 - Testing 7 rerun needed: reopened `npm run lint` because `npm run format` touched `server/src/ingest/ingestJob.ts` after the prior lint pass.
 - Testing 7 rerun: `npm run lint` passed again on the final formatted file state with exit code 0 and no reported lint issues.
 - Automated-proof audit: Task 185 is complete because all subtasks and Testing steps are checked, the final lint rerun covered the post-format file state, and `plan_status.py --task-number 185` reported no live blockers.
+- **BLOCKER** Manual testing is blocked by a supported-runtime provider failure rather than the Task 185 path-role contract. The task-scoped main-stack pass restarted from stale provenance with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, reached healthy `/health`, then `POST /ingest/start` for `codeInfoTmp/manual-testing/0000055/task185-mounted-repo` returned 202 but the server exited while polling status; `codeInfoTmp/manual-testing/0000055/task185-proof/server-log-after-fetch-failure.txt` shows an uncaught `OpenAiEmbeddingError` 429 from `text-embedding-3-small`. Bounded recovery removed only the contaminating manual queue row, restarted the documented stack, confirmed LM Studio fallback is rejected by the active OpenAI model lock, retried the locked OpenAI path after a wait, and reproduced the same server exit in `codeInfoTmp/manual-testing/0000055/task185-proof/server-log-after-openai-retry-failure.txt`; the retry row was also removed and the main stack was returned to stopped state. The normal Compose runtime maps `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` to the same host path, so the exact mounted-path-vs-canonical-path split remains covered by automated proof until a supported runtime can complete ingestion. Manual proof cannot honestly validate the Task 185 API/runtime behavior until the provider rate-limit crash or environment dependency is repaired or a supported non-OpenAI locked runtime is available.
 
 ### Task 186. Restore The Queue-State Response Contract And Reuse The Live-State Constant
 

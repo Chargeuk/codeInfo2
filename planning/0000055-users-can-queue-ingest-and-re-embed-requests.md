@@ -14730,7 +14730,7 @@ The saturation and blind-spot challenge artifacts generated no new actionable fi
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `184`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Runtime prerequisite for `F1` manual validation: supported main-stack OpenAI provider failures must become visible ingest failures instead of process exits before mounted-path manual proof can resume.
 
@@ -14815,6 +14815,7 @@ After this prerequisite and Task 186 complete, a later manual-testing-agent pass
 - Testing 5 repair: ran `npm run format`, which formatted `server/src/test/unit/reingestService.test.ts` and left other reported files unchanged.
 - Testing 4 rerun: `npm run lint` passed again after formatting with exit code 0 and no reported lint issues.
 - Testing 5: `npm run format:check` passed after formatting with "All matched files use Prettier code style!".
+- Automated-proof audit: Task 185 has all subtasks and testing steps checked, the retained targeted unit wrapper logs match the completed proof notes, and `plan_status.py --task-number 185` reports no unchecked subtasks, unchecked testing, or live blockers. Normalized the task to `__done__` so Task 186 can become the next implementation-loop owner.
 
 ### Task 186. Preserve Mounted Execution Paths Across Queued Re-Embed Promotion And Startup Recovery
 

@@ -14208,7 +14208,7 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `178`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F3` (`must_fix`): malformed `POST /ingest/start` typed fields can be queued and silently defaulted during deferred execution instead of being rejected at request admission.
 

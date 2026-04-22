@@ -15763,12 +15763,15 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 #### Implementation Notes
 
 - Review disposition for pass `0000055-20260422T115002Z-d109d87f` created this final revalidation task after review-fix Tasks `192` through `195`.
+- Subtask 1: re-read the review pass `0000055-20260422T115002Z-d109d87f` findings block and completed proof-owner sections for Tasks `192` through `195`; parser output for each dependency reported `Task Status: __done__`, zero unchecked `Subtasks`, zero unchecked `Testing`, and no live blockers.
+- Subtask 2: refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` for review pass `0000055-20260422T115002Z-d109d87f` with the `F1` through `F6` finding-to-owner map, repaired files, dependency-task proof homes, saturation/blind-spot carry-forward, pre-wrapper residual risks, and Task 196 broad validation scope.
+- Subtask 3: re-opened this plan and the refreshed PR summary after the summary edit; both now align on current finding owners, dependency-task proof homes, saturation/blind-spot carry-forward, product/harness/baseline/environment residual-risk categories, and the Task 196 broad wrapper validation scope before Testing begins.
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260422T115002Z-d109d87f` and the completed proof-owner sections for Tasks `192` through `195`; check off this subtask only after parser output shows each dependency task has `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F6`: include repaired implementation files, exact proof homes from Tasks `192` through `195`, saturation and blind-spot challenge carry-forward, and any residual risk already known before this task's broad wrapper execution.
-3. [ ] Re-open this plan after the summary refresh and verify that this plan's `0000055-20260422T115002Z-d109d87f` findings block and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` both list the same finding owners, proof homes, residual-risk categories, and expected final validation scope before the testing section runs; this plan and the refreshed PR summary are the proof homes for residual-risk honesty before wrapper execution.
+1. [x] Re-read the `Code Review Findings` block for review pass `0000055-20260422T115002Z-d109d87f` and the completed proof-owner sections for Tasks `192` through `195`; check off this subtask only after parser output shows each dependency task has `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker.
+2. [x] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F6`: include repaired implementation files, exact proof homes from Tasks `192` through `195`, saturation and blind-spot challenge carry-forward, and any residual risk already known before this task's broad wrapper execution.
+3. [x] Re-open this plan after the summary refresh and verify that this plan's `0000055-20260422T115002Z-d109d87f` findings block and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` both list the same finding owners, proof homes, residual-risk categories, and expected final validation scope before the testing section runs; this plan and the refreshed PR summary are the proof homes for residual-risk honesty before wrapper execution.
 
 #### Testing
 

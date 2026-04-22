@@ -4,13 +4,40 @@
 
 Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed requests, keeps blocking re-embed callers honest while requests wait in that queue, extends the shared repository-list contract so queued work is visible in the ingest UI and MCP mirrors, and carries review-created repairs through final validation.
 
-This summary is refreshed for review pass `0000055-20260422T045457Z-daafd19b`. The durable plan owner is `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, with prerequisite Task 185, review-fix Tasks 186 through 190, and final validation Task 191.
+This summary is refreshed for review pass `0000055-20260422T115002Z-d109d87f`. The durable plan owner is `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, with review-fix Tasks 192 through 195 and final validation Task 196.
+
+## Review Follow-Up After Pass `0000055-20260422T115002Z-d109d87f`
+
+- The durable review anchor for this pass is the appended `Code Review Findings` block in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. Review artifacts are `codeInfoTmp/reviews/0000055-20260422T115002Z-d109d87f-evidence.md`, `codeInfoTmp/reviews/0000055-20260422T115002Z-d109d87f-findings.md`, `codeInfoTmp/reviews/0000055-20260422T115002Z-d109d87f-findings-saturation.md`, and `codeInfoTmp/reviews/0000055-20260422T115002Z-d109d87f-blind-spot-challenge.md`.
+- `F1` is closed by Task 192. Runtime owner `server/src/ingest/ingestJob.ts` now keeps cleanup delete-failure plus cleanup-blocked-persistence-failure ownership blocking newer queue promotion until the failed queue record is removed or durable cleanup ownership is visible again; proof homes are `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/ingest-cancel.test.ts`.
+- `F2` is closed by Task 193. Contract owners `openapi.json`, `server/src/test/unit/openapi.contract.test.ts`, `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, `client/src/components/ingest/IngestForm.tsx`, and `client/src/test/ingestForm.test.tsx` now align `POST /ingest/start` around either legacy `model` or the complete canonical `embeddingProvider` plus `embeddingModel` pair; proof homes are the OpenAPI, ingest-start, and IngestForm tests recorded in Task 193.
+- `F3` is closed by Task 194. Queue-read outage owners `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestExecution.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, command dispatch, and flow dispatch now preserve retryable `QUEUE_UNAVAILABLE` semantics for blocking wait-time queue-read failures; proof homes are the targeted reingest service, MCP classic, MCP v2, direct execution, command, and flow tests recorded in Task 194.
+- `F4` is closed by Task 192. Diagnostic owner `server/src/lmstudio/toolService.ts` now lets cleanup-blocked overlays without runtime status replace stale persisted `lastError` values; proof homes are `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+- `F5` is closed by Task 195. Production remove owners `server/src/routes/ingestRemove.ts`, `server/src/ingest/requestQueue.ts`, `server/src/test/features/ingest-remove.feature`, `server/src/test/steps/ingest-manage.steps.ts`, `server/src/routes/ingestE2eCleanup.ts`, `server/src/test/integration/ingest-e2e-cleanup.test.ts`, `client/src/components/ingest/RootsTable.tsx`, and `client/src/test/ingestRoots.test.tsx` now enforce queue-state authority before destructive removal while preserving idle removal and the test-only cleanup boundary.
+- `F6` is closed by Task 192. Proof owner `server/src/test/unit/ingest-cancel.test.ts` replaced the fixed `setTimeout(20)` negative assertion with a deterministic unresolved cleanup-gate pending-promise boundary.
+
+## Proof Homes For Pass `0000055-20260422T115002Z-d109d87f`
+
+- Task 192 automated proof homes: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-cancel.test.ts`, `npm run lint`, and `npm run format:check`, all checked in the plan.
+- Task 193 automated proof homes: `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`, `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx`, `npm run lint`, and `npm run format:check`, all checked in the plan.
+- Task 194 automated proof homes: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/mcp2.reingest.tool.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts`, `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`, `npm run lint`, and `npm run format:check`, all checked in the plan.
+- Task 195 automated proof homes: `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`, `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`, `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`, `npm run lint`, and `npm run format:check`, all checked in the plan.
+- Task 196 remains the broad final validation owner. Its pending automated proof scope is `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:host-network:main`, `npm run compose:down`, `npm run lint`, and `npm run format:check`.
+
+## Saturation, Blind Spots, And Residual Risk For Pass `0000055-20260422T115002Z-d109d87f`
+
+- The saturation and blind-spot challenge artifacts generated no additional actionable findings beyond `F1` through `F6`.
+- Rejected-risk carry-forward remains explicit: queue rewrite race protection is guarded by observed-row filters and duplicate-key recovery; deferred queued re-embed execution revalidates persisted path/model payloads before discovery; startup recovery checks cleanup-blocked rows before running or waiting work; queue waiter listener cleanup is direct even though queue-read failure shape was endorsed as `F3`; UI field-role and bulk proof stay direct while the server remove authority gap was endorsed as `F5` and repaired in Task 195.
+- Known pre-wrapper residual risk: Task 192's exact delete-failure plus cleanup-blocked-persistence-failure interleaving and deterministic cancel gate remain automated-proof-owned because no supported live runtime fixture exposes that internal fault-injection boundary.
+- Known pre-wrapper residual risk: Task 194's queue-read outage contract remains automated-proof-owned because the repository has no supported manual queue-read-outage injection harness, and this summary does not invent one by stopping internal services.
+- Known pre-wrapper residual risk: Task 195 observed a Chroma healthcheck deprecation response on `/api/v1/heartbeat` during task-scoped manual proof, but the task-owned API and UI proof completed; Task 196 broad Compose, host-network, and e2e proof must classify any recurrence as product, harness, baseline, or environment before retrying or blocking.
+- Broad wrapper, Compose, Docker, host-network, e2e, port, health-check, and environment failures in Task 196 must be classified as task-owned product defects, proof-harness defects, shared wrapper or baseline defects, or manual/runtime environment defects. They must not be hidden by repeated broad-wrapper reruns or by treating targeted repair-task proof as final default-path proof.
 
 ## Retained Earlier Proof
 
 - Earlier Story 55 close-out context still lives in `planning/0000055-pr-summary.md`; it remains historical context for acceptance-chain decisions that this review pass did not reopen directly.
 - The carried-forward weak-proof notes remain unchanged: Mongo atomicity beyond mocked interleavings, broad production timeout guarantees, negative proof that unrelated read surfaces do not mirror queue fields, inherited repository-list scale shape, and explicit bulk-remove refresh-count proof stay as residual context unless a later task adds narrower proof.
-- Earlier review-pass summaries and wrapper reruns are retained context only. They are not replacement proof for the current `0000055-20260422T045457Z-daafd19b` findings block.
+- Earlier review-pass summaries and wrapper reruns are retained context only. They are not replacement proof for the current `0000055-20260422T115002Z-d109d87f` findings block.
 
 ## Review Follow-Up After Pass `0000055-20260422T045457Z-daafd19b`
 
@@ -39,7 +66,7 @@ This summary is refreshed for review pass `0000055-20260422T045457Z-daafd19b`. T
 
 ## Saturation And Blind-Spot Carry-Forward
 
-- The current review saturation artifact generated no new actionable findings beyond `F1` through `F7`.
+- The `0000055-20260422T045457Z-daafd19b` review saturation artifact generated no new actionable findings beyond `F1` through `F7`.
 - The blind-spot challenge artifact generated no new actionable findings and carried forward residual weak-proof areas around Mongo atomicity beyond mocked interleavings, broad production timeout guarantees, negative proof that unrelated read surfaces do not mirror queue fields, inherited repository-list scale shape, and explicit bulk-remove refresh-count proof.
 - Task 191 remains the final validation owner for this review-created block. Its automated proof must rerun the supported build, test, e2e, compose, host-network, lint, and format gates before this story can be audited as complete.
 

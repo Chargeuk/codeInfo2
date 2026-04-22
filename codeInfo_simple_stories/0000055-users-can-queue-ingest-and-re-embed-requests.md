@@ -9,11 +9,11 @@ Users can queue ingest and re-embed requests
 3. Users and automation receive both a durable `requestId` for queued work and a `runId` once execution actually starts.
 4. Users are protected from unsafe queue recovery; cleanup-blocked work stays visible and prevents newer queued work from starting too early.
 5. Users and automation receive clear retryable queue errors when Mongo-backed queue persistence is unavailable.
-6. Business users can rely on the final reviewed contract: queue state, repo-list identity, OpenAPI documentation, artifact hygiene, destructive actions, and blocking automation behavior stay aligned.
+6. Business users can rely on the final reviewed contract: queue state, repo-list identity, OpenAPI documentation, cleanup diagnostics, destructive actions, and blocking automation behavior stay aligned.
 
 # Description
 
-This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final tasked plan also closes review findings around mounted re-embed paths, queue response state, waiting-row rewrite safety, destructive remove payloads, support-artifact hygiene, cleanup-blocked visibility, malformed request validation, repo-list identity, startup replay safety, and proof quality before the story is closed again.
+This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final tasked plan also closes review findings around mounted re-embed paths, queue response state, waiting-row rewrite safety, destructive remove payloads, support-artifact hygiene, cleanup-blocked behavior, OpenAPI accuracy, retryable queue errors, production remove authority, and proof quality before the story is closed again.
 
 # Tasks
 
@@ -107,7 +107,27 @@ This story makes ingest and re-embed work durable, visible, and predictable when
 - Redact provider account metadata from retained manual proof and scan sibling artifacts for the same risk.
 - Move generated screenshots out of tracked payload paths and keep future automated screenshots in ignored storage.
 
-19. [codeInfo2] - Revalidate Story 55 after the latest review-created findings block.
+19. [codeInfo2] - Repair cleanup-blocked stall, diagnostics, and cancel proof.
 
-- Refresh the durable PR summary so findings `F1` through `F7` map to the repaired implementation and proof homes.
+- Keep newer queued work blocked when cleanup deletion and cleanup-blocked persistence both fail.
+- Prove cleanup diagnostics and cancel cleanup ordering with deterministic server-unit coverage.
+
+20. [codeInfo2] - Align start-ingest OpenAPI with real request validation.
+
+- Document the actual accepted legacy model and provider/model request shapes for `/ingest/start`.
+- Prove OpenAPI, route validation, and client model-selection payloads stay aligned.
+
+21. [codeInfo2] - Preserve retryable queue-unavailable errors while blocking callers wait.
+
+- Keep queue-read outages retryable for REST, MCP, command, and flow re-embed callers.
+- Prove true terminal ingest results and timeout behavior are not misclassified as queue-backend outages.
+
+22. [codeInfo2] - Enforce queue-state authority on production Remove.
+
+- Block direct production Remove requests for waiting, running, cleanup-blocked, or active-run-owned targets.
+- Prove completed or idle removals still use the correct root-path payload and that test-only cleanup remains separate.
+
+23. [codeInfo2] - Revalidate Story 55 after the current review-created findings block.
+
+- Refresh the durable PR summary so findings `F1` through `F6` map to the repaired implementation and proof homes.
 - Run the supported server, client, e2e, Compose smoke, lint, and format wrappers before closing the story again.

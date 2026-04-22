@@ -14133,7 +14133,7 @@ If a manual-testing pass is requested for this task, use the normal Docker stack
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `177`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2` (`must_fix`): blocking re-embed callers still use a 90-second default wait timeout, so normal queue delay can return early as `WAIT_TIMEOUT`.
 
@@ -14201,6 +14201,7 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 - Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts` passed with `tests run: 130`, `passed: 130`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T01-12-20-616Z.log`; no log inspection was needed.
 - Testing 2: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 3: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
+- Audit: confirmed Task 178 has all subtasks and automated Testing 1 through 3 complete with no live blocker, so the task is now honestly `__done__`.
 
 ### Task 179. Reject Malformed Start-Ingest Body Fields Before Queue Admission
 

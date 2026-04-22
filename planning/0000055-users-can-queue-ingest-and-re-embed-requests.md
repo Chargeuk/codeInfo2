@@ -14771,7 +14771,7 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 
 #### Subtasks
 
-1. [ ] Re-read the `F1` finding evidence and the current queued re-embed path-role code in `server/src/ingest/reingestService.ts`, `server/src/ingest/pathMap.ts`, and `server/src/ingest/ingestJob.ts`; document the exact canonical-target versus execution-path contract in the implementation notes before editing behavior.
+1. [ ] Re-read the `F1` finding evidence and the current queued re-embed path-role code in `server/src/ingest/reingestService.ts`, `server/src/ingest/pathMap.ts`, and `server/src/ingest/ingestJob.ts`; identify the exact canonical-target versus execution-path contract before editing behavior.
 2. [ ] Update the deferred queued re-embed validation logic so a persisted mounted execution path accepted by admission can be used during promotion and startup recovery while still rejecting unsafe or unrelated payload paths before discovery begins.
 3. [ ] Update or add focused proof in the re-embed service and queue-runtime deferred execution tests so one valid mounted-path queue row succeeds through deferred execution and one invalid payload path remains rejected.
 4. [ ] Update MCP, command, or flow proof only where existing tests would otherwise keep mocking away the repaired shared queued payload contract.
@@ -14838,7 +14838,7 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 #### Subtasks
 
-1. [ ] Re-read `F2`, `F7`, immediate response builders, OpenAPI queue-aware response schemas, and repository-list overlay live-state filtering; record the intended `queueState` values and literal-ownership contract in the implementation notes before editing.
+1. [ ] Re-read `F2`, `F7`, immediate response builders, OpenAPI queue-aware response schemas, and repository-list overlay live-state filtering; identify the intended `queueState` values and literal-ownership contract before editing.
 2. [ ] Update REST immediate-start response builders and OpenAPI response schemas so the non-waiting `queueState` is present and required where the story contract requires it.
 3. [ ] Update server route and OpenAPI tests so they reject the old immediate shape and preserve the waiting response shape.
 4. [ ] Update client parsing or tests only where the new immediate `queueState` field crosses a typed or normalized client boundary.
@@ -14901,7 +14901,7 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 #### Subtasks
 
-1. [ ] Re-read `F5`, queue rewrite helpers, duplicate-key fallback handling, and existing request-queue tests; record the selected observed-row ownership field in the implementation notes before editing.
+1. [ ] Re-read `F5`, queue rewrite helpers, duplicate-key fallback handling, and existing request-queue tests; identify the selected observed-row ownership field before editing.
 2. [ ] Update the waiting rewrite filter and fallback flow so stale observed-row rewrites cannot overwrite a newer waiting row.
 3. [ ] Add or update ordinary duplicate and duplicate-key fallback tests that model the originally observed row disappearing before rewrite and prove the newer waiting payload is preserved.
 4. [ ] Confirm running and cleanup-blocked duplicate reuse tests still prove that active payloads are not mutated mid-flight.
@@ -14960,7 +14960,7 @@ Separate client action identity for queueable re-embed from destructive root-pat
 
 #### Subtasks
 
-1. [ ] Re-read `F6`, `RootsTable` selection/action helpers, remove route behavior, and existing row/bulk action tests; record the separate identity roles in the implementation notes before editing.
+1. [ ] Re-read `F6`, `RootsTable` selection/action helpers, remove route behavior, and existing row/bulk action tests; identify the separate identity roles before editing.
 2. [ ] Split or rename the client helpers so row/bulk Re-embed can use canonical row identity while row/bulk Remove uses the persisted root path.
 3. [ ] Add or update tests with rows where `id` differs from `path` to prove Remove uses `path` and Re-embed still uses the intended identity.
 4. [ ] Confirm queued, running, and cleanup-blocked row exclusion remains unchanged for destructive actions.
@@ -15023,7 +15023,7 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Subtasks
 
-1. [ ] Re-read `F3`, `F4`, the Story 55 manual artifact directory, current ignore rules, and screenshot helper paths; record the chosen durable-versus-scratch artifact policy in the implementation notes before editing.
+1. [ ] Re-read `F3`, `F4`, the Story 55 manual artifact directory, current ignore rules, and screenshot helper paths; identify the chosen durable-versus-scratch artifact policy before editing.
 2. [ ] Redact or remove the provider organization identifier from `codeInfoStatus/manual-testing/0000055/server-main-exit.log` while preserving enough context for the manual proof artifact to remain understandable.
 3. [ ] Search Story 55 manual-testing artifacts for sibling provider account identifiers, tokens, API keys, bearer credentials, and raw provider error metadata; redact any same-class sensitive runtime output found.
 4. [ ] Remove tracked generated screenshot files from `artifacts/story-0000055-screenshots/**` or move any intentionally retained screenshots into an approved durable support location with plan/summary references updated accordingly.
@@ -15031,9 +15031,9 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Testing
 
-1. [ ] Run `rg -n "organization org-|org-b0ryOxiEjneU4p7xMv88rMQr|sk-[A-Za-z0-9_-]{20,}|bearer|authorization" codeInfoStatus/manual-testing/0000055`.
-2. [ ] Run `git ls-files artifacts/story-0000055-screenshots codeInfoStatus/manual-testing/0000055`.
-3. [ ] Run `git check-ignore -v artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png` if `artifacts/**` remains a generated scratch destination.
+1. [ ] Run `bash -lc '! rg -n "organization org-|org-b0ryOxiEjneU4p7xMv88rMQr|sk-[A-Za-z0-9_-]{20,}|bearer|authorization" codeInfoStatus/manual-testing/0000055'`.
+2. [ ] Run `git ls-files artifacts/story-0000055-screenshots codeInfoStatus/manual-testing/0000055` and confirm the output contains no tracked generated screenshots under `artifacts/story-0000055-screenshots/` while still listing only intentionally retained manual-testing artifacts.
+3. [ ] Run `bash -lc 'git check-ignore -v artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png || test ! -e artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png'`.
 4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
 5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 

@@ -15530,7 +15530,7 @@ Repair the published `/ingest/start` request contract so generated clients and u
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F3`: queue read failures during blocking re-embed return a success-shaped terminal payload instead of the retryable `QUEUE_UNAVAILABLE` contract.
 
@@ -15595,6 +15595,7 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 - Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts` with 44 tests passed.
 - Automated proof passed for `npm run lint` with exit code 0.
 - Automated proof passed for `npm run format:check`; all matched files use Prettier code style.
+- Automated-proof audit verified all Task 194 subtasks and testing steps are complete, no live blocker remains, and the task is ready for manual-testing handoff as `__done__`.
 
 #### Subtasks
 

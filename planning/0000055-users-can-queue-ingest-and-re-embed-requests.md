@@ -15012,7 +15012,7 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `187`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F5` `should_fix`: waiting-row rewrite can replay stale duplicate intent onto a newer waiting queue item.
 
@@ -15079,6 +15079,7 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 - Testing 4: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` passed with 36 tests and no failures.
 - Testing 5: `npm run lint` passed with no reported issues.
 - Testing 6: `npm run format:check` passed; Prettier reported all matched files use the expected style.
+- Automated-proof audit: Task 188 has all subtasks and Testing steps checked, the latest proof commit records the listed server-unit, lint, and format wrappers, and `plan_status.py --task-number 188` reports no unchecked subtasks, unchecked testing, or live blockers. Normalized the task to `__done__` so Task 189 can become the next implementation-loop owner.
 
 ### Task 189. Keep Destructive Remove Actions On Root-Path Payloads
 

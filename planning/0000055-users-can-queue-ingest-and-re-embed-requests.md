@@ -14777,7 +14777,7 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 2. [ ] Update the deferred queued re-embed execution-path resolver so it validates `canonicalTargetPath` as queue identity, validates a persisted `requestPayload.path` as a normalized execution path within the configured workdir when that workdir is concrete, returns the persisted execution path for deferred work when present, and falls back to `canonicalTargetPath` only when no persisted payload path exists.
 3. [ ] Update `server/src/test/unit/reingestService.test.ts` so queued re-embed admission proves a mapped repository keeps canonical queue identity while persisting the mounted execution path and stable display name.
 4. [ ] Update queue-runtime deferred promotion and startup recovery proof so a valid mounted execution path succeeds through `pumpIngestQueue()` and `recoverIngestQueueOnStartup()`, while an invalid or unrelated `requestPayload.path` remains a terminal validation error before discovery begins.
-5. [ ] Inspect the MCP, command, and flow `runReingestRepository()` tests; update any proof that currently mocks away queue admission, `pumpIngestQueue()`, or durable request-id waiting so the repaired payload contract is reached through the shared blocking re-embed service.
+5. [ ] In `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.command.test.ts`, keep or add assertions that reach `runReingestRepository()` queue admission, `pumpIngestQueue()`, and durable request-id waiting without mocking away the repaired queued payload contract.
 
 #### Testing
 
@@ -14846,9 +14846,9 @@ Restore the queue-state contract across immediate REST queue success responses, 
 1. [ ] Re-read `F2`, `F7`, the immediate response branches in `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`, the 202 queue-aware response schemas in `openapi.json`, and the repository-list query in `server/src/lmstudio/toolService.ts`; identify every producer and consumer that must agree on `queueState: 'running'` for immediate success.
 2. [ ] Update the REST immediate response builders and OpenAPI immediate response schemas so `queueState: 'running'` is present and required only on the non-waiting success shape, while the waiting shape keeps `queued: true`, `requestId`, and waiting-only `queuePosition`.
 3. [ ] Update `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/openapi.contract.test.ts` so they assert the new immediate shape, reject the old immediate shape, and preserve the waiting response contract.
-4. [ ] Inspect `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types; update any affected parser, normalization, or tests so TypeScript and targeted client proof preserve compatibility with the immediate `queueState: 'running'` response.
+4. [ ] In `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types, update any parser or normalization path that reads immediate ingest/re-embed responses so TypeScript and `client/src/test/ingestRoots.test.tsx` accept `queueState: 'running'` while preserving waiting-response behavior.
 5. [ ] Replace the repository-list overlay's inline `['waiting', 'running', 'cleanup-blocked']` filter in `server/src/lmstudio/toolService.ts` with `ingestLiveQueueTargetStates`, preserving queue overlay ordering and waiting-position behavior.
-6. [ ] Add or update focused repository-list proof so a future live-state literal drift in `toolService.ts` is caught by `server/src/test/unit/tools-ingested-repos.test.ts` or the nearest existing repository-list overlay test.
+6. [ ] In `server/src/test/unit/tools-ingested-repos.test.ts` or the nearest existing repository-list overlay test, add or update focused proof that the live-state overlay follows `ingestLiveQueueTargetStates` and would fail if `server/src/lmstudio/toolService.ts` reintroduced an inline divergent state list.
 
 #### Testing
 
@@ -14914,7 +14914,7 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 2. [ ] Update the waiting rewrite helper so the `findOneAndUpdate()` filter includes the observed waiting row guard plus `canonicalTargetPath` and `queueState: 'waiting'`, and so a missed guarded update triggers an honest live-row re-read instead of rewriting whichever later waiting row shares the target.
 3. [ ] Apply the same guarded rewrite behavior to the duplicate-key fallback path so a create race cannot replay an older payload onto a newer waiting row.
 4. [ ] Add or update request-queue tests for the ordinary duplicate path and duplicate-key fallback path where row A is observed, row A disappears before rewrite, row B appears with fresher payload, and row B remains unchanged.
-5. [ ] Confirm existing running and cleanup-blocked duplicate reuse tests still prove active or cleanup-blocked payloads are reused without mid-flight mutation.
+5. [ ] Keep or add `server/src/test/unit/ingest-request-queue.test.ts` assertions for running and cleanup-blocked duplicate reuse so active or cleanup-blocked payloads are returned without mid-flight mutation.
 
 #### Testing
 
@@ -14976,7 +14976,7 @@ Separate client action identity for queueable re-embed from destructive root-pat
 2. [ ] Split the `RootsTable` action helpers so row and bulk Re-embed continue to use the canonical row identity accepted by re-embed, while row and bulk Remove call `/ingest/remove/:root` with the persisted `root.path`.
 3. [ ] Update bulk Remove target derivation so it maps selected stable keys back to current root rows and submits only those rows' `path` values, without re-enabling queued, running, cleanup-blocked, or active-ingest-head rows.
 4. [ ] Add or update `client/src/test/ingestRoots.test.tsx` fixtures where `id !== path` to prove row Remove and bulk Remove submit `path`, row or bulk Re-embed still submits the intended identity, selected rows are cleared by the correct key after successful remove, and failed rows remain visible.
-5. [ ] Confirm existing queued, running, cleanup-blocked, and active-ingest-head exclusion tests still pass without weakening destructive-action disablement.
+5. [ ] Keep or add `client/src/test/ingestRoots.test.tsx` assertions that queued, running, cleanup-blocked, and active-ingest-head rows remain excluded from destructive row and bulk Remove actions after the helper split.
 
 #### Testing
 
@@ -15117,7 +15117,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260422T045457Z-daafd19b` and the completed proof-owner sections for Tasks `185` through `189`. Check off this subtask only after each dependency task shows `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no unresolved `Implementation Notes` blocker.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F7`, including exact repaired files, exact proof homes, artifact-hygiene disposition, retained or removed artifact locations, rejected-risk notes, saturation results, blind-spot challenge carry-forward, baseline-vs-task-owned failure classification rules for wrapper/runtime issues, and a clearly named section where this task's automated testing results will be recorded as each testing checkbox is completed.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F7`, including exact repaired files, exact proof homes, artifact-hygiene disposition, retained or removed artifact locations, rejected-risk notes, saturation results, blind-spot challenge carry-forward, baseline-vs-task-owned failure classification rules for wrapper/runtime issues, and a clearly named placeholder section for this task's automated testing results.
 3. [ ] Re-open this plan after the summary refresh and compare the `0000055-20260422T045457Z-daafd19b` findings block against the refreshed summary. Update whichever pre-testing text is stale so both files name the same finding owners, proof homes, artifact locations, residual-risk categories, and expected final disposition before the testing section runs.
 
 #### Testing

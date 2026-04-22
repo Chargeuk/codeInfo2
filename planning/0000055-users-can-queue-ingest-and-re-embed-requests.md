@@ -15012,7 +15012,7 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `187`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F5` `should_fix`: waiting-row rewrite can replay stale duplicate intent onto a newer waiting queue item.
 

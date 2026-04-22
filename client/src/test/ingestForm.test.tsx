@@ -322,7 +322,10 @@ describe('IngestForm', () => {
 
   it('retains valid model selection but clears stale prior selection before submitting canonical payload', async () => {
     mockFetch.mockResolvedValue(
-      mockJsonResponse({ requestId: 'queue-request-stale', runId: 'run-stale' }),
+      mockJsonResponse({
+        requestId: 'queue-request-stale',
+        runId: 'run-stale',
+      }),
     );
     const onStarted = jest.fn();
     const { rerender } = render(

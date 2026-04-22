@@ -15503,6 +15503,11 @@ Repair the published `/ingest/start` request contract so generated clients and u
 - Updated `server/src/test/unit/openapi.contract.test.ts` to assert the corrected model-selection dependency shape, partial-canonical rejection rules, strict property set, and unknown-property guard for `/ingest/start`.
 - Inspected `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx`; existing runtime/client behavior already keeps legacy requests compatible, canonical provider/model accepted, partial canonical rejected, and canonical fields authoritative when legacy and canonical fields both appear.
 - Updated `client/src/test/ingestForm.test.tsx` so the refreshed-model test proves valid local model selection is retained while present, stale prior selection is cleared when removed, and the submitted canonical payload uses the current visible provider/model.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts` with 13 tests passed; wrapper returned `agent_action: skip_log`.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` with 30 tests passed; wrapper returned `agent_action: skip_log`.
+- Automated proof passed for `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx` with 25 tests passed; wrapper returned `agent_action: skip_log`.
+- Automated proof passed for `npm run lint` with exit code 0.
+- `npm run format:check` initially reported `client/src/test/ingestForm.test.tsx`; ran `npx prettier --write client/src/test/ingestForm.test.tsx`, then reran `npm run format:check` successfully with all matched files using Prettier style.
 
 #### Subtasks
 
@@ -15513,11 +15518,11 @@ Repair the published `/ingest/start` request contract so generated clients and u
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
-3. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
+3. [x] Run `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx`.
+4. [x] Run `npm run lint`.
+5. [x] Run `npm run format:check`.
 
 ### Task 194. Preserve Retryable `QUEUE_UNAVAILABLE` Semantics For Blocking Queue-Read Failures
 

@@ -15399,6 +15399,12 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 - Do not rewrite queue admission, dedupe, OpenAPI, blocking re-embed transport mapping, production remove authority, or browser UI behavior here except for proof fallout that is directly required by these cleanup seams.
 - If preserving cleanup blocking requires a small task-owned helper or exported test seam, keep it inside the ingest queue runtime or test-only support surface and do not weaken production delete-before-next-work behavior.
 
+#### High-Risk Invariants And Blocker Family
+
+- Highest-risk invariant: a queue-record delete failure followed by a failed durable `cleanup-blocked` write must still block any later route enqueue or startup pump from promoting newer waiting work until the failed record is removed or durable cleanup ownership is restored.
+- Exact ordering proof required: prove the interleaving `deleteQueueRequestById()` fails, `markQueueRequestCleanupBlocked()` fails, the finalizer unwinds, and a later `pumpIngestQueue()` call still refuses to start newer work; adjacent happy-path cleanup-blocked proof is not sufficient.
+- Likely blocker family: product or story seam. The selected task owns both the runtime repair and the proof-authoring work; harness issues are secondary only if deterministic gate proof cannot be expressed in the existing unit tests.
+
 #### Documentation Locations
 
 - `server/src/ingest/ingestJob.ts`
@@ -15459,6 +15465,12 @@ Repair the published `/ingest/start` request contract so generated clients and u
 - Do not weaken `resolveRequestEmbeddingSelection()` or route validation to make the old under-specified OpenAPI body pass.
 - Preserve backward compatibility for the legacy `model` request form and the canonical `embeddingProvider` plus `embeddingModel` request form.
 
+#### High-Risk Invariants And Blocker Family
+
+- Highest-risk invariant: the public `POST /ingest/start` OpenAPI producer must not advertise a queue-admissible request body that the route validation consumer rejects before queue admission.
+- Producer-consumer proof required: name and prove the `openapi.json` request schema, `server/src/routes/ingestStart.ts`, `resolveRequestEmbeddingSelection()`, and `client/src/components/ingest/IngestForm.tsx` stay aligned for both legacy `model` and canonical provider/model bodies.
+- Likely blocker family: product or story seam. The selected task owns contract repair and route/schema proof; a blocker would become task-shape or planning only if OpenAPI cannot express the supported alternatives without changing the production contract.
+
 #### Documentation Locations
 
 - `openapi.json`
@@ -15515,6 +15527,13 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 - This task owns post-admission queue backend read failures while a blocking re-embed caller waits.
 - Do not reclassify ordinary terminal ingest `failed`, `cancelled`, `skipped`, or timeout results as `QUEUE_UNAVAILABLE`.
 - Do not change the request-id listener filtering, timeout clearing, or disconnect cleanup behavior except where required to preserve the same retryable error shape.
+
+#### High-Risk Invariants And Blocker Family
+
+- Highest-risk invariant: a post-admission queue-read outage while a blocking re-embed caller waits must propagate as retryable `QUEUE_UNAVAILABLE` through every meaningful blocking transport, while ordinary terminal ingest outcomes remain terminal payloads.
+- Producer-consumer proof required: prove the producer `waitForQueueRequestTerminalStatus()` reason, the `runReingestRepository()` mapping, classic MCP, MCP v2, command execution, and flow execution all preserve the same retryable shape through their default wrapper or dispatcher paths.
+- Exact classification proof required: setup-read failures and timeout-fallback read failures are queue-backend outages; timeout expiration, cancellation, skipped/no-change, and post-start provider/runtime failures are not.
+- Likely blocker family: product or story seam. The selected task owns the mapping repair and transport proof; proof or test harness seam applies only if an existing transport test cannot exercise the default wrapper path and must first receive a bounded harness fixture.
 
 #### Documentation Locations
 
@@ -15585,6 +15604,13 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 - Do not add user-driven queue-item removal, queue cancellation, or queue cleanup bypass behavior; queued-but-not-started removal remains out of scope.
 - Do not weaken the test-only cleanup route's env gate, fixture allowlist, or distinction from production remove.
 
+#### High-Risk Invariants And Blocker Family
+
+- Highest-risk invariant: direct production `POST /ingest/remove/:root` calls must not bypass queue-owned or active-run destructive-action guards that the UI already enforces for waiting, running, cleanup-blocked, and active-head rows.
+- Default-path proof required: prove the production route registered by the normal server path blocks queue-owned targets before `removeRoot()` deletes vectors or metadata, rather than proving only client-side affordance blocking or the test-only cleanup route.
+- Authority-boundary proof required: prove allowed idle/completed removals still use persisted root paths and do not accidentally switch to canonical ids, queue request ids, or run ids as destructive payloads.
+- Likely blocker family: product or story seam. The selected task owns the server authority repair; manual/runtime environment seam applies only to optional live validation after automated route and client proof are complete.
+
 #### Documentation Locations
 
 - `server/src/routes/ingestRemove.ts`
@@ -15619,7 +15645,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 
 #### Manual Testing Guidance
 
-Optional later browser/API validation can exercise a normal completed-row remove and a queue-owned-row remove attempt through the supported main stack. Keep any screenshots or API transcripts under `codeInfoStatus/manual-testing/0000055/` only after confirming they contain no provider identifiers or token-like values. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.
+Optional later browser/API validation can exercise a normal completed-row remove and a queue-owned-row remove attempt through the supported main stack. Use the normal Docker stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`; it uses `docker-compose.yml`, `server/.env`, and `server/.env.local`, and the wrapper preflight checks ports `5010`, `5011`, `5012`, and `8932`. The client is expected at `http://localhost:5001`, the REST/MCP server at `http://localhost:5010`, secondary MCP services at `http://localhost:5011` and `http://localhost:5012`, and Playwright MCP at `http://localhost:8932/mcp`; repository path mapping uses the configured `CODEINFO_HOST_INGEST_DIR` host namespace mounted into `CODEINFO_CODEX_WORKDIR`, and readiness should come from the compose health checks plus `/health` before API proof begins. Keep any screenshots or API transcripts under `codeInfoStatus/manual-testing/0000055/` only after confirming they contain no provider identifiers or token-like values. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.
 
 ### Task 196. Re-Validate Story 55 After Review Pass `0000055-20260422T115002Z-d109d87f`
 
@@ -15652,6 +15678,13 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 - This task owns final review-block validation for review pass `0000055-20260422T115002Z-d109d87f`; it does not own new product repairs except for small proof-record or summary alignment fixes discovered while validating Tasks `192` through `195`.
 - Do not mark this task complete until every review-created repair task in this block is complete and the broad wrappers have run through the repository-supported wrapper paths.
 - If a broad wrapper exposes a new product defect, add or preserve an implementation blocker in this task instead of silently converting final validation into a new repair task.
+
+#### High-Risk Invariants And Blocker Family
+
+- Highest-risk invariant: final validation must prove the repaired review-created findings block through the repository-supported default wrapper and runtime paths, not only through targeted repair-task tests or artifact-only summary updates.
+- Baseline and harness ownership: broad wrapper, Compose, Docker, host-network, e2e, port, health-check, or environment failures must be classified as task-owned product defects, proof harness defects, shared wrapper/baseline defects, or manual/runtime environment defects before retrying; do not hide missing baseline ownership inside repeated broad-wrapper reruns.
+- Default-path proof required: prove server build, client build, server unit, server cucumber, client tests, e2e, compose build/up/down, host-network probe, lint, and format through the listed wrapper commands before closing the review-created block.
+- Likely blocker family: shared wrapper or baseline seam. This task owns final proof orchestration and residual-risk recording; any product defect found by a broad wrapper must be surfaced as a blocker or follow-up rather than absorbed by changing this final validation task's identity.
 
 #### Documentation Locations
 
@@ -15696,4 +15729,4 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 
 #### Manual Testing Guidance
 
-Optional later manual validation can focus on the externally observable seams repaired by this review-created block: cleanup-blocked visibility, production remove rejection for queue-owned rows, normal completed-row removal, queued re-embed retryability surfaces, and unchanged queue visibility through the supported main Docker stack. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.
+Optional later manual validation can focus on the externally observable seams repaired by this review-created block: cleanup-blocked visibility, production remove rejection for queue-owned rows, normal completed-row removal, queued re-embed retryability surfaces, and unchanged queue visibility through the supported main Docker stack. Use the normal Docker stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`; it uses `docker-compose.yml`, `server/.env`, and `server/.env.local`, and the wrapper preflight checks ports `5010`, `5011`, `5012`, and `8932`. The client is expected at `http://localhost:5001`, the REST/MCP server at `http://localhost:5010`, secondary MCP services at `http://localhost:5011` and `http://localhost:5012`, and Playwright MCP at `http://localhost:8932/mcp`; repository path mapping uses the configured `CODEINFO_HOST_INGEST_DIR` host namespace mounted into `CODEINFO_CODEX_WORKDIR`, and readiness should come from the compose health checks plus `/health` before browser or API proof begins. Store retained manual artifacts under `codeInfoStatus/manual-testing/0000055/` only after sanitizing provider identifiers and token-like values. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.

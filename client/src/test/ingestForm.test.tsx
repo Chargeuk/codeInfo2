@@ -320,14 +320,18 @@ describe('IngestForm', () => {
     );
   });
 
-  it('clears stale selection when selected option is no longer in refreshed models', async () => {
+  it('retains valid model selection but clears stale prior selection before submitting canonical payload', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-stale', runId: 'run-stale' }),
+    );
+    const onStarted = jest.fn();
     const { rerender } = render(
       <IngestForm
         models={[
           { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
           { id: 'embed-b', displayName: 'Embed B', provider: 'lmstudio' },
         ]}
-        onStarted={jest.fn()}
+        onStarted={onStarted}
         defaultModelId="embed-a"
       />,
     );
@@ -340,13 +344,42 @@ describe('IngestForm', () => {
       <IngestForm
         models={[
           { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
+          { id: 'embed-b', displayName: 'Embed B', provider: 'lmstudio' },
         ]}
-        onStarted={jest.fn()}
+        onStarted={onStarted}
+        defaultModelId="embed-a"
+      />,
+    );
+
+    await waitFor(() => expect(select).toHaveValue('lmstudio::embed-b'));
+
+    rerender(
+      <IngestForm
+        models={[
+          { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
+        ]}
+        onStarted={onStarted}
         defaultModelId="embed-a"
       />,
     );
 
     await waitFor(() => expect(select).toHaveValue('lmstudio::embed-a'));
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-stale'));
+    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    expect(body).toMatchObject({
+      model: 'embed-a',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-a',
+    });
   });
 
   it('shows OPENAI_DISABLED info banner copy', () => {

@@ -629,6 +629,34 @@
                   }
                 },
                 "required": ["path", "name"],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "required": ["model"]
+                      },
+                      {
+                        "required": ["embeddingProvider", "embeddingModel"]
+                      }
+                    ]
+                  },
+                  {
+                    "not": {
+                      "required": ["embeddingProvider"],
+                      "not": {
+                        "required": ["embeddingModel"]
+                      }
+                    }
+                  },
+                  {
+                    "not": {
+                      "required": ["embeddingModel"],
+                      "not": {
+                        "required": ["embeddingProvider"]
+                      }
+                    }
+                  }
+                ],
                 "additionalProperties": false
               }
             }

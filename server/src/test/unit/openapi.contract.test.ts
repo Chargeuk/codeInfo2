@@ -231,7 +231,7 @@ test('OpenAPI /tools/ingested-repos schema includes documented repo identity, na
   );
 });
 
-test('OpenAPI /ingest/start request schema rejects malformed typed body fields and unknown properties', () => {
+test('OpenAPI /ingest/start request schema rejects path plus name alone and documents legacy or canonical model selection', () => {
   const openapi = readOpenApi();
   const requestSchema = getRequestSchema(openapi, '/ingest/start', 'post');
 
@@ -260,6 +260,33 @@ test('OpenAPI /ingest/start request schema rejects malformed typed body fields a
     enum: ['lmstudio', 'openai'],
   });
   assert.deepEqual(props.embeddingModel, { type: 'string' });
+
+  const allOf = requestSchema.allOf as Record<string, unknown>[] | undefined;
+  assert.ok(Array.isArray(allOf), 'missing request schema dependency rules');
+
+  const modelSelectionAlternatives = allOf.find((entry) =>
+    Array.isArray(entry.anyOf),
+  )?.anyOf as Record<string, unknown>[] | undefined;
+  assert.deepEqual(modelSelectionAlternatives, [
+    { required: ['model'] },
+    { required: ['embeddingProvider', 'embeddingModel'] },
+  ]);
+
+  const partialCanonicalRejectors = allOf.filter((entry) => entry.not);
+  assert.deepEqual(partialCanonicalRejectors, [
+    {
+      not: {
+        required: ['embeddingProvider'],
+        not: { required: ['embeddingModel'] },
+      },
+    },
+    {
+      not: {
+        required: ['embeddingModel'],
+        not: { required: ['embeddingProvider'] },
+      },
+    },
+  ]);
 });
 
 test('OpenAPI /ingest/start queue-aware 202 response documents immediate running and waiting acceptance shapes', () => {

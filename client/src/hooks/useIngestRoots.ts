@@ -261,13 +261,13 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
           embeddingModel: lockModel,
           embeddingDimensions: lockDimensions,
           lockedModelId:
-            waitingOverlayPresent && embeddingModel
+            queueOverlayPresent && embeddingModel
               ? embeddingModel
               : typeof lockObj?.lockedModelId === 'string'
                 ? lockObj.lockedModelId
                 : lockModel,
           modelId:
-            waitingOverlayPresent && embeddingModel
+            queueOverlayPresent && embeddingModel
               ? embeddingModel
               : typeof lockObj?.modelId === 'string'
                 ? lockObj.modelId

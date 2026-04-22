@@ -14348,11 +14348,11 @@ Repair the shared repository-list contract as one coherent producer surface. Run
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts --file server/src/test/unit/tools-ingested-repos.test.ts --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/mcp-ingested-repositories.test.ts --file server/src/test/integration/mcp-ingested-repositories.test.ts`.
-2. [ ] Run `npm run typecheck:summary:client`.
-3. [ ] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx --file client/src/test/ingestRoots.test.tsx`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts --file server/src/test/unit/tools-ingested-repos.test.ts --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/mcp-ingested-repositories.test.ts --file server/src/test/integration/mcp-ingested-repositories.test.ts`.
+2. [x] Run `npm run typecheck:summary:client`.
+3. [x] Run `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx --file client/src/test/ingestRoots.test.tsx`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -14368,6 +14368,11 @@ If a manual-testing pass is requested for this task, use the repository-list RES
 - Updated MCP unit and integration proofs so the default `ListIngestedRepositories` path names and asserts documented `id`/`name`/`error` fields plus queue metadata propagation, including a running queue model/isolation scenario.
 - Updated client hook proof for healthy running overlays clearing stale diagnostics and stale persisted model/lock identity; inspected `RootsTable` and changed row selection/action payloads to prefer canonical `id`, with an `ingestRoots.test.tsx` proof that stale display paths are not submitted for re-embed.
 - Audit: confirmed the implementation-only pass closed Subtasks 1 through 7 against the shared repo-list producer, OpenAPI, MCP/tool, REST, client normalization, and row-action surfaces; no live blocker is present, and Testing 1 through 5 remain unchecked for the automated-proof step.
+- Automated proof Testing 1 passed with `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts --file server/src/test/unit/tools-ingested-repos.test.ts --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/mcp-ingested-repositories.test.ts --file server/src/test/integration/mcp-ingested-repositories.test.ts`: 74 tests passed, 0 failed; wrapper returned `agent_action: skip_log`.
+- Automated proof Testing 2 initially failed on two stale `waitingOverlayPresent` references in `client/src/hooks/useIngestRoots.ts`; replaced them with `queueOverlayPresent` and reran `npm run typecheck:summary:client`, which passed with 0 errors and `agent_action: skip_log`.
+- Automated proof Testing 3 passed with `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx --file client/src/test/ingestRoots.test.tsx`: 62 tests passed, 0 failed; wrapper returned `agent_action: skip_log`.
+- Automated proof Testing 4 passed with `npm run lint`; ESLint exited 0 with no fixes required.
+- Automated proof Testing 5 passed with `npm run format:check`; Prettier reported all matched files use the expected style.
 
 ### Task 181. Persist A Replay Barrier Before Non-Idempotent Queue Finalization Side Effects
 

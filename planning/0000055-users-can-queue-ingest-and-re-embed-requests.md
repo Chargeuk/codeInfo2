@@ -14920,7 +14920,7 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `186`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2` `should_fix`: immediate queue success responses omit the required non-waiting queue state.
   - `F7` `optional_simplification`: repository-list overlay repeats the live queue-state set instead of reusing the named contract.
@@ -15005,6 +15005,7 @@ Restore the queue-state contract across immediate REST queue success responses, 
 - Testing 6: `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` passed with 40 tests, 0 failures; wrapper reported `agent_action: skip_log`.
 - Testing 7: `npm run lint` passed with no reported ESLint issues.
 - Testing 8: initial `npm run format:check` reported style drift in `client/src/components/ingest/IngestForm.tsx`, `openapi.json`, and `server/src/test/unit/openapi.contract.test.ts`; ran `npm run format`, then reran `npm run format:check` and it passed with all files matching Prettier style.
+- Automated-proof audit: Task 187 has all subtasks and Testing steps checked, the retained targeted server/client wrapper logs match the completed proof notes, and `plan_status.py --task-number 187` reports no unchecked subtasks, unchecked testing, or live blockers. Normalized the task to `__done__` so Task 188 can become the next implementation-loop owner.
 
 ### Task 188. Add Observed-Row Ownership To Waiting Queue Rewrites
 

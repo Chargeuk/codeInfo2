@@ -21,10 +21,10 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
-const stableScreenshotDir = path.join(
+const generatedScreenshotDir = path.join(
   repoRoot,
-  'artifacts',
-  'story-0000055-screenshots',
+  'test-results/screenshots',
+  '0000055',
 );
 
 let skipReason: string | undefined;
@@ -36,13 +36,13 @@ const overlappingRefreshRetainsVisibleRowsScenario =
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function saveStableScreenshot(
+async function saveGeneratedScreenshot(
   page: Parameters<typeof test>[0]['page'],
   fileName: string,
 ) {
-  await mkdir(stableScreenshotDir, { recursive: true });
+  await mkdir(generatedScreenshotDir, { recursive: true });
   await page.screenshot({
-    path: path.join(stableScreenshotDir, fileName),
+    path: path.join(generatedScreenshotDir, fileName),
     fullPage: true,
   });
 }
@@ -763,7 +763,7 @@ test.describe.serial('Ingest flows', () => {
     await queuedRow.getByRole('button', { name: /details/i }).click();
     await expect(page.getByText(/Request ID/i)).toBeVisible();
     await expect(page.getByText(/Pending queue start/i)).toBeVisible();
-    await saveStableScreenshot(page, '0000055-queued-row-state.png');
+    await saveGeneratedScreenshot(page, '0000055-queued-row-state.png');
   });
 
   test('queued row stays visible after a page refresh while the request is still waiting', async ({
@@ -883,7 +883,7 @@ test.describe.serial('Ingest flows', () => {
       await expect(refreshButton).toBeDisabled();
       await expect(oldRow).toBeVisible();
       await expect(newRow).toHaveCount(0);
-      await saveStableScreenshot(
+      await saveGeneratedScreenshot(
         page,
         '0000055-overlapping-refetch-retained-rows.png',
       );
@@ -1126,7 +1126,7 @@ test.describe.serial('Ingest flows', () => {
       .check();
     await expect(page.getByText('1 selected')).toBeVisible();
     await expect(bulkReembed).toBeEnabled();
-    await saveStableScreenshot(page, '0000055-bulk-selection-state.png');
+    await saveGeneratedScreenshot(page, '0000055-bulk-selection-state.png');
 
     await bulkReembed.click();
 
@@ -1324,7 +1324,10 @@ test.describe.serial('Ingest flows', () => {
       page.getByRole('checkbox', { name: /^Select mock-success$/i }),
     ).toHaveCount(0);
 
-    await saveStableScreenshot(page, '0000055-bulk-partial-failure-state.png');
+    await saveGeneratedScreenshot(
+      page,
+      '0000055-bulk-partial-failure-state.png',
+    );
   });
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {

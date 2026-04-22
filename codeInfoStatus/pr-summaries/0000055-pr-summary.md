@@ -28,6 +28,7 @@ This summary is refreshed for review pass `0000055-20260421T213927Z-9a3752e6`. T
 - Review artifacts for this pass are recorded in the plan as `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-evidence.md`, `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-findings.md`, `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-findings-saturation.md`, and `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-blind-spot-challenge.md`.
 - Optional task-scoped manual artifacts already recorded for Tasks 177 and 178 live under `codeInfoTmp/manual-testing/0000055/`.
 - If final manual proof is requested after automated Task 184 proof, the retained destination is `codeInfoStatus/manual-testing/0000055/`; current Task 184 implementation does not require manual output before automated proof.
+- Review pass `0000055-20260422T045457Z-daafd19b` artifact hygiene keeps generated automated screenshots out of tracked payloads: e2e-generated PNGs now write under ignored `test-results/screenshots/0000055/`, and only intentionally retained sanitized manual proof belongs under `codeInfoStatus/manual-testing/0000055/`.
 
 ## Fresh Reruns For This Pass
 

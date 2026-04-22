@@ -10,6 +10,7 @@ playwright-report
 test-results
 playwright-output/
 playwright-output-local/
+artifacts/story-0000055-screenshots/
 npm-debug.log*
 .vscode
 *.tsbuildinfo

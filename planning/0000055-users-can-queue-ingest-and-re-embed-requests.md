@@ -15203,11 +15203,11 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Subtasks
 
-1. [ ] Re-read `F3`, `F4`, `codeInfoStatus/manual-testing/0000055/server-main-exit.log`, sibling Story 55 manual artifacts, `.gitignore`, `.prettierignore`, and the `stableScreenshotDir` / `saveStableScreenshot()` helper in `e2e/ingest.spec.ts`; use an ignored `test-results/screenshots/` destination for generated automated screenshots by default, and reserve `codeInfoStatus/manual-testing/0000055/` only for intentionally retained sanitized manual proof.
-2. [ ] Redact the provider organization identifier and any same-class live account metadata from `codeInfoStatus/manual-testing/0000055/server-main-exit.log` while preserving enough surrounding error context for the manual proof artifact to remain understandable.
-3. [ ] Search tracked Story 55 manual-testing artifacts for sibling provider organization identifiers, token-like values, bearer credentials, authorization headers, and raw provider error metadata; redact any same-class sensitive runtime output found without changing unrelated proof content.
-4. [ ] Remove the tracked generated screenshots under `artifacts/story-0000055-screenshots/**` from repository tracking, and update this plan plus `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so retained durable screenshots point only to approved support-file locations.
-5. [ ] Update `e2e/ingest.spec.ts` or ignore rules so future automated screenshots for this story land under an ignored generated location such as `test-results/screenshots/` unless a later manual proof deliberately promotes a sanitized artifact under `codeInfoStatus/manual-testing/0000055/`; rename any screenshot helper or inline description that still implies tracked stable screenshots are the default proof destination.
+1. [x] Re-read `F3`, `F4`, `codeInfoStatus/manual-testing/0000055/server-main-exit.log`, sibling Story 55 manual artifacts, `.gitignore`, `.prettierignore`, and the `stableScreenshotDir` / `saveStableScreenshot()` helper in `e2e/ingest.spec.ts`; use an ignored `test-results/screenshots/` destination for generated automated screenshots by default, and reserve `codeInfoStatus/manual-testing/0000055/` only for intentionally retained sanitized manual proof.
+2. [x] Redact the provider organization identifier and any same-class live account metadata from `codeInfoStatus/manual-testing/0000055/server-main-exit.log` while preserving enough surrounding error context for the manual proof artifact to remain understandable.
+3. [x] Search tracked Story 55 manual-testing artifacts for sibling provider organization identifiers, token-like values, bearer credentials, authorization headers, and raw provider error metadata; redact any same-class sensitive runtime output found without changing unrelated proof content.
+4. [x] Remove the tracked generated screenshots under `artifacts/story-0000055-screenshots/**` from repository tracking, and update this plan plus `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so retained durable screenshots point only to approved support-file locations.
+5. [x] Update `e2e/ingest.spec.ts` or ignore rules so future automated screenshots for this story land under an ignored generated location such as `test-results/screenshots/` unless a later manual proof deliberately promotes a sanitized artifact under `codeInfoStatus/manual-testing/0000055/`; rename any screenshot helper or inline description that still implies tracked stable screenshots are the default proof destination.
 
 #### Testing
 
@@ -15220,7 +15220,12 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Implementation Notes
 
-- Review disposition reopened the story for support-artifact hygiene findings `F3` and `F4` from pass `0000055-20260422T045457Z-daafd19b`; no implementation has been attempted in this task yet.
+- Review disposition reopened the story for support-artifact hygiene findings `F3` and `F4` from pass `0000055-20260422T045457Z-daafd19b`; implementation began with the support-artifact hygiene pass recorded below.
+- Subtask 1: re-read the review findings, `server-main-exit.log`, tracked Story 55 manual artifacts, ignore files, the e2e screenshot helper, and current PR summary; generated automated screenshots should return to ignored `test-results/screenshots/`, while retained manual proof belongs under sanitized `codeInfoStatus/manual-testing/0000055/`.
+- Subtask 2: redacted the OpenAI organization identifier in `codeInfoStatus/manual-testing/0000055/server-main-exit.log` as `[REDACTED_OPENAI_ORG]` while leaving the 429, model, rate-limit, retry-after, stack, and provider context intact for the proof record.
+- Subtask 3: searched tracked Story 55 manual-testing artifacts for sibling organization identifiers, token-like values, bearer or authorization material, and OpenAI raw error metadata; no same-class sensitive sibling output was found beyond the already-redacted `server-main-exit.log` context.
+- Subtask 4: removed generated PNGs under `artifacts/story-0000055-screenshots/**` from git tracking with `git rm --cached`, added ignore coverage for that generated directory, and refreshed the PR summary to point generated screenshots to ignored `test-results/screenshots/0000055/` while reserving `codeInfoStatus/manual-testing/0000055/` for sanitized retained manual proof.
+- Subtask 5: updated `e2e/ingest.spec.ts` from the tracked stable-screenshot helper to `saveGeneratedScreenshot()` writing under ignored `test-results/screenshots/0000055/`; `.gitignore` and `.prettierignore` now also exclude the old generated screenshot directory from normal repo workflows.
 
 ### Task 191. Re-Validate Story 55 After Review Pass `0000055-20260422T045457Z-daafd19b`
 

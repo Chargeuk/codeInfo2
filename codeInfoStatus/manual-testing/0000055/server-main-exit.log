@@ -26,7 +26,7 @@ node:internal/process/promises:394
     triggerUncaughtException(err, true /* fromPromise */);
     ^
 
-OpenAiEmbeddingError: 429 Rate limit reached for text-embedding-3-small in organization org-b0ryOxiEjneU4p7xMv88rMQr on tokens per min (TPM): Limit 1000000, Used 993495, Requested 28262. Please try again in 1.305s. Visit https://platform.openai.com/account/rate-limits to learn more.
+OpenAiEmbeddingError: 429 Rate limit reached for text-embedding-3-small in organization [REDACTED_OPENAI_ORG] on tokens per min (TPM): Limit 1000000, Used 993495, Requested 28262. Please try again in 1.305s. Visit https://platform.openai.com/account/rate-limits to learn more.
     at runOpenAiWithRetry (file:///app/server/dist/ingest/providers/openaiRetry.js:141:15)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
     at async runRequest (file:///app/server/dist/ingest/embeddingDispatcher.js:97:29) {

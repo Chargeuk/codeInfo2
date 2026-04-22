@@ -15457,7 +15457,7 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2`: OpenAPI documents a `POST /ingest/start` request shape that the production route rejects before queue admission.
 

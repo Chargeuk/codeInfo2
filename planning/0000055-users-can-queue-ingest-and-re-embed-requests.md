@@ -15623,7 +15623,7 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F5`: production remove can bypass queue-state guards that block destructive UI actions.
 

@@ -14458,7 +14458,7 @@ Close the committed-but-barrier-lost recovery window by recording the durable no
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `181`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F8` (`should_fix`): BDD queue-start proof can pass when execution was attempted but rejected before the helper records the path.
 
@@ -14519,6 +14519,7 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 - Automated proof: server cucumber wrapper for `ingest-status.feature` and `ingest-reembed.feature` passed with 13 tests and 0 failures, proving the split attempted-path and validation-passed-start assertions across the affected scenarios.
 - Automated proof: `npm run lint` passed with no reported issues.
 - Automated proof: `npm run format:check` initially flagged `server/src/test/steps/ingest-manage.steps.ts`; ran `npm run format` as listed, then reran `npm run format:check` successfully with Prettier reporting all matched files use the expected style.
+- Automated-proof audit: confirmed Subtasks 1 through 5 and Testing 1 through 3 are complete on current disk, no live blocker is present, and Task 182 is now honestly `__done__`.
 
 ### Task 183. Deduplicate Queue-State Literals In The Queue Schema Index
 

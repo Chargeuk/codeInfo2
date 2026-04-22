@@ -26,6 +26,7 @@ import {
 } from '../../ingest/chromaClient.js';
 import {
   __resetIngestJobsForTest,
+  __setJobInputForTest,
   __setStatusForTest,
   __setQueueRuntimeOpsForTest,
   __setRunProcessorForTest,
@@ -307,6 +308,16 @@ When('I POST ingest manage remove for the temp repo', async () => {
   assert(tempDir, 'temp dir missing');
   const res = await fetch(
     `${baseUrl}/ingest/remove/${encodeURIComponent(tempDir)}`,
+    {
+      method: 'POST',
+    },
+  );
+  response = { status: res.status, body: await res.json() };
+});
+
+When('I POST ingest manage remove for root {string}', async (root: string) => {
+  const res = await fetch(
+    `${baseUrl}/ingest/remove/${encodeURIComponent(root)}`,
     {
       method: 'POST',
     },
@@ -923,6 +934,19 @@ Given(
 );
 
 Given(
+  'ingest manage mongo queue has partial cleanup-blocked request for {string} with run id {string}',
+  async (rootPath: string, runId: string) => {
+    await seedQueuedReembedRequest({
+      rootPath,
+      queueState: 'cleanup-blocked',
+      runId,
+      nonReplayableAt: new Date('2026-01-01T00:00:00.000Z'),
+      terminalPublishedAt: new Date('2026-01-01T00:00:05.000Z'),
+    });
+  },
+);
+
+Given(
   'ingest manage mongo queue has waiting request for {string}',
   async (rootPath: string) => {
     await seedQueuedReembedRequest({
@@ -939,6 +963,27 @@ Given(
     await seedQueuedReembedRequest({
       rootPath: tempDir,
       queueState: 'waiting',
+    });
+  },
+);
+
+Given(
+  'ingest manage active runtime owns root {string} with run id {string}',
+  (rootPath: string, runId: string) => {
+    __setJobInputForTest(runId, {
+      path: rootPath,
+      root: rootPath,
+      name: 'active-remove-target',
+      model: 'embed-1',
+      operation: 'start',
+    });
+    __setStatusForTest(runId, {
+      runId,
+      state: 'embedding',
+      counts: { files: 1, chunks: 1, embedded: 0 },
+      message: 'Embedding files',
+      lastError: null,
+      error: null,
     });
   },
 );

@@ -182,7 +182,7 @@ async function buildCurrentQueueReuseResult(
   });
 }
 
-async function findLiveQueueRequestForTarget(
+export async function findLiveQueueRequestForTarget(
   canonicalTargetPath: string,
 ): Promise<IngestQueueRequest | null> {
   return IngestQueueRequestModel.findOne({

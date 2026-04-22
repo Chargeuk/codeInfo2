@@ -15457,7 +15457,7 @@ Repair the published `/ingest/start` request contract so generated clients and u
 #### Proof Mapping
 
 - `P1.` schema repair for `R1`: implementation owner is `openapi.json`; proof home is `server/src/test/unit/openapi.contract.test.ts`.
-- `P2.` route/schema alignment for `R2` and `R3`: implementation owners are `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx`; proof homes are `server/src/test/unit/ingest-start.test.ts`, `client/src/test/ingestForm.test.tsx`, and the server build.
+- `P2.` route/schema alignment for `R2` and `R3`: implementation owners are `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx`; proof homes are `server/src/test/unit/ingest-start.test.ts` and `client/src/test/ingestForm.test.tsx`.
 
 #### Risk Ownership
 
@@ -15495,9 +15495,8 @@ Repair the published `/ingest/start` request contract so generated clients and u
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
 3. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx`.
-4. [ ] Run `npm run build:summary:server`.
-5. [ ] Run `npm run lint`.
-6. [ ] Run `npm run format:check`.
+4. [ ] Run `npm run lint`.
+5. [ ] Run `npm run format:check`.
 
 ### Task 194. Preserve Retryable `QUEUE_UNAVAILABLE` Semantics For Blocking Queue-Read Failures
 
@@ -15647,7 +15646,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 
 #### Manual Testing Guidance
 
-Optional later browser/API validation can exercise a normal completed-row remove and a queue-owned-row remove attempt through the supported main stack. Use the normal Docker stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`; it uses `docker-compose.yml`, `server/.env`, and `server/.env.local`, and the wrapper preflight checks ports `5010`, `5011`, `5012`, and `8932`. The client is expected at `http://localhost:5001`, the REST/MCP server at `http://localhost:5010`, secondary MCP services at `http://localhost:5011` and `http://localhost:5012`, and Playwright MCP at `http://localhost:8932/mcp`; repository path mapping uses the configured `CODEINFO_HOST_INGEST_DIR` host namespace mounted into `CODEINFO_CODEX_WORKDIR`, and readiness should come from the compose health checks plus `/health` before API proof begins. Keep any screenshots or API transcripts under `codeInfoStatus/manual-testing/0000055/` only after confirming they contain no provider identifiers or token-like values. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.
+Optional later browser/API validation can exercise a normal completed-row remove and a queue-owned-row remove attempt through the supported main stack. Use the normal Docker stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`; it uses `docker-compose.yml`, `server/.env`, and `server/.env.local`, and the wrapper preflight checks ports `5010`, `5011`, `5012`, and `8932`. The client is expected at `http://localhost:5001`, the REST/MCP server at `http://localhost:5010`, secondary MCP services at `http://localhost:5011` and `http://localhost:5012`, and Playwright MCP at `http://localhost:8932/mcp`; repository path mapping uses the configured `CODEINFO_HOST_INGEST_DIR` host namespace mounted into `CODEINFO_CODEX_WORKDIR`, and readiness should come from the compose health checks plus `/health` before API proof begins. Keep any screenshots or API transcripts under `codeInfoTmp/manual-testing/0000055/` only after confirming they contain no provider identifiers or token-like values. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoTmp/manual-testing/0000055/`.
 
 ### Task 196. Re-Validate Story 55 After Review Pass `0000055-20260422T115002Z-d109d87f`
 

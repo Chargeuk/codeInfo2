@@ -14208,7 +14208,7 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `178`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F3` (`must_fix`): malformed `POST /ingest/start` typed fields can be queued and silently defaulted during deferred execution instead of being rejected at request admission.
 
@@ -14277,6 +14277,7 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 - Testing 2: `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start-body.feature` passed with `tests run: 6`, `passed: 6`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-22T01-37-48-047Z.log`; no log inspection was needed.
 - Testing 3: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 4: initial `npm run format:check` reported Prettier drift in `server/src/test/steps/ingest-start-body.steps.ts`; `npm run format` rewrote that task-owned step file, and the rerun `npm run format:check` passed with `All matched files use Prettier code style!`.
+- Audit: confirmed Task 179 has all subtasks and automated Testing 1 through 4 complete with no live blocker, so the task is now honestly `__done__`.
 
 ### Task 180. Realign Shared Repo-List Runtime, OpenAPI, And Queue Overlay Identity
 

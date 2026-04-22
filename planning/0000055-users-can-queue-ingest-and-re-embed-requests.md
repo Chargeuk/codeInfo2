@@ -15370,7 +15370,7 @@ Saturation and blind-spot challenge generated no additional actionable findings.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F1`: pending cleanup retries do not block queue advancement when cleanup-blocked persistence fails.
   - `F4`: cleanup-blocked overlays can preserve stale persisted `lastError` without runtime status.

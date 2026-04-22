@@ -14380,7 +14380,7 @@ If a manual-testing pass is requested for this task, use the repository-list RES
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `180`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F5` (`must_fix`): startup recovery can replay a committed running queue item if the process exits after final side effects but before the durable replay barrier is recorded.
 

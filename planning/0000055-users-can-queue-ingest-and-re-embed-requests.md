@@ -14730,7 +14730,7 @@ The saturation and blind-spot challenge artifacts generated no new actionable fi
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `184`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F1` `must_fix`: queued re-embed admission can persist a mounted execution path that delayed execution later rejects.
 

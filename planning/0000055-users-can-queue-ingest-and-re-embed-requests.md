@@ -14747,9 +14747,11 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` and `R2` are proved in `server/src/test/unit/reingestService.test.ts` by asserting queued re-embed admission preserves `canonicalTargetPath` separately from mounted `requestPayload.path`.
-- `P2.` Requirements `R2` and `R3` are proved in queue-runtime deferred execution and startup recovery tests that promote or recover a queued re-embed row with a valid mounted payload path and still reject malformed or outside-workdir payload paths.
-- `P3.` Requirement `R4` is proved through re-embed service, MCP, command, and flow tests that exercise `runReingestRepository()` queue admission and durable request-id waiting without bypassing the shared queued payload contract.
+- `P1.` `R1` and admission-side `R2`: implementation owners are `server/src/ingest/reingestService.ts` and `server/src/ingest/pathMap.ts`; proof home is `server/src/test/unit/reingestService.test.ts`, which must assert that queued admission stores canonical `canonicalTargetPath` separately from mounted `requestPayload.path` and preserves stable display metadata.
+- `P2.` deferred-promotion `R2` and invalid-path `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/pathMap.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`, which must prove a valid mounted payload path executes through `pumpIngestQueue()` and malformed, relative, or outside-workdir payload paths fail before discovery.
+- `P3.` startup-recovery `R2` and invalid-path `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/pathMap.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, which must prove recovered queued re-embed rows use the persisted execution path and reject invalid persisted payload paths before embedding work begins.
+- `P4.` MCP blocking caller `R4`: implementation owner is `server/src/ingest/reingestService.ts` through `runReingestRepository()`; proof homes are `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`, which must reach shared queue admission and durable request-id waiting without bypassing the queued payload contract.
+- `P5.` command and flow blocking caller `R4`: implementation owner is `server/src/ingest/reingestService.ts` through `runReingestRepository()`; proof homes are `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts`, which must reach the same queued payload behavior through default command and flow surfaces.
 
 #### Risk Ownership
 
@@ -14815,9 +14817,10 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` through `R3` are proved by route unit tests and OpenAPI contract tests for both immediate `running` responses and unchanged waiting responses.
-- `P2.` Client compatibility for `R1` and `R3` is proved in ingest form or roots table tests only if TypeScript parsing, normalization, or display logic consumes the immediate queue response shape.
-- `P3.` Requirement `R4` is proved by repository-list overlay tests that would fail if `server/src/lmstudio/toolService.ts` drifted from `ingestLiveQueueTargetStates`.
+- `P1.` REST producer `R1` and waiting-shape `R3`: implementation owners are `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`; proof homes are `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts`, which must assert immediate `queueState: 'running'` responses and unchanged waiting response semantics.
+- `P2.` documented transport `R2`: implementation owner is `openapi.json`; proof home is `server/src/test/unit/openapi.contract.test.ts`, which must require `queueState: 'running'` on the non-waiting success shape, reject the old immediate shape, and preserve the waiting schema.
+- `P3.` client consumer compatibility for `R1` through `R3`: implementation owners are `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types when those surfaces read immediate responses; proof home is `client/src/test/ingestRoots.test.tsx`.
+- `P4.` repository-list live-state `R4`: implementation owners are `server/src/lmstudio/toolService.ts` and `server/src/mongo/ingestQueueRequest.ts`; proof homes are `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-request-queue.test.ts`, which must fail on divergent live-state literals or queue-state constant drift.
 
 #### Risk Ownership
 
@@ -14888,9 +14891,10 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` through `R3` are proved in `server/src/test/unit/ingest-request-queue.test.ts` with ordinary and duplicate-key interleavings where the originally observed waiting row disappears before `findOneAndUpdate()`.
-- `P2.` Requirement `R4` is proved by existing or updated running and cleanup-blocked duplicate tests.
-- `P3.` REST start/re-embed or blocking re-embed tests are updated only if they need to prove a changed result shape from the guarded helper.
+- `P1.` ordinary waiting rewrite `R1` and stale-row reread `R2`: implementation owners are `server/src/ingest/requestQueue.ts` and `server/src/mongo/ingestQueueRequest.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`, which must simulate row A observed, row A gone before guarded update, row B present with newer payload, and row B remaining unchanged.
+- `P2.` duplicate-key fallback `R3`: implementation owner is `server/src/ingest/requestQueue.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`, which must prove create-race fallback follows the same observed-row guard and live-row reread behavior.
+- `P3.` running and cleanup-blocked reuse `R4`: implementation owner is `server/src/ingest/requestQueue.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`, which must prove active or cleanup-blocked duplicate requests return the live row without mutating active payloads.
+- `P4.` REST or blocking caller compatibility for guarded helper result shapes: implementation owners are `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, and `server/src/ingest/reingestService.ts`; proof homes are the route or re-embed service tests only if the guarded helper changes caller-visible response shape.
 
 #### Risk Ownership
 
@@ -14951,9 +14955,11 @@ Separate client action identity for queueable re-embed from destructive root-pat
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` and `R2` are proved in `client/src/test/ingestRoots.test.tsx` with row and bulk fixtures where `id` and `path` differ.
-- `P2.` Requirement `R3` is proved by existing or updated re-embed identity tests.
-- `P3.` Server route behavior remains covered by existing remove route tests unless client proof changes expose a missing route contract.
+- `P1.` row Remove `R1`: implementation owners are `client/src/components/ingest/RootsTable.tsx` and `client/src/hooks/useIngestRoots.ts`; proof home is `client/src/test/ingestRoots.test.tsx`, which must use a row fixture where `id !== path` and assert row Remove submits `root.path`.
+- `P2.` bulk Remove `R2`: implementation owners are `client/src/components/ingest/RootsTable.tsx` and `client/src/hooks/useIngestRoots.ts`; proof home is `client/src/test/ingestRoots.test.tsx`, which must prove selected stable keys map back to current row `path` values and still exclude queued, running, cleanup-blocked, and active-ingest-head rows from destructive actions.
+- `P3.` row and bulk Re-embed `R3`: implementation owner is `client/src/components/ingest/RootsTable.tsx`; proof home is `client/src/test/ingestRoots.test.tsx`, which must prove re-embed keeps the intended canonical identity when remove uses `path`.
+- `P4.` divergent payload contract `R4`: implementation owner is `client/src/components/ingest/RootsTable.tsx`; proof home is `client/src/test/ingestRoots.test.tsx`, which must assert remove and re-embed payloads diverge on fixtures where `id !== path`, selected rows clear by the correct key after successful remove, and failed rows remain visible.
+- `P5.` server remove-route compatibility: implementation owners are `server/src/routes/ingestRemove.ts` and `server/src/ingest/ingestJob.ts`; existing remove-route tests remain sufficient unless the client proof exposes a server-side root-path contract gap.
 
 #### Risk Ownership
 
@@ -15015,9 +15021,11 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` and `R2` are proved by repository search for provider organization identifiers and secret-like patterns in the Story 55 manual-testing artifact set.
-- `P2.` Requirements `R3` and `R4` are proved by `git ls-files`, `git check-ignore`, and static inspection of the `e2e/ingest.spec.ts` screenshot helper path after the repair.
-- `P3.` Formatting and lint checks prove support-file changes do not break normal repo gates.
+- `P1.` log redaction `R1`: implementation owner is `codeInfoStatus/manual-testing/0000055/server-main-exit.log`; proof home is the Story 55 manual-artifact search in Testing step 1, which must find no provider organization identifier, token-like value, bearer credential, authorization header, or raw provider account metadata.
+- `P2.` sibling artifact hygiene `R2`: implementation owner is `codeInfoStatus/manual-testing/0000055/`; proof home is the same Story 55 manual-artifact search in Testing step 1, which must cover sibling retained manual artifacts without changing unrelated proof content.
+- `P3.` generated screenshot tracking `R3`: implementation owners are `artifacts/story-0000055-screenshots/`, `.gitignore`, and `.prettierignore`; proof homes are `git ls-files` and `git check-ignore` in Testing steps 2 and 3, which must show generated screenshots are no longer ordinary tracked payload.
+- `P4.` future screenshot destination `R4`: implementation owners are `e2e/ingest.spec.ts` and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`; proof home is the static reference search in Testing step 4, which must remove stale `artifacts/story-0000055-screenshots` references and retain only ignored scratch or approved durable support locations.
+- `P5.` support-file gate compatibility: implementation owners are `.gitignore`, `.prettierignore`, `e2e/ingest.spec.ts`, and retained support artifacts; proof homes are `npm run lint` and `npm run format:check`.
 
 #### Risk Ownership
 
@@ -15079,11 +15087,12 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Proof Mapping
 
-- `P1.` Requirement `R1` is proved by Tasks `185` through `189`, this plan file, and the parser state for the review-created task block.
-- `P2.` Requirement `R2` is proved by re-reading this appended findings block against the refreshed PR summary.
-- `P3.` Requirement `R3` is proved by `codeInfoStatus/pr-summaries/0000055-pr-summary.md` after it maps `F1` through `F7` to exact owners, proof files, artifact hygiene outcomes, wrapper result locations, rejected-risk notes, saturation results, and blind-spot challenge carry-forward.
-- `P4.` Requirement `R4` is proved by the listed wrapper testing steps.
-- `P5.` Requirement `R5` is proved by explicit residual-risk notes in this task and the PR summary when a proof category remains indirect.
+- `P1.` dependency completion `R1`: implementation owners are Tasks `185` through `189`; proof homes are this plan file and the parser state for the review-created task block, which must show those tasks `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `P2.` findings-block revalidation `R2`: implementation owner is this appended `Code Review Findings` block; proof home is the comparison between this plan and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+- `P3.` durable summary `R3`: implementation owner is `codeInfoStatus/pr-summaries/0000055-pr-summary.md`; proof home is the refreshed summary section that maps `F1` through `F7` to exact owners, proof files, artifact hygiene outcomes, wrapper result locations, rejected-risk notes, saturation results, and blind-spot challenge carry-forward.
+- `P4.` server, client, and contract wrapper proof for `R4`: implementation owners are the repaired server, client, OpenAPI, and support-file surfaces from Tasks `185` through `189`; proof homes are Testing steps 1 through 5 plus Testing steps 11 and 12.
+- `P5.` e2e, compose, and host-network default-path proof for `R4`: implementation owners are `docker-compose.yml`, `docker-compose.e2e.yml`, the e2e harness, and the repaired default runtime surfaces; proof homes are Testing steps 6 through 10.
+- `P6.` residual-risk honesty `R5`: implementation owners are this task and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`; proof homes are the close-out notes in both files when any proof category remains indirect, baseline-owned, harness-owned, support-artifact-owned, or environment-owned.
 
 #### Risk Ownership
 

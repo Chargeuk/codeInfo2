@@ -2,50 +2,63 @@
 
 ## Scope
 
-Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed requests, keeps blocking re-embed callers honest while requests wait in that queue, extends the shared repository-list contract so queued work is visible in the ingest UI and MCP mirrors, and carries the review-created follow-up repairs and final validation needed to close the story honestly.
+Story 55 adds a durable Mongo-backed ingest queue for start-ingest and re-embed requests, keeps blocking re-embed callers honest while requests wait in that queue, extends the shared repository-list contract so queued work is visible in the ingest UI and MCP mirrors, and carries review-created repairs through final validation.
+
+This summary is refreshed for review pass `0000055-20260421T213927Z-9a3752e6`. The durable plan owner is `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, with review-fix Tasks 177 through 183 and final validation Task 184.
 
 ## Retained Earlier Proof
 
-- Retained earlier Story 55 close-out context still lives in `planning/0000055-pr-summary.md`, including the broader client, browser, durable review-artifact, and earlier acceptance-chain notes that the current review-created pass did not reopen directly.
+- Earlier Story 55 close-out context still lives in `planning/0000055-pr-summary.md`; it remains historical context for acceptance-chain decisions that this review pass did not reopen directly.
 - The carried-forward weak-proof notes remain unchanged from the maintained legacy summary: `AC30` still relies partly on indirect proof for timeout-independent green blocking completion, `AC32` still relies partly on inspection-backed negative proof that queue fields are not mirrored onto unrelated payloads, and `AC43` still lacks a dedicated negative proof for queued-but-not-started removal.
-- Earlier review-pass close-outs remain historical context only. This summary now treats review pass `0000055-20260421T050131Z-a77661de` as the active close-out block and does not rely on older review-pass reruns as proof that the current findings are closed.
+- Earlier review-pass summaries and wrapper reruns are retained context only. They are not treated as replacement proof for the current `0000055-20260421T213927Z-9a3752e6` findings block.
 
-## Review Follow-Up After Pass `0000055-20260421T050131Z-a77661de`
+## Review Follow-Up After Pass `0000055-20260421T213927Z-9a3752e6`
 
-- The durable review anchor for this pass is the appended `Code Review Findings` block in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, which records one `must_fix` finding and four `should_fix` findings. Current close-out ownership lives in Tasks 172 through 176 of that same plan.
-- Task 172 closed `F1` by moving blocking re-embed completion behind queue cleanup finalization. The repaired owners are `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, and `server/src/ingest/reingestError.ts`; direct proof lives in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/reingestService.test.ts`.
-- Task 173 closed `F2` by refreshing queue response and log metadata after `pumpIngestQueue()` using the bounded current-position lookup. The repaired owners are `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, and `server/src/ingest/requestQueue.ts`; direct proof lives in `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`, and the updated cucumber route harness.
-- Task 174 closed `F3` and `F5` by keeping degraded startup reachable for queue-unavailable callers and preserving producer diagnostics through blocking re-ingest transports. The repaired owners are `server/src/index.ts`, `server/src/startup/ingestQueueStartup.ts`, `server/src/ingest/requestQueue.ts`, `server/src/ingest/reingestService.ts`, `server/src/ingest/reingestError.ts`, `server/src/agents/commandsRunner.ts`, `server/src/flows/service.ts`, `server/src/mcp/server.ts`, and `server/src/mcp2/tools/reingestRepository.ts`; direct proof lives in the startup, REST, re-ingest service, classic MCP, MCP2, command, and flow tests named in Task 174.
-- Task 175 closed `F4` by documenting the REST `503 QUEUE_UNAVAILABLE` failure contract for both queueable producer routes in `openapi.json`. Direct proof lives in `server/src/test/unit/openapi.contract.test.ts`, which asserts both `POST /ingest/start` and `POST /ingest/reembed/{root}` failure envelopes while preserving the existing queue-aware `202` success shapes.
-- Task 176 is the final validation and close-out owner for this review block. Its implementation subtasks refresh this summary and anchor the proof-owner list; its automated proof section still owns the final full wrapper reruns for the current review-created repair set.
+- The durable review anchor for this pass is the appended `Code Review Findings` block in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`. It records five `must_fix` findings, three `should_fix` findings, and one localized `optional_simplification`; the saturation and blind-spot challenge artifacts generated no additional actionable findings.
+- Task 177 closed `F1` by treating `cleanup-blocked` as a client terminal queue state. Owners are `client/src/hooks/useChatWs.ts`, `client/src/hooks/useIngestStatus.ts`, `client/src/pages/IngestPage.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, and the existing row display in `client/src/components/ingest/RootsTable.tsx`; direct proof lives in `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, and retained `client/src/test/ingestRoots.test.tsx` row coverage.
+- Task 178 closed `F2` by replacing the old short blocking re-embed default wait with a named long safety guard while preserving explicit short injected timeout tests. Owners are `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/agents/commandsRunner.ts`, and `server/src/flows/service.ts`; direct proof lives in `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.command.test.ts`.
+- Task 179 closed `F3` by rejecting malformed `POST /ingest/start` body fields before queue admission. Owners are `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, `server/src/ingest/ingestJob.ts`, and `openapi.json`; direct proof lives in `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/openapi.contract.test.ts`, `server/src/test/features/ingest-start-body.feature`, and `server/src/test/steps/ingest-start-body.steps.ts`.
+- Task 180 closed `F4`, `F6`, and `F7` by realigning the shared repo-list runtime shape, OpenAPI schemas, MCP/tool mirrors, client normalization, active queue overlay model metadata, and canonical row identity. Owners include `server/src/lmstudio/toolService.ts`, REST and MCP repo-list producers, `openapi.json`, `client/src/hooks/useIngestRoots.ts`, `client/src/pages/IngestPage.tsx`, and `client/src/components/ingest/RootsTable.tsx`; direct proof lives in the server/client unit and contract files named in Task 180.
+- Task 181 closed `F5` by persisting a replay barrier before non-idempotent queue finalization side effects and keeping startup recovery aligned with that barrier. Owners are `server/src/ingest/ingestJob.ts`, queue finalization/recovery helpers, and runtime recovery proof files named in Task 181.
+- Task 182 closed `F8` by separating attempted queue processor paths from validation-passed started paths in BDD proof. Owners are `server/src/test/steps/ingest-manage.steps.ts`, `server/src/test/features/ingest-status.feature`, and `server/src/test/features/ingest-reembed.feature`.
+- Task 183 closed `F9` by replacing duplicated live queue-state literals with a named live-target state contract. Owners are `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/test/unit/ingest-request-queue.test.ts`.
+
+## Retained Artifacts
+
+- Review artifacts for this pass are recorded in the plan as `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-evidence.md`, `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-findings.md`, `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-findings-saturation.md`, and `codeInfoTmp/reviews/0000055-20260421T213927Z-9a3752e6-blind-spot-challenge.md`.
+- Optional task-scoped manual artifacts already recorded for Tasks 177 and 178 live under `codeInfoTmp/manual-testing/0000055/`.
+- If final manual proof is requested after automated Task 184 proof, the retained destination is `codeInfoStatus/manual-testing/0000055/`; current Task 184 implementation does not require manual output before automated proof.
 
 ## Fresh Reruns For This Pass
 
-- Tasks 172 through 175 each record fresh task-scoped wrapper proof in the active plan. Those task-level reruns include server build, server unit, server cucumber, lint, format, compose build/start/host-network checks, and route or contract proof where each repaired owner required them.
-- Task 176 has not yet run its final automated proof section. The current summary refresh is proof-authoring work only; the final story-level wrapper reruns remain pending under Task 176 Testing items 1 through 12.
-- Do not treat older Task 161-171 or Task 153-160 rerun paths as fresh proof for the current `a77661de` block. They remain retained historical evidence for earlier reopened review work, not replacement proof for Tasks 172 through 175 or the Task 176 final validation pass.
+- Tasks 177 through 183 each record fresh task-scoped automated proof in the active plan, including targeted client, server unit, server cucumber, lint, and format wrappers where each repaired owner required them.
+- Task 184 has not yet run its final automated proof section. The current summary refresh is proof-authoring work only; the final story-level wrapper reruns remain pending under Task 184 Testing items 1 through 12.
+- The pending Task 184 wrapper set is: `npm run build:summary:server`, `npm run build:summary:client`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, `npm run test:summary:host-network:main`, `npm run compose:down`, `npm run lint`, and `npm run format:check`.
 
 ## Residual Weak-Proof Notes
 
 - The earlier Story 55 carried-forward weak-proof notes for `AC30`, `AC32`, and `AC43` remain the broad residual caveats until a future task adds direct negative proof for those exact acceptance surfaces.
-- Task 172's queue-delete failure seam remains automation-owned for the exact cleanup failure edge because the repository exposes no supported manual DB-delete-failure harness; manual proof covered stack health and route availability while automated unit proof owns the injected failure boundary.
-- Task 174's initial degraded-Mongo startup behavior remains automation-owned because the supported Compose stacks intentionally wait for Mongo health before server startup; the plan explicitly rejects ad hoc unsupported dependency-bypass commands as manual proof.
-- Task 175's OpenAPI contract is static and not served by a supported runtime endpoint, so manual testing was assessed as not applicable; the proof owner is the OpenAPI contract test plus wrapper reruns.
+- Task 177's cleanup-blocked browser proof covered the visible row and non-cancellable state, while automated client tests own the deterministic websocket/refetch transition details.
+- Task 178's exact long blocking queue-wait guard remains automation-owned because the supported live runtime has no deterministic manual harness for forcing a queued re-embed past the former 90-second budget without contaminating state.
+- Tasks 182 and 183 are proof-harness or schema-contract repairs without a new browser-visible product surface; their manual testing was assessed as not applicable at task scope.
 
 ## Rejected-Risk Notes
 
-- This pass rejected weakening wrapper gates into targeted-only proof after review-created repairs landed. Task 176 still owns the supported final wrapper rerun set instead of reclosing from task-local proof alone.
-- This pass rejected inventing manual runtime seams for hard negative states. Task 172 kept cleanup-delete failure proof in automation, and Task 174 kept degraded-startup proof in supported unit and transport tests because normal Compose deliberately starts after Mongo is healthy.
-- This pass rejected treating static OpenAPI documentation as a browser/runtime manual proof target. Task 175 uses the machine-readable contract and unit-contract test as the honest proof home.
-- No additional endorsed finding beyond the current `a77661de` repaired owner set is recorded in Tasks 172 through 175. If Task 176 final proof exposes a new failure, it should be tracked as fresh in-scope work or a live blocker instead of silently folded into this summary.
+- This pass rejects reclosing from task-local proof alone. Task 184 still owns the broad final wrapper rerun set before audit can mark the story complete.
+- This pass rejects inventing unsupported manual seams for hard negative or timing-sensitive states. Runtime proof should use supported wrappers and documented manual guidance only.
+- This pass rejects treating older review-pass reruns as proof that the current `9a3752e6` block is closed. Older artifacts remain context, not replacement proof.
+- If Task 184 final proof exposes a new failure, classify it as product-owned, baseline-owned, harness-owned, or environment-owned and record the exact owner instead of silently folding it into this summary.
 
-## Saturation Reasoning
+## Saturation And Blind-Spot Carry-Forward
 
-- Tasks 172 through 175 collectively cover the current review-created block: blocking re-embed cleanup ordering, post-pump waiting queue-position freshness, degraded queue-unavailable startup and diagnostic preservation, and OpenAPI `503 QUEUE_UNAVAILABLE` contract coverage.
-- Task 176 remains the final validation owner. Its later automated proof must rerun the supported build, test, e2e, compose, host-network, lint, and format gates before this story can be audited as complete.
-- The durable close-out now names the current repaired proof homes and separates proof-authoring updates from final wrapper execution, so the story is not being reclosed from stale summary text.
+- The current review saturation artifact generated no new actionable findings beyond `F1` through `F9`.
+- The blind-spot challenge artifact generated no new actionable findings and reinforced the same owner seams, including terminal-state propagation, blocking wait behavior, admission validation, repo-list schema/runtime parity, replay-barrier ordering, BDD proof semantics, and schema live-state deduplication.
+- Task 184 remains the final validation owner for this review-created block. Its later automated proof must rerun the supported build, test, e2e, compose, host-network, lint, and format gates before this story can be audited as complete.
+
+## Task 184 Automated Testing Results
+
+- Pending. Record each Task 184 automated wrapper result here after the corresponding `Testing` item runs in the later automated-proof step, including the command, outcome, and retained log path when the wrapper provides one.
 
 ## Bounded Residual-Risk Slot
 
-- If Task 176 automated proof exposes a partially repaired seam, record the exact failing owner, wrapper command, and log path here before audit instead of stating the story is fully re-closed.
-- If Task 176 automated proof stays green, this slot can remain as an explicit "not needed after final reruns" marker rather than being silently deleted.
+- Pending final Task 184 automated proof. If a wrapper exposes a partially repaired seam, record the exact failing owner, command, classification, and log path here before audit.

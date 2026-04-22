@@ -14504,9 +14504,9 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-status.feature --feature server/src/test/features/ingest-reembed.feature`.
-2. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-3. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-status.feature --feature server/src/test/features/ingest-reembed.feature`.
+2. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+3. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14516,6 +14516,9 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 - Updated `server/src/test/features/ingest-status.feature` so the cleanup-blocked no-advancement scenario name and assertion prove no processor attempt rather than only an empty validation-passed start list.
 - Updated `server/src/test/features/ingest-reembed.feature` so barrier-backed recovery asserts no processor attempt, while root-state degradation and malformed canonical field scenarios assert attempted processor paths plus rejected terminal error outcomes and empty validation-passed starts.
 - Audit: confirmed the implementation-only pass closed Subtasks 1 through 5 against the Cucumber helper and affected ingest status/re-embed feature files; no live blocker is present, and Testing 1 through 3 remain unchecked for the automated-proof step.
+- Automated proof: server cucumber wrapper for `ingest-status.feature` and `ingest-reembed.feature` passed with 13 tests and 0 failures, proving the split attempted-path and validation-passed-start assertions across the affected scenarios.
+- Automated proof: `npm run lint` passed with no reported issues.
+- Automated proof: `npm run format:check` initially flagged `server/src/test/steps/ingest-manage.steps.ts`; ran `npm run format` as listed, then reran `npm run format:check` successfully with Prettier reporting all matched files use the expected style.
 
 ### Task 183. Deduplicate Queue-State Literals In The Queue Schema Index
 

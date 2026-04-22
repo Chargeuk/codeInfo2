@@ -1131,9 +1131,12 @@ Then(
   },
 );
 
-Then('ingest manage queue runtime validation-passed started paths are empty', () => {
-  assert.deepEqual(queueRuntimeStartedPaths, []);
-});
+Then(
+  'ingest manage queue runtime validation-passed started paths are empty',
+  () => {
+    assert.deepEqual(queueRuntimeStartedPaths, []);
+  },
+);
 
 Then('ingest manage queue runtime made no processor attempt', () => {
   assert.deepEqual(queueRuntimeAttemptedPaths, []);
@@ -1156,16 +1159,19 @@ Then(
   },
 );
 
-Then('ingest manage queue runtime attempted paths are the temp repo', async () => {
-  assert(tempDir, 'temp dir missing');
-  for (let i = 0; i < 20; i += 1) {
-    if (queueRuntimeAttemptedPaths.length === 1) {
-      break;
+Then(
+  'ingest manage queue runtime attempted paths are the temp repo',
+  async () => {
+    assert(tempDir, 'temp dir missing');
+    for (let i = 0; i < 20; i += 1) {
+      if (queueRuntimeAttemptedPaths.length === 1) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
     }
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  assert.deepEqual(queueRuntimeAttemptedPaths, [tempDir]);
-});
+    assert.deepEqual(queueRuntimeAttemptedPaths, [tempDir]);
+  },
+);
 
 Then(
   'ingest manage runtime status for the last queue run is error {string} with message {string}',

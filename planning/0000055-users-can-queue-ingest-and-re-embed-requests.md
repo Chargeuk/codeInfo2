@@ -14754,6 +14754,8 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 #### Risk Ownership
 
 - Highest-risk invariant: canonical target path remains the queue identity while the mounted execution path remains the file-system path used for deferred work.
+- Required ordering proof: queue admission must persist both roles, then delayed promotion and startup recovery must use the persisted execution path without re-deriving it from canonical identity; malformed, relative, or outside-workdir persisted payload paths must still fail before discovery or embedding starts.
+- Primary blocker-family exposure: product or story seam. This task owns the implementation and proof because the failure is in the queued re-embed path-role contract; wrapper, baseline, or runtime-environment ownership is not a prerequisite unless a later wrapper failure proves an unrelated shared harness problem.
 - Review-preemption hotspots: `buildQueuedReingestRequest()`, `splitQueuedIngestExecutionPath()`, `toQueueManagedInput()`, `resolveQueuedReembedExecutionPath()`, `pumpIngestQueue()`, `recoverIngestQueueOnStartup()`, and blocking caller tests that currently mock the waiter.
 
 #### Documentation Locations
@@ -14820,6 +14822,8 @@ Restore the queue-state contract across immediate REST queue success responses, 
 #### Risk Ownership
 
 - Highest-risk invariant: the external REST response contract and the internal live-state selector contract should use the same queue-state vocabulary without conflating waiting-position semantics with non-waiting state.
+- Producer-consumer proof: `/ingest/start` and `/ingest/reembed/:root` are the response producers, OpenAPI is the documented transport contract, route tests are the server proof home, and client ingest/root-table parsing is the consumer proof home when those surfaces inspect the immediate response shape.
+- Primary blocker-family exposure: product or story seam. This task owns the response construction, contract-schema, and live-state constant repair; no separate prerequisite exists unless client or OpenAPI proof exposes a missing shared schema harness.
 - Review-preemption hotspots: OpenAPI `additionalProperties: false`, immediate versus waiting response schema variants, client response parsing, and imports from the Mongo queue-state module into server list projection code.
 
 #### Documentation Locations
@@ -14891,6 +14895,8 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 #### Risk Ownership
 
 - Highest-risk invariant: latest-settings-wins applies only to the live waiting item the current admission legitimately owns, not to any future waiting row that happens to share the same canonical target.
+- Required interleaving proof: tests must simulate row A being observed, row A disappearing or being replaced before the guarded rewrite, row B appearing with newer intent, and the stale admission re-reading live state instead of mutating row B.
+- Primary blocker-family exposure: product or story seam. This task owns the Mongo query filter and duplicate-key fallback behavior; the proof should stay in the request-queue unit tests unless those tests reveal a missing harness capability.
 - Review-preemption hotspots: `findLiveQueueRequestByTargetPath()`, `buildRewriteableWaitingRequestFilter()`, `rewriteWaitingQueueRequestIfAllowed()`, duplicate-key retry, and any tests that mock only a broad `{ canonicalTargetPath, queueState: 'waiting' }` filter.
 
 #### Documentation Locations
@@ -14952,6 +14958,8 @@ Separate client action identity for queueable re-embed from destructive root-pat
 #### Risk Ownership
 
 - Highest-risk invariant: queue/re-embed identity and destructive root-path identity are separate roles and must not share a helper when their server contracts differ.
+- Producer-consumer proof: `RootsTable` row and bulk handlers produce the client payloads, `useIngestRoots` dispatches the API calls, `/ingest/remove/:root` consumes remove targets, and `client/src/test/ingestRoots.test.tsx` is the proof home for divergent remove versus re-embed identity.
+- Primary blocker-family exposure: product or story seam. This task owns the client action-role repair; optional browser inspection is useful but not a prerequisite because automated client proof owns the invariant.
 - Review-preemption hotspots: selection keys, `getRootActionPath()`, row Remove, bulk Remove, row Re-embed, bulk Re-embed, and tests that use only fixtures where `id` is absent or equal to `path`.
 
 #### Documentation Locations
@@ -15014,6 +15022,8 @@ Repair the support-artifact hygiene issues identified by the review without trea
 #### Risk Ownership
 
 - Highest-risk invariant: durable proof artifacts may remain useful without preserving provider account metadata or generated binary churn outside approved support locations.
+- Default workflow proof: `git ls-files`, `git check-ignore`, static screenshot-helper inspection, and the Story 55 artifact search must prove the hygiene repair is visible to normal git workflows rather than only to a one-off cleanup command.
+- Primary blocker-family exposure: product or story seam with support-artifact hygiene ownership. This task owns the tracked artifact and ignore-path cleanup; broad wrapper retries are not an acceptable substitute for proving generated screenshots are untracked or ignored.
 - Review-preemption hotspots: `codeInfoStatus/manual-testing/0000055/**`, `artifacts/story-0000055-screenshots/**`, `.gitignore`, `.prettierignore`, `e2e/ingest.spec.ts`, and any PR summary text that cites retained screenshot locations.
 
 #### Documentation Locations
@@ -15078,6 +15088,8 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Risk Ownership
 
 - Highest-risk invariant: final validation must prove the current review-created findings block through fresh supported wrappers without confusing retained earlier Story 55 evidence, support-artifact hygiene, or manual runtime setup with task-owned repair proof.
+- Default-path proof: the final wrapper sequence must prove the repaired behavior through the repository-supported default build, test, e2e, compose, host-network, lint, and format paths, not only through targeted tests from Tasks `185` through `189`.
+- Primary blocker-family exposure: proof or test harness seam. This task owns final proof orchestration and residual-risk recording; wrapper, baseline, manual-runtime, or environment failures must be classified before any retry loop so missing shared ownership is not hidden inside broad validation.
 - Review-preemption hotspots: queue path role validation, REST/OpenAPI response shape, Mongo rewrite atomicity, destructive client payload roles, provider-log redaction, generated screenshot tracking, default wrapper inclusion, and final manual/runtime handoff facts.
 - Missing-prerequisite check: no separate prerequisite is required because Tasks `185` through `189` are explicit dependencies and the supported main/e2e wrapper paths already exist; any wrapper or runtime failure must be classified in the task notes as product-owned, baseline-owned, harness-owned, support-artifact-owned, or environment-owned before retry loops continue.
 
@@ -15126,6 +15138,8 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Manual Testing Guidance
 
 If a final manual-testing pass is requested after Tasks `185` through `189`, use the normal human Docker stack rather than a test-only runtime. Start from the repository root with `npm run compose:build`, then `npm run compose:up`; when proof is complete, stop it with `npm run compose:down`.
+
+The normal stack uses `docker-compose.yml`, `server/.env`, and `server/.env.local`; the compose wrapper creates missing local env files, checks ports `5010`, `5011`, `5012`, and `8932`, and relies on container health checks before dependent services proceed. The runtime mounts `./logs`, Codex home, optional corp certs, and any configured ingest source namespace from `CODEINFO_HOST_INGEST_DIR` into `CODEINFO_CODEX_WORKDIR`. Manual Story 55 ingest checks need no seeded login. The client is expected at `http://localhost:5001`, the REST/MCP server at `http://localhost:5010`, secondary MCP services at `http://localhost:5011` and `http://localhost:5012`, and Playwright MCP at `http://localhost:8932/mcp`.
 
 Focus optional browser/API proof on the repaired externally observable seams: queued re-embed acceptance and deferred execution for mapped host/workdir paths, immediate queue success response shape, row and bulk Remove behavior when row identity differs from root path, and normal queue startup/recovery visibility. If Playwright MCP screenshots are useful, capture them first with relative staging filenames in the Playwright output directory, then transfer only sanitized retained files into `codeInfoStatus/manual-testing/0000055/`. Save final manual-testing screenshots, logs, and notes under `codeInfoStatus/manual-testing/0000055/` only after confirming no provider account identifiers or token-like values are retained in durable artifacts.
 

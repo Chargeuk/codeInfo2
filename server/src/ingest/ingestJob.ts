@@ -51,9 +51,7 @@ import {
 } from './deltaPlan.js';
 import { createEmbeddingDispatcher } from './embeddingDispatcher.js';
 import * as ingestLock from './lock.js';
-import {
-  resolveQueuedReembedExecutionPath as resolveQueuedReembedExecutionPathForPayload,
-} from './pathMap.js';
+import { resolveQueuedReembedExecutionPath as resolveQueuedReembedExecutionPathForPayload } from './pathMap.js';
 import {
   appendIngestFailureLog,
   createLmStudioEmbeddingProvider,

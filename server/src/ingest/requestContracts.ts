@@ -146,7 +146,9 @@ export function validateQueueableRepositoryRootPath(
   }
 
   const configuredAllowedRoot = resolveQueueableAllowedRoot(
-    options?.allowedRoot ?? process.env.CODEINFO_CODEX_WORKDIR,
+    options && Object.prototype.hasOwnProperty.call(options, 'allowedRoot')
+      ? options.allowedRoot
+      : process.env.CODEINFO_CODEX_WORKDIR,
   );
   if (!configuredAllowedRoot) {
     return canonicalPath;

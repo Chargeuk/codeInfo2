@@ -14787,14 +14787,14 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
-6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts`.
-7. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-8. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+5. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+6. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts`.
+7. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+8. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14805,6 +14805,18 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 - Subtask 4: replaced the deferred mismatch-only proof with tests that a mounted `requestPayload.path` succeeds through `pumpIngestQueue()` while unrelated, relative, and outside-workdir persisted payload paths fail before discovery can proceed.
 - Subtask 5: updated startup recovery proof so recovered queued re-embed rows replay the persisted execution path when present, retain canonical identity separately, fall back to canonical identity only for missing legacy payload paths, and reject unrelated, relative, or outside-workdir persisted payload paths before embedding work.
 - Subtask 6: strengthened REST re-embed queue-admission proof in `server/src/test/unit/ingest-reembed.test.ts` to capture canonical identity separately from request payload path, and retained the existing MCP, command, and flow surface assertions that delegate through `runReingestRepository()` rather than adding alternate payload handling outside the repaired shared service.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` passed with 35/35 tests; wrapper reported clean success and `agent_action: skip_log` at `test-results/server-unit-tests-2026-04-22T07-36-35-083Z.log`.
+- Testing 2 repair: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts` failed because `allowedRoot: null` fell through to `CODEINFO_CODEX_WORKDIR`, causing canonical queue identity validation to reject `/data/...` before payload-path validation; updated `validateQueueableRepositoryRootPath()` to honor an explicit null `allowedRoot`. Reopened Testing 1 because this shared validation repair landed after its prior pass.
+- Testing 1 rerun: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` passed again after the validation repair with 35/35 tests and `agent_action: skip_log` at `test-results/server-unit-tests-2026-04-22T07-38-25-512Z.log`.
+- Testing 2: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts` passed with 4/4 tests after adding the missing success-path LM Studio embedding mock and preserving the clearer terminal-error assertion; wrapper reported clean success at `test-results/server-unit-tests-2026-04-22T07-40-17-411Z.log`.
+- Testing 3: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts` passed with 13/13 tests; wrapper reported clean success at `test-results/server-unit-tests-2026-04-22T07-40-50-622Z.log`.
+- Testing 4: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` passed with 31/31 tests; wrapper reported clean success at `test-results/server-unit-tests-2026-04-22T07-41-08-577Z.log`.
+- Testing 5: `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts` passed with 30/30 tests; wrapper reported clean success at `test-results/server-unit-tests-2026-04-22T07-41-28-181Z.log`.
+- Testing 6: `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts` passed with 65/65 tests; wrapper reported clean success at `test-results/server-unit-tests-2026-04-22T07-41-52-976Z.log`.
+- Testing 7: `npm run lint` passed with exit code 0 and no reported lint issues.
+- Testing 8: `npm run format:check` initially reported a Prettier issue in `server/src/ingest/ingestJob.ts`; ran `npm run format`, then reran `npm run format:check`, which passed with "All matched files use Prettier code style!".
+- Testing 7 rerun needed: reopened `npm run lint` because `npm run format` touched `server/src/ingest/ingestJob.ts` after the prior lint pass.
+- Testing 7 rerun: `npm run lint` passed again on the final formatted file state with exit code 0 and no reported lint issues.
 
 ### Task 186. Restore The Queue-State Response Contract And Reuse The Live-State Constant
 

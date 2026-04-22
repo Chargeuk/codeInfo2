@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import {
   __setQueueRuntimeOpsForTest,
   pumpIngestQueue,
+  setIngestDeps,
 } from '../../ingest/ingestJob.js';
 import {
   createQueueRequest,
@@ -17,7 +19,21 @@ import {
 installQueueRuntimeTestHooks();
 
 test('queue-managed deferred reembed executes a mounted requestPayload.path while retaining canonical queue identity', async () => {
-  setupIngestChromaMocks();
+  const { roots } = setupIngestChromaMocks();
+  setIngestDeps({
+    baseUrl: 'http://lmstudio.local',
+    lmClientFactory: () =>
+      ({
+        embedding: {
+          model: async () => ({
+            embed: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+            getContextLength: async () => 256,
+            countTokens: async (text: string) =>
+              text.split(/\s+/).filter(Boolean).length,
+          }),
+        },
+      }) as unknown as LMStudioClient,
+  });
   const { root: mountedRoot, cleanup } = await createTempRepo({
     'src/mounted.ts': 'export const mounted = true;\n',
   });
@@ -62,8 +78,19 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
       started.requestId!,
       20_000,
     );
-    assert.equal(terminal.state, 'completed');
-    assert.equal(terminal.root, canonicalRoot);
+    assert.equal(terminal.state, 'completed', terminal.lastError ?? undefined);
+    const rootAddCalls = roots.add.mock.calls as unknown as Array<{
+      arguments: [{ metadatas?: Array<{ root?: unknown }> }];
+    }>;
+    assert.equal(
+      rootAddCalls.some((call) => {
+        const payload = call.arguments[0];
+        return payload.metadatas?.some(
+          (metadata) => metadata.root === canonicalRoot,
+        );
+      }),
+      true,
+    );
   } finally {
     await cleanup();
   }

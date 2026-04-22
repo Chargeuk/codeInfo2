@@ -1,0 +1,22 @@
+{
+  "runId": "82faa9d3-ba34-42db-a3a5-e09dcb62459b",
+  "state": "completed",
+  "counts": {
+    "files": 260,
+    "chunks": 260,
+    "embedded": 260
+  },
+  "ast": {
+    "supportedFileCount": 0,
+    "skippedFileCount": 260,
+    "failedFileCount": 0
+  },
+  "message": "Completed",
+  "lastError": null,
+  "error": null,
+  "currentFile": "file-99.md",
+  "fileIndex": 260,
+  "fileTotal": 260,
+  "percent": 100,
+  "etaMs": 0
+}

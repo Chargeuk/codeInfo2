@@ -1,0 +1,9 @@
+{
+  "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-remove-root",
+  "name": "task191-removable-manual-proof",
+  "description": "Task 191 final Story 55 manual proof removable",
+  "model": "openai/text-embedding-3-small",
+  "embeddingProvider": "openai",
+  "embeddingModel": "text-embedding-3-small",
+  "dryRun": true
+}

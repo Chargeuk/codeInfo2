@@ -1,0 +1,9 @@
+{
+  "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-running-root",
+  "name": "task191-reembed-blocking-head-manual-proof",
+  "description": "Task 191 final proof keeps an active head so a completed root re-embed queues.",
+  "model": "openai/text-embedding-3-small",
+  "embeddingProvider": "openai",
+  "embeddingModel": "text-embedding-3-small",
+  "dryRun": true
+}

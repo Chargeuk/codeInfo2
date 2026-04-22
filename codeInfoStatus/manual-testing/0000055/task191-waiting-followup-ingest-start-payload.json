@@ -1,0 +1,9 @@
+{
+  "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+  "name": "task191-waiting-followup-manual-proof",
+  "description": "Task 191 final Story 55 manual proof waiting-followup",
+  "model": "openai/text-embedding-3-small",
+  "embeddingProvider": "openai",
+  "embeddingModel": "text-embedding-3-small",
+  "dryRun": true
+}

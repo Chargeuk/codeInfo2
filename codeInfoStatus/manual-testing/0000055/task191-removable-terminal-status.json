@@ -1,0 +1,22 @@
+{
+  "runId": "6abb062c-0264-47fb-b479-5b07a6b66ca8",
+  "state": "completed",
+  "counts": {
+    "files": 1,
+    "chunks": 1,
+    "embedded": 1
+  },
+  "ast": {
+    "supportedFileCount": 0,
+    "skippedFileCount": 1,
+    "failedFileCount": 0
+  },
+  "message": "Completed",
+  "lastError": null,
+  "error": null,
+  "currentFile": "remove.md",
+  "fileIndex": 1,
+  "fileTotal": 1,
+  "percent": 100,
+  "etaMs": 0
+}

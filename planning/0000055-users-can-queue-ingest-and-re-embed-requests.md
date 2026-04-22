@@ -14284,7 +14284,7 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `179`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F4` (`must_fix`): repo-list OpenAPI schemas disallow fields the runtime now emits.
   - `F6` (`should_fix`): running queue overlays can show stale persisted model metadata instead of the active queued request's model.
@@ -14373,6 +14373,7 @@ If a manual-testing pass is requested for this task, use the repository-list RES
 - Automated proof Testing 3 passed with `npm run test:summary:client -- --file client/src/test/useIngestRoots.test.tsx --file client/src/test/ingestRoots.test.tsx`: 62 tests passed, 0 failed; wrapper returned `agent_action: skip_log`.
 - Automated proof Testing 4 passed with `npm run lint`; ESLint exited 0 with no fixes required.
 - Automated proof Testing 5 passed with `npm run format:check`; Prettier reported all matched files use the expected style.
+- Audit: confirmed the implementation and automated-proof pass left Task 180 with all seven subtasks and all five Testing items complete, no live blocker, and current proof evidence for the targeted server/client wrappers, client typecheck, lint, and format gates; normalized Task Status to `__done__`.
 
 ### Task 181. Persist A Replay Barrier Before Non-Idempotent Queue Finalization Side Effects
 

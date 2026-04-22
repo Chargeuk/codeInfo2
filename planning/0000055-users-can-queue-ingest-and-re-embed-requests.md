@@ -14380,7 +14380,7 @@ If a manual-testing pass is requested for this task, use the repository-list RES
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `180`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F5` (`must_fix`): startup recovery can replay a committed running queue item if the process exits after final side effects but before the durable replay barrier is recorded.
 
@@ -14451,6 +14451,7 @@ Close the committed-but-barrier-lost recovery window by recording the durable no
 - Automated proof: server cucumber wrapper for `server/src/test/features/ingest-reembed.feature` passed with 11 tests and 0 failures after the no-processor-attempt wording update.
 - Automated proof: `npm run lint` passed with no reported issues.
 - Automated proof: `npm run format:check` passed with Prettier reporting all matched files use the expected style.
+- Automated-proof audit: confirmed Subtasks 1 through 6 and Testing 1 through 4 are complete on current disk, no live blocker is present, and Task 181 is now honestly `__done__`.
 
 ### Task 182. Make BDD Queue Start Proof Distinguish Attempts From Accepted Starts
 

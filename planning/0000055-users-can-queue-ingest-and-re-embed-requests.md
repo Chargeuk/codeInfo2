@@ -14367,6 +14367,7 @@ If a manual-testing pass is requested for this task, use the repository-list RES
 - Added the REST `/ingest/roots` mirror proof for fresh running queue model/lock metadata and canonical-target row isolation when `requestPayload.path` points at a different persisted row.
 - Updated MCP unit and integration proofs so the default `ListIngestedRepositories` path names and asserts documented `id`/`name`/`error` fields plus queue metadata propagation, including a running queue model/isolation scenario.
 - Updated client hook proof for healthy running overlays clearing stale diagnostics and stale persisted model/lock identity; inspected `RootsTable` and changed row selection/action payloads to prefer canonical `id`, with an `ingestRoots.test.tsx` proof that stale display paths are not submitted for re-embed.
+- Audit: confirmed the implementation-only pass closed Subtasks 1 through 7 against the shared repo-list producer, OpenAPI, MCP/tool, REST, client normalization, and row-action surfaces; no live blocker is present, and Testing 1 through 5 remain unchecked for the automated-proof step.
 
 ### Task 181. Persist A Replay Barrier Before Non-Idempotent Queue Finalization Side Effects
 

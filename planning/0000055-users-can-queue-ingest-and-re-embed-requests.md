@@ -15301,18 +15301,18 @@ Re-validate Story 55 after the current review-created findings block and provide
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:server:cucumber`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
-7. [ ] Run `npm run compose:build:summary`.
-8. [ ] Run `npm run compose:up`.
-9. [ ] Run `npm run test:summary:host-network:main`.
-10. [ ] Run `npm run compose:down`.
-11. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-12. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run test:summary:server:cucumber`.
+5. [x] Run `npm run test:summary:client`.
+6. [x] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
+7. [x] Run `npm run compose:build:summary`.
+8. [x] Run `npm run compose:up`.
+9. [x] Run `npm run test:summary:host-network:main`.
+10. [x] Run `npm run compose:down`.
+11. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+12. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -15328,3 +15328,17 @@ Focus optional browser/API proof on the repaired externally observable seams: qu
 - Subtask 1: re-read the review findings block plus completed Tasks `185` through `190`; `plan_status.py --include-tasks` shows each dependency is `__done__` with no unchecked subtasks, unchecked testing, or live blockers, so the final revalidation summary can now cite them as closed dependency owners.
 - Subtask 2: refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` for review pass `0000055-20260422T045457Z-daafd19b`, mapping `F1` through `F7` to Tasks `185` through `190`, exact repaired owners, proof homes, artifact hygiene disposition, rejected-risk notes, saturation and blind-spot carry-forward, wrapper/runtime failure classification, and a pending Task 191 automated-testing results section.
 - Subtask 3: re-opened this plan after the summary refresh and compared the `0000055-20260422T045457Z-daafd19b` findings block against `codeInfoStatus/pr-summaries/0000055-pr-summary.md`; both now align on `F1` as Tasks `185` and `186`, `F2` and `F7` as Task `187`, `F5` as Task `188`, `F6` as Task `189`, `F3` and `F4` as Task `190`, retained sanitized manual artifacts under `codeInfoStatus/manual-testing/0000055/`, ignored generated screenshot output under `test-results/screenshots/0000055/`, residual-risk categories for product/baseline/harness/environment failures, and pending final automated disposition under this task's Testing section.
+- Testing 1: `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-server-latest.log`.
+- Testing 2 repair: `npm run build:summary:client` failed at the typecheck gate on stricter optional-property narrowing in `IngestForm.tsx` and `RootsTable.tsx`; introduced local narrowed `runId` values and an explicit missing-entry guard so the existing queue response handling remains unchanged while satisfying TypeScript.
+- Testing 2: `npm run build:summary:client` passed on rerun with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-client-latest.log`.
+- Testing 3: `npm run test:summary:server:unit` passed with `tests run: 1781`, `passed: 1781`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T10-58-38-090Z.log`.
+- Testing 4 repair: `npm run test:summary:server:cucumber` first failed because the startup-recovery mismatch cucumber fixture did not configure `CODEINFO_CODEX_WORKDIR`, so the current split canonical/execution-path contract reached filesystem discovery and reported `ENOENT` instead of the mounted-path mismatch validation. Updated the cucumber fixture to set the mounted workdir boundary and corrected the expected error text to the current `queued reembed requestPayload.path must match the mounted canonicalTargetPath` contract before rerunning the wrapper.
+- Testing 4: the targeted cucumber feature rerun passed with `tests run: 11`, `passed: 11`, `failed: 0`, and retained log `test-results/server-cucumber-tests-2026-04-22T11-18-20-133Z.log`; the required full `npm run test:summary:server:cucumber` rerun then passed with `tests run: 109`, `passed: 109`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-22T11-18-37-384Z.log`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 705`, `passed: 705`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-22T11-20-39-933Z.log`.
+- Testing 6: `npm run test:summary:e2e` passed through the wrapper's automated compose build, Playwright execution, and teardown path with `tests run: 60`, `passed: 60`, `failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, the expected `DEV-0000050:T10:image_runtime_assets_baked` marker, and retained log `logs/test-summaries/compose-build-latest.log`.
+- Testing 8: `npm run compose:up` passed the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` and started the supported main stack; Mongo and the server reached healthy, and the client container started.
+- Testing 9: `npm run test:summary:host-network:main` passed with all four MCP endpoints reachable over `host.docker.internal` at HTTP 200, emitted `DEV-0000050:T12:main_stack_probe_completed {"result":"passed"}`, and retained log `logs/test-summaries/host-network-main-latest.log`.
+- Testing 10: `npm run compose:down` passed and removed the client, server, Mongo, Chroma, Zipkin, OpenTelemetry collector, Playwright MCP containers, and the `codeinfo2_internal` network cleanly.
+- Testing 11: `npm run lint` passed with exit code 0 and no lint fixes were required.
+- Testing 12: `npm run format:check` passed with `All matched files use Prettier code style!`, so no `npm run format` repair pass was needed.

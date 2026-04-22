@@ -81,7 +81,7 @@ Feature: Ingest re-embed
     And ingest manage mongo queue has running request for the temp repo with run id "run-recovered-mismatch" and mismatched persisted path
     When ingest manage startup recovery runs
     Then ingest manage status for run "run-recovered-mismatch" becomes "error"
-    And ingest manage status for run "run-recovered-mismatch" has last error "queued reembed requestPayload.path must match canonicalTargetPath"
+    And ingest manage status for run "run-recovered-mismatch" has last error "queued reembed requestPayload.path must match the mounted canonicalTargetPath"
 
   @mongo
   Scenario: startup recovery falls back to the canonical target when persisted re-embed path is missing

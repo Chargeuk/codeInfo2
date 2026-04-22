@@ -52,7 +52,19 @@ This summary is refreshed for review pass `0000055-20260422T045457Z-daafd19b`. T
 
 ## Task 191 Automated Testing Results
 
-- Pending. This implementation pass refreshes the proof map and reserves this section for the later automated-proof step.
+- `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-server-latest.log`.
+- `npm run build:summary:client` initially failed at the typecheck gate on stricter optional-property narrowing in `IngestForm.tsx` and `RootsTable.tsx`; after narrowing `runId` locally and guarding missing selected-root entries, the rerun passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-client-latest.log`.
+- `npm run test:summary:server:unit` passed with `tests run: 1781`, `passed: 1781`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T10-58-38-090Z.log`.
+- `npm run test:summary:server:cucumber` initially exposed a stale startup-recovery mismatch fixture: without `CODEINFO_CODEX_WORKDIR`, the current mounted-path contract attempted filesystem discovery and returned `ENOENT`. The fixture now sets the mounted workdir boundary and expects the current `queued reembed requestPayload.path must match the mounted canonicalTargetPath` error before the full wrapper rerun.
+- `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature` passed with `tests run: 11`, `passed: 11`, `failed: 0`, and retained log `test-results/server-cucumber-tests-2026-04-22T11-18-20-133Z.log`; the required full `npm run test:summary:server:cucumber` rerun passed with `tests run: 109`, `passed: 109`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-22T11-18-37-384Z.log`.
+- `npm run test:summary:client` passed with `tests run: 705`, `passed: 705`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-22T11-20-39-933Z.log`.
+- `npm run test:summary:e2e` passed through the wrapper's automated setup, build, Playwright execution, and teardown path with `tests run: 60`, `passed: 60`, `failed: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/e2e-tests-latest.log`.
+- `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, the expected `DEV-0000050:T10:image_runtime_assets_baked` marker, and retained log `logs/test-summaries/compose-build-latest.log`.
+- `npm run compose:up` passed the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` and started the supported main stack; Mongo and the server reached healthy, and the client container started.
+- `npm run test:summary:host-network:main` passed with all four MCP endpoints reachable over `host.docker.internal` at HTTP 200, emitted `DEV-0000050:T12:main_stack_probe_completed {"result":"passed"}`, and retained log `logs/test-summaries/host-network-main-latest.log`.
+- `npm run compose:down` passed and removed the client, server, Mongo, Chroma, Zipkin, OpenTelemetry collector, Playwright MCP containers, and the `codeinfo2_internal` network cleanly.
+- `npm run lint` passed with exit code 0 and no lint fixes were required.
+- `npm run format:check` passed with `All matched files use Prettier code style!`, so no `npm run format` repair pass was needed.
 
 ## Bounded Residual-Risk Slot
 

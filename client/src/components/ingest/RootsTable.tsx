@@ -209,7 +209,12 @@ export default function RootsTable({
             selectionKey: string;
             reembedPath: string;
             removePath: string;
-          } => Boolean(entry) && selectableRootPaths.has(entry.selectionKey),
+          } => {
+            if (!entry) {
+              return false;
+            }
+            return selectableRootPaths.has(entry.selectionKey);
+          },
         ),
     [rootsBySelectionKey, selectableRootPaths, selected],
   );
@@ -295,7 +300,10 @@ export default function RootsTable({
         throw new Error('Missing requestId in response');
       }
       const isWaiting = data.queued === true;
-      const hasRunId = typeof data.runId === 'string' && data.runId.length > 0;
+      const runId =
+        typeof data.runId === 'string' && data.runId.length > 0
+          ? data.runId
+          : undefined;
       if (isWaiting) {
         setStatus(path, {
           status: 'success',
@@ -305,11 +313,11 @@ export default function RootsTable({
               : ''
           }`,
         });
-      } else if (hasRunId || data.queueState === 'running') {
-        if (!hasRunId) {
+      } else if (runId || data.queueState === 'running') {
+        if (!runId) {
           throw new Error('Malformed re-embed response');
         }
-        onRunStarted?.(data.runId);
+        onRunStarted?.(runId);
         setStatus(path, {
           status: 'success',
           message: 'Re-embed started',

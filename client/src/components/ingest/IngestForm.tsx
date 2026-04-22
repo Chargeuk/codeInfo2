@@ -250,14 +250,17 @@ export default function IngestForm({
         throw new Error('Missing requestId in response');
       }
       const isWaiting = data.queued === true;
-      const hasRunId = typeof data.runId === 'string' && data.runId.length > 0;
-      if (hasRunId) {
-        onStarted?.(data.runId);
+      const runId =
+        typeof data.runId === 'string' && data.runId.length > 0
+          ? data.runId
+          : undefined;
+      if (runId) {
+        onStarted?.(runId);
       }
       onAccepted?.({
         queued: isWaiting,
         requestId: data.requestId,
-        ...(hasRunId ? { runId: data.runId } : {}),
+        ...(runId ? { runId } : {}),
         ...(data.queueState === 'running' && !isWaiting
           ? { queueState: data.queueState }
           : {}),

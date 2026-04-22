@@ -1088,6 +1088,7 @@ Given(
   'ingest manage mongo queue has running request for the temp repo with run id {string} and mismatched persisted path',
   async (runId: string) => {
     assert(tempDir, 'temp dir missing');
+    process.env.CODEINFO_CODEX_WORKDIR = path.dirname(tempDir);
     await IngestQueueRequestModel.create({
       canonicalTargetPath: tempDir,
       operation: 'reembed',

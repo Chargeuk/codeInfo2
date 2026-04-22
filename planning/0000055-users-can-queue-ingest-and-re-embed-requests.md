@@ -14784,11 +14784,11 @@ Repair the provider-failure propagation seam exposed by the mounted-path manual 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-retry.test.ts --file server/src/test/integration/openai-error-parity.test.ts --file server/src/test/unit/ingest-openai-logging.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-retry.test.ts --file server/src/test/integration/openai-error-parity.test.ts --file server/src/test/unit/ingest-openai-logging.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+4. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -14802,6 +14802,19 @@ After this prerequisite and Task 186 complete, a later manual-testing-agent pass
 - Subtask 3: added `server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts` to drive queued ingest through a mocked OpenAI 429, assert normalized terminal ingest status fields, assert retry-after/upstream metadata, assert redacted error text, and assert no `unhandledRejection` event is needed for completion.
 - Subtask 4: tightened provider/account redaction for `org-...` identifiers across OpenAI error normalization, normalized contract payloads, ingest failure classification, and ingest failure logging. Updated the OpenAI retry, error-parity, and ingest logging proof homes so retryable metadata remains visible while provider account identifiers are not retained in response/log messages.
 - Subtask 5: added a `reingestService` queue-admission proof for an OpenAI-locked repository, asserting the queued re-embed payload keeps `embeddingProvider: openai` and `text-embedding-3-small` instead of falling back to LM Studio.
+- Testing 1 repair: the first targeted wrapper failed in the TypeScript build because the mocked OpenAI tokenizer returned a plain array instead of the required `Uint32Array`; updated the mock to return `Uint32Array` before rerunning the same wrapper.
+- Testing 1 repair: the rerun reached the test but failed with `MODEL_LOCKED` before the provider seam because the shared Chroma mock starts with a legacy LM Studio lock; updated the provider-failure test to clear that mock lock explicitly so the proof reaches the OpenAI failure path.
+- Testing 1 repair: the next rerun reached the mocked OpenAI 429 but reported `cleanup-blocked` because the unit test used real queue persistence hooks without Mongo; added task-local queue-runtime hook overrides so cleanup can publish the terminal provider-failure status instead of exercising the cleanup-blocked subsystem.
+- Testing 1 repair: the next rerun proved retry exhaustion but used the default retry count because `CODEINFO_OPENAI_INGEST_MAX_RETRIES=0` is invalid, and queue advancement still attempted a real Mongo read after cleanup; changed the proof to use one configured retry and fully stub the queue-runtime read/pump hooks for this isolated provider-failure unit test.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts` passed with 1/1 tests and `agent_action: skip_log` at `test-results/server-unit-tests-2026-04-22T08-36-00-767Z.log`.
+- Testing 2: `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-retry.test.ts --file server/src/test/integration/openai-error-parity.test.ts --file server/src/test/unit/ingest-openai-logging.test.ts` passed with 11/11 tests and `agent_action: skip_log` at `test-results/server-unit-tests-2026-04-22T08-36-22-122Z.log`.
+- Testing 3 repair: the targeted `reingestService` wrapper failed only in the new OpenAI lock proof because the test expected a bare `model` value, while the queue payload contract stores the fully qualified `openai/text-embedding-3-small` model alongside bare `embeddingModel`; corrected the assertion to preserve the no-LM-Studio-fallback proof.
+- Testing 3: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` passed with 36/36 tests and `agent_action: skip_log` at `test-results/server-unit-tests-2026-04-22T08-37-17-515Z.log`.
+- Testing 4: `npm run lint` passed with exit code 0 and no reported lint issues.
+- Testing 5 repair: `npm run format:check` reported a Prettier issue in `server/src/test/unit/reingestService.test.ts`; reopened Testing 4 before running the formatter because formatting will change a file after the prior lint proof.
+- Testing 5 repair: ran `npm run format`, which formatted `server/src/test/unit/reingestService.test.ts` and left other reported files unchanged.
+- Testing 4 rerun: `npm run lint` passed again after formatting with exit code 0 and no reported lint issues.
+- Testing 5: `npm run format:check` passed after formatting with "All matched files use Prettier code style!".
 
 ### Task 186. Preserve Mounted Execution Paths Across Queued Re-Embed Promotion And Startup Recovery
 

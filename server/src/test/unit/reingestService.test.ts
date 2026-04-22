@@ -851,7 +851,10 @@ test('queued reembed preserves OpenAI model lock instead of falling back to LM S
           input.requestPayload.embeddingModel,
           'text-embedding-3-small',
         );
-        assert.equal(input.requestPayload.model, 'text-embedding-3-small');
+        assert.equal(
+          input.requestPayload.model,
+          'openai/text-embedding-3-small',
+        );
         return buildQueueResult({
           requestId: 'queue-request-openai',
           canonicalTargetPath: String(input.canonicalTargetPath),

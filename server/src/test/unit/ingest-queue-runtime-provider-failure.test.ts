@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  __setQueueRuntimeOpsForTest,
   __setQueueRequestIdForRunForTest,
   __setRunSchedulerForTest,
   startIngest,
@@ -12,6 +13,7 @@ import {
   type OpenAiClientLike,
 } from '../../ingest/providers/index.js';
 import {
+  createQueueRequest,
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
@@ -21,28 +23,63 @@ import {
 installQueueRuntimeTestHooks();
 
 test('queued ingest OpenAI 429 failure becomes terminal status without unhandled rejection', async () => {
-  setupIngestChromaMocks();
+  const { vectors } = setupIngestChromaMocks();
+  await vectors.modify({
+    metadata: {
+      lockedModelId: null,
+      embeddingProvider: null,
+      embeddingModel: null,
+      embeddingDimensions: null,
+    },
+  });
   setOpenAiTokenizerFactoryForTests(() => ({
     encode: (value: string) =>
-      Array(Math.max(1, value.split(/\s+/).filter(Boolean).length)).fill(1),
+      new Uint32Array(
+        Math.max(1, value.split(/\s+/).filter(Boolean).length),
+      ).fill(1),
     free() {},
   }));
   const previousKey = process.env.CODEINFO_OPENAI_EMBEDDING_KEY;
   const previousRetries = process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
   process.env.CODEINFO_OPENAI_EMBEDDING_KEY = 'sk-test-key';
-  process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = '0';
+  process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = '1';
   const scheduledTasks: Array<() => void> = [];
   __setRunSchedulerForTest((task) => {
     scheduledTasks.push(task);
+  });
+  const { root, cleanup } = await createTempRepo({
+    'src/openai.ts': 'export const value = "openai queued failure proof";\n',
+  });
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId) =>
+      createQueueRequest({
+        requestId,
+        root,
+        queueState: 'running',
+      }),
+    markQueueRequestNonReplayable: async ({ requestId, runId }) =>
+      createQueueRequest({
+        requestId,
+        root,
+        queueState: 'running',
+        runId,
+      }),
+    markQueueRequestTerminalPublished: async ({ requestId, runId }) =>
+      createQueueRequest({
+        requestId,
+        root,
+        queueState: 'running',
+        runId,
+      }),
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
   });
   const unhandledRejections: unknown[] = [];
   const onUnhandledRejection = (reason: unknown) => {
     unhandledRejections.push(reason);
   };
   process.on('unhandledRejection', onUnhandledRejection);
-  const { root, cleanup } = await createTempRepo({
-    'src/openai.ts': 'export const value = "openai queued failure proof";\n',
-  });
   let sdkCalls = 0;
 
   try {
@@ -95,7 +132,7 @@ test('queued ingest OpenAI 429 failure becomes terminal status without unhandled
     assert.equal(result.status?.error?.retryAfterMs, 1234);
     assert.equal(result.status?.lastError?.includes('org-b0ry'), false);
     assert.equal(result.status?.lastError?.includes('sk-test-key'), false);
-    assert.equal(sdkCalls, 1);
+    assert.equal(sdkCalls, 2);
 
     await waitForNextTurn();
     await waitForNextTurn();

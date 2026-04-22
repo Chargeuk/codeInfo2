@@ -15387,17 +15387,39 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 - `R3.` Cancellation cleanup-order proof no longer relies on a fixed sleep for the "not yet advanced" assertion; it proves the unresolved cleanup gate keeps the cancel path pending.
 - `R4.` Terminal cleanup, cancellation cleanup, deletions-only cleanup degradation, cleanup retry timers, and startup recovery remain consistent with the delete-before-next-work contract.
 
+#### Proof Mapping
+
+- `P1.` cleanup stall repair for `R1` and `R4`: implementation owner is `server/src/ingest/ingestJob.ts`; proof homes are `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/ingest-cancel.test.ts`.
+- `P2.` cleanup-blocked diagnostic repair for `R2`: implementation owner is `server/src/lmstudio/toolService.ts`; proof homes are `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+- `P3.` deterministic cancellation proof for `R3`: implementation and proof owner is `server/src/test/unit/ingest-cancel.test.ts`; the proof must observe a pending cleanup gate or explicit pending promise state rather than elapsed time.
+
+#### Risk Ownership
+
+- This task owns cleanup-blocked lifecycle, diagnostic precedence, and cancellation cleanup-order proof only.
+- Do not rewrite queue admission, dedupe, OpenAPI, blocking re-embed transport mapping, production remove authority, or browser UI behavior here except for proof fallout that is directly required by these cleanup seams.
+- If preserving cleanup blocking requires a small task-owned helper or exported test seam, keep it inside the ingest queue runtime or test-only support surface and do not weaken production delete-before-next-work behavior.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`
+- `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `server/src/test/unit/ingest-cancel.test.ts`
+
 #### Implementation Notes
 
 - Review disposition for pass `0000055-20260422T115002Z-d109d87f` created this task to close cleanup-blocked lifecycle findings `F1`, `F4`, and `F6`.
 
 #### Subtasks
 
-1. [ ] Trace terminal finalization, cancellation cleanup, deletions-only cleanup degradation, cleanup retry scheduling, and startup recovery in `server/src/ingest/ingestJob.ts`; add or reuse a task-owned in-memory blocker so failed delete cleanup still stalls queue advancement when the durable `cleanup-blocked` write fails.
-2. [ ] Update the queue pump and cleanup retry paths so the in-memory cleanup-blocked owner is cleared only after the failed queue record is actually removed or durable cleanup ownership is restored.
-3. [ ] Update `server/src/lmstudio/toolService.ts` so cleanup-blocked overlays without runtime status replace stale persisted `lastError` with the current cleanup-blocked diagnostic while preserving the intentional waiting/running diagnostic-clearing behavior.
-4. [ ] Replace the fixed-delay negative assertion in `server/src/test/unit/ingest-cancel.test.ts` with a deterministic promise, gate, or state assertion that proves cancellation remains pending until queue cleanup is allowed to complete.
-5. [ ] Add task-owned proof cases for cleanup-blocked marker-write failure after delete failure, stale persisted `lastError` plus cleanup-blocked overlay without runtime status, and deterministic cancel cleanup ordering before newer work can advance.
+1. [ ] In `server/src/ingest/ingestJob.ts`, trace `finalizeQueueRequestForRun()`, `publishCleanupBlockedStatus()`, `queueCleanupFinalizers`, cleanup retry scheduling, deletions-only cleanup degradation, cancellation cleanup, `pumpIngestQueue()`, and startup recovery. Add or reuse a task-owned runtime blocker for the exact sequence where queue-record deletion fails and the durable `cleanup-blocked` write also fails, so newer waiting work still cannot advance while the failed record remains.
+2. [ ] Update `pumpIngestQueue()`, cleanup retry completion, cancellation cleanup, deletions-only cleanup, and `recoverIngestQueueOnStartup()` so any task-owned in-memory cleanup blocker is cleared only after the failed queue record is actually removed or a durable cleanup-blocked queue owner is visible again.
+3. [ ] Update `server/src/lmstudio/toolService.ts` so a `cleanup-blocked` overlay without runtime status replaces stale persisted `lastError` with the current cleanup-blocked diagnostic, while waiting and running overlays still clear stale diagnostics only in their existing healthy-overlay cases.
+4. [ ] Replace the fixed-delay negative assertion in `server/src/test/unit/ingest-cancel.test.ts` with a deterministic boundary: while `deleteGate` is unresolved, assert that `cancelPromise` remains pending and no newer queue work can advance; after the gate resolves, assert the cancel cleanup completes normally.
+5. [ ] Add or update proof in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for the partial-failure path where `deleteQueueRequestById()` fails and `markQueueRequestCleanupBlocked()` also fails, including the assertion that `pumpIngestQueue()` still refuses to promote newer waiting work until cleanup recovery succeeds.
+6. [ ] Add or update proof in `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` for a persisted repo with stale `lastError` plus a `cleanup-blocked` queue overlay and no runtime status, proving the cleanup-blocked diagnostic wins on both repository-list surfaces.
 
 #### Testing
 
@@ -15426,15 +15448,35 @@ Repair the published `/ingest/start` request contract so generated clients and u
 - `R2.` The OpenAPI contract test asserts the corrected dependency shape for legacy `model` versus canonical `embeddingProvider` and `embeddingModel`.
 - `R3.` Existing client submit payloads remain compatible with the corrected schema and the route's pre-admission validation.
 
+#### Proof Mapping
+
+- `P1.` schema repair for `R1`: implementation owner is `openapi.json`; proof home is `server/src/test/unit/openapi.contract.test.ts`.
+- `P2.` route/schema alignment for `R2` and `R3`: implementation owners are `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx`; proof homes are `server/src/test/unit/ingest-start.test.ts` and the server build.
+
+#### Risk Ownership
+
+- This task owns the published `/ingest/start` request contract only.
+- Do not weaken `resolveRequestEmbeddingSelection()` or route validation to make the old under-specified OpenAPI body pass.
+- Preserve backward compatibility for the legacy `model` request form and the canonical `embeddingProvider` plus `embeddingModel` request form.
+
+#### Documentation Locations
+
+- `openapi.json`
+- `server/src/test/unit/openapi.contract.test.ts`
+- `server/src/routes/ingestStart.ts`
+- `server/src/ingest/requestContracts.ts`
+- `client/src/components/ingest/IngestForm.tsx`
+
 #### Implementation Notes
 
 - Review disposition for pass `0000055-20260422T115002Z-d109d87f` created this task to close `F2`.
 
 #### Subtasks
 
-1. [ ] Update the `POST /ingest/start` request schema in `openapi.json` to express the route's supported model-selection alternatives without weakening production validation.
-2. [ ] Update `server/src/test/unit/openapi.contract.test.ts` so it fails if the schema again claims `path` and `name` alone are sufficient for queue admission.
-3. [ ] Re-read `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx` to confirm the documented schema, route validation, and client producer remain aligned.
+1. [ ] Update the `POST /ingest/start` request schema in `openapi.json` so `path` and `name` remain required but a complete queue-admissible body must also provide either legacy `model` or both canonical fields `embeddingProvider` and `embeddingModel`; keep malformed canonical fields and unknown properties rejected according to the current route contract.
+2. [ ] Update `server/src/test/unit/openapi.contract.test.ts` so it fails if the schema again documents `path` plus `name` alone as sufficient, or if it stops documenting both supported model-selection alternatives.
+3. [ ] Re-read `server/src/routes/ingestStart.ts` and `server/src/ingest/requestContracts.ts`; if route validation and schema wording disagree, repair the schema or contract test rather than relaxing production validation.
+4. [ ] Re-read `client/src/components/ingest/IngestForm.tsx` and confirm the existing client submit payload still provides one supported model-selection form without adding hidden client-only queue fields.
 
 #### Testing
 
@@ -15462,16 +15504,44 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 - `R2.` Timeout or true terminal ingest failures keep their existing terminal semantics and are not incorrectly reclassified as queue-unavailable.
 - `R3.` Classic MCP, MCP v2, command, flow, and batch execution proof covers the repaired queue-read outage shape or explicitly confirms the shared wrapper already proves it.
 
+#### Proof Mapping
+
+- `P1.` wait-result classification for `R1` and `R2`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/reingestService.test.ts`.
+- `P2.` transport error-shape preservation for `R1` and `R3`: implementation owners are `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, and `server/src/ingest/reingestExecution.ts`; proof homes are the MCP classic, MCP v2, command, and flow tests named in `Testing`.
+- `P3.` listener cleanup preservation for `R2`: proof home is the existing queue-aware waiter tests in `server/src/test/unit/reingestService.test.ts`.
+
+#### Risk Ownership
+
+- This task owns post-admission queue backend read failures while a blocking re-embed caller waits.
+- Do not reclassify ordinary terminal ingest `failed`, `cancelled`, `skipped`, or timeout results as `QUEUE_UNAVAILABLE`.
+- Do not change the request-id listener filtering, timeout clearing, or disconnect cleanup behavior except where required to preserve the same retryable error shape.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/reingestExecution.ts`
+- `server/src/mcp/server.ts`
+- `server/src/mcp2/tools/reingestRepository.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/mcp.reingest.classic.test.ts`
+- `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- `server/src/test/unit/reingestExecution.test.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+
 #### Implementation Notes
 
 - Review disposition for pass `0000055-20260422T115002Z-d109d87f` created this task to close `F3`.
 
 #### Subtasks
 
-1. [ ] Trace queue-read failure reasons from `server/src/ingest/ingestJob.ts` through `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, MCP v2 tooling, and `server/src/ingest/reingestExecution.ts`.
-2. [ ] Update the blocking re-embed result mapping so queue backend read failures become retryable `QUEUE_UNAVAILABLE` outcomes for blocking transports without reclassifying ordinary terminal ingest failures or timeout results.
-3. [ ] Update or add proof in `reingestService`, MCP classic, MCP v2, command, and flow execution tests so callers receive machine-readable retryable queue-unavailable state for wait-time queue-read outages.
-4. [ ] Re-read existing listener-cleanup tests to ensure the error-shape repair does not weaken request-id filtering, timeout clearing, or listener cleanup proof.
+1. [ ] Trace `QUEUE_READ_FAILED_WAIT_REASON` from `waitForQueueRequestTerminalStatus()` through `runReingestRepository()`, classic MCP, MCP v2, and `runReingestForCommand()`; record the exact branch that currently turns the wait-time queue-read outage into an `ok: true` terminal payload.
+2. [ ] Update the blocking re-embed result mapping so only wait-time queue backend read failures become retryable `QUEUE_UNAVAILABLE` failures with machine-readable error data for blocking transports.
+3. [ ] Preserve existing semantics for timeout fallback, terminal ingest failure, cancellation, skipped/no-change results, and post-start provider/runtime failures; add assertions where needed so this task cannot accidentally make all terminal failures retryable.
+4. [ ] Update `server/src/test/unit/reingestService.test.ts` so setup-read and timeout-fallback read rejections assert `ok: false`, `QUEUE_UNAVAILABLE`, retryable queue-outage metadata, and unchanged listener cleanup.
+5. [ ] Update classic MCP and MCP v2 proof so wait-time queue-read outage returns the same JSON-RPC or tool-error envelope used for queue-unavailable blocking failures, rather than a successful terminal text/result payload.
+6. [ ] Update command and flow execution proof so direct commands, plan-scope or working targets, and flow-owned re-ingest steps treat wait-time queue-read outages as retryable queue-unavailable failures without hiding them as successful warning-only outcomes.
 
 #### Testing
 
@@ -15503,17 +15573,41 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 - `R3.` The test-only e2e cleanup route remains env-gated and keeps its fixture allowlist behavior without being mistaken for the production remove authority model.
 - `R4.` Client row and bulk remove gating remains aligned with the server authority boundary.
 
+#### Proof Mapping
+
+- `P1.` production remove authority for `R1` and `R2`: implementation owner is `server/src/routes/ingestRemove.ts` or the smallest remove service boundary it calls; proof home is `server/src/test/features/ingest-remove.feature` plus its step definitions.
+- `P2.` test-only cleanup separation for `R3`: implementation owner is `server/src/routes/ingestE2eCleanup.ts`; proof home is `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
+- `P3.` client/server parity for `R2` and `R4`: implementation owner is `client/src/components/ingest/RootsTable.tsx`; proof home is `client/src/test/ingestRoots.test.tsx`.
+
+#### Risk Ownership
+
+- This task owns the server-side destructive-action authority boundary for production remove.
+- Do not add user-driven queue-item removal, queue cancellation, or queue cleanup bypass behavior; queued-but-not-started removal remains out of scope.
+- Do not weaken the test-only cleanup route's env gate, fixture allowlist, or distinction from production remove.
+
+#### Documentation Locations
+
+- `server/src/routes/ingestRemove.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/requestQueue.ts`
+- `server/src/routes/ingestE2eCleanup.ts`
+- `server/src/test/features/ingest-remove.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `server/src/test/integration/ingest-e2e-cleanup.test.ts`
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+
 #### Implementation Notes
 
 - Review disposition for pass `0000055-20260422T115002Z-d109d87f` created this task to close `F5`.
 
 #### Subtasks
 
-1. [ ] Add a server-side queue-state ownership guard to `server/src/routes/ingestRemove.ts` or the remove service boundary so direct production remove requests cannot bypass waiting, running, or cleanup-blocked queue ownership for the requested root.
-2. [ ] Preserve completed/idle root removal behavior and the intentional persisted-root-path payload contract for row and bulk Remove.
-3. [ ] Add production-route proof for waiting, running, cleanup-blocked, and allowed idle/completed removal cases; include any required setup helpers without relying on manual browser state.
-4. [ ] Re-read `server/src/routes/ingestE2eCleanup.ts` and its integration tests to confirm the test-only cleanup route remains env-gated, fixture-scoped, and separate from production remove.
-5. [ ] Re-read `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx` to confirm client row/bulk affordances remain aligned with the repaired server boundary.
+1. [ ] Add a server-side queue-state ownership guard to `server/src/routes/ingestRemove.ts` or the smallest shared remove boundary so a direct production remove request cannot call `removeRoot()` for a target with live `waiting`, `running`, `cleanup-blocked`, or active-run ownership.
+2. [ ] Resolve the remove target using the same persisted root-path authority expected by row and bulk Remove; preserve allowed completed/idle removal behavior, response shape, and unlock handling.
+3. [ ] Add production-route proof for blocked waiting, running, cleanup-blocked, and active-run-owned targets, plus allowed idle/completed targets; keep the setup in cucumber steps, route tests, or test-only fixtures rather than manual browser state.
+4. [ ] Re-read `server/src/routes/ingestE2eCleanup.ts` and `server/src/test/integration/ingest-e2e-cleanup.test.ts`; only update them if needed to prove the test-only cleanup route stays env-gated, fixture-scoped, and separate from production remove authority.
+5. [ ] Re-read `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`; update client proof only if the repaired server boundary changes an existing row or bulk Remove contract, and otherwise preserve the current UI gating behavior.
 
 #### Testing
 
@@ -15525,7 +15619,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 
 #### Manual Testing Guidance
 
-Optional later browser/API validation can exercise a normal completed-row remove and a queue-owned-row remove attempt through the supported main stack. Keep any screenshots or API transcripts under `codeInfoStatus/manual-testing/0000055/` only after confirming they contain no provider identifiers or token-like values.
+Optional later browser/API validation can exercise a normal completed-row remove and a queue-owned-row remove attempt through the supported main stack. Keep any screenshots or API transcripts under `codeInfoStatus/manual-testing/0000055/` only after confirming they contain no provider identifiers or token-like values. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.
 
 ### Task 196. Re-Validate Story 55 After Review Pass `0000055-20260422T115002Z-d109d87f`
 
@@ -15546,15 +15640,44 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 - `R3.` Fresh automated validation reruns the Current Repository supported server build, client build, server unit, server cucumber, client test, e2e, compose build, compose up, host-network main probe, compose down, lint, and format wrappers needed to revalidate the repaired seams plus the story's supported browser-visible and main runtime paths.
 - `R4.` If any repaired seam remains partially proven, the close-out records that residual risk explicitly instead of silently reclosing the story.
 
+#### Proof Mapping
+
+- `P1.` dependency completion for `R1`: proof home is parser output for Tasks `192` through `195` plus their checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
+- `P2.` findings-block disposition for `R2`: proof homes are this `Code Review Findings` block and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+- `P3.` broad automated regression proof for `R3`: proof homes are the wrapper outputs produced by this task's `Testing` section, including server build, client build, server unit, server cucumber, client, e2e, compose, host-network, lint, and format wrappers.
+- `P4.` residual-risk honesty for `R4`: proof homes are this task's implementation notes and the refreshed PR summary close-out when any proof is indirect, harness-owned, baseline-owned, environment-owned, or manually deferred.
+
+#### Risk Ownership
+
+- This task owns final review-block validation for review pass `0000055-20260422T115002Z-d109d87f`; it does not own new product repairs except for small proof-record or summary alignment fixes discovered while validating Tasks `192` through `195`.
+- Do not mark this task complete until every review-created repair task in this block is complete and the broad wrappers have run through the repository-supported wrapper paths.
+- If a broad wrapper exposes a new product defect, add or preserve an implementation blocker in this task instead of silently converting final validation into a new repair task.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/ingest/reingestExecution.ts`
+- `server/src/routes/ingestStart.ts`
+- `server/src/routes/ingestRemove.ts`
+- `server/src/routes/ingestE2eCleanup.ts`
+- `server/src/mcp/server.ts`
+- `server/src/mcp2/tools/reingestRepository.ts`
+- `client/src/components/ingest/RootsTable.tsx`
+- `openapi.json`
+
 #### Implementation Notes
 
 - Review disposition for pass `0000055-20260422T115002Z-d109d87f` created this final revalidation task after review-fix Tasks `192` through `195`.
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260422T115002Z-d109d87f` and the completed proof-owner sections for Tasks `192` through `195`. Check off this subtask only after each dependency task shows `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no unresolved `Implementation Notes` blocker.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F6`, including repaired files, proof homes, wrapper result locations, saturation and blind-spot challenge carry-forward, and any still-honest residual risk for this review-created block.
-3. [ ] Re-open this plan after the summary refresh and compare the `0000055-20260422T115002Z-d109d87f` findings block against the refreshed summary so both files name the same finding owners, proof homes, residual-risk categories, and expected final disposition before the testing section runs.
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260422T115002Z-d109d87f` and the completed proof-owner sections for Tasks `192` through `195`; check off this subtask only after each dependency task shows `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker in parser output.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F6`, including repaired files, proof homes from Tasks `192` through `195`, saturation and blind-spot challenge carry-forward, and any residual risk already known before this task's broad wrapper execution.
+3. [ ] Re-open this plan after the summary refresh and compare the `0000055-20260422T115002Z-d109d87f` findings block against the refreshed summary so both files name the same finding owners, proof homes, residual-risk categories, and expected final validation scope before the testing section runs.
 
 #### Testing
 
@@ -15573,4 +15696,4 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 
 #### Manual Testing Guidance
 
-Optional later manual validation can focus on the externally observable seams repaired by this review-created block: cleanup-blocked visibility, production remove rejection for queue-owned rows, normal completed-row removal, queued re-embed retryability surfaces, and unchanged queue visibility through the supported main Docker stack.
+Optional later manual validation can focus on the externally observable seams repaired by this review-created block: cleanup-blocked visibility, production remove rejection for queue-owned rows, normal completed-row removal, queued re-embed retryability surfaces, and unchanged queue visibility through the supported main Docker stack. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.

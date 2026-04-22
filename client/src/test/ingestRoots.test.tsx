@@ -294,7 +294,7 @@ describe('RootsTable', () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
-  it('calls remove endpoint and shows message', async () => {
+  it('uses persisted root path, not canonical row identity, for row Remove payloads', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ status: 'ok', unlocked: true }),
     );
@@ -302,7 +302,13 @@ describe('RootsTable', () => {
 
     render(
       <RootsTable
-        roots={[root]}
+        roots={[
+          {
+            ...root,
+            id: '/canonical-repo',
+            path: '/persisted-root',
+          },
+        ]}
         lockedModelId="embed-1"
         isLoading={false}
         error={undefined}
@@ -319,10 +325,55 @@ describe('RootsTable', () => {
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/ingest/remove/%2Frepo'),
+      expect.stringContaining('/ingest/remove/%2Fpersisted-root'),
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/ingest/remove/%2Fcanonical-repo'),
+      expect.any(Object),
+    );
+    expect(await screen.findByText(/Removed/)).toBeInTheDocument();
+  });
+
+  it('clears row Remove selection by stable key after submitting persisted root path', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ status: 'ok', unlocked: true }),
+    );
+
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            id: '/canonical-repo',
+            path: '/persisted-root',
+          },
+        ]}
+        lockedModelId="embed-1"
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select repo/i }),
+    );
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    const row = await screen.findByRole('row', { name: /repo/i });
+    await act(async () => {
+      fireEvent.click(within(row).getByRole('button', { name: /^Remove$/i }));
+      await Promise.resolve();
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/ingest/remove/%2Fpersisted-root'),
       expect.objectContaining({ method: 'POST' }),
     );
     expect(await screen.findByText(/Removed/)).toBeInTheDocument();
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
   });
 
   it('keeps destructive remove gated while queueable re-embed stays available during an active run', async () => {
@@ -442,7 +493,7 @@ describe('RootsTable', () => {
     expect(runningReembed).toBeDisabled();
 
     fireEvent.click(selectAll);
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeEnabled();
     expect(bulkReembed).toBeEnabled();
 
@@ -597,6 +648,295 @@ describe('RootsTable', () => {
     fireEvent.click(activeCheckbox);
     expect(screen.getByText('0 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeDisabled();
+  });
+
+  it('maps bulk Remove selected stable keys to persisted root paths when id differs from path', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (
+        url.includes('/ingest/remove/%2Fpersisted-a') ||
+        url.includes('/ingest/remove/%2Fpersisted-b')
+      ) {
+        return mockJsonResponse({ status: 'ok', unlocked: false });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
+    const onRefreshModels: () => Promise<void> = jest.fn(async () => undefined);
+
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            id: '/canonical-a',
+            path: '/persisted-a',
+            name: 'repo-a',
+          },
+          {
+            ...root,
+            id: '/canonical-b',
+            path: '/persisted-b',
+            name: 'repo-b',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+        onRefreshModels={onRefreshModels}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select all roots/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove selected/i }));
+      await Promise.resolve();
+    });
+
+    const removeUrls = mockFetch.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/ingest/remove/'));
+
+    expect(removeUrls).toHaveLength(2);
+    expect(removeUrls).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('/ingest/remove/%2Fpersisted-a'),
+        expect.stringContaining('/ingest/remove/%2Fpersisted-b'),
+      ]),
+    );
+    expect(removeUrls.join(' ')).not.toContain('/canonical-a');
+    expect(removeUrls.join(' ')).not.toContain('/canonical-b');
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onRefreshModels).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+  });
+
+  it('keeps bulk Re-embed on canonical identity when bulk Remove uses persisted root paths', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (
+        url.includes('/ingest/reembed/%2Fcanonical-a') ||
+        url.includes('/ingest/reembed/%2Fcanonical-b')
+      ) {
+        return mockJsonResponse({
+          requestId: 'queue-request',
+          runId: 'run-reembed',
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            id: '/canonical-a',
+            path: '/persisted-a',
+            name: 'repo-a',
+          },
+          {
+            ...root,
+            id: '/canonical-b',
+            path: '/persisted-b',
+            name: 'repo-b',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select all roots/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /re-embed selected/i }),
+      );
+      await Promise.resolve();
+    });
+
+    const reembedUrls = mockFetch.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/ingest/reembed/'));
+
+    expect(reembedUrls).toHaveLength(2);
+    expect(reembedUrls).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('/ingest/reembed/%2Fcanonical-a'),
+        expect.stringContaining('/ingest/reembed/%2Fcanonical-b'),
+      ]),
+    );
+    expect(reembedUrls.join(' ')).not.toContain('/persisted-a');
+    expect(reembedUrls.join(' ')).not.toContain('/persisted-b');
+  });
+
+  it('retains stale selected keys locally while excluding queued running cleanup-blocked and active rows from bulk Remove payloads', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/remove/%2Fpersisted-eligible')) {
+        return mockJsonResponse({ status: 'ok', unlocked: false });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
+    const { rerender } = render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            id: '/canonical-eligible',
+            path: '/persisted-eligible',
+            name: 'repo-eligible',
+          },
+          {
+            ...root,
+            id: '/canonical-queued',
+            path: '/persisted-queued',
+            name: 'repo-queued',
+          },
+          {
+            ...root,
+            id: '/canonical-running',
+            path: '/persisted-running',
+            name: 'repo-running',
+          },
+          {
+            ...root,
+            id: '/canonical-cleanup',
+            path: '/persisted-cleanup',
+            name: 'repo-cleanup',
+          },
+          {
+            ...root,
+            id: '/canonical-active',
+            path: '/persisted-active',
+            name: 'repo-active',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select all roots/i }),
+    );
+    expect(screen.getByText('5 selected')).toBeInTheDocument();
+
+    rerender(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            id: '/canonical-eligible',
+            path: '/persisted-eligible',
+            name: 'repo-eligible',
+          },
+          {
+            ...root,
+            id: '/canonical-queued',
+            path: '/persisted-queued',
+            name: 'repo-queued',
+            status: 'ingesting',
+            phase: 'queued',
+            queueState: 'waiting',
+            requestId: 'queue-request-queued',
+            runId: null,
+          },
+          {
+            ...root,
+            id: '/canonical-running',
+            path: '/persisted-running',
+            name: 'repo-running',
+            status: 'ingesting',
+            phase: 'embedding',
+            queueState: 'running',
+            requestId: 'queue-request-running',
+            runId: 'run-running',
+          },
+          {
+            ...root,
+            id: '/canonical-cleanup',
+            path: '/persisted-cleanup',
+            name: 'repo-cleanup',
+            status: 'ingesting',
+            phase: 'embedding',
+            queueState: 'cleanup-blocked',
+            requestId: 'queue-request-cleanup',
+            runId: 'run-cleanup',
+          },
+          {
+            ...root,
+            id: '/canonical-active',
+            path: '/persisted-active',
+            name: 'repo-active',
+            status: 'ingesting',
+            phase: 'embedding',
+            queueState: undefined,
+            requestId: 'queue-request-active',
+            runId: 'run-active',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+      />,
+    );
+
+    expect(screen.getByText('5 selected')).toBeInTheDocument();
+    for (const name of [
+      'repo-queued',
+      'repo-running',
+      'repo-cleanup',
+      'repo-active',
+    ]) {
+      const row = screen.getByRole('row', { name: new RegExp(name, 'i') });
+      expect(
+        within(row).getByRole('checkbox', {
+          name: new RegExp(`select ${name}`, 'i'),
+        }),
+      ).toBeChecked();
+      expect(
+        within(row).getByRole('checkbox', {
+          name: new RegExp(`select ${name}`, 'i'),
+        }),
+      ).toBeDisabled();
+    }
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /remove selected/i }));
+      await Promise.resolve();
+    });
+
+    const removeUrls = mockFetch.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/ingest/remove/'));
+
+    expect(removeUrls).toEqual([
+      expect.stringContaining('/ingest/remove/%2Fpersisted-eligible'),
+    ]);
+    expect(removeUrls.join(' ')).not.toContain('persisted-queued');
+    expect(removeUrls.join(' ')).not.toContain('persisted-running');
+    expect(removeUrls.join(' ')).not.toContain('persisted-cleanup');
+    expect(removeUrls.join(' ')).not.toContain('persisted-active');
+    expect(screen.getByText('4 selected')).toBeInTheDocument();
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('reports partial failure honestly after a mixed-success bulk remove', async () => {
@@ -878,7 +1218,7 @@ describe('RootsTable', () => {
     expect(bulkReembed).toBeEnabled();
   });
 
-  it('clears a selected row from shared bulk re-embed state when live row data becomes queue-blocked', async () => {
+  it('retains a stale selected key locally but excludes it from bulk re-embed when live row data becomes queue-blocked', async () => {
     const { rerender } = render(
       <RootsTable
         roots={[{ ...root, path: '/repo-transition', name: 'repo-transition' }]}
@@ -920,10 +1260,13 @@ describe('RootsTable', () => {
       />,
     );
 
-    expect(screen.getByText('0 selected')).toBeInTheDocument();
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /re-embed selected/i }),
     ).toBeDisabled();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-transition/i }),
+    ).toBeChecked();
     expect(
       screen.getByRole('checkbox', { name: /select repo-transition/i }),
     ).toBeDisabled();
@@ -1044,7 +1387,7 @@ describe('RootsTable', () => {
       />,
     );
 
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(
@@ -1062,6 +1405,7 @@ describe('RootsTable', () => {
       '/ingest/reembed/%2Frepo-eligible',
     );
     expect(String(reembedCalls[0]?.[0] ?? '')).not.toContain('/repo-stale');
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(onRefreshModels).toHaveBeenCalledTimes(1);
   });

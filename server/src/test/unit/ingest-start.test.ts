@@ -361,6 +361,91 @@ test('ingest-start rejects blank canonical model even when legacy model is also 
   assert.equal(enqueueCalled, false);
 });
 
+test('ingest-start rejects malformed typed body fields before queue admission or pump scheduling', async () => {
+  const cases: Array<{
+    title: string;
+    body: Record<string, unknown>;
+    message: string;
+  }> = [
+    {
+      title: 'non-string name',
+      body: {
+        path: '/tmp/repo',
+        name: 123,
+        model: 'nomic-embed',
+      },
+      message: 'name must be a string',
+    },
+    {
+      title: 'non-string description',
+      body: {
+        path: '/tmp/repo',
+        name: 'repo',
+        description: false,
+        model: 'nomic-embed',
+      },
+      message: 'description must be a string',
+    },
+    {
+      title: 'non-boolean dryRun',
+      body: {
+        path: '/tmp/repo',
+        name: 'repo',
+        dryRun: 'false',
+        model: 'nomic-embed',
+      },
+      message: 'dryRun must be a boolean',
+    },
+    {
+      title: 'unexpected body field',
+      body: {
+        path: '/tmp/repo',
+        name: 'repo',
+        model: 'nomic-embed',
+        unexpected: 'value',
+      },
+      message: 'unexpected body field: unexpected',
+    },
+  ];
+
+  for (const testCase of cases) {
+    let enqueueCalled = false;
+    let pumpCalled = false;
+    const response = await request(
+      buildApp({
+        enqueueOrReuseIngestRequest: async () => {
+          enqueueCalled = true;
+          return buildQueueResult();
+        },
+        pumpIngestQueue: async () => {
+          pumpCalled = true;
+          return {
+            started: true,
+            blockedByCleanup: false,
+            requestId: 'queue-request-123',
+            runId: '00000000-0000-0000-0000-000000000123',
+          };
+        },
+      }),
+    )
+      .post('/ingest/start')
+      .send(testCase.body);
+
+    assert.equal(response.status, 400, testCase.title);
+    assert.deepEqual(
+      response.body,
+      {
+        status: 'error',
+        code: 'VALIDATION',
+        message: testCase.message,
+      },
+      testCase.title,
+    );
+    assert.equal(enqueueCalled, false, testCase.title);
+    assert.equal(pumpCalled, false, testCase.title);
+  }
+});
+
 test('ingest-start rejects relative queue roots before queue admission creates any row', async () => {
   let enqueueCalled = false;
 

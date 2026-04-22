@@ -44,6 +44,26 @@ function getResponseSchema(
   )?.schema ?? null) as Record<string, unknown> | null)!;
 }
 
+function getRequestSchema(
+  openapi: ReturnType<typeof readOpenApi>,
+  pathName: string,
+  method: 'post',
+) {
+  const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
+    pathName
+  ] as Record<string, unknown> | undefined;
+  const operation = (schema?.[method] ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  return (((
+    (
+      ((operation?.requestBody as Record<string, unknown>)?.content ??
+        {}) as Record<string, unknown>
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+}
+
 function assertQueueUnavailableResponse(
   openapi: ReturnType<typeof readOpenApi>,
   pathName: '/ingest/start' | '/ingest/reembed/{root}',
@@ -170,6 +190,37 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
     (repoItem?.required as string[] | undefined)?.includes('runId') ?? false,
     false,
   );
+});
+
+test('OpenAPI /ingest/start request schema rejects malformed typed body fields and unknown properties', () => {
+  const openapi = readOpenApi();
+  const requestSchema = getRequestSchema(openapi, '/ingest/start', 'post');
+
+  assert.ok(requestSchema, 'missing /ingest/start request schema');
+  assert.equal(requestSchema.type, 'object');
+  assert.deepEqual(requestSchema.required, ['path', 'name']);
+  assert.equal(requestSchema.additionalProperties, false);
+
+  const props = (requestSchema.properties ?? {}) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(props).sort(), [
+    'description',
+    'dryRun',
+    'embeddingModel',
+    'embeddingProvider',
+    'model',
+    'name',
+    'path',
+  ]);
+  assert.deepEqual(props.path, { type: 'string' });
+  assert.deepEqual(props.name, { type: 'string' });
+  assert.deepEqual(props.description, { type: 'string' });
+  assert.deepEqual(props.dryRun, { type: 'boolean' });
+  assert.deepEqual(props.model, { type: 'string' });
+  assert.deepEqual(props.embeddingProvider, {
+    type: 'string',
+    enum: ['lmstudio', 'openai'],
+  });
+  assert.deepEqual(props.embeddingModel, { type: 'string' });
 });
 
 test('OpenAPI /ingest/start queue-aware 202 response documents immediate and waiting acceptance shapes', () => {

@@ -16,6 +16,7 @@ import {
 } from '../ingest/providers/index.js';
 import {
   resolveRequestEmbeddingSelection,
+  validateStartIngestRequestBody,
   validateQueueableRepositoryRootPath,
 } from '../ingest/requestContracts.js';
 import {
@@ -91,14 +92,15 @@ export function createIngestStartRouter({
   const router = Router();
 
   router.post('/ingest/start', async (req, res) => {
-    const { path, name, description, dryRun = false } = req.body ?? {};
-    if (!path || !name) {
-      return res.status(400).json({
+    const bodyValidation = validateStartIngestRequestBody(req.body);
+    if ('status' in bodyValidation) {
+      return res.status(bodyValidation.status).json({
         status: 'error',
-        code: 'VALIDATION',
-        message: 'path and name are required',
+        code: bodyValidation.code,
+        message: bodyValidation.message,
       });
     }
+    const { path, name, description, dryRun = false } = bodyValidation;
     let canonicalQueuePath: string;
     try {
       canonicalQueuePath = validateQueueableRepositoryRootPath(path);

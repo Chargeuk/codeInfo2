@@ -11,6 +11,13 @@ export type CanonicalEmbeddingRequestFields = {
   model?: unknown;
 };
 
+export type StartIngestRequestBody = CanonicalEmbeddingRequestFields & {
+  path: string;
+  name: string;
+  description?: string;
+  dryRun?: boolean;
+};
+
 export type QueuedIngestRequestPaths = {
   canonicalTargetPath: string;
   requestPayloadPath: string;
@@ -53,6 +60,16 @@ export type RequestContractValidationError = {
   code: string;
   message: string;
 };
+
+const startIngestBodyFields = new Set([
+  'path',
+  'name',
+  'description',
+  'dryRun',
+  'model',
+  'embeddingProvider',
+  'embeddingModel',
+]);
 
 export function createInvalidReembedStateError() {
   const error = new Error('INVALID_REEMBED_STATE');
@@ -199,6 +216,76 @@ function resolveQueueableAllowedRoot(
   }
 
   return canonicalAllowedRoot;
+}
+
+export function validateStartIngestRequestBody(
+  body: unknown,
+): StartIngestRequestBody | RequestContractValidationError {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'request body must be an object',
+    };
+  }
+
+  const record = body as Record<string, unknown>;
+  const unexpectedField = Object.keys(record).find(
+    (key) => !startIngestBodyFields.has(key),
+  );
+  if (unexpectedField) {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: `unexpected body field: ${unexpectedField}`,
+    };
+  }
+
+  const hasName = Object.prototype.hasOwnProperty.call(record, 'name');
+  if (!record.path || !hasName) {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'path and name are required',
+    };
+  }
+
+  if (typeof record.name !== 'string') {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'name must be a string',
+    };
+  }
+
+  if (record.name.length === 0) {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'path and name are required',
+    };
+  }
+
+  if (
+    record.description !== undefined &&
+    typeof record.description !== 'string'
+  ) {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'description must be a string',
+    };
+  }
+
+  if (record.dryRun !== undefined && typeof record.dryRun !== 'boolean') {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'dryRun must be a boolean',
+    };
+  }
+
+  return record as StartIngestRequestBody;
 }
 
 function normalizeProvider(

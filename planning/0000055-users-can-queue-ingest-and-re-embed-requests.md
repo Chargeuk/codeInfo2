@@ -14252,11 +14252,11 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 
 #### Subtasks
 
-1. [ ] Re-read Finding `F3`, `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, the queue replay helper, and the OpenAPI start-ingest request schema. Purpose: keep malformed-body validation at the request producer boundary and avoid schema/runtime drift.
-2. [ ] Patch the start-ingest admission path so non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected body keys are rejected with the existing validation envelope before queue admission, queue document creation, or pump scheduling, while valid queue-aware responses keep `requestId`, `runId`, `queued`, and `queuePosition`.
-3. [ ] Add or update `server/src/test/unit/ingest-start.test.ts` proof so non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected body fields return the existing validation envelope before queue helper or pump scheduling, and one valid queue-aware admission still returns `requestId`, `runId`, `queued`, and `queuePosition`. Use test titles that name malformed typed body rejection before queue admission, and assert validation response plus no queue helper/pump scheduling in the same scenario rather than through adjacent tests.
-4. [ ] Add or update `server/src/test/unit/openapi.contract.test.ts` proof so the start-ingest request schema rejects malformed typed fields and unknown body fields in the same shape the route enforces. Rename or split the existing start-ingest schema test if its current title only claims queue-aware responses or 503 diagnostics.
-5. [ ] Add or update the `ingest-start-body` Cucumber proof surface in `server/src/test/features/ingest-start-body.feature` and `server/src/test/steps/ingest-start-body.steps.ts` so public behavior matches runtime validation and valid queue response behavior. Scenario titles must distinguish valid JSON acceptance, canonical-field precedence, and malformed typed-field rejection before queue admission.
+1. [x] Re-read Finding `F3`, `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, the queue replay helper, and the OpenAPI start-ingest request schema. Purpose: keep malformed-body validation at the request producer boundary and avoid schema/runtime drift.
+2. [x] Patch the start-ingest admission path so non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected body keys are rejected with the existing validation envelope before queue admission, queue document creation, or pump scheduling, while valid queue-aware responses keep `requestId`, `runId`, `queued`, and `queuePosition`.
+3. [x] Add or update `server/src/test/unit/ingest-start.test.ts` proof so non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected body fields return the existing validation envelope before queue helper or pump scheduling, and one valid queue-aware admission still returns `requestId`, `runId`, `queued`, and `queuePosition`. Use test titles that name malformed typed body rejection before queue admission, and assert validation response plus no queue helper/pump scheduling in the same scenario rather than through adjacent tests.
+4. [x] Add or update `server/src/test/unit/openapi.contract.test.ts` proof so the start-ingest request schema rejects malformed typed fields and unknown body fields in the same shape the route enforces. Rename or split the existing start-ingest schema test if its current title only claims queue-aware responses or 503 diagnostics.
+5. [x] Add or update the `ingest-start-body` Cucumber proof surface in `server/src/test/features/ingest-start-body.feature` and `server/src/test/steps/ingest-start-body.steps.ts` so public behavior matches runtime validation and valid queue response behavior. Scenario titles must distinguish valid JSON acceptance, canonical-field precedence, and malformed typed-field rejection before queue admission.
 
 #### Testing
 
@@ -14267,7 +14267,11 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 
 #### Implementation Notes
 
-- Pending.
+- Subtask 1: re-read Finding `F3`, the start-ingest route, shared request-contract validators, queue replay rehydration in `server/src/ingest/ingestJob.ts`, and the OpenAPI start-ingest request schema; confirmed the current gap is that typed body fields can reach queued `requestPayload` and later be silently defaulted by replay unless the route rejects them first.
+- Subtask 2: added shared start-ingest body-shape validation in `server/src/ingest/requestContracts.ts` and wired `server/src/routes/ingestStart.ts` to reject non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected body fields before canonical path validation, queue admission, or pump scheduling.
+- Subtask 3: added `server/src/test/unit/ingest-start.test.ts` proof covering non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected fields with the existing validation envelope plus same-scenario assertions that neither queue admission nor pump scheduling runs; existing valid queue-aware tests continue to cover immediate and waiting response fields.
+- Subtask 4: added `server/src/test/unit/openapi.contract.test.ts` request-schema proof for `/ingest/start` so the documented request shape requires `path` and `name`, types `name`, `description`, `dryRun`, model fields, and keeps `additionalProperties: false` aligned with route validation.
+- Subtask 5: updated `server/src/test/features/ingest-start-body.feature` and `server/src/test/steps/ingest-start-body.steps.ts` so valid JSON now asserts immediate queue acceptance, canonical-field precedence stays distinct, and a malformed typed-field scenario outline proves validation errors leave the start-ingest queue helper uncalled.
 
 ### Task 180. Realign Shared Repo-List Runtime, OpenAPI, And Queue Overlay Identity
 

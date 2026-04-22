@@ -93,6 +93,19 @@ When the result has `status: "skipped"`:
 
 </review_artifact_rules>
 
+<failure_modes>
+
+- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
+- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the review disposition state must be regenerated.
+- If `minor-review-fix-result.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the minor-fix result must be regenerated.
+- If the result says `fixed` but has no `finding_id` or no `commit_sha`, do not mark anything resolved. Add or preserve an incomplete-review blocker in state and report the contradiction.
+- If the result commit cannot be found in the target repository, do not mark the finding resolved. Add a state note or blocker explaining that the fix commit is missing.
+- If the canonical plan already has a `## Minor Review Fixes` entry for the finding ID, update that entry rather than adding a duplicate.
+- If updating the findings artifact fails because it is missing or ignored scratch state is unavailable, continue after recording the issue in `classification_notes`; the plan and state remain the required durable documentation.
+- If the plan edit succeeds but commit fails, stop and report the failed commit command without pretending the documentation was committed.
+
+</failure_modes>
+
 <output_contract>
 
 - Update `review-disposition-state.json` so downstream loop gates can decide whether to keep fixing minor findings, task up reclassified work, or rerun review.

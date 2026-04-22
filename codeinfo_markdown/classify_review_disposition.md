@@ -188,6 +188,17 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 
 </state_field_rules>
 
+<failure_modes>
+
+- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop without writing a misleading clean state and say the current-plan handoff must be regenerated.
+- If the canonical plan file is missing or the current repository branch story number does not match the selected plan filename, stop and say the current-plan handoff is stale and must be regenerated.
+- If any additional repository is missing, unreadable, or on a branch whose story number does not match the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing.
+- If the review handoff or findings artifact is missing, unreadable, or malformed but enough story context exists to write state, write an `incomplete_review_blockers` entry and set `needs_task_up_path` true.
+- If a previous state file is malformed, ignore its carry-forward fields, add a `classification_notes` entry, and continue from the current review artifacts when they are usable.
+- If a finding cannot be parsed into a stable ID, assign a deterministic local ID such as `unparsed-1` and record the parsing limitation in `classification_notes`.
+
+</failure_modes>
+
 <output_contract>
 
 - Create or update only `codeInfoStatus/flow-state/review-disposition-state.json`.

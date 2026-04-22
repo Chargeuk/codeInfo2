@@ -75,6 +75,20 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 
 </result_schema>
 
+<failure_modes>
+
+- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, write a `blocked` result with `finding_id: null` and stop.
+- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, write a `blocked` result with `finding_id: null` and stop.
+- If `unresolved_minor_batchable_findings` is empty, write a `skipped` result with `finding_id: null` and stop.
+- If unresolved task-required findings are present, write a `skipped` result explaining that task-required findings take precedence.
+- If the target repository cannot be resolved or its branch story number does not match the plan filename, write a `blocked` result and stop.
+- If local uncommitted changes overlap the files needed for the selected minor fix, write a `blocked` result instead of overwriting or mixing work.
+- If the selected finding no longer satisfies every minor-batchable rule after source inspection, write a `reclassify_task_required` result and stop.
+- If targeted proof fails and the repair is not clearly minor after one bounded inspection, write a `blocked` or `reclassify_task_required` result rather than broadening the fix.
+- If no tracked files changed after the attempted fix, write a `skipped` result explaining why no commit was made.
+
+</failure_modes>
+
 <output_contract>
 
 - Fix at most one minor finding.

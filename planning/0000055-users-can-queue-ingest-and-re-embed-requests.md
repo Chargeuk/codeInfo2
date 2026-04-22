@@ -14520,6 +14520,7 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 - Automated proof: `npm run lint` passed with no reported issues.
 - Automated proof: `npm run format:check` initially flagged `server/src/test/steps/ingest-manage.steps.ts`; ran `npm run format` as listed, then reran `npm run format:check` successfully with Prettier reporting all matched files use the expected style.
 - Automated-proof audit: confirmed Subtasks 1 through 5 and Testing 1 through 3 are complete on current disk, no live blocker is present, and Task 182 is now honestly `__done__`.
+- Manual testing was assessed as not applicable for this task-scoped pass because Task 182 changes only Cucumber proof-helper state and feature assertions in `server/src/test/steps/ingest-manage.steps.ts`, `server/src/test/features/ingest-status.feature`, and `server/src/test/features/ingest-reembed.feature`; it does not add or alter a runnable, browser-visible, network-visible, or otherwise externally observable product surface. The task is not the final story task, so full-story manual proof was not in scope, no runtime was started, no screenshots or artifacts were needed, and no new subtasks or testing steps were added.
 
 ### Task 183. Deduplicate Queue-State Literals In The Queue Schema Index
 

@@ -26,6 +26,7 @@ import {
 import { append } from '../logStore.js';
 import { baseLogger, parseNumber } from '../logger.js';
 import {
+  ingestLiveQueueTargetStates,
   IngestQueueRequestModel,
   type IngestQueueRequest,
 } from '../mongo/ingestQueueRequest.js';
@@ -1395,7 +1396,7 @@ export async function listIngestedRepositories(
   const queueRequests =
     mongoose.connection.readyState === 1
       ? await IngestQueueRequestModel.find({
-          queueState: { $in: ['waiting', 'running', 'cleanup-blocked'] },
+          queueState: { $in: [...ingestLiveQueueTargetStates] },
         })
           .sort({ createdAt: 1, _id: 1 })
           .exec()

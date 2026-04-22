@@ -218,12 +218,15 @@ export default function RootsTable({
         queued?: boolean;
         requestId?: string;
         runId?: string;
+        queueState?: 'running' | null;
         queuePosition?: number | null;
       };
       if (typeof data.requestId !== 'string' || data.requestId.length === 0) {
         throw new Error('Missing requestId in response');
       }
-      if (data.queued === true) {
+      const isWaiting = data.queued === true;
+      const hasRunId = typeof data.runId === 'string' && data.runId.length > 0;
+      if (isWaiting) {
         setStatus(path, {
           status: 'success',
           message: `Queued${
@@ -232,7 +235,10 @@ export default function RootsTable({
               : ''
           }`,
         });
-      } else if (typeof data.runId === 'string' && data.runId.length > 0) {
+      } else if (hasRunId || data.queueState === 'running') {
+        if (!hasRunId) {
+          throw new Error('Malformed re-embed response');
+        }
         onRunStarted?.(data.runId);
         setStatus(path, {
           status: 'success',

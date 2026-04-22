@@ -288,6 +288,7 @@ test('ingest-start canonical fields are authoritative when legacy model is also 
   assert.equal(response.body.runId, '00000000-0000-0000-0000-000000000123');
   assert.equal(response.body.requestId, 'queue-request-123');
   assert.equal(response.body.queued, false);
+  assert.equal(response.body.queueState, 'running');
   assert.equal(capturedModel, 'openai/text-embedding-3-small');
   assert.equal(capturedProvider, 'openai');
   assert.equal(capturedEmbeddingModel, 'text-embedding-3-small');
@@ -673,6 +674,7 @@ test('ingest-start legacy model maps to lmstudio compatibility input', async () 
   assert.equal(response.body.runId, '00000000-0000-0000-0000-000000000124');
   assert.equal(response.body.requestId, 'queue-request-124');
   assert.equal(response.body.queued, false);
+  assert.equal(response.body.queueState, 'running');
   assert.equal(capturedModel, 'nomic-embed');
   assert.equal(capturedProvider, 'lmstudio');
 });
@@ -689,6 +691,7 @@ test('ingest-start logs QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID with shared canon
     queued: false,
     requestId: 'queue-request-123',
     runId: '00000000-0000-0000-0000-000000000001',
+    queueState: 'running',
   });
   assert.equal('queuePosition' in response.body, false);
 
@@ -816,7 +819,7 @@ test('ingest-start post-pump promotion logs the refreshed waiting queuePosition 
   assert.equal(acceptanceEntry.context?.queuePosition, 1);
 });
 
-test('ingest-start promoted duplicate returns immediate acceptance with runId instead of stale waiting semantics', async () => {
+test('ingest-start promoted duplicate returns immediate running acceptance instead of stale waiting semantics', async () => {
   const response = await request(
     buildApp({
       enqueueOrReuseIngestRequest: async () =>
@@ -847,12 +850,13 @@ test('ingest-start promoted duplicate returns immediate acceptance with runId in
     queued: false,
     requestId: 'queue-request-123',
     runId: '00000000-0000-0000-0000-000000000123',
+    queueState: 'running',
   });
   assert.equal('queuePosition' in response.body, false);
   assert.equal('deduped' in response.body, false);
 });
 
-test('ingest-start immediate-start response includes runId and omits waiting queuePosition after the current-position lookup', async () => {
+test('ingest-start immediate-start response includes running queueState and omits waiting queuePosition after the current-position lookup', async () => {
   const response = await request(
     buildApp({
       enqueueOrReuseIngestRequest: async (input) =>
@@ -887,6 +891,7 @@ test('ingest-start immediate-start response includes runId and omits waiting que
     queued: false,
     requestId: 'queue-request-immediate-start',
     runId: 'run-immediate-start',
+    queueState: 'running',
   });
   assert.equal('queuePosition' in response.body, false);
 });

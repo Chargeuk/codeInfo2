@@ -243,6 +243,7 @@ export function createIngestStartRouter({
               queued: false,
               requestId: queueResult.requestId,
               runId,
+              queueState: 'running',
             }
           : {
               queued: true,

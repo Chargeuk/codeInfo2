@@ -114,6 +114,7 @@ export function createIngestReembedRouter({
               queued: false,
               requestId: queueResult.requestId,
               runId,
+              queueState: 'running',
             }
           : {
               queued: true,

@@ -42,6 +42,7 @@ export type IngestFormProps = {
     queued: boolean;
     requestId: string;
     runId?: string;
+    queueState?: 'running';
     queuePosition?: number | null;
   }) => void;
   disabled?: boolean;
@@ -242,21 +243,27 @@ export default function IngestForm({
         queued?: boolean;
         requestId?: string;
         runId?: string;
+        queueState?: 'running' | null;
         queuePosition?: number | null;
       };
       if (typeof data.requestId !== 'string' || data.requestId.length === 0) {
         throw new Error('Missing requestId in response');
       }
-      if (typeof data.runId === 'string' && data.runId.length > 0) {
+      const isWaiting = data.queued === true;
+      const hasRunId = typeof data.runId === 'string' && data.runId.length > 0;
+      if (hasRunId) {
         onStarted?.(data.runId);
       }
       onAccepted?.({
-        queued: data.queued === true,
+        queued: isWaiting,
         requestId: data.requestId,
-        ...(typeof data.runId === 'string' && data.runId.length > 0
+        ...(hasRunId
           ? { runId: data.runId }
           : {}),
-        ...(typeof data.queuePosition === 'number'
+        ...(data.queueState === 'running' && !isWaiting
+          ? { queueState: data.queueState }
+          : {}),
+        ...(isWaiting && typeof data.queuePosition === 'number'
           ? { queuePosition: data.queuePosition }
           : {}),
       });

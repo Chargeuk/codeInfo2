@@ -10,7 +10,10 @@ import {
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
 import { baseLogger } from '../../logger.js';
-import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
+import {
+  ingestLiveQueueTargetStates,
+  IngestQueueRequestModel,
+} from '../../mongo/ingestQueueRequest.js';
 import { createToolsIngestedReposRouter } from '../../routes/toolsIngestedRepos.js';
 
 const ORIGINAL_HOST = process.env.CODEINFO_HOST_INGEST_DIR;
@@ -451,6 +454,48 @@ test('synthesizes active entry with canonical repository identity when persisted
   assert.equal(repo.hostPath, '/container/missing/repo');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'queued');
+});
+
+test('repository-list overlay queries only shared live queue states with bounded ordering', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  let capturedFilter: Record<string, unknown> | undefined;
+  let capturedSort: Record<string, unknown> | undefined;
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    (filter: Record<string, unknown>) => {
+      capturedFilter = filter;
+      return {
+        sort: (sort: Record<string, unknown>) => {
+          capturedSort = sort;
+          return {
+            exec: async () => [],
+          };
+        },
+      };
+    },
+  );
+
+  try {
+    const res = await request(
+      buildApp({ ids: [], metadatas: [] }, 'text-embed'),
+    ).get('/tools/ingested-repos');
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(capturedFilter, {
+      queueState: { $in: [...ingestLiveQueueTargetStates] },
+    });
+    assert.deepEqual(capturedSort, { createdAt: 1, _id: 1 });
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
 });
 
 test('waiting duplicate overlay preserves canonical repository identity while preferring the latest queued provider and model metadata', async () => {

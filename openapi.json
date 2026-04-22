@@ -653,9 +653,13 @@
                         },
                         "runId": {
                           "type": "string"
+                        },
+                        "queueState": {
+                          "type": "string",
+                          "enum": ["running"]
                         }
                       },
-                      "required": ["queued", "requestId", "runId"],
+                      "required": ["queued", "requestId", "runId", "queueState"],
                       "additionalProperties": false
                     },
                     {
@@ -753,9 +757,13 @@
                         },
                         "runId": {
                           "type": "string"
+                        },
+                        "queueState": {
+                          "type": "string",
+                          "enum": ["running"]
                         }
                       },
-                      "required": ["queued", "requestId", "runId"],
+                      "required": ["queued", "requestId", "runId", "queueState"],
                       "additionalProperties": false
                     },
                     {

@@ -410,6 +410,7 @@ test('ingest-reembed logs QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID with shared can
     queued: false,
     requestId: 'queue-request-123',
     runId: '00000000-0000-0000-0000-000000000001',
+    queueState: 'running',
   });
 
   const entries = query({ text: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID' }, 20);
@@ -517,7 +518,7 @@ test('ingest-reembed post-pump promotion logs the refreshed waiting queuePositio
   assert.equal(acceptanceEntry.context?.queuePosition, 1);
 });
 
-test('ingest-reembed promoted duplicate returns immediate acceptance with runId instead of stale waiting semantics', async () => {
+test('ingest-reembed promoted duplicate returns immediate running acceptance instead of stale waiting semantics', async () => {
   const response = await request(
     buildApp({
       enqueueOrReuseIngestRequest: async () =>
@@ -542,11 +543,12 @@ test('ingest-reembed promoted duplicate returns immediate acceptance with runId 
     queued: false,
     requestId: 'queue-request-123',
     runId: '00000000-0000-0000-0000-000000000124',
+    queueState: 'running',
   });
   assert.equal('queuePosition' in response.body, false);
 });
 
-test('ingest-reembed immediate-start response includes runId and omits waiting queuePosition after the current-position lookup', async () => {
+test('ingest-reembed immediate-start response includes running queueState and omits waiting queuePosition after the current-position lookup', async () => {
   const response = await request(
     buildApp({
       enqueueOrReuseIngestRequest: async (input) =>
@@ -575,6 +577,7 @@ test('ingest-reembed immediate-start response includes runId and omits waiting q
     queued: false,
     requestId: 'queue-request-immediate-reembed',
     runId: 'run-immediate-reembed',
+    queueState: 'running',
   });
   assert.equal('queuePosition' in response.body, false);
 });

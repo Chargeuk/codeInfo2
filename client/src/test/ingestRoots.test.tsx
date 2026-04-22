@@ -118,9 +118,15 @@ describe('RootsTable', () => {
     expect(screen.getByText(/No embedded folders yet/i)).toBeInTheDocument();
   });
 
-  it('treats requestId plus runId as immediate re-embed success and notifies parent', async () => {
+  it('treats immediate running re-embed response as non-queued and ignores stale queuePosition', async () => {
     mockFetch.mockResolvedValue(
-      mockJsonResponse({ requestId: 'queue-request-1', runId: 'new-run' }),
+      mockJsonResponse({
+        queued: false,
+        requestId: 'queue-request-1',
+        runId: 'new-run',
+        queueState: 'running',
+        queuePosition: 9,
+      }),
     );
     const onRunStarted = jest.fn();
     const onRefresh: () => Promise<void> = jest.fn(async () => undefined);

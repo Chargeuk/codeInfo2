@@ -262,7 +262,7 @@ test('OpenAPI /ingest/start request schema rejects malformed typed body fields a
   assert.deepEqual(props.embeddingModel, { type: 'string' });
 });
 
-test('OpenAPI /ingest/start queue-aware 202 response documents immediate and waiting acceptance shapes', () => {
+test('OpenAPI /ingest/start queue-aware 202 response documents immediate running and waiting acceptance shapes', () => {
   const openapi = readOpenApi();
   const bodySchema = getResponseSchema(openapi, '/ingest/start', 'post', '202');
 
@@ -281,10 +281,22 @@ test('OpenAPI /ingest/start queue-aware 202 response documents immediate and wai
     return queuedEnum.includes(false);
   });
   assert.ok(immediateSchema, 'missing immediate-start acceptance schema');
-  assert.deepEqual(immediateSchema?.required, ['queued', 'requestId', 'runId']);
+  assert.deepEqual(immediateSchema?.required, [
+    'queued',
+    'requestId',
+    'runId',
+    'queueState',
+  ]);
+  const immediateProps = (immediateSchema?.properties ?? {}) as Record<
+    string,
+    unknown
+  >;
+  assert.deepEqual(immediateProps.queueState, {
+    type: 'string',
+    enum: ['running'],
+  });
   assert.equal(
-    'queuePosition' in
-      (((immediateSchema?.properties ?? {}) as Record<string, unknown>) ?? {}),
+    'queuePosition' in immediateProps,
     false,
   );
 
@@ -302,9 +314,16 @@ test('OpenAPI /ingest/start queue-aware 202 response documents immediate and wai
     'requestId',
     'queuePosition',
   ]);
+  const waitingProps = (waitingSchema?.properties ?? {}) as Record<
+    string,
+    unknown
+  >;
   assert.equal(
-    'runId' in
-      (((waitingSchema?.properties ?? {}) as Record<string, unknown>) ?? {}),
+    'runId' in waitingProps,
+    false,
+  );
+  assert.equal(
+    'queueState' in waitingProps,
     false,
   );
 });
@@ -315,7 +334,7 @@ test('OpenAPI /ingest/start documents POST /ingest/start 503 QUEUE_UNAVAILABLE r
   assertQueueUnavailableResponse(openapi, '/ingest/start');
 });
 
-test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediate and waiting acceptance shapes', () => {
+test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediate running and waiting acceptance shapes', () => {
   const openapi = readOpenApi();
   const bodySchema = getResponseSchema(
     openapi,
@@ -339,7 +358,21 @@ test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediat
     return queuedEnum.includes(false);
   });
   assert.ok(immediateSchema, 'missing immediate re-embed acceptance schema');
-  assert.deepEqual(immediateSchema?.required, ['queued', 'requestId', 'runId']);
+  assert.deepEqual(immediateSchema?.required, [
+    'queued',
+    'requestId',
+    'runId',
+    'queueState',
+  ]);
+  const immediateProps = (immediateSchema?.properties ?? {}) as Record<
+    string,
+    unknown
+  >;
+  assert.deepEqual(immediateProps.queueState, {
+    type: 'string',
+    enum: ['running'],
+  });
+  assert.equal('queuePosition' in immediateProps, false);
 
   const waitingSchema = variants.find((entry) => {
     const queuedEnum = ((
@@ -355,9 +388,16 @@ test('OpenAPI /ingest/reembed/{root} queue-aware 202 response documents immediat
     'requestId',
     'queuePosition',
   ]);
+  const waitingProps = (waitingSchema?.properties ?? {}) as Record<
+    string,
+    unknown
+  >;
   assert.equal(
-    'runId' in
-      (((waitingSchema?.properties ?? {}) as Record<string, unknown>) ?? {}),
+    'runId' in waitingProps,
+    false,
+  );
+  assert.equal(
+    'queueState' in waitingProps,
     false,
   );
 });

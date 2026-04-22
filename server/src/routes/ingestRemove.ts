@@ -14,18 +14,6 @@ export function createIngestRemoveRouter() {
   router.post('/ingest/remove/:root', async (req, res) => {
     const root = normalizeCanonicalQueueTargetPath(req.params.root);
     try {
-      const liveQueueRequest = await findLiveQueueRequestForTarget(root);
-      if (liveQueueRequest) {
-        return res.status(409).json({
-          status: 'error',
-          code: 'QUEUE_STATE_BLOCKED',
-          message:
-            'Root removal is blocked while the ingest queue owns this target',
-          queueState: liveQueueRequest.queueState,
-          runId: liveQueueRequest.runId ?? null,
-        });
-      }
-
       const activeRun = getActiveRunContexts().find(
         (context) => context.rootPath === root || context.sourceId === root,
       );
@@ -42,6 +30,18 @@ export function createIngestRemoveRouter() {
 
       if (isBusy()) {
         return res.status(429).json({ status: 'error', code: 'BUSY' });
+      }
+
+      const liveQueueRequest = await findLiveQueueRequestForTarget(root);
+      if (liveQueueRequest) {
+        return res.status(409).json({
+          status: 'error',
+          code: 'QUEUE_STATE_BLOCKED',
+          message:
+            'Root removal is blocked while the ingest queue owns this target',
+          queueState: liveQueueRequest.queueState,
+          runId: liveQueueRequest.runId ?? null,
+        });
       }
 
       baseLogger.info({ root }, 'ingest remove start');

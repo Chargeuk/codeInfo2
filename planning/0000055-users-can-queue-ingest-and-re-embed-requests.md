@@ -15766,6 +15766,22 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 - Subtask 1: re-read the review pass `0000055-20260422T115002Z-d109d87f` findings block and completed proof-owner sections for Tasks `192` through `195`; parser output for each dependency reported `Task Status: __done__`, zero unchecked `Subtasks`, zero unchecked `Testing`, and no live blockers.
 - Subtask 2: refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` for review pass `0000055-20260422T115002Z-d109d87f` with the `F1` through `F6` finding-to-owner map, repaired files, dependency-task proof homes, saturation/blind-spot carry-forward, pre-wrapper residual risks, and Task 196 broad validation scope.
 - Subtask 3: re-opened this plan and the refreshed PR summary after the summary edit; both now align on current finding owners, dependency-task proof homes, saturation/blind-spot carry-forward, product/harness/baseline/environment residual-risk categories, and the Task 196 broad wrapper validation scope before Testing begins.
+- Testing 1: `npm run build:summary:server` passed with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed through typecheck and build with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/build-client-latest.log`.
+- Testing 3 repair: the first `npm run test:summary:server:unit` run failed because `createIngestRemoveRouter()` queried the Mongo-backed queue before honoring an existing in-memory ingest lock, making the lock-lifecycle proof receive 500 instead of deterministic `BUSY`; reordered the production remove guard so active-run ownership and `isBusy()` block before the queue read while waiting queue-owned rows still block before destructive removal.
+- Testing 3 targeted repair proof: `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts` passed with `tests run: 2`, `passed: 2`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T16-35-09-036Z.log`.
+- Testing 3: `npm run test:summary:server:unit` passed on rerun with `tests run: 1788`, `passed: 1788`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T16-35-18-618Z.log`.
+- Testing 4: `npm run test:summary:server:cucumber` passed with `tests run: 114`, `passed: 114`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-22T16-51-11-820Z.log`.
+- Testing 5: `npm run test:summary:client` passed with `tests run: 705`, `passed: 705`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-22T16-53-00-954Z.log`.
+- Testing 6: `npm run test:summary:e2e` passed through the wrapper's compose build, automated Playwright execution, and teardown path with `tests run: 60`, `passed: 60`, `failed: 0`, emitted `DEV-0000050:T13:e2e_host_network_config_verified`, `agent_action: skip_log`, and retained log `logs/test-summaries/e2e-tests-latest.log`.
+- Testing 7: `npm run compose:build:summary` passed with `items passed: 2`, `items failed: 0`, emitted `DEV-0000050:T10:image_runtime_assets_baked`, `agent_action: skip_log`, and retained log `logs/test-summaries/compose-build-latest.log`.
+- Testing 8: `npm run compose:up` passed the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}` and started the supported main stack; Mongo and the server reached healthy, and the client container started.
+- Testing 9: `npm run test:summary:host-network:main` passed with classic MCP, chat MCP, agents MCP, and Playwright MCP reachable over `host.docker.internal` at HTTP 200, emitted `DEV-0000050:T12:main_stack_probe_completed {"result":"passed"}`, `agent_action: skip_log`, and retained log `logs/test-summaries/host-network-main-latest.log`.
+- Testing 10: `npm run compose:down` passed and removed the client, server, Mongo, Chroma, Zipkin, OpenTelemetry collector, Playwright MCP containers, and the `codeinfo2_internal` network cleanly.
+- Testing 11: `npm run lint` passed with exit code 0 and no lint fixes were required.
+- Testing 12: `npm run format:check` passed with `All matched files use Prettier code style!`, so no `npm run format` repair pass was needed.
+- Testing 12 reopened: updated `codeInfoStatus/pr-summaries/0000055-pr-summary.md` after the first format proof to record Task 196 automated testing results and residual-risk close-out, so the format check had to be rerun against the current tree.
+- Testing 12 rerun: `npm run format:check` passed again against the current tree with `All matched files use Prettier code style!`.
 
 #### Subtasks
 
@@ -15775,18 +15791,18 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:server:cucumber`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
-7. [ ] Run `npm run compose:build:summary`.
-8. [ ] Run `npm run compose:up`.
-9. [ ] Run `npm run test:summary:host-network:main`.
-10. [ ] Run `npm run compose:down`.
-11. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-12. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run test:summary:server:cucumber`.
+5. [x] Run `npm run test:summary:client`.
+6. [x] Run `npm run test:summary:e2e` using the wrapper's automated setup, build, Playwright execution, and teardown path.
+7. [x] Run `npm run compose:build:summary`.
+8. [x] Run `npm run compose:up`.
+9. [x] Run `npm run test:summary:host-network:main`.
+10. [x] Run `npm run compose:down`.
+11. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+12. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 

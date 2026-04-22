@@ -512,6 +512,13 @@ test('queue-managed deferred reembed rejects cancelled root drift before delta w
     assert.equal(terminal.state, 'error');
     assert.equal(terminal.lastError, 'INVALID_REEMBED_STATE');
     assert.equal(listRootCalls.mock.calls.length, 0);
+    for (
+      let attempt = 0;
+      attempt < 5 && deletedRequestIds.length === 0;
+      attempt += 1
+    ) {
+      await waitForNextTurn();
+    }
     assert.ok(deletedRequestIds.length >= 1);
     assert.equal(
       deletedRequestIds.every(

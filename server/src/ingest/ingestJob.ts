@@ -1629,6 +1629,10 @@ async function processRun(runId: string, input: IngestJobInput) {
     const shouldFencePersistence = () =>
       cancelledRuns.has(runId) || cancelCleanupStarted;
 
+    const ensureNonReplayableBarrierBeforeFinalization = async () => {
+      await persistQueueNonReplayableBarrier(runId);
+    };
+
     const clearPendingPersistenceState = () => {
       pendingResults.clear();
       clearBatch();
@@ -1751,6 +1755,7 @@ async function processRun(runId: string, input: IngestJobInput) {
             if (cancelledRuns.has(runId) || cancelCleanupStarted) {
               return false;
             }
+            await ensureNonReplayableBarrierBeforeFinalization();
             await rootCollection.add({
               ids: [runId],
               embeddings: [Array(rootEmbeddingDim).fill(0)],
@@ -1803,6 +1808,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           if (cancelledRuns.has(runId) || cancelCleanupStarted) {
             return false;
           }
+          await ensureNonReplayableBarrierBeforeFinalization();
           setStatusAndPublish(
             runId,
             {
@@ -1882,8 +1888,10 @@ async function processRun(runId: string, input: IngestJobInput) {
 
     if (operation === 'reembed') {
       if (deltaMode === 'degraded_full') {
+        await ensureNonReplayableBarrierBeforeFinalization();
         await deleteVectors({ where: { root } });
       } else if (deltaMode === 'legacy_upgrade') {
+        await ensureNonReplayableBarrierBeforeFinalization();
         await deleteVectors({ where: { root } });
         await deleteRoots({ where: { root } });
       } else if (deltaMode === 'delta' && deltaPlan) {
@@ -1910,6 +1918,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           if (cancelledRuns.has(runId)) {
             return;
           }
+          await ensureNonReplayableBarrierBeforeFinalization();
           for (const file of deltaPlan.deleted) {
             await deleteVectors({
               where: { $and: [{ root }, { relPath: file.relPath }] },
@@ -2067,10 +2076,6 @@ async function processRun(runId: string, input: IngestJobInput) {
     if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
       finalSkipMessage = undefined;
     }
-
-    const ensureNonReplayableBarrierBeforeFinalization = async () => {
-      await persistQueueNonReplayableBarrier(runId);
-    };
 
     const handleCancellation = async (
       fileIndex: number,

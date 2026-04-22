@@ -14433,10 +14433,10 @@ Close the committed-but-barrier-lost recovery window by recording the durable no
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
-2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`.
-3. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-4. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
+2. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`.
+3. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+4. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14447,6 +14447,10 @@ Close the committed-but-barrier-lost recovery window by recording the durable no
 - Updated `server/src/test/unit/ingest-queue-runtime-pump.test.ts` so a pump-adjacent rejection path proves the replay barrier is recorded before queue deletion finalization, preserving cleanup/delete ordering before later work can start.
 - Updated `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts` so the barrier-backed startup recovery scenario and step explicitly assert no processor attempt, while the unfinished replay scenario remains separate.
 - Audit: confirmed the implementation-only pass closed Subtasks 1 through 6 against the queue finalization, startup recovery, terminal, pump, and BDD proof surfaces; no live blocker is present, and Testing 1 through 4 remain unchecked for the automated-proof step.
+- Automated proof: server unit wrapper initially exposed fast-path barrier gaps and one queue-delete timing assertion; patched `server/src/ingest/ingestJob.ts` to guard deletions-only/degraded/legacy fast-path finalization plus fast-path root/status writes, tightened the pump proof to await deletion, and reran the listed server-unit wrapper with 33 passing tests and 0 failures.
+- Automated proof: server cucumber wrapper for `server/src/test/features/ingest-reembed.feature` passed with 11 tests and 0 failures after the no-processor-attempt wording update.
+- Automated proof: `npm run lint` passed with no reported issues.
+- Automated proof: `npm run format:check` passed with Prettier reporting all matched files use the expected style.
 
 ### Task 182. Make BDD Queue Start Proof Distinguish Attempts From Accepted Starts
 

@@ -14750,8 +14750,9 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 - `P1.` `R1` and admission-side `R2`: implementation owners are `server/src/ingest/reingestService.ts` and `server/src/ingest/pathMap.ts`; proof home is `server/src/test/unit/reingestService.test.ts`, which must assert that queued admission stores canonical `canonicalTargetPath` separately from mounted `requestPayload.path` and preserves stable display metadata.
 - `P2.` deferred-promotion `R2` and invalid-path `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/pathMap.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`, which must prove a valid mounted payload path executes through `pumpIngestQueue()` and malformed, relative, or outside-workdir payload paths fail before discovery.
 - `P3.` startup-recovery `R2` and invalid-path `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/pathMap.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, which must prove recovered queued re-embed rows use the persisted execution path and reject invalid persisted payload paths before embedding work begins.
-- `P4.` MCP blocking caller `R4`: implementation owner is `server/src/ingest/reingestService.ts` through `runReingestRepository()`; proof homes are `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`, which must reach shared queue admission and durable request-id waiting without bypassing the queued payload contract.
-- `P5.` command and flow blocking caller `R4`: implementation owner is `server/src/ingest/reingestService.ts` through `runReingestRepository()`; proof homes are `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts`, which must reach the same queued payload behavior through default command and flow surfaces.
+- `P4.` REST blocking caller `R4`: implementation owner is `server/src/routes/ingestReembed.ts` through `server/src/ingest/reingestService.ts` and `runReingestRepository()`; proof home is `server/src/test/unit/ingest-reembed.test.ts`, which must reach shared queue admission and durable request-id waiting without bypassing the queued payload contract.
+- `P5.` MCP blocking caller `R4`: implementation owner is `server/src/ingest/reingestService.ts` through `runReingestRepository()`; proof homes are `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`, which must reach shared queue admission and durable request-id waiting without bypassing the queued payload contract.
+- `P6.` command and flow blocking caller `R4`: implementation owner is `server/src/ingest/reingestService.ts` through `runReingestRepository()`; proof homes are `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts`, which must reach the same queued payload behavior through default command and flow surfaces.
 
 #### Risk Ownership
 
@@ -14765,7 +14766,9 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 - `server/src/ingest/reingestService.ts`
 - `server/src/ingest/pathMap.ts`
 - `server/src/ingest/ingestJob.ts`
+- `server/src/routes/ingestReembed.ts`
 - `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/ingest-reembed.test.ts`
 - `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`
 - `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
 - `server/src/test/unit/mcp.reingest.classic.test.ts`
@@ -14780,17 +14783,18 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 3. [ ] Update `server/src/test/unit/reingestService.test.ts` so queued re-embed admission proves a mapped repository keeps canonical queue identity while persisting the mounted execution path and stable display name.
 4. [ ] Update `server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts` so deferred promotion proves a valid mounted execution path succeeds through `pumpIngestQueue()` and malformed, relative, outside-workdir, or unrelated `requestPayload.path` values remain terminal validation errors before discovery begins; rename or replace any existing mismatch test whose title implies every `requestPayload.path !== canonicalTargetPath` is invalid.
 5. [ ] Update `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` so startup recovery proves recovered queued re-embed rows use the persisted execution path and reject invalid persisted payload paths before embedding work begins; rename or replace any existing recovery test whose title claims `canonicalTargetPath` is the executable root when a persisted payload execution path is present.
-6. [ ] In `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.command.test.ts`, keep or add assertions that reach `runReingestRepository()` queue admission, `pumpIngestQueue()`, and durable request-id waiting without mocking away the repaired queued payload contract.
+6. [ ] In `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/integration/commands.reingest.test.ts`, and `server/src/test/integration/flows.run.command.test.ts`, keep or add assertions that reach `runReingestRepository()` queue admission, `pumpIngestQueue()`, and durable request-id waiting through the REST, MCP, command, and flow callers without mocking away the repaired queued payload contract.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-deferred-mismatch.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts`.
-6. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-7. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts`.
+7. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+8. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -15053,7 +15057,7 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Testing
 
-1. [ ] Run `bash -lc '! rg -n "organization org-|org-b0ryOxiEjneU4p7xMv88rMQr|sk-[A-Za-z0-9_-]{20,}|bearer|authorization" codeInfoStatus/manual-testing/0000055'`.
+1. [ ] Run `bash -lc '! rg -n "organization org-|org-[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|bearer|authorization" codeInfoStatus/manual-testing/0000055'`.
 2. [ ] Run `git ls-files artifacts/story-0000055-screenshots codeInfoStatus/manual-testing/0000055` and confirm the output contains no tracked generated screenshots under `artifacts/story-0000055-screenshots/` while still listing only intentionally retained manual-testing artifacts.
 3. [ ] Run `bash -lc 'git check-ignore -v artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png || test ! -e artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png'`.
 4. [ ] Run `bash -lc '! rg -n "artifacts/story-0000055-screenshots|story-0000055-screenshots" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md && rg -n "test-results/screenshots|codeInfoStatus/manual-testing/0000055" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md'`.

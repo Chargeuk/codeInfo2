@@ -15211,12 +15211,12 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Testing
 
-1. [ ] Run `bash -lc '! rg -n "organization org-|org-[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|bearer|authorization" codeInfoStatus/manual-testing/0000055'`.
-2. [ ] Run `git ls-files artifacts/story-0000055-screenshots codeInfoStatus/manual-testing/0000055` and confirm the output contains no tracked generated screenshots under `artifacts/story-0000055-screenshots/` while still listing only intentionally retained manual-testing artifacts.
-3. [ ] Run `bash -lc 'git check-ignore -v artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png || test ! -e artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png'`.
-4. [ ] Run `bash -lc '! rg -n "artifacts/story-0000055-screenshots|story-0000055-screenshots" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md && rg -n "test-results/screenshots|codeInfoStatus/manual-testing/0000055" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md'`.
-5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `bash -lc '! rg -n "organization org-|org-[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|bearer|authorization" codeInfoStatus/manual-testing/0000055'`.
+2. [x] Run `git ls-files artifacts/story-0000055-screenshots codeInfoStatus/manual-testing/0000055` and confirm the output contains no tracked generated screenshots under `artifacts/story-0000055-screenshots/` while still listing only intentionally retained manual-testing artifacts.
+3. [x] Run `bash -lc 'git check-ignore -v artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png || test ! -e artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png'`.
+4. [x] Run `bash -lc '! rg -n "artifacts/story-0000055-screenshots|story-0000055-screenshots" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md && rg -n "test-results/screenshots|codeInfoStatus/manual-testing/0000055" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md'`.
+5. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -15226,6 +15226,12 @@ Repair the support-artifact hygiene issues identified by the review without trea
 - Subtask 3: searched tracked Story 55 manual-testing artifacts for sibling organization identifiers, token-like values, bearer or authorization material, and OpenAI raw error metadata; no same-class sensitive sibling output was found beyond the already-redacted `server-main-exit.log` context.
 - Subtask 4: removed generated PNGs under `artifacts/story-0000055-screenshots/**` from git tracking with `git rm --cached`, added ignore coverage for that generated directory, and refreshed the PR summary to point generated screenshots to ignored `test-results/screenshots/0000055/` while reserving `codeInfoStatus/manual-testing/0000055/` for sanitized retained manual proof.
 - Subtask 5: updated `e2e/ingest.spec.ts` from the tracked stable-screenshot helper to `saveGeneratedScreenshot()` writing under ignored `test-results/screenshots/0000055/`; `.gitignore` and `.prettierignore` now also exclude the old generated screenshot directory from normal repo workflows.
+- Testing 1: manual-artifact sensitive-output search passed with no matches for provider organization identifiers, token-like OpenAI keys, bearer credentials, or authorization headers under `codeInfoStatus/manual-testing/0000055/`.
+- Testing 2: `git ls-files artifacts/story-0000055-screenshots codeInfoStatus/manual-testing/0000055` listed retained manual-testing artifacts only; no generated screenshot path under `artifacts/story-0000055-screenshots/` remained tracked.
+- Testing 3: `git check-ignore -v artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png` passed through `.gitignore:13`, confirming the old generated screenshot path is ignored when present.
+- Testing 4: static screenshot-reference search passed; `e2e/ingest.spec.ts` and the PR summary no longer mention the old `artifacts/story-0000055-screenshots` path and now cite `test-results/screenshots` plus approved `codeInfoStatus/manual-testing/0000055/` retention.
+- Testing 5: `npm run lint` passed with exit code 0 and no lint fixes required.
+- Testing 6: `npm run format:check` passed with `All matched files use Prettier code style!`.
 
 ### Task 191. Re-Validate Story 55 After Review Pass `0000055-20260422T045457Z-daafd19b`
 

@@ -14526,7 +14526,7 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `182`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F9` (`optional_simplification`): the queue schema partial-index state list duplicates the nearby named queue-state constant.
 
@@ -14579,6 +14579,7 @@ Remove the localized duplicated queue-state literal in the queue schema's live-t
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`; the wrapper reported 13 tests run, 13 passed, 0 failed with clean success.
 - Ran `npm run lint`; ESLint completed with exit code 0 and no fixes required.
 - Ran `npm run format:check`; Prettier reported all matched files use the expected code style.
+- Automated-proof audit: confirmed Subtasks 1 through 3 and Testing 1 through 3 are complete on current disk, no live blocker is present, and Task 183 is now honestly `__done__`.
 
 ### Task 184. Re-Validate Story 55 After Review Pass `0000055-20260421T213927Z-9a3752e6`
 

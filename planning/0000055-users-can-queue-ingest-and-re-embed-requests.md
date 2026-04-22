@@ -14055,7 +14055,7 @@ The findings artifact is the canonical endorsed-findings source for this pass. I
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `176`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F1` (`must_fix`): `cleanup-blocked` realtime updates are omitted from client terminal-state consumers.
 
@@ -14126,7 +14126,7 @@ If a manual-testing pass is requested for this task, use the normal Docker stack
 - Testing 2: `npm run test:summary:client -- --file client/src/test/ingestStatus.test.tsx --file client/src/test/ingestStatus.progress.test.tsx --file client/src/test/ingestRoots.test.tsx` passed with `tests run: 60`, `passed: 60`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-22T00-46-46-480Z.log`; no log inspection was needed.
 - Testing 3: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 4: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
-- Audit: confirmed the implementation-only pass closed Subtasks 1 through 5 against the touched client status, page, card, and test files; no live blocker is present, and Testing 1 through 4 remain unchecked for the automated-proof step.
+- Automated-proof audit: confirmed Subtasks 1 through 5 and Testing 1 through 4 are complete, no live blocker is present, and Task 177 is now `__done__`.
 
 ### Task 178. Make Blocking Re-Embed Queue Waits Use A Long Safety Guard
 

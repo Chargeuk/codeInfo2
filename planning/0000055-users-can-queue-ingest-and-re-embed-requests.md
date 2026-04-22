@@ -14600,7 +14600,7 @@ Remove the localized duplicated queue-state literal in the queue schema's live-t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `177, 178, 179, 180, 181, 182, 183`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260421T213927Z-9a3752e6`, covering `F1`, `F2`, `F3`, `F4`, `F5`, `F6`, `F7`, `F8`, and `F9`.
 
@@ -14700,3 +14700,4 @@ Focus optional browser/API proof on the repaired externally observable seams: cl
 - Testing 11 rerun required: the earlier lint result was produced before `npm run format` rewrote `server/src/test/unit/ingest-queue-runtime-startup.test.ts`, so Testing 11 was reopened and will be rerun against the formatted tree before audit.
 - Testing 11 final rerun: `npm run lint` passed again with exit code 0 after the Prettier rewrite, so the lint proof is current for the formatted tree.
 - Testing 12 final rerun: after removing accidental formatter side effects from retained screenshot artifacts, `npm run format:check` passed again with `All matched files use Prettier code style!`, so the format proof is current for the final tree.
+- Automated-proof audit: confirmed Subtasks 1 through 3 and Testing 1 through 12 are complete on current disk, no live blocker is present, and Task 184 is now honestly `__done__`.

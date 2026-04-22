@@ -14741,15 +14741,15 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 #### Task Exit Criteria
 
 - `R1.` Queued re-embed admission still stores canonical queue identity for dedupe and queue ownership.
-- `R2.` Deferred promotion and startup recovery no longer reject a valid mounted execution path solely because it differs from the canonical target path.
-- `R3.` Invalid queued payload paths are still rejected before discovery or embedding work begins.
+- `R2.` Deferred promotion and startup recovery use the validated persisted mounted execution path for filesystem work when `requestPayload.path` differs from `canonicalTargetPath`.
+- `R3.` Canonical queue identity remains a normalized absolute queue target, and invalid, unnormalized, or outside-workdir persisted execution paths are still rejected before discovery or embedding work begins.
 - `R4.` REST, MCP, command, and flow blocking re-embed callers share the fixed queued payload behavior through `runReingestRepository()`.
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` and `R2` are proved in `server/src/test/unit/reingestService.test.ts` and queue-runtime deferred execution tests.
-- `P2.` Requirement `R3` is proved in the deferred mismatch or validation tests around `resolveQueuedReembedExecutionPath()`.
-- `P3.` Requirement `R4` is proved through re-embed service, MCP, command, and flow tests that enqueue and wait by durable queue request id.
+- `P1.` Requirements `R1` and `R2` are proved in `server/src/test/unit/reingestService.test.ts` by asserting queued re-embed admission preserves `canonicalTargetPath` separately from mounted `requestPayload.path`.
+- `P2.` Requirements `R2` and `R3` are proved in queue-runtime deferred execution and startup recovery tests that promote or recover a queued re-embed row with a valid mounted payload path and still reject malformed or outside-workdir payload paths.
+- `P3.` Requirement `R4` is proved through re-embed service, MCP, command, and flow tests that exercise `runReingestRepository()` queue admission and durable request-id waiting without bypassing the shared queued payload contract.
 
 #### Risk Ownership
 
@@ -14771,10 +14771,11 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 
 #### Subtasks
 
-1. [ ] Re-read the `F1` finding evidence and the current queued re-embed path-role code in `server/src/ingest/reingestService.ts`, `server/src/ingest/pathMap.ts`, and `server/src/ingest/ingestJob.ts`; identify the exact canonical-target versus execution-path contract before editing behavior.
-2. [ ] Update the deferred queued re-embed validation logic so a persisted mounted execution path accepted by admission can be used during promotion and startup recovery while still rejecting unsafe or unrelated payload paths before discovery begins.
-3. [ ] Update or add focused proof in the re-embed service and queue-runtime deferred execution tests so one valid mounted-path queue row succeeds through deferred execution and one invalid payload path remains rejected.
-4. [ ] Update MCP, command, or flow proof only where existing tests would otherwise keep mocking away the repaired shared queued payload contract.
+1. [ ] Re-read `F1`, `buildQueuedReingestRequest()`, `splitQueuedIngestExecutionPath()`, `resolveMountedIngestPath()`, `toQueueManagedInput()`, and `resolveQueuedReembedExecutionPath()`; identify which value owns queue identity (`canonicalTargetPath`) and which value owns deferred filesystem execution (`requestPayload.path` / `queuedRequestPayloadPath`) before editing behavior.
+2. [ ] Update the deferred queued re-embed execution-path resolver so it validates `canonicalTargetPath` as queue identity, validates a persisted `requestPayload.path` as a normalized execution path within the configured workdir when that workdir is concrete, returns the persisted execution path for deferred work when present, and falls back to `canonicalTargetPath` only when no persisted payload path exists.
+3. [ ] Update `server/src/test/unit/reingestService.test.ts` so queued re-embed admission proves a mapped repository keeps canonical queue identity while persisting the mounted execution path and stable display name.
+4. [ ] Update queue-runtime deferred promotion and startup recovery proof so a valid mounted execution path succeeds through `pumpIngestQueue()` and `recoverIngestQueueOnStartup()`, while an invalid or unrelated `requestPayload.path` remains a terminal validation error before discovery begins.
+5. [ ] Inspect the MCP, command, and flow `runReingestRepository()` tests; update any proof that currently mocks away queue admission, `pumpIngestQueue()`, or durable request-id waiting so the repaired payload contract is reached through the shared blocking re-embed service.
 
 #### Testing
 
@@ -14805,16 +14806,16 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 #### Task Exit Criteria
 
-- `R1.` Immediate `/ingest/start` and `/ingest/reembed/:root` success responses include `queueState` with the appropriate non-waiting state alongside `queued: false`, `requestId`, and `runId`.
-- `R2.` OpenAPI, route unit tests, and any shared/client parsing that consumes immediate queue responses agree on the response shape.
+- `R1.` Immediate `/ingest/start` and `/ingest/reembed/:root` success responses include `queueState: 'running'` alongside `queued: false`, `requestId`, and `runId`.
+- `R2.` OpenAPI, route unit tests, and any shared/client parsing that consumes immediate queue responses agree that the immediate shape includes the non-waiting queue state and rejects the old shape.
 - `R3.` Waiting response behavior remains unchanged: waiting responses keep `queued: true`, `requestId`, waiting-only `queuePosition`, and no active `runId`.
 - `R4.` Repository-list live queue-state filtering reuses `ingestLiveQueueTargetStates` instead of repeating the literal state set inline.
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` through `R3` are proved by route unit tests and OpenAPI contract tests.
-- `P2.` Client compatibility for `R1` and `R3` is proved in the ingest form or roots table tests if the parser shape changes.
-- `P3.` Requirement `R4` is proved by repository-list or queue request tests that assert the shared constant is the source for the live-state filter.
+- `P1.` Requirements `R1` through `R3` are proved by route unit tests and OpenAPI contract tests for both immediate `running` responses and unchanged waiting responses.
+- `P2.` Client compatibility for `R1` and `R3` is proved in ingest form or roots table tests only if TypeScript parsing, normalization, or display logic consumes the immediate queue response shape.
+- `P3.` Requirement `R4` is proved by repository-list overlay tests that would fail if `server/src/lmstudio/toolService.ts` drifted from `ingestLiveQueueTargetStates`.
 
 #### Risk Ownership
 
@@ -14838,23 +14839,25 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 #### Subtasks
 
-1. [ ] Re-read `F2`, `F7`, immediate response builders, OpenAPI queue-aware response schemas, and repository-list overlay live-state filtering; identify the intended `queueState` values and literal-ownership contract before editing.
-2. [ ] Update REST immediate-start response builders and OpenAPI response schemas so the non-waiting `queueState` is present and required where the story contract requires it.
-3. [ ] Update server route and OpenAPI tests so they reject the old immediate shape and preserve the waiting response shape.
-4. [ ] Update client parsing or tests only where the new immediate `queueState` field crosses a typed or normalized client boundary.
-5. [ ] Replace the repository-list overlay's inline live queue-state literal with the named `ingestLiveQueueTargetStates` contract and add focused proof that the overlay uses the shared list.
+1. [ ] Re-read `F2`, `F7`, the immediate response branches in `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`, the 202 queue-aware response schemas in `openapi.json`, and the repository-list query in `server/src/lmstudio/toolService.ts`; identify every producer and consumer that must agree on `queueState: 'running'` for immediate success.
+2. [ ] Update the REST immediate response builders and OpenAPI immediate response schemas so `queueState: 'running'` is present and required only on the non-waiting success shape, while the waiting shape keeps `queued: true`, `requestId`, and waiting-only `queuePosition`.
+3. [ ] Update `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, and `server/src/test/unit/openapi.contract.test.ts` so they assert the new immediate shape, reject the old immediate shape, and preserve the waiting response contract.
+4. [ ] Inspect `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types; update any affected parser, normalization, or tests so TypeScript and targeted client proof preserve compatibility with the immediate `queueState: 'running'` response.
+5. [ ] Replace the repository-list overlay's inline `['waiting', 'running', 'cleanup-blocked']` filter in `server/src/lmstudio/toolService.ts` with `ingestLiveQueueTargetStates`, preserving queue overlay ordering and waiting-position behavior.
+6. [ ] Add or update focused repository-list proof so a future live-state literal drift in `toolService.ts` is caught by `server/src/test/unit/tools-ingested-repos.test.ts` or the nearest existing repository-list overlay test.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
-5. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
-6. [ ] Run `npm run build:summary:server`.
-7. [ ] Run `npm run build:summary:client`.
-8. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-9. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
+6. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
+7. [ ] Run `npm run build:summary:server`.
+8. [ ] Run `npm run build:summary:client`.
+9. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+10. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14874,14 +14877,14 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 #### Task Exit Criteria
 
-- `R1.` Waiting duplicate rewrites are constrained to the observed queue row identity, version, or equivalent stable ownership field.
-- `R2.` If the observed waiting row is no longer the row being rewritten, stale payload replacement is refused and the helper re-reads the current live row state honestly.
+- `R1.` Waiting duplicate rewrites are constrained to the observed queue row identity, using `_id` or an equivalent stable row guard in addition to `canonicalTargetPath` and `queueState: 'waiting'`.
+- `R2.` If the observed waiting row is no longer the row being rewritten, stale payload replacement is refused and the helper re-reads the current live row state before deciding whether to reuse, update, or create a queue row.
 - `R3.` Duplicate-key fallback behavior follows the same stale-intent guard.
 - `R4.` Running and cleanup-blocked duplicate requests still reuse the live row without mutating the active or cleanup-blocked payload.
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` through `R3` are proved in `server/src/test/unit/ingest-request-queue.test.ts` with ordinary and duplicate-key interleavings.
+- `P1.` Requirements `R1` through `R3` are proved in `server/src/test/unit/ingest-request-queue.test.ts` with ordinary and duplicate-key interleavings where the originally observed waiting row disappears before `findOneAndUpdate()`.
 - `P2.` Requirement `R4` is proved by existing or updated running and cleanup-blocked duplicate tests.
 - `P3.` REST start/re-embed or blocking re-embed tests are updated only if they need to prove a changed result shape from the guarded helper.
 
@@ -14901,10 +14904,11 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 #### Subtasks
 
-1. [ ] Re-read `F5`, queue rewrite helpers, duplicate-key fallback handling, and existing request-queue tests; identify the selected observed-row ownership field before editing.
-2. [ ] Update the waiting rewrite filter and fallback flow so stale observed-row rewrites cannot overwrite a newer waiting row.
-3. [ ] Add or update ordinary duplicate and duplicate-key fallback tests that model the originally observed row disappearing before rewrite and prove the newer waiting payload is preserved.
-4. [ ] Confirm running and cleanup-blocked duplicate reuse tests still prove that active payloads are not mutated mid-flight.
+1. [ ] Re-read `F5`, `findWaitingQueueRequestForTarget()`, `buildRewriteableWaitingRequestFilter()`, `rewriteWaitingQueueRequestIfAllowed()`, duplicate-key fallback handling, and the existing `server/src/test/unit/ingest-request-queue.test.ts` duplicate tests; choose the observed-row guard field before editing.
+2. [ ] Update the waiting rewrite helper so the `findOneAndUpdate()` filter includes the observed waiting row guard plus `canonicalTargetPath` and `queueState: 'waiting'`, and so a missed guarded update triggers an honest live-row re-read instead of rewriting whichever later waiting row shares the target.
+3. [ ] Apply the same guarded rewrite behavior to the duplicate-key fallback path so a create race cannot replay an older payload onto a newer waiting row.
+4. [ ] Add or update request-queue tests for the ordinary duplicate path and duplicate-key fallback path where row A is observed, row A disappears before rewrite, row B appears with fresher payload, and row B remains unchanged.
+5. [ ] Confirm existing running and cleanup-blocked duplicate reuse tests still prove active or cleanup-blocked payloads are reused without mid-flight mutation.
 
 #### Testing
 
@@ -14935,13 +14939,13 @@ Separate client action identity for queueable re-embed from destructive root-pat
 #### Task Exit Criteria
 
 - `R1.` Row Remove submits the stored root path, not an arbitrary route-level row `id`, when `id` and `path` differ.
-- `R2.` Bulk Remove builds destructive targets from root paths while preserving stable selection behavior for queued/running row exclusion.
+- `R2.` Bulk Remove derives destructive endpoint targets from the selected rows' `path` values while preserving stable selection keys and queued/running/cleanup-blocked row exclusion.
 - `R3.` Row and bulk Re-embed continue to use the intended canonical identity path.
 - `R4.` Client tests directly prove the divergent re-embed versus remove payload contracts for rows whose `id` is not the persisted root path.
 
 #### Proof Mapping
 
-- `P1.` Requirements `R1` and `R2` are proved in `client/src/test/ingestRoots.test.tsx`.
+- `P1.` Requirements `R1` and `R2` are proved in `client/src/test/ingestRoots.test.tsx` with row and bulk fixtures where `id` and `path` differ.
 - `P2.` Requirement `R3` is proved by existing or updated re-embed identity tests.
 - `P3.` Server route behavior remains covered by existing remove route tests unless client proof changes expose a missing route contract.
 
@@ -14960,10 +14964,11 @@ Separate client action identity for queueable re-embed from destructive root-pat
 
 #### Subtasks
 
-1. [ ] Re-read `F6`, `RootsTable` selection/action helpers, remove route behavior, and existing row/bulk action tests; identify the separate identity roles before editing.
-2. [ ] Split or rename the client helpers so row/bulk Re-embed can use canonical row identity while row/bulk Remove uses the persisted root path.
-3. [ ] Add or update tests with rows where `id` differs from `path` to prove Remove uses `path` and Re-embed still uses the intended identity.
-4. [ ] Confirm queued, running, and cleanup-blocked row exclusion remains unchanged for destructive actions.
+1. [ ] Re-read `F6`, `getRootSelectionKey()`, `getRootActionPath()`, `handleRowReembed()`, `handleRowRemove()`, `handleBulk()`, and `/ingest/remove/:root`; identify the separate roles for selection key, re-embed payload, remove endpoint payload, and row action status keys before editing.
+2. [ ] Split the `RootsTable` action helpers so row and bulk Re-embed continue to use the canonical row identity accepted by re-embed, while row and bulk Remove call `/ingest/remove/:root` with the persisted `root.path`.
+3. [ ] Update bulk Remove target derivation so it maps selected stable keys back to current root rows and submits only those rows' `path` values, without re-enabling queued, running, cleanup-blocked, or active-ingest-head rows.
+4. [ ] Add or update `client/src/test/ingestRoots.test.tsx` fixtures where `id !== path` to prove row Remove and bulk Remove submit `path`, row or bulk Re-embed still submits the intended identity, selected rows are cleared by the correct key after successful remove, and failed rows remain visible.
+5. [ ] Confirm existing queued, running, cleanup-blocked, and active-ingest-head exclusion tests still pass without weakening destructive-action disablement.
 
 #### Testing
 
@@ -14997,13 +15002,13 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 - `R1.` `codeInfoStatus/manual-testing/0000055/server-main-exit.log` no longer contains the provider organization identifier or equivalent live account metadata.
 - `R2.` Sibling manual-testing artifacts for Story 55 are scanned for the same provider/account identifier class and any found instances are redacted or removed from durable proof.
-- `R3.` Generated screenshots under `artifacts/story-0000055-screenshots/**` are no longer tracked as ordinary repository payload, or the plan records a deliberate durable proof location that is allowed by support-file policy.
-- `R4.` The screenshot-producing proof path is updated or documented so future generated screenshots land in an ignored scratch location or an approved durable support location instead of silently repopulating `artifacts/**`.
+- `R3.` Generated screenshots under `artifacts/story-0000055-screenshots/**` are no longer tracked as ordinary repository payload.
+- `R4.` The screenshot-producing proof path is updated so future generated screenshots land in an ignored scratch location such as `test-results/screenshots/` or an approved durable support location under `codeInfoStatus/manual-testing/0000055/` when the file is intentionally retained.
 
 #### Proof Mapping
 
 - `P1.` Requirements `R1` and `R2` are proved by repository search for provider organization identifiers and secret-like patterns in the Story 55 manual-testing artifact set.
-- `P2.` Requirements `R3` and `R4` are proved by `git ls-files`, `git check-ignore`, and any updated e2e screenshot helper or ignore-pattern tests needed for durable behavior.
+- `P2.` Requirements `R3` and `R4` are proved by `git ls-files`, `git check-ignore`, and static inspection of the `e2e/ingest.spec.ts` screenshot helper path after the repair.
 - `P3.` Formatting and lint checks prove support-file changes do not break normal repo gates.
 
 #### Risk Ownership
@@ -15023,19 +15028,20 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 #### Subtasks
 
-1. [ ] Re-read `F3`, `F4`, the Story 55 manual artifact directory, current ignore rules, and screenshot helper paths; identify the chosen durable-versus-scratch artifact policy before editing.
-2. [ ] Redact or remove the provider organization identifier from `codeInfoStatus/manual-testing/0000055/server-main-exit.log` while preserving enough context for the manual proof artifact to remain understandable.
-3. [ ] Search Story 55 manual-testing artifacts for sibling provider account identifiers, tokens, API keys, bearer credentials, and raw provider error metadata; redact any same-class sensitive runtime output found.
-4. [ ] Remove tracked generated screenshot files from `artifacts/story-0000055-screenshots/**` or move any intentionally retained screenshots into an approved durable support location with plan/summary references updated accordingly.
-5. [ ] Update ignore rules or screenshot-producing proof helpers so future generated screenshot output does not return under a non-ignored `artifacts/**` path.
+1. [ ] Re-read `F3`, `F4`, `codeInfoStatus/manual-testing/0000055/server-main-exit.log`, sibling Story 55 manual artifacts, `.gitignore`, `.prettierignore`, and the `stableScreenshotDir` / `saveStableScreenshot()` helper in `e2e/ingest.spec.ts`; choose scratch versus durable artifact destinations before editing.
+2. [ ] Redact the provider organization identifier and any same-class live account metadata from `codeInfoStatus/manual-testing/0000055/server-main-exit.log` while preserving enough surrounding error context for the manual proof artifact to remain understandable.
+3. [ ] Search tracked Story 55 manual-testing artifacts for sibling provider organization identifiers, token-like values, bearer credentials, authorization headers, and raw provider error metadata; redact any same-class sensitive runtime output found without changing unrelated proof content.
+4. [ ] Remove the tracked generated screenshots under `artifacts/story-0000055-screenshots/**` from repository tracking, and update any Story 55 plan or PR-summary references so retained durable screenshots point only to approved support-file locations.
+5. [ ] Update `e2e/ingest.spec.ts` or ignore rules so future automated screenshots for this story land under an ignored generated location such as `test-results/screenshots/` unless a later manual proof deliberately promotes a sanitized artifact under `codeInfoStatus/manual-testing/0000055/`.
 
 #### Testing
 
 1. [ ] Run `bash -lc '! rg -n "organization org-|org-b0ryOxiEjneU4p7xMv88rMQr|sk-[A-Za-z0-9_-]{20,}|bearer|authorization" codeInfoStatus/manual-testing/0000055'`.
 2. [ ] Run `git ls-files artifacts/story-0000055-screenshots codeInfoStatus/manual-testing/0000055` and confirm the output contains no tracked generated screenshots under `artifacts/story-0000055-screenshots/` while still listing only intentionally retained manual-testing artifacts.
 3. [ ] Run `bash -lc 'git check-ignore -v artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png || test ! -e artifacts/story-0000055-screenshots/0000055-bulk-selection-state.png'`.
-4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+4. [ ] Run `bash -lc '! rg -n "artifacts/story-0000055-screenshots|story-0000055-screenshots" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md && rg -n "test-results/screenshots|codeInfoStatus/manual-testing/0000055" e2e/ingest.spec.ts codeInfoStatus/pr-summaries/0000055-pr-summary.md'`.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -15057,7 +15063,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 - `R1.` Tasks `185` through `189` are `__done__` and close findings `F1` through `F7` from review pass `0000055-20260422T045457Z-daafd19b`.
 - `R2.` The appended `Code Review Findings` block for review pass `0000055-20260422T045457Z-daafd19b` is revalidated on disk rather than left as artifact-only review intent.
-- `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes, retained artifact locations, and any still-honest residual risk for this review-created block.
+- `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes, retained artifact locations, wrapper results, and any still-honest residual risk for this review-created block.
 - `R4.` Fresh automated validation reruns the Current Repository supported server build, client build, server unit, server cucumber, client test, e2e, compose build, compose up, host-network main probe, compose down, lint, and format wrappers needed to revalidate the repaired seams plus the story's supported browser-visible and main runtime paths.
 - `R5.` If any repaired seam remains partially proven, the close-out records that residual risk explicitly instead of silently reclosing the story.
 
@@ -15065,7 +15071,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 - `P1.` Requirement `R1` is proved by Tasks `185` through `189`, this plan file, and the parser state for the review-created task block.
 - `P2.` Requirement `R2` is proved by re-reading this appended findings block against the refreshed PR summary.
-- `P3.` Requirement `R3` is proved by `codeInfoStatus/pr-summaries/0000055-pr-summary.md` after it maps `F1` through `F7` to exact owners, proof files, artifact hygiene outcomes, rejected-risk notes, saturation results, and blind-spot challenge carry-forward.
+- `P3.` Requirement `R3` is proved by `codeInfoStatus/pr-summaries/0000055-pr-summary.md` after it maps `F1` through `F7` to exact owners, proof files, artifact hygiene outcomes, wrapper result locations, rejected-risk notes, saturation results, and blind-spot challenge carry-forward.
 - `P4.` Requirement `R4` is proved by the listed wrapper testing steps.
 - `P5.` Requirement `R5` is proved by explicit residual-risk notes in this task and the PR summary when a proof category remains indirect.
 
@@ -15099,8 +15105,8 @@ Re-validate Story 55 after the current review-created findings block lands. This
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260422T045457Z-daafd19b` and the completed proof-owner sections for Tasks `185` through `189`. Check off this subtask only after each dependency task shows `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no unresolved `Implementation Notes` blocker.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the final finding-to-proof map for `F1` through `F7`, including exact repaired files, exact proof homes, artifact-hygiene disposition, retained or removed artifact locations, rejected-risk notes, saturation results, blind-spot challenge carry-forward, baseline-vs-task-owned failure classification for wrapper/runtime issues, and a distinct section reserved for this task's automated testing results.
-3. [ ] Re-open this plan after the summary refresh and compare the `0000055-20260422T045457Z-daafd19b` findings block against the refreshed summary. Update whichever text is stale so both files name the same closed findings, proof homes, artifact locations, residual risks, and final disposition.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F7`, including exact repaired files, exact proof homes, artifact-hygiene disposition, retained or removed artifact locations, rejected-risk notes, saturation results, blind-spot challenge carry-forward, baseline-vs-task-owned failure classification rules for wrapper/runtime issues, and a clearly named section where this task's automated testing results will be recorded as each testing checkbox is completed.
+3. [ ] Re-open this plan after the summary refresh and compare the `0000055-20260422T045457Z-daafd19b` findings block against the refreshed summary. Update whichever pre-testing text is stale so both files name the same finding owners, proof homes, artifact locations, residual-risk categories, and expected final disposition before the testing section runs.
 
 #### Testing
 
@@ -15121,7 +15127,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 If a final manual-testing pass is requested after Tasks `185` through `189`, use the normal human Docker stack rather than a test-only runtime. Start from the repository root with `npm run compose:build`, then `npm run compose:up`; when proof is complete, stop it with `npm run compose:down`.
 
-Focus optional browser/API proof on the repaired externally observable seams: queued re-embed acceptance and deferred execution for mapped host/workdir paths, immediate queue success response shape, row and bulk Remove behavior when row identity differs from root path, and normal queue startup/recovery visibility. Save final manual-testing screenshots, logs, and notes under `codeInfoStatus/manual-testing/0000055/` only after confirming no provider account identifiers or token-like values are retained in durable artifacts.
+Focus optional browser/API proof on the repaired externally observable seams: queued re-embed acceptance and deferred execution for mapped host/workdir paths, immediate queue success response shape, row and bulk Remove behavior when row identity differs from root path, and normal queue startup/recovery visibility. If Playwright MCP screenshots are useful, capture them first with relative staging filenames in the Playwright output directory, then transfer only sanitized retained files into `codeInfoStatus/manual-testing/0000055/`. Save final manual-testing screenshots, logs, and notes under `codeInfoStatus/manual-testing/0000055/` only after confirming no provider account identifiers or token-like values are retained in durable artifacts.
 
 #### Implementation Notes
 

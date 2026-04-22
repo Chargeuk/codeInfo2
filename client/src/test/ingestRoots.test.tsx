@@ -153,6 +153,46 @@ describe('RootsTable', () => {
     expect(await screen.findByText('Re-embed started')).toBeInTheDocument();
   });
 
+  it('uses canonical row identity, not stale display path, for row re-embed payloads', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-1', runId: 'new-run' }),
+    );
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
+
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            id: '/canonical-repo',
+            path: '/stale-display-path',
+          },
+        ]}
+        lockedModelId="embed-1"
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo/i });
+    const btn = within(row).getByRole('button', { name: /re-embed/i });
+    await act(async () => {
+      fireEvent.click(btn);
+      await Promise.resolve();
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/ingest/reembed/%2Fcanonical-repo'),
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/ingest/reembed/%2Fstale-display-path'),
+      expect.any(Object),
+    );
+  });
+
   it('shows an error when a re-embed 2xx response omits requestId', async () => {
     mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'new-run' }));
     const onRunStarted = jest.fn();

@@ -99,7 +99,7 @@ function assertQueueUnavailableResponse(
   assert.deepEqual(props.message, { type: 'string' });
 }
 
-test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', () => {
+test('OpenAPI /ingest/roots schema includes documented identity, error, queue, and lock fields', () => {
   const openapi = readOpenApi();
   const bodySchema = getResponseSchema(openapi, '/ingest/roots', 'get', '200');
   assert.ok(bodySchema, 'missing /ingest/roots schema');
@@ -110,6 +110,7 @@ test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', 
   assert.ok(rootItem, 'missing roots item schema');
   const rootProps = (rootItem?.properties ?? {}) as Record<string, unknown>;
   const topProps = (bodySchema?.properties ?? {}) as Record<string, unknown>;
+  assert.deepEqual(rootProps.id, { type: 'string' });
   assert.ok(rootProps.embeddingProvider);
   assert.ok(rootProps.embeddingModel);
   assert.ok(rootProps.embeddingDimensions);
@@ -127,6 +128,20 @@ test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', 
     enum: ['waiting', 'running', 'cleanup-blocked'],
     nullable: true,
   });
+  assert.deepEqual(rootProps.error, {
+    type: 'object',
+    nullable: true,
+    properties: {
+      error: { type: 'string' },
+      message: { type: 'string' },
+      retryable: { type: 'boolean' },
+      provider: { type: 'string', enum: ['lmstudio', 'openai', 'ingest'] },
+      upstreamStatus: { type: 'integer' },
+      retryAfterMs: { type: 'integer' },
+    },
+    required: ['error', 'message', 'retryable', 'provider'],
+    additionalProperties: false,
+  });
   assert.ok(rootProps.lock);
   assert.ok(rootProps.status);
   assert.ok(rootProps.phase);
@@ -138,12 +153,16 @@ test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', 
     enum: ['0000055-queued-repo-list-v1'],
   });
   assert.equal(
+    (rootItem?.required as string[] | undefined)?.includes('id') ?? false,
+    true,
+  );
+  assert.equal(
     (rootItem?.required as string[] | undefined)?.includes('runId') ?? false,
     false,
   );
 });
 
-test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alias fields', () => {
+test('OpenAPI /tools/ingested-repos schema includes documented repo identity, name, error, queue, and lock fields', () => {
   const openapi = readOpenApi();
   const bodySchema = getResponseSchema(
     openapi,
@@ -159,6 +178,8 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
   assert.ok(repoItem, 'missing repos item schema');
   const repoProps = (repoItem?.properties ?? {}) as Record<string, unknown>;
   const topProps = (bodySchema?.properties ?? {}) as Record<string, unknown>;
+  assert.deepEqual(repoProps.id, { type: 'string' });
+  assert.deepEqual(repoProps.name, { type: 'string' });
   assert.ok(repoProps.embeddingProvider);
   assert.ok(repoProps.embeddingModel);
   assert.ok(repoProps.embeddingDimensions);
@@ -176,6 +197,20 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
     enum: ['waiting', 'running', 'cleanup-blocked'],
     nullable: true,
   });
+  assert.deepEqual(repoProps.error, {
+    type: 'object',
+    nullable: true,
+    properties: {
+      error: { type: 'string' },
+      message: { type: 'string' },
+      retryable: { type: 'boolean' },
+      provider: { type: 'string', enum: ['lmstudio', 'openai', 'ingest'] },
+      upstreamStatus: { type: 'integer' },
+      retryAfterMs: { type: 'integer' },
+    },
+    required: ['error', 'message', 'retryable', 'provider'],
+    additionalProperties: false,
+  });
   assert.ok(repoProps.lock);
   assert.ok(repoProps.status);
   assert.ok(repoProps.phase);
@@ -186,6 +221,10 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
     type: 'string',
     enum: ['0000055-queued-repo-list-v1'],
   });
+  assert.equal(
+    (repoItem?.required as string[] | undefined)?.includes('name') ?? false,
+    true,
+  );
   assert.equal(
     (repoItem?.required as string[] | undefined)?.includes('runId') ?? false,
     false,

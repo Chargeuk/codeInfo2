@@ -538,6 +538,122 @@ test('waiting duplicate overlay preserves canonical repository identity while pr
   });
 });
 
+test('running queue overlay uses fresh request model metadata and rejects stale payload-path row identity', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000081'),
+              canonicalTargetPath: '/data/current-repo',
+              operation: 'reembed',
+              queueState: 'running',
+              requestPayload: {
+                path: '/data/stale-payload-repo',
+                name: 'current-repo',
+                description: 'fresh running description',
+                model: 'text-embedding-3-large',
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-large',
+                embeddingDimensions: 3072,
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: 'running-fresh-model-run',
+              createdAt: new Date('2026-04-09T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-09T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('running-fresh-model-run', {
+    runId: 'running-fresh-model-run',
+    state: 'embedding',
+    counts: { files: 5, chunks: 10, embedded: 4 },
+  });
+
+  try {
+    const res = await request(
+      buildApp(
+        {
+          ids: ['current-run', 'stale-payload-run'],
+          metadatas: [
+            {
+              root: '/data/current-repo',
+              name: 'current-repo',
+              description: 'stale persisted description',
+              model: 'text-embed-old',
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'text-embed-old',
+              embeddingDimensions: 768,
+              state: 'completed',
+              lastIngestAt: '2026-01-01T00:00:00.000Z',
+              files: 1,
+              chunks: 2,
+              embedded: 3,
+            },
+            {
+              root: '/data/stale-payload-repo',
+              name: 'stale-payload-repo',
+              model: 'wrong-row-model',
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'wrong-row-model',
+              embeddingDimensions: 768,
+              state: 'completed',
+              lastIngestAt: '2026-01-02T00:00:00.000Z',
+              files: 8,
+              chunks: 9,
+              embedded: 9,
+            },
+          ],
+        },
+        'text-embed-old',
+      ),
+    ).get('/tools/ingested-repos');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.repos.length, 2);
+    const currentRepo = res.body.repos.find(
+      (repo: { id: string }) => repo.id === '/data/current-repo',
+    );
+    const stalePayloadRepo = res.body.repos.find(
+      (repo: { id: string }) => repo.id === '/data/stale-payload-repo',
+    );
+    assert.ok(currentRepo);
+    assert.ok(stalePayloadRepo);
+    assert.equal(currentRepo.requestId, '000000000000000000000081');
+    assert.equal(currentRepo.runId, 'running-fresh-model-run');
+    assert.equal(currentRepo.queueState, 'running');
+    assert.equal(currentRepo.status, 'ingesting');
+    assert.equal(currentRepo.phase, 'embedding');
+    assert.equal(currentRepo.description, 'fresh running description');
+    assert.equal(currentRepo.embeddingProvider, 'openai');
+    assert.equal(currentRepo.embeddingModel, 'text-embedding-3-large');
+    assert.equal(currentRepo.embeddingDimensions, 3072);
+    assert.equal(currentRepo.model, 'text-embedding-3-large');
+    assert.equal(currentRepo.modelId, 'text-embedding-3-large');
+    assert.equal(currentRepo.lock.embeddingProvider, 'openai');
+    assert.equal(currentRepo.lock.embeddingModel, 'text-embedding-3-large');
+    assert.deepEqual(currentRepo.counts, { files: 5, chunks: 10, embedded: 4 });
+    assert.equal(stalePayloadRepo.requestId, undefined);
+    assert.equal(stalePayloadRepo.queueState, undefined);
+    assert.equal(stalePayloadRepo.embeddingModel, 'wrong-row-model');
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
 test('cleanup-blocked overlay stays authoritative when a later waiting request targets the same root', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

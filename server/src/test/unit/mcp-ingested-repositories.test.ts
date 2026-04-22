@@ -290,7 +290,7 @@ test('ListIngestedRepositories preserves structured ingest-origin errors through
   assert.equal(parsed.repos[0]?.error?.provider, 'ingest');
 });
 
-test('ListIngestedRepositories preserves the canonical queued row id alongside request metadata before execution starts', async () => {
+test('ListIngestedRepositories default MCP path preserves documented id, name, and queued metadata before execution starts', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,
@@ -340,6 +340,7 @@ test('ListIngestedRepositories preserves the canonical queued row id alongside r
   ) as {
     repos: Array<{
       id?: string;
+      name?: string;
       requestId?: string | null;
       runId?: string | null;
       queuePosition?: number | null;
@@ -350,6 +351,7 @@ test('ListIngestedRepositories preserves the canonical queued row id alongside r
   };
   assert.equal(response.status, 200);
   assert.equal(parsed.repos[0]?.id, '/data/queued-repo');
+  assert.equal(parsed.repos[0]?.name, 'queued-repo');
   assert.equal(parsed.repos[0]?.requestId, '000000000000000000000058');
   assert.equal(parsed.repos[0]?.runId, null);
   assert.equal(parsed.repos[0]?.queueState, 'waiting');
@@ -360,6 +362,120 @@ test('ListIngestedRepositories preserves the canonical queued row id alongside r
     configurable: true,
     value: originalReadyState,
   });
+});
+
+test('ListIngestedRepositories default MCP path propagates fresh running model metadata without stale payload-path row attachment', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000082'),
+              canonicalTargetPath: '/data/current-repo',
+              operation: 'reembed',
+              queueState: 'running',
+              requestPayload: {
+                path: '/data/stale-payload-repo',
+                name: 'current-repo',
+                model: 'text-embedding-3-large',
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-large',
+                embeddingDimensions: 3072,
+              },
+              sourceSurface: 'mcp:reingest_repository',
+              runId: 'mcp-running-fresh-model-run',
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('mcp-running-fresh-model-run', {
+    runId: 'mcp-running-fresh-model-run',
+    state: 'embedding',
+    counts: { files: 5, chunks: 10, embedded: 4 },
+  });
+
+  try {
+    const app = createMcpApp({
+      lockedModelId: 'stale-model',
+      roots: {
+        ids: ['current-run', 'stale-payload-run'],
+        metadatas: [
+          {
+            name: 'current-repo',
+            root: '/data/current-repo',
+            model: 'stale-model',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'stale-model',
+            embeddingDimensions: 768,
+            state: 'completed',
+          },
+          {
+            name: 'stale-payload-repo',
+            root: '/data/stale-payload-repo',
+            model: 'wrong-row-model',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'wrong-row-model',
+            embeddingDimensions: 768,
+            state: 'completed',
+          },
+        ],
+      },
+    });
+    const response = await request(app)
+      .post('/mcp')
+      .send({
+        jsonrpc: '2.0',
+        id: 'mcp-running-fresh-model',
+        method: 'tools/call',
+        params: { name: 'ListIngestedRepositories', arguments: {} },
+      });
+
+    const parsed = JSON.parse(
+      response.body?.result?.content?.[0]?.text ?? '{}',
+    ) as {
+      repos: Array<{
+        id: string;
+        requestId?: string | null;
+        queueState?: string | null;
+        embeddingProvider: string;
+        embeddingModel: string;
+        lock: { embeddingProvider: string; embeddingModel: string };
+      }>;
+    };
+    const currentRepo = parsed.repos.find(
+      (repo) => repo.id === '/data/current-repo',
+    );
+    const stalePayloadRepo = parsed.repos.find(
+      (repo) => repo.id === '/data/stale-payload-repo',
+    );
+    assert.equal(response.status, 200);
+    assert.ok(currentRepo);
+    assert.ok(stalePayloadRepo);
+    assert.equal(currentRepo.requestId, '000000000000000000000082');
+    assert.equal(currentRepo.queueState, 'running');
+    assert.equal(currentRepo.embeddingProvider, 'openai');
+    assert.equal(currentRepo.embeddingModel, 'text-embedding-3-large');
+    assert.equal(currentRepo.lock.embeddingProvider, 'openai');
+    assert.equal(currentRepo.lock.embeddingModel, 'text-embedding-3-large');
+    assert.equal(stalePayloadRepo.requestId, undefined);
+    assert.equal(stalePayloadRepo.embeddingModel, 'wrong-row-model');
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
 });
 
 test('ListIngestedRepositories returns one canonical queued row id for duplicate metadata before applying the waiting overlay', async () => {

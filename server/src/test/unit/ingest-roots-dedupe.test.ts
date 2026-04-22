@@ -1297,6 +1297,113 @@ test('GET /ingest/roots clears stale persisted diagnostics when a healthy runnin
   });
 });
 
+test('GET /ingest/roots running overlay mirrors fresh queue model metadata and rejects stale payload-path identity', async () => {
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000093'),
+              canonicalTargetPath: '/data/current-repo',
+              operation: 'reembed',
+              queueState: 'running',
+              requestPayload: {
+                path: '/data/stale-payload-repo',
+                name: 'current-repo',
+                description: 'fresh running description',
+                model: 'text-embedding-3-large',
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-large',
+                embeddingDimensions: 3072,
+              },
+              sourceSurface: 'rest:ingest/reembed',
+              runId: 'roots-running-fresh-model-run',
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+  __setStatusForTest('roots-running-fresh-model-run', {
+    runId: 'roots-running-fresh-model-run',
+    state: 'embedding',
+    counts: { files: 6, chunks: 12, embedded: 5 },
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['current-run', 'stale-payload-run'],
+        metadatas: [
+          {
+            root: '/data/current-repo',
+            name: 'current-repo',
+            description: 'stale persisted description',
+            model: 'stale-model',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'stale-model',
+            embeddingDimensions: 768,
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+          },
+          {
+            root: '/data/stale-payload-repo',
+            name: 'stale-payload-repo',
+            model: 'wrong-row-model',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'wrong-row-model',
+            embeddingDimensions: 768,
+            state: 'completed',
+            lastIngestAt: '2026-01-02T00:00:00.000Z',
+            files: 8,
+            chunks: 9,
+            embedded: 9,
+          },
+        ],
+      },
+      'stale-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots.length, 2);
+  const currentRoot = response.body.roots.find(
+    (root: { id: string }) => root.id === '/data/current-repo',
+  );
+  const stalePayloadRoot = response.body.roots.find(
+    (root: { id: string }) => root.id === '/data/stale-payload-repo',
+  );
+  assert.ok(currentRoot);
+  assert.ok(stalePayloadRoot);
+  assert.equal(currentRoot.requestId, '000000000000000000000093');
+  assert.equal(currentRoot.runId, 'roots-running-fresh-model-run');
+  assert.equal(currentRoot.queueState, 'running');
+  assert.equal(currentRoot.status, 'ingesting');
+  assert.equal(currentRoot.phase, 'embedding');
+  assert.equal(currentRoot.description, 'fresh running description');
+  assert.equal(currentRoot.embeddingProvider, 'openai');
+  assert.equal(currentRoot.embeddingModel, 'text-embedding-3-large');
+  assert.equal(currentRoot.embeddingDimensions, 3072);
+  assert.equal(currentRoot.model, 'text-embedding-3-large');
+  assert.equal(currentRoot.modelId, 'text-embedding-3-large');
+  assert.equal(currentRoot.lock.embeddingProvider, 'openai');
+  assert.equal(currentRoot.lock.embeddingModel, 'text-embedding-3-large');
+  assert.equal(stalePayloadRoot.requestId, null);
+  assert.equal(stalePayloadRoot.queueState, null);
+  assert.equal(stalePayloadRoot.embeddingModel, 'wrong-row-model');
+});
+
 test('GET /ingest/roots preserves the fresh structured runtime error when a running queue overlay reports a current failure', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

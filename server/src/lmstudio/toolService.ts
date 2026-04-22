@@ -773,11 +773,7 @@ function buildRepoFromQueueRequest(params: {
 }): RepoEntry {
   const { queueRequest, lock } = params;
   const payload = queueRequest.requestPayload;
-  const queuePath =
-    typeof payload.path === 'string' && payload.path.trim().length > 0
-      ? payload.path.trim()
-      : queueRequest.canonicalTargetPath;
-  const mapped = mapIngestPath(queuePath);
+  const mapped = mapIngestPath(queueRequest.canonicalTargetPath);
   const name = deriveQueuePayloadName(queueRequest);
   const { embeddingProvider, embeddingModel, embeddingDimensions } =
     resolveQueueRequestEmbeddingIdentity({
@@ -816,7 +812,41 @@ function buildRepoFromQueueRequest(params: {
   };
 }
 
-function applyWaitingQueueRequestMetadata(
+function pathsResolveToSameRepoTarget(first: string, second: string): boolean {
+  const firstKeys = new Set(buildRepoLookupKeys([first]));
+  return buildRepoLookupKeys([second]).some((key) => firstKeys.has(key));
+}
+
+function getSameTargetPayloadPathAlias(
+  queueRequest: Pick<
+    IngestQueueRequest,
+    'canonicalTargetPath' | 'requestPayload'
+  >,
+): string | null {
+  const payloadPath = queueRequest.requestPayload.path;
+  if (typeof payloadPath !== 'string') {
+    return null;
+  }
+  const trimmedPath = payloadPath.trim();
+  if (trimmedPath.length === 0) {
+    return null;
+  }
+  return pathsResolveToSameRepoTarget(
+    queueRequest.canonicalTargetPath,
+    trimmedPath,
+  )
+    ? trimmedPath
+    : null;
+}
+
+function buildQueueRequestLookupPaths(queueRequest: IngestQueueRequest) {
+  const payloadPathAlias = getSameTargetPayloadPathAlias(queueRequest);
+  return payloadPathAlias
+    ? [queueRequest.canonicalTargetPath, payloadPathAlias]
+    : [queueRequest.canonicalTargetPath];
+}
+
+function applyQueueRequestMetadata(
   repo: RepoEntry,
   queueRequest: IngestQueueRequest,
 ) {
@@ -958,11 +988,15 @@ function applyQueueOverlay(params: {
     queueRequest.queueState === 'waiting' ? queuePosition : null;
 
   if (queueRequest.queueState === 'waiting') {
-    applyWaitingQueueRequestMetadata(repo, queueRequest);
+    applyQueueRequestMetadata(repo, queueRequest);
     clearHealthyQueueOverlayDiagnostics(repo);
     repo.status = 'ingesting';
     repo.phase = 'queued';
     return;
+  }
+
+  if (queueRequest.queueState === 'running') {
+    applyQueueRequestMetadata(repo, queueRequest);
   }
 
   if (queueRequest.queueState === 'cleanup-blocked') {
@@ -1369,14 +1403,8 @@ export async function listIngestedRepositories(
   let waitingQueuePosition = 0;
 
   for (const queueRequest of queueRequests) {
-    const payloadPath =
-      typeof queueRequest.requestPayload.path === 'string'
-        ? queueRequest.requestPayload.path
-        : null;
-    let repo = findRepoByLookupKeys(repoBySourceId, [
-      queueRequest.canonicalTargetPath,
-      payloadPath,
-    ]);
+    const queueLookupPaths = buildQueueRequestLookupPaths(queueRequest);
+    let repo = findRepoByLookupKeys(repoBySourceId, queueLookupPaths);
     if (!repo) {
       repo = buildRepoFromQueueRequest({ queueRequest, lock });
       repos.push(repo);
@@ -1384,8 +1412,7 @@ export async function listIngestedRepositories(
     indexRepoByLookupKeys(repoBySourceId, repo, [
       repo.containerPath,
       repo.hostPath,
-      queueRequest.canonicalTargetPath,
-      payloadPath,
+      ...queueLookupPaths,
     ]);
 
     if (!shouldApplyQueueOverlay(repo, queueRequest)) {

@@ -548,7 +548,7 @@ describe('useIngestRoots', () => {
     );
   });
 
-  it('clears stale persisted diagnostics from healthy running rows during normalization', async () => {
+  it('clears stale diagnostics and stale persisted model identity from healthy running queue overlay rows during normalization', async () => {
     mockRootsResponse({
       roots: [
         {
@@ -560,7 +560,18 @@ describe('useIngestRoots', () => {
           path: '/stable-repo',
           status: 'ingesting',
           phase: 'scanning',
-          model: 'embed-model',
+          model: 'fresh-running-model',
+          modelId: 'stale-persisted-model-id',
+          embeddingProvider: 'openai',
+          embeddingModel: 'fresh-running-model',
+          embeddingDimensions: 1536,
+          lock: {
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'stale-persisted-model',
+            embeddingDimensions: 768,
+            lockedModelId: 'stale-persisted-model',
+            modelId: 'stale-persisted-model',
+          },
           lastError: 'stale persisted failure',
           error: {
             error: 'OPENAI_TIMEOUT',
@@ -583,6 +594,18 @@ describe('useIngestRoots', () => {
       phase: 'scanning',
       lastError: null,
       error: null,
+      model: 'fresh-running-model',
+      modelId: 'fresh-running-model',
+      embeddingProvider: 'openai',
+      embeddingModel: 'fresh-running-model',
+      embeddingDimensions: 1536,
+      lock: {
+        embeddingProvider: 'openai',
+        embeddingModel: 'fresh-running-model',
+        embeddingDimensions: 1536,
+        lockedModelId: 'fresh-running-model',
+        modelId: 'fresh-running-model',
+      },
     });
   });
 

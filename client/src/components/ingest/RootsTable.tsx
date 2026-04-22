@@ -100,7 +100,11 @@ function getRootEmbeddingDisplay(root: IngestRoot) {
 }
 
 function getRootSelectionKey(root: IngestRoot) {
-  return root.path;
+  return root.id || root.path;
+}
+
+function getRootActionPath(root: IngestRoot) {
+  return root.id || root.path;
 }
 
 function getRenderableRootError(root: IngestRoot) {
@@ -482,8 +486,9 @@ export default function RootsTable({
           </TableHead>
           <TableBody>
             {roots.map((root) => {
-              const state = actionState[root.path]?.status;
-              const message = actionState[root.path]?.message;
+              const actionPath = getRootActionPath(root);
+              const state = actionState[actionPath]?.status;
+              const message = actionState[actionPath]?.message;
               const rowDisabled = busy || state === 'loading';
               const reembedDisabled =
                 rowDisabled || blocksSharedSelection(root, activeRunId);
@@ -569,7 +574,7 @@ export default function RootsTable({
                       <Button
                         variant="text"
                         size="small"
-                        onClick={() => void handleRowReembed(root.path)}
+                        onClick={() => void handleRowReembed(actionPath)}
                         disabled={reembedDisabled}
                       >
                         Re-embed
@@ -578,7 +583,7 @@ export default function RootsTable({
                         variant="text"
                         color="error"
                         size="small"
-                        onClick={() => void handleRowRemove(root.path)}
+                        onClick={() => void handleRowRemove(actionPath)}
                         disabled={removeDisabled}
                       >
                         Remove

@@ -181,8 +181,9 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
     status,
     queueState,
   );
-  const waitingOverlayPresent =
-    queueState === 'waiting' && typeof entry.requestId === 'string';
+  const queueOverlayPresent =
+    (queueState === 'waiting' || queueState === 'running') &&
+    typeof entry.requestId === 'string';
   const canonicalEmbeddingProvider = normalizeProvider(entry.embeddingProvider);
   const embeddingModel =
     typeof entry.embeddingModel === 'string'
@@ -195,7 +196,7 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
       ? (entry.lock as Record<string, unknown>)
       : undefined;
   const lockModel =
-    waitingOverlayPresent && embeddingModel
+    queueOverlayPresent && embeddingModel
       ? embeddingModel
       : typeof lockObj?.embeddingModel === 'string'
         ? lockObj.embeddingModel
@@ -205,16 +206,18 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
             ? lockObj.modelId
             : embeddingModel || undefined;
   const lockProvider =
-    (waitingOverlayPresent ? canonicalEmbeddingProvider : undefined) ??
+    (queueOverlayPresent ? canonicalEmbeddingProvider : undefined) ??
     normalizeProvider(lockObj?.embeddingProvider) ??
     canonicalEmbeddingProvider ??
     (lockModel ? 'lmstudio' : undefined);
   const lockDimensions =
-    typeof lockObj?.embeddingDimensions === 'number'
-      ? lockObj.embeddingDimensions
-      : typeof entry.embeddingDimensions === 'number'
-        ? entry.embeddingDimensions
-        : undefined;
+    queueOverlayPresent && typeof entry.embeddingDimensions === 'number'
+      ? entry.embeddingDimensions
+      : typeof lockObj?.embeddingDimensions === 'number'
+        ? lockObj.embeddingDimensions
+        : typeof entry.embeddingDimensions === 'number'
+          ? entry.embeddingDimensions
+          : undefined;
 
   return {
     id: resolveRootIdentity(entry),
@@ -241,7 +244,7 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
           : '',
     model: embeddingModel,
     modelId:
-      waitingOverlayPresent && embeddingModel
+      queueOverlayPresent && embeddingModel
         ? embeddingModel
         : typeof entry.modelId === 'string'
           ? entry.modelId

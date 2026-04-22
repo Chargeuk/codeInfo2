@@ -837,6 +837,9 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "id": {
+                            "type": "string"
+                          },
                           "requestId": {
                             "type": "string",
                             "nullable": true
@@ -903,6 +906,38 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "error": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "error": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "retryable": {
+                                "type": "boolean"
+                              },
+                              "provider": {
+                                "type": "string",
+                                "enum": ["lmstudio", "openai", "ingest"]
+                              },
+                              "upstreamStatus": {
+                                "type": "integer"
+                              },
+                              "retryAfterMs": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "error",
+                              "message",
+                              "retryable",
+                              "provider"
+                            ],
+                            "additionalProperties": false
+                          },
                           "ast": {
                             "type": "object",
                             "properties": {
@@ -967,6 +1002,7 @@
                           }
                         },
                         "required": [
+                          "id",
                           "name",
                           "path",
                           "embeddingProvider",
@@ -2112,6 +2148,9 @@
                             "enum": ["waiting", "running", "cleanup-blocked"],
                             "nullable": true
                           },
+                          "name": {
+                            "type": "string"
+                          },
                           "description": {
                             "type": "string",
                             "nullable": true
@@ -2208,10 +2247,43 @@
                           "lastError": {
                             "type": "string",
                             "nullable": true
+                          },
+                          "error": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "error": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "retryable": {
+                                "type": "boolean"
+                              },
+                              "provider": {
+                                "type": "string",
+                                "enum": ["lmstudio", "openai", "ingest"]
+                              },
+                              "upstreamStatus": {
+                                "type": "integer"
+                              },
+                              "retryAfterMs": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "error",
+                              "message",
+                              "retryable",
+                              "provider"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
                           "id",
+                          "name",
                           "containerPath",
                           "hostPath",
                           "status",

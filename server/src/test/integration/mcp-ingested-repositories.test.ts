@@ -23,7 +23,7 @@ function createMcpApp(
   return app;
 }
 
-test('ListIngestedRepositories returns canonical and compatibility lock fields', async () => {
+test('ListIngestedRepositories default MCP path returns documented id, name, and compatibility lock fields', async () => {
   const app = createMcpApp(
     {
       ids: ['run-1'],
@@ -71,6 +71,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
     schemaVersion: string;
     repos: Array<{
       id: string;
+      name: string;
       status: string;
       embeddingProvider: string;
       embeddingModel: string;
@@ -86,6 +87,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
   assert.equal(parsed.repos.length, 1);
   assert.equal(parsed.repos[0]?.id, '/data/repo');
+  assert.equal(parsed.repos[0]?.name, 'repo');
   assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
   assert.equal(parsed.repos[0].embeddingModel, 'embed-model');
   assert.equal(parsed.repos[0].model, 'embed-model');
@@ -94,6 +96,74 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.repos[0].lock.modelId, 'embed-model');
   assert.equal(parsed.repos[0].lock.lockedModelId, 'embed-model');
   assert.equal(parsed.repos[0].status, 'completed');
+});
+
+test('ListIngestedRepositories default MCP path preserves documented structured error fields', async () => {
+  const app = createMcpApp(
+    {
+      ids: ['run-ingest-error'],
+      metadatas: [
+        {
+          name: 'repo-error',
+          root: '/data/repo-error',
+          model: 'text-embedding-3-small',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
+          files: 3,
+          chunks: 12,
+          embedded: 12,
+          lastIngestAt: '2026-01-01T00:00:00.000Z',
+          state: 'error',
+          lastError: 'queue replay validation failed',
+          error: {
+            error: 'INVALID_REEMBED_STATE',
+            message: 'queue replay validation failed',
+            retryable: false,
+            provider: 'ingest',
+          },
+        },
+      ],
+    },
+    'text-embedding-3-small',
+  );
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'structured-ingest-error',
+      method: 'tools/call',
+      params: {
+        name: 'ListIngestedRepositories',
+        arguments: {},
+      },
+    });
+
+  assert.equal(response.status, 200);
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<{
+      id: string;
+      name: string;
+      lastError?: string | null;
+      error?: {
+        error?: string;
+        message?: string;
+        retryable?: boolean;
+        provider?: string;
+      } | null;
+    }>;
+  };
+  assert.equal(parsed.repos[0]?.id, '/data/repo-error');
+  assert.equal(parsed.repos[0]?.name, 'repo-error');
+  assert.equal(parsed.repos[0]?.lastError, 'queue replay validation failed');
+  assert.equal(parsed.repos[0]?.error?.error, 'INVALID_REEMBED_STATE');
+  assert.equal(
+    parsed.repos[0]?.error?.message,
+    'queue replay validation failed',
+  );
+  assert.equal(parsed.repos[0]?.error?.retryable, false);
+  assert.equal(parsed.repos[0]?.error?.provider, 'ingest');
 });
 
 test('ListIngestedRepositories emits canonical repository identity even when display names differ', async () => {

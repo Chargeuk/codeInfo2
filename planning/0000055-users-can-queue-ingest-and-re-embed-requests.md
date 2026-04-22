@@ -14272,6 +14272,7 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 - Subtask 3: added `server/src/test/unit/ingest-start.test.ts` proof covering non-string `name`, non-string `description`, non-boolean `dryRun`, and unexpected fields with the existing validation envelope plus same-scenario assertions that neither queue admission nor pump scheduling runs; existing valid queue-aware tests continue to cover immediate and waiting response fields.
 - Subtask 4: added `server/src/test/unit/openapi.contract.test.ts` request-schema proof for `/ingest/start` so the documented request shape requires `path` and `name`, types `name`, `description`, `dryRun`, model fields, and keeps `additionalProperties: false` aligned with route validation.
 - Subtask 5: updated `server/src/test/features/ingest-start-body.feature` and `server/src/test/steps/ingest-start-body.steps.ts` so valid JSON now asserts immediate queue acceptance, canonical-field precedence stays distinct, and a malformed typed-field scenario outline proves validation errors leave the start-ingest queue helper uncalled.
+- Audit: confirmed the implementation-only pass closed Subtasks 1 through 5 against the touched start-ingest route, request-contract, OpenAPI, unit, and Cucumber proof files; no live blocker is present, and Testing 1 through 4 remain unchecked for the automated-proof step.
 
 ### Task 180. Realign Shared Repo-List Runtime, OpenAPI, And Queue Overlay Identity
 

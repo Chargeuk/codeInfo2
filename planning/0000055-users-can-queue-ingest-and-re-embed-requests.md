@@ -14186,9 +14186,9 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts`.
-2. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-3. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts`.
+2. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+3. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14198,6 +14198,9 @@ Keep the blocking MCP, command, and flow re-embed contract queue-aware by making
 - Subtask 4: updated `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so the canonicalized reingest dispatch tests now explicitly prove classic MCP and MCP2 callers preserve the shared service default by not passing sibling `waitOptions`.
 - Subtask 5: updated `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts` so command and flow re-embed propagation tests capture the full `runReingestRepository(...)` argument object, assert canonical `sourceId` dispatch, and prove no caller-owned `waitOptions` are passed.
 - Audit: confirmed the implementation-only pass closed Subtasks 1 through 5 against the touched reingest service and propagation proof files; no live blocker is present, and Testing 1 through 3 remain unchecked for the automated-proof step.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts` passed with `tests run: 130`, `passed: 130`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T01-12-20-616Z.log`; no log inspection was needed.
+- Testing 2: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
+- Testing 3: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
 
 ### Task 179. Reject Malformed Start-Ingest Body Fields Before Queue Admission
 

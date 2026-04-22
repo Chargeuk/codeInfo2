@@ -15239,7 +15239,7 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `185, 186, 187, 188, 189, 190`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260422T045457Z-daafd19b`, covering `F1`, `F2`, `F3`, `F4`, `F5`, `F6`, and `F7`.
 
@@ -15342,3 +15342,4 @@ Focus optional browser/API proof on the repaired externally observable seams: qu
 - Testing 10: `npm run compose:down` passed and removed the client, server, Mongo, Chroma, Zipkin, OpenTelemetry collector, Playwright MCP containers, and the `codeinfo2_internal` network cleanly.
 - Testing 11: `npm run lint` passed with exit code 0 and no lint fixes were required.
 - Testing 12: `npm run format:check` passed with `All matched files use Prettier code style!`, so no `npm run format` repair pass was needed.
+- Automated-proof audit: Task 191 is now `__done__` because all three subtasks and all twelve automated Testing steps are checked, the retained wrapper proof is recorded in this plan and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, and `plan_status.py --task-number 191` reports no live blockers.

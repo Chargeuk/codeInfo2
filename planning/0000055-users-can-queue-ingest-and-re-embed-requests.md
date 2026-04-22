@@ -15370,7 +15370,7 @@ Saturation and blind-spot challenge generated no additional actionable findings.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F1`: pending cleanup retries do not block queue advancement when cleanup-blocked persistence fails.
   - `F4`: cleanup-blocked overlays can preserve stale persisted `lastError` without runtime status.
@@ -15432,6 +15432,7 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 - Testing 6 repair: `npm run format:check` reported Prettier drift in `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/tools-ingested-repos.test.ts`; reopened Testing 5 before running `npm run format` because formatting changes will land after the prior lint proof.
 - Testing 5 rerun: after `npm run format` rewrote the task-owned files, `npm run lint` passed again with exit code 0 and no lint fixes were required.
 - Testing 6: `npm run format:check` passed on rerun with `All matched files use Prettier code style!`.
+- Automated-proof audit: Task 192 is now `__done__` because all six subtasks and all six automated Testing steps are checked, the retained wrapper proof is recorded in this plan, and `plan_status.py --task-number 192` reports no live blockers.
 
 #### Subtasks
 

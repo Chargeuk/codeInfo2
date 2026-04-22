@@ -15052,10 +15052,10 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 #### Subtasks
 
-1. [ ] Re-read `F5`, `findWaitingQueueRequestForTarget()`, `buildRewriteableWaitingRequestFilter()`, `rewriteWaitingQueueRequestIfAllowed()`, duplicate-key fallback handling, and the existing `server/src/test/unit/ingest-request-queue.test.ts` duplicate tests; use the observed Mongo `_id` as the rewrite guard unless the current helper exposes only an equivalent persisted request id, and name that fallback explicitly in the helper and test title if it is required.
-2. [ ] Update the waiting rewrite helper in `server/src/ingest/requestQueue.ts` and `server/src/mongo/ingestQueueRequest.ts` so the `findOneAndUpdate()` filter includes the observed waiting row guard plus `canonicalTargetPath` and `queueState: 'waiting'`, and so a missed guarded update triggers an honest live-row re-read instead of rewriting whichever later waiting row shares the target.
-3. [ ] Apply the same guarded rewrite behavior to the duplicate-key fallback path in `server/src/ingest/requestQueue.ts` so a create race cannot replay an older payload onto a newer waiting row.
-4. [ ] In `server/src/test/unit/ingest-request-queue.test.ts`, add or update request-queue proof for the ordinary duplicate path, duplicate-key fallback path, and active-row reuse: row A is observed, row A disappears before rewrite, row B appears with fresher payload and remains unchanged, the attempted rewrite filter includes the observed row guard plus `canonicalTargetPath` and `queueState: 'waiting'`, duplicate-key fallback follows the same guarded reread behavior and atomic filter shape, and running or cleanup-blocked duplicates return the live row without mid-flight mutation; rename or replace reused helper-arity or race tests whose titles would otherwise claim adjacent rewrite behavior without the observed-row compare-and-swap guard.
+1. [x] Re-read `F5`, `findWaitingQueueRequestForTarget()`, `buildRewriteableWaitingRequestFilter()`, `rewriteWaitingQueueRequestIfAllowed()`, duplicate-key fallback handling, and the existing `server/src/test/unit/ingest-request-queue.test.ts` duplicate tests; use the observed Mongo `_id` as the rewrite guard unless the current helper exposes only an equivalent persisted request id, and name that fallback explicitly in the helper and test title if it is required.
+2. [x] Update the waiting rewrite helper in `server/src/ingest/requestQueue.ts` and `server/src/mongo/ingestQueueRequest.ts` so the `findOneAndUpdate()` filter includes the observed waiting row guard plus `canonicalTargetPath` and `queueState: 'waiting'`, and so a missed guarded update triggers an honest live-row re-read instead of rewriting whichever later waiting row shares the target.
+3. [x] Apply the same guarded rewrite behavior to the duplicate-key fallback path in `server/src/ingest/requestQueue.ts` so a create race cannot replay an older payload onto a newer waiting row.
+4. [x] In `server/src/test/unit/ingest-request-queue.test.ts`, add or update request-queue proof for the ordinary duplicate path, duplicate-key fallback path, and active-row reuse: row A is observed, row A disappears before rewrite, row B appears with fresher payload and remains unchanged, the attempted rewrite filter includes the observed row guard plus `canonicalTargetPath` and `queueState: 'waiting'`, duplicate-key fallback follows the same guarded reread behavior and atomic filter shape, and running or cleanup-blocked duplicates return the live row without mid-flight mutation; rename or replace reused helper-arity or race tests whose titles would otherwise claim adjacent rewrite behavior without the observed-row compare-and-swap guard.
 
 #### Testing
 
@@ -15068,7 +15068,11 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 #### Implementation Notes
 
-- Review disposition reopened the story for `F5` from pass `0000055-20260422T045457Z-daafd19b`; no implementation has been attempted in this task yet.
+- Review disposition reopened the story for `F5` from pass `0000055-20260422T045457Z-daafd19b`.
+- Subtask 1: re-read the F5 finding, waiting lookup/rewrite helpers, duplicate-key fallback, and request-queue duplicate tests; the observed Mongo `_id` is available on the queue document and is the correct compare-and-swap guard.
+- Subtask 2: added `IngestQueueRequestId` typing in the queue model module and changed the waiting rewrite filter to include the observed `_id` along with `canonicalTargetPath` and `queueState: 'waiting'`; a missed guarded update now falls through to the existing live-row re-read instead of rewriting a later waiting row.
+- Subtask 3: routed duplicate-key fallback rewrites through the same observed-row guarded helper, so create races also re-read live state when the observed waiting row is no longer rewriteable.
+- Subtask 4: updated request-queue proof to require `_id` in allowed rewrite filters, renamed the ordinary duplicate race proof to the observed-row compare-and-swap invariant, added duplicate-key stale-intent proof where row B remains unchanged after row A disappears, and asserted running/cleanup-blocked reuse does not call the waiting rewrite.
 
 ### Task 189. Keep Destructive Remove Actions On Root-Path Payloads
 

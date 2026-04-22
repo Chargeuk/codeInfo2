@@ -3,6 +3,7 @@ import {
   ingestLiveQueueTargetStates,
   IngestQueueRequestModel,
   type IngestQueueOperation,
+  type IngestQueueRequestId,
   type IngestQueueState,
   type IngestQueueRequest,
 } from '../mongo/ingestQueueRequest.js';
@@ -211,8 +212,10 @@ function shouldRewriteWaitingRequest(
 
 function buildRewriteableWaitingRequestFilter(
   input: EnqueueIngestRequestInput,
+  observedWaitingRequestId: IngestQueueRequestId,
 ): Record<string, unknown> {
   return {
+    _id: observedWaitingRequestId,
     canonicalTargetPath: input.canonicalTargetPath,
     queueState: 'waiting',
   };
@@ -229,8 +232,12 @@ function buildWaitingRequestUpdate(input: EnqueueIngestRequestInput) {
 
 async function rewriteWaitingQueueRequestIfAllowed(
   input: EnqueueIngestRequestInput,
+  observedWaitingRequest: IngestQueueRequest,
 ): Promise<IngestQueueRequest | null> {
-  const filter = buildRewriteableWaitingRequestFilter(input);
+  const filter = buildRewriteableWaitingRequestFilter(
+    input,
+    observedWaitingRequest._id,
+  );
   const update = buildWaitingRequestUpdate(input);
   return IngestQueueRequestModel.findOneAndUpdate(filter, update, {
     new: true,
@@ -262,7 +269,9 @@ export async function enqueueOrReuseIngestRequest(
     return buildCurrentQueueReuseResult(existingWaitingRequest);
   }
 
-  const waitingRequest = await rewriteWaitingQueueRequestIfAllowed(input);
+  const waitingRequest = existingWaitingRequest
+    ? await rewriteWaitingQueueRequestIfAllowed(input, existingWaitingRequest)
+    : null;
 
   if (waitingRequest) {
     return buildUpdatedWaitingQueueResult(waitingRequest);
@@ -310,8 +319,12 @@ export async function enqueueOrReuseIngestRequest(
       return buildCurrentQueueReuseResult(racedExistingWaitingRequest);
     }
 
-    const racedWaitingRequest =
-      await rewriteWaitingQueueRequestIfAllowed(input);
+    const racedWaitingRequest = racedExistingWaitingRequest
+      ? await rewriteWaitingQueueRequestIfAllowed(
+          input,
+          racedExistingWaitingRequest,
+        )
+      : null;
 
     if (racedWaitingRequest) {
       return buildUpdatedWaitingQueueResult(racedWaitingRequest);

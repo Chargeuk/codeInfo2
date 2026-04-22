@@ -87,6 +87,8 @@ export type IngestQueueRequest = {
   updatedAt: Date;
 };
 
+export type IngestQueueRequestId = IngestQueueRequest['_id'];
+
 export type IngestQueueRequestDocument = HydratedDocument<IngestQueueRequest>;
 
 export const IngestQueueRequestModel: Model<IngestQueueRequest> =

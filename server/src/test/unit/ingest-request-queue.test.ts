@@ -227,6 +227,7 @@ test('canonical queue-target normalization still rewrites a waiting start row in
       update: { $set: Record<string, unknown> },
     ) => {
       assert.deepEqual(filter, {
+        _id: existing._id,
         canonicalTargetPath: canonicalStartTarget,
         queueState: 'waiting',
       });
@@ -450,11 +451,28 @@ test('start duplicate sees current running semantics when a waiting row is promo
   assert.equal(countMock.mock.calls.length, 0);
 });
 
-test('ordinary matched-row update race still keeps a raced-in waiting start row as start after the helper-arity fix', async () => {
-  const existing = createQueueRequest({
+test('ordinary matched-row update race refuses to replay stale intent onto a newer waiting row', async () => {
+  const observed = createQueueRequest({
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:05:00.000Z'),
+    requestPayload: {
+      model: 'old-observed-model',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'old-observed-model',
+    },
   });
+  const newerWaiting = createQueueRequest({
+    _id: new mongoose.Types.ObjectId('000000000000000000000042'),
+    createdAt: new Date('2026-01-01T00:01:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:06:00.000Z'),
+    operation: 'start',
+    requestPayload: {
+      model: 'newer-waiting-model',
+      embeddingProvider: 'openai',
+      embeddingModel: 'newer-waiting-model',
+    },
+  });
+  let waitingLookupCount = 0;
 
   const waitingLookupMock = mock.method(
     IngestQueueRequestModel,
@@ -463,14 +481,17 @@ test('ordinary matched-row update race still keeps a raced-in waiting start row 
       if (filter.queueState === 'waiting') {
         return {
           sort: () => ({
-            exec: async () => null,
+            exec: async () => {
+              waitingLookupCount += 1;
+              return waitingLookupCount === 1 ? observed : null;
+            },
           }),
         };
       }
 
       return {
         sort: () => ({
-          exec: async () => existing,
+          exec: async () => newerWaiting,
         }),
       };
     },
@@ -483,6 +504,7 @@ test('ordinary matched-row update race still keeps a raced-in waiting start row 
       update: { $set: Record<string, unknown> },
     ) => {
       assert.deepEqual(filter, {
+        _id: observed._id,
         canonicalTargetPath: '/data/example',
         queueState: 'waiting',
       });
@@ -503,7 +525,7 @@ test('ordinary matched-row update race still keeps a raced-in waiting start row 
     },
   );
   mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
-    exec: async () => 0,
+    exec: async () => 1,
   }));
 
   const result = await enqueueOrReuseIngestRequest(
@@ -518,8 +540,14 @@ test('ordinary matched-row update race still keeps a raced-in waiting start row 
     }),
   );
 
-  assert.equal(result.requestId, existing._id.toString());
+  assert.equal(result.requestId, newerWaiting._id.toString());
   assert.equal(result.queueRequest.operation, 'start');
+  assert.deepEqual(result.queueRequest.requestPayload, {
+    model: 'newer-waiting-model',
+    embeddingProvider: 'openai',
+    embeddingModel: 'newer-waiting-model',
+  });
+  assert.equal(result.queuePosition, 2);
   assert.equal(result.updatedExisting, false);
   assert.equal(waitingLookupMock.mock.calls.length, 2);
   assert.equal(waitingUpdateMock.mock.calls.length, 1);
@@ -606,6 +634,7 @@ test('allowed waiting-row rewrite preserves queue identity metadata and reports 
       update: { $set: Record<string, unknown> },
     ) => {
       assert.deepEqual(filter, {
+        _id: existing._id,
         canonicalTargetPath: '/data/example',
         queueState: 'waiting',
       });
@@ -691,7 +720,7 @@ test('allowed waiting-row rewrite preserves queue identity metadata and reports 
   assert.equal(waitingUpdateMock.mock.calls.length, 1);
 });
 
-test('duplicate-key retry interleaving rewrites a waiting start row with later reembed settings', async () => {
+test('duplicate-key retry interleaving rewrites only the observed waiting row with later reembed settings', async () => {
   const createdAt = new Date('2026-01-01T00:00:00.000Z');
   const existing = createQueueRequest({
     createdAt,
@@ -718,6 +747,7 @@ test('duplicate-key retry interleaving rewrites a waiting start row with later r
       update: { $set: Record<string, unknown> },
     ) => {
       assert.deepEqual(filter, {
+        _id: existing._id,
         canonicalTargetPath: '/data/example',
         queueState: 'waiting',
       });
@@ -790,7 +820,7 @@ test('duplicate-key retry interleaving rewrites a waiting start row with later r
   assert.equal(waitingLookupCount, 2);
   assert.equal(liveLookupCount, 1);
   assert.equal(createMock.mock.calls.length, 1);
-  assert.equal(waitingUpdateMock.mock.calls.length, 2);
+  assert.equal(waitingUpdateMock.mock.calls.length, 1);
   assert.equal(result.requestId, existing._id.toString());
   assert.equal(result.updatedExisting, true);
   assert.equal(result.queuePosition, 1);
@@ -800,6 +830,124 @@ test('duplicate-key retry interleaving rewrites a waiting start row with later r
     model: 'embed-second',
     embeddingProvider: 'openai',
     embeddingModel: 'embed-second',
+  });
+});
+
+test('duplicate-key retry refuses to replay stale intent onto a newer waiting row after the observed row disappears', async () => {
+  const observed = createQueueRequest({
+    _id: new mongoose.Types.ObjectId('000000000000000000000051'),
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:05:00.000Z'),
+    requestPayload: {
+      model: 'observed-start-model',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'observed-start-model',
+    },
+  });
+  const newerWaiting = createQueueRequest({
+    _id: new mongoose.Types.ObjectId('000000000000000000000052'),
+    createdAt: new Date('2026-01-01T00:01:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:06:00.000Z'),
+    requestPayload: {
+      model: 'newer-start-model',
+      embeddingProvider: 'openai',
+      embeddingModel: 'newer-start-model',
+    },
+  });
+  let waitingLookupCount = 0;
+  let liveLookupCount = 0;
+  const waitingUpdateMock = mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    (
+      filter: Record<string, unknown>,
+      update: { $set: Record<string, unknown> },
+    ) => {
+      assert.deepEqual(filter, {
+        _id: observed._id,
+        canonicalTargetPath: '/data/example',
+        queueState: 'waiting',
+      });
+      assert.deepEqual(update, {
+        $set: {
+          operation: 'reembed',
+          requestPayload: {
+            model: 'stale-reembed-model',
+            embeddingProvider: 'openai',
+            embeddingModel: 'stale-reembed-model',
+          },
+        },
+      });
+
+      return {
+        exec: async () => null,
+      };
+    },
+  );
+  mock.method(
+    IngestQueueRequestModel,
+    'findOne',
+    (filter: {
+      canonicalTargetPath?: string;
+      queueState?: string | { $in?: string[] };
+    }) => {
+      if (filter.queueState === 'waiting') {
+        waitingLookupCount += 1;
+        return {
+          sort: () => ({
+            exec: async () => (waitingLookupCount === 1 ? null : observed),
+          }),
+        };
+      }
+
+      assertLiveTargetQueueStateFilter(filter);
+      return {
+        sort: () => ({
+          exec: async () => {
+            liveLookupCount += 1;
+            return newerWaiting;
+          },
+        }),
+      };
+    },
+  );
+  const createMock = mock.method(
+    IngestQueueRequestModel,
+    'create',
+    async () => {
+      const error = new Error('duplicate waiting queue row');
+      (error as Error & { code?: number }).code = 11000;
+      throw error;
+    },
+  );
+  mock.method(IngestQueueRequestModel, 'countDocuments', () => ({
+    exec: async () => 1,
+  }));
+
+  const result = await enqueueOrReuseIngestRequest(
+    buildInput({
+      operation: 'reembed',
+      requestPayload: {
+        model: 'stale-reembed-model',
+        embeddingProvider: 'openai',
+        embeddingModel: 'stale-reembed-model',
+      },
+      sourceSurface: 'rest/ingest/reembed',
+    }),
+  );
+
+  assert.equal(waitingLookupCount, 2);
+  assert.equal(liveLookupCount, 1);
+  assert.equal(createMock.mock.calls.length, 1);
+  assert.equal(waitingUpdateMock.mock.calls.length, 1);
+  assert.equal(result.requestId, newerWaiting._id.toString());
+  assert.equal(result.updatedExisting, false);
+  assert.equal(result.queuePosition, 2);
+  assert.equal(result.queueRequest.operation, 'start');
+  assert.deepEqual(result.queueRequest.requestPayload, {
+    model: 'newer-start-model',
+    embeddingProvider: 'openai',
+    embeddingModel: 'newer-start-model',
   });
 });
 
@@ -815,9 +963,13 @@ test('running duplicate reuse returns the existing running queue item without mu
     },
   });
 
-  mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
-    exec: async () => null,
-  }));
+  const waitingUpdateMock = mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    () => ({
+      exec: async () => null,
+    }),
+  );
   const runningLookupMock = mock.method(
     IngestQueueRequestModel,
     'findOne',
@@ -861,6 +1013,7 @@ test('running duplicate reuse returns the existing running queue item without mu
     embeddingModel: 'text-embedding-3-small',
   });
   assert.equal(runningLookupMock.mock.calls.length, 2);
+  assert.equal(waitingUpdateMock.mock.calls.length, 0);
 });
 
 test('cleanup-blocked duplicate reuse returns the blocked queue item instead of creating a later waiting owner', async () => {
@@ -875,9 +1028,13 @@ test('cleanup-blocked duplicate reuse returns the blocked queue item instead of 
     },
   });
 
-  mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
-    exec: async () => null,
-  }));
+  const waitingUpdateMock = mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    () => ({
+      exec: async () => null,
+    }),
+  );
   const liveLookupMock = mock.method(
     IngestQueueRequestModel,
     'findOne',
@@ -928,6 +1085,7 @@ test('cleanup-blocked duplicate reuse returns the blocked queue item instead of 
   });
   assert.equal(liveLookupMock.mock.calls.length, 2);
   assert.equal(createMock.mock.calls.length, 0);
+  assert.equal(waitingUpdateMock.mock.calls.length, 0);
 });
 
 test('waiting queue position counts only older waiting items and uses countDocuments instead of loading the full queue', async () => {

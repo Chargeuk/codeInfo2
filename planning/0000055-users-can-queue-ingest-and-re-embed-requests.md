@@ -15160,7 +15160,7 @@ If later manual validation is requested, use the ingest page to inspect row and 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `189`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F3` `should_fix`: tracked manual log includes a provider account identifier from an OpenAI error.
   - `F4` `should_fix`: generated screenshot artifacts are tracked under a non-ignored `artifacts/` directory.
@@ -15232,6 +15232,7 @@ Repair the support-artifact hygiene issues identified by the review without trea
 - Testing 4: static screenshot-reference search passed; `e2e/ingest.spec.ts` and the PR summary no longer mention the old `artifacts/story-0000055-screenshots` path and now cite `test-results/screenshots` plus approved `codeInfoStatus/manual-testing/0000055/` retention.
 - Testing 5: `npm run lint` passed with exit code 0 and no lint fixes required.
 - Testing 6: `npm run format:check` passed with `All matched files use Prettier code style!`.
+- Automated-proof audit: Task 190 has all subtasks and Testing steps checked, the latest proof commit records the listed artifact hygiene searches, git tracking and ignore checks, static screenshot-reference search, lint, and format-check results, and `plan_status.py --task-number 190` reports no unchecked subtasks, unchecked testing, or live blockers. Normalized the task to `__done__` so Task 191 can become the next implementation-loop owner.
 
 ### Task 191. Re-Validate Story 55 After Review Pass `0000055-20260422T045457Z-daafd19b`
 

@@ -15452,12 +15452,12 @@ Repair the published `/ingest/start` request contract so generated clients and u
 
 - `R1.` `openapi.json` no longer advertises a start-ingest body with only `path` and `name` as a complete queue-admissible request.
 - `R2.` The OpenAPI contract test asserts the corrected dependency shape for legacy `model` versus canonical `embeddingProvider` and `embeddingModel`.
-- `R3.` Existing client submit payloads remain compatible with the corrected schema and the route's pre-admission validation.
+- `R3.` Existing client submit payloads remain compatible with the corrected schema and the route's pre-admission validation, including locked or provider-qualified model selections where disabled or previously selected local model state must not override the currently visible provider/model choice.
 
 #### Proof Mapping
 
 - `P1.` schema repair for `R1`: implementation owner is `openapi.json`; proof home is `server/src/test/unit/openapi.contract.test.ts`.
-- `P2.` route/schema alignment for `R2` and `R3`: implementation owners are `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx`; proof homes are `server/src/test/unit/ingest-start.test.ts` and the server build.
+- `P2.` route/schema alignment for `R2` and `R3`: implementation owners are `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx`; proof homes are `server/src/test/unit/ingest-start.test.ts`, `client/src/test/ingestForm.test.tsx`, and the server build.
 
 #### Risk Ownership
 
@@ -15487,15 +15487,17 @@ Repair the published `/ingest/start` request contract so generated clients and u
 
 1. [ ] Update the `POST /ingest/start` request schema in `openapi.json` so `path` and `name` remain required but a complete queue-admissible body must also provide either legacy `model` or both canonical fields `embeddingProvider` and `embeddingModel`; the proof owner is `server/src/test/unit/openapi.contract.test.ts`, which must cover the rejected `path` plus `name` only shape, the accepted legacy model shape, and the accepted canonical provider/model shape.
 2. [ ] Update `server/src/test/unit/openapi.contract.test.ts` so it fails if the schema again documents `path` plus `name` alone as sufficient, if it stops documenting both supported model-selection alternatives, or if malformed canonical fields and unknown properties are no longer represented consistently with the route contract.
-3. [ ] Compare `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx` against the corrected schema; repair only schema or contract-test drift, leave production validation plus the existing client producer semantics intact unless the comparison exposes a direct mismatch, and update `server/src/test/unit/ingest-start.test.ts` only as needed to prove route acceptance/rejection parity for the accepted legacy model shape, accepted canonical provider/model shape, and rejected under-specified or malformed shapes.
+3. [ ] Compare `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx` against the corrected schema; repair only schema or contract-test drift, leave production validation plus the existing client producer semantics intact unless the comparison exposes a direct mismatch, and update `server/src/test/unit/ingest-start.test.ts` only as needed to prove route acceptance/rejection parity for the accepted legacy model shape, accepted canonical provider/model shape, rejected under-specified or malformed shapes, and contradictory legacy-plus-canonical payloads where canonical fields must stay authoritative.
+4. [ ] Update `client/src/test/ingestForm.test.tsx` only as needed to keep stateful model-selection proof explicit: provider-qualified selections and locked disabled model selects must submit the current visible `embeddingProvider` and `embeddingModel`, retain local selection only when it is still valid, and prevent stale prior model state from changing the request payload.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openapi.contract.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
-3. [ ] Run `npm run build:summary:server`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx`.
+4. [ ] Run `npm run build:summary:server`.
+5. [ ] Run `npm run lint`.
+6. [ ] Run `npm run format:check`.
 
 ### Task 194. Preserve Retryable `QUEUE_UNAVAILABLE` Semantics For Blocking Queue-Read Failures
 
@@ -15590,13 +15592,13 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 - `R1.` `POST /ingest/remove/:root` rejects or otherwise safely blocks destructive removal when the target has waiting, running, cleanup-blocked, or otherwise queue-owned state that the UI would block.
 - `R2.` Allowed completed/idle removals still use the persisted root path and keep the row/bulk remove path-role behavior from Task 189.
 - `R3.` The test-only e2e cleanup route remains env-gated and keeps its fixture allowlist behavior without being mistaken for the production remove authority model.
-- `R4.` Client row and bulk remove gating remains aligned with the server authority boundary.
+- `R4.` Client row and bulk remove gating remains aligned with the server authority boundary: if a selected row becomes waiting, running, cleanup-blocked, or active-run-owned before submit, the stale selected key may remain local for honest selection messaging but must be excluded from row or bulk Remove payloads.
 
 #### Proof Mapping
 
 - `P1.` production remove authority for `R1` and `R2`: implementation owner is `server/src/routes/ingestRemove.ts` or the smallest remove service boundary it calls; proof home is `server/src/test/features/ingest-remove.feature` plus its step definitions.
 - `P2.` test-only cleanup separation for `R3`: implementation owner is `server/src/routes/ingestE2eCleanup.ts`; proof home is `server/src/test/integration/ingest-e2e-cleanup.test.ts`.
-- `P3.` client/server parity for `R2` and `R4`: implementation owner is `client/src/components/ingest/RootsTable.tsx`; proof home is `client/src/test/ingestRoots.test.tsx`.
+- `P3.` client/server parity and stale-selection handling for `R2` and `R4`: implementation owner is `client/src/components/ingest/RootsTable.tsx`; proof home is `client/src/test/ingestRoots.test.tsx`.
 
 #### Risk Ownership
 
@@ -15633,7 +15635,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 2. [ ] Resolve the remove target using the same persisted root-path authority expected by row and bulk Remove; preserve allowed completed/idle removal behavior, response shape, and unlock handling.
 3. [ ] Update `server/src/test/features/ingest-remove.feature` and `server/src/test/steps/ingest-manage.steps.ts` for the production remove route: prove blocked waiting, running, cleanup-blocked, and active-run-owned targets cannot reach destructive removal, and prove allowed idle/completed removals still use persisted root-path payload authority rather than canonical ids, queue request ids, or run ids.
 4. [ ] Compare `server/src/routes/ingestE2eCleanup.ts` and `server/src/test/integration/ingest-e2e-cleanup.test.ts` with the repaired production remove guard; update the integration proof only if the production repair blurs the env-gated, fixture-scoped cleanup route boundary.
-5. [ ] Compare `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx` with the repaired server boundary; update client proof only if response shape or row/bulk Remove semantics change, and otherwise preserve the current UI gating behavior.
+5. [ ] Compare `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx` with the repaired server boundary; update client proof only if response shape, row/bulk Remove semantics, or stale selected-key behavior changes, and otherwise preserve the current UI contract that selected keys can remain local while waiting, running, cleanup-blocked, or active-run-owned rows are excluded from Remove payloads.
 
 #### Testing
 

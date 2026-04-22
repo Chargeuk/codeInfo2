@@ -14284,7 +14284,7 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `179`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F4` (`must_fix`): repo-list OpenAPI schemas disallow fields the runtime now emits.
   - `F6` (`should_fix`): running queue overlays can show stale persisted model metadata instead of the active queued request's model.

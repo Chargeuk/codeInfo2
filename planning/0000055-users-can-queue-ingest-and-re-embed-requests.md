@@ -14815,12 +14815,13 @@ Restore the queue-state contract across immediate REST queue success responses, 
 - `R2.` OpenAPI, route unit tests, and any shared/client parsing that consumes immediate queue responses agree that the immediate shape includes the non-waiting queue state and rejects the old shape.
 - `R3.` Waiting response behavior remains unchanged: waiting responses keep `queued: true`, `requestId`, waiting-only `queuePosition`, and no active `runId`.
 - `R4.` Repository-list live queue-state filtering reuses `ingestLiveQueueTargetStates` instead of repeating the literal state set inline.
+- `R5.` Any client-visible state that consumes an immediate `running` response must exclude stale waiting-only fields such as `queuePosition` and must not preserve a previous waiting/queued local state when the new response is non-waiting.
 
 #### Proof Mapping
 
 - `P1.` REST producer `R1` and waiting-shape `R3`: implementation owners are `server/src/routes/ingestStart.ts` and `server/src/routes/ingestReembed.ts`; proof homes are `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts`, which must assert immediate `queueState: 'running'` responses and unchanged waiting response semantics.
 - `P2.` documented transport `R2`: implementation owner is `openapi.json`; proof home is `server/src/test/unit/openapi.contract.test.ts`, which must require `queueState: 'running'` on the non-waiting success shape, reject the old immediate shape, and preserve the waiting schema.
-- `P3.` client consumer compatibility for `R1` through `R3`: implementation owners are `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types when those surfaces read immediate responses; proof home is `client/src/test/ingestRoots.test.tsx`.
+- `P3.` client consumer compatibility for `R1`, `R3`, and `R5`: implementation owners are `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types when those surfaces read immediate responses; proof home is `client/src/test/ingestRoots.test.tsx`, which must prove an immediate `running` response does not retain stale waiting-only queue position or queued local state.
 - `P4.` repository-list live-state `R4`: implementation owners are `server/src/lmstudio/toolService.ts` and `server/src/mongo/ingestQueueRequest.ts`; proof homes are `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-request-queue.test.ts`, which must fail on divergent live-state literals or queue-state constant drift.
 
 #### Risk Ownership
@@ -14851,7 +14852,7 @@ Restore the queue-state contract across immediate REST queue success responses, 
 2. [ ] Update the REST immediate response builders and OpenAPI immediate response schemas so `queueState: 'running'` is present and required only on the non-waiting success shape, while the waiting shape keeps `queued: true`, `requestId`, and waiting-only `queuePosition`.
 3. [ ] Update `server/src/test/unit/ingest-start.test.ts` and `server/src/test/unit/ingest-reembed.test.ts` so route proof asserts the new immediate `queueState: 'running'` shape and preserves waiting response semantics for both REST producers.
 4. [ ] Update `server/src/test/unit/openapi.contract.test.ts` so OpenAPI proof requires `queueState: 'running'` on the non-waiting success schema, rejects the old immediate shape, and preserves the waiting schema.
-5. [ ] In `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types, update any parser or normalization path that reads immediate ingest/re-embed responses so TypeScript and `client/src/test/ingestRoots.test.tsx` accept `queueState: 'running'` while preserving waiting-response behavior.
+5. [ ] In `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootsTable.tsx`, and shared client response types, update any parser or normalization path that reads immediate ingest/re-embed responses so TypeScript and `client/src/test/ingestRoots.test.tsx` accept `queueState: 'running'`, preserve waiting-response behavior, and exclude stale waiting-only `queuePosition` or queued local state from the non-waiting response path.
 6. [ ] Replace the repository-list overlay's inline `['waiting', 'running', 'cleanup-blocked']` filter in `server/src/lmstudio/toolService.ts` with `ingestLiveQueueTargetStates`, preserving queue overlay ordering and waiting-position behavior.
 7. [ ] In `server/src/test/unit/tools-ingested-repos.test.ts` or the nearest existing repository-list overlay test, add or update focused proof that the live-state overlay follows `ingestLiveQueueTargetStates` and would fail if `server/src/lmstudio/toolService.ts` reintroduced an inline divergent state list.
 
@@ -14953,11 +14954,12 @@ Separate client action identity for queueable re-embed from destructive root-pat
 - `R2.` Bulk Remove derives destructive endpoint targets from the selected rows' `path` values while preserving stable selection keys and queued/running/cleanup-blocked row exclusion.
 - `R3.` Row and bulk Re-embed continue to use the intended canonical identity path.
 - `R4.` Client tests directly prove the divergent re-embed versus remove payload contracts for rows whose `id` is not the persisted root path.
+- `R5.` Stale selected keys whose current rows have become queued, running, cleanup-blocked, or active-ingest-head rows are retained only as local selection state and excluded from destructive Remove submission.
 
 #### Proof Mapping
 
 - `P1.` row Remove `R1`: implementation owners are `client/src/components/ingest/RootsTable.tsx` and `client/src/hooks/useIngestRoots.ts`; proof home is `client/src/test/ingestRoots.test.tsx`, which must use a row fixture where `id !== path` and assert row Remove submits `root.path`.
-- `P2.` bulk Remove `R2`: implementation owners are `client/src/components/ingest/RootsTable.tsx` and `client/src/hooks/useIngestRoots.ts`; proof home is `client/src/test/ingestRoots.test.tsx`, which must prove selected stable keys map back to current row `path` values and still exclude queued, running, cleanup-blocked, and active-ingest-head rows from destructive actions.
+- `P2.` bulk Remove `R2` and stale-selection `R5`: implementation owners are `client/src/components/ingest/RootsTable.tsx` and `client/src/hooks/useIngestRoots.ts`; proof home is `client/src/test/ingestRoots.test.tsx`, which must prove selected stable keys map back to current row `path` values while stale selected keys for queued, running, cleanup-blocked, or active-ingest-head rows remain local-only and are excluded from destructive submissions.
 - `P3.` row and bulk Re-embed `R3`: implementation owner is `client/src/components/ingest/RootsTable.tsx`; proof home is `client/src/test/ingestRoots.test.tsx`, which must prove re-embed keeps the intended canonical identity when remove uses `path`.
 - `P4.` divergent payload contract `R4`: implementation owner is `client/src/components/ingest/RootsTable.tsx`; proof home is `client/src/test/ingestRoots.test.tsx`, which must assert remove and re-embed payloads diverge on fixtures where `id !== path`, selected rows clear by the correct key after successful remove, and failed rows remain visible.
 - `P5.` server remove-route compatibility: implementation owners are `server/src/routes/ingestRemove.ts` and `server/src/ingest/ingestJob.ts`; existing remove-route tests remain sufficient unless the client proof exposes a server-side root-path contract gap.
@@ -14981,8 +14983,8 @@ Separate client action identity for queueable re-embed from destructive root-pat
 
 1. [ ] Re-read `F6`, `getRootSelectionKey()`, `getRootActionPath()`, `handleRowReembed()`, `handleRowRemove()`, `handleBulk()`, and `/ingest/remove/:root`; identify the separate roles for selection key, re-embed payload, remove endpoint payload, and row action status keys before editing.
 2. [ ] Split the `RootsTable` action helpers so row and bulk Re-embed continue to use the canonical row identity accepted by re-embed, while row and bulk Remove call `/ingest/remove/:root` with the persisted `root.path`.
-3. [ ] Update bulk Remove target derivation so it maps selected stable keys back to current root rows and submits only those rows' `path` values, without re-enabling queued, running, cleanup-blocked, or active-ingest-head rows.
-4. [ ] In `client/src/test/ingestRoots.test.tsx`, add or update fixtures where `id !== path` to prove row Remove and bulk Remove submit `path`, row or bulk Re-embed still submits the intended identity, selected rows are cleared by the correct key after successful remove, failed rows remain visible, and queued, running, cleanup-blocked, and active-ingest-head rows remain excluded from destructive row and bulk Remove actions.
+3. [ ] Update bulk Remove target derivation so it maps selected stable keys back to current root rows and submits only those rows' `path` values; if a previously selected row is now queued, running, cleanup-blocked, or active-ingest-head, retain that key only as local UI selection state and exclude it from the Remove request payload.
+4. [ ] In `client/src/test/ingestRoots.test.tsx`, add or update fixtures where `id !== path` to prove row Remove and bulk Remove submit `path`, row or bulk Re-embed still submits the intended identity, selected rows are cleared by the correct key after successful remove, failed rows remain visible, and stale selected rows that become queued, running, cleanup-blocked, or active-ingest-head are excluded from destructive row and bulk Remove submissions.
 
 #### Testing
 

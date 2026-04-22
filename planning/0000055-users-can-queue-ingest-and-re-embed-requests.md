@@ -14864,10 +14864,8 @@ Restore the queue-state contract across immediate REST queue success responses, 
 4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts`.
 5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
 6. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
-7. [ ] Run `npm run build:summary:server`.
-8. [ ] Run `npm run build:summary:client`.
-9. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-10. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+7. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+8. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14928,9 +14926,8 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
 4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
-5. [ ] Run `npm run build:summary:server`.
-6. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-7. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14989,9 +14986,8 @@ Separate client action identity for queueable re-embed from destructive root-pat
 #### Testing
 
 1. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-4. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+2. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+3. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 

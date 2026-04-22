@@ -111,6 +111,32 @@ const buildReingestSuccess = (
   ...overrides,
 });
 
+const buildWaitTimeQueueUnavailableError = (params: {
+  repositoryId: string;
+  sourceId: string;
+}) => ({
+  code: 503 as const,
+  message: 'QUEUE_UNAVAILABLE' as const,
+  data: {
+    tool: 'reingest_repository' as const,
+    code: 'QUEUE_UNAVAILABLE' as const,
+    retryable: true as const,
+    retryMessage: 'retry',
+    reingestableRepositoryIds: [params.repositoryId],
+    reingestableSourceIds: [params.sourceId],
+    queueFailureStage: 'wait' as const,
+    waitReason: 'queue-read-failed' as const,
+    fieldErrors: [
+      {
+        field: 'sourceId' as const,
+        reason: 'invalid_state' as const,
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
+});
+
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
@@ -1014,15 +1040,15 @@ test('direct command target working resolves a host working_folder into the moun
   }
 });
 
-test('direct command target working preserves QUEUE_READ_FAILED blocking results from reingest_repository', async () => {
+test('direct command target working propagates wait-time queue-read outage as command failure', async () => {
   const harness = await setupRepoCommandHarness(
-    'target-working-queue-read-failed',
+    'target-working-wait-queue-unavailable',
   );
 
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
-      commandName: 'working-target-queue-read-failed',
+      commandName: 'working-target-wait-queue-unavailable',
       items: [{ type: 'reingest', target: 'working' }],
     });
     setAgentServiceRepoList([
@@ -1033,57 +1059,30 @@ test('direct command target working preserves QUEUE_READ_FAILED blocking results
     ]);
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async ({ sourceId }) => ({
-        ok: true,
-        value: buildReingestSuccess({
-          status: 'error',
+        ok: false,
+        error: buildWaitTimeQueueUnavailableError({
+          repositoryId: 'Owner Repo',
           sourceId: sourceId ?? harness.repoRoot,
-          resolvedRepositoryId: 'Owner Repo',
-          completionMode: null,
-          errorCode: 'QUEUE_READ_FAILED',
         }),
       }),
-      createCallId: () => 'call-working-queue-read-failed',
+      createCallId: () => 'call-working-wait-queue-unavailable',
     });
 
-    const result = await runAgentCommand({
-      agentName: 'coding_agent',
-      commandName: 'working-target-queue-read-failed',
-      working_folder: harness.repoRoot,
-      source: 'REST',
-    });
-
-    const turns = memoryTurns.get(result.conversationId) ?? [];
-    assert.equal(turns.length, 2);
-    assert.equal(turns[0]?.role, 'user');
-    assert.equal(turns[1]?.role, 'assistant');
-    assert.deepEqual(turns[1]?.toolCalls, {
-      calls: [
-        {
-          type: 'tool-result',
-          callId: 'call-working-queue-read-failed',
-          name: 'reingest_repository',
-          stage: 'error',
-          result: {
-            kind: 'reingest_step_result',
-            stepType: 'reingest',
-            targetMode: 'working',
-            requestedSelector: null,
-            sourceId: harness.repoRoot,
-            resolvedRepositoryId: 'Owner Repo',
-            outcome: 'failed',
-            status: 'error',
-            completionMode: null,
-            operation: 'reembed',
-            runId: 'run-123',
-            files: 3,
-            chunks: 7,
-            embedded: 7,
-            errorCode: 'QUEUE_READ_FAILED',
-          },
-          error: null,
-        },
-      ],
-    });
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'working-target-wait-queue-unavailable',
+          working_folder: harness.repoRoot,
+          source: 'REST',
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /unavailable while waiting for re-ingest completion/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
   } finally {
     await harness.restore();
   }

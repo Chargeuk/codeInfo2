@@ -382,6 +382,15 @@ function toFailureRepoEntry(params: {
   };
 }
 
+function isWaitTimeQueueUnavailable(error: ReingestError): boolean {
+  return (
+    error.message === 'QUEUE_UNAVAILABLE' &&
+    error.data.code === 'QUEUE_UNAVAILABLE' &&
+    'queueFailureStage' in error.data &&
+    error.data.queueFailureStage === 'wait'
+  );
+}
+
 export async function executeReingestRequest(params: {
   request: ReingestRequest;
   surface: 'command' | 'flow' | 'flow_command';
@@ -566,6 +575,9 @@ export async function executeReingestRequest(params: {
           );
         }
       } else {
+        if (isWaitTimeQueueUnavailable(result.error)) {
+          return result;
+        }
         const failure = normalizeFailureOutcome({
           repo: toFailureRepoEntry({
             sourceId: repo.sourceId,

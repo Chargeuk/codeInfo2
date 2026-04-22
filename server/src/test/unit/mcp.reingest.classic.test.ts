@@ -91,6 +91,23 @@ const parityQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
   },
 };
 
+const waitTimeQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
+  ...parityQueueUnavailableError,
+  data: {
+    ...parityQueueUnavailableError.data,
+    queueFailureStage: 'wait',
+    waitReason: 'queue-read-failed',
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
+};
+
 function createApp(result: ReingestResult, onRun?: (args: unknown) => void) {
   const app = express();
   app.use(express.json());
@@ -444,6 +461,28 @@ test('classic MCP preserves degraded-startup QUEUE_UNAVAILABLE diagnostic withou
     res.body.error.data.fieldErrors[0].message,
     'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
   );
+});
+
+test('classic MCP propagates wait-time queue-read outage as retryable QUEUE_UNAVAILABLE error envelope', async () => {
+  const app = createApp({ ok: false, error: waitTimeQueueUnavailableError });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'wait-time-queue-read-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.deepEqual(res.body.error, waitTimeQueueUnavailableError);
+  assert.equal(res.body.error.data.retryable, true);
+  assert.equal(res.body.error.data.queueFailureStage, 'wait');
+  assert.equal(res.body.error.data.waitReason, 'queue-read-failed');
 });
 
 test('classic MCP rejects string arguments as malformed request shape before domain validation', async () => {

@@ -221,6 +221,32 @@ const buildReingestSuccess = (
   ...overrides,
 });
 
+const buildWaitTimeQueueUnavailableError = (params: {
+  repositoryId: string;
+  sourceId: string;
+}) => ({
+  code: 503 as const,
+  message: 'QUEUE_UNAVAILABLE' as const,
+  data: {
+    tool: 'reingest_repository' as const,
+    code: 'QUEUE_UNAVAILABLE' as const,
+    retryable: true as const,
+    retryMessage: 'retry',
+    reingestableRepositoryIds: [params.repositoryId],
+    reingestableSourceIds: [params.sourceId],
+    queueFailureStage: 'wait' as const,
+    waitReason: 'queue-read-failed' as const,
+    fieldErrors: [
+      {
+        field: 'sourceId' as const,
+        reason: 'invalid_state' as const,
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
+});
+
 const withFlowServer = async (
   task: (params: {
     baseUrl: string;
@@ -1751,6 +1777,73 @@ test('top-level flow target working reuses the selected repository path and pres
             value: buildReingestSuccess({
               sourceId: sourceId ?? '/missing',
               resolvedRepositoryId: 'Working Repo',
+            }),
+          };
+        },
+      },
+    },
+  );
+});
+
+test('top-level flow target working propagates wait-time queue-read outage as retryable QUEUE_UNAVAILABLE failure', async () => {
+  const repos: RepoEntry[] = [];
+  const calls: unknown[] = [];
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-flow-working-wait-outage');
+      const workingRoot = path.join(
+        tmpDir,
+        'repo-flow-working-wait-outage-target',
+      );
+      const conversationId = 'flow-target-working-wait-outage';
+      await fs.mkdir(workingRoot, { recursive: true });
+      await writeFlowFile({
+        repoRoot: sourceRoot,
+        flowName: 'repo-flow-working-wait-outage',
+        steps: [{ type: 'reingest', target: 'working' }],
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-flow-working-wait-outage/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
+        .expect(202);
+
+      const final = (await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'failed',
+      })) as { error?: { message?: string } };
+      assert.match(
+        final.error?.message ?? '',
+        /unavailable while waiting for re-ingest completion/i,
+      );
+      assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async (args) => {
+          calls.push(args);
+          const sourceId = args.sourceId ?? '/missing';
+          return {
+            ok: false,
+            error: buildWaitTimeQueueUnavailableError({
+              repositoryId: 'Working Repo',
+              sourceId,
             }),
           };
         },

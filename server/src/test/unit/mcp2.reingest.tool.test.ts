@@ -88,6 +88,23 @@ const parityQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
   },
 };
 
+const waitTimeQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
+  ...parityQueueUnavailableError,
+  data: {
+    ...parityQueueUnavailableError.data,
+    queueFailureStage: 'wait',
+    waitReason: 'queue-read-failed',
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
+};
+
 async function postJson(
   port: number,
   body: unknown,
@@ -364,6 +381,31 @@ test('MCP v2 preserves degraded-startup QUEUE_UNAVAILABLE diagnostic without rew
       body.error.data.fieldErrors[0].message,
       'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
     );
+  });
+});
+
+test('MCP v2 propagates wait-time queue-read outage as retryable QUEUE_UNAVAILABLE tool error', async () => {
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: waitTimeQueueUnavailableError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'wait-time-queue-read-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, waitTimeQueueUnavailableError);
+    assert.equal(body.error.data.retryable, true);
+    assert.equal(body.error.data.queueFailureStage, 'wait');
+    assert.equal(body.error.data.waitReason, 'queue-read-failed');
   });
 });
 

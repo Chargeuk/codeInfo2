@@ -403,7 +403,7 @@ test('injected short timeout during wait returns deterministic terminal error pa
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
-test('queue read failure during wait returns deterministic terminal error payload', async () => {
+test('queue read failure during wait returns retryable QUEUE_UNAVAILABLE instead of terminal payload', async () => {
   const result = await runReingestRepository(
     { sourceId: '/data/repo-a' },
     {
@@ -422,11 +422,18 @@ test('queue read failure during wait returns deterministic terminal error payloa
     },
   );
 
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.equal(result.value.status, 'error');
-  assert.equal(result.value.completionMode, null);
-  assert.equal(result.value.errorCode, 'QUEUE_READ_FAILED');
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, 503);
+  assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
+  assert.equal(result.error.data.code, 'QUEUE_UNAVAILABLE');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.queueFailureStage, 'wait');
+  assert.equal(result.error.data.waitReason, 'queue-read-failed');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+  );
 });
 
 test('missing run status after start returns deterministic terminal error payload', async () => {
@@ -927,7 +934,7 @@ test('queue-aware wait injected short timeout still settles as WAIT_TIMEOUT and 
   assert.equal(result.value.errorCode, 'WAIT_TIMEOUT');
 });
 
-test('queue-aware wait timeout-fallback read rejection settles as QUEUE_READ_FAILED and unregisters listeners', async () => {
+test('queue-aware wait timeout-fallback read rejection returns retryable QUEUE_UNAVAILABLE and unregisters listeners', async () => {
   process.env.NODE_ENV = 'test';
   let readCount = 0;
   __setQueueRuntimeOpsForTest({
@@ -952,13 +959,17 @@ test('queue-aware wait timeout-fallback read rejection settles as QUEUE_READ_FAI
 
   assert.equal(readCount, 2);
   assert.equal(__getIngestEventListenerCountForTest(), 0);
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.equal(result.value.status, 'error');
-  assert.equal(result.value.errorCode, 'QUEUE_READ_FAILED');
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, 503);
+  assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
+  assert.equal(result.error.data.code, 'QUEUE_UNAVAILABLE');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.queueFailureStage, 'wait');
+  assert.equal(result.error.data.waitReason, 'queue-read-failed');
 });
 
-test('queue-aware wait setup-read rejection settles as QUEUE_READ_FAILED and unregisters listeners', async () => {
+test('queue-aware wait setup-read rejection returns retryable QUEUE_UNAVAILABLE and unregisters listeners', async () => {
   process.env.NODE_ENV = 'test';
   let readCount = 0;
   __setQueueRuntimeOpsForTest({
@@ -983,10 +994,14 @@ test('queue-aware wait setup-read rejection settles as QUEUE_READ_FAILED and unr
 
   assert.equal(readCount, 2);
   assert.equal(__getIngestEventListenerCountForTest(), 0);
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.equal(result.value.status, 'error');
-  assert.equal(result.value.errorCode, 'QUEUE_READ_FAILED');
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, 503);
+  assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
+  assert.equal(result.error.data.code, 'QUEUE_UNAVAILABLE');
+  assert.equal(result.error.data.retryable, true);
+  assert.equal(result.error.data.queueFailureStage, 'wait');
+  assert.equal(result.error.data.waitReason, 'queue-read-failed');
 });
 
 test('queue-aware wait observed cancelled terminal state unregisters listeners before returning', async () => {

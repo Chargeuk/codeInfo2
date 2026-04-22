@@ -30,7 +30,8 @@ import {
 const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
   'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.';
-const QUEUE_READ_FAILED_ERROR_CODE = 'QUEUE_READ_FAILED';
+const QUEUE_WAIT_READ_FAILURE_MESSAGE =
+  'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion';
 export const REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 type ValidationReason =
@@ -77,6 +78,8 @@ type QueueUnavailableData = ReingestRetryLists & {
   retryable: true;
   retryMessage: string;
   fieldErrors: ValidationFieldError[];
+  queueFailureStage?: 'wait';
+  waitReason?: typeof QUEUE_READ_FAILED_WAIT_REASON;
 };
 
 type QueueCleanupBlockedData = ReingestRetryLists & {
@@ -225,6 +228,10 @@ function notFoundError(retryLists: ReingestRetryLists): ReingestError {
 function queueUnavailableError(
   retryLists: ReingestRetryLists,
   message: string,
+  options?: {
+    queueFailureStage?: 'wait';
+    waitReason?: typeof QUEUE_READ_FAILED_WAIT_REASON;
+  },
 ): ReingestError {
   return {
     code: 503,
@@ -241,6 +248,10 @@ function queueUnavailableError(
           message,
         },
       ],
+      ...(options?.queueFailureStage
+        ? { queueFailureStage: options.queueFailureStage }
+        : {}),
+      ...(options?.waitReason ? { waitReason: options.waitReason } : {}),
       ...retryLists,
     },
   };
@@ -632,8 +643,29 @@ export async function runReingestRepository(
       terminalStatus = 'error';
       errorCode = 'WAIT_TIMEOUT';
     } else if (waitResult.reason === QUEUE_READ_FAILED_WAIT_REASON) {
-      terminalStatus = 'error';
-      errorCode = QUEUE_READ_FAILED_ERROR_CODE;
+      const err = queueUnavailableError(
+        retryLists,
+        QUEUE_WAIT_READ_FAILURE_MESSAGE,
+        {
+          queueFailureStage: 'wait',
+          waitReason: QUEUE_READ_FAILED_WAIT_REASON,
+        },
+      );
+      appendLog({
+        level: 'info',
+        source: 'server',
+        timestamp: new Date().toISOString(),
+        message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=error requestId=${queueRequest.requestId} runId=${waitResult.runId ?? queueRunId ?? 'unknown-run'} errorCode=QUEUE_UNAVAILABLE`,
+        context: {
+          status: 'error',
+          requestId: queueRequest.requestId,
+          runId: waitResult.runId ?? queueRunId ?? null,
+          errorCode: 'QUEUE_UNAVAILABLE',
+          waitReason: QUEUE_READ_FAILED_WAIT_REASON,
+        },
+      });
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
     } else if (waitResult.status?.state === 'cancelled') {
       terminalStatus = 'cancelled';
     } else if (waitResult.status?.state === 'completed') {

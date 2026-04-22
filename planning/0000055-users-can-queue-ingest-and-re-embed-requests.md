@@ -15086,7 +15086,7 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `188`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F6` `should_fix`: Remove actions reuse the re-embed identity key even though the remove endpoint deletes by root path.
 
@@ -15153,6 +15153,7 @@ If later manual validation is requested, use the ingest page to inspect row and 
 - Testing 1: `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` initially exposed one stale selection-count expectation in the older running-row bulk-selection test; fixed that expectation to match one eligible selected row, reran the wrapper, and it passed with 44 tests and no failures.
 - Testing 2: `npm run lint` passed with exit code 0 and no reported issues.
 - Testing 3: `npm run format:check` passed; Prettier reported all matched files use the expected style.
+- Automated-proof audit: Task 189 has all subtasks and Testing steps checked, the latest proof commit records the listed client wrapper, lint, and format-check results, and `plan_status.py --task-number 189` reports no unchecked subtasks, unchecked testing, or live blockers. Normalized the task to `__done__` so Task 190 can become the next implementation-loop owner.
 
 ### Task 190. Clean Review-Exposed Runtime Artifact Hygiene
 

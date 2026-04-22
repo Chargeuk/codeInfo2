@@ -14127,6 +14127,7 @@ If a manual-testing pass is requested for this task, use the normal Docker stack
 - Testing 3: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
 - Testing 4: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
 - Automated-proof audit: confirmed Subtasks 1 through 5 and Testing 1 through 4 are complete, no live blocker is present, and Task 177 is now `__done__`.
+- Manual testing: task-scoped proof restarted the normal main Docker stack because no fresh running stack was provable, seeded one Mongo queue row with `queueState: cleanup-blocked`, confirmed `/ingest/roots` exposed the row as an error with `lastError: Queue cleanup blocked`, and verified the real ingest page rendered the cleanup-blocked row without an active `Cancel ingest` affordance while row selection, `Re-embed`, and `Remove` were disabled. Playwright console warnings were clean, non-static network requests succeeded, screenshots were staged as `manual-testing/0000055/task177-cleanup-blocked-ingest.png` and `manual-testing/0000055/task177-cleanup-blocked-row-wide.png`, then transferred to non-committed scratch artifacts `codeInfoTmp/manual-testing/0000055/task177-cleanup-blocked-ingest.png` and `codeInfoTmp/manual-testing/0000055/task177-cleanup-blocked-row-wide.png`; the seeded row was removed and `npm run compose:down` shut the stack down cleanly, with no additional subtasks needed.
 
 ### Task 178. Make Blocking Re-Embed Queue Waits Use A Long Safety Guard
 

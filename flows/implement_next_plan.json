@@ -264,7 +264,7 @@
               "label": "Classify Review Disposition",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "markdownFile": "review_disposition.md"
+              "markdownFile": "classify_review_disposition.md"
             },
             {
               "type": "startLoop",
@@ -275,7 +275,7 @@
                   "label": "Exit Minor-Fix Path Unless Review Is Minor-Only",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Use the review disposition state from the immediately preceding step. Answer yes iff this review pass has no unresolved minor-only findings to fix inline, or it has any unresolved task-required finding that should bypass the minor-fix path and continue to task-up. Answer no only when all unresolved findings are explicitly minor, batchable, and safe to fix inline before task-up. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer yes iff `needs_minor_fix_path` is not true. Answer no only when `needs_minor_fix_path` is true, meaning all unresolved findings are minor-batchable and safe to fix inline before task-up. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -319,7 +319,7 @@
                   "label": "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Use the review disposition state after the minor-fix path. Answer yes iff there are no unresolved task-required review findings that need numbered plan tasks. Treat resolved minor findings as non-actionable for task-up. Answer no only when unresolved task-required findings remain and must be encoded into the plan. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer yes iff `needs_task_up_path` is not true. Treat `resolved_minor_findings` as non-actionable for task-up. Answer no only when `needs_task_up_path` is true, meaning unresolved task-required findings or incomplete-review blockers must be encoded into the plan. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -386,7 +386,7 @@
               "label": "Exit Review Loop If Review-Created Tasks Were Added",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Use the current plan and review disposition state. Answer yes iff this review loop added or updated a numbered plan task that must be executed before the story can close, including either task-required review-fix tasks or the single final revalidation task for minor review fixes. Answer no if no numbered task was added or updated and the review loop may either repeat or finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and re-open the current plan from `codeInfoStatus/flow-state/current-plan.json`. Answer yes iff `review_created_tasks_added_or_updated` is true or the current review loop added or updated a numbered plan task that must be executed before the story can close, including either task-required review-fix tasks or the single final revalidation task for minor review fixes. Answer no if no numbered task was added or updated and the review loop may either repeat or finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             },
             {
@@ -394,7 +394,7 @@
               "label": "Repeat Review Loop If Minor Fixes Were Applied",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Use the review disposition state. Answer no iff one or more minor review findings were fixed in this review-loop iteration and no numbered task was added, because the review must run again against the new HEAD. Answer yes iff no minor fixes were applied in this iteration and no numbered task was added, so the review loop can finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer no iff `needs_review_rerun_before_close` is true and `review_created_tasks_added_or_updated` is false, because the review must run again against the new HEAD. Answer yes iff `needs_review_rerun_before_close` is false and no numbered task was added, so the review loop can finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]

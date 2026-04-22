@@ -14561,9 +14561,9 @@ Remove the localized duplicated queue-state literal in the queue schema's live-t
 
 #### Subtasks
 
-1. [ ] Re-read Finding `F9`, `ingestQueueStates`, the live-target partial index in `server/src/mongo/ingestQueueRequest.ts`, and live-target selectors in `server/src/ingest/requestQueue.ts`. Purpose: keep the simplification scoped to the existing live-state contract.
-2. [ ] Patch the queue schema/index code so the partial index writer in `server/src/mongo/ingestQueueRequest.ts` uses a named live queue-state constant derived from the owned state contract. Inspect reader selectors in `server/src/ingest/requestQueue.ts` and patch any selector that would otherwise drift from exactly `waiting`, `running`, and `cleanup-blocked`.
-3. [ ] Update `server/src/test/unit/ingest-request-queue.test.ts` schema/index proof so it asserts the unique live-target index exists, the partial-filter live-state list contains exactly `waiting`, `running`, and `cleanup-blocked`, and any touched request-queue selector still uses that same live-state subset. Rename or split the existing model/index test if its title only claims timestamps, explicit targets, or FIFO indexes instead of the live-target partial-index invariant.
+1. [x] Re-read Finding `F9`, `ingestQueueStates`, the live-target partial index in `server/src/mongo/ingestQueueRequest.ts`, and live-target selectors in `server/src/ingest/requestQueue.ts`. Purpose: keep the simplification scoped to the existing live-state contract.
+2. [x] Patch the queue schema/index code so the partial index writer in `server/src/mongo/ingestQueueRequest.ts` uses a named live queue-state constant derived from the owned state contract. Inspect reader selectors in `server/src/ingest/requestQueue.ts` and patch any selector that would otherwise drift from exactly `waiting`, `running`, and `cleanup-blocked`.
+3. [x] Update `server/src/test/unit/ingest-request-queue.test.ts` schema/index proof so it asserts the unique live-target index exists, the partial-filter live-state list contains exactly `waiting`, `running`, and `cleanup-blocked`, and any touched request-queue selector still uses that same live-state subset. Rename or split the existing model/index test if its title only claims timestamps, explicit targets, or FIFO indexes instead of the live-target partial-index invariant.
 
 #### Testing
 
@@ -14573,7 +14573,9 @@ Remove the localized duplicated queue-state literal in the queue schema's live-t
 
 #### Implementation Notes
 
-- Pending.
+- Re-read Finding `F9`, `ingestQueueStates`, the live-target partial index, and request-queue live-target selectors. The duplicated live-state contract is the schema partial index plus `requestQueue` live-target lookup, and it must remain exactly `waiting`, `running`, and `cleanup-blocked`.
+- Patched `server/src/mongo/ingestQueueRequest.ts` to expose a named `ingestLiveQueueTargetStates` contract derived from the owned queue-state constants, and wired both the schema partial index and `server/src/ingest/requestQueue.ts` live-target lookup to that shared list.
+- Updated `server/src/test/unit/ingest-request-queue.test.ts` so the schema/index proof names the live-target partial unique index, asserts the exact live-state list, and verifies a request-queue live duplicate selector uses the same shared state subset.
 
 ### Task 184. Re-Validate Story 55 After Review Pass `0000055-20260421T213927Z-9a3752e6`
 

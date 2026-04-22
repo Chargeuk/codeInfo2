@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import {
+  ingestLiveQueueTargetStates,
   IngestQueueRequestModel,
   type IngestQueueOperation,
   type IngestQueueState,
@@ -50,12 +51,6 @@ type IngestQueueAvailability = {
 
 export const QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE =
   'QUEUE_REQUEST_UPDATED_IN_PLACE';
-
-const liveQueueStatesForTarget = [
-  'waiting',
-  'running',
-  'cleanup-blocked',
-] as const satisfies IngestQueueState[];
 
 let ingestQueueAvailability: IngestQueueAvailability = {
   available: true,
@@ -191,7 +186,7 @@ async function findLiveQueueRequestForTarget(
 ): Promise<IngestQueueRequest | null> {
   return IngestQueueRequestModel.findOne({
     canonicalTargetPath,
-    queueState: { $in: liveQueueStatesForTarget },
+    queueState: { $in: ingestLiveQueueTargetStates },
   })
     .sort({ queueState: 1, createdAt: 1, _id: 1 })
     .exec();

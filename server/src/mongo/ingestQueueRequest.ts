@@ -6,16 +6,28 @@ import mongoose, {
 
 const { Schema, model, models } = mongoose;
 
+export const ingestQueueState = {
+  waiting: 'waiting',
+  running: 'running',
+  cleanupBlocked: 'cleanup-blocked',
+} as const;
+
 export const ingestQueueStates = [
-  'waiting',
-  'running',
-  'cleanup-blocked',
+  ingestQueueState.waiting,
+  ingestQueueState.running,
+  ingestQueueState.cleanupBlocked,
 ] as const;
 
 export const ingestQueueOperations = ['start', 'reembed'] as const;
 
 export type IngestQueueState = (typeof ingestQueueStates)[number];
 export type IngestQueueOperation = (typeof ingestQueueOperations)[number];
+
+export const ingestLiveQueueTargetStates = [
+  ingestQueueState.waiting,
+  ingestQueueState.running,
+  ingestQueueState.cleanupBlocked,
+] as const satisfies readonly IngestQueueState[];
 
 const ingestQueueRequestSchema = new Schema(
   {
@@ -52,7 +64,7 @@ ingestQueueRequestSchema.index(
     name: 'ingest_queue_live_target_unique_idx',
     unique: true,
     partialFilterExpression: {
-      queueState: { $in: ['waiting', 'running', 'cleanup-blocked'] },
+      queueState: { $in: ingestLiveQueueTargetStates },
     },
   },
 );

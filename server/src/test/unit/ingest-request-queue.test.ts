@@ -7,11 +7,13 @@ import {
   type EnqueueIngestRequestInput,
 } from '../../ingest/requestQueue.js';
 import {
+  ingestLiveQueueTargetStates,
   IngestQueueRequestModel,
   type IngestQueueRequest,
 } from '../../mongo/ingestQueueRequest.js';
 
 type QueueIndexFields = Record<string, 1 | -1>;
+type QueueStateFilter = string | { $in?: readonly string[] };
 
 function setMongoReadyState(value: number) {
   (mongoose.connection as unknown as { readyState: number }).readyState = value;
@@ -58,6 +60,14 @@ function buildInput(
   };
 }
 
+function assertLiveTargetQueueStateFilter(filter: {
+  queueState?: QueueStateFilter;
+}) {
+  assert.deepEqual(filter.queueState, {
+    $in: [...ingestLiveQueueTargetStates],
+  });
+}
+
 beforeEach(() => {
   mock.restoreAll();
   mock.reset();
@@ -70,7 +80,7 @@ afterEach(() => {
   setMongoReadyState(0);
 });
 
-test('ingest queue model uses timestamps and explicit target plus FIFO indexes', () => {
+test('ingest queue model registers live-target partial unique index and FIFO indexes', () => {
   assert.equal(
     IngestQueueRequestModel.collection.collectionName,
     'ingest_queue_requests',
@@ -84,26 +94,23 @@ test('ingest queue model uses timestamps and explicit target plus FIFO indexes',
         fields.canonicalTargetPath === 1 && fields.queueState === 1,
     ),
   );
-  assert.ok(
-    indexes.some(
-      ([fields, options]: [QueueIndexFields, Record<string, unknown>]) =>
-        fields.canonicalTargetPath === 1 &&
-        options.unique === true &&
-        options.name === 'ingest_queue_live_target_unique_idx' &&
-        Array.isArray(
-          (
-            options.partialFilterExpression as
-              | { queueState?: { $in?: unknown[] } }
-              | undefined
-          )?.queueState?.$in,
-        ) &&
-        (
-          options.partialFilterExpression as {
-            queueState?: { $in?: unknown[] };
-          }
-        ).queueState?.$in?.includes('cleanup-blocked'),
-    ),
+  const liveTargetIndex = indexes.find(
+    ([fields, options]: [QueueIndexFields, Record<string, unknown>]) =>
+      fields.canonicalTargetPath === 1 &&
+      options.unique === true &&
+      options.name === 'ingest_queue_live_target_unique_idx',
   );
+  assert.ok(liveTargetIndex, 'expected live-target unique index');
+  const [, liveTargetOptions] = liveTargetIndex as [
+    QueueIndexFields,
+    Record<string, unknown>,
+  ];
+  const partialFilter = liveTargetOptions.partialFilterExpression as
+    | { queueState?: { $in?: readonly string[] } }
+    | undefined;
+  assert.deepEqual(partialFilter?.queueState?.$in, [
+    ...ingestLiveQueueTargetStates,
+  ]);
   assert.ok(
     indexes.some(
       ([fields]: [QueueIndexFields, Record<string, unknown>]) =>
@@ -301,7 +308,7 @@ test('reembed duplicate sees current running semantics when a waiting start row 
   const findOneMock = mock.method(
     IngestQueueRequestModel,
     'findOne',
-    (filter: { queueState?: string | { $in?: string[] } }) => {
+    (filter: { queueState?: QueueStateFilter }) => {
       if (filter.queueState === 'waiting') {
         return {
           sort: () => ({
@@ -823,6 +830,7 @@ test('running duplicate reuse returns the existing running queue item without mu
         };
       }
 
+      assertLiveTargetQueueStateFilter(filter);
       return {
         sort: () => ({
           exec: async () => running,

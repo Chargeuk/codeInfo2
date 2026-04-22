@@ -14920,7 +14920,7 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `186`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2` `should_fix`: immediate queue success responses omit the required non-waiting queue state.
   - `F7` `optional_simplification`: repository-list overlay repeats the live queue-state set instead of reusing the named contract.

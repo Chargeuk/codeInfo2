@@ -15457,7 +15457,7 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2`: OpenAPI documents a `POST /ingest/start` request shape that the production route rejects before queue admission.
 
@@ -15508,6 +15508,7 @@ Repair the published `/ingest/start` request contract so generated clients and u
 - Automated proof passed for `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx` with 25 tests passed; wrapper returned `agent_action: skip_log`.
 - Automated proof passed for `npm run lint` with exit code 0.
 - `npm run format:check` initially reported `client/src/test/ingestForm.test.tsx`; ran `npx prettier --write client/src/test/ingestForm.test.tsx`, then reran `npm run format:check` successfully with all matched files using Prettier style.
+- Automated-proof audit verified all Task 193 subtasks and testing steps are complete, no live blocker remains, and the task is ready for manual-testing handoff as `__done__`.
 
 #### Subtasks
 

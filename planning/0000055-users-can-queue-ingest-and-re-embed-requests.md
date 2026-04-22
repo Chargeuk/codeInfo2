@@ -14580,6 +14580,7 @@ Remove the localized duplicated queue-state literal in the queue schema's live-t
 - Ran `npm run lint`; ESLint completed with exit code 0 and no fixes required.
 - Ran `npm run format:check`; Prettier reported all matched files use the expected code style.
 - Automated-proof audit: confirmed Subtasks 1 through 3 and Testing 1 through 3 are complete on current disk, no live blocker is present, and Task 183 is now honestly `__done__`.
+- Manual testing was assessed as not applicable for this task-scoped pass because Task 183 changes only the schema/index live-state constant wiring and its unit proof in `server/src/mongo/ingestQueueRequest.ts`, `server/src/ingest/requestQueue.ts`, and `server/src/test/unit/ingest-request-queue.test.ts`; the task does not add or alter a runnable, browser-visible, network-visible, or otherwise externally observable product surface. The task is not the final story task, so full-story manual proof was not in scope, no runtime was started, no screenshots or artifacts were needed, and no new subtasks or testing steps were added.
 
 ### Task 184. Re-Validate Story 55 After Review Pass `0000055-20260421T213927Z-9a3752e6`
 

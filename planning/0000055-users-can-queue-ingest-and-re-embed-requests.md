@@ -14260,10 +14260,10 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts --file server/src/test/unit/openapi.contract.test.ts`.
-2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start-body.feature`.
-3. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-4. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts --file server/src/test/unit/openapi.contract.test.ts`.
+2. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start-body.feature`.
+3. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+4. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -14273,6 +14273,10 @@ Move request-body type enforcement for `POST /ingest/start` to the admission bou
 - Subtask 4: added `server/src/test/unit/openapi.contract.test.ts` request-schema proof for `/ingest/start` so the documented request shape requires `path` and `name`, types `name`, `description`, `dryRun`, model fields, and keeps `additionalProperties: false` aligned with route validation.
 - Subtask 5: updated `server/src/test/features/ingest-start-body.feature` and `server/src/test/steps/ingest-start-body.steps.ts` so valid JSON now asserts immediate queue acceptance, canonical-field precedence stays distinct, and a malformed typed-field scenario outline proves validation errors leave the start-ingest queue helper uncalled.
 - Audit: confirmed the implementation-only pass closed Subtasks 1 through 5 against the touched start-ingest route, request-contract, OpenAPI, unit, and Cucumber proof files; no live blocker is present, and Testing 1 through 4 remain unchecked for the automated-proof step.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts --file server/src/test/unit/openapi.contract.test.ts` passed with `tests run: 43`, `passed: 43`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-unit-tests-2026-04-22T01-37-22-421Z.log`; no log inspection was needed.
+- Testing 2: `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-start-body.feature` passed with `tests run: 6`, `passed: 6`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/server-cucumber-tests-2026-04-22T01-37-48-047Z.log`; no log inspection was needed.
+- Testing 3: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
+- Testing 4: initial `npm run format:check` reported Prettier drift in `server/src/test/steps/ingest-start-body.steps.ts`; `npm run format` rewrote that task-owned step file, and the rerun `npm run format:check` passed with `All matched files use Prettier code style!`.
 
 ### Task 180. Realign Shared Repo-List Runtime, OpenAPI, And Queue Overlay Identity
 

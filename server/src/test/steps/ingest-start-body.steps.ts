@@ -249,24 +249,25 @@ Then('the response body should contain a runId', () => {
 });
 
 Then('the response body should contain an immediate queue acceptance', () => {
-  const body =
-    response?.body as
-      | { queued?: boolean; requestId?: string; runId?: string }
-      | undefined;
+  const body = response?.body as
+    | { queued?: boolean; requestId?: string; runId?: string }
+    | undefined;
   assert.equal(body?.queued, false);
   assert.equal(body?.requestId, 'queue-request-123');
   assert.equal(body?.runId, '00000000-0000-0000-0000-000000000001');
 });
 
-Then('the validation response message should be {string}', (message: string) => {
-  const body =
-    response?.body as
+Then(
+  'the validation response message should be {string}',
+  (message: string) => {
+    const body = response?.body as
       | { status?: string; code?: string; message?: string }
       | undefined;
-  assert.equal(body?.status, 'error');
-  assert.equal(body?.code, 'VALIDATION');
-  assert.equal(body?.message, message);
-});
+    assert.equal(body?.status, 'error');
+    assert.equal(body?.code, 'VALIDATION');
+    assert.equal(body?.message, message);
+  },
+);
 
 Then('no ingest start queue request should be admitted', () => {
   assert.equal(queueAdmissionCount, 0);

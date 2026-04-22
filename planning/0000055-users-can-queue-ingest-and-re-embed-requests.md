@@ -14526,7 +14526,7 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `182`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F9` (`optional_simplification`): the queue schema partial-index state list duplicates the nearby named queue-state constant.
 

@@ -14726,11 +14726,83 @@ Endorsed findings requiring plan follow-up:
 
 The saturation and blind-spot challenge artifacts generated no new actionable findings. They confirmed that these seven findings are the canonical endorsed set and carried forward residual weak-proof areas around Mongo atomicity beyond mocked interleavings, broad production timeout guarantees, negative proof that unrelated read surfaces do not mirror queue fields, inherited repository-list scale shape, and explicit bulk-remove refresh-count proof.
 
-### Task 185. Preserve Mounted Execution Paths Across Queued Re-Embed Promotion And Startup Recovery
+### Task 185. Make OpenAI Provider Failures Non-Crashing In Queued Ingest Runtime
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `184`
 - Task Status: `__in_progress__`
+- Addresses Findings:
+  - Runtime prerequisite for `F1` manual validation: supported main-stack OpenAI provider failures must become visible ingest failures instead of process exits before mounted-path manual proof can resume.
+
+#### Overview
+
+Repair the provider-failure propagation seam exposed by the mounted-path manual pass. The runtime must keep normalized OpenAI 429 behavior visible through ingest status and logs without crashing the server process, while preserving model-lock enforcement and avoiding any ad hoc LM Studio fallback for OpenAI-locked repositories.
+
+#### Task Exit Criteria
+
+- `R1.` A retry-exhausted OpenAI 429 from queued ingest or queued re-embed records a normalized ingest failure/status and does not terminate the server process.
+- `R2.` `createEmbeddingDispatcher()` propagates terminal provider errors to active request and idle waiters without creating an unhandled promise rejection when a `void runRequest()` path fails before `runIngest()` reaches `await dispatcher.waitForIdle()`.
+- `R3.` Existing normalized OpenAI error metadata remains intact, including retryable code, upstream status, retry-after metadata, and no provider account or secret leakage.
+- `R4.` OpenAI model-lock behavior remains strict: a repository locked to OpenAI must not silently fall back to LM Studio or another provider.
+- `R5.` Automated proof reaches the provider-failure runtime seam without requiring a live provider quota failure, manual OpenAI account state, or manual browser/runtime proof.
+
+#### Proof Mapping
+
+- `P1.` dispatcher failure propagation `R1` and `R2`: implementation owners are `server/src/ingest/embeddingDispatcher.ts` and `server/src/ingest/ingestJob.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts`, which must simulate a retry-exhausted OpenAI 429 from queued work, assert the ingest job records a normalized failure/status, and assert no unhandled-rejection path is needed for completion.
+- `P2.` normalized OpenAI metadata `R3`: implementation owners are `server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/openaiErrors.ts`, and `server/src/ingest/providers/ingestFailureClassifier.ts`; proof homes are `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/integration/openai-error-parity.test.ts`, and `server/src/test/unit/ingest-openai-logging.test.ts`.
+- `P3.` model-lock no-fallback behavior `R4`: implementation owners are `server/src/ingest/reingestService.ts` and the executable ingest-input validation path in `server/src/ingest/ingestJob.ts`; proof home is `server/src/test/unit/reingestService.test.ts`, which must keep or add a case proving an OpenAI-locked repository cannot silently execute through LM Studio fallback.
+- `P4.` provider-independent proof setup `R5`: implementation owner is the test harness for the files above; proof homes use mocked provider failures or test seams rather than live OpenAI quota state.
+
+#### Risk Ownership
+
+- Highest-risk invariant: provider failures inside queued embedding work must flow into the queue/ingest terminal-error contract, not into process-level unhandled rejection behavior.
+- Required ordering proof: the failing provider request may reject before the producer awaits `waitForIdle()`, so the proof must cover that interleaving rather than only adjacent retry helper behavior.
+- Primary blocker-family exposure: manual or runtime environment seam with a shared runtime/baseline prerequisite. This task owns the provider-failure runtime repair needed before Task 186 manual validation can resume; Task 186 continues to own only the mounted-path contract.
+- Review-preemption hotspots: `createEmbeddingDispatcher().fail()`, `runRequest()`, `waitForIdle()`, `runIngest()` error mapping, `OpenAiEmbeddingError` metadata, and model-lock fallback rejection.
+
+#### Documentation Locations
+
+- `server/src/ingest/embeddingDispatcher.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/providers/openaiRetry.ts`
+- `server/src/ingest/providers/openaiErrors.ts`
+- `server/src/ingest/providers/ingestFailureClassifier.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts`
+- `server/src/test/unit/openai-provider-retry.test.ts`
+- `server/src/test/integration/openai-error-parity.test.ts`
+- `server/src/test/unit/ingest-openai-logging.test.ts`
+- `server/src/test/unit/reingestService.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the Task 186 `**RESOLVED ISSUE**` / `**BLOCKING ANSWER**`, the two retained manual runtime logs under `codeInfoTmp/manual-testing/0000055/task185-proof/`, and the current dispatcher, ingest-job, OpenAI retry/error, failure-classifier, and model-lock validation code paths before editing.
+2. [ ] Update `server/src/ingest/embeddingDispatcher.ts` and, only if needed for the caller boundary, `server/src/ingest/ingestJob.ts` so a terminal provider error from a queued `runRequest()` marks dispatcher terminal state, wakes/rejects active waiters in a handled way, and flows into `mapIngestError()` / ingest status publication without creating an unhandled `idle` rejection.
+3. [ ] Add `server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts` or the nearest existing queue-runtime provider-failure proof file to simulate retry-exhausted OpenAI 429 during queued ingest/re-embed work, assert the normalized retryable ingest failure/status shape, and assert the test can complete through the supported runtime wait boundary without process-exit or unhandled-rejection assumptions.
+4. [ ] Update `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/integration/openai-error-parity.test.ts`, and `server/src/test/unit/ingest-openai-logging.test.ts` only where needed to preserve retry-after metadata, retryable status, safe logging, and no provider-account leakage for the repaired runtime path.
+5. [ ] Update `server/src/test/unit/reingestService.test.ts` only where needed to keep the OpenAI model-lock no-fallback contract explicit for repositories whose active lock rejects LM Studio fallback.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-provider-failure.test.ts`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/openai-provider-retry.test.ts --file server/src/test/integration/openai-error-parity.test.ts --file server/src/test/unit/ingest-openai-logging.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+4. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+5. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+
+#### Manual Testing Guidance
+
+After this prerequisite and Task 186 complete, a later manual-testing-agent pass may retry the supported main-stack mapped-path scenario that originally produced the OpenAI 429 crash. Use the repository compose wrappers and keep any scratch logs under `codeInfoTmp/manual-testing/0000055/` until a final validation task deliberately promotes sanitized durable artifacts.
+
+#### Implementation Notes
+
+- Plan repair inserted this prerequisite after Task 186 manual testing proved a shared runtime/provider baseline defect rather than a mounted-path defect. The previously active mounted-path task was renumbered to Task 186, moved back to `__to_do__`, and made dependent on this task so the implementation loop works on the provider-failure runtime owner first.
+
+### Task 186. Preserve Mounted Execution Paths Across Queued Re-Embed Promotion And Startup Recovery
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `185`
+- Task Status: `__to_do__`
 - Addresses Findings:
   - `F1` `must_fix`: queued re-embed admission can persist a mounted execution path that delayed execution later rejects.
 
@@ -14758,7 +14830,7 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 
 - Highest-risk invariant: canonical target path remains the queue identity while the mounted execution path remains the file-system path used for deferred work.
 - Required ordering proof: queue admission must persist both roles, then delayed promotion and startup recovery must use the persisted execution path without re-deriving it from canonical identity; malformed, relative, or outside-workdir persisted payload paths must still fail before discovery or embedding starts.
-- Primary blocker-family exposure: product or story seam. This task owns the implementation and proof because the failure is in the queued re-embed path-role contract; wrapper, baseline, or runtime-environment ownership is not a prerequisite unless a later wrapper failure proves an unrelated shared harness problem.
+- Primary blocker-family exposure: product or story seam for the mounted-path contract. The later manual-runtime provider crash is explicitly out of scope for this task and is now owned by prerequisite Task 185.
 - Review-preemption hotspots: `buildQueuedReingestRequest()`, `splitQueuedIngestExecutionPath()`, `toQueueManagedInput()`, `resolveQueuedReembedExecutionPath()`, `pumpIngestQueue()`, `recoverIngestQueueOnStartup()`, and blocking caller tests that currently mock the waiter.
 
 #### Documentation Locations
@@ -14817,15 +14889,16 @@ Repair the queued re-embed path-role contract so admission, waiting promotion, a
 - Testing 8: `npm run format:check` initially reported a Prettier issue in `server/src/ingest/ingestJob.ts`; ran `npm run format`, then reran `npm run format:check`, which passed with "All matched files use Prettier code style!".
 - Testing 7 rerun needed: reopened `npm run lint` because `npm run format` touched `server/src/ingest/ingestJob.ts` after the prior lint pass.
 - Testing 7 rerun: `npm run lint` passed again on the final formatted file state with exit code 0 and no reported lint issues.
-- Automated-proof audit: Task 185 is complete because all subtasks and Testing steps are checked, the final lint rerun covered the post-format file state, and `plan_status.py --task-number 185` reported no live blockers.
-- **BLOCKER** Manual testing is blocked by a supported-runtime provider failure rather than the Task 185 path-role contract. The task-scoped main-stack pass restarted from stale provenance with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, reached healthy `/health`, then `POST /ingest/start` for `codeInfoTmp/manual-testing/0000055/task185-mounted-repo` returned 202 but the server exited while polling status; `codeInfoTmp/manual-testing/0000055/task185-proof/server-log-after-fetch-failure.txt` shows an uncaught `OpenAiEmbeddingError` 429 from `text-embedding-3-small`. Bounded recovery removed only the contaminating manual queue row, restarted the documented stack, confirmed LM Studio fallback is rejected by the active OpenAI model lock, retried the locked OpenAI path after a wait, and reproduced the same server exit in `codeInfoTmp/manual-testing/0000055/task185-proof/server-log-after-openai-retry-failure.txt`; the retry row was also removed and the main stack was returned to stopped state. The normal Compose runtime maps `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` to the same host path, so the exact mounted-path-vs-canonical-path split remains covered by automated proof until a supported runtime can complete ingestion. Manual proof cannot honestly validate the Task 185 API/runtime behavior until the provider rate-limit crash or environment dependency is repaired or a supported non-OpenAI locked runtime is available.
+- Automated-proof audit: Task 186 is complete because all subtasks and Testing steps are checked, the final lint rerun covered the post-format file state, and `plan_status.py --task-number 185` reported no live blockers before this task was renumbered during planner repair.
+- **RESOLVED ISSUE** Manual testing was blocked by a supported-runtime provider failure rather than the Task 186 path-role contract. The task-scoped main-stack pass restarted from stale provenance with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, reached healthy `/health`, then `POST /ingest/start` for `codeInfoTmp/manual-testing/0000055/task185-mounted-repo` returned 202 but the server exited while polling status; `codeInfoTmp/manual-testing/0000055/task185-proof/server-log-after-fetch-failure.txt` shows an uncaught `OpenAiEmbeddingError` 429 from `text-embedding-3-small`. Bounded recovery removed only the contaminating manual queue row, restarted the documented stack, confirmed LM Studio fallback is rejected by the active OpenAI model lock, retried the locked OpenAI path after a wait, and reproduced the same server exit in `codeInfoTmp/manual-testing/0000055/task185-proof/server-log-after-openai-retry-failure.txt`; the retry row was also removed and the main stack was returned to stopped state. The normal Compose runtime maps `CODEINFO_HOST_INGEST_DIR` and `CODEINFO_CODEX_WORKDIR` to the same host path, so the exact mounted-path-vs-canonical-path split remains covered by automated proof until a supported runtime can complete ingestion. Manual proof cannot honestly validate the Task 186 API/runtime behavior until prerequisite Task 185 repairs the provider rate-limit crash or establishes a supported non-OpenAI locked runtime.
 
-- **BLOCKING ANSWER** Repository precedents show this is not a Task 185 mounted-path contract defect. The Task 185 path-role contract is already covered by the checked targeted unit and integration wrappers, while the live manual blocker is an OpenAI provider/runtime failure: both manual logs show Node exiting from an unhandled rejection after `runOpenAiWithRetry()` exhausted `OPENAI_RATE_LIMITED` 429 responses for `text-embedding-3-small`. Existing repo owners (`server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/openaiErrors.ts`, `server/src/ingest/providers/ingestFailureClassifier.ts`, `server/src/test/integration/openai-error-parity.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/unit/ingest-openai-logging.test.ts`, and `server/src/routes/ingestModels.ts`) treat 429 as retryable normalized provider state with retry-after metadata, visible status/logging, and no secret leakage; they also show that LM Studio availability is not a valid automatic fallback when the active repo model lock is OpenAI and `validateExecutableIngestInput()` enforces `MODEL_LOCKED`. External precedents match that boundary: Context7 and DeepWiki for `openai/openai-node` identify 429 as `RateLimitError`/`APIError`, document SDK retry support for 429 with `Retry-After`/`Retry-After-Ms`, and expect application code to catch or surface provider errors instead of letting promise rejection terminate the process; OpenAI's public 429 guidance likewise treats rate limits as retry/backoff or quota issues, and Node's unhandled-rejection behavior explains the observed `triggerUncaughtException` crash when a promise rejection has no attached handler. Exact issue-resolution evidence points at the dispatcher/runtime seam: `createEmbeddingDispatcher().fail()` rejects `idle` from a `void runRequest()` path before `runIngest()` reaches `await dispatcher.waitForIdle()`, so the normalized `OpenAiEmbeddingError` can become an unhandled rejection instead of flowing through `mapIngestError()` to an ingest error status. Chosen solution: planner repair should insert or activate a prerequisite runtime/baseline owner that makes supported manual-runtime provider failures non-crashing and visible, for example by making dispatcher terminal-error propagation awaitable/handled and proving OpenAI 429 becomes an ingest error status without process exit, or by establishing a documented supported non-OpenAI locked runtime before manual Task 185 validation resumes. Blocker family: manual or runtime environment seam with a shared runtime/baseline prerequisite; Task 185 does not own it because its path-role implementation and automated proof are complete, and the remaining failure depends on provider rate-limit/runtime error handling outside the Task 185 contract. Rejected alternatives are unsuitable: repeated manual retries or longer waits are unsupported because the logs reproduced the same 429 crash; switching to LM Studio ad hoc violates the OpenAI model lock; changing Task 185 path-code would not address the provider crash; and swallowing the error would violate the repo's normalized retryable-error/status contracts.
+- **BLOCKING ANSWER** Repository precedents show this is not a Task 186 mounted-path contract defect. The Task 186 path-role contract is already covered by the checked targeted unit and integration wrappers, while the live manual blocker was an OpenAI provider/runtime failure: both manual logs show Node exiting from an unhandled rejection after `runOpenAiWithRetry()` exhausted `OPENAI_RATE_LIMITED` 429 responses for `text-embedding-3-small`. Existing repo owners (`server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/openaiErrors.ts`, `server/src/ingest/providers/ingestFailureClassifier.ts`, `server/src/test/integration/openai-error-parity.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/unit/ingest-openai-logging.test.ts`, and `server/src/routes/ingestModels.ts`) treat 429 as retryable normalized provider state with retry-after metadata, visible status/logging, and no secret leakage; they also show that LM Studio availability is not a valid automatic fallback when the active repo model lock is OpenAI and `validateExecutableIngestInput()` enforces `MODEL_LOCKED`. External precedents match that boundary: Context7 and DeepWiki for `openai/openai-node` identify 429 as `RateLimitError`/`APIError`, document SDK retry support for 429 with `Retry-After`/`Retry-After-Ms`, and expect application code to catch or surface provider errors instead of letting promise rejection terminate the process; OpenAI's public 429 guidance likewise treats rate limits as retry/backoff or quota issues, and Node's unhandled-rejection behavior explains the observed `triggerUncaughtException` crash when a promise rejection has no attached handler. Exact issue-resolution evidence points at the dispatcher/runtime seam: `createEmbeddingDispatcher().fail()` rejects `idle` from a `void runRequest()` path before `runIngest()` reaches `await dispatcher.waitForIdle()`, so the normalized `OpenAiEmbeddingError` can become an unhandled rejection instead of flowing through `mapIngestError()` to an ingest error status. Chosen solution: prerequisite Task 185 now owns making supported manual-runtime provider failures non-crashing and visible by making dispatcher terminal-error propagation awaitable/handled and proving OpenAI 429 becomes an ingest error status without process exit, or by establishing a documented supported non-OpenAI locked runtime before manual Task 186 validation resumes. Blocker family: manual or runtime environment seam with a shared runtime/baseline prerequisite; Task 186 does not own it because its path-role implementation and automated proof are complete, and the remaining failure depends on provider rate-limit/runtime error handling outside the Task 186 contract. Rejected alternatives are unsuitable: repeated manual retries or longer waits are unsupported because the logs reproduced the same 429 crash; switching to LM Studio ad hoc violates the OpenAI model lock; changing Task 186 path-code would not address the provider crash; and swallowing the error would violate the repo's normalized retryable-error/status contracts.
+- Plan-impact repair: inserted prerequisite Task 185 as the active runtime/baseline owner for the provider-failure crash, moved this mounted-path task behind it, and retired the former live blocker as historical because the next executable work is no longer in this task's path-role code.
 
-### Task 186. Restore The Queue-State Response Contract And Reuse The Live-State Constant
+### Task 187. Restore The Queue-State Response Contract And Reuse The Live-State Constant
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `185`
+- Task Dependencies: `186`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `F2` `should_fix`: immediate queue success responses omit the required non-waiting queue state.
@@ -14897,10 +14970,10 @@ Restore the queue-state contract across immediate REST queue success responses, 
 
 - Review disposition reopened the story for `F2` and localized optional simplification `F7` from pass `0000055-20260422T045457Z-daafd19b`; no implementation has been attempted in this task yet.
 
-### Task 187. Add Observed-Row Ownership To Waiting Queue Rewrites
+### Task 188. Add Observed-Row Ownership To Waiting Queue Rewrites
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `186`
+- Task Dependencies: `187`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `F5` `should_fix`: waiting-row rewrite can replay stale duplicate intent onto a newer waiting queue item.
@@ -14959,10 +15032,10 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 - Review disposition reopened the story for `F5` from pass `0000055-20260422T045457Z-daafd19b`; no implementation has been attempted in this task yet.
 
-### Task 188. Keep Destructive Remove Actions On Root-Path Payloads
+### Task 189. Keep Destructive Remove Actions On Root-Path Payloads
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `187`
+- Task Dependencies: `188`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `F6` `should_fix`: Remove actions reuse the re-embed identity key even though the remove endpoint deletes by root path.
@@ -15024,10 +15097,10 @@ If later manual validation is requested, use the ingest page to inspect row and 
 
 - Review disposition reopened the story for `F6` from pass `0000055-20260422T045457Z-daafd19b`; no implementation has been attempted in this task yet.
 
-### Task 189. Clean Review-Exposed Runtime Artifact Hygiene
+### Task 190. Clean Review-Exposed Runtime Artifact Hygiene
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `188`
+- Task Dependencies: `189`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - `F3` `should_fix`: tracked manual log includes a provider account identifier from an OpenAI error.
@@ -15090,21 +15163,21 @@ Repair the support-artifact hygiene issues identified by the review without trea
 
 - Review disposition reopened the story for support-artifact hygiene findings `F3` and `F4` from pass `0000055-20260422T045457Z-daafd19b`; no implementation has been attempted in this task yet.
 
-### Task 190. Re-Validate Story 55 After Review Pass `0000055-20260422T045457Z-daafd19b`
+### Task 191. Re-Validate Story 55 After Review Pass `0000055-20260422T045457Z-daafd19b`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `185, 186, 187, 188, 189`
+- Task Dependencies: `185, 186, 187, 188, 189, 190`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260422T045457Z-daafd19b`, covering `F1`, `F2`, `F3`, `F4`, `F5`, `F6`, and `F7`.
 
 #### Overview
 
-Re-validate Story 55 after the current review-created findings block lands. This task must prove that Tasks `185` through `189` close the endorsed findings, refresh durable close-out evidence, and rerun the supported automated proof needed for the repaired queued re-embed path-role contract, immediate response contract, queue rewrite atomicity, destructive remove identity, support-artifact hygiene, and live-state constant ownership.
+Re-validate Story 55 after the current review-created findings block and provider-failure prerequisite land. This task must prove that Tasks `185` through `190` close the endorsed findings and runtime prerequisite, refresh durable close-out evidence, and rerun the supported automated proof needed for the repaired provider-failure baseline, queued re-embed path-role contract, immediate response contract, queue rewrite atomicity, destructive remove identity, support-artifact hygiene, and live-state constant ownership.
 
 #### Task Exit Criteria
 
-- `R1.` Tasks `185` through `189` are `__done__` and close findings `F1` through `F7` from review pass `0000055-20260422T045457Z-daafd19b`.
+- `R1.` Tasks `185` through `190` are `__done__` and close the provider-failure prerequisite plus findings `F1` through `F7` from review pass `0000055-20260422T045457Z-daafd19b`.
 - `R2.` The appended `Code Review Findings` block for review pass `0000055-20260422T045457Z-daafd19b` is revalidated on disk rather than left as artifact-only review intent.
 - `R3.` The durable summary at `codeInfoStatus/pr-summaries/0000055-pr-summary.md` is refreshed to cite the repaired proof homes, retained artifact locations, wrapper results, and any still-honest residual risk for this review-created block.
 - `R4.` Fresh automated validation reruns the Current Repository supported server build, client build, server unit, server cucumber, client test, e2e, compose build, compose up, host-network main probe, compose down, lint, and format wrappers needed to revalidate the repaired seams plus the story's supported browser-visible and main runtime paths.
@@ -15112,20 +15185,20 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Proof Mapping
 
-- `P1.` dependency completion `R1`: implementation owners are Tasks `185` through `189`; proof homes are this plan file and the parser state for the review-created task block, which must show those tasks `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `P1.` dependency completion `R1`: implementation owners are Tasks `185` through `190`; proof homes are this plan file and the parser state for the review-created task block, which must show those tasks `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
 - `P2.` findings-block revalidation `R2`: implementation owner is this appended `Code Review Findings` block; proof home is the comparison between this plan and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
 - `P3.` durable summary `R3`: implementation owner is `codeInfoStatus/pr-summaries/0000055-pr-summary.md`; proof home is the refreshed summary section that maps `F1` through `F7` to exact owners, proof files, artifact hygiene outcomes, wrapper result locations, rejected-risk notes, saturation results, and blind-spot challenge carry-forward.
-- `P4.` server, client, and contract wrapper proof for `R4`: implementation owners are the repaired server, client, OpenAPI, and support-file surfaces from Tasks `185` through `189`; proof homes are Testing steps 1 through 5 plus Testing steps 11 and 12.
+- `P4.` server, client, and contract wrapper proof for `R4`: implementation owners are the repaired server, client, OpenAPI, and support-file surfaces from Tasks `185` through `190`; proof homes are Testing steps 1 through 5 plus Testing steps 11 and 12.
 - `P5.` e2e, compose, and host-network default-path proof for `R4`: implementation owners are `docker-compose.yml`, `docker-compose.e2e.yml`, the e2e harness, and the repaired default runtime surfaces; proof homes are Testing steps 6 through 10.
 - `P6.` residual-risk honesty `R5`: implementation owners are this task and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`; proof homes are the close-out notes in both files when any proof category remains indirect, baseline-owned, harness-owned, support-artifact-owned, or environment-owned.
 
 #### Risk Ownership
 
 - Highest-risk invariant: final validation must prove the current review-created findings block through fresh supported wrappers without confusing retained earlier Story 55 evidence, support-artifact hygiene, or manual runtime setup with task-owned repair proof.
-- Default-path proof: the final wrapper sequence must prove the repaired behavior through the repository-supported default build, test, e2e, compose, host-network, lint, and format paths, not only through targeted tests from Tasks `185` through `189`.
+- Default-path proof: the final wrapper sequence must prove the repaired behavior through the repository-supported default build, test, e2e, compose, host-network, lint, and format paths, not only through targeted tests from Tasks `185` through `190`.
 - Primary blocker-family exposure: proof or test harness seam. This task owns final proof orchestration and residual-risk recording; wrapper, baseline, manual-runtime, or environment failures must be classified before any retry loop so missing shared ownership is not hidden inside broad validation.
 - Review-preemption hotspots: queue path role validation, REST/OpenAPI response shape, Mongo rewrite atomicity, destructive client payload roles, provider-log redaction, generated screenshot tracking, default wrapper inclusion, and final manual/runtime handoff facts.
-- Missing-prerequisite check: no separate prerequisite is required because Tasks `185` through `189` are explicit dependencies and the supported main/e2e wrapper paths already exist; any wrapper or runtime failure must be classified in the task notes as product-owned, baseline-owned, harness-owned, support-artifact-owned, or environment-owned before retry loops continue.
+- Missing-prerequisite check: Task `185` is the explicit runtime prerequisite for the provider-failure baseline exposed by Task `186`; any later wrapper or runtime failure must be classified in the task notes as product-owned, baseline-owned, harness-owned, support-artifact-owned, or environment-owned before retry loops continue.
 
 #### Documentation Locations
 
@@ -15150,7 +15223,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260422T045457Z-daafd19b` and the completed proof-owner sections for Tasks `185` through `189`. Check off this subtask only after each dependency task shows `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no unresolved `Implementation Notes` blocker.
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260422T045457Z-daafd19b` and the completed proof-owner sections for Tasks `185` through `190`. Check off this subtask only after each dependency task shows `Task Status: __done__`, no unchecked `Subtasks`, no unchecked `Testing`, and no unresolved `Implementation Notes` blocker.
 2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for `F1` through `F7`, including exact repaired files, exact proof homes, artifact-hygiene disposition, retained or removed artifact locations, rejected-risk notes, saturation results, blind-spot challenge carry-forward, baseline-vs-task-owned failure classification rules for wrapper/runtime issues, and a clearly named placeholder section for this task's automated testing results.
 3. [ ] Re-open this plan after the summary refresh and compare the `0000055-20260422T045457Z-daafd19b` findings block against the refreshed summary. Update only this plan and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so both files name the same finding owners, proof homes, artifact locations, residual-risk categories, and expected final disposition before the testing section runs.
 
@@ -15171,7 +15244,7 @@ Re-validate Story 55 after the current review-created findings block lands. This
 
 #### Manual Testing Guidance
 
-If a final manual-testing pass is requested after Tasks `185` through `189`, use the normal human Docker stack rather than a test-only runtime. Start from the repository root with `npm run compose:build`, then `npm run compose:up`; when proof is complete, stop it with `npm run compose:down`.
+If a final manual-testing pass is requested after Tasks `185` through `190`, use the normal human Docker stack rather than a test-only runtime. Start from the repository root with `npm run compose:build`, then `npm run compose:up`; when proof is complete, stop it with `npm run compose:down`.
 
 The normal stack uses `docker-compose.yml`, `server/.env`, and `server/.env.local`; the compose wrapper creates missing local env files, checks ports `5010`, `5011`, `5012`, and `8932`, and relies on container health checks before dependent services proceed. The runtime mounts `./logs`, Codex home, optional corp certs, and any configured ingest source namespace from `CODEINFO_HOST_INGEST_DIR` into `CODEINFO_CODEX_WORKDIR`. Manual Story 55 ingest checks need no seeded login. The client is expected at `http://localhost:5001`, the REST/MCP server at `http://localhost:5010`, secondary MCP services at `http://localhost:5011` and `http://localhost:5012`, and Playwright MCP at `http://localhost:8932/mcp`.
 
@@ -15179,4 +15252,4 @@ Focus optional browser/API proof on the repaired externally observable seams: qu
 
 #### Implementation Notes
 
-- Review disposition reopened the story for review pass `0000055-20260422T045457Z-daafd19b` and added Tasks `185` through `190` as the contiguous appended review-created task block. No implementation has been attempted in this task yet.
+- Review disposition reopened the story for review pass `0000055-20260422T045457Z-daafd19b`; planner repair inserted provider-failure prerequisite Task `185`, renumbered the review-fix tasks to Tasks `186` through `190`, and left this final revalidation task as Task `191`. No implementation has been attempted in this task yet.

@@ -493,7 +493,7 @@ describe('RootsTable', () => {
     expect(runningReembed).toBeDisabled();
 
     fireEvent.click(selectAll);
-    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeEnabled();
     expect(bulkReembed).toBeEnabled();
 

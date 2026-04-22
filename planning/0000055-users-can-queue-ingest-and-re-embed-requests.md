@@ -15135,9 +15135,9 @@ Separate client action identity for queueable re-embed from destructive root-pat
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
-2. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-3. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
+2. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+3. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -15150,6 +15150,9 @@ If later manual validation is requested, use the ingest page to inspect row and 
 - Subtask 2: split RootsTable action helpers so row Re-embed still targets canonical row identity while row Remove targets persisted `root.path`; row action status lookup now checks both possible action keys so remove feedback remains visible when `id` differs from `path`.
 - Subtask 3: changed bulk action target derivation to map selected stable keys back through current root rows, send Re-embed to canonical identity and Remove to `root.path`, retain currently rendered but blocked selected keys as local-only state, and exclude those blocked keys from destructive bulk Remove submissions.
 - Subtask 4: updated `client/src/test/ingestRoots.test.tsx` with divergent `id` versus `path` proof for row Remove, row selection clearing by stable key, bulk Remove persisted-path payloads, bulk Re-embed canonical identity payloads, stale selected queued/running/cleanup-blocked/active rows excluded from destructive bulk Remove while retained locally, and existing bulk refresh-count proof for successful batches.
+- Testing 1: `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` initially exposed one stale selection-count expectation in the older running-row bulk-selection test; fixed that expectation to match one eligible selected row, reran the wrapper, and it passed with 44 tests and no failures.
+- Testing 2: `npm run lint` passed with exit code 0 and no reported issues.
+- Testing 3: `npm run format:check` passed; Prettier reported all matched files use the expected style.
 
 ### Task 190. Clean Review-Exposed Runtime Artifact Hygiene
 

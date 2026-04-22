@@ -15059,12 +15059,12 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
-5. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-6. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts`.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+5. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+6. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Implementation Notes
 
@@ -15073,6 +15073,12 @@ Make waiting duplicate rewrites compare against the specific waiting queue row o
 - Subtask 2: added `IngestQueueRequestId` typing in the queue model module and changed the waiting rewrite filter to include the observed `_id` along with `canonicalTargetPath` and `queueState: 'waiting'`; a missed guarded update now falls through to the existing live-row re-read instead of rewriting a later waiting row.
 - Subtask 3: routed duplicate-key fallback rewrites through the same observed-row guarded helper, so create races also re-read live state when the observed waiting row is no longer rewriteable.
 - Subtask 4: updated request-queue proof to require `_id` in allowed rewrite filters, renamed the ordinary duplicate race proof to the observed-row compare-and-swap invariant, added duplicate-key stale-intent proof where row B remains unchanged after row A disappears, and asserted running/cleanup-blocked reuse does not call the waiting rewrite.
+- Testing 1: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts` initially exposed stale proof mocks; repaired the duplicate-key race setup to avoid returning the newer live row before the create conflict, updated the queue-position proof to mock the fresh insert path, and reran the wrapper successfully with 14 tests passed.
+- Testing 2: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts` passed with 30 tests and no failures.
+- Testing 3: `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-reembed.test.ts` passed with 31 tests and no failures.
+- Testing 4: `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` passed with 36 tests and no failures.
+- Testing 5: `npm run lint` passed with no reported issues.
+- Testing 6: `npm run format:check` passed; Prettier reported all matched files use the expected style.
 
 ### Task 189. Keep Destructive Remove Actions On Root-Path Payloads
 

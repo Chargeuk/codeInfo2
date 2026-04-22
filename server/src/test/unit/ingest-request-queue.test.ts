@@ -905,7 +905,7 @@ test('duplicate-key retry refuses to replay stale intent onto a newer waiting ro
         sort: () => ({
           exec: async () => {
             liveLookupCount += 1;
-            return newerWaiting;
+            return liveLookupCount === 1 ? null : newerWaiting;
           },
         }),
       };
@@ -937,7 +937,7 @@ test('duplicate-key retry refuses to replay stale intent onto a newer waiting ro
   );
 
   assert.equal(waitingLookupCount, 2);
-  assert.equal(liveLookupCount, 1);
+  assert.equal(liveLookupCount, 2);
   assert.equal(createMock.mock.calls.length, 1);
   assert.equal(waitingUpdateMock.mock.calls.length, 1);
   assert.equal(result.requestId, newerWaiting._id.toString());
@@ -1092,14 +1092,23 @@ test('waiting queue position counts only older waiting items and uses countDocum
   const waiting = createQueueRequest({
     createdAt: new Date('2026-01-01T00:00:05.000Z'),
   });
-  mock.method(IngestQueueRequestModel, 'findOneAndUpdate', () => ({
-    exec: async () => waiting,
-  }));
   const findOneMock = mock.method(IngestQueueRequestModel, 'findOne', () => ({
     sort: () => ({
       exec: async () => null,
     }),
   }));
+  const createMock = mock.method(
+    IngestQueueRequestModel,
+    'create',
+    async () => waiting,
+  );
+  const waitingUpdateMock = mock.method(
+    IngestQueueRequestModel,
+    'findOneAndUpdate',
+    () => ({
+      exec: async () => null,
+    }),
+  );
   const countMock = mock.method(
     IngestQueueRequestModel,
     'countDocuments',
@@ -1125,7 +1134,9 @@ test('waiting queue position counts only older waiting items and uses countDocum
   const result = await enqueueOrReuseIngestRequest(buildInput());
 
   assert.equal(result.queuePosition, 5);
-  assert.equal(findOneMock.mock.calls.length, 1);
+  assert.equal(findOneMock.mock.calls.length, 2);
+  assert.equal(createMock.mock.calls.length, 1);
+  assert.equal(waitingUpdateMock.mock.calls.length, 0);
   assert.equal(countMock.mock.calls.length, 1);
   assert.equal(findMock.mock.calls.length, 0);
 });

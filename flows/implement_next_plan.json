@@ -290,7 +290,7 @@
                   "label": "Exit Minor-Fix Path If No Minor Finding Was Fixed",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Use the immediately preceding minor-fix result. Answer yes iff the minor finding was not fixed, no bounded inline minor finding remains, or the minor-fix path is blocked and must stop. Answer no only if exactly one minor finding was fixed and can now be documented. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk. Answer yes iff `status` is not `fixed`, meaning no minor finding was fixed, no bounded inline minor finding remains, or the minor-fix path is blocked and must stop. Answer no only if `status` is `fixed`, meaning exactly one minor finding was fixed and can now be documented. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -305,7 +305,7 @@
                   "label": "Exit Minor-Fix Path When No More Minor Findings Remain",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Use the updated minor-review state from the immediately preceding documentation step. Answer yes iff there are no more unresolved minor-only findings to fix in this review pass. Answer no only if another unresolved minor-only finding remains and should be fixed before the review is rerun. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after the documentation step. Answer yes iff `needs_minor_fix_path` is not true, meaning there are no more unresolved minor-only findings to fix in this review pass. Answer no only if `needs_minor_fix_path` is true, meaning another unresolved minor-only finding remains and should be fixed before the review is rerun. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 }
               ]

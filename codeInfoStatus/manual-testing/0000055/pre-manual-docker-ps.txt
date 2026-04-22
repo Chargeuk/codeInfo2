@@ -1,0 +1,8 @@
+intelligent_pascal Up 2 days 0.0.0.0:55001->27017/tcp, [::]:55001->27017/tcp
+codeinfo2-client-local Up 3 days (healthy) 0.0.0.0:5501->5001/tcp, [::]:5501->5001/tcp
+codeinfo2-server-local Up 3 days (healthy) 
+codeinfo2-chroma-local Up 3 days (unhealthy) 0.0.0.0:8200->8000/tcp, [::]:8200->8000/tcp
+codeinfo2-zipkin-local Up 3 days (healthy) 0.0.0.0:9711->9411/tcp, [::]:9711->9411/tcp
+mongo_db_CodeInfo-local Up 3 days (healthy) 0.0.0.0:27417->27017/tcp, [::]:27417->27017/tcp
+codeinfo2-playwright-mcp-local Up 3 days 
+codeinfo2-otel-collector-local Up 3 days 0.0.0.0:4917->4317/tcp, [::]:4917->4317/tcp, 0.0.0.0:4918->4318/tcp, [::]:4918->4318/tcp

@@ -15709,7 +15709,7 @@ Optional later browser/API validation can exercise a normal completed-row remove
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `192, 193, 194, 195`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260422T115002Z-d109d87f`, covering `F1`, `F2`, `F3`, `F4`, `F5`, and `F6`.
 
@@ -15782,6 +15782,7 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 - Testing 12: `npm run format:check` passed with `All matched files use Prettier code style!`, so no `npm run format` repair pass was needed.
 - Testing 12 reopened: updated `codeInfoStatus/pr-summaries/0000055-pr-summary.md` after the first format proof to record Task 196 automated testing results and residual-risk close-out, so the format check had to be rerun against the current tree.
 - Testing 12 rerun: `npm run format:check` passed again against the current tree with `All matched files use Prettier code style!`.
+- Automated-proof audit marked Task 196 done because all subtasks and testing are complete and the parser reports no live blocker.
 
 #### Subtasks
 

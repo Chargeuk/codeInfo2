@@ -14055,7 +14055,7 @@ The findings artifact is the canonical endorsed-findings source for this pass. I
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `176`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F1` (`must_fix`): `cleanup-blocked` realtime updates are omitted from client terminal-state consumers.
 

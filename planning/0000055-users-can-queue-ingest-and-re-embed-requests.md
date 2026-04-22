@@ -15420,12 +15420,11 @@ Repair the cleanup-blocked lifecycle so a failed queue-record delete continues t
 
 #### Subtasks
 
-1. [ ] In `server/src/ingest/ingestJob.ts`, trace `finalizeQueueRequestForRun()`, `publishCleanupBlockedStatus()`, `queueCleanupFinalizers`, cleanup retry scheduling, deletions-only cleanup degradation, cancellation cleanup, `pumpIngestQueue()`, and startup recovery. Add or reuse a task-owned runtime blocker for the exact sequence where queue-record deletion fails and the durable `cleanup-blocked` write also fails, so newer waiting work still cannot advance while the failed record remains.
-2. [ ] Update `pumpIngestQueue()`, cleanup retry completion, cancellation cleanup, deletions-only cleanup, and `recoverIngestQueueOnStartup()` so any task-owned in-memory cleanup blocker is cleared only after the failed queue record is actually removed or a durable cleanup-blocked queue owner is visible again.
-3. [ ] Update `server/src/lmstudio/toolService.ts` so a `cleanup-blocked` overlay without runtime status replaces stale persisted `lastError` with the current cleanup-blocked diagnostic, while waiting and running overlays still clear stale diagnostics only in their existing healthy-overlay cases.
-4. [ ] Replace the fixed-delay negative assertion in `server/src/test/unit/ingest-cancel.test.ts` with a deterministic boundary: while `deleteGate` is unresolved, assert that `cancelPromise` remains pending and no newer queue work can advance; after the gate resolves, assert the cancel cleanup completes normally.
-5. [ ] Add or update proof in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for the partial-failure path where `deleteQueueRequestById()` fails and `markQueueRequestCleanupBlocked()` also fails, including the assertion that `pumpIngestQueue()` still refuses to promote newer waiting work until cleanup recovery succeeds.
-6. [ ] Add or update proof in `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` for a persisted repo with stale `lastError` plus a `cleanup-blocked` queue overlay and no runtime status, proving the cleanup-blocked diagnostic wins on both repository-list surfaces.
+1. [ ] Patch `server/src/ingest/ingestJob.ts` around `finalizeQueueRequestForRun()`, `publishCleanupBlockedStatus()`, cleanup retry scheduling, `pumpIngestQueue()`, cancellation cleanup, deletions-only cleanup, and `recoverIngestQueueOnStartup()` so the exact sequence "delete fails, durable cleanup-blocked write fails, finalizer unwinds" still leaves an in-memory cleanup owner that blocks newer work and is cleared only after the failed record is removed or durable cleanup ownership is visible again.
+2. [ ] Patch `server/src/lmstudio/toolService.ts` so a `cleanup-blocked` overlay without runtime status replaces stale persisted `lastError` with the current cleanup-blocked diagnostic, while waiting and running overlays still clear stale diagnostics only in their existing healthy-overlay cases.
+3. [ ] Replace the fixed-delay negative assertion in `server/src/test/unit/ingest-cancel.test.ts` with a deterministic boundary: while `deleteGate` is unresolved, assert that `cancelPromise` remains pending and no newer queue work can advance; after the gate resolves, assert the cancel cleanup completes normally.
+4. [ ] Add or update proof in `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for the partial-failure path where `deleteQueueRequestById()` fails and `markQueueRequestCleanupBlocked()` also fails, including the assertion that `pumpIngestQueue()` still refuses to promote newer waiting work until cleanup recovery succeeds.
+5. [ ] Add or update proof in `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` for a persisted repo with stale `lastError` plus a `cleanup-blocked` queue overlay and no runtime status, proving the cleanup-blocked diagnostic wins on both repository-list surfaces.
 
 #### Testing
 
@@ -15487,8 +15486,7 @@ Repair the published `/ingest/start` request contract so generated clients and u
 
 1. [ ] Update the `POST /ingest/start` request schema in `openapi.json` so `path` and `name` remain required but a complete queue-admissible body must also provide either legacy `model` or both canonical fields `embeddingProvider` and `embeddingModel`; keep malformed canonical fields and unknown properties rejected according to the current route contract.
 2. [ ] Update `server/src/test/unit/openapi.contract.test.ts` so it fails if the schema again documents `path` plus `name` alone as sufficient, or if it stops documenting both supported model-selection alternatives.
-3. [ ] Re-read `server/src/routes/ingestStart.ts` and `server/src/ingest/requestContracts.ts`; if route validation and schema wording disagree, repair the schema or contract test rather than relaxing production validation.
-4. [ ] Re-read `client/src/components/ingest/IngestForm.tsx` and confirm the existing client submit payload still provides one supported model-selection form without adding hidden client-only queue fields.
+3. [ ] Compare `server/src/routes/ingestStart.ts`, `server/src/ingest/requestContracts.ts`, and `client/src/components/ingest/IngestForm.tsx` against the corrected schema; repair only schema or contract-test drift, and leave production validation plus the existing client producer semantics intact unless the comparison exposes a direct mismatch.
 
 #### Testing
 
@@ -15555,12 +15553,10 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 
 #### Subtasks
 
-1. [ ] Trace `QUEUE_READ_FAILED_WAIT_REASON` from `waitForQueueRequestTerminalStatus()` through `runReingestRepository()`, classic MCP, MCP v2, and `runReingestForCommand()`; record the exact branch that currently turns the wait-time queue-read outage into an `ok: true` terminal payload.
-2. [ ] Update the blocking re-embed result mapping so only wait-time queue backend read failures become retryable `QUEUE_UNAVAILABLE` failures with machine-readable error data for blocking transports.
-3. [ ] Preserve existing semantics for timeout fallback, terminal ingest failure, cancellation, skipped/no-change results, and post-start provider/runtime failures; add assertions where needed so this task cannot accidentally make all terminal failures retryable.
-4. [ ] Update `server/src/test/unit/reingestService.test.ts` so setup-read and timeout-fallback read rejections assert `ok: false`, `QUEUE_UNAVAILABLE`, retryable queue-outage metadata, and unchanged listener cleanup.
-5. [ ] Update classic MCP and MCP v2 proof so wait-time queue-read outage returns the same JSON-RPC or tool-error envelope used for queue-unavailable blocking failures, rather than a successful terminal text/result payload.
-6. [ ] Update command and flow execution proof so direct commands, plan-scope or working targets, and flow-owned re-ingest steps treat wait-time queue-read outages as retryable queue-unavailable failures without hiding them as successful warning-only outcomes.
+1. [ ] Patch `server/src/ingest/ingestJob.ts` and `server/src/ingest/reingestService.ts` so setup-read and timeout-fallback read failures carrying `QUEUE_READ_FAILED_WAIT_REASON` become retryable `QUEUE_UNAVAILABLE` failures with machine-readable error data, while timeout expiration, terminal ingest failure, cancellation, skipped/no-change results, and post-start provider/runtime failures keep their existing terminal semantics.
+2. [ ] Update `server/src/test/unit/reingestService.test.ts` so setup-read and timeout-fallback read rejections assert `ok: false`, `QUEUE_UNAVAILABLE`, retryable queue-outage metadata, unchanged listener cleanup, and at least one non-queue-read terminal outcome that remains non-retryable.
+3. [ ] Update classic MCP and MCP v2 proof so wait-time queue-read outage returns the same JSON-RPC or tool-error envelope used for queue-unavailable blocking failures, rather than a successful terminal text/result payload.
+4. [ ] Update command and flow execution proof so direct commands, plan-scope or working targets, and flow-owned re-ingest steps treat wait-time queue-read outages as retryable queue-unavailable failures without hiding them as successful warning-only outcomes.
 
 #### Testing
 
@@ -15632,8 +15628,8 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 1. [ ] Add a server-side queue-state ownership guard to `server/src/routes/ingestRemove.ts` or the smallest shared remove boundary so a direct production remove request cannot call `removeRoot()` for a target with live `waiting`, `running`, `cleanup-blocked`, or active-run ownership.
 2. [ ] Resolve the remove target using the same persisted root-path authority expected by row and bulk Remove; preserve allowed completed/idle removal behavior, response shape, and unlock handling.
 3. [ ] Add production-route proof for blocked waiting, running, cleanup-blocked, and active-run-owned targets, plus allowed idle/completed targets; keep the setup in cucumber steps, route tests, or test-only fixtures rather than manual browser state.
-4. [ ] Re-read `server/src/routes/ingestE2eCleanup.ts` and `server/src/test/integration/ingest-e2e-cleanup.test.ts`; only update them if needed to prove the test-only cleanup route stays env-gated, fixture-scoped, and separate from production remove authority.
-5. [ ] Re-read `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx`; update client proof only if the repaired server boundary changes an existing row or bulk Remove contract, and otherwise preserve the current UI gating behavior.
+4. [ ] Compare `server/src/routes/ingestE2eCleanup.ts` and `server/src/test/integration/ingest-e2e-cleanup.test.ts` with the repaired production remove guard; update them only if the production repair blurs the env-gated, fixture-scoped cleanup route boundary.
+5. [ ] Compare `client/src/components/ingest/RootsTable.tsx` and `client/src/test/ingestRoots.test.tsx` with the repaired server boundary; update client proof only if response shape or row/bulk Remove semantics change, and otherwise preserve the current UI gating behavior.
 
 #### Testing
 

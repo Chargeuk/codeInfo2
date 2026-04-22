@@ -1,5 +1,8 @@
 import path from 'path';
-import { normalizeCanonicalQueueTargetPath } from './requestContracts.js';
+import {
+  normalizeCanonicalQueueTargetPath,
+  validateQueueableRepositoryRootPath,
+} from './requestContracts.js';
 
 const DEFAULT_CONTAINER_ROOT = '/data';
 
@@ -167,6 +170,82 @@ export function resolveMountedIngestPath(params: {
   }
 
   return normalizeCanonicalQueueTargetPath(mapped.mappedPath);
+}
+
+export function resolveQueuedReembedExecutionPath(params: {
+  canonicalTargetPath: string;
+  requestPayloadPath?: string;
+  codexWorkdir?: string | null;
+}): string {
+  const canonicalTargetPath = validateQueueableRepositoryRootPath(
+    params.canonicalTargetPath,
+    {
+      fieldName: 'canonicalTargetPath',
+      allowedRoot: null,
+    },
+  );
+  const requestPayloadPath = params.requestPayloadPath?.trim();
+  if (!requestPayloadPath) {
+    return canonicalTargetPath;
+  }
+
+  const executionPath = validateQueueableRepositoryRootPath(
+    requestPayloadPath,
+    {
+      fieldName: 'requestPayload.path',
+      allowedRoot: params.codexWorkdir ?? process.env.CODEINFO_CODEX_WORKDIR,
+    },
+  );
+  const expectedMountedPath = resolveExpectedMountedExecutionPath({
+    canonicalTargetPath,
+    codexWorkdir: params.codexWorkdir ?? process.env.CODEINFO_CODEX_WORKDIR,
+  });
+  if (expectedMountedPath && executionPath !== expectedMountedPath) {
+    const error = new Error(
+      'queued reembed requestPayload.path must match the mounted canonicalTargetPath',
+    );
+    (error as { code?: string }).code = 'VALIDATION';
+    throw error;
+  }
+
+  return executionPath;
+}
+
+function resolveExpectedMountedExecutionPath(params: {
+  canonicalTargetPath: string;
+  codexWorkdir?: string | null;
+}) {
+  const codexWorkdir = params.codexWorkdir?.trim();
+  if (!codexWorkdir || codexWorkdir === '$CODEINFO_CODEX_WORKDIR') {
+    return null;
+  }
+  const canonicalWorkdir = validateQueueableRepositoryRootPath(codexWorkdir, {
+    fieldName: 'CODEINFO_CODEX_WORKDIR',
+    allowedRoot: null,
+  });
+  const dataPrefix = `${DEFAULT_CONTAINER_ROOT}/`;
+  if (params.canonicalTargetPath === DEFAULT_CONTAINER_ROOT) {
+    return canonicalWorkdir;
+  }
+  if (params.canonicalTargetPath.startsWith(dataPrefix)) {
+    return validateQueueableRepositoryRootPath(
+      path.posix.join(
+        canonicalWorkdir,
+        params.canonicalTargetPath.slice(dataPrefix.length),
+      ),
+      {
+        fieldName: 'requestPayload.path',
+        allowedRoot: canonicalWorkdir,
+      },
+    );
+  }
+  if (
+    params.canonicalTargetPath === canonicalWorkdir ||
+    params.canonicalTargetPath.startsWith(`${canonicalWorkdir}/`)
+  ) {
+    return params.canonicalTargetPath;
+  }
+  return null;
 }
 
 export function describeMountedWorkingFolder(params: {

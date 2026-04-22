@@ -52,6 +52,9 @@ import {
 import { createEmbeddingDispatcher } from './embeddingDispatcher.js';
 import * as ingestLock from './lock.js';
 import {
+  resolveQueuedReembedExecutionPath as resolveQueuedReembedExecutionPathForPayload,
+} from './pathMap.js';
+import {
   appendIngestFailureLog,
   createLmStudioEmbeddingProvider,
   createOpenAiEmbeddingProvider,
@@ -522,7 +525,9 @@ function toQueueManagedInput(queueRequest: {
   const canonicalTargetPath = queueRequest.canonicalTargetPath;
   const pathValue =
     queueRequest.operation === 'reembed'
-      ? canonicalTargetPath
+      ? typeof payload.path === 'string' && payload.path.length > 0
+        ? payload.path
+        : canonicalTargetPath
       : typeof payload.path === 'string' && payload.path.length > 0
         ? payload.path
         : canonicalTargetPath;
@@ -567,32 +572,10 @@ function toQueueManagedInput(queueRequest: {
 }
 
 function resolveQueuedReembedExecutionPath(input: IngestJobInput): string {
-  const canonicalTargetPath = validateQueueableRepositoryRootPath(
-    input.canonicalTargetPath ?? input.path,
-    {
-      fieldName: 'canonicalTargetPath',
-    },
-  );
-  const persistedPath = input.queuedRequestPayloadPath?.trim();
-  if (!persistedPath) {
-    return canonicalTargetPath;
-  }
-
-  const validatedPersistedPath = validateQueueableRepositoryRootPath(
-    persistedPath,
-    {
-      fieldName: 'requestPayload.path',
-    },
-  );
-  if (validatedPersistedPath !== canonicalTargetPath) {
-    const error = new Error(
-      'queued reembed requestPayload.path must match canonicalTargetPath',
-    );
-    (error as { code?: string }).code = 'VALIDATION';
-    throw error;
-  }
-
-  return canonicalTargetPath;
+  return resolveQueuedReembedExecutionPathForPayload({
+    canonicalTargetPath: input.canonicalTargetPath ?? input.path,
+    requestPayloadPath: input.queuedRequestPayloadPath,
+  });
 }
 
 function releaseRunOwnership(runId: string) {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 import {
   __setQueueRuntimeOpsForTest,
@@ -6,14 +7,69 @@ import {
 } from '../../ingest/ingestJob.js';
 import {
   createQueueRequest,
+  createTempRepo,
   installQueueRuntimeTestHooks,
+  setupIngestChromaMocks,
   waitForQueueManagedTerminalStatus,
   waitForNextTurn,
 } from './ingest-queue-runtime.helpers.js';
 
 installQueueRuntimeTestHooks();
 
-test('queue-managed deferred reembed rejects mismatched persisted requestPayload.path before discovery begins', async () => {
+test('queue-managed deferred reembed executes a mounted requestPayload.path while retaining canonical queue identity', async () => {
+  setupIngestChromaMocks();
+  const { root: mountedRoot, cleanup } = await createTempRepo({
+    'src/mounted.ts': 'export const mounted = true;\n',
+  });
+  const canonicalRoot = `/data/${path.basename(mountedRoot)}`;
+  process.env.CODEINFO_CODEX_WORKDIR = path.dirname(mountedRoot);
+  let promotedOnce = false;
+
+  try {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        if (promotedOnce) {
+          return null;
+        }
+        promotedOnce = true;
+        return {
+          ...createQueueRequest({
+            requestId: '23',
+            root: canonicalRoot,
+            queueState: 'running',
+            runId,
+          }),
+          runId,
+          requestPayload: {
+            path: mountedRoot,
+            name: 'mounted-repo',
+            model: 'embed-1',
+            operation: 'reembed',
+          },
+        };
+      },
+    });
+
+    const started = await pumpIngestQueue();
+    assert.equal(started.started, true);
+    assert.ok(started.runId);
+
+    const terminal = await waitForQueueManagedTerminalStatus(
+      started.requestId!,
+      20_000,
+    );
+    assert.equal(terminal.state, 'completed');
+    assert.equal(terminal.root, canonicalRoot);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('queue-managed deferred reembed rejects unrelated persisted requestPayload.path before discovery begins', async () => {
   process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
   const canonicalRoot = '/allowed/workdir/reembed-canonical';
   const mismatchedPersistedPath = '/allowed/workdir/reembed-other';
@@ -65,7 +121,7 @@ test('queue-managed deferred reembed rejects mismatched persisted requestPayload
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
-    'queued reembed requestPayload.path must match canonicalTargetPath',
+    'queued reembed requestPayload.path must match the mounted canonicalTargetPath',
   );
   assert.ok(deletedRequestIds.length >= 1);
   assert.equal(
@@ -74,4 +130,114 @@ test('queue-managed deferred reembed rejects mismatched persisted requestPayload
     ),
     true,
   );
+});
+
+test('queue-managed deferred reembed rejects relative persisted requestPayload.path before discovery begins', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  const canonicalRoot = '/data/reembed-relative';
+  const deletedRequestIds: string[] = [];
+  let promotedOnce = false;
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => {
+      if (promotedOnce) {
+        return null;
+      }
+      promotedOnce = true;
+      return {
+        ...createQueueRequest({
+          requestId: '25',
+          root: canonicalRoot,
+          queueState: 'running',
+          runId,
+        }),
+        runId,
+        requestPayload: {
+          path: 'relative/reembed',
+          name: 'repo',
+          model: 'embed-1',
+          operation: 'reembed',
+        },
+      };
+    },
+  });
+
+  const started = await pumpIngestQueue();
+  assert.equal(started.started, true);
+
+  const terminal = await waitForQueueManagedTerminalStatus(
+    started.requestId!,
+    1_000,
+  );
+  await waitForNextTurn();
+  await waitForNextTurn();
+
+  assert.equal(terminal.state, 'error');
+  assert.equal(
+    terminal.lastError,
+    'requestPayload.path must be an absolute normalized repository root path',
+  );
+  assert.deepEqual(deletedRequestIds, ['000000000000000000000025']);
+});
+
+test('queue-managed deferred reembed rejects outside-workdir persisted requestPayload.path before discovery begins', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  const canonicalRoot = '/data/reembed-outside';
+  const deletedRequestIds: string[] = [];
+  let promotedOnce = false;
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) => {
+      if (promotedOnce) {
+        return null;
+      }
+      promotedOnce = true;
+      return {
+        ...createQueueRequest({
+          requestId: '26',
+          root: canonicalRoot,
+          queueState: 'running',
+          runId,
+        }),
+        runId,
+        requestPayload: {
+          path: '/outside/workdir/reembed',
+          name: 'repo',
+          model: 'embed-1',
+          operation: 'reembed',
+        },
+      };
+    },
+  });
+
+  const started = await pumpIngestQueue();
+  assert.equal(started.started, true);
+
+  const terminal = await waitForQueueManagedTerminalStatus(
+    started.requestId!,
+    1_000,
+  );
+  await waitForNextTurn();
+  await waitForNextTurn();
+
+  assert.equal(terminal.state, 'error');
+  assert.equal(
+    terminal.lastError,
+    'requestPayload.path must stay within /allowed/workdir',
+  );
+  assert.deepEqual(deletedRequestIds, ['000000000000000000000026']);
 });

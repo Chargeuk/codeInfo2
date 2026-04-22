@@ -171,15 +171,17 @@ test('startup recovery still retries genuinely unfinished running work before ne
   ]);
 });
 
-test('startup recovery replays queued reembed work using canonicalTargetPath as the executable root before discovery resumes', async () => {
+test('startup recovery replays queued reembed work using persisted requestPayload.path as the executable root before discovery resumes', async () => {
   const events: string[] = [];
   const canonicalRoot = '/data/canonical-running-root';
+  const mountedExecutionRoot = '/mounted/workdir/canonical-running-root';
   const recoveryQueueRequest = createQueueRequest({
     requestId: '12',
     root: canonicalRoot,
     queueState: 'running',
     runId: 'run-recovered-split',
   });
+  recoveryQueueRequest.requestPayload.path = mountedExecutionRoot;
 
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,
@@ -204,12 +206,12 @@ test('startup recovery replays queued reembed work using canonicalTargetPath as 
   assert.equal(result.recovered, true);
   assert.deepEqual(events, [
     'running-selected',
-    `started:run-recovered-split:${canonicalRoot}`,
+    `started:run-recovered-split:${mountedExecutionRoot}`,
     `canonical:${canonicalRoot}`,
   ]);
 });
 
-test('startup recovery rejects mismatched persisted reembed paths before discovery resumes', async () => {
+test('startup recovery rejects unrelated persisted reembed paths before discovery resumes', async () => {
   process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
   const canonicalRoot = '/allowed/workdir/recover-canonical-root';
   const mismatchedPersistedPath = '/allowed/workdir/recover-other-root';
@@ -247,7 +249,7 @@ test('startup recovery rejects mismatched persisted reembed paths before discove
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
-    'queued reembed requestPayload.path must match canonicalTargetPath',
+    'queued reembed requestPayload.path must match the mounted canonicalTargetPath',
   );
   assert.ok(deletedRequestIds.length >= 1);
   assert.equal(
@@ -256,6 +258,94 @@ test('startup recovery rejects mismatched persisted reembed paths before discove
     ),
     true,
   );
+});
+
+test('startup recovery rejects relative persisted reembed paths before discovery resumes', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  const canonicalRoot = '/data/recover-relative-root';
+  const deletedRequestIds: string[] = [];
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '15',
+    root: canonicalRoot,
+    queueState: 'running',
+    runId: 'run-recovered-relative-path',
+  });
+  recoveryQueueRequest.requestPayload.path = 'relative/recover-root';
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  assert.equal(result.recovered, true);
+
+  const terminal = await waitForQueueManagedTerminalStatus(
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+    1_000,
+  );
+  await waitForNextTurn();
+  await waitForNextTurn();
+
+  assert.equal(terminal.state, 'error');
+  assert.equal(
+    terminal.lastError,
+    'requestPayload.path must be an absolute normalized repository root path',
+  );
+  assert.deepEqual(deletedRequestIds, [
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+  ]);
+});
+
+test('startup recovery rejects outside-workdir persisted reembed paths before discovery resumes', async () => {
+  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  const canonicalRoot = '/data/recover-outside-root';
+  const deletedRequestIds: string[] = [];
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '16',
+    root: canonicalRoot,
+    queueState: 'running',
+    runId: 'run-recovered-outside-path',
+  });
+  recoveryQueueRequest.requestPayload.path = '/outside/workdir/recover-root';
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  assert.equal(result.recovered, true);
+
+  const terminal = await waitForQueueManagedTerminalStatus(
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+    1_000,
+  );
+  await waitForNextTurn();
+  await waitForNextTurn();
+
+  assert.equal(terminal.state, 'error');
+  assert.equal(
+    terminal.lastError,
+    'requestPayload.path must stay within /allowed/workdir',
+  );
+  assert.deepEqual(deletedRequestIds, [
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+  ]);
 });
 
 test('startup recovery uses canonicalTargetPath as the executable root when persisted requestPayload.path is missing', async () => {

@@ -735,6 +735,7 @@ test('ingest-reembed rejects a still-visible queued start row before queue admis
 
 test('ingest-reembed queue admission persists the stable repo name instead of an overlay run id', async () => {
   let queuedPayload: {
+    canonicalTargetPath?: string;
     name?: string;
     path?: string;
   } | null = null;
@@ -753,6 +754,7 @@ test('ingest-reembed queue admission persists the stable repo name instead of an
       }),
       enqueueOrReuseIngestRequest: async (input) => {
         queuedPayload = {
+          canonicalTargetPath: input.canonicalTargetPath,
           name:
             typeof input.requestPayload.name === 'string'
               ? input.requestPayload.name
@@ -784,7 +786,12 @@ test('ingest-reembed queue admission persists the stable repo name instead of an
   if (!queuedPayload) {
     assert.fail('expected queue admission input');
   }
-  const capturedPayload = queuedPayload as { name?: string; path?: string };
+  const capturedPayload = queuedPayload as {
+    canonicalTargetPath?: string;
+    name?: string;
+    path?: string;
+  };
+  assert.equal(capturedPayload.canonicalTargetPath, '/tmp/repo');
   assert.equal(capturedPayload.name, 'Stable Repo Name');
   assert.equal(capturedPayload.path, '/tmp/repo');
 });

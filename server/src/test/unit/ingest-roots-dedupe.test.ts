@@ -884,6 +884,82 @@ test('GET /ingest/roots keeps cleanup-blocked diagnostics visible when queue doc
   });
 });
 
+test('GET /ingest/roots applies cleanup-blocked diagnostic precedence over stale persisted diagnostics without runtime status', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId(
+                  '000000000000000000000057',
+                ),
+                canonicalTargetPath: '/data/repo-stale-error',
+                operation: 'start',
+                queueState: 'cleanup-blocked',
+                requestPayload: {
+                  path: '/data/repo-stale-error',
+                  name: 'repo-stale-error',
+                  model: 'embed-model',
+                  embeddingProvider: 'lmstudio',
+                  embeddingModel: 'embed-model',
+                },
+                sourceSurface: 'rest:ingest/start',
+                runId: 'run-blocked-stale-error',
+                createdAt: new Date('2026-04-02T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+
+    const response = await request(
+      createRootsApp(
+        {
+          ids: ['persisted-stale-error-run'],
+          metadatas: [
+            {
+              name: 'repo-stale-error',
+              root: '/data/repo-stale-error',
+              model: 'embed-model',
+              state: 'error',
+              lastError: 'stale persisted provider failure',
+              lastIngestAt: '2026-01-01T00:00:00.000Z',
+              files: 1,
+              chunks: 2,
+              embedded: 0,
+            },
+          ],
+        },
+        'embed-model',
+      ),
+    ).get('/ingest/roots');
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.roots.length, 1);
+    const root = response.body.roots[0];
+    assert.equal(root.requestId, '000000000000000000000057');
+    assert.equal(root.runId, 'run-blocked-stale-error');
+    assert.equal(root.queueState, 'cleanup-blocked');
+    assert.equal(root.status, 'error');
+    assert.equal(root.lastError, 'Queue cleanup blocked');
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
 test('GET /ingest/roots keeps cleanup-blocked diagnostics visible when a later waiting request targets the same root', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

@@ -439,6 +439,29 @@ function clearQueueCleanupRetryState(requestId: string) {
   queueCleanupRetryAttempts.delete(requestId);
 }
 
+function getPendingQueueCleanupOwner():
+  | {
+      requestId: string | null;
+      runId: string;
+    }
+  | null {
+  const finalizerRunId = queueCleanupFinalizers.keys().next().value;
+  if (typeof finalizerRunId === 'string' && finalizerRunId.length > 0) {
+    return {
+      requestId: queueRequestIdsByRunId.get(finalizerRunId) ?? null,
+      runId: finalizerRunId,
+    };
+  }
+
+  for (const [runId, requestId] of queueRequestIdsByRunId.entries()) {
+    if (queueCleanupRetryTimers.has(requestId)) {
+      return { requestId, runId };
+    }
+  }
+
+  return null;
+}
+
 function buildCleanupBlockedStatus(params: {
   runId: string;
   previousStatus: IngestJobStatus;
@@ -2786,13 +2809,13 @@ function startManagedRun(params: {
 }
 
 export async function pumpIngestQueue() {
-  const pendingCleanupRunId = queueCleanupFinalizers.keys().next().value;
-  if (pendingCleanupRunId) {
+  const pendingCleanupOwner = getPendingQueueCleanupOwner();
+  if (pendingCleanupOwner) {
     return {
       started: false,
       blockedByCleanup: true,
-      requestId: queueRequestIdsByRunId.get(pendingCleanupRunId) ?? null,
-      runId: pendingCleanupRunId ?? null,
+      requestId: pendingCleanupOwner.requestId,
+      runId: pendingCleanupOwner.runId,
     };
   }
 
@@ -2866,6 +2889,17 @@ export async function pumpIngestQueue() {
 export async function recoverIngestQueueOnStartup() {
   if (ingestLock.isHeld()) {
     return { recovered: false, blockedByActiveLock: true };
+  }
+
+  const pendingCleanupOwner = getPendingQueueCleanupOwner();
+  if (pendingCleanupOwner) {
+    return {
+      recovered: false,
+      blockedByActiveLock: false,
+      blockedByCleanup: true,
+      requestId: pendingCleanupOwner.requestId,
+      runId: pendingCleanupOwner.runId,
+    };
   }
 
   const blocked = await queueRuntimeOps.findOldestCleanupBlockedQueueRequest();

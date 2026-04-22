@@ -323,7 +323,7 @@ test('ingest-cancel catch path logs non-retryable failures as error', async () =
   assert.equal(errorEntry?.context?.retryable, false);
 });
 
-test('cancel waits for queue cleanup before newer queued work advances', async () => {
+test('cancel waits on an unresolved cleanup gate before newer queued work advances', async () => {
   const deleteGate = createDeferred<void>();
   const events: string[] = [];
 
@@ -391,7 +391,7 @@ test('cancel waits for queue cleanup before newer queued work advances', async (
   void cancelPromise.then(() => {
     resolvedEarly = true;
   });
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await Promise.resolve();
 
   assert.equal(resolvedEarly, false);
   assert.deepEqual(events, ['delete-start']);

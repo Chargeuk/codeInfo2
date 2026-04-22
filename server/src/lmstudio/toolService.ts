@@ -1009,7 +1009,7 @@ function applyQueueOverlay(params: {
       if (!repo.lastError) {
         repo.lastError = 'Queue cleanup blocked';
       }
-    } else if (!repo.lastError) {
+    } else {
       repo.lastError = 'Queue cleanup blocked';
     }
     return;

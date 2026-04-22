@@ -380,6 +380,80 @@ test('cleanup-blocked queue records stay visible and stall newer waiting work', 
   assert.equal(stalled.blockedByCleanup, true);
 });
 
+test('delete failure plus cleanup-blocked persistence failure leaves retry ownership that stalls newer waiting work until queue record removal', async () => {
+  const events: string[] = [];
+  let deleteAttempts = 0;
+  __setStatusForTest('run-partial-cleanup', {
+    runId: 'run-partial-cleanup',
+    state: 'completed',
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    message: 'Completed',
+    lastError: null,
+  });
+  __setQueueRequestIdForRunForTest(
+    'run-partial-cleanup',
+    'queue-partial-cleanup',
+  );
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => {
+      deleteAttempts += 1;
+      events.push(`delete-${deleteAttempts}`);
+      if (deleteAttempts === 1) {
+        throw new Error('delete failed before durable cleanup-blocked write');
+      }
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => {
+      events.push('cleanup-blocked-lookup');
+      return null;
+    },
+    markQueueRequestCleanupBlocked: async () => {
+      events.push('mark-cleanup-blocked');
+      throw new Error('cleanup-blocked write failed');
+    },
+    promoteOldestWaitingQueueRequest: async () => {
+      events.push('waiting-promote');
+      return null;
+    },
+  });
+
+  const cleaned =
+    await __finalizeQueueRequestForRunForTest('run-partial-cleanup');
+  const stalled = await pumpIngestQueue();
+  const startup = await recoverIngestQueueOnStartup();
+
+  assert.equal(cleaned, false);
+  assert.equal(stalled.started, false);
+  assert.equal(stalled.blockedByCleanup, true);
+  assert.equal(stalled.requestId, 'queue-partial-cleanup');
+  assert.equal(stalled.runId, 'run-partial-cleanup');
+  assert.deepEqual(startup, {
+    recovered: false,
+    blockedByActiveLock: false,
+    blockedByCleanup: true,
+    requestId: 'queue-partial-cleanup',
+    runId: 'run-partial-cleanup',
+  });
+  assert.equal(getStatus('run-partial-cleanup')?.state, 'cleanup-blocked');
+  assert.deepEqual(events, ['delete-1', 'mark-cleanup-blocked']);
+
+  const cleanedAfterRemoval =
+    await __finalizeQueueRequestForRunForTest('run-partial-cleanup');
+  const unblocked = await pumpIngestQueue();
+
+  assert.equal(cleanedAfterRemoval, true);
+  assert.equal(unblocked.started, false);
+  assert.equal(unblocked.blockedByCleanup, false);
+  assert.deepEqual(events, [
+    'delete-1',
+    'mark-cleanup-blocked',
+    'delete-2',
+    'cleanup-blocked-lookup',
+    'waiting-promote',
+  ]);
+});
+
 test('deletions-only cleanup degradation publishes the shared cleanup-blocked queue state and stalls later waiting work', async () => {
   let scheduledTask: (() => void) | null = null;
   __setRunSchedulerForTest((task) => {

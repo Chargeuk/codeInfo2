@@ -801,6 +801,85 @@ test('cleanup-blocked overlay stays authoritative when a later waiting request t
   });
 });
 
+test('cleanup-blocked overlay without runtime status overrides persisted stale lastError', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  try {
+    mock.method(
+      IngestQueueRequestModel,
+      'find',
+      () =>
+        ({
+          sort: () => ({
+            exec: async () => [
+              {
+                _id: new mongoose.Types.ObjectId(
+                  '000000000000000000000081',
+                ),
+                canonicalTargetPath: '/data/repo-stale-error',
+                operation: 'start',
+                queueState: 'cleanup-blocked',
+                requestPayload: {
+                  path: '/data/repo-stale-error',
+                  name: 'repo-stale-error',
+                  model: 'blocked-model',
+                  embeddingProvider: 'lmstudio',
+                  embeddingModel: 'blocked-model',
+                },
+                sourceSurface: 'rest:ingest/start',
+                runId: 'blocked-run-81',
+                createdAt: new Date('2026-04-09T00:00:00.000Z'),
+                updatedAt: new Date('2026-04-09T00:00:00.000Z'),
+              },
+            ],
+          }),
+        }) as never,
+    );
+
+    const res = await request(
+      buildApp(
+        {
+          ids: ['persisted-stale-error-run'],
+          metadatas: [
+            {
+              root: '/data/repo-stale-error',
+              name: 'repo-stale-error',
+              model: 'blocked-model',
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'blocked-model',
+              embeddingDimensions: 768,
+              state: 'error',
+              lastError: 'stale persisted provider failure',
+              lastIngestAt: '2026-01-01T00:00:00.000Z',
+              files: 1,
+              chunks: 2,
+              embedded: 0,
+            },
+          ],
+        },
+        'blocked-model',
+      ),
+    ).get('/tools/ingested-repos');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.repos.length, 1);
+    const repo = res.body.repos[0];
+    assert.equal(repo.requestId, '000000000000000000000081');
+    assert.equal(repo.runId, 'blocked-run-81');
+    assert.equal(repo.queueState, 'cleanup-blocked');
+    assert.equal(repo.status, 'error');
+    assert.equal(repo.lastError, 'Queue cleanup blocked');
+  } finally {
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  }
+});
+
 test('suppresses DEV-0000038 T5 marker logs by default and emits them when the marker gate is enabled', async () => {
   const originalInfo = baseLogger.info;
   const loggedMessages: string[] = [];

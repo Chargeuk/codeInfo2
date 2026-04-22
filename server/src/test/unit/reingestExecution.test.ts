@@ -862,6 +862,7 @@ describe('executeReingestRequest', () => {
     assert.equal(result.ok, false);
     if (result.ok) return;
     assert.deepEqual(result.error, waitFailure);
+    assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
     assert.equal(result.error.data.queueFailureStage, 'wait');
     assert.equal(result.error.data.waitReason, 'queue-read-failed');
   });

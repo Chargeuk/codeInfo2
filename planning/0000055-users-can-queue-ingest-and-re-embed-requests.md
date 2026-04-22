@@ -15587,6 +15587,14 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 - Updated `server/src/ingest/reingestExecution.ts` and `server/src/test/unit/reingestExecution.test.ts` so direct execution propagates wait-time queue-read `QUEUE_UNAVAILABLE` as a fatal retryable error for plan-scope execution while leaving pre-run queue-unavailable and ok-shaped terminal outcomes on their existing warning/terminal paths.
 - Updated `server/src/test/integration/commands.reingest.test.ts` so working-target command execution propagates a wait-time queue-read outage as a command failure with retryable `QUEUE_UNAVAILABLE` data instead of recording an ok-shaped `QUEUE_READ_FAILED` tool result.
 - Updated `server/src/test/integration/flows.run.command.test.ts` so a default top-level flow re-ingest step propagates the same wait-time queue-read `QUEUE_UNAVAILABLE` failure while existing degraded-startup plan-scope warning behavior remains distinct.
+- Automated proof for `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts` first exposed a TypeScript union narrowing error in `server/src/test/unit/reingestExecution.test.ts`; narrowed the test assertion through `QUEUE_UNAVAILABLE`, reran the same wrapper, and it passed with 36 tests.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts` with 19 tests passed.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/unit/mcp2.reingest.tool.test.ts` with 13 tests passed.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts` with 15 tests passed.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts` with 22 tests passed.
+- Automated proof passed for `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts` with 44 tests passed.
+- Automated proof passed for `npm run lint` with exit code 0.
+- Automated proof passed for `npm run format:check`; all matched files use Prettier code style.
 
 #### Subtasks
 
@@ -15600,14 +15608,14 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts`.
-5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts`.
-6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`.
-7. [ ] Run `npm run lint`.
-8. [ ] Run `npm run format:check`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestExecution.test.ts`.
+5. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts`.
+6. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts`.
+7. [x] Run `npm run lint`.
+8. [x] Run `npm run format:check`.
 
 ### Task 195. Enforce Queue-State Authority On Production Remove
 

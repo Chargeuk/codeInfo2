@@ -14458,7 +14458,7 @@ Close the committed-but-barrier-lost recovery window by recording the durable no
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `181`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F8` (`should_fix`): BDD queue-start proof can pass when execution was attempted but rejected before the helper records the path.
 

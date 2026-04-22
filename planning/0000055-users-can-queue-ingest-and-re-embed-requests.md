@@ -15596,6 +15596,7 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 - Automated proof passed for `npm run lint` with exit code 0.
 - Automated proof passed for `npm run format:check`; all matched files use Prettier code style.
 - Automated-proof audit verified all Task 194 subtasks and testing steps are complete, no live blocker remains, and the task is ready for manual-testing handoff as `__done__`.
+- Manual proof stayed task-scoped because Task 194 is not the final story task; restarted from stale/unknown provenance with the documented main Compose `down`, `build`, and `up` workflow, confirmed `/health`, client `/agents` and `/flows` reachability, and classic MCP `/mcp` initialize behavior, then shut the stack down with `compose:down`. Artifacts were saved as non-final scratch proof under `codeInfoTmp/manual-testing/0000055/task194-*`; no Playwright screenshots were captured because the task-owned acceptance behavior is a backend queue-read outage propagation contract rather than a changed browser-visible UI state. Runtime research found no repository-supported manual queue-read-outage injection harness, so this pass did not invent one by stopping internal services; the completed automated proofs remain the owned coverage for that synthetic failure mode, and no additional subtasks or testing updates were needed.
 
 #### Subtasks
 

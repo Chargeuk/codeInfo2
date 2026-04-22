@@ -15160,7 +15160,7 @@ If later manual validation is requested, use the ingest page to inspect row and 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `189`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F3` `should_fix`: tracked manual log includes a provider account identifier from an OpenAI error.
   - `F4` `should_fix`: generated screenshot artifacts are tracked under a non-ignored `artifacts/` directory.

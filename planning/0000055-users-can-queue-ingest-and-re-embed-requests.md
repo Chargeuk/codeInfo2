@@ -14106,10 +14106,10 @@ Repair the client realtime terminal-state contract so `cleanup-blocked` is handl
 
 #### Testing
 
-1. [ ] Run `npm run typecheck:summary:client`.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestStatus.test.tsx --file client/src/test/ingestStatus.progress.test.tsx --file client/src/test/ingestRoots.test.tsx`.
-3. [ ] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
-4. [ ] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
+1. [x] Run `npm run typecheck:summary:client`.
+2. [x] Run `npm run test:summary:client -- --file client/src/test/ingestStatus.test.tsx --file client/src/test/ingestStatus.progress.test.tsx --file client/src/test/ingestRoots.test.tsx`.
+3. [x] Run `npm run lint` and fix any issues found with `npm run lint:fix` before manual cleanup.
+4. [x] Run `npm run format:check` and fix any issues found with `npm run format` before manual cleanup.
 
 #### Manual Testing Guidance
 
@@ -14122,6 +14122,10 @@ If a manual-testing pass is requested for this task, use the normal Docker stack
 - Subtask 3: added `client/src/test/ingestStatus.test.tsx` coverage for the production websocket cleanup-blocked update path, shared roots/model refresh, cleanup error banner persistence, active-panel removal, hidden cancel affordance, and direct stale terminal cancel guard.
 - Subtask 4: added `client/src/test/ingestStatus.progress.test.tsx` coverage proving `ActiveRunCard` transitions from cancellable embedding state to cleanup-blocked terminal/error rendering without a cancel action.
 - Subtask 5: inspected `client/src/components/ingest/RootsTable.tsx` and confirmed this task did not change row selection or action payload code; existing cleanup-blocked row blocking remains in place, so the stale active-run action proof stays in `client/src/test/ingestStatus.test.tsx` and no new `ingestRoots.test.tsx` proof was required.
+- Testing 1: `npm run typecheck:summary:client` passed with `status: passed`, `error_count: 0`, `agent_action: skip_log`, and retained log `logs/test-summaries/typecheck-client-latest.log`; no log inspection was needed.
+- Testing 2: `npm run test:summary:client -- --file client/src/test/ingestStatus.test.tsx --file client/src/test/ingestStatus.progress.test.tsx --file client/src/test/ingestRoots.test.tsx` passed with `tests run: 60`, `passed: 60`, `failed: 0`, `agent_action: skip_log`, and retained log `test-results/client-tests-2026-04-22T00-46-46-480Z.log`; no log inspection was needed.
+- Testing 3: `npm run lint` exited 0 with no warnings or errors, so `npm run lint:fix` was not needed.
+- Testing 4: `npm run format:check` passed with `All matched files use Prettier code style!`, so `npm run format` was not needed.
 - Audit: confirmed the implementation-only pass closed Subtasks 1 through 5 against the touched client status, page, card, and test files; no live blocker is present, and Testing 1 through 4 remain unchecked for the automated-proof step.
 
 ### Task 178. Make Blocking Re-Embed Queue Waits Use A Long Safety Guard

@@ -14496,11 +14496,11 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 
 #### Subtasks
 
-1. [ ] Re-read Finding `F8`, `server/src/test/steps/ingest-manage.steps.ts`, and affected feature steps in `ingest-reembed.feature` and `ingest-status.feature`. List each empty-started-path assertion beside one intended outcome, either no processor attempt or attempted-but-rejected execution, and use that list to drive the helper and scenario edits in subtasks 2 through 5.
-2. [ ] Patch the Cucumber helper and step definitions so attempted queue processor paths are recorded before validation, existing started-path records still mean validation-passed starts, and scenario setup/teardown resets attempted-path and started-path state so no-attempt assertions are worker-safe and deterministic.
-3. [ ] Add or update `server/src/test/steps/ingest-manage.steps.ts` proof helper ownership so attempted processor paths are recorded before validation and separate no-attempt versus no-started-path assertions are available. Rename step definitions or helper comments when an old "no started paths" phrase would still imply no execution attempt.
-4. [ ] Update `server/src/test/features/ingest-status.feature` so cleanup-blocked or no-advancement claims use the no-attempt assertion when that is the intended invariant. Scenario wording must name no-attempt proof when the processor must not run.
-5. [ ] Update `server/src/test/features/ingest-reembed.feature` so barrier-backed no-replay scenarios use no-attempt assertions, while fail-closed validation scenarios assert attempted execution plus rejected terminal/error status. Rename or split scenarios whose titles currently say only "does not replay" or "before replay writes started state" when their assertions prove attempted-but-rejected execution.
+1. [x] Re-read Finding `F8`, `server/src/test/steps/ingest-manage.steps.ts`, and affected feature steps in `ingest-reembed.feature` and `ingest-status.feature`. List each empty-started-path assertion beside one intended outcome, either no processor attempt or attempted-but-rejected execution, and use that list to drive the helper and scenario edits in subtasks 2 through 5.
+2. [x] Patch the Cucumber helper and step definitions so attempted queue processor paths are recorded before validation, existing started-path records still mean validation-passed starts, and scenario setup/teardown resets attempted-path and started-path state so no-attempt assertions are worker-safe and deterministic.
+3. [x] Add or update `server/src/test/steps/ingest-manage.steps.ts` proof helper ownership so attempted processor paths are recorded before validation and separate no-attempt versus no-started-path assertions are available. Rename step definitions or helper comments when an old "no started paths" phrase would still imply no execution attempt.
+4. [x] Update `server/src/test/features/ingest-status.feature` so cleanup-blocked or no-advancement claims use the no-attempt assertion when that is the intended invariant. Scenario wording must name no-attempt proof when the processor must not run.
+5. [x] Update `server/src/test/features/ingest-reembed.feature` so barrier-backed no-replay scenarios use no-attempt assertions, while fail-closed validation scenarios assert attempted execution plus rejected terminal/error status. Rename or split scenarios whose titles currently say only "does not replay" or "before replay writes started state" when their assertions prove attempted-but-rejected execution.
 
 #### Testing
 
@@ -14510,7 +14510,11 @@ Repair the Cucumber proof helper so scenarios that claim no replay, no start, or
 
 #### Implementation Notes
 
-- Pending.
+- Re-read Finding `F8`, the ingest-manage Cucumber helper, and affected feature steps. Classification: `ingest-status.feature` cleanup-blocked no-advancement and `ingest-reembed.feature` barrier-backed committed recovery are no-processor-attempt invariants; `ingest-reembed.feature` live root-state validation degradation and malformed canonical embedding fields are attempted-but-rejected invariants that must assert attempted execution plus terminal error while preserving empty validation-passed started paths.
+- Patched `server/src/test/steps/ingest-manage.steps.ts` so queue runtime attempts are recorded before replay validation, validation-passed starts remain separate, and both attempted/start records reset through setup and teardown for deterministic no-attempt assertions.
+- Updated ingest-manage helper step wording to record processor attempts and validation-passed starts separately, with explicit no-attempt and attempted-path assertions so empty started paths no longer imply no execution.
+- Updated `server/src/test/features/ingest-status.feature` so the cleanup-blocked no-advancement scenario name and assertion prove no processor attempt rather than only an empty validation-passed start list.
+- Updated `server/src/test/features/ingest-reembed.feature` so barrier-backed recovery asserts no processor attempt, while root-state degradation and malformed canonical field scenarios assert attempted processor paths plus rejected terminal error outcomes and empty validation-passed starts.
 
 ### Task 183. Deduplicate Queue-State Literals In The Queue Schema Index
 

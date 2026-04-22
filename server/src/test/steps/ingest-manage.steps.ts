@@ -60,6 +60,7 @@ let response: { status: number; body: unknown } | null = null;
 let capturedRootsResponse: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
+let queueRuntimeAttemptedPaths: string[] = [];
 let queueRuntimeStartedPaths: string[] = [];
 let lastQueuePumpResult: {
   started: boolean;
@@ -199,6 +200,7 @@ After(async () => {
   response = null;
   capturedRootsResponse = null;
   lastRunId = null;
+  queueRuntimeAttemptedPaths = [];
   queueRuntimeStartedPaths = [];
   lastQueuePumpResult = null;
   __setQueueRuntimeOpsForTest({
@@ -1040,38 +1042,47 @@ Given(
   },
 );
 
-Given('ingest manage queue runtime records started paths', () => {
-  queueRuntimeStartedPaths = [];
-  __setRunProcessorForTest(async (runId, input) => {
-    try {
-      await __validateQueueReplayStartForTest(input);
-      queueRuntimeStartedPaths.push(input.path);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error ?? 'unknown');
-      const code =
-        typeof (error as { code?: unknown })?.code === 'string'
-          ? ((error as { code?: string }).code as string)
-          : 'VALIDATION';
-      const previousStatus = getStatus(runId);
-      __setStatusForTest(runId, {
-        runId,
-        state: 'error',
-        counts: previousStatus?.counts ?? { files: 0, chunks: 0, embedded: 0 },
-        message,
-        lastError: message,
-        error: {
-          error: code,
+Given(
+  'ingest manage queue runtime records processor attempts and validation-passed starts',
+  () => {
+    queueRuntimeAttemptedPaths = [];
+    queueRuntimeStartedPaths = [];
+    __setRunProcessorForTest(async (runId, input) => {
+      try {
+        queueRuntimeAttemptedPaths.push(input.path);
+        await __validateQueueReplayStartForTest(input);
+        queueRuntimeStartedPaths.push(input.path);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error ?? 'unknown');
+        const code =
+          typeof (error as { code?: unknown })?.code === 'string'
+            ? ((error as { code?: string }).code as string)
+            : 'VALIDATION';
+        const previousStatus = getStatus(runId);
+        __setStatusForTest(runId, {
+          runId,
+          state: 'error',
+          counts: previousStatus?.counts ?? {
+            files: 0,
+            chunks: 0,
+            embedded: 0,
+          },
           message,
-          retryable: false,
-          provider: 'ingest',
-        },
-      });
-    } finally {
-      release(runId);
-    }
-  });
-});
+          lastError: message,
+          error: {
+            error: code,
+            message,
+            retryable: false,
+            provider: 'ingest',
+          },
+        });
+      } finally {
+        release(runId);
+      }
+    });
+  },
+);
 
 Given(
   'ingest manage mongo queue has running request for the temp repo with run id {string} and mismatched persisted path',
@@ -1104,7 +1115,7 @@ When('ingest manage queue pump runs', async () => {
 });
 
 Then(
-  'ingest manage queue runtime started paths are {string}',
+  'ingest manage queue runtime validation-passed started paths are {string}',
   async (pathsCsv: string) => {
     const expected =
       pathsCsv.trim().length === 0
@@ -1120,12 +1131,40 @@ Then(
   },
 );
 
-Then('ingest manage queue runtime started paths are empty', () => {
+Then('ingest manage queue runtime validation-passed started paths are empty', () => {
   assert.deepEqual(queueRuntimeStartedPaths, []);
 });
 
 Then('ingest manage queue runtime made no processor attempt', () => {
-  assert.deepEqual(queueRuntimeStartedPaths, []);
+  assert.deepEqual(queueRuntimeAttemptedPaths, []);
+});
+
+Then(
+  'ingest manage queue runtime attempted paths are {string}',
+  async (pathsCsv: string) => {
+    const expected =
+      pathsCsv.trim().length === 0
+        ? []
+        : pathsCsv.split(',').map((item) => item.trim());
+    for (let i = 0; i < 20; i += 1) {
+      if (queueRuntimeAttemptedPaths.length === expected.length) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    assert.deepEqual(queueRuntimeAttemptedPaths, expected);
+  },
+);
+
+Then('ingest manage queue runtime attempted paths are the temp repo', async () => {
+  assert(tempDir, 'temp dir missing');
+  for (let i = 0; i < 20; i += 1) {
+    if (queueRuntimeAttemptedPaths.length === 1) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.deepEqual(queueRuntimeAttemptedPaths, [tempDir]);
 });
 
 Then(

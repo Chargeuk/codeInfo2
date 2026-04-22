@@ -48,9 +48,9 @@ Feature: Ingest re-embed
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has waiting request for "/tmp/recover-waiting"
-    And ingest manage queue runtime records started paths
+    And ingest manage queue runtime records processor attempts and validation-passed starts
     When ingest manage queue pump runs
-    Then ingest manage queue runtime started paths are "/tmp/recover-waiting"
+    Then ingest manage queue runtime validation-passed started paths are "/tmp/recover-waiting"
 
   @mongo
   Scenario: startup recovery makes no processor attempt for barrier-backed committed running work
@@ -58,7 +58,7 @@ Feature: Ingest re-embed
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has barrier-backed running request for "/tmp/recover-finished" with run id "run-recovered-finished"
     And ingest manage mongo queue has waiting request for "/tmp/recover-second"
-    And ingest manage queue runtime records started paths
+    And ingest manage queue runtime records processor attempts and validation-passed starts
     When ingest manage startup recovery runs
     Then ingest manage queue runtime made no processor attempt
 
@@ -68,9 +68,9 @@ Feature: Ingest re-embed
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has running request for "/tmp/recover-first" with run id "run-recovered"
     And ingest manage mongo queue has waiting request for "/tmp/recover-second"
-    And ingest manage queue runtime records started paths
+    And ingest manage queue runtime records processor attempts and validation-passed starts
     When ingest manage startup recovery runs
-    Then ingest manage queue runtime started paths are "/tmp/recover-first"
+    Then ingest manage queue runtime validation-passed started paths are "/tmp/recover-first"
     And ingest manage logs include "QUEUE_STARTUP_RECOVERY_RESUMED_IN_ORDER"
 
   @mongo
@@ -88,29 +88,31 @@ Feature: Ingest re-embed
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage mongo queue has running request for "/tmp/recover-missing-path" with run id "run-recovered-missing-path" missing persisted path
-    And ingest manage queue runtime records started paths
+    And ingest manage queue runtime records processor attempts and validation-passed starts
     When ingest manage startup recovery runs
-    Then ingest manage queue runtime started paths are "/tmp/recover-missing-path"
+    Then ingest manage queue runtime validation-passed started paths are "/tmp/recover-missing-path"
 
   @mongo
-  Scenario: queue pump fails closed when live root-state validation degrades before replay starts
+  Scenario: queue pump attempts replay and fails closed when live root-state validation degrades
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage temp repo with file "src/feature-invalid-state.ts" containing "export const featureInvalidState = true;"
     And ingest manage root metadata exists for the temp repo in state "error"
     And ingest manage mongo queue has waiting request for the temp repo
-    And ingest manage queue runtime records started paths
+    And ingest manage queue runtime records processor attempts and validation-passed starts
     When ingest manage queue pump runs
-    Then ingest manage queue runtime started paths are empty
+    Then ingest manage queue runtime attempted paths are the temp repo
+    And ingest manage queue runtime validation-passed started paths are empty
     And ingest manage runtime status for the last queue run is error "INVALID_REEMBED_STATE" with message "INVALID_REEMBED_STATE"
 
   @mongo
-  Scenario: startup recovery rejects malformed canonical embedding fields before replay writes started state
+  Scenario: startup recovery attempts replay and rejects malformed canonical embedding fields before a validation-passed start
     Given ingest manage chroma stub is empty
     And ingest manage mongo queue is empty
     And ingest manage temp repo with file "src/feature-invalid-model.ts" containing "export const featureInvalidModel = true;"
     And ingest manage mongo queue has running request for the temp repo with run id "run-recovered-invalid-canonical-model" and canonical model value 42
-    And ingest manage queue runtime records started paths
+    And ingest manage queue runtime records processor attempts and validation-passed starts
     When ingest manage startup recovery runs
-    Then ingest manage queue runtime started paths are empty
+    Then ingest manage queue runtime attempted paths are the temp repo
+    And ingest manage queue runtime validation-passed started paths are empty
     And ingest manage runtime status for run "run-recovered-invalid-canonical-model" reports error "VALIDATION" with message "embeddingProvider and embeddingModel are required when canonical fields are present"

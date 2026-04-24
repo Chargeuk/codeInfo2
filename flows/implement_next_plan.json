@@ -218,6 +218,13 @@
               ]
             },
             {
+              "type": "llm",
+              "label": "Checkpoint Push Before Task-Batch Completion Check",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "final_push.md"
+            },
+            {
               "type": "break",
               "label": "Check for completion",
               "agentType": "planning_agent",
@@ -398,6 +405,13 @@
               "breakOn": "yes"
             }
           ]
+        },
+        {
+          "type": "llm",
+          "label": "Checkpoint Push Before Story Completion Check",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "final_push.md"
         },
         {
           "type": "break",

@@ -21,7 +21,7 @@ Finish the current story review using ONLY the stored review handoff and the art
   - checked-in local config that should remain template-only;
   - tracked temp, generated, or runtime artifact directories.
 - Treat the current pass `evidence_file` and `findings_file` as the durable review artifacts that must remain naturally visible to normal git workflows.
-- Treat `codeInfoStatus/reviews/<story-number>-current-review.json` as transient review handoff state, `codeInfoStatus/reviews/<story-number>-external-review-input.md` as transient review input, and `codeInfoStatus/reviews/<review-pass-id>-blind-spot-challenge.md` as optional additive context rather than required durable artifacts.
+- Treat `codeInfoTmp/reviews/<story-number>-current-review.json` as transient review handoff state, `codeInfoTmp/reviews/<story-number>-external-review-input.md` as transient review input, and `codeInfoTmp/reviews/<review-pass-id>-blind-spot-challenge.md` as optional additive context rather than required durable artifacts.
 - Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
 - This is the only review step allowed to mutate plans.
 - This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.

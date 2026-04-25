@@ -262,8 +262,16 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - when the repository workflow expects lint, format, or static-analysis checks as subtasks, add separate final unchecked subtasks for those code-hygiene commands;
   - set that candidate task's `Task Status` back to `__in_progress__`;
   - do not leave the candidate task `__done__` once any new unchecked subtask or testing step has been added;
-  - uncheck any existing checked testing steps whose proof is no longer honestly current because the newly added work will require them to be rerun;
-  - add an implementation note stating that manual testing was run, the key issues found, that new subtasks or testing steps were added, and that the affected testing steps were unchecked because they must be rerun after the fixes.
+  - when manual testing raises a live blocker or otherwise finds follow-up work that must be repaired before a later manual retest, reopen automated proof immediately instead of leaving the task fully checked;
+  - prefer reopening the last currently checked item in the task's existing `Testing` section so the normal automated-proof loop must rerun before later manual retest;
+  - if the task has no `Testing` section or no currently checked automated testing item to reopen, add a `Testing` section when needed and add exactly one new unchecked automated formatting or format-check item using a real repository-supported command that fits the owning repo or workspace, for example the relevant `format:check` command already defined in `package.json`;
+  - when choosing that fallback formatting item, use the closest honest command for the task owner:
+    - root or cross-workspace task: `npm run format:check`;
+    - client-owned task: `npm --workspace client run format:check` or the existing wrapper-equivalent if the repository has one;
+    - server-owned task: `npm --workspace server run format:check` or the existing wrapper-equivalent if the repository has one;
+  - do not invent a fake rerun marker, fake testing seam, or manual-only testing checkbox just to force the loop forward;
+  - add an implementation note stating that manual testing was run, the key issues found, that new subtasks or testing steps were added, and that the affected testing steps were reopened or newly added because automated proof must rerun before later manual retest;
+  - if a new fallback formatting-check item was added because no honest existing automated proof item could be reopened, state that reason explicitly in the implementation note.
 
 - If the diagnosis pass does not identify a concrete next fix honestly:
   - do not invent speculative subtasks;
@@ -329,6 +337,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Confirm no manual-testing step was added to the task's `Testing` section.
 - Confirm no newly added subtask depends on future manual-testing-agent or automated-proof outputs.
 - Confirm any added `Manual Testing Guidance` is optional, non-blocking, and checkbox-free.
+- Confirm that any blocker or follow-up finding discovered during manual testing reopened the final honest automated proof path by either unchecking the last checked `Testing` item or adding one real repository-supported formatting-check item when no checked item existed.
 - Confirm a fully checked unblocked `__in_progress__` task was not incorrectly skipped.
 - Confirm the task was set to `__done__` when manual testing succeeded or was honestly not applicable and no further work remained.
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.

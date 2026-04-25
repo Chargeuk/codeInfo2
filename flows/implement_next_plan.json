@@ -218,6 +218,13 @@
               ]
             },
             {
+              "type": "llm",
+              "label": "Checkpoint Push Before Task-Batch Completion Check",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "final_push.md"
+            },
+            {
               "type": "break",
               "label": "Check for completion",
               "agentType": "planning_agent",
@@ -228,81 +235,183 @@
           ]
         },
         {
-          "type": "command",
-          "label": "Review evidence gate",
-          "agentType": "review_agent",
-          "identifier": "reviewer",
-          "commandName": "review_evidence_gate"
-        },
-        {
-          "type": "command",
-          "label": "Code review findings",
-          "agentType": "review_agent",
-          "identifier": "reviewer",
-          "commandName": "code_review_findings"
-        },
-        {
-          "type": "command",
-          "label": "Findings saturation",
-          "agentType": "review_agent",
-          "identifier": "reviewer",
-          "commandName": "review_findings_saturation"
-        },
-        {
-          "type": "command",
-          "label": "Blind-spot challenge",
-          "agentType": "review_agent",
-          "identifier": "reviewer",
-          "commandName": "review_blind_spot_challenge"
+          "type": "startLoop",
+          "label": "Review Findings Disposition Loop",
+          "steps": [
+            {
+              "type": "command",
+              "label": "Run Review Evidence Gate",
+              "agentType": "review_agent",
+              "identifier": "reviewer",
+              "commandName": "review_evidence_gate"
+            },
+            {
+              "type": "command",
+              "label": "Run Code Review Findings",
+              "agentType": "review_agent",
+              "identifier": "reviewer",
+              "commandName": "code_review_findings"
+            },
+            {
+              "type": "command",
+              "label": "Run Findings Saturation",
+              "agentType": "review_agent",
+              "identifier": "reviewer",
+              "commandName": "review_findings_saturation"
+            },
+            {
+              "type": "command",
+              "label": "Run Blind-Spot Challenge",
+              "agentType": "review_agent",
+              "identifier": "reviewer",
+              "commandName": "review_blind_spot_challenge"
+            },
+            {
+              "type": "llm",
+              "label": "Classify Review Disposition",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "classify_review_disposition.md"
+            },
+            {
+              "type": "startLoop",
+              "label": "Minor-Only Review Fix Path",
+              "steps": [
+                {
+                  "type": "break",
+                  "label": "Exit Minor-Fix Path Unless Review Is Minor-Only",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer yes if `needs_minor_fix_path` is not true. Answer no only when `needs_minor_fix_path` is true, meaning all unresolved findings are minor-batchable and safe to fix inline before task-up. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "breakOn": "yes"
+                },
+                {
+                  "type": "llm",
+                  "label": "Implement Next Minor Review Finding",
+                  "agentType": "coding_agent",
+                  "identifier": "coder",
+                  "markdownFile": "fix_next_minor_review_finding.md"
+                },
+                {
+                  "type": "break",
+                  "label": "Exit Minor-Fix Path If No Minor Finding Was Fixed",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "question": "Read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk. Answer yes iff `status` is not `fixed`, meaning no minor finding was fixed, no bounded inline minor finding remains, or the minor-fix path is blocked and must stop. Answer no only if `status` is `fixed`, meaning exactly one minor finding was fixed and can now be documented. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "breakOn": "yes"
+                },
+                {
+                  "type": "llm",
+                  "label": "Document Minor Review Fix",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "document_minor_review_fix.md"
+                },
+                {
+                  "type": "break",
+                  "label": "Exit Minor-Fix Path When No More Minor Findings Remain",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after the documentation step. Answer yes iff `needs_minor_fix_path` is not true, meaning there are no more unresolved minor-only findings to fix in this review pass. Answer no only if `needs_minor_fix_path` is true, meaning another unresolved minor-only finding remains and should be fixed before the review is rerun. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "breakOn": "yes"
+                }
+              ]
+            },
+            {
+              "type": "startLoop",
+              "label": "Task-Up Unresolved Review Findings Path",
+              "steps": [
+                {
+                  "type": "break",
+                  "label": "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer yes iff `needs_task_up_path` is not true. Treat `resolved_minor_findings` as non-actionable for task-up. Answer no only when `needs_task_up_path` is true, meaning unresolved task-required findings or incomplete-review blockers must be encoded into the plan. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "breakOn": "yes"
+                },
+                {
+                  "type": "llm",
+                  "label": "Ensure Unresolved Review Findings Became Tasks",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "ensure_review_findings_became_tasks.md"
+                },
+                {
+                  "type": "command",
+                  "label": "Task Up Review Findings",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "commandName": "task_up_review_tasks"
+                },
+                {
+                  "type": "llm",
+                  "label": "Check Review Tasking Quality",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "review_task_enhancement/04-check-quality.md"
+                },
+                {
+                  "type": "llm",
+                  "label": "Refresh Current Plan Handoff After Review Task-Up",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "refresh_current_plan_handoff.md"
+                },
+                {
+                  "type": "llm",
+                  "label": "Ensure Review-Created Testing Steps Are Correct",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "ensure_task_testing_matches_current_contract.md"
+                },
+                {
+                  "type": "llm",
+                  "label": "Create Or Update Simple Story After Review Task-Up",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "task_up/15-create-or-update-simple-story.md"
+                },
+                {
+                  "type": "break",
+                  "label": "Exit Task-Up Path After Encoding Review Findings",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "question": "Answer yes after the task-up path has either encoded unresolved review findings into the plan or recorded why that path cannot continue. Reply as JSON {\"answer\":\"yes\"}.",
+                  "breakOn": "yes"
+                }
+              ]
+            },
+            {
+              "type": "llm",
+              "label": "Generate Or Update Final Revalidation Task For Minor Fixes",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "generate_or_update_minor_fix_revalidation_task.md"
+            },
+            {
+              "type": "break",
+              "label": "Exit Review Loop If Review-Created Tasks Were Added",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and re-open the current plan from `codeInfoStatus/flow-state/current-plan.json`. Answer yes iff `review_created_tasks_added_or_updated` is true or the current review loop added or updated a numbered plan task that must be executed before the story can close, including either task-required review-fix tasks or the single final revalidation task for minor review fixes. Answer no if no numbered task was added or updated and the review loop may either repeat or finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "breakOn": "yes"
+            },
+            {
+              "type": "break",
+              "label": "Repeat Review Loop If Minor Fixes Were Applied",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer no iff `needs_review_rerun_before_close` is true and `review_created_tasks_added_or_updated` is false, because the review must run again against the new HEAD. Answer yes iff `needs_review_rerun_before_close` is false and no numbered task was added, so the review loop can finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "breakOn": "yes"
+            }
+          ]
         },
         {
           "type": "llm",
-          "label": "Review disposition",
+          "label": "Checkpoint Push Before Story Completion Check",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "markdownFile": "review_disposition.md"
-        },
-        {
-          "type": "llm",
-          "label": "Ensure findings became tasks",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "ensure_review_findings_became_tasks.md"
-        },
-        {
-          "type": "command",
-          "label": "Task up review tasks",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "commandName": "task_up_review_tasks"
-        },
-        {
-          "type": "llm",
-          "label": "Check review tasking quality",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "review_task_enhancement/04-check-quality.md"
-        },
-        {
-          "type": "llm",
-          "label": "Refresh current plan handoff after review",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "refresh_current_plan_handoff.md"
-        },
-        {
-          "type": "llm",
-          "label": "Ensure Testing Steps Are Correct",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "ensure_task_testing_matches_current_contract.md"
-        },
-        {
-          "type": "llm",
-          "label": "Create Or Update Simple Story",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "task_up/15-create-or-update-simple-story.md"
+          "markdownFile": "final_push.md"
         },
         {
           "type": "break",

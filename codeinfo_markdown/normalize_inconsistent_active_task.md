@@ -12,11 +12,12 @@ Identify the highest-numbered task whose `Task Status` is `__in_progress__`.
 If there is no such task, identify the highest-numbered task whose `Task Status` is `__done__` but whose parser state still reports unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`.
 If `current-task.json` says the plan needs repair for any reason, treat that as an inconsistent state that MUST be repaired before work continues.
 If `current-task.json` says no current task could be selected because no open or todo task was found, you MUST repair the plan so the next selector pass will either:
+
 - resolve exactly one current task; or
 - honestly report story completion.
-If no such inconsistent task exists, state that no normalization was needed and stop.
-If the inconsistent task is `__in_progress__` even though all subtasks are checked, all testing steps are checked, and no live standalone `**BLOCKER**` exists, you MUST normalize that task into an honest state before work continues.
-If the inconsistent task is `__done__` even though unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**` still remain, you MUST repair that invalid `__done__` state before work continues.
+  If no such inconsistent task exists, state that no normalization was needed and stop.
+  If the inconsistent task is `__in_progress__` even though all subtasks are checked, all testing steps are checked, and no live standalone `**BLOCKER**` exists, you MUST normalize that task into an honest state before work continues.
+  If the inconsistent task is `__done__` even though unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**` still remain, you MUST repair that invalid `__done__` state before work continues.
 
 </task>
 
@@ -71,7 +72,7 @@ If the inconsistent task is `__done__` even though unchecked subtasks, unchecked
     - unchecked implementation or proof-authoring subtasks;
     - unchecked automated-only testing steps;
     - a live standalone `**BLOCKER**` note,
-    and leave the task `__in_progress__`.
+      and leave the task `__in_progress__`.
 - You may also add optional `Manual Testing Guidance` when later manual-testing-agent validation would help for an externally observable surface, but that guidance is not by itself a reason to keep the task `__in_progress__`.
 - If the inconsistent task is currently `__done__` and the remaining unchecked checklist state is still honest unfinished work, reopen that task to `__in_progress__` before returning it to the loop.
 - A task must not remain `__done__` while the parser still reports unchecked subtasks, unchecked testing, or a live blocker for that task.

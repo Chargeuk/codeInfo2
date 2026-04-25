@@ -1,0 +1,107 @@
+# Goal
+
+Generate or update exactly one normal plan task that owns final automated revalidation after inline minor review fixes.
+
+This step is idempotent. It must update an existing final minor-fix revalidation task when one already exists, not append duplicates.
+
+<critical_rules>
+
+- Read `codeInfoStatus/flow-state/current-plan.json` first.
+- Read `codeInfoStatus/flow-state/review-disposition-state.json` after `current-plan.json`.
+- Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
+- Re-open the exact canonical plan from disk before deciding whether to edit it.
+- Do not rediscover review artifacts by timestamp.
+- Do not create a final minor-fix revalidation task when no minor fixes were made in the review loop.
+- Do not create a final minor-fix revalidation task while unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remain.
+- Do not run automated proof in this step.
+- Do not perform manual testing.
+- If tracked files are changed, commit them before finishing this step.
+- Do not push.
+
+</critical_rules>
+
+<generation_rules>
+
+- If `needs_final_minor_fix_revalidation_task` is not true:
+  - make no plan change;
+  - if no unresolved work remains, update the ignored state file so `safe_to_exit_review_loop_without_tasking` is true;
+  - report the no-op reason.
+- If `needs_final_minor_fix_revalidation_task` is true, add or update one normal numbered task in the canonical plan.
+- The task title must be `Re-Validate Story <story-number> After Inline Minor Review Fixes` unless an existing equivalent final minor-fix revalidation task already uses a compatible title.
+- The task status must be `__to_do__`.
+- The task must include `Repository Name: Current Repository` unless the plan has an established final-revalidation convention that names a different single repository owner. If resolved minor findings span repositories, keep the canonical plan owner as `Current Repository` and state the affected repositories inside the task body.
+- The task must include an `Addresses Findings` section naming every `resolved_minor_findings` ID, summary, repository, and resolution commit from the state.
+- The task must include `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance` only if useful.
+- `Subtasks` must describe implementation-free proof preparation only, such as re-reading the `## Minor Review Fixes` section and verifying resolved finding coverage. Do not put runnable commands in `Subtasks`.
+- `Testing` must contain automated wrapper-level proof only. Use repository guidance, `AGENTS.md`, and the resolved findings' changed files to choose the broadest relevant wrapper proof that is honest for final story confidence.
+- Do not add manual-testing-only work to `Subtasks` or `Testing`.
+- Do not add subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output.
+- The task must explain that inline minor fixes were already made and documented, and this task owns final proof before story closure.
+
+</generation_rules>
+
+<idempotency_rules>
+
+- Before appending a new task, scan the whole canonical plan for an existing unfinished or finished task whose title or body clearly marks it as the final revalidation task for inline minor review fixes.
+- If such a task exists, update that task's finding coverage, affected repositories, subtasks, and testing obligations instead of adding a new task.
+- Do not append a second final minor-fix revalidation task for the same story unless the existing task is explicitly for a different review cycle and already fully closed with a later review cycle documented after it.
+- If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.
+- Preserve completed proof notes that remain true, but uncheck or rewrite any testing item whose proof is no longer honest after adding new resolved minor findings.
+- Do not renumber existing tasks unless the plan already has a numbering collision that makes the new or updated task ambiguous.
+
+</idempotency_rules>
+
+<state_update_rules>
+
+After adding or updating the final minor-fix revalidation task:
+
+- Set `review_created_tasks_added_or_updated` to true.
+- Set `needs_final_minor_fix_revalidation_task` to false.
+- Set `needs_review_rerun_before_close` to false.
+- Set `safe_to_exit_review_loop_without_tasking` to false.
+- Add a concise `classification_notes` entry naming the task heading that was added or updated.
+- Recompute counts from the state arrays if any state bucket changed.
+
+When no task is needed and no unresolved work remains:
+
+- Set `review_created_tasks_added_or_updated` to false.
+- Set `safe_to_exit_review_loop_without_tasking` to true.
+- Leave finding arrays unchanged.
+
+</state_update_rules>
+
+<failure_modes>
+
+- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
+- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the review disposition state must be regenerated.
+- If the canonical plan is missing or branch story scope has drifted, stop and say the current-plan handoff is stale and must be regenerated.
+- If state says final revalidation is needed but `resolved_minor_findings` is empty, do not create a task. Record a state note and report the contradiction.
+- If unresolved task-required, minor-batchable, or incomplete-review items remain, do not create the final minor-fix revalidation task. Leave routing to the task-up or minor-fix path.
+- If no repository-supported automated proof can be identified for the affected files, create a bounded proof-authoring subtask and an automated testing placeholder only when it remains concrete; otherwise stop and report that the final revalidation task cannot be generated honestly.
+- If the plan edit succeeds but commit fails, stop and report the failed commit command without pretending the task was committed.
+
+</failure_modes>
+
+<output_contract>
+
+- Add or update at most one normal numbered final revalidation task.
+- Update `review-disposition-state.json` so downstream break gates can exit the review loop and return to task execution when a task was added.
+- Commit tracked plan changes when a task was added or updated.
+- Report whether a task was added, updated, or skipped, the task heading when present, and the state booleans after the update.
+
+</output_contract>
+
+<verification_loop>
+
+- Confirm `current-plan.json` was read before `review-disposition-state.json`.
+- Confirm the exact canonical plan was re-opened from disk before editing.
+- Confirm no unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remained before generating the task.
+- Confirm exactly one final minor-fix revalidation task exists for the current minor-fix cycle.
+- Confirm the task is a normal numbered task with `Task Status: __to_do__`.
+- Confirm the task includes durable coverage for every resolved minor finding.
+- Confirm runnable commands live only in `Testing`.
+- Confirm no manual-testing work was added to `Subtasks` or `Testing`.
+- Confirm the state file is valid JSON after updating.
+- Confirm tracked changes were committed if the plan changed.
+
+</verification_loop>

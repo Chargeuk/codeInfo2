@@ -7,7 +7,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Re-open the exact canonical plan from disk before making any decision.
 - Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json`.
-- Use the stored review handoff plus the artifacts it references as the sole source of review outcome for this step.
+- Use the stored review handoff plus the artifacts it references as the source of review evidence, and use `review-disposition-state.json` as the preferred routing source when it exists and is valid.
 - Do not fail this step because a previous disposition pass underperformed. Repair the plan instead.
 - Do not rediscover the story, review pass, or review comments independently.
 - Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the referenced artifacts, current-plan handoff, and direct git state to infer the safest usable meaning.
@@ -19,20 +19,33 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 1. Validate that the stored handoff plan exists and that the current repository branch story number still matches the selected plan filename.
 2. Validate that every additional repository in scope still exists, is readable, and remains on a branch whose story number matches the selected plan filename.
-3. Read the stored review handoff and identify the story, plan path, review pass, evidence artifact, findings artifact, and repository scope either from named handoff fields or by safe inference from the handoff path, canonical `plan_path`, artifact filenames, artifact content, and current git state.
-4. For every repository entry, combine the handoff, referenced artifacts, and current git state to confirm enough context to understand the repository scope, current branch, current local `HEAD`, and the local-HEAD-vs-resolved-base comparison used by the review.
-5. Prefer stored comparison metadata when present, including `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`. If some of these fields are missing, infer only the pieces needed to encode the review outcome honestly, record the inference in the plan text when it affects confidence, and ignore unknown extra fields.
-6. When present, treat `remote_fetch_error` and `remote_fetch_exit_code` as optional fetch-failure diagnostics. Do not copy raw `remote_fetch_error` text into plan output unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.
-7. Read the findings artifact identified from the handoff or safe inference. Read the challenge artifact when present or safely inferable.
-8. Re-open the canonical plan from disk immediately before deciding whether repair is needed.
+3. Read `codeInfoStatus/flow-state/review-disposition-state.json` when it exists and is valid. Treat it as the preferred task-up routing state for resolved minor findings, unresolved task-required findings, and incomplete-review blockers.
+4. Read the stored review handoff and identify the story, plan path, review pass, evidence artifact, findings artifact, and repository scope either from named handoff fields or by safe inference from the handoff path, canonical `plan_path`, artifact filenames, artifact content, and current git state.
+5. For every repository entry, combine the handoff, referenced artifacts, disposition state when present, and current git state to confirm enough context to understand the repository scope, current branch, current local `HEAD`, and the local-HEAD-vs-resolved-base comparison used by the review.
+6. Prefer stored comparison metadata when present, including `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`. If some of these fields are missing, infer only the pieces needed to encode the review outcome honestly, record the inference in the plan text when it affects confidence, and ignore unknown extra fields.
+7. When present, treat `remote_fetch_error` and `remote_fetch_exit_code` as optional fetch-failure diagnostics. Do not copy raw `remote_fetch_error` text into plan output unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.
+8. Read the findings artifact identified from the handoff or safe inference. Read the challenge artifact when present or safely inferable.
+9. Re-open the canonical plan from disk immediately before deciding whether repair is needed.
 
 </scope_rules>
 
+<review_disposition_state_rules>
+
+- When `review-disposition-state.json` exists and is valid, use its `unresolved_task_required_findings` and `incomplete_review_blockers` arrays as the only findings that may become numbered review-fix tasks in this step.
+- Treat `resolved_minor_findings` as already handled inline. Do not create numbered tasks for those finding IDs, even if the original findings artifact still lists them as `should_fix`.
+- Treat `unresolved_minor_batchable_findings` as owned by the minor-fix path, not this task-up path. Do not create numbered tasks for them unless they have been reclassified into `unresolved_task_required_findings`.
+- If the disposition state says `needs_task_up_path` is false, make no plan changes in this step and report that no unresolved task-required findings remain for task-up.
+- If the disposition state is missing, unreadable, malformed, or for a different story/plan, fall back to the existing findings-artifact behavior and record that fallback in the output.
+- If state counts disagree with state arrays, trust the arrays and record the mismatch before deciding task-up work.
+- If a finding appears in both `resolved_minor_findings` and `unresolved_task_required_findings`, treat the unresolved task-required bucket as authoritative only when the state includes an explicit reclassification reason; otherwise stop and say the review disposition state must be repaired.
+
+</review_disposition_state_rules>
+
 <decision_rules>
 
-1. Determine the review outcome primarily from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the findings artifact, trust the artifact and record the mismatch in the repair notes.
-2. If the findings artifact communicates actionable `must_fix` or `should_fix` findings, the plan must visibly encode that review outcome on disk before this step finishes.
-3. A findings-present plan is considered correctly encoded only when all of the following are true:
+1. Determine the task-up outcome primarily from `review-disposition-state.json` when it is present and valid; otherwise determine the review outcome from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the chosen source of truth, trust the chosen source and record the mismatch in the repair notes.
+2. If the chosen source of truth communicates unresolved task-required findings or incomplete-review blockers, the plan must visibly encode that unresolved review outcome on disk before this step finishes.
+3. A task-required findings-present plan is considered correctly encoded only when all of the following are true:
    - the plan contains a new `Code Review Findings` section for the current `review_pass_id`;
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
@@ -44,17 +57,18 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
    - tiny unrelated cleanup-only findings are not left as a trail of micro-tasks when they could be absorbed into a nearby substantive task or grouped into one cleanup task honestly.
-4. If the findings artifact communicates no actionable findings after a complete review, the plan must instead contain the required no-findings close-out for the current `review_pass_id`, including the stored or safely inferred local-HEAD-vs-resolved-base comparison details for every repository in scope.
-5. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of a no-findings close-out.
-6. If the current plan already satisfies the correct postcondition for the stored review outcome, make no plan change.
-7. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
+4. If the chosen source of truth communicates no unresolved task-required findings, no unresolved minor-batchable findings, no incomplete-review blockers, and no final minor-fix revalidation need, make no plan change in this task-up step.
+5. If the chosen source of truth is the findings artifact and it communicates no actionable findings after a complete review, the plan must instead contain the required no-findings close-out for the current `review_pass_id`, including the stored or safely inferred local-HEAD-vs-resolved-base comparison details for every repository in scope.
+6. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of a no-findings close-out.
+7. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
+8. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
 
 </decision_rules>
 
 <repair_rules>
 
 1. When findings are present and the plan is missing review-fix tasks, add them directly to the end of the canonical plan in the repository's existing review-task format.
-2. Add one or more review-fix tasks that respond to the endorsed findings in the findings artifact, with explicit repository ownership, compact subtasks, proof homes, and wrapper-first testing.
+2. Add one or more review-fix tasks that respond to the unresolved task-required findings from the chosen source of truth, with explicit repository ownership, compact subtasks, proof homes, and wrapper-first testing.
 3. Add a fresh final re-test or revalidation task after the new review-fix tasks so the story cannot close without re-running proof. This final task must name the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns for the current review-created findings block, or state why a category is not applicable.
 4. If the repaired or newly added review-created tasks still mix execution commands into `Subtasks`, rewrite them so runnable wrapper or test commands live in `Testing` while `Subtasks` keep implementation work, proof-authoring work, retained proof-home updates, screenshots, and logs.
 5. Treat routine `Implementation Notes` refreshes as plan-maintenance that happens after the related subtask or testing step completes, not as standalone or future-dependent subtask items.
@@ -96,7 +110,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 <output_contract>
 
 - Leave the canonical plan in a state that matches the stored review outcome:
-  - findings present => review-fix tasks plus final revalidation task;
+  - unresolved task-required findings present => review-fix tasks plus final revalidation task;
+  - valid disposition state says no task-up work remains => no plan mutation in this step;
   - no findings => required post-review close-out section;
   - outcome unclear after safe inference => bounded incomplete-review follow-up task.
 - Make no plan changes only when the current plan already satisfies the correct postcondition.
@@ -106,10 +121,13 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 <verification_loop>
 
 - Confirm you re-read `current-plan.json` first.
+- Confirm you read `review-disposition-state.json` when it existed, and either used it as the task-up source of truth or recorded why fallback to findings artifacts was required.
 - Confirm you re-opened the exact canonical plan from disk before deciding whether repair was needed.
 - Confirm you read the stored review handoff and findings artifact for the same story.
+- Confirm resolved minor findings from disposition state were not converted into numbered tasks.
+- Confirm unresolved minor-batchable findings were left for the minor-fix path rather than converted into numbered tasks.
 - Confirm the stored review handoff and referenced artifacts were interpreted semantically, including local-HEAD-vs-resolved-base comparison context and any remote/fallback uncertainty that affects confidence.
-- Confirm that a findings-present handoff did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
+- Confirm that an unresolved task-required findings-present handoff or disposition state did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
 - Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, owns full relevant regression proof for the affected repositories, and was not forced into bogus single-repository ownership.
 - Confirm that newly added review-created tasks do not hide runnable wrapper or test commands in `Subtasks`, except for harness or wrapper tasks.

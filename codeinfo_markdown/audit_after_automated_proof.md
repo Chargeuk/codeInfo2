@@ -50,7 +50,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
     - an unchecked implementation or proof-authoring subtask;
     - an unchecked automated-only testing step;
     - a live standalone `**BLOCKER**` note
-    before leaving the task `__in_progress__`.
+      before leaving the task `__in_progress__`.
 - You may also add optional `Manual Testing Guidance` when later manual-testing-agent validation would help for an externally observable surface, but that guidance is not by itself a reason to keep the task `__in_progress__`.
 - Do not convert prose about manual/browser follow-up into a manual-testing checklist item.
 - Do not create subtasks that depend on later proof outputs in order to become complete.

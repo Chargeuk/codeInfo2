@@ -52,17 +52,26 @@ When the result has `status: "reclassify_task_required"`:
 
 1. Move the matching finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings`.
 2. Record the reclassification reason.
-3. Recompute counts and booleans so `needs_task_up_path` is true.
+3. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true when other unresolved minor findings still remain.
+4. Keep `review_created_tasks_added_or_updated` false in this step.
+5. Set `safe_to_exit_review_loop_without_tasking` false.
 
 When the result has `status: "blocked"`:
 
-1. Add an `incomplete_review_blockers` entry naming the finding and blocker.
-2. Recompute counts and booleans so `needs_task_up_path` is true.
+1. If `blocker_scope` is `finding_only`, move the matching finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings` and record that the inline path was blocked for that finding only.
+2. If `blocker_scope` is `global`, move the matching finding and every remaining `unresolved_minor_batchable_findings` entry into `unresolved_task_required_findings`, recording that a global blocker made further inline attempts unsafe in this pass.
+3. If `blocker_scope` is missing or ambiguous, treat it as `global` rather than leaving any actionable minor finding stranded.
+4. Add a concise `classification_notes` entry naming the blocker and whether it was treated as finding-only or global.
+5. Recompute counts and booleans so `needs_task_up_path` is true, and keep `needs_minor_fix_path` true only if unresolved minor findings still remain after the move.
+6. Keep `review_created_tasks_added_or_updated` false in this step.
+7. Set `safe_to_exit_review_loop_without_tasking` false.
 
 When the result has `status: "skipped"`:
 
-1. Do not change finding buckets unless the result clearly identifies stale state that should be removed.
-2. Add a concise `classification_notes` entry explaining why no documentation change was made.
+1. If the skipped result clearly identifies stale or already-resolved state, remove that stale minor finding from `unresolved_minor_batchable_findings` and record the cleanup reason.
+2. Otherwise, move the skipped finding from `unresolved_minor_batchable_findings` to `unresolved_task_required_findings` so the issue is not left hanging in the minor bucket.
+3. Recompute counts and booleans so `needs_minor_fix_path` reflects whether any unresolved minor findings still remain, and `needs_task_up_path` reflects any escalated work.
+4. Add a concise `classification_notes` entry explaining why the issue was cleaned up or escalated after the skipped outcome.
 
 </state_update_rules>
 

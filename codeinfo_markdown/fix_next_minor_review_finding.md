@@ -12,7 +12,6 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Re-open the exact canonical plan from disk before touching files.
 - Do not rediscover review artifacts by timestamp.
 - If `needs_minor_fix_path` is not true, do not change repository files. Write a skipped result and stop.
-- If `has_unresolved_task_required_findings` is true, do not fix minor findings in this step. Write a skipped result explaining that task-required findings take precedence and stop.
 - Select exactly one finding from `unresolved_minor_batchable_findings`, preferably the first listed item unless the state names a selected finding.
 - Re-inspect the selected finding and the relevant source files before editing. If the finding is no longer clearly minor-batchable, do not fix it. Write a `reclassify_task_required` result and stop.
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.
@@ -40,7 +39,8 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
 - If the fix starts to require a broader design change, stop and write a `reclassify_task_required` result.
 - If a targeted proof fails for an ordinary in-scope reason, inspect the failure once and repair the selected minor fix if the repair remains minor.
-- If the failure points to broader behavior, missing capability, flaky harness, or unrelated broken state, stop and write a blocked or reclassification result.
+- If the failure points to broader behavior or missing capability for only the selected finding, stop and write either a `reclassify_task_required` result or a `blocked` result with `blocker_scope: "finding_only"`.
+- If the failure points to repository-wide safety trouble, broken branch scope, stale flow state, or another problem that makes further inline attempts unsafe for the remaining minor findings in this pass, stop and write a `blocked` result with `blocker_scope: "global"`.
 
 </fix_rules>
 
@@ -69,7 +69,8 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
   ],
   "commit_sha": "<commit sha or null>",
   "reclassification_reason": "<reason or null>",
-  "blocker": "<blocker reason or null>"
+  "blocker": "<blocker reason or null>",
+  "blocker_scope": "<finding_only|global|null>"
 }
 ```
 
@@ -77,14 +78,13 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 
 <failure_modes>
 
-- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, write a `blocked` result with `finding_id: null` and stop.
-- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, write a `blocked` result with `finding_id: null` and stop.
+- If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, write a `blocked` result with `finding_id: null` and `blocker_scope: "global"` and stop.
+- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, write a `blocked` result with `finding_id: null` and `blocker_scope: "global"` and stop.
 - If `unresolved_minor_batchable_findings` is empty, write a `skipped` result with `finding_id: null` and stop.
-- If unresolved task-required findings are present, write a `skipped` result explaining that task-required findings take precedence.
-- If the target repository cannot be resolved or its branch story number does not match the plan filename, write a `blocked` result and stop.
-- If local uncommitted changes overlap the files needed for the selected minor fix, write a `blocked` result instead of overwriting or mixing work.
+- If the target repository cannot be resolved or its branch story number does not match the plan filename, write a `blocked` result with `blocker_scope: "global"` and stop.
+- If local uncommitted changes overlap the files needed for the selected minor fix, write a `blocked` result with `blocker_scope: "global"` instead of overwriting or mixing work.
 - If the selected finding no longer satisfies every minor-batchable rule after source inspection, write a `reclassify_task_required` result and stop.
-- If targeted proof fails and the repair is not clearly minor after one bounded inspection, write a `blocked` or `reclassify_task_required` result rather than broadening the fix.
+- If targeted proof fails and the repair is not clearly minor after one bounded inspection, write a `blocked` or `reclassify_task_required` result rather than broadening the fix. Use `blocker_scope: "finding_only"` when the failure is local to the selected finding, and `blocker_scope: "global"` when the failure means later inline attempts are unsafe too.
 - If no tracked files changed after the attempted fix, write a `skipped` result explaining why no commit was made.
 
 </failure_modes>

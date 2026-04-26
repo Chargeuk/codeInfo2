@@ -179,7 +179,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `has_unresolved_task_required_findings` is true when `unresolved_task_required_findings` or `incomplete_review_blockers` is non-empty.
 - `has_unresolved_minor_batchable_findings` is true when `unresolved_minor_batchable_findings` is non-empty.
 - `only_minor_batchable_findings` is true only when there is at least one unresolved minor-batchable finding and no unresolved task-required finding or incomplete-review blocker.
-- `needs_minor_fix_path` equals `only_minor_batchable_findings`.
+- `needs_minor_fix_path` is true whenever unresolved minor-batchable findings remain, even when task-required findings or incomplete-review blockers already exist from earlier minor-fix attempts in the same review cycle.
 - `needs_task_up_path` is true when unresolved task-required findings or incomplete-review blockers exist.
 - `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, and `minor_fix_revalidation_cycle_closed` should be preserved from the previous state when they clearly belong to the same story and plan. Otherwise initialize them as empty or false.
 - If the canonical plan already contains the task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes` with `Task Status: __done__`, and the current review pass has no unresolved findings or incomplete-review blockers, treat the previous minor-fix cycle as closed. In that case set `minor_fix_revalidation_cycle_closed` to true and clear `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, and `resolved_minor_findings`.

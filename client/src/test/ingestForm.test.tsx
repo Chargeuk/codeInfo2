@@ -635,6 +635,62 @@ describe('IngestForm', () => {
     );
   });
 
+  it('disables non-submit sibling controls while an ingest submit is in flight', async () => {
+    let resolveResponse:
+      | ((value: ReturnType<typeof mockJsonResponse>) => void)
+      | undefined;
+    mockFetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveResponse = resolve;
+        }),
+    );
+    const onStarted = jest.fn();
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={onStarted}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    expect(screen.getByLabelText(/folder path/i)).toBeDisabled();
+    expect(screen.getByLabelText(/display name/i)).toBeDisabled();
+    expect(screen.getByLabelText(/description/i)).toBeDisabled();
+    expect(
+      screen.getByRole('combobox', { name: /embedding model/i }),
+    ).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /dry run/i })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /choose folder/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /starting/i }),
+    ).toBeDisabled();
+    expect(screen.getByText(/submitting ingest request/i)).toBeInTheDocument();
+
+    await waitFor(() => expect(resolveResponse).toBeDefined());
+
+    await waitFor(async () => {
+      resolveResponse?.(
+        mockJsonResponse({ requestId: 'queue-request-400', runId: 'run-400' }),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-400'));
+  });
+
   it('selecting a directory updates the Folder path input value', async () => {
     enqueueFetchJson([
       { base: '/data', path: '/data', dirs: ['projects'] },

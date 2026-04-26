@@ -105,6 +105,21 @@ const waitTimeQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
   },
 };
 
+const mixedShapeInvalidStateError: Extract<ReingestError, { code: -32602 }> = {
+  ...parityInvalidParamsError,
+  data: {
+    ...parityInvalidParamsError.data,
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'sourceId points to a repository that cannot be re-embedded in its current state',
+      },
+    ],
+  },
+};
+
 async function postJson(
   port: number,
   body: unknown,
@@ -470,6 +485,28 @@ test('MCP v2 request-shape guards reject wait/blocking args', async () => {
     });
     assert.equal(body.result, undefined);
     assert.equal(body.error.code, -32602);
+  });
+});
+
+test('MCP v2 returns the shared mixed-shape invalid-state tool error without throwing a transport exception', async () => {
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: mixedShapeInvalidStateError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, mixedShapeInvalidStateError);
   });
 });
 

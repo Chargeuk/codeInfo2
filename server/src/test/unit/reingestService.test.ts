@@ -1043,6 +1043,53 @@ test('queue-aware wait observed cancelled terminal state unregisters listeners b
   assert.equal(result.value.errorCode, null);
 });
 
+test('mixed-shape canonical OpenAI metadata returns a structured invalid-state result instead of throwing or misclassifying provider availability', async () => {
+  let enqueueCalls = 0;
+  const result = await runReingestRepository(
+    { sourceId: '/data/openai-mixed-shape' },
+    {
+      ...buildDeps(),
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            ...buildRepoEntry({
+              id: 'openai-mixed-shape',
+              containerPath: '/data/openai-mixed-shape',
+            }),
+            embeddingProvider: 'openai',
+            embeddingModel: '',
+            model: '',
+            modelId: '',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'legacy-lmstudio-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'legacy-lmstudio-model',
+              modelId: 'legacy-lmstudio-model',
+            },
+          },
+        ],
+        lockedModelId: 'legacy-lmstudio-model',
+      }),
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalls += 1;
+        return buildQueueResult({});
+      },
+    },
+  );
+
+  assert.equal(enqueueCalls, 0);
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, -32602);
+  assert.equal(result.error.message, 'INVALID_PARAMS');
+  assert.equal(result.error.data.fieldErrors[0]?.reason, 'invalid_state');
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'sourceId points to a repository that cannot be re-embedded in its current state',
+  );
+});
+
 test('producer diagnostic preservation keeps raw QUEUE_UNAVAILABLE message and retryable contract', async () => {
   const listIngestedRepositories = async () => ({
     repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],

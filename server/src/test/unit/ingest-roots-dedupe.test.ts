@@ -609,7 +609,7 @@ test('GET /ingest/roots keeps a partial-canonical waiting overlay on one canonic
   });
 });
 
-test('GET /ingest/roots blanks incompatible legacy fallback identity when a waiting overlay only has a partial canonical provider', async () => {
+test('GET /ingest/roots keeps a mixed-shape canonical OpenAI waiting row distinct by blanking the incompatible legacy fallback model', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
     configurable: true,

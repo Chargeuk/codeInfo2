@@ -1,5 +1,6 @@
 import path from 'path';
 import {
+  InvalidLockMetadataError,
   listIngestedRepositories,
   type ListReposResult,
   type RepoEntry,
@@ -320,23 +321,60 @@ export function assertRepoCanQueueReingest(repo: RepoEntry) {
   assertReembedRootStateAllowed(repo.status);
 }
 
-export function assertRepoCanAdmitQueuedReingest(repo: RepoEntry) {
-  assertRepoCanQueueReingest(repo);
+function normalizeRepoEmbeddingProvider(value: unknown) {
+  return value === 'lmstudio' || value === 'openai' ? value : null;
+}
 
-  const provider = repo.lock?.embeddingProvider ?? repo.embeddingProvider;
-  const embeddingModel = repo.lock?.embeddingModel ?? repo.embeddingModel;
-  if (
-    provider === 'openai' &&
-    typeof embeddingModel === 'string' &&
-    !isOpenAiAllowlistedEmbeddingModel(embeddingModel)
-  ) {
-    throw new OpenAiEmbeddingError(
-      'OPENAI_MODEL_UNAVAILABLE',
-      'Requested OpenAI embedding model is unavailable for this deployment',
-      false,
-      404,
+function normalizeRepoEmbeddingModel(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveQueuedReingestSelection(repo: RepoEntry) {
+  const canonicalProvider = normalizeRepoEmbeddingProvider(repo.embeddingProvider);
+  const canonicalModel = normalizeRepoEmbeddingModel(repo.embeddingModel);
+  const lockProvider = normalizeRepoEmbeddingProvider(repo.lock?.embeddingProvider);
+  const lockModel = normalizeRepoEmbeddingModel(repo.lock?.embeddingModel);
+
+  if (canonicalProvider === 'openai' && canonicalModel === null) {
+    throw new InvalidLockMetadataError(
+      'Canonical OpenAI re-embed metadata is partially populated',
     );
   }
+
+  const provider = lockProvider ?? canonicalProvider ?? repo.embeddingProvider;
+  const embeddingModel =
+    lockModel ?? canonicalModel ?? repo.lock?.embeddingModel ?? repo.embeddingModel;
+
+  if (provider === 'openai') {
+    if (typeof embeddingModel !== 'string' || embeddingModel.trim().length === 0) {
+      throw new InvalidLockMetadataError(
+        'OpenAI re-embed metadata is partially populated',
+      );
+    }
+    if (!isOpenAiAllowlistedEmbeddingModel(embeddingModel)) {
+      throw new OpenAiEmbeddingError(
+        'OPENAI_MODEL_UNAVAILABLE',
+        'Requested OpenAI embedding model is unavailable for this deployment',
+        false,
+        404,
+      );
+    }
+  }
+
+  return {
+    provider,
+    embeddingModel:
+      typeof embeddingModel === 'string' ? embeddingModel : String(embeddingModel ?? ''),
+  };
+}
+
+export function assertRepoCanAdmitQueuedReingest(repo: RepoEntry) {
+  assertRepoCanQueueReingest(repo);
+  resolveQueuedReingestSelection(repo);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -512,8 +550,7 @@ export function buildQueuedReingestRequest(
   repo: RepoEntry,
 ): Parameters<typeof enqueueOrReuseIngestRequest>[0] {
   assertRepoCanAdmitQueuedReingest(repo);
-  const provider = repo.lock?.embeddingProvider ?? repo.embeddingProvider;
-  const embeddingModel = repo.lock?.embeddingModel ?? repo.embeddingModel;
+  const { provider, embeddingModel } = resolveQueuedReingestSelection(repo);
   const model =
     provider === 'openai' ? `${provider}/${embeddingModel}` : embeddingModel;
   const requestPaths = splitQueuedIngestExecutionPath({

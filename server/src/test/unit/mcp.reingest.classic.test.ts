@@ -108,6 +108,21 @@ const waitTimeQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
   },
 };
 
+const mixedShapeInvalidStateError: Extract<ReingestError, { code: -32602 }> = {
+  ...parityInvalidParamsError,
+  data: {
+    ...parityInvalidParamsError.data,
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'sourceId points to a repository that cannot be re-embedded in its current state',
+      },
+    ],
+  },
+};
+
 function createApp(result: ReingestResult, onRun?: (args: unknown) => void) {
   const app = express();
   app.use(express.json());
@@ -565,6 +580,25 @@ test('classic MCP well-formed object arguments still reach domain error mapping'
   assert.equal(runCalled, true);
   assert.equal(res.body.result, undefined);
   assert.deepEqual(res.body.error, parityInvalidParamsError);
+});
+
+test('classic MCP returns the shared mixed-shape invalid-state tool error without throwing a transport-level exception', async () => {
+  const app = createApp({ ok: false, error: mixedShapeInvalidStateError });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.deepEqual(res.body.error, mixedShapeInvalidStateError);
 });
 
 test('classic MCP post-start failure remains terminal result (not JSON-RPC error)', async () => {

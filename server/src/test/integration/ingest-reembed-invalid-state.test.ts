@@ -78,6 +78,58 @@ function createAppForInvalidReembedState(status: 'cancelled' | 'error') {
   return { app, getEnqueueCalls: () => enqueueCalls };
 }
 
+function createAppForMixedShapeInvalidLockMetadata() {
+  let enqueueCalls = 0;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    createIngestReembedRouter({
+      clientFactory: () => ({}) as never,
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-mixed-shape',
+            description: null,
+            containerPath: '/data/repo-mixed-shape',
+            hostPath: '/host/data/repo-mixed-shape',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            embeddingProvider: 'openai',
+            embeddingModel: '',
+            embeddingDimensions: 0,
+            model: '',
+            modelId: '',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'legacy-lmstudio-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'legacy-lmstudio-model',
+              modelId: 'legacy-lmstudio-model',
+            },
+            counts: { files: 1, chunks: 1, embedded: 1 },
+            lastError: null,
+            status: 'completed',
+          },
+        ],
+        lockedModelId: 'legacy-lmstudio-model',
+      }),
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalls += 1;
+        return {
+          requestId: 'unexpected-queue-request',
+          canonicalTargetPath: '/data/repo-mixed-shape',
+          queueState: 'waiting' as const,
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as never,
+        };
+      },
+    }),
+  );
+  return { app, getEnqueueCalls: () => enqueueCalls };
+}
+
 test('POST /ingest/reembed keeps the immediate cancelled-root INVALID_REEMBED_STATE contract aligned with deferred execution rejection', async () => {
   const { app, getEnqueueCalls } = createAppForInvalidReembedState('cancelled');
 
@@ -93,6 +145,17 @@ test('POST /ingest/reembed keeps the immediate error-root INVALID_REEMBED_STATE 
   const res = await request(app).post('/ingest/reembed/%2Fdata%2Frepo-invalid');
   assert.equal(res.status, 409);
   assert.equal(res.body.code, 'INVALID_REEMBED_STATE');
+  assert.equal(getEnqueueCalls(), 0);
+});
+
+test('POST /ingest/reembed returns INVALID_LOCK_METADATA for mixed-shape canonical OpenAI metadata instead of OPENAI_MODEL_UNAVAILABLE', async () => {
+  const { app, getEnqueueCalls } = createAppForMixedShapeInvalidLockMetadata();
+
+  const res = await request(app).post(
+    '/ingest/reembed/%2Fdata%2Frepo-mixed-shape',
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'INVALID_LOCK_METADATA');
   assert.equal(getEnqueueCalls(), 0);
 });
 

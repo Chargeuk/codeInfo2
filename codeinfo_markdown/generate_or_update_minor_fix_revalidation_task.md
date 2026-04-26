@@ -46,6 +46,8 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Do not add manual-testing-only work to `Subtasks` or `Testing`.
 - Do not add subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output.
 - The task must explain that inline minor fixes were already made and documented, and this task owns final proof before story closure.
+- This final task owns the broad story-level confidence check after inline minor fixes. It may include broader automated proof across affected repositories and any required manual testing that would be too broad for the inline minor-fix step.
+- Do not treat the inline minor-fix step as responsible for full end-to-end story validation. Its job is bounded repair plus bounded local proof only.
 
 </generation_rules>
 

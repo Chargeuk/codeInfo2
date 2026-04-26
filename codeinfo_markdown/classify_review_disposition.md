@@ -51,8 +51,8 @@ This step is a traffic controller only. It must not fix findings, task up findin
   - `resolved_minor_findings`
   - `rejected_or_non_actionable_findings`
   - `incomplete_review_blockers`
-- Treat `must_fix` findings as task-required.
-- Treat `should_fix` findings as task-required unless every minor-batchable rule below is satisfied.
+- Treat `must_fix` findings as findings that must be resolved in this story, not as automatically task-required. A `must_fix` finding may still be classified as minor-batchable when it satisfies every minor-batchable rule below.
+- Treat `should_fix` findings as minor-batchable when every minor-batchable rule below is satisfied. Otherwise classify them as task-required.
 - Treat `optional_simplification` findings as rejected or non-actionable unless the finding is concrete, localized, low-risk, and explicitly worth fixing in the current story. If it is worth fixing and satisfies every minor-batchable rule, classify it as minor-batchable. Otherwise classify it as task-required only when the review artifact makes it blocking.
 - Treat incomplete-review outcomes, missing required artifacts, unreadable artifacts, stale scope, or ambiguous review basis as `incomplete_review_blockers`.
 - When the findings artifact and handoff counts disagree, trust the findings artifact and record the mismatch in `classification_notes`.
@@ -63,15 +63,14 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 A finding is minor-batchable only when all of these are true:
 
-- It is repo-local and has one unambiguous repository owner.
-- It is low-risk and small enough to fix directly without splitting or planning a new implementation sequence.
-- It has a clear, bounded code/config/docs/test edit path.
-- It does not require cross-repository sequencing.
+- It has one clear implementation owner repository, even if broader later validation may span other affected repositories.
+- It is low-risk and small enough to attempt directly without splitting or planning a multi-step implementation sequence.
+- It has a clear, bounded code/config/docs/test edit path, or a small combination of those, within the owning repository.
 - It does not change or reinterpret a public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contract.
 - It does not require broad refactoring, migration, state-machine redesign, lifecycle reordering, or new architecture.
-- It does not require manual testing to know whether it is complete.
-- It can be covered by existing repository-supported automated proof, or by a targeted wrapper that a later minor-fix prompt can run honestly.
 - It is not ambiguous, disputed, blocked on missing capability, or dependent on another unimplemented finding.
+- It can be checked with bounded local automated proof in the owning repository, including a small test update or one or two new focused tests when needed.
+- Broader cross-repository proof and later manual testing may be deferred to the final revalidation task and do not by themselves disqualify an otherwise bounded finding from the minor path.
 
 If any rule is not clearly satisfied, classify the finding as task-required.
 

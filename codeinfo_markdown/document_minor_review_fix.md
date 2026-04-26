@@ -93,9 +93,10 @@ When the result has `status: "skipped"`:
   - changed files;
   - commit SHA;
   - targeted proof summary or `not run` with reason;
-  - disposition text: `Resolved inline during the review loop; no numbered review-fix task was created.`
+  - disposition text: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Keep the bullet compact enough for audit, not a full implementation narrative.
 - If the finding already has a bullet, update that bullet rather than adding a duplicate.
+- Resolved inline minor findings may include small local automated test updates or one or two new focused tests in the owning repository.
 
 </plan_documentation_rules>
 

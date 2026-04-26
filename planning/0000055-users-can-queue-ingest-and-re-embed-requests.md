@@ -15930,7 +15930,8 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - `P1.` mixed-shape repo-list producer proof for `R1`: implementation owner is `server/src/lmstudio/toolService.ts`; proof home is `server/src/test/unit/ingest-roots-dedupe.test.ts`.
 - `P2.` shared service classification and no-throw proof for `R1`, `R3`, and `R4`: implementation owner is `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/reingestService.test.ts`.
 - `P3.` REST contract parity for `R1` and `R2`: implementation owners are `server/src/routes/ingestReembed.ts` and `server/src/ingest/reingestService.ts`; proof home is `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-- `P4.` shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- `P4.` classic MCP shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/mcp.reingest.classic.test.ts`.
+- `P5.` MCP2 tool shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/mcp2.reingest.tool.test.ts`.
 
 #### Risk Ownership
 
@@ -15962,7 +15963,8 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 3. [ ] Add or update `server/src/test/unit/ingest-roots-dedupe.test.ts` so the repo-list producer surface still emits the mixed-shape canonical OpenAI row needed for this defect and proves that row remains distinguishable from valid canonical metadata and genuine provider-unavailable state.
 4. [ ] Add or update `server/src/test/unit/reingestService.test.ts` so the shared queued re-embed service maps that mixed-shape row to the repaired invalid-state contract, returns a structured result instead of throwing, and preserves the current success or provider-unavailable behavior for valid canonical metadata and genuine provider failures.
 5. [ ] Add or update `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so `POST /ingest/reembed/:root` returns the same repaired invalid-state contract for the mixed-shape row that the shared service now returns, without changing the existing REST behavior for valid canonical metadata or genuine provider-unavailable rows.
-6. [ ] Add or update `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so both shared caller transports return the same repaired invalid-state result for the mixed-shape row instead of misclassifying it or throwing, while leaving their valid shared-caller success path unchanged.
+6. [ ] Add or update `server/src/test/unit/mcp.reingest.classic.test.ts` so the classic MCP shared-caller surface returns the same repaired invalid-state result for the mixed-shape row instead of misclassifying it or throwing, while leaving its valid shared-caller success path unchanged.
+7. [ ] Add or update `server/src/test/unit/mcp2.reingest.tool.test.ts` so the MCP2 tool shared-caller surface returns the same repaired invalid-state result for the mixed-shape row instead of misclassifying it or throwing, while leaving its valid shared-caller success path unchanged.
 
 #### Testing
 

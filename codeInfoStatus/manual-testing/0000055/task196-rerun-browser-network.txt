@@ -1,0 +1,8 @@
+Browser proof network summary for Task 196 rerun:
+
+GET http://host.docker.internal:5010/ingest/models -> 200 OK
+GET http://host.docker.internal:5010/ingest/roots -> 200 OK
+POST http://host.docker.internal:5010/logs -> 202 Accepted
+GET http://localhost:5001/vite.svg -> 200 OK
+
+No failed non-static product network requests were reported during the /ingest proof.

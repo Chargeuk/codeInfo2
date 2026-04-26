@@ -1,0 +1,34 @@
+{
+  "roots": [
+    {
+      "name": "codeinfo-manual-task196-rerun-cleanup-blocked",
+      "path": "/tmp/codeinfo-manual-task196-rerun-cleanup-blocked",
+      "status": "error",
+      "queueState": "cleanup-blocked",
+      "queuePosition": null,
+      "runId": "manual-run-task196-rerun-cleanup-blocked",
+      "requestId": "69ee73774e635f44c03d88b5",
+      "operation": null
+    },
+    {
+      "name": "codeinfo-manual-task196-rerun-queue-owned",
+      "path": "/tmp/codeinfo-manual-task196-rerun-queue-owned",
+      "status": "ingesting",
+      "queueState": "waiting",
+      "queuePosition": 1,
+      "runId": null,
+      "requestId": "69ee73774e635f44c03d88b3",
+      "operation": null
+    },
+    {
+      "name": "codeinfo-manual-task196-rerun-reembed-waiting",
+      "path": "/tmp/codeinfo-manual-task196-rerun-reembed-waiting",
+      "status": "ingesting",
+      "queueState": "waiting",
+      "queuePosition": 2,
+      "runId": null,
+      "requestId": "69ee73774e635f44c03d88b4",
+      "operation": null
+    }
+  ]
+}

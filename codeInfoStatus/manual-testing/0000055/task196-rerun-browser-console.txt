@@ -1,0 +1,3 @@
+Browser console inspection for Task 196 rerun returned info/log messages only.
+No warning-or-higher console messages were reported during the /ingest proof.
+Representative info/log markers included DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG, DEV-0000036:T12:useIngestRoots_normalized, DEV-0000036:T12:useIngestModels_normalized, DEV-0000036:T13:ingest_ui_state_rendered, 0000020 ingest lock notice displayed, and chat.ws.client_connect.

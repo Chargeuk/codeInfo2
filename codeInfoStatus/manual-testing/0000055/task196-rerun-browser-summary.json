@@ -1,0 +1,26 @@
+[
+  {
+    "name": "codeinfo-manual-task196-rerun-cleanup-blocked",
+    "visible": true,
+    "checkboxDisabled": true,
+    "reembedDisabled": true,
+    "removeDisabled": true,
+    "rowText": "codeinfo-manual-task196-rerun-cleanup-blocked /tmp/codeinfo-manual-task196-rerun-cleanup-blocked openai / text-embedding-3-small cleanup blocked Last error: Queue cleanup blocked"
+  },
+  {
+    "name": "codeinfo-manual-task196-rerun-queue-owned",
+    "visible": true,
+    "checkboxDisabled": true,
+    "reembedDisabled": true,
+    "removeDisabled": true,
+    "rowText": "codeinfo-manual-task196-rerun-queue-owned /tmp/codeinfo-manual-task196-rerun-queue-owned openai / text-embedding-3-small queued (#1)"
+  },
+  {
+    "name": "codeinfo-manual-task196-rerun-reembed-waiting",
+    "visible": true,
+    "checkboxDisabled": true,
+    "reembedDisabled": true,
+    "removeDisabled": true,
+    "rowText": "codeinfo-manual-task196-rerun-reembed-waiting /tmp/codeinfo-manual-task196-rerun-reembed-waiting openai / text-embedding-3-small queued (#2)"
+  }
+]

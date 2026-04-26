@@ -1428,6 +1428,119 @@ describe('RootsTable', () => {
     expect(onRefreshModels).toHaveBeenCalledTimes(1);
   });
 
+  it('reports partial bulk re-embed failure honestly when one row succeeds and one row fails', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/reembed/%2Frepo-success')) {
+        return mockJsonResponse({
+          requestId: 'queue-request-success',
+          runId: 'run-success',
+        });
+      }
+      if (url.includes('/ingest/reembed/%2Frepo-failed')) {
+        return mockJsonResponse({ status: 'error' }, { status: 500 });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    const onRefresh: () => Promise<void> = jest.fn(async () => undefined);
+    const onRefreshModels: () => Promise<void> = jest.fn(async () => undefined);
+
+    render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-success', name: 'repo-success' },
+          { ...root, path: '/repo-failed', name: 'repo-failed' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={onRefresh}
+        onRefreshModels={onRefreshModels}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select all roots/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /re-embed selected/i }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText(
+        'Partial failure: 1 of 2 selected actions completed. 1 failed and remain selected for retry.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-success/i }),
+    ).not.toBeChecked();
+    expect(await screen.findByText('Re-embed failed (500)')).toBeInTheDocument();
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onRefreshModels).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports full bulk re-embed failure honestly and keeps failed rows selected for retry', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/reembed/%2Frepo-failed-a')) {
+        return mockJsonResponse({ status: 'error' }, { status: 500 });
+      }
+      if (url.includes('/ingest/reembed/%2Frepo-failed-b')) {
+        throw new Error('network down');
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(
+      <RootsTable
+        roots={[
+          { ...root, path: '/repo-failed-a', name: 'repo-failed-a' },
+          { ...root, path: '/repo-failed-b', name: 'repo-failed-b' },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /select all roots/i }),
+    );
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /re-embed selected/i }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText(
+        '2 selected actions failed. The failed rows remain selected for retry.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed-a/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-failed-b/i }),
+    ).toBeChecked();
+    expect(await screen.findByText('Re-embed failed (500)')).toBeInTheDocument();
+    expect(await screen.findByText('network down')).toBeInTheDocument();
+  });
+
   it('re-filters bulk re-embed targets against the current live eligible row set before submit', async () => {
     mockFetch.mockImplementation(async (input) => {
       const url = String(input);

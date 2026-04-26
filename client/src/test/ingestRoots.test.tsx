@@ -1483,7 +1483,9 @@ describe('RootsTable', () => {
     expect(
       screen.getByRole('checkbox', { name: /select repo-success/i }),
     ).not.toBeChecked();
-    expect(await screen.findByText('Re-embed failed (500)')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Re-embed failed (500)'),
+    ).toBeInTheDocument();
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(onRefreshModels).toHaveBeenCalledTimes(1);
   });
@@ -1537,7 +1539,9 @@ describe('RootsTable', () => {
     expect(
       screen.getByRole('checkbox', { name: /select repo-failed-b/i }),
     ).toBeChecked();
-    expect(await screen.findByText('Re-embed failed (500)')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Re-embed failed (500)'),
+    ).toBeInTheDocument();
     expect(await screen.findByText('network down')).toBeInTheDocument();
   });
 

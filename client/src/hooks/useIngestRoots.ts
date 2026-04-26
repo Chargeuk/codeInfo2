@@ -116,9 +116,7 @@ function normalizeError(value: unknown): NormalizedIngestError | null {
         ? source.upstreamStatus
         : undefined,
     retryAfterMs:
-      typeof source.retryAfterMs === 'number'
-        ? source.retryAfterMs
-        : undefined,
+      typeof source.retryAfterMs === 'number' ? source.retryAfterMs : undefined,
   };
 }
 

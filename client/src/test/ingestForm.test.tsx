@@ -674,9 +674,7 @@ describe('IngestForm', () => {
     expect(
       screen.getByRole('button', { name: /choose folder/i }),
     ).toBeDisabled();
-    expect(
-      screen.getByRole('button', { name: /starting/i }),
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: /starting/i })).toBeDisabled();
     expect(screen.getByText(/submitting ingest request/i)).toBeInTheDocument();
 
     await waitFor(() => expect(resolveResponse).toBeDefined());

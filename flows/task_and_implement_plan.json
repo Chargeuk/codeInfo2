@@ -270,6 +270,13 @@
           ]
         },
         {
+          "type": "llm",
+          "label": "Reset Review Cycle State",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "reset_review_cycle_state.md"
+        },
+        {
           "type": "startLoop",
           "label": "Review Findings Disposition Loop",
           "steps": [

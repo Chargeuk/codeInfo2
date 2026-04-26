@@ -183,9 +183,9 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `only_minor_batchable_findings` is true only when there is at least one unresolved minor-batchable finding and no unresolved task-required finding or incomplete-review blocker.
 - `needs_minor_fix_path` is true whenever unresolved minor-batchable findings remain, even when task-required findings or incomplete-review blockers already exist from earlier minor-fix attempts in the same review cycle.
 - `needs_task_up_path` is true when unresolved task-required findings or incomplete-review blockers exist.
-- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state when they clearly belong to the same story and plan. Otherwise initialize them as empty, null, or false.
-- If the canonical plan already contains the task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes` with `Task Status: __done__`, and the current review pass has no unresolved findings or incomplete-review blockers, treat the previous minor-fix cycle as closed. In that case set `minor_fix_revalidation_cycle_closed` to true and clear `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title`.
-- If `final_revalidation_owned_by_task_up_path` is true, `task_up_owned_final_revalidation_task_title` names a final revalidation task, that task is now `Task Status: __done__` in the canonical plan, and the current review pass has no unresolved findings or incomplete-review blockers, treat the previous minor-fix cycle as closed. In that case set `minor_fix_revalidation_cycle_closed` to true and clear `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title`.
+- `reset_review_cycle_state.md` runs before every fresh `Review Findings Disposition Loop`, so any previous state that still exists here should be treated as same-active-loop carry-forward only.
+- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize them as empty, null, or false.
+- Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
 - `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD.
 - `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
@@ -222,8 +222,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm the review handoff and referenced findings artifact were read.
 - Confirm every endorsed finding was classified into exactly one state bucket.
 - Confirm uncertain findings were classified as task-required rather than minor.
-- Confirm you checked whether a previous minor-fix revalidation cycle was already closed by a completed final revalidation task in the canonical plan.
-- Confirm you checked both the dedicated inline-minor final revalidation task and any task-up-owned final revalidation task recorded in prior state before deciding whether the cycle is still open.
+- Confirm any carry-forward state you preserved came from the same still-active review loop rather than an earlier completed review cycle.
+- Confirm you did not treat an older completed final revalidation task in the canonical plan as proof that a fresh new review cycle was already closed.
 - Confirm the state file is valid JSON after writing.
 - Confirm the state counts match the arrays in the state file.
 - Confirm this step did not edit the canonical plan, review artifacts, code, tests, docs, or config.

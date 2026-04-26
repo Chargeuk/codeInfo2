@@ -16045,6 +16045,10 @@ Repair the production remove route so the public selector is validated as an exa
 
 Revalidate Story 55 after the serious review-created repair tasks for deferred start replay, mixed-shape re-embed classification, and production remove authority are complete. This final task owns the broad current-repository proof that the new review-created findings block and the already-resolved inline minor fixes close together without regressing the supported build, test, runtime, and browser-visible story surfaces.
 
+#### Affected Repositories
+
+- `Current Repository`: owns the full final regression proof for review findings `F1` through `F4` and inline-resolved minor findings `5` through `9`; no additional repositories are in scope for this review cycle.
+
 #### Task Exit Criteria
 
 - `R1.` Tasks `197` through `199` are `__done__` with no unchecked subtasks, unchecked testing, or live blockers.

@@ -35,7 +35,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Every review-created task must still keep exactly one `Repository Name` implementation owner.
 - A review-created task's single `Repository Name` controls where code and owner-scoped subtasks belong, but does not by itself limit `Testing` or optional `Manual Testing Guidance` when compatibility proof needs another repository.
 - Treat this step as the serious-issue task-up path. If it adds numbered review-fix tasks, the review loop should stop and return to the main implementation loop rather than continuing minor reruns in the same review pass.
-- Treat `resolved_minor_findings` as already handled inline. Do not create numbered tasks for those finding IDs, even if the original findings artifact still lists them as `should_fix`.
+- Treat `resolved_minor_findings` as already handled inline. Do not create numbered tasks for those finding IDs, even if the original findings artifact still lists them as `must_fix` or `should_fix`.
 - Treat `unresolved_minor_batchable_findings` as owned by the minor-fix path, not this task-up path. Do not create numbered tasks for them unless they have been reclassified into `unresolved_task_required_findings`.
 - Do not create a numbered review-fix task solely because a finding required a small local automated test update or one or two new focused tests in the owning repository.
 - If this step creates or updates the cycle's fresh final revalidation task, it becomes the one final review task for the whole current review cycle. Record that ownership in `review-disposition-state.json` so the inline-minor final-task path does not create a second final task later.

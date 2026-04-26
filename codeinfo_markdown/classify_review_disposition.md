@@ -119,7 +119,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "unresolved_minor_batchable_findings": [
     {
       "id": "<finding id>",
-      "severity": "<should_fix|optional_simplification>",
+      "severity": "<must_fix|should_fix|optional_simplification>",
       "repository": "<repository owner>",
       "summary": "<short summary>",
       "reason": "<why this is safe for inline minor fixing>"

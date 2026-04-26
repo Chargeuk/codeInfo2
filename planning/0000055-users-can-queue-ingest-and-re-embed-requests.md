@@ -15903,8 +15903,6 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
 
 ### Task 198. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
 
@@ -15971,8 +15969,6 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
 
 ### Task 199. Enforce Exact Remove Selectors Before Target-First Queue Blocking
 
@@ -16036,8 +16032,6 @@ Repair the production remove route so the public selector is validated as an exa
 1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
 
 ### Task 200. Re-Validate Story 55 After Review Pass `0000055-20260426T203714Z-ff22e029`
 

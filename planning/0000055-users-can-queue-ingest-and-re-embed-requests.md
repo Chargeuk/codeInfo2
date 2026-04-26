@@ -15712,7 +15712,7 @@ Optional later browser/API validation can exercise a normal completed-row remove
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `192, 193, 194, 195`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260422T115002Z-d109d87f`, covering `F1`, `F2`, `F3`, `F4`, `F5`, and `F6`.
 
@@ -15787,6 +15787,7 @@ Revalidate Story 55 after the review-created repair tasks for cleanup-blocked li
 - Testing 12 rerun: `npm run format:check` passed again against the current tree with `All matched files use Prettier code style!`.
 - Automated-proof audit marked Task 196 done because all subtasks and testing are complete and the parser reports no live blocker.
 - Manual testing: because Task 196 is the final task, the pass expanded to full-story proof; the supported main Docker stack was restarted with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up` because running-stack freshness was not provable, `/health` returned `status: ok` with `mongoConnected: true`, the UI returned HTTP 200, the production remove route returned 409 `QUEUE_STATE_BLOCKED` for a queue-owned row and 200 for a non-queued idle target, `/ingest/roots` exposed the cleanup-blocked row plus waiting queue-owned and re-embed queue rows, and Playwright showed those sanitized queue states in the Ingest UI with no warning-or-higher console messages or failed product API requests. Durable sanitized artifacts were saved under `codeInfoStatus/manual-testing/0000055/`: `task196-health.json`, `task196-remove-queue-owned-response.json`, `task196-remove-idle-response.json`, `task196-roots-queue-states.json`, `task196-browser-network.txt`, and `task196-ingest-queue-states-wide.png`; the screenshot was staged as `manual-testing/0000055/task196-ingest-queue-states-wide.png` in Playwright output and transferred from `playwright-output-local` into the target repository. The synthetic re-embed retry proof was limited to queued re-embed visibility because `POST /ingest/reembed/:root` requires an already ingested repository metadata record rather than a queue-only fixture; that limitation does not invalidate Task 196 because the repaired retryability contract remains covered by the automated proof and the manual full-story surface showed the queued re-embed state. The seeded queue rows were removed and `npm run compose:down` stopped the stack cleanly, so no additional subtasks or testing steps were needed.
+- Implementation-plus-automated-proof audit: Task 196 is now `__done__` because all subtasks and automated testing are checked, the parser reports no live blocker, and the remaining prose-only hold-open context was already satisfied by the recorded proof on disk.
 
 #### Subtasks
 

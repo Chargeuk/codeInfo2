@@ -875,14 +875,15 @@ function resolveValidatedInputSelection(
 }
 
 export async function validateExecutableIngestInput(
-  input: Pick<
-    IngestJobInput,
-    | 'model'
-    | 'embeddingProvider'
-    | 'embeddingModel'
-    | 'queuedEmbeddingProviderRaw'
-    | 'queuedEmbeddingModelRaw'
-  >,
+  input: Partial<Pick<IngestJobInput, 'operation' | 'name'>> &
+    Pick<
+      IngestJobInput,
+      | 'model'
+      | 'embeddingProvider'
+      | 'embeddingModel'
+      | 'queuedEmbeddingProviderRaw'
+      | 'queuedEmbeddingModelRaw'
+    >,
   options?: {
     getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
     selection?: ResolvedEmbeddingModelSelection;

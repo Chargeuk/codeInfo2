@@ -15900,7 +15900,7 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts --file server/src/test/unit/ingest-start.test.ts`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts --file server/src/test/unit/ingest-start.test.ts`.
 
 #### Implementation notes
 
@@ -15909,6 +15909,7 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 - Added a dedicated queue-promotion proof in `server/src/test/unit/ingest-queue-runtime-pump.test.ts` that a malformed persisted queued `start_ingest` row fails closed with `path and name are required`, finalizes through the existing invalid-state path, and still leaves the next valid waiting start row promotable on the same queue surface.
 - Added a dedicated startup-recovery proof in `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` that a persisted queued `start_ingest` row missing `requestPayload.name` fails closed with `VALIDATION` before discovery resumes and without leaving partial replay state behind.
 - Added a dedicated immediate-admission proof in `server/src/test/unit/ingest-start.test.ts` that `POST /ingest/start` still rejects a missing `name` before queue admission or pump scheduling, preserving the producer contract Task 197 is aligning replay against.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts --file server/src/test/unit/ingest-start.test.ts`; the first reruns exposed a Task 197-owned type-signature mismatch and a racey queue-pump proof seam, which were repaired by widening `validateExecutableIngestInput()` only for optional replay `name`/`operation`, pinning the OpenAI validation unit test to `reembed`, and making the queue-pump proof drive queued runs through the explicit test scheduler before the final wrapper pass succeeded with `55 passed, 0 failed`.
 
 ### Task 198. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
 

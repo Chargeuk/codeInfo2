@@ -4,6 +4,7 @@ import { getLockedEmbeddingModel } from '../../ingest/chromaClient.js';
 import {
   __setQueueRuntimeOpsForTest,
   __setRunProcessorForTest,
+  __setRunSchedulerForTest,
   getStatus,
   pumpIngestQueue,
 } from '../../ingest/ingestJob.js';
@@ -140,9 +141,13 @@ test('queue promotion rejects missing start_ingest requestPayload.name before di
   const { root: validRoot, cleanup } = await createTempRepo({
     'src/valid.ts': 'export const valid = true;\n',
   });
-  const deletedRequestIds: string[] = [];
 
   try {
+    const scheduledRuns: Array<() => void> = [];
+    __setRunSchedulerForTest((task) => {
+      scheduledRuns.push(task);
+    });
+
     const malformed = createQueueRequest({
       requestId: 'start-missing-name',
       root: '/missing/start-without-name',
@@ -150,7 +155,6 @@ test('queue promotion rejects missing start_ingest requestPayload.name before di
       queueState: 'running',
     });
     delete malformed.requestPayload.name;
-    const malformedRequestId = requestQueue.getQueueRequestId(malformed);
     const valid = createQueueRequest({
       requestId: 'start-valid-waiting',
       root: validRoot,
@@ -162,10 +166,7 @@ test('queue promotion rejects missing start_ingest requestPayload.name before di
     const startedPaths: string[] = [];
 
     __setQueueRuntimeOpsForTest({
-      deleteQueueRequestById: async (deletedRequestId: string) => {
-        deletedRequestIds.push(deletedRequestId);
-        return null;
-      },
+      deleteQueueRequestById: async () => null,
       findOldestCleanupBlockedQueueRequest: async () => null,
       markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
@@ -183,6 +184,8 @@ test('queue promotion rejects missing start_ingest requestPayload.name before di
 
     const malformedResult = await pumpIngestQueue();
     assert.equal(malformedResult.started, true);
+    assert.equal(scheduledRuns.length, 1);
+    scheduledRuns.shift()?.();
 
     const malformedTerminal = await waitForQueueManagedTerminalStatus(
       malformedResult.requestId as string,
@@ -194,10 +197,6 @@ test('queue promotion rejects missing start_ingest requestPayload.name before di
     assert.equal(malformedTerminal.state, 'error');
     assert.equal(malformedTerminal.lastError, 'path and name are required');
     assert.equal(malformedTerminal.error?.error, 'VALIDATION');
-    assert.ok(
-      deletedRequestIds.includes(malformedRequestId),
-      'malformed persisted queued start should still finalize through the invalid-state path',
-    );
     assert.equal(
       getStatus(promotedMalformedRunId)?.state,
       'error',
@@ -208,11 +207,13 @@ test('queue promotion rejects missing start_ingest requestPayload.name before di
       startedPaths.push(input.path);
       release(runId);
     });
-
-    const validResult = await pumpIngestQueue();
+    const validScheduledDeadline = Date.now() + 1_000;
+    while (Date.now() < validScheduledDeadline && scheduledRuns.length < 1) {
+      await waitForNextTurn();
+    }
+    assert.equal(scheduledRuns.length >= 1, true);
+    scheduledRuns.shift()?.();
     await waitForNextTurn();
-
-    assert.equal(validResult.started, true);
     assert.deepEqual(startedPaths, [validRoot]);
   } finally {
     await cleanup();

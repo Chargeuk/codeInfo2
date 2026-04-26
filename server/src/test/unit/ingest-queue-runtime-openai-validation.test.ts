@@ -10,6 +10,7 @@ test('queue-managed execution rejects non-allowlisted OpenAI models before promo
     () =>
       validateExecutableIngestInput(
         {
+          operation: 'reembed',
           model: 'openai/text-embedding-ada-002',
           embeddingProvider: 'openai',
           embeddingModel: 'text-embedding-ada-002',

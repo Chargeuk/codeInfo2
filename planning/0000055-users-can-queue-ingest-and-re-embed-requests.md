@@ -15684,6 +15684,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 - Automated proof passed for `npm run format:check`; all matched files use Prettier code style.
 - Automated-proof audit marked Task 195 done because all subtasks and testing are complete and the parser reports no live blocker.
 - Manual testing ran as task-scoped proof because Task 195 is not the final story task; the main stack was stopped and restarted with `npm run compose:down`, `npm run compose:build`, `npm run compose:up`, then returned to stopped state with `npm run compose:down` because no supported freshness marker could prove an existing stack was current. The server `/health` and client root were reachable, a task-scoped waiting queue row in main-stack Mongo made `POST /ingest/remove/%2Ftmp%2Fcodeinfo-manual-task195-queue-owned` return `409` with `QUEUE_STATE_BLOCKED`, an idle non-queued remove returned `200` with the normal `ok` shape, and `/ingest/roots` exposed the queued row. Browser proof at `/ingest` showed the queued row with selection, Re-embed, and Remove disabled; no browser console warnings or failed non-static network requests were reported. Non-committed proof artifacts are in `codeInfoTmp/manual-testing/0000055/`: `task195-remove-queue-owned-response.json`, `task195-remove-idle-response.json`, `task195-roots-after-queue-seed.json`, and the redacted Playwright screenshot staged as `manual-testing/0000055/task195-ingest-ui-queued-row-wide.png` then transferred to `codeInfoTmp/manual-testing/0000055/task195-ingest-ui-queued-row-wide.png`. The Chroma service healthcheck reported unhealthy because its configured `/api/v1/heartbeat` endpoint returned a deprecation response, but the Task 195 API/UI proof completed and no Task 195 follow-up subtasks were needed.
+- Implementation-only audit: normalized Testing 5 to checked because the existing notes already recorded a passing `npm run format:check`, and kept Task 195 `__in_progress__` for this loop because the separate automated-proof pass has not been rerun yet.
 
 #### Subtasks
 
@@ -15699,7 +15700,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
 3. [x] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
 4. [x] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
+5. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -15709,7 +15710,7 @@ Optional later browser/API validation can exercise a normal completed-row remove
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `192, 193, 194, 195`
-- Task Status: `__done__`
+- Task Status: `__to_do__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260422T115002Z-d109d87f`, covering `F1`, `F2`, `F3`, `F4`, `F5`, and `F6`.
 

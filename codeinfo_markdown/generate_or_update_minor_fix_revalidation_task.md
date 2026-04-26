@@ -62,6 +62,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 After adding or updating the final minor-fix revalidation task:
 
 - Set `review_created_tasks_added_or_updated` to true.
+- Keep `review_created_tasks_added_or_updated` true specifically so downstream clean-closeout steps know this review cycle still has open review-created work.
 - Keep `minor_fix_revalidation_cycle_closed` false because creating the task does not itself prove the cycle is complete.
 - Set `needs_final_minor_fix_revalidation_task` to false.
 - Set `needs_review_rerun_before_close` to false.
@@ -106,6 +107,7 @@ When no task is needed and no unresolved work remains:
 - Confirm no unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remained before generating the task.
 - Confirm exactly one final minor-fix revalidation task exists for the current minor-fix cycle.
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
+- Confirm this step did not imply the review cycle was complete merely because the final revalidation task was created.
 - Confirm the task has an `Affected Repositories` section that covers every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
 - Confirm `Subtasks` stayed owner-scoped and implementation-free even when `Testing` spans multiple repositories.

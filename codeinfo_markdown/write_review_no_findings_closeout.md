@@ -29,8 +29,11 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
   - `needs_task_up_path` is true;
   - `needs_minor_fix_path` is true;
   - `needs_review_rerun_before_close` is true;
-  - `needs_final_minor_fix_revalidation_task` is true.
+  - `needs_final_minor_fix_revalidation_task` is true;
+  - `review_created_tasks_added_or_updated` is true;
+  - `minor_fix_revalidation_cycle_closed` is false while the canonical plan still contains an unfinished task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes`.
 - If the review handoff or findings artifact is missing or cannot be interpreted safely enough to support a no-findings closeout, make no plan change and report that the closeout cannot yet be written honestly.
+- Do not treat `needs_final_minor_fix_revalidation_task = false` as proof that the review cycle is complete. It only means the final minor-fix revalidation task no longer needs to be created.
 - When the review has ended cleanly, append or repair a `Post-Implementation Code Review` section for the current `review_pass_id`.
 - If the section already exists for this `review_pass_id`, update it instead of appending a duplicate.
 - The closeout must state:
@@ -70,6 +73,8 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
 - Confirm the exact canonical plan was re-opened from disk before editing.
 - Confirm no unresolved task-required findings, unresolved minor-batchable findings, incomplete-review blockers, rerun requirements, or final minor-fix revalidation requirements remained before writing the closeout.
+- Confirm no fresh review-created work remained from the current review cycle.
+- Confirm the canonical plan did not still contain an unfinished `Re-Validate Story <story-number> After Inline Minor Review Fixes` task when the closeout was written.
 - Confirm the plan now has exactly one `Post-Implementation Code Review` section for the current `review_pass_id`.
 - Confirm the closeout preserves the stored or safely inferred comparison metadata for every repository in scope.
 - Confirm the closeout records residual risk honestly instead of implying stronger proof than the artifacts support.

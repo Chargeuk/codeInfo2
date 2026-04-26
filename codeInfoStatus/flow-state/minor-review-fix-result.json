@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-26T22:21:57Z",
+  "generated_at_utc": "2026-04-26T22:27:00Z",
   "story_number": "0000055",
   "plan_path": "planning/0000055-users-can-queue-ingest-and-re-embed-requests.md",
   "review_pass_id": "0000055-20260426T203714Z-ff22e029",
-  "finding_id": "8",
+  "finding_id": "9",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Add direct mixed-failure and full-failure bulk re-embed proof when per-row helpers swallow their own errors.",
+  "summary": "Add direct ingest-form proof that the shared disabled state reaches non-submit sibling controls during an in-flight submit.",
   "changed_files": [
-    "client/src/test/ingestRoots.test.tsx"
+    "client/src/test/ingestForm.test.tsx"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx",
+      "command": "npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx",
       "result": "passed",
-      "notes": "Focused client wrapper passed with 48 tests and no failures."
+      "notes": "Focused client wrapper passed with 27 tests and no failures."
     }
   ],
-  "commit_sha": "2c97b148",
+  "commit_sha": "b66d75d3",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

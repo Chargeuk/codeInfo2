@@ -34,6 +34,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - When `review-disposition-state.json` exists and is valid, use its `unresolved_task_required_findings` and `incomplete_review_blockers` arrays as the only findings that may become numbered review-fix tasks in this step.
 - Every review-created task must still keep exactly one `Repository Name` implementation owner.
 - A review-created task's single `Repository Name` controls where code and owner-scoped subtasks belong, but does not by itself limit `Testing` or optional `Manual Testing Guidance` when compatibility proof needs another repository.
+- Treat this step as the serious-issue task-up path. If it adds numbered review-fix tasks, the review loop should stop and return to the main implementation loop rather than continuing minor reruns in the same review pass.
 - Treat `resolved_minor_findings` as already handled inline. Do not create numbered tasks for those finding IDs, even if the original findings artifact still lists them as `should_fix`.
 - Treat `unresolved_minor_batchable_findings` as owned by the minor-fix path, not this task-up path. Do not create numbered tasks for them unless they have been reclassified into `unresolved_task_required_findings`.
 - If the disposition state says `needs_task_up_path` is false, make no plan changes in this step and report that no unresolved task-required findings remain for task-up.
@@ -114,6 +115,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 - Leave the canonical plan in a state that matches the stored review outcome:
   - unresolved task-required findings present => review-fix tasks plus final revalidation task;
+  - if review-fix tasks were added for serious issues => the review loop should exit and let the main implementation loop work those tasks before any later review pass;
   - valid disposition state says no task-up work remains => no plan mutation in this step;
   - no findings => required post-review close-out section;
   - outcome unclear after safe inference => bounded incomplete-review follow-up task.

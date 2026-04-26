@@ -44,8 +44,9 @@ When `minor-review-fix-result.json` has `status: "fixed"`:
    - `needs_task_up_path`
 7. Set `needs_review_rerun_before_close` to true unless unresolved task-required findings now take precedence.
 8. Keep `needs_final_minor_fix_revalidation_task` false until a later clean review pass sees no unresolved findings after the minor fixes.
-9. Keep `review_created_tasks_added_or_updated` false in this step.
-10. Set `safe_to_exit_review_loop_without_tasking` false.
+9. Set `minor_fix_revalidation_cycle_closed` to false because this cycle is still open until a later clean review pass confirms the final revalidation task has been completed.
+10. Keep `review_created_tasks_added_or_updated` false in this step.
+11. Set `safe_to_exit_review_loop_without_tasking` false.
 
 When the result has `status: "reclassify_task_required"`:
 

@@ -515,29 +515,29 @@
               ]
             },
             {
-              "type": "llm",
-              "label": "Generate Or Update Final Revalidation Task For Minor Fixes",
-              "agentType": "planning_agent",
-              "identifier": "planner",
-              "markdownFile": "generate_or_update_minor_fix_revalidation_task.md"
-            },
-            {
               "type": "break",
-              "label": "Exit Review Loop If Review-Created Tasks Were Added",
+              "label": "Exit Review Loop After Serious Review Work Was Tasked Up",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and re-open the current plan from `codeInfoStatus/flow-state/current-plan.json`. Answer yes iff `review_created_tasks_added_or_updated` is true or the current review loop added or updated a numbered plan task that must be executed before the story can close, including either task-required review-fix tasks or the single final revalidation task for minor review fixes. Answer no if no numbered task was added or updated and the review loop may either repeat or finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk and re-open the current plan from `codeInfoStatus/flow-state/current-plan.json`. Answer yes iff the current review loop added or updated numbered review-fix tasks for unresolved task-required findings or incomplete-review blockers, meaning the flow should leave the review loop and return to the main implementation loop. Answer no otherwise, including when no numbered task was added or when only a post-loop final minor-fix revalidation task may still need to be considered. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             },
             {
               "type": "break",
-              "label": "Repeat Review Loop If Minor Fixes Were Applied",
+              "label": "Exit Review Loop When No Further Minor Rerun Is Needed",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer no iff `needs_review_rerun_before_close` is true and `review_created_tasks_added_or_updated` is false, because the review must run again against the new HEAD. Answer yes iff `needs_review_rerun_before_close` is false and no numbered task was added, so the review loop can finish cleanly. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk. Answer no iff `needs_review_rerun_before_close` is true and no serious review task-up work was added, because the review must run again against the new HEAD before the loop can finish. Answer yes iff `needs_review_rerun_before_close` is false, meaning the review loop may now finish cleanly and let downstream flow steps decide whether a post-loop final minor-fix revalidation task is needed. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]
+        },
+        {
+          "type": "llm",
+          "label": "Generate Or Update Final Revalidation Task For Minor Fixes",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "generate_or_update_minor_fix_revalidation_task.md"
         },
         {
           "type": "llm",

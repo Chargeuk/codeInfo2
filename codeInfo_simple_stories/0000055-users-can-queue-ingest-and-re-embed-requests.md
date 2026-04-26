@@ -4,130 +4,60 @@ Users can queue ingest and re-embed requests
 
 # Acceptance
 
-1. Users can submit ingest and re-embed requests while another ingest run is active, and the system remembers that work instead of rejecting it as busy.
-2. Users can see queued repository work in the ingest repository list, including a clear waiting position when work has not started yet.
-3. Users and automation receive both a durable `requestId` for queued work and a `runId` once execution actually starts.
-4. Users are protected from unsafe queue recovery; cleanup-blocked work stays visible and prevents newer queued work from starting too early.
-5. Users and automation receive clear retryable queue errors when Mongo-backed queue persistence is unavailable.
-6. Business users can rely on the final reviewed contract: queue state, repo-list identity, OpenAPI documentation, cleanup diagnostics, destructive actions, and blocking automation behavior stay aligned.
+1. Users can submit ingest and re-embed requests while another ingest run is active, and the system keeps that work in a durable queue instead of rejecting it as busy.
+2. Users can see queued repository work in the ingest repository list, including clear queued state and waiting position before execution starts.
+3. Users and automation receive a durable `requestId` for queued work and a `runId` once the queued job actually starts running.
+4. Users are protected from unsafe restart or cleanup behavior because the queue retries recovery in order and does not start newer work before blocked cleanup is resolved.
+5. Users and automation receive clear retryable queue-backend errors when Mongo-backed queue persistence is unavailable.
+6. The final reviewed story keeps the request-validation, shared caller behavior, destructive remove rules, and full regression proof aligned before the story closes.
 
 # Description
 
-This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final tasked plan also closes review findings around mounted re-embed paths, queue response state, waiting-row rewrite safety, destructive remove payloads, support-artifact hygiene, cleanup-blocked behavior, OpenAPI accuracy, retryable queue errors, production remove authority, and proof quality before the story is closed again.
+This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final planned work now focuses on closing the last review findings around replayed queue admission, mixed-shape re-embed validation across shared callers, exact remove targeting, and one final full revalidation pass.
 
 # Tasks
 
-1. [codeInfo2] - Add durable queue storage and canonical queue admission.
+1. [Current Repository] - Add durable queue storage and canonical queue admission.
 
-- Create the Mongo-backed request queue and normalize ingest or re-embed requests before dedupe.
-- Prove queue persistence, duplicate handling, and queue-unavailable behavior through server tests.
+- Store queueable ingest and re-embed requests in MongoDB and normalize them to one canonical target before dedupe.
+- Prove queue persistence, duplicate handling, and queue-unavailable behavior through server proof owners.
 
-2. [codeInfo2] - Add queue runtime lifecycle and startup recovery.
+2. [Current Repository] - Add queue runtime lifecycle, cleanup ownership, and startup recovery.
 
 - Keep waiting, running, and cleanup-blocked queue states small and explicit.
-- Prove cleanup-before-next ordering, startup recovery, cancellation, and cleanup-blocked retry behavior.
+- Prove delete-before-next ordering, retry behavior, and safe startup recovery.
 
-3. [codeInfo2] - Replace queueable REST, MCP, command, and flow contracts.
+3. [Current Repository] - Replace queueable REST, MCP, command, and flow contracts.
 
-- Return queue-aware response fields and preserve blocking automation behavior through shared service paths.
-- Prove REST, MCP, command, and flow callers receive the correct queued, running, and unavailable results.
+- Return queue-aware response fields and keep blocking automation behavior intact while queued work waits.
+- Prove REST, MCP, command, and flow callers receive the correct queued, running, and unavailable outcomes.
 
-4. [codeInfo2] - Show queued work in the shared repository list and ingest UI.
+4. [Current Repository] - Show queued work in the shared repository list and ingest UI.
 
-- Update the shared repo-list payload, client normalization, and table behavior so queued rows and queue positions are visible.
-- Prove queued visibility through client tests, server contract tests, and e2e coverage.
+- Update the shared repo-list payload, client normalization, and ingest UI so queued rows and queue position stay visible.
+- Prove queued visibility through server, client, and browser proof surfaces.
 
-5. [codeInfo2] - Repair test baselines and proof harnesses exposed during queue implementation.
+5. [Current Repository] - Keep queue docs, OpenAPI, cleanup, and retry contracts aligned through review-driven repairs.
 
-- Restore trustworthy server-unit, Cucumber, client, e2e, Compose, lint, and format wrapper proof as blockers are found.
-- Keep unrelated harness or baseline repairs isolated so queue feature proof remains honest.
+- Finish the earlier queue contract fixes around state overlays, cleanup-blocked handling, retryable queue errors, OpenAPI accuracy, and destructive remove authority.
+- Keep the maintained proof homes, documentation, and review summaries honest as those repairs land.
 
-6. [codeInfo2] - Close earlier review-created queue contract repairs.
+6. [Current Repository] - Preserve start-request admission contracts during deferred queue replay.
 
-- Harden deferred validation, canonical row identity, queue diagnostics, stale-state cleanup, and OpenAPI contracts from previous review passes.
-- Revalidate each review-created block with repository-supported wrapper proof and durable summary updates.
+- Repair replayed queue-start validation so malformed stored request bodies do not bypass the same contract as live start-ingest requests.
+- Prove the replay path through the existing queue pump, recovery, and start-ingest proof files.
 
-7. [codeInfo2] - Treat cleanup-blocked as a client terminal queue state.
+7. [Current Repository] - Align mixed-shape re-embed validation across REST and shared callers.
 
-- Update client terminal-state consumers so `cleanup-blocked` refreshes roots, preserves the error state, and removes stale cancellation affordances.
-- Add client proof for live cleanup-blocked updates, active-run rendering, and stale action payload exclusion.
+- Repair queued re-embed validation so repo-list producers, shared services, REST, and MCP callers classify invalid metadata the same way.
+- Prove the producer-consumer contract through the existing re-embed service, route, and tool proof surfaces.
 
-8. [codeInfo2] - Make blocking re-embed waits use a long safety guard.
+8. [Current Repository] - Enforce exact remove selectors before target-first queue blocking.
 
-- Update the shared re-embed service so normal queue delay does not trip the old short wait timeout.
-- Prove the production default, injected timeout tests, and MCP, command, and flow propagation paths.
+- Tighten production remove handling so alias-shaped selectors are rejected before queue-state blocking logic runs.
+- Prove exact selector handling and target-first blocking through route and integration proof owners.
 
-9. [codeInfo2] - Reject malformed start-ingest body fields before queue admission.
+9. [Current Repository] - Re-validate Story 55 after the current review pass.
 
-- Validate `name`, `description`, `dryRun`, and unexpected body keys before any queue document is created.
-- Prove malformed bodies are rejected, valid queue responses remain intact, and OpenAPI/Cucumber contracts match.
-
-10. [codeInfo2] - Realign repo-list runtime, OpenAPI, and queue overlay identity.
-
-- Align runtime repo-list fields, OpenAPI schemas, MCP/tool consumers, and client normalization around one canonical identity.
-- Prove fresh running model metadata, mismatched-path isolation, documented fields, and stale selected-row exclusion.
-
-11. [codeInfo2] - Persist a replay barrier before non-idempotent finalization side effects.
-
-- Persist `nonReplayableAt` before finalization side effects that must not be repeated after restart.
-- Prove barrier ordering, fail-closed barrier writes, startup recovery, and cleanup/delete-before-next behavior.
-
-12. [codeInfo2] - Make BDD queue-start proof distinguish attempts from accepted starts.
-
-- Record attempted queue processor execution separately from validation-passed started paths in the Cucumber helper.
-- Prove no-attempt, attempted-but-rejected, and unfinished replay scenarios with clear feature wording.
-
-13. [codeInfo2] - Deduplicate queue-state literals in the queue schema index.
-
-- Replace duplicated live-state literals with a named queue-state contract for the partial index.
-- Prove the live-target index still covers exactly `waiting`, `running`, and `cleanup-blocked`.
-
-14. [codeInfo2] - Preserve mounted execution paths for queued re-embed.
-
-- Keep queue identity separate from the mounted filesystem path used when queued work finally runs.
-- Prove REST, MCP, command, and flow callers use the repaired queued re-embed contract.
-
-15. [codeInfo2] - Restore queue-state response and live-state contracts.
-
-- Add the non-waiting `running` queue state to immediate ingest and re-embed responses.
-- Reuse the shared live-state set for repository-list overlays and prove OpenAPI, server, and client consumers stay aligned.
-
-16. [codeInfo2] - Guard waiting queue rewrites with the observed row.
-
-- Require waiting duplicate rewrites to match the specific queue row that was observed.
-- Prove stale duplicate intent cannot overwrite a newer waiting row.
-
-17. [codeInfo2] - Keep destructive remove actions on root-path payloads.
-
-- Separate re-embed identity from the root path used by row and bulk Remove.
-- Prove stale selected rows stay local-only and bulk Remove refreshes once after the batch.
-
-18. [codeInfo2] - Clean review-exposed runtime artifact hygiene.
-
-- Redact provider account metadata from retained manual proof and scan sibling artifacts for the same risk.
-- Move generated screenshots out of tracked payload paths and keep future automated screenshots in ignored storage.
-
-19. [codeInfo2] - Repair cleanup-blocked stall, diagnostics, and cancel proof.
-
-- Keep newer queued work blocked when cleanup deletion and cleanup-blocked persistence both fail.
-- Prove cleanup diagnostics and cancel cleanup ordering with deterministic server-unit coverage.
-
-20. [codeInfo2] - Align start-ingest OpenAPI with real request validation.
-
-- Document the actual accepted legacy model and provider/model request shapes for `/ingest/start`.
-- Prove OpenAPI, route validation, and client model-selection payloads stay aligned.
-
-21. [codeInfo2] - Preserve retryable queue-unavailable errors while blocking callers wait.
-
-- Keep queue-read outages retryable for REST, MCP, command, and flow re-embed callers.
-- Prove true terminal ingest results and timeout behavior are not misclassified as queue-backend outages.
-
-22. [codeInfo2] - Enforce queue-state authority on production Remove.
-
-- Block direct production Remove requests for waiting, running, cleanup-blocked, or active-run-owned targets.
-- Prove completed or idle removals still use the correct root-path payload and that test-only cleanup remains separate.
-
-23. [codeInfo2] - Revalidate Story 55 after the current review-created findings block.
-
-- Refresh the durable PR summary so findings `F1` through `F6` map to the repaired implementation and proof homes.
-- Run the supported server, client, e2e, Compose smoke, lint, and format wrappers before closing the story again.
+- Run the final broad server, client, compose, smoke, e2e, lint, and format proof for the current review-created findings block.
+- Refresh the final summary so the last review fixes and their proof homes are recorded together before close-out.

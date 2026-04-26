@@ -21,9 +21,12 @@ Explain the implementation gotchas for the currently active task using the store
 - Do not rediscover a different active task by scanning the plan.
 - Re-read that bound task from the plan and identify the repository that task explicitly belongs to from its `Repository Name` field.
 - If the task does not make the repository unambiguous, stop and say the task-to-repository handoff is unclear and must be fixed in the plan before implementation continues.
+- Treat `Repository Name` as the implementation owner for code and documentation changes, not automatically as the full validation boundary.
 - Resolve `Current Repository` to the current repository root.
 - Resolve any other repository name from the plan's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`.
 - If the plan has no such section and the task repository is not `Current Repository`, stop and say the task-to-repository handoff is unclear and must be fixed in the plan before implementation continues.
+- If the task includes an `Affected Repositories` section, or if its `Testing` or `Manual Testing Guidance` explicitly names other repositories for compatibility proof, treat those repositories as additional proof-scope repositories for this pass.
+- For the final story-validation task, treat every repository listed in `Affected Repositories` as required proof scope even when the task still has exactly one implementation owner in `Repository Name`.
 
 </task_selection_rules>
 
@@ -32,12 +35,14 @@ Explain the implementation gotchas for the currently active task using the store
 - Ensure the branch in the TARGET repository is on the correct story for that task's repository, not merely the branch in the repository where the flow happened to start.
 - Re-check current repository branch state directly from git, for example with `git branch --show-current`.
 - Re-check the target repository branch directly from git, for example with `git -C <repo_root> branch --show-current`.
+- Re-check branch state directly from git for every additional proof-scope repository before recommending or running proof that touches it.
 - If the target repository is already on a branch whose story number matches the selected plan filename, keep or reuse that branch so long as doing so will not overwrite local changes.
 - If no such branch exists yet in the target repository, create one from that repository's current checkout so any current local changes in that repository stay attached to the new branch.
 - Do NOT stash, reset, discard, or otherwise lose local changes in any repository while doing this.
 - If switching branches in the target repository would overwrite local changes, stop and say repository branch setup is blocked by local changes instead of forcing the checkout.
 - If the story number in the target repository branch name does not match the story number in the selected plan filename after this branch setup, stop and say the current-plan handoff is stale and must be regenerated.
 - Before touching files or running commands in the target repository, read that repository's `AGENTS.md` and follow its repository-specific workflow rules.
+- Before recommending or running proof in an additional proof-scope repository, read that repository's `AGENTS.md` and follow its repository-specific workflow rules for those proof steps.
 
 </branch_rules>
 
@@ -55,6 +60,7 @@ Explain the implementation gotchas for the currently active task using the store
 - When the previous loop iteration involved normalization or planner repair, explicitly confirm the bound task is still the true next executable owner after those edits, not a still-blocked task sitting ahead of a newly inserted prerequisite.
 - If the active task has already gone through repeated implementation passes while the same subtasks remain unchecked, call that out explicitly.
 - In that repeated-pass state, tell the coding agent that the next implementation pass must either complete at least one of the remaining subtasks or raise a live `**BLOCKER**`; another partial no-closure pass is not an honest outcome.
+- If the active task is the final task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes`, explicitly call out that it is the closing proof step for the current minor-fix cycle and that a later clean review pass is expected to close that cycle rather than create another final revalidation task.
 - If the active task is a bounded diagnostic or derivation task, explicitly remind the coding agent of its stopping rule.
 - If the task's bounded search has already exhausted or the remaining work would widen the task ad hoc, tell the coding agent to raise a live `**BLOCKER**` rather than extending the task informally.
 
@@ -75,6 +81,8 @@ Explain the implementation gotchas for the currently active task using the store
 - Confirm you re-read the active plan from the stored handoff.
 - Confirm you re-read the active task from disk.
 - Confirm the target repository branch matches the selected plan story number.
+- Confirm you identified any additional proof-scope repositories named by `Affected Repositories`, `Testing`, or `Manual Testing Guidance`.
+- Confirm any proof-scope repositories had their branch state and `AGENTS.md` guidance re-checked before you relied on them.
 - Confirm you sanity-checked that the bound task is still the true next executable owner after any normalization or planner repair.
 - Confirm your gotchas reflect the latest task notes, subtasks, testing steps, and sequencing context when required.
 

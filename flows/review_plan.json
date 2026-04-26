@@ -10,87 +10,188 @@
         {
           "role": "user",
           "content": [
-            "Please read AGENTS.md and follow its instructions. Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first and treat it as the sole source of review scope for this flow. Determine the active `plan_path`, then extract repository paths from `additional_repositories` in that handoff file, and re-open that exact relative `plan_path` from disk. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry. Re-check the current repository branch directly from git, for example with `git branch --show-current`, and re-check each participating additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`. Verify that the selected plan exists in the current repository, that the selected plan filename carries the story number that matches the current repository branch, and that each participating additional repository is on a branch whose story number matches the selected plan filename. If those checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection. Confirm what story the normalized review scope represents, list the participating repositories when there is more than one, and provide me with an overview of what is still remaining to be done without making file changes at this time."
+            "Please read AGENTS.md and follow its instructions. Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and treat it as the sole source of review scope for this flow. Determine the active `plan_path`, then extract repository paths from `additional_repositories` in that handoff file, and re-open that exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry. Re-check the current repository branch directly from git, for example with `git branch --show-current`, and re-check each participating additional repository branch directly from git, for example with `git -C <repo_root> branch --show-current`. Verify that the selected plan exists in the current repository, that the selected plan filename carries the story number that matches the current repository branch, and that each participating additional repository is on a branch whose story number matches the selected plan filename. If those checks fail, stop and say the current-plan handoff is stale and must be regenerated. Do NOT use code_info tools for plan selection. Confirm what story the normalized review scope represents, list the participating repositories when there is more than one, and provide me with an overview of what is still remaining to be done without making file changes at this time."
           ]
         }
       ]
     },
-    {
-      "type": "command",
-      "label": "Review evidence gate",
-      "agentType": "review_agent",
-      "identifier": "reviewer",
-      "commandName": "review_evidence_gate"
-    },
-    {
-      "type": "command",
-      "label": "Code review findings",
-      "agentType": "review_agent",
-      "identifier": "reviewer",
-      "commandName": "code_review_findings"
-    },
-    {
-      "type": "command",
-      "label": "Findings saturation",
-      "agentType": "review_agent",
-      "identifier": "reviewer",
-      "commandName": "review_findings_saturation"
-    },
-    {
-      "type": "command",
-      "label": "Blind-spot challenge",
-      "agentType": "review_agent",
-      "identifier": "reviewer",
-      "commandName": "review_blind_spot_challenge"
+        {
+          "type": "llm",
+          "label": "Reset Review Cycle State",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "reset_review_cycle_state.md"
+        },
+        {
+          "type": "startLoop",
+          "label": "Review Findings Disposition Loop",
+          "steps": [
+        {
+          "type": "command",
+          "label": "Run Review Evidence Gate",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
+          "commandName": "review_evidence_gate"
+        },
+        {
+          "type": "command",
+          "label": "Run Code Review Findings",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
+          "commandName": "code_review_findings"
+        },
+        {
+          "type": "command",
+          "label": "Run Findings Saturation",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
+          "commandName": "review_findings_saturation"
+        },
+        {
+          "type": "command",
+          "label": "Run Blind-Spot Challenge",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
+          "commandName": "review_blind_spot_challenge"
+        },
+        {
+          "type": "llm",
+          "label": "Classify Review Disposition",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "classify_review_disposition.md"
+        },
+        {
+          "type": "startLoop",
+          "label": "Minor Review Fix Path",
+          "steps": [
+            {
+              "type": "break",
+              "label": "Exit Minor-Fix Path Unless Minor Findings Remain",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer yes if `needs_minor_fix_path` is not true. Answer no only when `needs_minor_fix_path` is true, meaning unresolved minor-batchable findings still remain and should continue to be attempted inline before task-up. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "breakOn": "yes"
+            },
+            {
+              "type": "llm",
+              "label": "Implement Next Minor Review Finding",
+              "agentType": "coding_agent",
+              "identifier": "coder",
+              "markdownFile": "fix_next_minor_review_finding.md"
+            },
+            {
+              "type": "llm",
+              "label": "Sync Minor Review Fix Outcome",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "document_minor_review_fix.md"
+            },
+            {
+              "type": "break",
+              "label": "Exit Minor-Fix Path After Sync Unless Another Minor Finding Remains",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after the sync step, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk too, for example with `cat codeInfoStatus/flow-state/minor-review-fix-result.json`. Answer only from those freshly re-read files. Answer yes iff `needs_minor_fix_path` is not true, meaning no unresolved minor-batchable findings remain or the remaining minor findings were bulk-escalated out of the minor bucket. Answer no only if `needs_minor_fix_path` is true, meaning another unresolved minor-batchable finding still needs an inline attempt in this same pass. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "breakOn": "yes"
+            }
+          ]
+        },
+        {
+          "type": "startLoop",
+          "label": "Task-Up Unresolved Review Findings Path",
+          "steps": [
+            {
+              "type": "break",
+              "label": "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer yes iff `needs_task_up_path` is not true. Treat `resolved_minor_findings` as non-actionable for task-up. Answer no only when `needs_task_up_path` is true, meaning unresolved task-required findings or incomplete-review blockers must be encoded into the plan. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "breakOn": "yes"
+            },
+            {
+              "type": "llm",
+              "label": "Ensure Unresolved Review Findings Became Tasks",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "ensure_review_findings_became_tasks.md"
+            },
+            {
+              "type": "command",
+              "label": "Task Up Review Findings",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "commandName": "task_up_review_tasks"
+            },
+            {
+              "type": "llm",
+              "label": "Check Review Tasking Quality",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "review_task_enhancement/04-check-quality.md"
+            },
+            {
+              "type": "llm",
+              "label": "Refresh Current Plan Handoff After Review Task-Up",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "refresh_current_plan_handoff.md"
+            },
+            {
+              "type": "llm",
+              "label": "Ensure Review-Created Testing Steps Are Correct",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "ensure_task_testing_matches_current_contract.md"
+            },
+            {
+              "type": "llm",
+              "label": "Create Or Update Simple Story After Review Task-Up",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "task_up/15-create-or-update-simple-story.md"
+            },
+            {
+              "type": "break",
+              "label": "Exit Task-Up Path After Encoding Review Findings",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Answer yes after the task-up path has either encoded unresolved review findings into the plan or recorded why that path cannot continue. Reply as JSON {\"answer\":\"yes\"}.",
+              "breakOn": "yes"
+            }
+          ]
+        },
+        {
+          "type": "break",
+          "label": "Exit Review Loop After Serious Review Work Was Tasked Up",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Then read `codeInfoStatus/flow-state/current-plan.json` from disk, for example with `cat codeInfoStatus/flow-state/current-plan.json`, determine `plan_path`, and re-open that exact plan from disk using `sed`, `cat`, or `rg` before answering. Answer only from those freshly re-read files. Answer yes iff the current review loop added or updated numbered review-fix tasks for unresolved task-required findings or incomplete-review blockers, meaning the flow should leave the review loop and return to the main implementation loop. Answer no otherwise, including when no numbered task was added or when only a post-loop final minor-fix revalidation task may still need to be considered. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "breakOn": "yes"
+        },
+        {
+          "type": "break",
+          "label": "Exit Review Loop When No Further Minor Rerun Is Needed",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer no iff `needs_review_rerun_before_close` is true and no serious review task-up work was added, because the review must run again against the new HEAD before the loop can finish. Answer yes iff `needs_review_rerun_before_close` is false, meaning the review loop may now finish cleanly and let downstream flow steps decide whether a post-loop final minor-fix revalidation task is needed. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "breakOn": "yes"
+        }
+      ]
     },
     {
       "type": "llm",
-      "label": "Review disposition",
+      "label": "Generate Or Update Final Revalidation Task For Minor Fixes",
       "agentType": "planning_agent",
       "identifier": "planner",
-      "markdownFile": "review_disposition.md"
+      "markdownFile": "generate_or_update_minor_fix_revalidation_task.md"
     },
     {
       "type": "llm",
-      "label": "Ensure findings became tasks",
+      "label": "Write Review No-Findings Closeout",
       "agentType": "planning_agent",
       "identifier": "planner",
-      "markdownFile": "ensure_review_findings_became_tasks.md"
-    },
-    {
-      "type": "command",
-      "label": "Task up review tasks",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "commandName": "task_up_review_tasks"
-    },
-    {
-      "type": "llm",
-      "label": "Check review tasking quality",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "review_task_enhancement/04-check-quality.md"
-    },
-    {
-      "type": "llm",
-      "label": "Refresh current plan handoff after review",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "refresh_current_plan_handoff.md"
-    },
-    {
-      "type": "llm",
-      "label": "Ensure Testing Steps Are Correct",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "ensure_task_testing_matches_current_contract.md"
-    },
-    {
-      "type": "llm",
-      "label": "Create Or Update Simple Story",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "task_up/15-create-or-update-simple-story.md"
+      "markdownFile": "write_review_no_findings_closeout.md"
     },
     {
       "type": "llm",
@@ -101,7 +202,7 @@
         {
           "role": "user",
           "content": [
-            "Read `codeInfoStatus/flow-state/current-plan.json` first and determine the active `plan_path`, then extract repository paths from `additional_repositories` as the active scope for this flow. If possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
+            "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, determine the active `plan_path`, then extract repository paths from `additional_repositories` as the active scope for this flow. If possible, git push the story branch in the current repository and in every repository listed in `additional_repositories`."
           ]
         }
       ]

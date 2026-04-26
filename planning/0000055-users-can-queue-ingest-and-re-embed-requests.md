@@ -15623,7 +15623,7 @@ Repair blocking re-embed queue-read failure handling so a queue backend read out
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `191`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F5`: production remove can bypass queue-state guards that block destructive UI actions.
 
@@ -15699,7 +15699,7 @@ Move the queued/running/cleanup-blocked destructive-action guard from UI-only pr
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
 3. [x] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
 4. [x] Run `npm run lint`.
-5. [x] Run `npm run format:check`.
+5. [ ] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 

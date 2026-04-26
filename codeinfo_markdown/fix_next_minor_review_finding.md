@@ -38,7 +38,9 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Keep the edit minimal and directly tied to the selected finding.
 - Do not combine unrelated findings in one fix.
 - A minor fix may include one or two small focused automated test updates or additions in the owning repository when that keeps the change bounded and honest.
+- A minor fix may still restore an already intended same-repository contract, validation parity, or route-check ordering when that work remains bounded to one clear seam and does not broaden into a larger contract redesign.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
+- Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.
 - This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.
 - If the fix starts to require a broader design change, stop and write a `reclassify_task_required` result.
 - If the implementation or proof needed for the selected finding starts to require broader proof-authoring, multi-repository change coordination, contract reinterpretation, or a larger refactor, stop and write a `reclassify_task_required` or `blocked` result.

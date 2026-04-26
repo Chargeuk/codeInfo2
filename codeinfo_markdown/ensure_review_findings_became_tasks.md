@@ -37,6 +37,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Treat this step as the serious-issue task-up path. If it adds numbered review-fix tasks, the review loop should stop and return to the main implementation loop rather than continuing minor reruns in the same review pass.
 - Treat `resolved_minor_findings` as already handled inline. Do not create numbered tasks for those finding IDs, even if the original findings artifact still lists them as `must_fix` or `should_fix`.
 - Treat `unresolved_minor_batchable_findings` as owned by the minor-fix path, not this task-up path. Do not create numbered tasks for them unless they have been reclassified into `unresolved_task_required_findings`.
+- If a prior recheck step moved a formerly serious-seeming finding back into `unresolved_minor_batchable_findings`, treat that move as authoritative for this loop pass unless later execution explicitly reclassifies the finding again.
 - Do not create a numbered review-fix task solely because a finding required a small local automated test update or one or two new focused tests in the owning repository.
 - If this step creates or updates the cycle's fresh final revalidation task, it becomes the one final review task for the whole current review cycle. Record that ownership in `review-disposition-state.json` so the inline-minor final-task path does not create a second final task later.
 - If the disposition state says `needs_task_up_path` is false, make no plan changes in this step and report that no unresolved task-required findings remain for task-up.
@@ -50,7 +51,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 1. Determine the task-up outcome primarily from `review-disposition-state.json` when it is present and valid; otherwise determine the review outcome from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the chosen source of truth, trust the chosen source and record the mismatch in the repair notes.
 2. If the chosen source of truth communicates unresolved task-required findings or incomplete-review blockers, the plan must visibly encode that unresolved review outcome on disk before this step finishes.
-3. Task-up is for findings that exceed the minor-path guardrails, such as contract/schema/lifecycle changes, broad refactors, unclear implementation ownership, ambiguity, or fixes that balloon during execution. It is not for otherwise bounded findings that only needed a small local test update.
+3. Task-up is for findings that exceed the minor-path guardrails, such as contract/schema/lifecycle changes, broad refactors, unclear implementation ownership, ambiguity, destructive public authority-boundary changes, multi-surface error-taxonomy reinterpretation, or fixes that balloon during execution. It is not for otherwise bounded findings that only needed a small local test update or that merely restore an already intended same-repository contract.
 4. A task-required findings-present plan is considered correctly encoded only when all of the following are true:
    - the plan contains a new `Code Review Findings` section for the current `review_pass_id`;
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;

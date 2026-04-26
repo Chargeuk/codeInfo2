@@ -316,6 +316,13 @@
               "markdownFile": "classify_review_disposition.md"
             },
             {
+              "type": "llm",
+              "label": "Re-check Task-Required Findings For Inline Attempt",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "recheck_task_required_findings_for_inline_attempt.md"
+            },
+            {
               "type": "startLoop",
               "label": "Minor Review Fix Path",
               "steps": [

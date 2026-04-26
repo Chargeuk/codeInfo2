@@ -447,6 +447,42 @@ test('ingest-start rejects malformed typed body fields before queue admission or
   }
 });
 
+test('ingest-start has a dedicated missing-name contract before queue admission', async () => {
+  let enqueueCalled = false;
+  let pumpCalled = false;
+  const response = await request(
+    buildApp({
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return buildQueueResult();
+      },
+      pumpIngestQueue: async () => {
+        pumpCalled = true;
+        return {
+          started: true,
+          blockedByCleanup: false,
+          requestId: 'queue-request-123',
+          runId: '00000000-0000-0000-0000-000000000123',
+        };
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(response.body, {
+    status: 'error',
+    code: 'VALIDATION',
+    message: 'path and name are required',
+  });
+  assert.equal(enqueueCalled, false);
+  assert.equal(pumpCalled, false);
+});
+
 test('ingest-start rejects relative queue roots before queue admission creates any row', async () => {
   let enqueueCalled = false;
 

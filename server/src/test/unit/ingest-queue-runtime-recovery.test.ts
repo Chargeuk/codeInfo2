@@ -211,6 +211,56 @@ test('startup recovery replays queued reembed work using persisted requestPayloa
   ]);
 });
 
+test('startup recovery rejects missing start_ingest requestPayload.name before discovery resumes', async () => {
+  let getOrCreateCollectionCalls = 0;
+  const deletedRequestIds: string[] = [];
+  const recoveryQueueRequest = createQueueRequest({
+    requestId: '17',
+    root: '/missing/start-recovery-without-name',
+    operation: 'start',
+    queueState: 'running',
+    runId: 'run-recovered-missing-name',
+  });
+  delete recoveryQueueRequest.requestPayload.name;
+
+  mock.method(ChromaClient.prototype, 'getOrCreateCollection', async () => {
+    getOrCreateCollectionCalls += 1;
+    return {
+      get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
+    } as never;
+  });
+
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async (requestId: string) => {
+      deletedRequestIds.push(requestId);
+      return null;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => recoveryQueueRequest,
+    markQueueRequestNonReplayable: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+
+  const result = await recoverIngestQueueOnStartup();
+  assert.equal(result.recovered, true);
+
+  const terminal = await waitForQueueManagedTerminalStatus(
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+    1_000,
+  );
+  await waitForNextTurn();
+  await waitForNextTurn();
+
+  assert.equal(terminal.state, 'error');
+  assert.equal(terminal.lastError, 'path and name are required');
+  assert.equal(terminal.error?.error, 'VALIDATION');
+  assert.equal(getOrCreateCollectionCalls, 0);
+  assert.deepEqual(deletedRequestIds, [
+    requestQueue.getQueueRequestId(recoveryQueueRequest),
+  ]);
+});
+
 test('startup recovery rejects unrelated persisted reembed paths before discovery resumes', async () => {
   process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
   const canonicalRoot = '/allowed/workdir/recover-canonical-root';

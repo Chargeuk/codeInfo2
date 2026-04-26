@@ -135,6 +135,90 @@ test('queue pump creates the real runId only when queued work actually starts', 
   assert.equal(getStatus(promotedRunId)?.runId, promotedRunId);
 });
 
+test('queue promotion rejects missing start_ingest requestPayload.name before discovery and still allows the next valid waiting start request to run', async () => {
+  setupIngestChromaMocks();
+  const { root: validRoot, cleanup } = await createTempRepo({
+    'src/valid.ts': 'export const valid = true;\n',
+  });
+  const deletedRequestIds: string[] = [];
+
+  try {
+    const malformed = createQueueRequest({
+      requestId: 'start-missing-name',
+      root: '/missing/start-without-name',
+      operation: 'start',
+      queueState: 'running',
+    });
+    delete malformed.requestPayload.name;
+    const malformedRequestId = requestQueue.getQueueRequestId(malformed);
+    const valid = createQueueRequest({
+      requestId: 'start-valid-waiting',
+      root: validRoot,
+      operation: 'start',
+      queueState: 'running',
+    });
+    const queueRequests = [malformed, valid];
+    let promotedMalformedRunId = '';
+    const startedPaths: string[] = [];
+
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async (deletedRequestId: string) => {
+        deletedRequestIds.push(deletedRequestId);
+        return null;
+      },
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      markQueueRequestNonReplayable: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async (runId: string) => {
+        const next = queueRequests.shift();
+        if (!next) {
+          return null;
+        }
+        if (next === malformed) {
+          promotedMalformedRunId = runId;
+        }
+        return { ...next, runId };
+      },
+    });
+
+    const malformedResult = await pumpIngestQueue();
+    assert.equal(malformedResult.started, true);
+
+    const malformedTerminal = await waitForQueueManagedTerminalStatus(
+      malformedResult.requestId as string,
+      1_000,
+    );
+    await waitForNextTurn();
+    await waitForNextTurn();
+
+    assert.equal(malformedTerminal.state, 'error');
+    assert.equal(malformedTerminal.lastError, 'path and name are required');
+    assert.equal(malformedTerminal.error?.error, 'VALIDATION');
+    assert.ok(
+      deletedRequestIds.includes(malformedRequestId),
+      'malformed persisted queued start should still finalize through the invalid-state path',
+    );
+    assert.equal(
+      getStatus(promotedMalformedRunId)?.state,
+      'error',
+      'missing requestPayload.name should fail before queue promotion reaches discovery work',
+    );
+
+    __setRunProcessorForTest(async (runId, input) => {
+      startedPaths.push(input.path);
+      release(runId);
+    });
+
+    const validResult = await pumpIngestQueue();
+    await waitForNextTurn();
+
+    assert.equal(validResult.started, true);
+    assert.deepEqual(startedPaths, [validRoot]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('queue promotion rejects queued zero-work reembed drift at execution time and releases queue ownership cleanly', async () => {
   const { vectors } = setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({

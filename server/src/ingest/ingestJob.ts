@@ -71,6 +71,7 @@ import {
   assertReembedRootStateAllowed,
   createInvalidReembedStateError,
   resolveRequestEmbeddingSelection,
+  validateStartIngestRequestName,
   validateQueueableRepositoryRootPath,
 } from './requestContracts.js';
 import * as requestQueue from './requestQueue.js';
@@ -558,9 +559,13 @@ function toQueueManagedInput(queueRequest: {
       ? payload.path
       : undefined;
   const nameValue =
-    typeof payload.name === 'string' && payload.name.length > 0
-      ? payload.name
-      : path.posix.basename(pathValue) || 'repo';
+    queueRequest.operation === 'start'
+      ? typeof payload.name === 'string'
+        ? payload.name
+        : ''
+      : typeof payload.name === 'string' && payload.name.length > 0
+        ? payload.name
+        : path.posix.basename(pathValue) || 'repo';
 
   return {
     canonicalTargetPath,
@@ -883,6 +888,15 @@ export async function validateExecutableIngestInput(
     selection?: ResolvedEmbeddingModelSelection;
   },
 ) {
+  if ((input.operation ?? 'start') !== 'reembed') {
+    const validatedName = validateStartIngestRequestName(input.name);
+    if (typeof validatedName !== 'string') {
+      const error = new Error(validatedName.message);
+      (error as { code?: string }).code = validatedName.code;
+      throw error;
+    }
+  }
+
   const requested = options?.selection ?? resolveValidatedInputSelection(input);
   if (
     requested.providerId === 'openai' &&

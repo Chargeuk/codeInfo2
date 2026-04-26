@@ -71,6 +71,28 @@ const startIngestBodyFields = new Set([
   'embeddingModel',
 ]);
 
+export function validateStartIngestRequestName(
+  rawName: unknown,
+): string | RequestContractValidationError {
+  if (typeof rawName !== 'string') {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'name must be a string',
+    };
+  }
+
+  if (rawName.length === 0) {
+    return {
+      status: 400,
+      code: 'VALIDATION',
+      message: 'path and name are required',
+    };
+  }
+
+  return rawName;
+}
+
 export function createInvalidReembedStateError() {
   const error = new Error('INVALID_REEMBED_STATE');
   (error as { code?: string }).code = 'INVALID_REEMBED_STATE';
@@ -252,20 +274,9 @@ export function validateStartIngestRequestBody(
     };
   }
 
-  if (typeof record.name !== 'string') {
-    return {
-      status: 400,
-      code: 'VALIDATION',
-      message: 'name must be a string',
-    };
-  }
-
-  if (record.name.length === 0) {
-    return {
-      status: 400,
-      code: 'VALIDATION',
-      message: 'path and name are required',
-    };
+  const validatedName = validateStartIngestRequestName(record.name);
+  if (typeof validatedName !== 'string') {
+    return validatedName;
   }
 
   if (
@@ -287,7 +298,10 @@ export function validateStartIngestRequestBody(
     };
   }
 
-  return record as StartIngestRequestBody;
+  return {
+    ...(record as Omit<StartIngestRequestBody, 'name'>),
+    name: validatedName,
+  };
 }
 
 function normalizeProvider(

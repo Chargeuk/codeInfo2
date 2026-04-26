@@ -497,6 +497,53 @@ describe('RootsTable', () => {
     expect(bulkReembed).toBeDisabled();
   });
 
+  it('keeps row-level Remove disabled for queued and cleanup-blocked rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-queued',
+            name: 'repo-queued',
+            status: 'ingesting',
+            phase: 'queued',
+            queueState: 'waiting',
+            queuePosition: 1,
+            runId: null,
+            requestId: 'queue-request-queued',
+          },
+          {
+            ...root,
+            path: '/repo-cleanup',
+            name: 'repo-cleanup',
+            status: 'ingesting',
+            phase: 'embedding',
+            queueState: 'cleanup-blocked',
+            runId: 'run-cleanup',
+            requestId: 'queue-request-cleanup',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const queuedRow = await screen.findByRole('row', { name: /repo-queued/i });
+    const cleanupRow = await screen.findByRole('row', {
+      name: /repo-cleanup/i,
+    });
+
+    expect(
+      within(queuedRow).getByRole('button', { name: /^Remove$/i }),
+    ).toBeDisabled();
+    expect(
+      within(cleanupRow).getByRole('button', { name: /^Remove$/i }),
+    ).toBeDisabled();
+  });
+
   it('keeps running rows out of mixed bulk selection and disables the matching row re-embed action', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({ status: 'ok', unlocked: true }),

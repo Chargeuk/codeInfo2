@@ -15822,3 +15822,258 @@ Optional later manual validation can focus on the externally observable seams re
 - Review pass `0000055-20260426T203714Z-ff22e029`, finding `7`, `current_repository`: added direct row-level `Remove` proof for queued and cleanup-blocked rows; changed files `client/src/test/ingestRoots.test.tsx`; commit `b4fa0b7d`; proof `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` passed with 46 tests and no failures; disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Review pass `0000055-20260426T203714Z-ff22e029`, finding `8`, `current_repository`: added direct mixed-failure and full-failure bulk re-embed proof when per-row helpers swallow errors; changed files `client/src/test/ingestRoots.test.tsx`; commit `2c97b148`; proof `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx` passed with 48 tests and no failures; disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Review pass `0000055-20260426T203714Z-ff22e029`, finding `9`, `current_repository`: added direct proof that the shared ingest-form disabled state reaches non-submit sibling controls during an in-flight submit; changed files `client/src/test/ingestForm.test.tsx`; commit `b66d75d3`; proof `npm run test:summary:client -- --file client/src/test/ingestForm.test.tsx` passed with 27 tests and no failures; disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
+
+## Code Review Findings - Review Pass `0000055-20260426T203714Z-ff22e029`
+
+Review pass `0000055-20260426T203714Z-ff22e029` reviewed local `HEAD` `ff22e02945d84f3c90cc7d413e85daed563d9c1e` against remote base `origin/main` commit `df59362174de5b6c34048e9cb7497b0b807fceb4` using comparison rule `local_head_vs_resolved_base`. The current repository was the only repository in scope; `additional_repositories` was empty and no local fallback base was used because the review handoff recorded `remote_fetch_status: success`.
+
+Durable review artifacts for this pass:
+
+- Review handoff: `codeInfoTmp/reviews/0000055-current-review.json`
+- Evidence: `codeInfoTmp/reviews/0000055-20260426T203714Z-ff22e029-evidence.md`
+- Findings: `codeInfoTmp/reviews/0000055-20260426T203714Z-ff22e029-findings.md`
+- Saturation: `codeInfoTmp/reviews/0000055-20260426T203714Z-ff22e029-findings-saturation.md`
+- Blind-spot challenge: `codeInfoTmp/reviews/0000055-20260426T203714Z-ff22e029-blind-spot-challenge.md`
+
+Endorsed findings requiring plan follow-up:
+
+- `F1` `must_fix`: queued start replay silently reconstructs a missing `requestPayload.name` instead of preserving the immediate admission contract for deferred promotion and startup recovery.
+- `F2` `must_fix`: mixed-shape canonical re-embed metadata is misclassified as provider availability loss and can escape one shared caller as an uncaught exception instead of a structured invalid-state result.
+- `F3` `must_fix`: the production remove route normalizes the public selector before the destructive authority boundary, so alias forms can retarget deletion.
+- `F4` `should_fix`: the production remove route checks generic busy state before target-owned queue blocking, so queued targets can lose the stronger `QUEUE_STATE_BLOCKED` contract when unrelated work is active.
+
+Inline minor findings `5` through `9` were already resolved during this active review loop and remain documented in `## Minor Review Fixes`; they must be revalidated by the fresh final task in this block rather than reopened as numbered repair tasks. The saturation and blind-spot challenge artifacts produced no additional actionable findings beyond the four serious findings above and the already-resolved inline minor set.
+
+### Task 197. Preserve Start-Request Admission Contracts During Deferred Queue Replay
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `196`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F1`: queued start replay repairs a missing `requestPayload.name` instead of preserving the original admission contract.
+
+#### Overview
+
+Repair the deferred start replay seam so queued promotion and startup recovery preserve the same required-field contract enforced at immediate `POST /ingest/start` admission. Missing `requestPayload.name` must fail closed as invalid persisted request state instead of being silently rebuilt from the path basename.
+
+#### Task Exit Criteria
+
+- `R1.` Deferred queued start execution and startup recovery do not reconstruct `requestPayload.name` from `basename(path)` or any other fallback when the persisted queued payload is missing `name`.
+- `R2.` A persisted queued start row that lost `requestPayload.name` fails as invalid state before discovery or embedding work begins, while a valid queued start payload still promotes normally.
+- `R3.` Immediate `POST /ingest/start` admission, queue identity, and display metadata remain unchanged for valid requests.
+- `R4.` Deferred-start proof covers both direct queue promotion and startup recovery so the repaired contract is not limited to one replay surface.
+
+#### Proof Mapping
+
+- `P1.` admission-contract preservation for `R1` through `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/requestContracts.ts`; proof homes are `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` and the nearest queue-runtime deferred-start unit proof that owns queued start replay.
+- `P2.` startup-recovery parity for `R2` and `R4`: implementation owner is `server/src/ingest/ingestJob.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
+
+#### Risk Ownership
+
+- Highest-risk invariant: deferred queued start replay must not widen the accepted request contract beyond what immediate admission allows.
+- Keep the queue identity and valid payload behavior unchanged; this task owns only the fail-closed handling for malformed persisted queued start state and the proof that both replay surfaces honor it.
+
+#### Documentation Locations
+
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/requestContracts.ts`
+- `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-startup.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the queued start admission contract in `server/src/ingest/requestContracts.ts` and the deferred replay/startup recovery seams in `server/src/ingest/ingestJob.ts`, then identify the exact fallback that reconstructs `requestPayload.name` during promotion or recovery.
+2. [ ] Patch the deferred queued start replay path so persisted `requestPayload.name` is treated as required contract state during promotion and startup recovery; missing `name` must become an invalid persisted request failure instead of being silently rebuilt from the path basename.
+3. [ ] Update the queue-runtime replay proof so a queued start row missing `requestPayload.name` fails before discovery or embedding work, while a valid queued start payload still promotes successfully through the same replay surface.
+4. [ ] Update the startup recovery proof so recovered queued start rows enforce the same missing-`name` contract and do not admit a replay-only success path that immediate `POST /ingest/start` would reject.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-startup.test.ts`.
+3. [ ] Run `npm run lint`.
+4. [ ] Run `npm run format:check`.
+
+### Task 198. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `196`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
+
+#### Overview
+
+Repair the mixed-shape canonical re-embed validation seam so repo-list metadata, REST admission, and `runReingestRepository()` all classify the same invalid canonical OpenAI shape consistently. The shared caller contract must return a structured invalid-state result instead of surfacing `OPENAI_MODEL_UNAVAILABLE` as the wrong REST code or as an uncaught exception.
+
+#### Task Exit Criteria
+
+- `R1.` Partial canonical OpenAI metadata is classified as the intended invalid lock or invalid re-embed state rather than as provider availability loss.
+- `R2.` `POST /ingest/reembed/:root` returns the same structured invalid-state contract for the mixed-shape row that shared callers receive.
+- `R3.` `runReingestRepository()` and at least one downstream transport surface prove that this mixed-shape contract returns a structured result and does not escape as an uncaught exception.
+- `R4.` Valid canonical metadata and unrelated provider-availability failures retain their existing behavior.
+
+#### Proof Mapping
+
+- `P1.` shared classification repair for `R1`, `R3`, and `R4`: implementation owner is `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/reingestService.test.ts`.
+- `P2.` REST contract parity for `R1` and `R2`: implementation owners are `server/src/routes/ingestReembed.ts` and `server/src/ingest/reingestService.ts`; proof home is `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+- `P3.` shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are the nearest MCP or command-path re-ingest tests that already prove `runReingestRepository()` result shaping.
+
+#### Risk Ownership
+
+- Highest-risk invariant: one invalid canonical metadata shape must not fragment into different public contracts across REST and shared caller surfaces.
+- Keep successful queued re-embed behavior and genuine provider-unavailable behavior intact; this task owns only the mixed-shape invalid-state classification and no-throw contract.
+
+#### Documentation Locations
+
+- `server/src/ingest/reingestService.ts`
+- `server/src/routes/ingestReembed.ts`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
+- `server/src/test/unit/mcp.reingest.classic.test.ts`
+- `server/src/test/unit/mcp2.reingest.tool.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the mixed-shape canonical metadata producer in `server/src/lmstudio/toolService.ts`, the queued re-embed admission checks in `server/src/ingest/reingestService.ts`, and the REST classifier in `server/src/routes/ingestReembed.ts` to isolate the exact mismatch between invalid-state handling and provider-availability handling.
+2. [ ] Patch the shared queued re-embed validation/classification path so partial canonical OpenAI metadata is mapped to the intended invalid-state contract instead of `OPENAI_MODEL_UNAVAILABLE`, while preserving the existing behavior for valid canonical metadata and genuine provider-availability failures.
+3. [ ] Patch `runReingestRepository()` result shaping so the mixed-shape canonical metadata case returns a structured invalid-state result for shared callers instead of escaping as an uncaught exception.
+4. [ ] Update REST proof for the mixed-shape row so `POST /ingest/reembed/:root` returns the same structured invalid-state contract that the shared service now returns.
+5. [ ] Update one shared-caller proof surface so the same mixed-shape row reaches the repaired `runReingestRepository()` contract without throwing, preserving transport parity beyond the REST route.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+4. [ ] Run `npm run lint`.
+5. [ ] Run `npm run format:check`.
+
+### Task 199. Enforce Exact Remove Selectors Before Target-First Queue Blocking
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `196`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F3`: production remove normalizes a public selector before the destructive authority boundary.
+  - `F4`: production remove can hide target-owned queue blocking behind a generic `BUSY` response.
+
+#### Overview
+
+Repair the production remove route so the public selector is validated as an exact destructive identifier before any alias normalization can retarget deletion, and so target-owned queue blocking outranks unrelated global busy state. The route must continue to allow legitimate exact-root removals and keep the test-only cleanup route boundary distinct.
+
+#### Task Exit Criteria
+
+- `R1.` Production remove rejects or safely blocks alias, dot-segment, or otherwise non-exact selectors before destructive lookup or removal.
+- `R2.` When the target itself is waiting, running, cleanup-blocked, or otherwise queue-owned, the route returns `QUEUE_STATE_BLOCKED` with target-owned metadata even if unrelated ingest work also keeps the system busy.
+- `R3.` Exact valid idle or completed removals continue to use the persisted root-path authority and keep the current success contract.
+- `R4.` The test-only cleanup route remains distinct from the production authority boundary after the repair.
+
+#### Proof Mapping
+
+- `P1.` exact-selector validation for `R1` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof homes are `server/src/test/features/ingest-remove.feature` and the nearest direct route proof for destructive selector validation.
+- `P2.` target-first queue blocking for `R2` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof homes are `server/src/test/features/ingest-remove.feature` and `server/src/test/integration/ingest-lock-lifecycle.test.ts`.
+- `P3.` cleanup-route separation for `R4`: implementation owner is `server/src/routes/ingestE2eCleanup.ts`; proof home is `server/src/test/integration/ingest-e2e-cleanup.test.ts` if any shared helper changes are required.
+
+#### Risk Ownership
+
+- Highest-risk invariant: destructive remove must not accept weaker public selectors than the route it ultimately mutates, and it must not downgrade target-owned queue blocking into unrelated global busy state.
+- Keep existing queue-owned remove blocking, idle success behavior, and cleanup-route env gating intact; this task owns only the selector authority and ordering repair plus its direct proof.
+
+#### Documentation Locations
+
+- `server/src/routes/ingestRemove.ts`
+- `server/src/routes/ingestE2eCleanup.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/test/features/ingest-remove.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `server/src/test/integration/ingest-lock-lifecycle.test.ts`
+- `server/src/test/integration/ingest-e2e-cleanup.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the production remove route, its current selector normalization, and its queue-state ordering so the exact destructive-boundary authority and the busy-vs-target-blocking mismatch are isolated before patching.
+2. [ ] Patch the production remove route so the public selector is validated as an exact destructive identifier before destructive lookup or removal, and alias or dot-segment forms cannot retarget the normalized root.
+3. [ ] Patch the production remove route so target-owned queue blocking is evaluated before generic busy-state fallback, preserving `QUEUE_STATE_BLOCKED` metadata whenever the selected target itself is queue-owned.
+4. [ ] Update direct production remove proof so alias selectors are rejected or safely blocked before destructive removal, and so the route returns `QUEUE_STATE_BLOCKED` rather than generic `BUSY` when an unrelated active run coexists with a queued target.
+5. [ ] Inspect the test-only cleanup route after the production repair and patch its proof only if a shared helper change actually affects the cleanup boundary; otherwise leave that route unchanged and record that the authority boundary remained isolated.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
+4. [ ] Run `npm run lint`.
+5. [ ] Run `npm run format:check`.
+
+### Task 200. Re-Validate Story 55 After Review Pass `0000055-20260426T203714Z-ff22e029`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `197, 198, 199`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - Final validation for review pass `0000055-20260426T203714Z-ff22e029`, covering task-required findings `F1` through `F4` and inline-resolved minor findings `5` through `9`.
+
+#### Overview
+
+Revalidate Story 55 after the serious review-created repair tasks for deferred start replay, mixed-shape re-embed classification, and production remove authority are complete. This final task owns the broad current-repository proof that the new review-created findings block and the already-resolved inline minor fixes close together without regressing the supported build, test, runtime, and browser-visible story surfaces.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks `197` through `199` are `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `R2.` The appended `Code Review Findings` block for review pass `0000055-20260426T203714Z-ff22e029` is revalidated on disk rather than left as artifact-only review intent.
+- `R3.` The inline minor fixes recorded in `## Minor Review Fixes` for findings `5` through `9` are revalidated alongside the serious task-required findings in this same final pass rather than through a separate closing task.
+- `R4.` Fresh automated validation reruns the current repository supported server build, client build, server unit, server cucumber, client, e2e, compose build, compose up, host-network main, compose down, lint, and format wrappers needed to revalidate the repaired seams plus the supported main runtime path.
+- `R5.` If any repaired seam remains partially proven, the close-out records that residual risk explicitly instead of silently reclosing the story.
+
+#### Proof Mapping
+
+- `P1.` dependency completion for `R1`: proof home is parser output for Tasks `197` through `199` plus their checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
+- `P2.` findings-block and inline-minor disposition for `R2` and `R3`: proof homes are this `Code Review Findings` block, `## Minor Review Fixes`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+- `P3.` broad automated regression proof for `R4`: proof homes are the wrapper outputs produced by this task's `Testing` section.
+- `P4.` residual-risk honesty for `R5`: proof homes are this task's implementation notes and the refreshed PR summary close-out.
+
+#### Risk Ownership
+
+- Highest-risk invariant: final validation must prove both the serious review-created repair block and the already-resolved inline minor fixes through the repository-supported wrapper and runtime paths, not only through targeted repair-task tests or review artifacts.
+- If a broad wrapper exposes a new product defect, preserve it as a blocker or follow-up rather than absorbing it into a silent close-out.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/routes/ingestRemove.ts`
+- `server/src/routes/ingestReembed.ts`
+- `server/src/ingest/requestContracts.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/components/ingest/IngestForm.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+- `client/src/test/ingestForm.test.tsx`
+
+#### Subtasks
+
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260426T203714Z-ff22e029`, the `## Minor Review Fixes` entries for findings `5` through `9`, and the completed proof-owner sections for Tasks `197` through `199`; check off this subtask only after parser output shows each dependency task is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for serious findings `F1` through `F4` plus inline-resolved minor findings `5` through `9`, including repaired files, exact proof homes, current review artifacts, and any residual risk already known before this task's broad wrapper execution.
+3. [ ] Re-open this plan after the summary refresh and verify that this findings block, the `## Minor Review Fixes` section, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` all list the same owners, proof homes, inline-minor coverage, and final validation scope before the testing section runs.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run test:summary:e2e`.
+7. [ ] Run `npm run compose:build:summary`.
+8. [ ] Run `npm run compose:up`.
+9. [ ] Run `npm run test:summary:host-network:main`.
+10. [ ] Run `npm run compose:down`.
+11. [ ] Run `npm run lint`.
+12. [ ] Run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+Optional later manual validation can focus on the repaired externally observable seams for this review cycle: deferred queued start replay behavior after restart, mixed-shape re-embed error shaping, exact remove-selector rejection, queued-target remove blocking under unrelated active work, and the already-resolved inline client fixes for roots and ingest-form disabled-state behavior. Use the normal Docker stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`; retain any sanitized proof under `codeInfoStatus/manual-testing/0000055/` only after confirming it contains no provider identifiers or token-like values.

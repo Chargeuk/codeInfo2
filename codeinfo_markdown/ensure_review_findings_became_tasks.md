@@ -50,8 +50,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 1. Determine the task-up outcome primarily from `review-disposition-state.json` when it is present and valid; otherwise determine the review outcome from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the chosen source of truth, trust the chosen source and record the mismatch in the repair notes.
 2. If the chosen source of truth communicates unresolved task-required findings or incomplete-review blockers, the plan must visibly encode that unresolved review outcome on disk before this step finishes.
-2a. Task-up is for findings that exceed the minor-path guardrails, such as contract/schema/lifecycle changes, broad refactors, unclear implementation ownership, ambiguity, or fixes that balloon during execution. It is not for otherwise bounded findings that only needed a small local test update.
-3. A task-required findings-present plan is considered correctly encoded only when all of the following are true:
+3. Task-up is for findings that exceed the minor-path guardrails, such as contract/schema/lifecycle changes, broad refactors, unclear implementation ownership, ambiguity, or fixes that balloon during execution. It is not for otherwise bounded findings that only needed a small local test update.
+4. A task-required findings-present plan is considered correctly encoded only when all of the following are true:
    - the plan contains a new `Code Review Findings` section for the current `review_pass_id`;
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
@@ -63,10 +63,10 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
    - tiny unrelated cleanup-only findings are not left as a trail of micro-tasks when they could be absorbed into a nearby substantive task or grouped into one cleanup task honestly.
-4. If the chosen source of truth communicates no unresolved task-required findings and no incomplete-review blockers, make no plan change in this task-up step.
-5. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of claiming the review is clean.
-6. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
-7. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
+5. If the chosen source of truth communicates no unresolved task-required findings and no incomplete-review blockers, make no plan change in this task-up step.
+6. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of claiming the review is clean.
+7. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
+8. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
 
 </decision_rules>
 
@@ -75,24 +75,24 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 1. When findings are present and the plan is missing review-fix tasks, add them directly to the end of the canonical plan in the repository's existing review-task format.
 2. Add one or more review-fix tasks that respond to the unresolved task-required findings from the chosen source of truth, with explicit repository ownership, compact subtasks, proof homes, and wrapper-first testing.
 3. Add a fresh final re-test or revalidation task after the new review-fix tasks so the story cannot close without re-running proof. This final task may remain one task with one implementation owner while still validating multiple repositories. It must name the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns for the current review-created findings block, or state why a category is not applicable.
-3a. When `resolved_minor_findings` already exist in the active review disposition state, make that same fresh final revalidation task explicitly cover those inline-resolved minor fixes too instead of leaving them to a second final revalidation task later.
-4. If the repaired or newly added review-created tasks still mix execution commands into `Subtasks`, rewrite them so runnable wrapper or test commands live in `Testing` while `Subtasks` keep implementation work, proof-authoring work, retained proof-home updates, screenshots, and logs.
-4a. Do not reject or rewrite a review-created task solely because its `Testing` references another repository for compatibility proof. Only implementation ownership and owner-scoped subtasks must stay single-repository.
-5. Treat routine `Implementation Notes` refreshes as plan-maintenance that happens after the related subtask or testing step completes, not as standalone or future-dependent subtask items.
-6. Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
-7. If adjacent review-created tasks inside the newly appended review-created block share repository ownership plus the same repair seam, root cause, contract or lifecycle surface, prerequisite chain, or coherent proof story, merge them into one substantive review-fix task unless a split is required for clarity, sequencing, ownership, or proof honesty.
-8. Do not preserve separate review-created tasks solely because the grouped fix needs multiple proof files, wrappers, assertions, or documentation-visible proof surfaces when the implementation repair is one coherent seam.
-9. Do not merge findings solely because they share a repository or likely implementation owner.
-10. Tiny unrelated low-risk cleanup-only tasks may be absorbed only into another newly created substantive review-fix task inside that same appended block when that keeps the plan clearer and does not blur the proof story.
-11. If several tiny unrelated cleanup-only findings have no natural parent task inside that same block, collapse them into one small cleanup task inside that block instead of preserving one task per trivial fix.
-12. Never let merge or cleanup grouping create a junk-drawer task. If a merged review-created task becomes vague, bloated, or loses a clear seam, ownership boundary, stopping rule, or proof story, split it back apart before finishing this step.
-13. Before keeping a merged or grouped review-created task, verify that it has one clear stopping point, one coherent proof story, and no finding that was grouped only because it shares a repository or likely implementer.
-14. If uncertainty remains about whether a merged or collapsed task is still honest and concrete, prefer a slightly more explicit split over an unclear combined task.
-15. Do not repair over-fragmentation by rewriting older pre-existing story tasks. Keep the findings response self-contained in the new review-created block.
-16. Ensure each review-created task and the fresh final revalidation task preserve durable finding-to-task coverage in the plan itself.
-17. Keep the repair concrete and executable by a junior developer. If a finding is still too unclear for a direct code-change task, create a bounded diagnostic task with an explicit stopping rule rather than leaving the finding un-tasked.
-18. If the stored review outcome cannot be interpreted safely enough to choose the findings-present or incomplete-review path, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review.
-19. After repairing the plan, re-open it from disk and verify that the required postcondition now exists before finishing this step.
+4. When `resolved_minor_findings` already exist in the active review disposition state, make that same fresh final revalidation task explicitly cover those inline-resolved minor fixes too instead of leaving them to a second final revalidation task later.
+5. If the repaired or newly added review-created tasks still mix execution commands into `Subtasks`, rewrite them so runnable wrapper or test commands live in `Testing` while `Subtasks` keep implementation work, proof-authoring work, retained proof-home updates, screenshots, and logs.
+6. Do not reject or rewrite a review-created task solely because its `Testing` references another repository for compatibility proof. Only implementation ownership and owner-scoped subtasks must stay single-repository.
+7. Treat routine `Implementation Notes` refreshes as plan-maintenance that happens after the related subtask or testing step completes, not as standalone or future-dependent subtask items.
+8. Allow execution commands to remain in `Subtasks` only when the task is specifically creating, repairing, or proving a harness or wrapper itself.
+9. If adjacent review-created tasks inside the newly appended review-created block share repository ownership plus the same repair seam, root cause, contract or lifecycle surface, prerequisite chain, or coherent proof story, merge them into one substantive review-fix task unless a split is required for clarity, sequencing, ownership, or proof honesty.
+10. Do not preserve separate review-created tasks solely because the grouped fix needs multiple proof files, wrappers, assertions, or documentation-visible proof surfaces when the implementation repair is one coherent seam.
+11. Do not merge findings solely because they share a repository or likely implementation owner.
+12. Tiny unrelated low-risk cleanup-only tasks may be absorbed only into another newly created substantive review-fix task inside that same appended block when that keeps the plan clearer and does not blur the proof story.
+13. If several tiny unrelated cleanup-only findings have no natural parent task inside that same block, collapse them into one small cleanup task inside that block instead of preserving one task per trivial fix.
+14. Never let merge or cleanup grouping create a junk-drawer task. If a merged review-created task becomes vague, bloated, or loses a clear seam, ownership boundary, stopping rule, or proof story, split it back apart before finishing this step.
+15. Before keeping a merged or grouped review-created task, verify that it has one clear stopping point, one coherent proof story, and no finding that was grouped only because it shares a repository or likely implementer.
+16. If uncertainty remains about whether a merged or collapsed task is still honest and concrete, prefer a slightly more explicit split over an unclear combined task.
+17. Do not repair over-fragmentation by rewriting older pre-existing story tasks. Keep the findings response self-contained in the new review-created block.
+18. Ensure each review-created task and the fresh final revalidation task preserve durable finding-to-task coverage in the plan itself.
+19. Keep the repair concrete and executable by a junior developer. If a finding is still too unclear for a direct code-change task, create a bounded diagnostic task with an explicit stopping rule rather than leaving the finding un-tasked.
+20. If the stored review outcome cannot be interpreted safely enough to choose the findings-present or incomplete-review path, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review.
+21. After repairing the plan, re-open it from disk and verify that the required postcondition now exists before finishing this step.
 
 </repair_rules>
 

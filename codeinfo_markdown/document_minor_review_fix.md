@@ -6,11 +6,12 @@ This step runs after every terminal minor-fix attempt outcome. It records what t
 
 <critical_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first.
-- Read `codeInfoStatus/flow-state/review-disposition-state.json` after `current-plan.json`.
-- Read `codeInfoStatus/flow-state/minor-review-fix-result.json` after the review disposition state.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
+- Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
+- Read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk after the review disposition state, for example with `cat codeInfoStatus/flow-state/minor-review-fix-result.json`.
 - Use only the stored `plan_path`, `additional_repositories`, review disposition state, and minor-fix result as the active scope.
-- Re-open the exact canonical plan from disk before editing it.
+- Re-open the exact canonical plan from disk before editing it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - If the minor-fix result does not have `status: "fixed"`, do not mark any finding resolved. Update the state only when a skipped, blocked, or reclassification outcome must steer the next loop step honestly.
 - Do not create a numbered task for a resolved minor finding.

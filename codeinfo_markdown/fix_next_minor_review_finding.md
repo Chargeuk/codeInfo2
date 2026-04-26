@@ -6,10 +6,11 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 
 <critical_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first.
-- Read `codeInfoStatus/flow-state/review-disposition-state.json` after `current-plan.json`.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
+- Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
-- Re-open the exact canonical plan from disk before touching files.
+- Re-open the exact canonical plan from disk before touching files, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - If `needs_minor_fix_path` is not true, do not change repository files. Write a skipped result and stop.
 - Select exactly one finding from `unresolved_minor_batchable_findings`, preferably the first listed item unless the state names a selected finding.

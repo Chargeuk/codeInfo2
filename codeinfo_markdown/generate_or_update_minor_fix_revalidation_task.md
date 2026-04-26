@@ -6,10 +6,11 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 <critical_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first.
-- Read `codeInfoStatus/flow-state/review-disposition-state.json` after `current-plan.json`.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
+- Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
-- Re-open the exact canonical plan from disk before deciding whether to edit it.
+- Re-open the exact canonical plan from disk before deciding whether to edit it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - Do not create a final minor-fix revalidation task when no minor fixes were made in the review loop.
 - Do not create a final minor-fix revalidation task while unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remain.

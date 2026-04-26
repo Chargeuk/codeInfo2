@@ -6,9 +6,9 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 <critical_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact canonical plan from disk before classifying the review.
-- Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json`.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- Re-open the exact canonical plan from disk before classifying the review, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Do not discover review artifacts by timestamp.
 - Use the stored review handoff plus the artifacts it references as the sole source of review outcome.
 - Interpret the review handoff semantically rather than as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the referenced artifacts, current-plan handoff, and current git state to infer only the minimum safe meaning.
@@ -24,22 +24,22 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Be explicit about what you read, how you classified the findings, and which state fields were set.
 - Prefer structured output over prose when recording decisions.
 - Use verification loops: after writing the state file, re-open it and confirm it is valid JSON and matches the review outcome you just classified.
-- Do not rely on memory from previous turns. Use fresh disk reads and current git state.
+- Do not rely on memory from previous turns. Use fresh disk reads and current git state. Do not answer from conversational memory or an earlier snapshot when the files can be re-read from disk now.
 - When uncertain whether a finding is safe to fix inline as minor, classify it as task-required.
 
 </prompt_quality_rules>
 
 <scope_rules>
 
-1. Read `codeInfoStatus/flow-state/current-plan.json`.
+1. Read `codeInfoStatus/flow-state/current-plan.json` from disk, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 2. Extract `plan_path` and `additional_repositories`. If `additional_repositories` is missing, treat it as none.
-3. Re-open the exact relative `plan_path` from disk.
+3. Re-open the exact relative `plan_path` from disk using explicit shell reads such as `sed`, `cat`, or `rg`.
 4. Verify the plan exists and that the current repository branch story number matches the story number in the selected plan filename.
 5. Verify every additional repository path still exists, is readable, and is on a branch whose story number matches the selected plan filename.
-6. Read `codeInfoTmp/reviews/<story-number>-current-review.json`.
-7. Read the `findings_file` referenced by the review handoff, or safely infer it from the handoff and artifact naming only when necessary.
+6. Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
+7. Read the `findings_file` referenced by the review handoff directly from disk, for example with `cat <findings_file>`, or safely infer it from the handoff and artifact naming only when necessary.
 8. Read `saturation_file` and `challenge_file` when present or safely inferable. Treat them as additive context, not as replacements for the findings artifact.
-9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` when it exists. Preserve prior minor-fix loop history only when it clearly belongs to the same story and same canonical plan.
+9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it clearly belongs to the same story and same canonical plan.
 
 </scope_rules>
 

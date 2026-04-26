@@ -6,11 +6,12 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 
 <critical_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Read `codeInfoStatus/flow-state/review-disposition-state.json` after `current-plan.json`.
-- Re-open the exact canonical plan from disk before deciding whether to edit it.
-- Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json`.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
+- Re-open the exact canonical plan from disk before deciding whether to edit it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Use the stored review handoff plus the artifacts it references as the source of review context.
+- Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not discover review artifacts by timestamp.
 - Do not create tasks in this step.
 - Do not run proof in this step.

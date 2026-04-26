@@ -4,9 +4,9 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 <critical_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact canonical plan from disk before making any decision.
-- Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json`.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- Re-open the exact canonical plan from disk before making any decision, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Use the stored review handoff plus the artifacts it references as the source of review evidence, and use `review-disposition-state.json` as the preferred routing source when it exists and is valid.
 - Do not fail this step because a previous disposition pass underperformed. Repair the plan instead.
 - Do not rediscover the story, review pass, or review comments independently.
@@ -19,13 +19,13 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 1. Validate that the stored handoff plan exists and that the current repository branch story number still matches the selected plan filename.
 2. Validate that every additional repository in scope still exists, is readable, and remains on a branch whose story number matches the selected plan filename.
-3. Read `codeInfoStatus/flow-state/review-disposition-state.json` when it exists and is valid. Treat it as the preferred task-up routing state for resolved minor findings, unresolved task-required findings, and incomplete-review blockers.
+3. Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists and is valid, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Treat it as the preferred task-up routing state for resolved minor findings, unresolved task-required findings, and incomplete-review blockers.
 4. Read the stored review handoff and identify the story, plan path, review pass, evidence artifact, findings artifact, and repository scope either from named handoff fields or by safe inference from the handoff path, canonical `plan_path`, artifact filenames, artifact content, and current git state.
 5. For every repository entry, combine the handoff, referenced artifacts, disposition state when present, and current git state to confirm enough context to understand the repository scope, current branch, current local `HEAD`, and the local-HEAD-vs-resolved-base comparison used by the review.
 6. Prefer stored comparison metadata when present, including `resolved_base_branch`, `resolved_base_source`, `logical_base_branch`, `remote_name`, `remote_fetch_status`, `local_fallback_reason`, `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`. If some of these fields are missing, infer only the pieces needed to encode the review outcome honestly, record the inference in the plan text when it affects confidence, and ignore unknown extra fields.
 7. When present, treat `remote_fetch_error` and `remote_fetch_exit_code` as optional fetch-failure diagnostics. Do not copy raw `remote_fetch_error` text into plan output unless it is already sanitized or can be safely categorized without credentials, userinfo, access tokens, or query strings.
-8. Read the findings artifact identified from the handoff or safe inference. Read the challenge artifact when present or safely inferable.
-9. Re-open the canonical plan from disk immediately before deciding whether repair is needed.
+8. Read the findings artifact identified from the handoff or safe inference directly from disk, for example with `cat <findings_file>`. Read the challenge artifact from disk too when present or safely inferable, for example with `cat <challenge_file>`.
+9. Re-open the canonical plan from disk immediately before deciding whether repair is needed, using explicit shell reads such as `sed`, `cat`, or `rg`.
 
 </scope_rules>
 

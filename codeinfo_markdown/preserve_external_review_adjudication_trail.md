@@ -6,10 +6,11 @@ This step is bookkeeping only. It must not create tasks, fix code, or change the
 
 <critical_rules>
 
-- Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact canonical plan from disk before deciding whether it needs a small note update.
-- Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json`.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- Re-open the exact canonical plan from disk before deciding whether it needs a small note update, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Use the stored review handoff plus the artifacts it references as the source of external-review context.
+- Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not discover review artifacts by timestamp.
 - This step is external-review-only. If the current handoff does not clearly represent an external review ingestion pass, make no changes and report that this step was not applicable.
 - Do not create tasks in this step.

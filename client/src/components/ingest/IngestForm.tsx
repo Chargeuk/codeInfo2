@@ -129,6 +129,12 @@ export default function IngestForm({
     modelOptions,
   ]);
 
+  useEffect(() => {
+    if (isFormDisabled) {
+      setDirPickerOpen(false);
+    }
+  }, [isFormDisabled]);
+
   const openAiBanner = useMemo(() => {
     const statusCode = openai?.statusCode;
     if (!statusCode) return null;
@@ -439,6 +445,10 @@ export default function IngestForm({
         path={path}
         onClose={() => setDirPickerOpen(false)}
         onPick={(picked) => {
+          if (isFormDisabled) {
+            setDirPickerOpen(false);
+            return;
+          }
           setPath(picked);
           if (errors.path) updateFieldError('path', picked);
           setDirPickerOpen(false);

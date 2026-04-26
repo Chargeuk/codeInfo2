@@ -743,6 +743,43 @@ describe('IngestForm', () => {
     expect(screen.getByLabelText(/folder path/i)).toHaveValue('/data');
   });
 
+  it('closes the already-open directory picker and prevents late path mutation when the form becomes disabled', async () => {
+    enqueueFetchJson([{ base: '/data', path: '/data', dirs: ['projects'] }]);
+
+    const { rerender } = render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
+
+    const useThisFolder = await screen.findByRole('button', {
+      name: /use this folder/i,
+    });
+
+    rerender(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+        disabled
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /use this folder/i }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(useThisFolder);
+
+    expect(screen.getByLabelText(/folder path/i)).toHaveValue('');
+  });
+
   it('error path displays an error message when server returns OUTSIDE_BASE', async () => {
     enqueueFetchJson([{ status: 'error', code: 'OUTSIDE_BASE' }]);
 

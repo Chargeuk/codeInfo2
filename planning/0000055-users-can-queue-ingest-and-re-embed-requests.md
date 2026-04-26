@@ -15865,8 +15865,9 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 #### Proof Mapping
 
-- `P1.` direct queue-promotion replay repair for `R1` through `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/requestContracts.ts`; proof homes are `server/src/test/unit/ingest-queue-runtime-pump.test.ts` and `server/src/test/unit/ingest-start.test.ts`.
-- `P2.` startup-recovery parity for `R2` and `R4`: implementation owner is `server/src/ingest/ingestJob.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
+- `P1.` queue-promotion replay fail-closed proof for `R1` and `R2`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/requestContracts.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
+- `P2.` startup-recovery fail-closed proof for `R1`, `R2`, and `R4`: implementation owner is `server/src/ingest/ingestJob.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
+- `P3.` immediate admission parity proof for `R3`: implementation owners are `server/src/routes/ingestStart.ts` and `server/src/ingest/requestContracts.ts`; proof home is `server/src/test/unit/ingest-start.test.ts`.
 
 #### Risk Ownership
 
@@ -15884,6 +15885,7 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 - `server/src/ingest/ingestJob.ts`
 - `server/src/ingest/requestContracts.ts`
+- `server/src/routes/ingestStart.ts`
 - `server/src/test/unit/ingest-queue-runtime-pump.test.ts`
 - `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
 - `server/src/test/unit/ingest-start.test.ts`
@@ -15892,7 +15894,9 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 1. [ ] Re-read the immediate start admission contract in `server/src/ingest/requestContracts.ts`, then trace the deferred replay path in `server/src/ingest/ingestJob.ts` until you identify the exact fallback that reconstructs `requestPayload.name` during queue promotion or startup recovery.
 2. [ ] Patch the deferred start replay seam in `server/src/ingest/ingestJob.ts` and only the smallest shared contract helper in `server/src/ingest/requestContracts.ts` needed to keep persisted `requestPayload.name` required during both queue promotion and startup recovery; missing `name` must fail closed before discovery or embedding work instead of being rebuilt from the path basename.
-3. [ ] Add or update proof across `server/src/test/unit/ingest-queue-runtime-pump.test.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, and `server/src/test/unit/ingest-start.test.ts` so the queue-promotion path fails closed for missing `requestPayload.name`, startup recovery fails closed for the same persisted defect, and immediate `POST /ingest/start` admission still rejects missing `name` while valid requests remain accepted.
+3. [ ] Add or update `server/src/test/unit/ingest-queue-runtime-pump.test.ts` so the normal queue-promotion path fails closed for a waiting `start_ingest` row whose persisted `requestPayload.name` is missing, records the failure on the owned request before discovery starts, and still promotes a valid waiting start request through the same surface.
+4. [ ] Add or update `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` so startup recovery rejects a persisted waiting `start_ingest` row whose `requestPayload.name` is missing before discovery starts, while still accepting the same replay surface when the persisted payload is valid.
+5. [ ] Add or update `server/src/test/unit/ingest-start.test.ts` so immediate `POST /ingest/start` admission still rejects missing `name` up front and still accepts valid requests, keeping the direct route contract aligned with the deferred replay repair.
 
 #### Testing
 
@@ -15923,9 +15927,10 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 
 #### Proof Mapping
 
-- `P1.` shared classification repair for `R1`, `R3`, and `R4`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are `server/src/test/unit/reingestService.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
-- `P2.` REST contract parity for `R1` and `R2`: implementation owners are `server/src/routes/ingestReembed.ts` and `server/src/ingest/reingestService.ts`; proof home is `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-- `P3.` shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- `P1.` mixed-shape repo-list producer proof for `R1`: implementation owner is `server/src/lmstudio/toolService.ts`; proof home is `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+- `P2.` shared service classification and no-throw proof for `R1`, `R3`, and `R4`: implementation owner is `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/reingestService.test.ts`.
+- `P3.` REST contract parity for `R1` and `R2`: implementation owners are `server/src/routes/ingestReembed.ts` and `server/src/ingest/reingestService.ts`; proof home is `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+- `P4.` shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
 
 #### Risk Ownership
 
@@ -15954,8 +15959,10 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 
 1. [ ] Re-read the mixed-shape canonical metadata producer in `server/src/lmstudio/toolService.ts`, the queued re-embed admission checks in `server/src/ingest/reingestService.ts`, and the REST classifier in `server/src/routes/ingestReembed.ts` to isolate the exact branch where canonical `embeddingProvider: openai` plus blank or partial canonical model state is treated as provider availability instead of invalid metadata.
 2. [ ] Patch the mixed-shape classification seam across `server/src/ingest/reingestService.ts` and `server/src/routes/ingestReembed.ts` so canonical OpenAI validation reaches the allowlisted-model branch only when both canonical provider and canonical model are complete strings, and the same mixed-shape metadata is returned to shared callers as the intended invalid-state or invalid-lock-metadata contract instead of `OPENAI_MODEL_UNAVAILABLE` or an uncaught exception.
-3. [ ] Add or update producer-plus-service proof across `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/reingestService.test.ts` so a repo-list row with canonical OpenAI provider plus partial canonical model reaches the repaired invalid-state contract and does not regress valid canonical or genuine provider-unavailable behavior.
-4. [ ] Add or update consumer proof across `server/src/test/integration/ingest-reembed-invalid-state.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts` so REST and both shared caller transports return the same repaired invalid-state result for the mixed-shape row instead of misclassifying it or throwing.
+3. [ ] Add or update `server/src/test/unit/ingest-roots-dedupe.test.ts` so the repo-list producer surface still emits the mixed-shape canonical OpenAI row needed for this defect and proves that row remains distinguishable from valid canonical metadata and genuine provider-unavailable state.
+4. [ ] Add or update `server/src/test/unit/reingestService.test.ts` so the shared queued re-embed service maps that mixed-shape row to the repaired invalid-state contract, returns a structured result instead of throwing, and preserves the current success or provider-unavailable behavior for valid canonical metadata and genuine provider failures.
+5. [ ] Add or update `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so `POST /ingest/reembed/:root` returns the same repaired invalid-state contract for the mixed-shape row that the shared service now returns, without changing the existing REST behavior for valid canonical metadata or genuine provider-unavailable rows.
+6. [ ] Add or update `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so both shared caller transports return the same repaired invalid-state result for the mixed-shape row instead of misclassifying it or throwing, while leaving their valid shared-caller success path unchanged.
 
 #### Testing
 
@@ -15987,9 +15994,10 @@ Repair the production remove route so the public selector is validated as an exa
 
 #### Proof Mapping
 
-- `P1.` exact-selector validation for `R1` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof homes are `server/src/test/features/ingest-remove.feature` and `server/src/test/integration/ingest-lock-lifecycle.test.ts`.
-- `P2.` target-first queue blocking for `R2` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof homes are `server/src/test/features/ingest-remove.feature` and `server/src/test/integration/ingest-lock-lifecycle.test.ts`.
-- `P3.` cleanup-route separation for `R4`: implementation owner is `server/src/routes/ingestE2eCleanup.ts`; proof home is `server/src/test/integration/ingest-e2e-cleanup.test.ts` if any shared helper changes are required.
+- `P1.` direct exact-selector validation proof for `R1` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof home is `server/src/test/integration/ingest-lock-lifecycle.test.ts`.
+- `P2.` direct target-first queue-blocking proof for `R2` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof home is `server/src/test/integration/ingest-lock-lifecycle.test.ts`.
+- `P3.` higher-level remove-route contract proof for `R1`, `R2`, and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof home is `server/src/test/features/ingest-remove.feature` plus `server/src/test/steps/ingest-manage.steps.ts`.
+- `P4.` cleanup-route separation proof for `R4`: implementation owner is `server/src/routes/ingestE2eCleanup.ts`; proof home is `server/src/test/integration/ingest-e2e-cleanup.test.ts` if any shared helper changes are required.
 
 #### Risk Ownership
 
@@ -16053,8 +16061,10 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 
 - `P1.` dependency completion for `R1`: proof home is parser output for Tasks `197` through `199` plus their checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
 - `P2.` findings-block and inline-minor disposition for `R2` and `R3`: proof homes are this `Code Review Findings` block, `## Minor Review Fixes`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
-- `P3.` broad automated regression proof for `R4`: proof homes are the wrapper outputs produced by this task's `Testing` section.
-- `P4.` residual-risk honesty for `R5`: proof homes are this task's implementation notes and the refreshed PR summary close-out.
+- `P3.` build-wrapper proof for the server and client portions of `R4`: proof homes are `logs/test-summaries/build-server-latest.log` and `logs/test-summaries/build-client-latest.log`.
+- `P4.` automated regression proof for the server, cucumber, and client portions of `R4`: proof homes are the latest `test-results/server-unit-tests-*.log`, `test-results/server-cucumber-tests-*.log`, `test-results/client-tests-*.log`, and the matching `test-results/client-tests-*.json`.
+- `P5.` live-stack and end-to-end proof for the compose, host-network, and e2e portions of `R4`: proof homes are `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/host-network-main-latest.log`, plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P6.` repository-hygiene and residual-risk honesty for `R4` and `R5`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, this task's implementation notes, and the refreshed PR summary close-out.
 
 #### Risk Ownership
 
@@ -16085,8 +16095,8 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260426T203714Z-ff22e029`, the `## Minor Review Fixes` entries for findings `5` through `9`, and the completed proof-owner sections for Tasks `197` through `199`; check off this subtask only after parser output shows each dependency task is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a finding-to-proof map that covers serious findings `F1` through `F4` plus inline-resolved minor findings `5` through `9`, naming the exact repaired files, exact proof homes, retained review artifacts, and any residual risk already known before this task's broad wrapper execution.
-3. [ ] Re-open this plan after the summary refresh and verify that this findings block, the `## Minor Review Fixes` section, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` all list the same owners, proof homes, inline-minor coverage, and final validation scope before the broad wrapper sequence runs.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a finding-to-proof map that covers serious findings `F1` through `F4` plus inline-resolved minor findings `5` through `9`, naming the exact repaired files, retained review artifacts, and exact final-pass proof homes: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/server-unit-tests-*.log`, `test-results/server-cucumber-tests-*.log`, `test-results/client-tests-*.log`, and matching `test-results/client-tests-*.json`, plus `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log`.
+3. [ ] Re-open this plan after the summary refresh and verify that this findings block, the `## Minor Review Fixes` section, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` all list the same owners, proof homes, inline-minor coverage, and final validation scope, including the compose up or down plus lint or format proof surfaces that will be captured from terminal output rather than retained log files.
 
 #### Testing
 

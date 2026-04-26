@@ -16,7 +16,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Select exactly one finding from `unresolved_minor_batchable_findings`, preferably the first listed item unless the state names a selected finding.
 - Re-inspect the selected finding and the relevant source files before editing. If the finding is no longer clearly minor-batchable, do not fix it. Write a `reclassify_task_required` result and stop.
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.
-- Do not run broad final validation in this step. Run only targeted automated proof that is directly needed for the selected minor fix.
+- Do not run broad final validation in this step. Run only bounded local automated proof that is directly needed for the selected minor fix. This may include a small test update or one or two new focused tests in the owning repository.
 - If tracked files are changed, commit them before finishing this step.
 - Do not push.
 
@@ -37,8 +37,11 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 
 - Keep the edit minimal and directly tied to the selected finding.
 - Do not combine unrelated findings in one fix.
+- A minor fix may include one or two small focused automated test updates or additions in the owning repository when that keeps the change bounded and honest.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
+- This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.
 - If the fix starts to require a broader design change, stop and write a `reclassify_task_required` result.
+- If the implementation or proof needed for the selected finding starts to require broader proof-authoring, multi-repository change coordination, contract reinterpretation, or a larger refactor, stop and write a `reclassify_task_required` or `blocked` result.
 - If a targeted proof fails for an ordinary in-scope reason, inspect the failure once and repair the selected minor fix if the repair remains minor.
 - If the failure points to broader behavior or missing capability for only the selected finding, stop and write either a `reclassify_task_required` result or a `blocked` result with `blocker_scope: "finding_only"`.
 - If the failure points to repository-wide safety trouble, broken branch scope, stale flow state, or another problem that makes further inline attempts unsafe for the remaining minor findings in this pass, stop and write a `blocked` result with `blocker_scope: "global"`.

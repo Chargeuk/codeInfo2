@@ -49,6 +49,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
   - the residual-risk or rejected-risk notes carried forward from the findings artifact and challenge artifact when present.
 - When the review scope spans multiple repositories, the closeout must also explain why the cross-repository integration evidence was sufficient.
 - When the review artifacts make confidence limits visible, preserve those limits honestly instead of implying the review was exhaustive.
+- Inline minor fixes may already have included bounded local automated test changes. This closeout should still treat broader cross-repository proof and manual validation as work owned by the final revalidation task when such work was required.
 
 </clean_closeout_rules>
 

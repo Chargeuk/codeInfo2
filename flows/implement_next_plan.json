@@ -236,7 +236,7 @@
         },
         {
           "type": "llm",
-          "label": "Push",
+          "label": "Checkpoint Push Before Review Loop",
           "agentType": "planning_agent",
           "identifier": "planner",
           "markdownFile": "final_push.md"

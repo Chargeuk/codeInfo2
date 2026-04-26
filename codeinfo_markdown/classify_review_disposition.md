@@ -164,6 +164,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "minor_fixes_made_in_review_loop": false,
   "minor_fix_commit_shas": [],
   "minor_fix_revalidation_cycle_closed": false,
+  "final_revalidation_owned_by_task_up_path": false,
+  "task_up_owned_final_revalidation_task_title": null,
   "needs_review_rerun_before_close": false,
   "needs_final_minor_fix_revalidation_task": false,
   "review_created_tasks_added_or_updated": false,
@@ -181,10 +183,11 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `only_minor_batchable_findings` is true only when there is at least one unresolved minor-batchable finding and no unresolved task-required finding or incomplete-review blocker.
 - `needs_minor_fix_path` is true whenever unresolved minor-batchable findings remain, even when task-required findings or incomplete-review blockers already exist from earlier minor-fix attempts in the same review cycle.
 - `needs_task_up_path` is true when unresolved task-required findings or incomplete-review blockers exist.
-- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, and `minor_fix_revalidation_cycle_closed` should be preserved from the previous state when they clearly belong to the same story and plan. Otherwise initialize them as empty or false.
-- If the canonical plan already contains the task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes` with `Task Status: __done__`, and the current review pass has no unresolved findings or incomplete-review blockers, treat the previous minor-fix cycle as closed. In that case set `minor_fix_revalidation_cycle_closed` to true and clear `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, and `resolved_minor_findings`.
+- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state when they clearly belong to the same story and plan. Otherwise initialize them as empty, null, or false.
+- If the canonical plan already contains the task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes` with `Task Status: __done__`, and the current review pass has no unresolved findings or incomplete-review blockers, treat the previous minor-fix cycle as closed. In that case set `minor_fix_revalidation_cycle_closed` to true and clear `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title`.
+- If `final_revalidation_owned_by_task_up_path` is true, `task_up_owned_final_revalidation_task_title` names a final revalidation task, that task is now `Task Status: __done__` in the canonical plan, and the current review pass has no unresolved findings or incomplete-review blockers, treat the previous minor-fix cycle as closed. In that case set `minor_fix_revalidation_cycle_closed` to true and clear `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title`.
 - `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD.
-- `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, and `minor_fix_revalidation_cycle_closed` is not true.
+- `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
 - `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
 
@@ -220,6 +223,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm every endorsed finding was classified into exactly one state bucket.
 - Confirm uncertain findings were classified as task-required rather than minor.
 - Confirm you checked whether a previous minor-fix revalidation cycle was already closed by a completed final revalidation task in the canonical plan.
+- Confirm you checked both the dedicated inline-minor final revalidation task and any task-up-owned final revalidation task recorded in prior state before deciding whether the cycle is still open.
 - Confirm the state file is valid JSON after writing.
 - Confirm the state counts match the arrays in the state file.
 - Confirm this step did not edit the canonical plan, review artifacts, code, tests, docs, or config.

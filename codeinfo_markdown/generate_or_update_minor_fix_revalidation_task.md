@@ -24,10 +24,12 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 - If `needs_final_minor_fix_revalidation_task` is not true:
   - make no plan change;
-  - if no unresolved work remains, update the ignored state file so `safe_to_exit_review_loop_without_tasking` is true;
+  - if `final_revalidation_owned_by_task_up_path` is true, leave this step as a deliberate no-op because the serious task-up path already owns final revalidation for the current review cycle;
+  - otherwise, if no unresolved work remains, update the ignored state file so `safe_to_exit_review_loop_without_tasking` is true;
   - report the no-op reason.
 - If `needs_final_minor_fix_revalidation_task` is true, add or update one normal numbered task in the canonical plan.
 - Only create or update this task when minor fixes were made in the just-finished review cycle, no serious task-up work remains, and `minor_fix_revalidation_cycle_closed` is not true.
+- If `final_revalidation_owned_by_task_up_path` is true, do not create or update the special inline-minor final revalidation task. The cycle already has one shared final revalidation owner.
 - The task title must be `Re-Validate Story <story-number> After Inline Minor Review Fixes` unless an existing equivalent final minor-fix revalidation task already uses a compatible title.
 - The task must stay as exactly one final revalidation task even when the resolved minor fixes span multiple repositories.
 - The task status must be `__to_do__`.
@@ -72,8 +74,9 @@ After adding or updating the final minor-fix revalidation task:
 
 When no task is needed and no unresolved work remains:
 
-- Set `review_created_tasks_added_or_updated` to false.
-- Set `safe_to_exit_review_loop_without_tasking` to true.
+- If `final_revalidation_owned_by_task_up_path` is true, leave `review_created_tasks_added_or_updated`, `safe_to_exit_review_loop_without_tasking`, and the task-up ownership fields unchanged in this step so later cycle-close logic can decide when that shared final revalidation task is actually finished.
+- Otherwise set `review_created_tasks_added_or_updated` to false.
+- Otherwise set `safe_to_exit_review_loop_without_tasking` to true.
 - Leave finding arrays unchanged.
 - Do not reopen a closed cycle just because older minor-fix history still exists in the ignored state.
 
@@ -105,7 +108,8 @@ When no task is needed and no unresolved work remains:
 - Confirm `current-plan.json` was read before `review-disposition-state.json`.
 - Confirm the exact canonical plan was re-opened from disk before editing.
 - Confirm no unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remained before generating the task.
-- Confirm exactly one final minor-fix revalidation task exists for the current minor-fix cycle.
+- Confirm exactly one special inline-minor final revalidation task exists for the current cycle only when the task-up path does not already own final revalidation for that cycle.
+- Confirm this step did not create or update a special inline-minor final revalidation task when the task-up path already owned final revalidation for the same cycle.
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
 - Confirm this step did not imply the review cycle was complete merely because the final revalidation task was created.
 - Confirm the task has an `Affected Repositories` section that covers every repository represented in `resolved_minor_findings`.

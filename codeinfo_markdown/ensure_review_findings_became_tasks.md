@@ -37,6 +37,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Treat this step as the serious-issue task-up path. If it adds numbered review-fix tasks, the review loop should stop and return to the main implementation loop rather than continuing minor reruns in the same review pass.
 - Treat `resolved_minor_findings` as already handled inline. Do not create numbered tasks for those finding IDs, even if the original findings artifact still lists them as `should_fix`.
 - Treat `unresolved_minor_batchable_findings` as owned by the minor-fix path, not this task-up path. Do not create numbered tasks for them unless they have been reclassified into `unresolved_task_required_findings`.
+- If this step creates or updates the cycle's fresh final revalidation task, it becomes the one final review task for the whole current review cycle. Record that ownership in `review-disposition-state.json` so the inline-minor final-task path does not create a second final task later.
 - If the disposition state says `needs_task_up_path` is false, make no plan changes in this step and report that no unresolved task-required findings remain for task-up.
 - If the disposition state is missing, unreadable, malformed, or for a different story/plan, fall back to the existing findings-artifact behavior and record that fallback in the output.
 - If state counts disagree with state arrays, trust the arrays and record the mismatch before deciding task-up work.
@@ -54,7 +55,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
    - each newly added review-created repair task names exactly one repository and follows the existing task structure;
    - each new review-created task records durable finding coverage in the plan itself, such as an `Addresses Findings` section or equivalent inline wording;
-   - the fresh final revalidation task explicitly states that it revalidates the current review-created findings block for this `review_pass_id`, owns full relevant regression proof for every affected repository, and may remain cross-repository when that is the honest story-wide validation scope;
+   - the fresh final revalidation task explicitly states that it revalidates the current review-created findings block for this `review_pass_id`, also covers any `resolved_minor_findings` already recorded for this same active review cycle, owns full relevant regression proof for every affected repository, and may remain cross-repository when that is the honest story-wide validation scope;
    - no newly added review-created task hides runnable build, test, compose, browser, or wrapper commands inside `Subtasks`, unless that task is specifically creating, repairing, or proving a harness or wrapper;
    - the new review-created task block is not unnecessarily fragmented across the same repository plus a shared repair seam, root cause, contract or lifecycle surface, prerequisite chain, or coherent proof story;
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
@@ -72,6 +73,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 1. When findings are present and the plan is missing review-fix tasks, add them directly to the end of the canonical plan in the repository's existing review-task format.
 2. Add one or more review-fix tasks that respond to the unresolved task-required findings from the chosen source of truth, with explicit repository ownership, compact subtasks, proof homes, and wrapper-first testing.
 3. Add a fresh final re-test or revalidation task after the new review-fix tasks so the story cannot close without re-running proof. This final task may remain one task with one implementation owner while still validating multiple repositories. It must name the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns for the current review-created findings block, or state why a category is not applicable.
+3a. When `resolved_minor_findings` already exist in the active review disposition state, make that same fresh final revalidation task explicitly cover those inline-resolved minor fixes too instead of leaving them to a second final revalidation task later.
 4. If the repaired or newly added review-created tasks still mix execution commands into `Subtasks`, rewrite them so runnable wrapper or test commands live in `Testing` while `Subtasks` keep implementation work, proof-authoring work, retained proof-home updates, screenshots, and logs.
 4a. Do not reject or rewrite a review-created task solely because its `Testing` references another repository for compatibility proof. Only implementation ownership and owner-scoped subtasks must stay single-repository.
 5. Treat routine `Implementation Notes` refreshes as plan-maintenance that happens after the related subtask or testing step completes, not as standalone or future-dependent subtask items.
@@ -92,6 +94,19 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 
 </repair_rules>
 
+<state_update_rules>
+
+- When this step adds or updates numbered review-created tasks plus the fresh final revalidation task for unresolved task-required findings, also update `review-disposition-state.json`.
+- Set `final_revalidation_owned_by_task_up_path` to true.
+- Set `task_up_owned_final_revalidation_task_title` to the exact title of the fresh final revalidation task that now owns the whole current review cycle.
+- Set `needs_final_minor_fix_revalidation_task` to false because the cycle's final revalidation is already owned by the serious task-up path.
+- Set `minor_fix_revalidation_cycle_closed` to false because that shared final revalidation task still needs to be completed later.
+- Set `review_created_tasks_added_or_updated` to true.
+- Set `safe_to_exit_review_loop_without_tasking` to false.
+- If this step makes no plan change because no task-up work remains, do not invent or clear final-task ownership state here.
+
+</state_update_rules>
+
 <behavior_rules>
 
 - Prefer deterministic checks based on the stored review handoff, the findings file, and the on-disk plan state.
@@ -108,6 +123,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
   - if review-fix tasks were added for serious issues => the review loop should exit and let the main implementation loop work those tasks before any later review pass;
   - valid disposition state says no task-up work remains => no plan mutation in this step;
   - outcome unclear after safe inference => bounded incomplete-review follow-up task.
+- When this step creates the fresh final revalidation task for serious review work, update `review-disposition-state.json` so downstream steps know that this task already owns final revalidation for the whole current review cycle.
 - Make no plan changes only when the current plan already satisfies the correct postcondition.
 
 </output_contract>
@@ -123,7 +139,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm the stored review handoff and referenced artifacts were interpreted semantically, including local-HEAD-vs-resolved-base comparison context and any remote/fallback uncertainty that affects confidence.
 - Confirm that an unresolved task-required findings-present handoff or disposition state did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
-- Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, owns full relevant regression proof for the affected repositories, and was not forced into bogus single-repository ownership.
+- Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, also covers any inline-resolved minor fixes from the same review cycle, owns full relevant regression proof for the affected repositories, and was not forced into bogus single-repository ownership.
 - Confirm that every review-created task kept one `Repository Name` implementation owner while still allowing cross-repository `Testing` when the finding needs compatibility proof.
 - Confirm that newly added review-created tasks do not hide runnable wrapper or test commands in `Subtasks`, except for harness or wrapper tasks.
 - Confirm that newly added review-created tasks do not encode routine `Implementation Notes` refreshes as standalone or future-dependent subtasks.
@@ -135,5 +151,6 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm that no merged review-created task has become an unfocused catch-all or vague cleanup bucket.
 - Confirm that no collapsed cleanup task hides materially different ownership or proof.
 - Confirm the repaired plan now matches the stored review outcome on disk.
+- Confirm that `review-disposition-state.json` now records the fresh final revalidation task as the one owner of final revalidation for this review cycle when serious task-up work was added.
 
 </verification_loop>

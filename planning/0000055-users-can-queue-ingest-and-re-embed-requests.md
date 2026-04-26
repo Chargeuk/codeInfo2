@@ -15900,9 +15900,7 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts --file server/src/test/unit/ingest-start.test.ts`.
 
 ### Task 198. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
 
@@ -16107,11 +16105,11 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 3. [ ] Run `npm run test:summary:server:unit`.
 4. [ ] Run `npm run test:summary:server:cucumber`.
 5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e`.
-7. [ ] Run `npm run compose:build:summary`.
-8. [ ] Run `npm run compose:up`.
-9. [ ] Run `npm run test:summary:host-network:main`.
-10. [ ] Run `npm run compose:down`.
+6. [ ] Run `npm run compose:build:summary`.
+7. [ ] Run `npm run compose:up`.
+8. [ ] Run `npm run test:summary:host-network:main`.
+9. [ ] Run `npm run compose:down`.
+10. [ ] Run `npm run test:summary:e2e`.
 11. [ ] Run `npm run lint`.
 12. [ ] Run `npm run format:check`.
 

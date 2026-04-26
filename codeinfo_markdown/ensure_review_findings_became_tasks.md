@@ -60,11 +60,10 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
    - tiny unrelated cleanup-only findings are not left as a trail of micro-tasks when they could be absorbed into a nearby substantive task or grouped into one cleanup task honestly.
-4. If the chosen source of truth communicates no unresolved task-required findings, no unresolved minor-batchable findings, no incomplete-review blockers, and no final minor-fix revalidation need, make no plan change in this task-up step.
-5. If the chosen source of truth is the findings artifact and it communicates no actionable findings after a complete review, the plan must instead contain the required no-findings close-out for the current `review_pass_id`, including the stored or safely inferred local-HEAD-vs-resolved-base comparison details for every repository in scope.
-6. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of a no-findings close-out.
-7. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
-8. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
+4. If the chosen source of truth communicates no unresolved task-required findings and no incomplete-review blockers, make no plan change in this task-up step.
+5. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of claiming the review is clean.
+6. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
+7. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
 
 </decision_rules>
 
@@ -88,17 +87,8 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 15. Do not repair over-fragmentation by rewriting older pre-existing story tasks. Keep the findings response self-contained in the new review-created block.
 16. Ensure each review-created task and the fresh final revalidation task preserve durable finding-to-task coverage in the plan itself.
 17. Keep the repair concrete and executable by a junior developer. If a finding is still too unclear for a direct code-change task, create a bounded diagnostic task with an explicit stopping rule rather than leaving the finding un-tasked.
-18. When no findings are present and the required close-out section is missing, append the required `Post-Implementation Code Review` section for the current `review_pass_id`.
-19. If a no-findings close-out section exists but lacks stored or safely inferred comparison metadata, repair it instead of treating it as complete.
-20. Any repaired no-findings close-out must state, for every repository in scope:
-    - that the review compared local `HEAD` against `comparison_base_ref`;
-    - the stored or inferred `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, and `comparison_rule`;
-    - whether `resolved_base_source` was `remote`, `local_fallback`, or unavailable from the artifacts;
-    - `remote_name` and `remote_fetch_status` when available;
-    - the fallback reason when `resolved_base_source` is `local_fallback` and that reason is available;
-    - that `origin/<current-story-branch>` was not used as the review head.
-21. If the stored review outcome cannot be interpreted safely enough to choose the findings-present or no-findings path, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review.
-22. After repairing the plan, re-open it from disk and verify that the required postcondition now exists before finishing this step.
+18. If the stored review outcome cannot be interpreted safely enough to choose the findings-present or incomplete-review path, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review.
+19. After repairing the plan, re-open it from disk and verify that the required postcondition now exists before finishing this step.
 
 </repair_rules>
 
@@ -117,7 +107,6 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
   - unresolved task-required findings present => review-fix tasks plus final revalidation task;
   - if review-fix tasks were added for serious issues => the review loop should exit and let the main implementation loop work those tasks before any later review pass;
   - valid disposition state says no task-up work remains => no plan mutation in this step;
-  - no findings => required post-review close-out section;
   - outcome unclear after safe inference => bounded incomplete-review follow-up task.
 - Make no plan changes only when the current plan already satisfies the correct postcondition.
 
@@ -145,8 +134,6 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm that no needless trail of tiny cleanup-only tasks remains when they could have been absorbed or grouped honestly.
 - Confirm that no merged review-created task has become an unfocused catch-all or vague cleanup bucket.
 - Confirm that no collapsed cleanup task hides materially different ownership or proof.
-- Confirm that a no-findings handoff did not leave the plan without the required close-out section.
-- Confirm that any repaired no-findings close-out preserves the stored or safely inferred `comparison_base_ref`, `comparison_base_commit`, `comparison_head_ref`, `comparison_rule`, `remote_name`, `remote_fetch_status`, and any local fallback reason for every repository in scope.
 - Confirm the repaired plan now matches the stored review outcome on disk.
 
 </verification_loop>

@@ -181,6 +181,20 @@
     },
     {
       "type": "llm",
+      "label": "Write Review No-Findings Closeout",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "write_review_no_findings_closeout.md"
+    },
+    {
+      "type": "llm",
+      "label": "Preserve External Review Adjudication Trail",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "preserve_external_review_adjudication_trail.md"
+    },
+    {
+      "type": "llm",
       "label": "Push",
       "agentType": "planning_agent",
       "identifier": "planner",

@@ -15873,6 +15873,13 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 - Highest-risk invariant: deferred queued start replay must not widen the accepted request contract beyond what immediate admission allows.
 - Keep the queue identity and valid payload behavior unchanged; this task owns only the fail-closed handling for malformed persisted queued start state and the proof that both replay surfaces honor it.
 
+#### High-Risk Invariants And Blocker Family
+
+- Exact ordering proof required: prove the interleaving where immediate admission originally succeeded, persisted queued state later loses `requestPayload.name`, and a later queue-promotion or startup-recovery replay tries to execute that row; adjacent happy-path start-ingest proof is not sufficient.
+- Producer-consumer proof required: the immediate producer contract in `server/src/ingest/requestContracts.ts` and the deferred replay consumers in `server/src/ingest/ingestJob.ts` must enforce the same required-field boundary for `name`.
+- Default-path proof required: at least one proof must reach the normal queue-promotion path, not only direct startup recovery.
+- Likely blocker family: product or story seam. This task owns the implementation and proof unless the selected replay surface lacks a deterministic queue-runtime proof seam, in which case the blocker becomes proof or test harness seam and must stay inside this task's owned proof files rather than spill into a broader story rewrite.
+
 #### Documentation Locations
 
 - `server/src/ingest/ingestJob.ts`
@@ -15926,6 +15933,13 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 
 - Highest-risk invariant: one invalid canonical metadata shape must not fragment into different public contracts across REST and shared caller surfaces.
 - Keep successful queued re-embed behavior and genuine provider-unavailable behavior intact; this task owns only the mixed-shape invalid-state classification and no-throw contract.
+
+#### High-Risk Invariants And Blocker Family
+
+- Producer-consumer proof required: the repo-list producer in `server/src/lmstudio/toolService.ts`, the shared admission and result-shaping logic in `server/src/ingest/reingestService.ts`, and the REST plus MCP consumers must all agree on the same mixed-shape invalid-state contract.
+- Exact propagation proof required: prove the same mixed-shape row through service classification, REST response construction, and shared-caller transport shaping so the bug cannot remain fixed in one consumer while escaping another as a thrown exception.
+- Default-path proof required: at least one proof must reach the normal REST route and one must reach the normal shared caller transport path rather than only a helper-level unit branch.
+- Likely blocker family: product or story seam. If deterministic proof of the shared-caller no-throw path is missing in the current MCP test harness, classify that as proof or test harness seam and repair it in the listed proof homes before downstream product work relies on those transports.
 
 #### Documentation Locations
 
@@ -15986,6 +16000,13 @@ Repair the production remove route so the public selector is validated as an exa
 - Highest-risk invariant: destructive remove must not accept weaker public selectors than the route it ultimately mutates, and it must not downgrade target-owned queue blocking into unrelated global busy state.
 - Keep existing queue-owned remove blocking, idle success behavior, and cleanup-route env gating intact; this task owns only the selector authority and ordering repair plus its direct proof.
 
+#### High-Risk Invariants And Blocker Family
+
+- Exact ordering proof required: prove the interleaving where an unrelated active run keeps the process globally busy while the selected target is also queue-owned; adjacent proof of plain `BUSY` and plain `QUEUE_STATE_BLOCKED` cases is not sufficient.
+- Authority-boundary proof required: prove the public `:root` selector is validated before any alias normalization can retarget destructive removal onto another stored root.
+- Default-path proof required: the repaired behavior must be reachable through the normal production remove route, not only through helper-level validation or the env-gated cleanup route.
+- Likely blocker family: product or story seam. This task owns the route implementation and its direct proof unless the selected proof surfaces cannot express alias rejection or queued-target ordering without new harness support, in which case that proof work remains a proof or test harness seam inside the named files.
+
 #### Documentation Locations
 
 - `server/src/routes/ingestRemove.ts`
@@ -16045,6 +16066,13 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 - Highest-risk invariant: final validation must prove both the serious review-created repair block and the already-resolved inline minor fixes through the repository-supported wrapper and runtime paths, not only through targeted repair-task tests or review artifacts.
 - If a broad wrapper exposes a new product defect, preserve it as a blocker or follow-up rather than absorbing it into a silent close-out.
 
+#### High-Risk Invariants And Blocker Family
+
+- Default-path proof required: final validation must cover the repaired review-created block through the repository-supported server build, client build, server unit, server cucumber, client, e2e, compose, host-network, lint, and format wrappers, not just targeted owner tests from Tasks `197` through `199`.
+- Baseline and harness ownership required: if Compose, Docker, host-network, e2e, health-check, or long-running wrapper failures appear, classify them explicitly as product-owned, proof-harness-owned, shared-wrapper-owned, shared-baseline-owned, or manual/runtime-owned before retrying.
+- Runtime-handoff requirement: later manual validation depends on the supported main stack, mounted ingest namespace, readiness checks, seeded data source, and artifact destination being named here instead of being rediscovered by failure.
+- Likely blocker family: shared wrapper or baseline seam for broad automated proof, with manual or runtime environment seam for later browser or API validation. This task owns final orchestration and residual-risk recording; it does not own silently fixing unclassified baseline failures.
+
 #### Documentation Locations
 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
@@ -16083,4 +16111,8 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 
 #### Manual Testing Guidance
 
-Optional later manual validation can focus on the repaired externally observable seams for this review cycle: deferred queued start replay behavior after restart, mixed-shape re-embed error shaping, exact remove-selector rejection, queued-target remove blocking under unrelated active work, and the already-resolved inline client fixes for roots and ingest-form disabled-state behavior. Use the normal Docker stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`; retain any sanitized proof under `codeInfoStatus/manual-testing/0000055/` only after confirming it contains no provider identifiers or token-like values.
+Optional later manual validation can focus on the repaired externally observable seams for this review cycle: deferred queued start replay behavior after restart, mixed-shape re-embed error shaping, exact remove-selector rejection, queued-target remove blocking under unrelated active work, and the already-resolved inline client fixes for roots and ingest-form disabled-state behavior.
+
+Use the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`. The stack uses `docker-compose.yml`, `server/.env`, and `server/.env.local`; the wrapper preflight checks ports `5010`, `5011`, `5012`, and `8932`. The client is expected at `http://localhost:5001`, the REST and MCP server at `http://localhost:5010`, the secondary MCP services at `http://localhost:5011` and `http://localhost:5012`, and Playwright MCP at `http://localhost:8932/mcp`. Readiness should come from compose health checks plus `/health` before browser or API proof begins, and any mounted ingest-path scenario should use the same configured host namespace that the main stack maps into `CODEINFO_CODEX_WORKDIR`.
+
+If later manual proof needs seeded queue-owned or replayable ingest rows, seed them through the supported Story 55 routes or test-owned fixtures rather than ad hoc database edits. Retain sanitized proof only under `codeInfoStatus/manual-testing/0000055/` after confirming it contains no provider identifiers or token-like values. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into `codeInfoStatus/manual-testing/0000055/`.

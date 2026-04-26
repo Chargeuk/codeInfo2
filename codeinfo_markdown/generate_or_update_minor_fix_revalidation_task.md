@@ -28,12 +28,15 @@ This step is idempotent. It must update an existing final minor-fix revalidation
   - report the no-op reason.
 - If `needs_final_minor_fix_revalidation_task` is true, add or update one normal numbered task in the canonical plan.
 - The task title must be `Re-Validate Story <story-number> After Inline Minor Review Fixes` unless an existing equivalent final minor-fix revalidation task already uses a compatible title.
+- The task must stay as exactly one final revalidation task even when the resolved minor fixes span multiple repositories.
 - The task status must be `__to_do__`.
-- The task must include `Repository Name: Current Repository` unless the plan has an established final-revalidation convention that names a different single repository owner. If resolved minor findings span repositories, keep the canonical plan owner as `Current Repository` and state the affected repositories inside the task body.
+- The task must include exactly one `Repository Name` field so it still fits the normal task format, but that field is administrative ownership only for this special final revalidation task.
+- The task must include an `Affected Repositories` section naming every repository represented in `resolved_minor_findings`.
+- If more than one repository is named in `Affected Repositories`, the task body must explicitly say that validation scope is driven by `Affected Repositories`, not by `Repository Name` alone.
 - The task must include an `Addresses Findings` section naming every `resolved_minor_findings` ID, summary, repository, and resolution commit from the state.
 - The task must include `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance` only if useful.
 - `Subtasks` must describe implementation-free proof preparation only, such as re-reading the `## Minor Review Fixes` section and verifying resolved finding coverage. Do not put runnable commands in `Subtasks`.
-- `Testing` must contain automated wrapper-level proof only. Use repository guidance, `AGENTS.md`, and the resolved findings' changed files to choose the broadest relevant wrapper proof that is honest for final story confidence.
+- `Testing` must contain automated wrapper-level proof only. Use repository guidance, `AGENTS.md`, `Affected Repositories`, and the resolved findings' changed files to choose the broadest relevant wrapper proof that is honest for final story confidence across every affected repository.
 - Do not add manual-testing-only work to `Subtasks` or `Testing`.
 - Do not add subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output.
 - The task must explain that inline minor fixes were already made and documented, and this task owns final proof before story closure.
@@ -98,6 +101,7 @@ When no task is needed and no unresolved work remains:
 - Confirm no unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remained before generating the task.
 - Confirm exactly one final minor-fix revalidation task exists for the current minor-fix cycle.
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
+- Confirm the task has an `Affected Repositories` section that covers every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
 - Confirm runnable commands live only in `Testing`.
 - Confirm no manual-testing work was added to `Subtasks` or `Testing`.

@@ -328,26 +328,18 @@
                   "markdownFile": "fix_next_minor_review_finding.md"
                 },
                 {
-                  "type": "break",
-                  "label": "Exit Minor-Fix Path If No Minor Finding Was Fixed",
-                  "agentType": "planning_agent",
-                  "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk. Answer yes iff `status` is not `fixed`, meaning no minor finding was fixed, no bounded inline minor finding remains, or the minor-fix path is blocked and must stop. Answer no only if `status` is `fixed`, meaning exactly one minor finding was fixed and can now be documented. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
-                  "breakOn": "yes"
-                },
-                {
                   "type": "llm",
-                  "label": "Document Minor Review Fix",
+                  "label": "Sync Minor Review Fix Outcome",
                   "agentType": "planning_agent",
                   "identifier": "planner",
                   "markdownFile": "document_minor_review_fix.md"
                 },
                 {
                   "type": "break",
-                  "label": "Exit Minor-Fix Path When No More Minor Findings Remain",
+                  "label": "Exit Minor-Fix Path After Sync Unless Another Minor Fix Is Ready",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after the documentation step. Answer yes iff `needs_minor_fix_path` is not true, meaning there are no more unresolved minor-only findings to fix in this review pass. Answer no only if `needs_minor_fix_path` is true, meaning another unresolved minor-only finding remains and should be fixed before the review is rerun. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` and `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk after the sync step. Answer yes iff either `status` is not `fixed` or `needs_minor_fix_path` is not true, meaning this minor-only path should stop and hand control back to the outer review loop. Answer no only if `status` is `fixed` and `needs_minor_fix_path` is true, meaning another unresolved minor-only finding remains and should be fixed in this same pass. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 }
               ]

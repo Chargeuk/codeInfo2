@@ -1,8 +1,8 @@
 # Goal
 
-Document the most recent minor review fix in the review state, review artifacts, and active plan without creating a numbered task.
+Record the most recent minor-review outcome in the review state, review artifacts, and active plan without creating a numbered task.
 
-This step records what the minor-fix coding step already did. It does not implement code changes and does not run proof.
+This step runs after every terminal minor-fix attempt outcome. It records what the minor-fix coding step already did or why that path must now route differently. It does not implement code changes and does not run proof.
 
 <critical_rules>
 

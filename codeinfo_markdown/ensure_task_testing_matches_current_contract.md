@@ -30,6 +30,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 <testing_derivation_rules>
 
 - Derive each task's testing section from that task's `Repository Name`.
+- Exception: if the task is the single final task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes` and it includes an `Affected Repositories` section, derive its `Testing` section from every repository named there rather than from `Repository Name` alone.
 - If the task belongs to `Current Repository`, use this repository's wrapper-first build, test, compose, startup, and shutdown workflows from `AGENTS.md`.
 - If the task belongs to an additional repository, read that repository's `AGENTS.md` first and use that repository's supported workflows.
 - Do not copy this repository's wrapper commands into another repository unless repository evidence shows that the external repository actually uses the same commands.
@@ -43,6 +44,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Keep the individual review-created task's `Testing` focused on the narrowest repository-supported automated proof that honestly reaches that task's changed behavior.
 - This compact treatment is allowed only when a fresh final revalidation task exists after the review-created tasks and explicitly owns full relevant regression proof for the current review-created findings block across every affected repository.
 - The final revalidation task must name the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns, or state why a category is not applicable.
+- For the single final task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes`, use the `Affected Repositories` section as the source of truth for which repositories must appear in `Testing`, even when the task still carries one administrative `Repository Name` field for plan-format compatibility.
 - If the final revalidation task is missing, vague, too narrow, or fails to own full relevant regression proof, repair that final revalidation task instead of duplicating broad proof across every review-created task.
 - If targeted task-local proof cannot directly reach a review fix, or if that review-created task changes wrappers, harnesses, startup paths, default routing, runtime lifecycle, shared state, or cross-repository behavior, add the broader task-local proof needed for that task.
 - Do not reduce proof coverage. Reduce only duplicated placement of broad regression proof when the final revalidation task owns that proof explicitly.

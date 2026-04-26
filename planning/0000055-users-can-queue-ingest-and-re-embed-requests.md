@@ -15865,7 +15865,7 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 #### Proof Mapping
 
-- `P1.` admission-contract preservation for `R1` through `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/requestContracts.ts`; proof homes are `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` and the nearest queue-runtime deferred-start unit proof that owns queued start replay.
+- `P1.` direct queue-promotion replay repair for `R1` through `R3`: implementation owners are `server/src/ingest/ingestJob.ts` and `server/src/ingest/requestContracts.ts`; proof homes are `server/src/test/unit/ingest-queue-runtime-pump.test.ts` and `server/src/test/unit/ingest-start.test.ts`.
 - `P2.` startup-recovery parity for `R2` and `R4`: implementation owner is `server/src/ingest/ingestJob.ts`; proof home is `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
 
 #### Risk Ownership
@@ -15877,22 +15877,25 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 - `server/src/ingest/ingestJob.ts`
 - `server/src/ingest/requestContracts.ts`
+- `server/src/test/unit/ingest-queue-runtime-pump.test.ts`
 - `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`
-- `server/src/test/unit/ingest-queue-runtime-startup.test.ts`
+- `server/src/test/unit/ingest-start.test.ts`
 
 #### Subtasks
 
-1. [ ] Re-read the queued start admission contract in `server/src/ingest/requestContracts.ts` and the deferred replay/startup recovery seams in `server/src/ingest/ingestJob.ts`, then identify the exact fallback that reconstructs `requestPayload.name` during promotion or recovery.
-2. [ ] Patch the deferred queued start replay path so persisted `requestPayload.name` is treated as required contract state during promotion and startup recovery; missing `name` must become an invalid persisted request failure instead of being silently rebuilt from the path basename.
-3. [ ] Update the queue-runtime replay proof so a queued start row missing `requestPayload.name` fails before discovery or embedding work, while a valid queued start payload still promotes successfully through the same replay surface.
-4. [ ] Update the startup recovery proof so recovered queued start rows enforce the same missing-`name` contract and do not admit a replay-only success path that immediate `POST /ingest/start` would reject.
+1. [ ] Re-read the immediate start admission contract in `server/src/ingest/requestContracts.ts`, then trace the deferred replay path in `server/src/ingest/ingestJob.ts` until you identify the exact fallback that reconstructs `requestPayload.name` during queue promotion or startup recovery.
+2. [ ] Patch the deferred queued start replay path so persisted `requestPayload.name` remains required contract state for `start_ingest` work during both queue promotion and startup recovery; missing `name` must become an invalid persisted request failure before discovery or embedding work instead of being silently rebuilt from the path basename.
+3. [ ] Add or update a direct queue-promotion proof in `server/src/test/unit/ingest-queue-runtime-pump.test.ts` that seeds a waiting `start_ingest` request with missing `requestPayload.name`, proves the replay fails closed before discovery starts, proves the failure is recorded on the owned request rather than silently promoted, and proves a valid waiting start request still promotes successfully through the same pump surface.
+4. [ ] Add or update a startup-recovery proof in `server/src/test/unit/ingest-queue-runtime-recovery.test.ts` that replays a persisted waiting `start_ingest` row with missing `requestPayload.name`, proves recovery rejects it before discovery starts, and proves the same replay surface still accepts a valid persisted payload.
+5. [ ] Keep the immediate route contract explicit in `server/src/test/unit/ingest-start.test.ts` so `POST /ingest/start` still rejects missing `name` up front while accepted requests remain unchanged, making it impossible for the deferred replay repair to drift away from the admission contract again.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-startup.test.ts`.
-3. [ ] Run `npm run lint`.
-4. [ ] Run `npm run format:check`.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-start.test.ts`.
+4. [ ] Run `npm run lint`.
+5. [ ] Run `npm run format:check`.
 
 ### Task 198. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
 
@@ -15915,9 +15918,9 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 
 #### Proof Mapping
 
-- `P1.` shared classification repair for `R1`, `R3`, and `R4`: implementation owner is `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/reingestService.test.ts`.
+- `P1.` shared classification repair for `R1`, `R3`, and `R4`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are `server/src/test/unit/reingestService.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts`.
 - `P2.` REST contract parity for `R1` and `R2`: implementation owners are `server/src/routes/ingestReembed.ts` and `server/src/ingest/reingestService.ts`; proof home is `server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-- `P3.` shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are the nearest MCP or command-path re-ingest tests that already prove `runReingestRepository()` result shaping.
+- `P3.` shared-caller transport parity for `R3`: implementation owner is `server/src/ingest/reingestService.ts`; proof homes are `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
 
 #### Risk Ownership
 
@@ -15930,21 +15933,23 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - `server/src/routes/ingestReembed.ts`
 - `server/src/lmstudio/toolService.ts`
 - `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
 - `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
 - `server/src/test/unit/mcp.reingest.classic.test.ts`
 - `server/src/test/unit/mcp2.reingest.tool.test.ts`
 
 #### Subtasks
 
-1. [ ] Re-read the mixed-shape canonical metadata producer in `server/src/lmstudio/toolService.ts`, the queued re-embed admission checks in `server/src/ingest/reingestService.ts`, and the REST classifier in `server/src/routes/ingestReembed.ts` to isolate the exact mismatch between invalid-state handling and provider-availability handling.
-2. [ ] Patch the shared queued re-embed validation/classification path so partial canonical OpenAI metadata is mapped to the intended invalid-state contract instead of `OPENAI_MODEL_UNAVAILABLE`, while preserving the existing behavior for valid canonical metadata and genuine provider-availability failures.
-3. [ ] Patch `runReingestRepository()` result shaping so the mixed-shape canonical metadata case returns a structured invalid-state result for shared callers instead of escaping as an uncaught exception.
-4. [ ] Update REST proof for the mixed-shape row so `POST /ingest/reembed/:root` returns the same structured invalid-state contract that the shared service now returns.
-5. [ ] Update one shared-caller proof surface so the same mixed-shape row reaches the repaired `runReingestRepository()` contract without throwing, preserving transport parity beyond the REST route.
+1. [ ] Re-read the mixed-shape canonical metadata producer in `server/src/lmstudio/toolService.ts`, the queued re-embed admission checks in `server/src/ingest/reingestService.ts`, and the REST classifier in `server/src/routes/ingestReembed.ts` to isolate the exact branch where canonical `embeddingProvider: openai` plus blank or partial canonical model state is treated as provider availability instead of invalid metadata.
+2. [ ] Patch the shared queued re-embed admission path so canonical OpenAI validation only reaches the allowlisted-model branch when both canonical provider and canonical model are complete strings; mixed-shape canonical metadata must map to the intended invalid-state or invalid-lock-metadata contract instead of `OPENAI_MODEL_UNAVAILABLE`.
+3. [ ] Patch `runReingestRepository()` result shaping so the same mixed-shape canonical metadata case is classified in its catch path and returned as a structured invalid-state result for shared callers instead of escaping as an uncaught exception.
+4. [ ] Add or update producer-plus-service proof across `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/reingestService.test.ts` so a repo-list row with canonical OpenAI provider plus partial canonical model reaches the repaired invalid-state contract and does not regress valid canonical or genuine provider-unavailable behavior.
+5. [ ] Update `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so `POST /ingest/reembed/:root` returns the same structured invalid-state contract for the mixed-shape row that the shared service now returns.
+6. [ ] Update both `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` so the same mixed-shape row proves transport parity for shared callers and confirms the repaired service result is returned instead of thrown.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts`.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
 4. [ ] Run `npm run lint`.
@@ -15972,7 +15977,7 @@ Repair the production remove route so the public selector is validated as an exa
 
 #### Proof Mapping
 
-- `P1.` exact-selector validation for `R1` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof homes are `server/src/test/features/ingest-remove.feature` and the nearest direct route proof for destructive selector validation.
+- `P1.` exact-selector validation for `R1` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof homes are `server/src/test/features/ingest-remove.feature` and `server/src/test/integration/ingest-lock-lifecycle.test.ts`.
 - `P2.` target-first queue blocking for `R2` and `R3`: implementation owner is `server/src/routes/ingestRemove.ts`; proof homes are `server/src/test/features/ingest-remove.feature` and `server/src/test/integration/ingest-lock-lifecycle.test.ts`.
 - `P3.` cleanup-route separation for `R4`: implementation owner is `server/src/routes/ingestE2eCleanup.ts`; proof home is `server/src/test/integration/ingest-e2e-cleanup.test.ts` if any shared helper changes are required.
 
@@ -15993,11 +15998,12 @@ Repair the production remove route so the public selector is validated as an exa
 
 #### Subtasks
 
-1. [ ] Re-read the production remove route, its current selector normalization, and its queue-state ordering so the exact destructive-boundary authority and the busy-vs-target-blocking mismatch are isolated before patching.
-2. [ ] Patch the production remove route so the public selector is validated as an exact destructive identifier before destructive lookup or removal, and alias or dot-segment forms cannot retarget the normalized root.
-3. [ ] Patch the production remove route so target-owned queue blocking is evaluated before generic busy-state fallback, preserving `QUEUE_STATE_BLOCKED` metadata whenever the selected target itself is queue-owned.
-4. [ ] Update direct production remove proof so alias selectors are rejected or safely blocked before destructive removal, and so the route returns `QUEUE_STATE_BLOCKED` rather than generic `BUSY` when an unrelated active run coexists with a queued target.
-5. [ ] Inspect the test-only cleanup route after the production repair and patch its proof only if a shared helper change actually affects the cleanup boundary; otherwise leave that route unchanged and record that the authority boundary remained isolated.
+1. [ ] Re-read `server/src/routes/ingestRemove.ts`, the shared selector normalizer it uses today, and the current remove proofs so the exact destructive-boundary seam and the busy-vs-target-blocking ordering bug are isolated before patching.
+2. [ ] Patch the production remove route so the public `:root` selector is validated as an exact destructive identifier before destructive lookup or removal, and dot-segment or alias forms are rejected or safely blocked instead of being normalized onto another stored target.
+3. [ ] Patch the production remove route so target-owned queue blocking is evaluated before generic busy-state fallback, preserving `QUEUE_STATE_BLOCKED`, `queueState`, and `runId` metadata whenever the selected target itself is queue-owned even if unrelated work is active.
+4. [ ] Update `server/src/test/integration/ingest-lock-lifecycle.test.ts` so the direct route proof covers both sides of the ordering seam: exact-selector validation at the destructive boundary and the queued-target-plus-unrelated-active-run case that must now return `QUEUE_STATE_BLOCKED` instead of generic `BUSY`.
+5. [ ] Update `server/src/test/features/ingest-remove.feature` and `server/src/test/steps/ingest-manage.steps.ts` so the higher-level remove contract explicitly covers exact-root authority, blocked queued or cleanup-owned targets, and non-destructive alias rejection without weakening the existing idle-success or active-run-owned scenarios.
+6. [ ] Inspect `server/src/routes/ingestE2eCleanup.ts` and `server/src/test/integration/ingest-e2e-cleanup.test.ts` after the production repair; patch them only if a shared helper change actually affects the test-only cleanup boundary, otherwise leave that route unchanged and record that the authority split remained intact.
 
 #### Testing
 
@@ -16056,8 +16062,9 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260426T203714Z-ff22e029`, the `## Minor Review Fixes` entries for findings `5` through `9`, and the completed proof-owner sections for Tasks `197` through `199`; check off this subtask only after parser output shows each dependency task is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with the finding-to-proof map for serious findings `F1` through `F4` plus inline-resolved minor findings `5` through `9`, including repaired files, exact proof homes, current review artifacts, and any residual risk already known before this task's broad wrapper execution.
-3. [ ] Re-open this plan after the summary refresh and verify that this findings block, the `## Minor Review Fixes` section, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` all list the same owners, proof homes, inline-minor coverage, and final validation scope before the testing section runs.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a finding-to-proof map that covers serious findings `F1` through `F4` plus inline-resolved minor findings `5` through `9`, naming the exact repaired files, exact proof homes, retained review artifacts, and any residual risk already known before this task's broad wrapper execution.
+3. [ ] Re-open this plan after the summary refresh and verify that this findings block, the `## Minor Review Fixes` section, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` all list the same owners, proof homes, inline-minor coverage, and final validation scope before the broad wrapper sequence runs.
+4. [ ] If the broad wrapper sequence exposes a new defect, record it in this task's implementation notes as product-owned, harness-owned, shared baseline-owned, or manual/runtime-owned before changing any task state; do not create a second final revalidation task for this same review cycle.
 
 #### Testing
 

@@ -191,39 +191,24 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('review flows repair findings task blocks before scoped task-up', async () => {
+  test('review flows use reset and classifier disposition before findings repair and scoped task-up', async () => {
     const flowFiles = [
-      {
-        relativePath: 'flows/review_plan.json',
-        dispositionMarkdown: 'review_disposition.md',
-      },
-      {
-        relativePath: 'flows/implement_next_plan.json',
-        dispositionMarkdown: 'review_disposition.md',
-      },
-      {
-        relativePath: 'flows/task_and_implement_plan.json',
-        dispositionMarkdown: 'review_disposition.md',
-      },
-      {
-        relativePath: 'flows/improve_task_implement_plan.json',
-        dispositionMarkdown: 'review_disposition.md',
-      },
-      {
-        relativePath: 'flows/ingest_external_review_plan.json',
-        dispositionMarkdown: 'external_review_disposition.md',
-      },
+      'flows/review_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/ingest_external_review_plan.json',
     ] as const;
 
     for (const flowFile of flowFiles) {
       const raw = await fs.readFile(
-        path.join(repoRoot, flowFile.relativePath),
+        path.join(repoRoot, flowFile),
         'utf8',
       );
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
       assert.ok(
         Array.isArray(parsed.steps),
-        `${flowFile.relativePath} should define steps`,
+        `${flowFile} should define steps`,
       );
 
       const markers = flattenSteps(parsed.steps ?? []).map((step) => {
@@ -236,32 +221,120 @@ describe('flow schema (v1)', () => {
         return undefined;
       });
 
-      const dispositionIndex = markers.indexOf(flowFile.dispositionMarkdown);
+      const resetIndex = markers.indexOf('reset_review_cycle_state.md');
+      const classifyIndex = markers.indexOf('classify_review_disposition.md');
       const ensureIndex = markers.indexOf(
         'ensure_review_findings_became_tasks.md',
       );
       const taskUpIndex = markers.indexOf('task_up_review_tasks');
 
       assert.notEqual(
-        dispositionIndex,
+        resetIndex,
         -1,
-        `${flowFile.relativePath} should include review disposition`,
+        `${flowFile} should include review-cycle reset`,
+      );
+      assert.notEqual(
+        classifyIndex,
+        -1,
+        `${flowFile} should include classifier disposition`,
       );
       assert.notEqual(
         ensureIndex,
         -1,
-        `${flowFile.relativePath} should include review findings repair`,
+        `${flowFile} should include review findings repair`,
       );
       assert.notEqual(
         taskUpIndex,
         -1,
-        `${flowFile.relativePath} should include scoped review task-up`,
+        `${flowFile} should include scoped review task-up`,
       );
       assert.ok(
-        dispositionIndex < ensureIndex && ensureIndex < taskUpIndex,
-        `${flowFile.relativePath} should run disposition, then repair findings tasks, then scoped task-up`,
+        resetIndex < classifyIndex &&
+          classifyIndex < ensureIndex &&
+          ensureIndex < taskUpIndex,
+        `${flowFile} should run reset, then classifier disposition, then repair findings tasks, then scoped task-up`,
       );
     }
+  });
+
+  test('loop-based review flows generate final minor revalidation before clean closeout', async () => {
+    const flowFiles = [
+      'flows/review_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/ingest_external_review_plan.json',
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
+
+      const markers = flattenSteps(parsed.steps ?? []).map((step) =>
+        step.type === 'llm' ? step.markdownFile : undefined,
+      );
+
+      const finalTaskIndex = markers.indexOf(
+        'generate_or_update_minor_fix_revalidation_task.md',
+      );
+      const closeoutIndex = markers.indexOf(
+        'write_review_no_findings_closeout.md',
+      );
+
+      assert.notEqual(
+        finalTaskIndex,
+        -1,
+        `${flowFile} should include final minor-fix revalidation generation`,
+      );
+      assert.notEqual(
+        closeoutIndex,
+        -1,
+        `${flowFile} should include clean review closeout`,
+      );
+      assert.ok(
+        finalTaskIndex < closeoutIndex,
+        `${flowFile} should generate final minor revalidation before clean closeout`,
+      );
+    }
+  });
+
+  test('external review flow preserves adjudication trail after clean closeout', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/ingest_external_review_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    assert.ok(
+      Array.isArray(parsed.steps),
+      'flows/ingest_external_review_plan.json should define steps',
+    );
+
+    const markers = flattenSteps(parsed.steps ?? []).map((step) =>
+      step.type === 'llm' ? step.markdownFile : undefined,
+    );
+
+    const closeoutIndex = markers.indexOf(
+      'write_review_no_findings_closeout.md',
+    );
+    const adjudicationIndex = markers.indexOf(
+      'preserve_external_review_adjudication_trail.md',
+    );
+
+    assert.notEqual(
+      closeoutIndex,
+      -1,
+      'flows/ingest_external_review_plan.json should include clean review closeout',
+    );
+    assert.notEqual(
+      adjudicationIndex,
+      -1,
+      'flows/ingest_external_review_plan.json should preserve the external adjudication trail',
+    );
+    assert.ok(
+      closeoutIndex < adjudicationIndex,
+      'flows/ingest_external_review_plan.json should preserve the external adjudication trail after clean closeout',
+    );
   });
 
   test('unknown keys are rejected (strict), including reingest extras', () => {

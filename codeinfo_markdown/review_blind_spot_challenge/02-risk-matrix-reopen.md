@@ -9,9 +9,10 @@ Re-open the stored risk matrix and findings state so the challenge stays tightly
 3. Re-open the findings artifact and inspect the current findings list plus `Rejected Risk Notes`.
 4. For each selected matrix item, attempt one more focused semantic challenge that is narrower and more adversarial than the general findings pass.
 5. Prefer edge conditions that could make a tentative no-findings conclusion wrong, especially:
-  - disabled-or-hidden stale UI state;
-  - create-vs-reuse or run-vs-resume mode mismatches;
-  - intervening state changes between an earlier read and a later write or update;
-  - changed tests whose titles may no longer match their assertions.
+
+- disabled-or-hidden stale UI state;
+- create-vs-reuse or run-vs-resume mode mismatches;
+- intervening state changes between an earlier read and a later write or update;
+- changed tests whose titles may no longer match their assertions.
 
 </step_rules>

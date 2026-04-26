@@ -30,8 +30,11 @@ Re-audit the testing and proof sections for every task in the active plan so the
 <testing_derivation_rules>
 
 - Derive each task's testing section from that task's `Repository Name`.
+- Treat `Repository Name` as the implementation owner, not automatically as the only repository whose proof matters.
+- Exception: if the task is the single final task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes` and it includes an `Affected Repositories` section, derive its `Testing` section from every repository named there rather than from `Repository Name` alone.
 - If the task belongs to `Current Repository`, use this repository's wrapper-first build, test, compose, startup, and shutdown workflows from `AGENTS.md`.
 - If the task belongs to an additional repository, read that repository's `AGENTS.md` first and use that repository's supported workflows.
+- When story correctness depends on compatibility with another repository, `Testing` may include proof for that additional repository even though the task's `Repository Name` still identifies only one implementation owner.
 - Do not copy this repository's wrapper commands into another repository unless repository evidence shows that the external repository actually uses the same commands.
 - If no wrapper guidance exists for a repository, use the highest-level safe commands discoverable from that repository's evidence rather than inventing low-level direct commands.
 
@@ -43,6 +46,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Keep the individual review-created task's `Testing` focused on the narrowest repository-supported automated proof that honestly reaches that task's changed behavior.
 - This compact treatment is allowed only when a fresh final revalidation task exists after the review-created tasks and explicitly owns full relevant regression proof for the current review-created findings block across every affected repository.
 - The final revalidation task must name the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns, or state why a category is not applicable.
+- For the single final task titled `Re-Validate Story <story-number> After Inline Minor Review Fixes`, use the `Affected Repositories` section as the source of truth for which repositories must appear in `Testing`, even when the task still carries one administrative `Repository Name` field for plan-format compatibility.
 - If the final revalidation task is missing, vague, too narrow, or fails to own full relevant regression proof, repair that final revalidation task instead of duplicating broad proof across every review-created task.
 - If targeted task-local proof cannot directly reach a review fix, or if that review-created task changes wrappers, harnesses, startup paths, default routing, runtime lifecycle, shared state, or cross-repository behavior, add the broader task-local proof needed for that task.
 - Do not reduce proof coverage. Reduce only duplicated placement of broad regression proof when the final revalidation task owns that proof explicitly.
@@ -58,6 +62,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
   4. stop the system or services that were started for automated validation;
   5. when the task affects a runnable system, add an explicit smoke-proof step to start and then shut down the normal supported system path for that repository, using the non-agent-adjusted, non-e2e-adjusted runtime path unless repository evidence explicitly says a different normal path applies.
 - Prefer wrapper scripts and wrapper-first workflows over low-level direct commands.
+- When `Testing` spans more than one repository, group the proof steps by repository so it is obvious which wrappers and runtime rules belong to which repository.
 - If Docker or Compose wrapper paths are supported for the normal system, prefer those over local startup paths.
 - If the repository already has a more specific testing-policy helper or documented proof order, generate the task testing steps to match that order rather than inventing a new one.
 - If automated proof depends on starting a specific version, variant, mode, seeded environment, or test-support build of the system, state that explicitly and use the repository-supported path for doing so.
@@ -116,6 +121,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Check whether newly added review-created tasks rely on compact targeted proof only when a fresh final revalidation task explicitly owns full relevant regression proof for the current review-created findings block.
 - Check whether manual testing steps were avoided here so that manual validation remains owned by the implementation flows.
 - Check whether no subtask now depends on future automated or manual proof output.
+- Check whether every repository named in `Affected Repositories`, or otherwise required for compatibility proof, has at least one automated proof step or an explicit not-applicable reason.
 
 </verification_loop>
 

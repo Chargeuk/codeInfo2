@@ -20,6 +20,9 @@ Finish the current story review using ONLY the stored review handoff and the art
   - tracked files under ignored paths;
   - checked-in local config that should remain template-only;
   - tracked temp, generated, or runtime artifact directories.
+- Treat the current pass `evidence_file`, `findings_file`, optional `saturation_file`, and optional `challenge_file` as temporary local review artifacts for this flow run only.
+- These review artifacts may live under ignored scratch paths such as `codeInfoTmp/reviews/` and must not be committed.
+- Treat `codeInfoTmp/reviews/<story-number>-current-review.json` as transient review handoff state, `codeInfoTmp/reviews/<story-number>-external-review-input.md` as transient review input, and `codeInfoTmp/reviews/<review-pass-id>-blind-spot-challenge.md` as optional additive context rather than required durable artifacts.
 - Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
 - This is the only review step allowed to mutate plans.
 - This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
@@ -117,7 +120,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
     - lifecycle ordering;
     - test isolation.
 29. If any of those areas remain weakly proven, record that residual risk explicitly rather than implying the review was exhaustive.
-30. The current pass `evidence_file`, `findings_file`, optional `saturation_file`, and optional `challenge_file` are high-quality local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
+30. The current pass `evidence_file`, `findings_file`, optional `saturation_file`, and optional `challenge_file` are temporary local review artifacts for this flow run only. Use them as disposition input, but do NOT add them to commits.
 31. When the saturation step exists, treat its artifact as additive context for the reopen or no-findings decision. When the saturation step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's endorsed findings and, when present, its `Finding Saturation Seeds` and `Checked Defect Families` sections as the fallback source of that reasoning. Treat those named sections as optional for backward compatibility with older findings artifacts; if they are absent, derive equivalent sibling-scan reasoning from the endorsed findings when possible, or proceed without those sections when that reasoning is not explicitly available.
 32. When the challenge step exists, treat its artifact as additive context for the no-findings or reopen decision. When the challenge step is absent because an older flow snapshot is still running, preserve the same disposition quality by using the findings artifact's `Rejected Risk Notes` section as the fallback source of that reasoning.
 33. Determine the review outcome primarily from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the findings artifact, trust the artifact and record the mismatch in the disposition notes.

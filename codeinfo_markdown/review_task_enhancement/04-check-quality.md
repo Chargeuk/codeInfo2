@@ -15,19 +15,22 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 
 <quality_check_rules>
 
-- Re-read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact `plan_path` from disk after the scoped review-task-up command has edited it.
+- Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- Re-open the exact `plan_path` from disk after the scoped review-task-up command has edited it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Re-identify the same newly added review-created `__to_do__` tasks that were eligible for the scoped review-task-up command. Keep edits focused on those tasks except for minimal dependency, numbering, cross-reference, or testing-honesty fixes elsewhere in the plan.
 - Compare the selected review-created tasks against the story's stronger pre-existing tasks. Review-created tasks should read like normal first-class story tasks, not lightweight review notes.
 - Review-created tasks should also read like compact patch tasks for known findings, not miniature full-story task plans.
 - If adjacent selected review-created tasks share repository ownership, repair seam, root cause, implementation owner, and proof story, treat that as task-level over-fragmentation. Do not merge, delete, absorb, renumber, or identity-shift those tasks in this pass. Stop and report that the selected review-created task block must be regrouped by review disposition or stored-review repair before scoped enhancement continues.
 - If one selected review-created task combines findings only because they share repository ownership or likely implementation owner, treat that as task-level over-grouping. Do not split, delete, renumber, or identity-shift that task in this pass. Stop and report that the selected review-created task block must be split by review disposition or stored-review repair before scoped enhancement continues.
 - If a selected task still has any subtask that would force a junior implementer to infer the real file target, proof owner, order of operations, or stopping rule, rewrite that subtask now.
+- Treat `Repository Name` as the selected task's implementation owner, not automatically as the only repository whose proof can appear in `Testing`.
 - If a selected task still has any subtask that depends on future automated or manual proof output, rewrite that subtask now.
 - If a selected task contains several micro-subtasks that touch one coherent patch area or proof file, compact them into one concrete subtask with inline file targets, assertions, and outcomes unless that would hide sequencing, ownership, or proof risk.
 - If a selected task writes absolute filesystem paths, usernames, or machine-specific checkout roots into the plan, rewrite that wording now using portable repository-relative or logical locations.
 - If a selected task changes back-end behavior in the current repository, require targeted wrapper-first server proof that honestly reaches the review fix, and rely on the fresh final revalidation task for broader server regression proof when that shared proof location is explicit.
 - If a selected task changes front-end or UI behavior in the current repository, require targeted wrapper-first client proof that honestly reaches the review fix, and rely on the fresh final revalidation task for broader client or browser regression proof when that shared proof location is explicit.
+- If a selected task needs compatibility proof in another repository, keep its implementation ownership single-repository but allow that additional repository to appear in `Testing` or optional `Manual Testing Guidance`.
 - Prefer targeted task-local proof plus the fresh final revalidation task for broad regression proof. Do not require every selected review-created task to repeat full broad suites when the final revalidation task honestly covers the current review-created findings block.
 - If a selected task would benefit from manual-testing-agent browser or runtime checks, express those only in `Manual Testing Guidance`, not as manual testing checklist items.
 - If a selected task plans auth bypasses, seeded identities, mocked providers, bypassed 2FA, or similar test-enablement seams in shipped production behavior, rewrite that work so it lives in test-only harnesses, fixtures, support code, or test configuration.
@@ -42,6 +45,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Preserve and improve any existing `Addresses Findings` coverage in the selected tasks.
 - If the fresh final revalidation task is missing explicit coverage of the current review-created findings block for this `review_pass_id`, add or repair that wording now instead of only preserving what is already there.
 - If the fresh final revalidation task does not explicitly own full relevant regression proof for the affected repositories in the current review-created findings block, add or repair that wording now instead of adding duplicated broad proof to every selected review-created task.
+- For the fresh final revalidation task, treat `Affected Repositories` as the source of truth for story-wide proof scope and do not flag the task as malformed merely because its `Testing` spans more than one repository.
 
 </quality_check_rules>
 
@@ -54,6 +58,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Check that no selected task still relies on vague verbs such as “fix,” “handle,” or “update tests” without explicit file targets and intended outcomes.
 - Check that each selected task names targeted task-local proof honestly and that any broad wrapper proof deferred to final revalidation is explicitly covered there.
 - Check that any broad wrapper proof deferred to final revalidation is owned by a fresh final revalidation task with full relevant regression proof for the current review-created findings block.
+- Check that any selected task with cross-repository proof still keeps implementation ownership and subtasks scoped to its single `Repository Name`.
 - Check that each selected task keeps `Testing` automated-only and moves any optional manual-testing-agent scenarios into `Manual Testing Guidance`.
 - Check that no selected task repeats broad wrapper, full-suite, browser, Compose, or Docker proof without a task-specific reason.
 - Check that no selected task still contains manual testing checklist items or subtasks gated on future proof output.
@@ -62,6 +67,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 - Check that any automated screenshot or browser-artifact path points only to ignored artifact storage.
 - Check that the selected review-created task identities remain the same ones chosen by the scoped review-task-up command.
 - Check that each selected task still carries clear `Addresses Findings` coverage, and that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`.
+- Check that the fresh final revalidation task's `Testing` clearly covers every repository named in `Affected Repositories`.
 - Check that the latest `Code Review Findings` section and its review-created tasks now sit in one contiguous end-of-file block with the fresh final revalidation task after them.
 - Check that any edits outside the selected tasks were minimal and only to keep the plan executable and truthful.
 

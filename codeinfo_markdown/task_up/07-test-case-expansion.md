@@ -12,7 +12,8 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
 
 <test_case_expansion_rules>
 
-- Re-read the active plan from disk before editing.
+- Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, then re-open the exact relative `plan_path` from disk before editing, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Do not answer from conversational memory or an earlier snapshot when the plan can be re-read from disk now.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.
 - Do not rewrite `__done__` or `__in_progress__` tasks except for minimal numbering, dependency, cross-reference, or testing-honesty fixes required to keep the plan executable and truthful.
 - For each acceptance path, important edge case, error path, recovery path, and mixed-state path, add or refine a proof-authoring subtask that names the exact proof file or artifact to create or edit.
@@ -56,7 +57,7 @@ Expand proof obligations into smaller proof-authoring subtasks so each important
   - “Test type: server unit. Location: `server/src/test/unit/openai-provider.test.ts`. Description: prove overflow inputs still split into multiple provider calls. Purpose: preserve batching behavior while the constant source changes.”
 - Bad: “Run the browser proof and save the screenshot for the disabled-state case.”
 - Good: “Extend the relevant Playwright proof and screenshot naming so the disabled-state case can be captured during later automated or manual validation.”
-    </mini_example>
+  </mini_example>
 
 <output_contract>
 

@@ -19,6 +19,8 @@ export type NormalizedIngestError = {
   retryable?: boolean;
   details?: string;
   status?: number;
+  upstreamStatus?: number;
+  retryAfterMs?: number;
 };
 
 export type IngestRoot = {
@@ -80,6 +82,8 @@ type IngestRootsErrorPayload = {
   retryable?: unknown;
   details?: unknown;
   status?: unknown;
+  upstreamStatus?: unknown;
+  retryAfterMs?: unknown;
 };
 
 type State = {
@@ -107,6 +111,14 @@ function normalizeError(value: unknown): NormalizedIngestError | null {
       typeof source.retryable === 'boolean' ? source.retryable : undefined,
     details: typeof source.details === 'string' ? source.details : undefined,
     status: typeof source.status === 'number' ? source.status : undefined,
+    upstreamStatus:
+      typeof source.upstreamStatus === 'number'
+        ? source.upstreamStatus
+        : undefined,
+    retryAfterMs:
+      typeof source.retryAfterMs === 'number'
+        ? source.retryAfterMs
+        : undefined,
   };
 }
 

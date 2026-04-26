@@ -38,6 +38,17 @@ function HookHarness() {
   );
 }
 
+function HookErrorHarness() {
+  const { roots, isLoading, isError, error } = useIngestRoots();
+  if (isLoading) return <div>loading</div>;
+  if (isError) return <div>error: {error}</div>;
+  return (
+    <pre data-testid="root-error">
+      {JSON.stringify(roots[0]?.error ?? null, null, 2)}
+    </pre>
+  );
+}
+
 describe('useIngestRoots', () => {
   it('loads roots from the server', async () => {
     mockFetch.mockResolvedValueOnce(
@@ -78,6 +89,49 @@ describe('useIngestRoots', () => {
       expect.any(Object),
     );
     expect(await screen.findByText('repo')).toBeInTheDocument();
+  });
+
+  it('preserves upstreamStatus and retryAfterMs from /ingest/roots error payloads', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({
+        roots: [
+          {
+            runId: 'run-1',
+            name: 'repo',
+            path: '/repo',
+            model: 'embed-1',
+            status: 'error',
+            lastError: 'rate limited',
+            error: {
+              error: 'OPENAI_RATE_LIMITED',
+              message: 'rate limited',
+              retryable: true,
+              status: 429,
+              upstreamStatus: 503,
+              retryAfterMs: 1200,
+            },
+          },
+        ],
+      }),
+    );
+
+    render(
+      <RouterProvider
+        router={createMemoryRouter([
+          {
+            path: '/',
+            element: <HookErrorHarness />,
+          },
+        ])}
+      />,
+    );
+
+    expect(await screen.findByTestId('root-error')).toHaveTextContent(
+      '"upstreamStatus": 503',
+    );
+    expect(screen.getByTestId('root-error')).toHaveTextContent(
+      '"retryAfterMs": 1200',
+    );
   });
 });
 

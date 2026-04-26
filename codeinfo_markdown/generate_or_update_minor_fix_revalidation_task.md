@@ -31,12 +31,14 @@ This step is idempotent. It must update an existing final minor-fix revalidation
 - The task must stay as exactly one final revalidation task even when the resolved minor fixes span multiple repositories.
 - The task status must be `__to_do__`.
 - The task must include exactly one `Repository Name` field so it still fits the normal task format, but that field is administrative ownership only for this special final revalidation task.
+- The task section order must be: `Repository Name`, `Affected Repositories`, `Addresses Findings`, `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance`.
 - The task must include an `Affected Repositories` section naming every repository represented in `resolved_minor_findings`.
 - If more than one repository is named in `Affected Repositories`, the task body must explicitly say that validation scope is driven by `Affected Repositories`, not by `Repository Name` alone.
 - The task must include an `Addresses Findings` section naming every `resolved_minor_findings` ID, summary, repository, and resolution commit from the state.
 - The task must include `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance` only if useful.
-- `Subtasks` must describe implementation-free proof preparation only, such as re-reading the `## Minor Review Fixes` section and verifying resolved finding coverage. Do not put runnable commands in `Subtasks`.
+- `Subtasks` must describe implementation-free proof preparation only, such as re-reading the `## Minor Review Fixes` section and verifying resolved finding coverage. Keep `Subtasks` scoped to owner-side preparation only; do not use them to assign code changes or extra cross-repository implementation work. Do not put runnable commands in `Subtasks`.
 - `Testing` must contain automated wrapper-level proof only. Use repository guidance, `AGENTS.md`, `Affected Repositories`, and the resolved findings' changed files to choose the broadest relevant wrapper proof that is honest for final story confidence across every affected repository.
+- When more than one repository appears in `Affected Repositories`, group the testing steps by repository so each repository's wrappers and validation scope are obvious.
 - Do not add manual-testing-only work to `Subtasks` or `Testing`.
 - Do not add subtasks that depend on future screenshots, logs, manual-testing-agent output, or automated-proof output.
 - The task must explain that inline minor fixes were already made and documented, and this task owns final proof before story closure.
@@ -103,6 +105,8 @@ When no task is needed and no unresolved work remains:
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
 - Confirm the task has an `Affected Repositories` section that covers every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
+- Confirm `Subtasks` stayed owner-scoped and implementation-free even when `Testing` spans multiple repositories.
+- Confirm `Testing` is grouped clearly enough that every affected repository's wrapper and proof scope is easy to identify.
 - Confirm runnable commands live only in `Testing`.
 - Confirm no manual-testing work was added to `Subtasks` or `Testing`.
 - Confirm the state file is valid JSON after updating.

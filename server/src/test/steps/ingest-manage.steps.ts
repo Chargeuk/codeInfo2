@@ -70,6 +70,56 @@ let lastQueuePumpResult: {
   requestId: string | null;
   runId: string | null;
 } | null = null;
+let queueRuntimeAttemptObserved: Promise<void> | null = null;
+let resolveQueueRuntimeAttemptObserved: (() => void) | null = null;
+let queueRuntimeStartObserved: Promise<void> | null = null;
+let resolveQueueRuntimeStartObserved: (() => void) | null = null;
+const queueRuntimeTerminalWaiters = new Map<string, Promise<void>>();
+const queueRuntimeTerminalResolvers = new Map<string, () => void>();
+
+function resetQueueRuntimeObservationWaiters() {
+  queueRuntimeAttemptObserved = new Promise<void>((resolve) => {
+    resolveQueueRuntimeAttemptObserved = resolve;
+  });
+  queueRuntimeStartObserved = new Promise<void>((resolve) => {
+    resolveQueueRuntimeStartObserved = resolve;
+  });
+  queueRuntimeTerminalWaiters.clear();
+  queueRuntimeTerminalResolvers.clear();
+}
+
+function getQueueRuntimeTerminalWaiter(runId: string) {
+  let waiter = queueRuntimeTerminalWaiters.get(runId);
+  if (!waiter) {
+    waiter = new Promise<void>((resolve) => {
+      queueRuntimeTerminalResolvers.set(runId, resolve);
+    });
+    queueRuntimeTerminalWaiters.set(runId, waiter);
+  }
+  return waiter;
+}
+
+function resolveQueueRuntimeTerminalWaiter(runId: string) {
+  queueRuntimeTerminalResolvers.get(runId)?.();
+}
+
+async function waitForQueueRuntimeSignal(
+  signal: Promise<void> | null,
+  label: string,
+  timeoutMs = 2_000,
+) {
+  if (!signal) {
+    throw new Error(`Missing queue runtime signal for ${label}`);
+  }
+  await Promise.race([
+    signal,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Timed out waiting for ${label}`));
+      }, timeoutMs);
+    }),
+  ]);
+}
 
 function getCapturedRootsPayload() {
   assert(capturedRootsResponse, 'expected captured roots response');
@@ -205,6 +255,7 @@ After(async () => {
   queueRuntimeAttemptedPaths = [];
   queueRuntimeStartedPaths = [];
   lastQueuePumpResult = null;
+  resetQueueRuntimeObservationWaiters();
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => null,
     ensureQueueRequestRunId: async () => null,
@@ -1142,11 +1193,14 @@ Given(
   () => {
     queueRuntimeAttemptedPaths = [];
     queueRuntimeStartedPaths = [];
+    resetQueueRuntimeObservationWaiters();
     __setRunProcessorForTest(async (runId, input) => {
       try {
         queueRuntimeAttemptedPaths.push(input.path);
+        resolveQueueRuntimeAttemptObserved?.();
         await __validateQueueReplayStartForTest(input);
         queueRuntimeStartedPaths.push(input.path);
+        resolveQueueRuntimeStartObserved?.();
       } catch (error) {
         const message =
           error instanceof Error ? error.message : String(error ?? 'unknown');
@@ -1172,6 +1226,7 @@ Given(
             provider: 'ingest',
           },
         });
+        resolveQueueRuntimeTerminalWaiter(runId);
       } finally {
         release(runId);
       }
@@ -1217,11 +1272,11 @@ Then(
       pathsCsv.trim().length === 0
         ? []
         : pathsCsv.split(',').map((item) => item.trim());
-    for (let i = 0; i < 20; i += 1) {
-      if (queueRuntimeStartedPaths.length === expected.length) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
+    if (expected.length > 0) {
+      await waitForQueueRuntimeSignal(
+        queueRuntimeStartObserved,
+        'queue runtime validation-passed start',
+      );
     }
     assert.deepEqual(queueRuntimeStartedPaths, expected);
   },
@@ -1245,11 +1300,11 @@ Then(
       pathsCsv.trim().length === 0
         ? []
         : pathsCsv.split(',').map((item) => item.trim());
-    for (let i = 0; i < 20; i += 1) {
-      if (queueRuntimeAttemptedPaths.length === expected.length) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
+    if (expected.length > 0) {
+      await waitForQueueRuntimeSignal(
+        queueRuntimeAttemptObserved,
+        'queue runtime processor attempt',
+      );
     }
     assert.deepEqual(queueRuntimeAttemptedPaths, expected);
   },
@@ -1259,12 +1314,10 @@ Then(
   'ingest manage queue runtime attempted paths are the temp repo',
   async () => {
     assert(tempDir, 'temp dir missing');
-    for (let i = 0; i < 20; i += 1) {
-      if (queueRuntimeAttemptedPaths.length === 1) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
+    await waitForQueueRuntimeSignal(
+      queueRuntimeAttemptObserved,
+      'queue runtime processor attempt for temp repo',
+    );
     assert.deepEqual(queueRuntimeAttemptedPaths, [tempDir]);
   },
 );
@@ -1273,16 +1326,13 @@ Then(
   'ingest manage runtime status for the last queue run is error {string} with message {string}',
   async (expectedCode: string, expectedMessage: string) => {
     assert(lastQueuePumpResult?.runId, 'expected last queue run id');
-    for (let i = 0; i < 120; i += 1) {
-      const status = getStatus(lastQueuePumpResult.runId);
-      if (
-        status?.state === 'error' &&
-        status.error?.error === expectedCode &&
-        status.error?.message === expectedMessage
-      ) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
+    const initialStatus = getStatus(lastQueuePumpResult.runId);
+    if (initialStatus?.state !== 'error') {
+      await waitForQueueRuntimeSignal(
+        getQueueRuntimeTerminalWaiter(lastQueuePumpResult.runId),
+        `queue runtime terminal status for ${lastQueuePumpResult.runId}`,
+        3_000,
+      );
     }
     const status = getStatus(lastQueuePumpResult.runId);
     assert(status, 'expected runtime status');
@@ -1295,16 +1345,13 @@ Then(
 Then(
   'ingest manage runtime status for run {string} reports error {string} with message {string}',
   async (runId: string, expectedCode: string, expectedMessage: string) => {
-    for (let i = 0; i < 120; i += 1) {
-      const status = getStatus(runId);
-      if (
-        status?.state === 'error' &&
-        status.error?.error === expectedCode &&
-        status.error?.message === expectedMessage
-      ) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
+    const initialStatus = getStatus(runId);
+    if (initialStatus?.state !== 'error') {
+      await waitForQueueRuntimeSignal(
+        getQueueRuntimeTerminalWaiter(runId),
+        `queue runtime terminal status for ${runId}`,
+        3_000,
+      );
     }
     const status = getStatus(runId);
     assert(status, `expected runtime status for ${runId}`);

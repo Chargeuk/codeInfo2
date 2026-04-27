@@ -1,25 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-27T17:06:27Z",
+  "generated_at_utc": "2026-04-27T17:14:35Z",
   "story_number": "0000055",
   "plan_path": "planning/0000055-users-can-queue-ingest-and-re-embed-requests.md",
   "review_pass_id": "0000055-20260427T162828Z-c3fe57dc",
-  "finding_id": "finding-1",
+  "finding_id": "finding-2",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Queue-blocked rows no longer remain visibly selected when they have dropped out of the actionable bulk-selection set.",
+  "summary": "Queue runtime cucumber proof now waits on deterministic replay signals instead of fixed-delay polling.",
   "changed_files": [
-    "client/src/components/ingest/RootsTable.tsx",
-    "client/src/test/ingestRoots.test.tsx"
+    "server/src/test/steps/ingest-manage.steps.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx",
+      "command": "npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature",
       "result": "passed",
-      "notes": "Passed with 49/49 after updating the blocked-row selection parity expectations; log test-results/client-tests-2026-04-27T17-06-13-906Z.log."
+      "notes": "Passed with 12/12 after replacing the fixed-delay queue replay polling with deterministic attempt/start/terminal waiters in the cucumber step harness; log test-results/server-cucumber-tests-2026-04-27T17-14-14-269Z.log."
     }
   ],
-  "commit_sha": "0a6342c3",
+  "commit_sha": null,
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

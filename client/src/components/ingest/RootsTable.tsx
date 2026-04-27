@@ -31,6 +31,7 @@ export type RootsTableProps = {
   };
   isLoading: boolean;
   error?: string;
+  warning?: string;
   disabled?: boolean;
   hasActiveRun?: boolean;
   onRefresh: () => Promise<void> | void;
@@ -143,6 +144,7 @@ export default function RootsTable({
   lockedModel,
   isLoading,
   error,
+  warning,
   disabled,
   hasActiveRun = false,
   onRefresh,
@@ -514,6 +516,7 @@ export default function RootsTable({
   return (
     <Stack spacing={2}>
       {headerActions}
+      {warning ? <Alert severity="warning">{warning}</Alert> : null}
 
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="body2" color="text.secondary">

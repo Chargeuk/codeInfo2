@@ -89,6 +89,8 @@ export default function IngestPage() {
   const isRunActive = Boolean(active);
   const skippedFileCount = ingest.status?.ast?.skippedFileCount ?? 0;
   const failedFileCount = ingest.status?.ast?.failedFileCount ?? 0;
+  const rootsTableError = rootsIsError ? rootsError : undefined;
+  const rootsTableWarning = !rootsIsError ? rootsError : undefined;
 
   useEffect(() => {
     if (!locked) return;
@@ -266,7 +268,8 @@ export default function IngestPage() {
               embeddingDimensions: lockedDimensions,
             }}
             isLoading={rootsLoading}
-            error={rootsError}
+            error={rootsTableError}
+            warning={rootsTableWarning}
             hasActiveRun={isRunActive}
             onRefresh={refetchRoots}
             onShowDetails={(root) => setDetailRoot(root)}

@@ -1,24 +1,22 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-27T17:14:35Z",
+  "generated_at_utc": "2026-04-27T17:17:42Z",
   "story_number": "0000055",
   "plan_path": "planning/0000055-users-can-queue-ingest-and-re-embed-requests.md",
   "review_pass_id": "0000055-20260427T162828Z-c3fe57dc",
   "finding_id": "finding-2",
   "repository": "current_repository",
-  "status": "fixed",
-  "summary": "Queue runtime cucumber proof now waits on deterministic replay signals instead of fixed-delay polling.",
-  "changed_files": [
-    "server/src/test/steps/ingest-manage.steps.ts"
-  ],
+  "status": "skipped",
+  "summary": "Selected finding was already fixed on fresh source inspection; the queue-runtime cucumber step harness already waits on deterministic replay signals, so no new repository edit was needed.",
+  "changed_files": [],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature",
-      "result": "passed",
-      "notes": "Passed with 12/12 after replacing the fixed-delay queue replay polling with deterministic attempt/start/terminal waiters in the cucumber step harness; log test-results/server-cucumber-tests-2026-04-27T17-14-14-269Z.log."
+      "command": null,
+      "result": "not_run",
+      "notes": "No new proof was run because fresh inspection showed server/src/test/steps/ingest-manage.steps.ts already uses deterministic attempt/start/terminal waiters and the previous focused cucumber proof result is already recorded in this flow."
     }
   ],
-  "commit_sha": "7666a620",
+  "commit_sha": null,
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

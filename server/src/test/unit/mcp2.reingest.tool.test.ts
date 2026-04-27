@@ -121,6 +121,28 @@ const mixedShapeInvalidStateError: Extract<ReingestError, { code: -32602 }> = {
   },
 };
 
+const openAiModelUnavailableError: Extract<ReingestError, { code: 409 }> = {
+  code: 409,
+  message: 'OPENAI_MODEL_UNAVAILABLE',
+  data: {
+    tool: 'reingest_repository',
+    code: 'OPENAI_MODEL_UNAVAILABLE',
+    retryable: true,
+    retryMessage:
+      'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Requested OpenAI embedding model is unavailable for this deployment',
+      },
+    ],
+    reingestableRepositoryIds: ['repo-a'],
+    reingestableSourceIds: ['/data/repo-a'],
+  },
+};
+
 function createBridgeMixedShapeRepo() {
   return {
     id: 'repo-mixed-shape-bridge',
@@ -533,6 +555,28 @@ test('MCP v2 returns the shared mixed-shape invalid-state tool error without thr
 
     assert.equal(body.result, undefined);
     assert.deepEqual(body.error, mixedShapeInvalidStateError);
+  });
+});
+
+test('MCP v2 returns the structured OPENAI_MODEL_UNAVAILABLE tool error without letting an exception escape the tool boundary', async () => {
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: openAiModelUnavailableError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'openai-model-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, openAiModelUnavailableError);
   });
 });
 

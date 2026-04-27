@@ -1852,6 +1852,89 @@ test('top-level flow target working propagates wait-time queue-read outage as re
   );
 });
 
+test('top-level flow target working receives the structured OPENAI_MODEL_UNAVAILABLE reingest failure instead of a thrown flow exception', async () => {
+  const repos: RepoEntry[] = [];
+  const calls: unknown[] = [];
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-flow-working-openai-outage');
+      const workingRoot = path.join(
+        tmpDir,
+        'repo-flow-working-openai-outage-target',
+      );
+      const conversationId = 'flow-target-working-openai-outage';
+      await fs.mkdir(workingRoot, { recursive: true });
+      await writeFlowFile({
+        repoRoot: sourceRoot,
+        flowName: 'repo-flow-working-openai-outage',
+        steps: [{ type: 'reingest', target: 'working' }],
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-flow-working-openai-outage/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
+        .expect(202);
+
+      const final = (await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'failed',
+      })) as { error?: { message?: string } };
+      assert.equal(
+        final.error?.message,
+        'Requested OpenAI embedding model is unavailable for this deployment',
+      );
+      assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async (args) => {
+          calls.push(args);
+          const sourceId = args.sourceId ?? '/missing';
+          return {
+            ok: false,
+            error: {
+              code: 409,
+              message: 'OPENAI_MODEL_UNAVAILABLE',
+              data: {
+                tool: 'reingest_repository',
+                code: 'OPENAI_MODEL_UNAVAILABLE',
+                retryable: true,
+                retryMessage: 'retry later',
+                reingestableRepositoryIds: ['Working Repo'],
+                reingestableSourceIds: [sourceId],
+                fieldErrors: [
+                  {
+                    field: 'sourceId',
+                    reason: 'invalid_state',
+                    message:
+                      'Requested OpenAI embedding model is unavailable for this deployment',
+                  },
+                ],
+              },
+            },
+          };
+        },
+      },
+    },
+  );
+});
+
 test('top-level flow target plan_scope keeps working-first and handoff order', async () => {
   const repos: RepoEntry[] = [];
   const calls: string[] = [];

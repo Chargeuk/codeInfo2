@@ -581,6 +581,134 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
   }
 });
 
+test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reingest result instead of a thrown background-runner exception', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-reingest-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  const app = express();
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'reingest-openai-unavailable-conversation';
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(agentHome, 'commands'),
+      commandName: 'reingest-openai-unavailable',
+      items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: {
+          code: 409,
+          message: 'OPENAI_MODEL_UNAVAILABLE',
+          data: {
+            tool: 'reingest_repository',
+            code: 'OPENAI_MODEL_UNAVAILABLE',
+            retryable: true,
+            retryMessage: 'retry later',
+            reingestableRepositoryIds: ['repo-a'],
+            reingestableSourceIds: ['/repo/source-a'],
+            fieldErrors: [
+              {
+                field: 'sourceId',
+                reason: 'invalid_state',
+                message:
+                  'Requested OpenAI embedding model is unavailable for this deployment',
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId,
+    });
+
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        conversationId: string;
+        status: string;
+        error?: { code?: string; message?: string };
+      } => {
+        const payload = event as {
+          type?: string;
+          conversationId?: string;
+        };
+        return (
+          payload.type === 'turn_final' &&
+          payload.conversationId === conversationId
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const result = await startAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'reingest-openai-unavailable',
+      conversationId,
+      source: 'REST',
+    });
+
+    const final = await finalPromise;
+
+    await waitForMemoryTurns(result.conversationId, 2);
+
+    const turns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(final.status, 'failed');
+    assert.equal(final.error?.code, 'COMMAND_INVALID');
+    assert.equal(
+      final.error?.message,
+      'Requested OpenAI embedding model is unavailable for this deployment',
+    );
+    assert.equal(turns[1]?.status, 'failed');
+    assert.equal(
+      turns[1]?.content,
+      'Requested OpenAI embedding model is unavailable for this deployment',
+    );
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    __resetAgentCommandRunnerDepsForTests();
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    memoryConversations.clear();
+    memoryTurns.clear();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('mixed direct-command runs preserve reingest then message execution order', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;

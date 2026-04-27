@@ -327,6 +327,73 @@ test('ingest-reembed rejects a dot-segment root alias through the public route b
   assert.equal(enqueueCalled, false);
 });
 
+test('ingest-reembed rejects a whitespace-only root through the public route before repo-list dependency I/O can run', async () => {
+  let listCalls = 0;
+
+  const response = await request(
+    buildReembedApp({
+      listIngestedRepositories: async () => {
+        listCalls += 1;
+        const error = new Error('repo list should not run');
+        (error as { code?: string }).code = 'QUEUE_UNAVAILABLE';
+        throw error;
+      },
+    }),
+  ).post('/ingest/reembed/%20%20%20');
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.code, 'NOT_FOUND');
+  assert.equal(listCalls, 0);
+});
+
+test('ingest-reembed keeps OPENAI_MODEL_UNAVAILABLE as a structured pre-run route contract without queuing work', async () => {
+  let enqueueCalled = false;
+
+  const response = await request(
+    buildReembedApp({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            ...buildReembedRepo(),
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-ada-002',
+            model: 'openai/text-embedding-ada-002',
+            modelId: 'openai/text-embedding-ada-002',
+            lock: {
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-ada-002',
+              embeddingDimensions: 1536,
+              lockedModelId: 'openai/text-embedding-ada-002',
+              modelId: 'openai/text-embedding-ada-002',
+            },
+          },
+        ],
+        lockedModelId: 'openai/text-embedding-ada-002',
+      }),
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalled = true;
+        return {
+          requestId: 'queue-request-123',
+          canonicalTargetPath: '/tmp/reembed-root',
+          queueState: 'waiting',
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as EnqueueIngestRequestResult['queueRequest'],
+        };
+      },
+    }),
+  ).post('/ingest/reembed/%2Ftmp%2Freembed-root');
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(response.body, {
+    status: 'error',
+    code: 'OPENAI_MODEL_UNAVAILABLE',
+  });
+  assert.equal(enqueueCalled, false);
+});
+
 test('ingest-reembed keeps the queue-aware acceptance contract for valid requests after the admission guard repair', async () => {
   let enqueueCalled = false;
 

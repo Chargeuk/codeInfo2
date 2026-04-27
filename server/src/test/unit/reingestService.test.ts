@@ -559,6 +559,61 @@ test('unsupported wait/blocking args are rejected with INVALID_PARAMS', async ()
   assert.equal(result.error.message, 'INVALID_PARAMS');
 });
 
+test('malformed, unsupported, and whitespace-only input stay INVALID_PARAMS before repo-list dependency failures can mask the contract', async () => {
+  const cases = [
+    {
+      name: 'missing sourceId',
+      args: {},
+      reason: 'missing',
+      message: 'sourceId is required',
+    },
+    {
+      name: 'whitespace-only sourceId',
+      args: { sourceId: '   ' },
+      reason: 'empty',
+      message: 'sourceId must be a non-empty string',
+    },
+    {
+      name: 'unsupported arguments',
+      args: { sourceId: '/data/repo-a', wait: true },
+      reason: 'invalid_state',
+      message: 'Unsupported arguments for reingest_repository: wait',
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    let listCalls = 0;
+    const result = await runReingestRepository(testCase.args, {
+      listIngestedRepositories: async () => {
+        listCalls += 1;
+        throw Object.assign(new Error('repo list should not run'), {
+          code: 'QUEUE_UNAVAILABLE',
+        });
+      },
+      appendLog: noopLog,
+    });
+
+    assert.equal(listCalls, 0, testCase.name);
+    assert.equal(result.ok, false, testCase.name);
+    if (result.ok) continue;
+    assert.equal(result.error.code, -32602, testCase.name);
+    assert.equal(result.error.message, 'INVALID_PARAMS', testCase.name);
+    assert.equal(result.error.data.code, 'INVALID_SOURCE_ID', testCase.name);
+    assert.deepEqual(result.error.data.reingestableRepositoryIds, []);
+    assert.deepEqual(result.error.data.reingestableSourceIds, []);
+    assert.equal(
+      result.error.data.fieldErrors[0]?.reason,
+      testCase.reason,
+      testCase.name,
+    );
+    assert.equal(
+      result.error.data.fieldErrors[0]?.message,
+      testCase.message,
+      testCase.name,
+    );
+  }
+});
+
 test('unknown root includes AI retry guidance fields', async () => {
   const result = await runReingestRepository(
     { sourceId: '/data/repo-missing' },
@@ -1175,6 +1230,50 @@ test('pre-run invalid states remain protocol-level INVALID_PARAMS errors', async
     assert.equal(result.error.code, -32602);
     assert.equal(result.error.message, 'INVALID_PARAMS');
   }
+});
+
+test('pre-run OPENAI_MODEL_UNAVAILABLE returns a structured reingest error result instead of throwing', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            ...buildRepoEntry({
+              id: 'repo-a',
+              containerPath: '/data/repo-a',
+            }),
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-ada-002',
+            model: 'openai/text-embedding-ada-002',
+            modelId: 'openai/text-embedding-ada-002',
+            lock: {
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-ada-002',
+              embeddingDimensions: 1536,
+              lockedModelId: 'openai/text-embedding-ada-002',
+              modelId: 'openai/text-embedding-ada-002',
+            },
+          },
+        ],
+        lockedModelId: 'openai/text-embedding-ada-002',
+      }),
+      appendLog: noopLog,
+    },
+  );
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, 409);
+  assert.equal(result.error.message, 'OPENAI_MODEL_UNAVAILABLE');
+  assert.equal(result.error.data.code, 'OPENAI_MODEL_UNAVAILABLE');
+  assert.equal(result.error.data.retryable, true);
+  assert.deepEqual(result.error.data.reingestableRepositoryIds, ['repo-a']);
+  assert.deepEqual(result.error.data.reingestableSourceIds, ['/data/repo-a']);
+  assert.equal(
+    result.error.data.fieldErrors[0]?.message,
+    'Requested OpenAI embedding model is unavailable for this deployment',
+  );
 });
 
 test('selected cancelled and error repositories are rejected before queue admission starts', async () => {

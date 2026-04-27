@@ -93,6 +93,14 @@ type QueueCleanupBlockedData = ReingestRetryLists & {
   runId: string | null;
 };
 
+type OpenAiModelUnavailableData = ReingestRetryLists & {
+  tool: typeof TOOL_NAME;
+  code: 'OPENAI_MODEL_UNAVAILABLE';
+  retryable: true;
+  retryMessage: string;
+  fieldErrors: ValidationFieldError[];
+};
+
 export type ReingestError =
   | {
       code: -32602;
@@ -113,6 +121,11 @@ export type ReingestError =
       code: 503;
       message: 'QUEUE_CLEANUP_BLOCKED';
       data: QueueCleanupBlockedData;
+    }
+  | {
+      code: 409;
+      message: 'OPENAI_MODEL_UNAVAILABLE';
+      data: OpenAiModelUnavailableData;
     };
 
 type ReingestTerminalStatus = 'completed' | 'cancelled' | 'error';
@@ -176,6 +189,13 @@ function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
     reingestableSourceIds: Array.from(sourceIds).sort((a, b) =>
       a.localeCompare(b),
     ),
+  };
+}
+
+function emptyRetryLists(): ReingestRetryLists {
+  return {
+    reingestableRepositoryIds: [],
+    reingestableSourceIds: [],
   };
 }
 
@@ -303,6 +323,30 @@ function invalidStateError(
     data: {
       tool: TOOL_NAME,
       code: 'INVALID_SOURCE_ID',
+      retryable: true,
+      retryMessage: RETRY_MESSAGE,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message,
+        },
+      ],
+      ...retryLists,
+    },
+  };
+}
+
+function openAiModelUnavailableError(
+  retryLists: ReingestRetryLists,
+  message: string,
+): ReingestError {
+  return {
+    code: 409,
+    message: 'OPENAI_MODEL_UNAVAILABLE',
+    data: {
+      tool: TOOL_NAME,
+      code: 'OPENAI_MODEL_UNAVAILABLE',
       retryable: true,
       retryMessage: RETRY_MESSAGE,
       fieldErrors: [
@@ -608,15 +652,13 @@ export async function runReingestRepository(
 
   const sourceId = isRecord(args) ? args.sourceId : undefined;
   logValidationEvaluated(appendLog, sourceId);
-
-  const repos = await listRepos();
-  const retryLists = buildRetryLists(repos);
+  const validationRetryLists = emptyRetryLists();
 
   const unsupportedArgKeys = findUnsupportedArgKeys(args);
   if (unsupportedArgKeys.length > 0) {
     const err = invalidStateError(
       `Unsupported arguments for reingest_repository: ${unsupportedArgKeys.join(', ')}`,
-      retryLists,
+      validationRetryLists,
     );
     logValidationResult(appendLog, { kind: 'error', error: err });
     return { ok: false, error: err };
@@ -627,12 +669,14 @@ export async function runReingestRepository(
     const validationError = invalidParamsError(
       validatedSourceId.reason,
       validatedSourceId.message,
-      retryLists,
+      validationRetryLists,
     );
     logValidationResult(appendLog, { kind: 'error', error: validationError });
     return { ok: false, error: validationError };
   }
 
+  const repos = await listRepos();
+  const retryLists = buildRetryLists(repos);
   const normalizedSourceId = validatedSourceId.sourceId;
   const knownRoots = new Set(retryLists.reingestableSourceIds);
   if (!knownRoots.has(normalizedSourceId)) {
@@ -808,6 +852,15 @@ export async function runReingestRepository(
       const err = invalidStateError(
         'sourceId points to a repository that cannot be re-embedded in its current state',
         retryLists,
+      );
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
+    }
+
+    if (code === 'OPENAI_MODEL_UNAVAILABLE') {
+      const err = openAiModelUnavailableError(
+        retryLists,
+        getQueueUnavailableMessage(error),
       );
       logValidationResult(appendLog, { kind: 'error', error: err });
       return { ok: false, error: err };

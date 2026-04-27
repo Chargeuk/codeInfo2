@@ -419,4 +419,26 @@ describe('agent command schema (v1)', () => {
       assert.equal(parsed.ok, true, relativePath);
     }
   });
+
+  test('production planning-agent commands remain valid JSON and schema', async () => {
+    const commandFiles = [
+      'codex_agents/planning_agent/commands/check_review_disposition_regression.json',
+      'codex_agents/planning_agent/commands/create_new_story.json',
+      'codex_agents/planning_agent/commands/enhance_review_tasks.json',
+      'codex_agents/planning_agent/commands/improve_plan.json',
+      'codex_agents/planning_agent/commands/improve_plan2.json',
+      'codex_agents/planning_agent/commands/qa.json',
+      'codex_agents/planning_agent/commands/task_up_review_tasks.json',
+    ] as const;
+
+    for (const relativePath of commandFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      assert.doesNotThrow(() => JSON.parse(raw), relativePath);
+
+      const parsed = parseAgentCommandFile(raw, {
+        commandName: path.parse(relativePath).name,
+      });
+      assert.equal(parsed.ok, true, relativePath);
+    }
+  });
 });

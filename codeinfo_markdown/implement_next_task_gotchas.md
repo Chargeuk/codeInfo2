@@ -19,29 +19,36 @@ Explain the implementation gotchas for the currently active task using the store
 
 - Use the task already resolved into `current-task.json` as the active task for this pass.
 - Do not rediscover a different active task by scanning the plan.
-- Re-read that bound task from the plan and identify every repository this implementation pass must touch from the task's current implementation and documentation instructions, primarily the active task's `Subtasks` plus any explicit implementation-facing directions in the task body.
-- Treat `Repository Name` as planning metadata that may help describe task ownership, not as an exclusive execution boundary for code, documentation, or proof work during this pass.
+- Re-read that bound task from the plan and resolve the default owner repository from its `Repository Name` field.
+- Treat `Repository Name` as the default owner repository and planning metadata for the task, not as an exclusive execution boundary for code, documentation, or proof work during this pass.
 - Resolve `Current Repository` to the current repository root.
 - Resolve any other repository name from the plan's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`.
-- If the task's explicit implementation or documentation instructions clearly require the same category of work across more than one repository and those repositories can be resolved from the current repository plus `Additional Repositories`, treat all of them as in scope for this implementation pass.
+- If `Repository Name` cannot be resolved honestly to `Current Repository` or an alias listed in `Additional Repositories`, stop and say the task-to-repository handoff is unclear and must be fixed in the plan before implementation continues.
+- Identify implementation-scope repositories separately from proof-scope repositories.
+- Implementation-scope repositories start with the default owner repository from `Repository Name` and expand only when the task's explicit implementation or documentation instructions clearly require work in more than one repository.
+- If the task's explicit implementation or documentation instructions clearly require the same category of work across more than one repository and those repositories can be resolved from the current repository plus `Additional Repositories`, treat all of them as implementation-scope repositories for this pass.
 - If a generic file name such as `README.md`, `design.md`, or `projectStructure.md` appears in a multi-repository task and the task clearly intends the same update across the affected repositories, treat that as expected and follow the task across those repositories rather than stopping solely because the filename is generic.
-- Do not widen the current implementation-pass repository scope merely because `Testing`, `Manual Testing Guidance`, or `Affected Repositories` mentions additional repositories for later proof. Bring those repositories into scope in this step only when an unchecked subtask or another explicit implementation-facing instruction says work must happen there now.
-- Stop only when the repository set for the current implementation work cannot be determined honestly from the current repository, `Additional Repositories`, and the task's explicit implementation/documentation instructions.
+- Proof-scope repositories come from the current task's still-relevant `Testing` section, `Manual Testing Guidance`, and `Affected Repositories` when those sections name repositories needed for later proof or validation.
+- For the final story-validation task, treat every repository listed in `Affected Repositories` as required proof-scope even when implementation-scope remains narrower.
+- Do not widen implementation-scope merely because `Testing`, `Manual Testing Guidance`, or `Affected Repositories` mentions additional repositories for later proof. Keep those repositories in proof-scope unless an unchecked subtask or another explicit implementation-facing instruction says work must happen there now.
+- Stop only when the default owner repository, the implementation-scope repository set, or the proof-scope repository set required by the task cannot be determined honestly from the current repository, `Additional Repositories`, and the task's explicit instructions.
 - When a task explicitly requires implementation, documentation, or proof work across multiple repositories, follow the task as written rather than refusing solely because `Repository Name` is singular.
 
 </task_selection_rules>
 
 <branch_rules>
 
-- Ensure every repository this pass will touch is on the correct story branch, not merely the branch in the repository where the flow happened to start.
+- Ensure every implementation-scope repository is on the correct story branch before implementation work touches it, not merely the branch in the repository where the flow happened to start.
 - Re-check current repository branch state directly from git, for example with `git branch --show-current`.
-- Re-check branch state directly from git for every additional in-scope repository before recommending or running implementation or proof that touches it.
-- If an in-scope repository is already on a branch whose story number matches the selected plan filename, keep or reuse that branch so long as doing so will not overwrite local changes.
-- If no such branch exists yet in an in-scope repository, create one from that repository's current checkout so any current local changes in that repository stay attached to the new branch.
+- Re-check branch state directly from git for every additional implementation-scope repository before recommending or running implementation that touches it.
+- Re-check branch state directly from git for every proof-scope repository before recommending or running proof that touches it.
+- If an implementation-scope or proof-scope repository is already on a branch whose story number matches the selected plan filename, keep or reuse that branch so long as doing so will not overwrite local changes.
+- If no such branch exists yet in an implementation-scope or proof-scope repository, create one from that repository's current checkout so any current local changes in that repository stay attached to the new branch.
 - Do NOT stash, reset, discard, or otherwise lose local changes in any repository while doing this.
-- If switching branches in any in-scope repository would overwrite local changes, stop and say repository branch setup is blocked by local changes instead of forcing the checkout.
-- If the story number in any in-scope repository branch name does not match the story number in the selected plan filename after this branch setup, stop and say the current-plan handoff is stale and must be regenerated.
-- Before touching files or running commands in any in-scope repository, read that repository's `AGENTS.md` and follow its repository-specific workflow rules.
+- If switching branches in any implementation-scope or proof-scope repository would overwrite local changes, stop and say repository branch setup is blocked by local changes instead of forcing the checkout.
+- If the story number in any implementation-scope or proof-scope repository branch name does not match the story number in the selected plan filename after this branch setup, stop and say the current-plan handoff is stale and must be regenerated.
+- Before touching files or running commands in any implementation-scope repository, read that repository's `AGENTS.md` and follow its repository-specific workflow rules.
+- Before recommending or running proof in any proof-scope repository, read that repository's `AGENTS.md` and follow its repository-specific workflow rules for that proof.
 
 </branch_rules>
 
@@ -79,9 +86,11 @@ Explain the implementation gotchas for the currently active task using the store
 
 - Confirm you re-read the active plan from the stored handoff.
 - Confirm you re-read the active task from disk.
-- Confirm every in-scope repository branch matches the selected plan story number.
-- Confirm you identified in-scope repositories from the active task's implementation/documentation instructions rather than widening scope just because later proof sections named other repositories.
-- Confirm any in-scope repositories had their branch state and `AGENTS.md` guidance re-checked before you relied on them.
+- Confirm you resolved the default owner repository from `Repository Name`.
+- Confirm every implementation-scope and proof-scope repository branch matches the selected plan story number.
+- Confirm you identified implementation-scope repositories from the active task's implementation/documentation instructions.
+- Confirm you identified proof-scope repositories from the current task's `Testing`, `Manual Testing Guidance`, and `Affected Repositories` when those sections named repos needed for later proof.
+- Confirm implementation-scope and proof-scope repositories had their branch state and `AGENTS.md` guidance re-checked before you relied on them.
 - Confirm you sanity-checked that the bound task is still the true next executable owner after any normalization or planner repair.
 - Confirm your gotchas reflect the latest task notes, subtasks, testing steps, and sequencing context when required.
 

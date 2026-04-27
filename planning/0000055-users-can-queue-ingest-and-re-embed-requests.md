@@ -16849,7 +16849,7 @@ Inline-resolved minor findings already handled in this active review cycle:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `207`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-1`: silent queue-overlay fallback on Mongo disconnect hides queued rows from the repository-list source of truth.
 

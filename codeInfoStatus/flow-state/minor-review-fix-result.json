@@ -19,7 +19,7 @@
       "notes": "Passed with 49/49 after updating the blocked-row selection parity expectations; log test-results/client-tests-2026-04-27T17-06-13-906Z.log."
     }
   ],
-  "commit_sha": null,
+  "commit_sha": "0a6342c3",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

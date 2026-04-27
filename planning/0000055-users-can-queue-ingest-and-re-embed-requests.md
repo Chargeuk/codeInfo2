@@ -16053,7 +16053,7 @@ Add the missing runtime-facing bridge between the supported mixed-shape seed fro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196, 198, 199`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -16142,6 +16142,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Planner repair on 2026-04-27 moved the missing runtime-facing seed or probe bridge into Task 199 and returned this task to `__to_do__` behind that prerequisite. The remaining open owners on this task are the explicit handoff refresh in Subtask 8 plus the reopened classic/MCP2 proof rerun in Testing step 3.
 - Task 199 landed the runtime-facing bridge by extracting the malformed-row seed into `server/src/test/support/mixedShapeRuntimeBridge.js` and extending `server/src/test/support/hostNetworkMainProbe.mjs` to seed, observe, and clean the row against the compose-backed `/ingest/roots` surface; the remaining open owner on this task is now only the reopened classic/MCP2 proof rerun in Testing step 3.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the reopened classic MCP and MCP2 transport parity proof rerun passed cleanly with `34 passed, 0 failed`, confirming the mixed-shape invalid-state result still stays a structured tool error after the Task 199 runtime-bridge repair.
+- Implementation-plus-automated-proof audit on 2026-04-27 re-read the current handoffs and this exact task from disk, confirmed all subtasks and all three automated proof steps are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.
 
 #### Manual Testing Guidance
 

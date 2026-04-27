@@ -16943,7 +16943,7 @@ No additional repositories are in scope for this review-created repair task.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `208`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Final revalidation for review pass `0000055-20260427T120554Z-cfc8af21`, covering task-required `finding-1`.
   - Final revalidation owner for inline-resolved minor `finding-2` from the same active review cycle.

@@ -19,14 +19,14 @@ Explain the implementation gotchas for the currently active task using the store
 
 - Use the task already resolved into `current-task.json` as the active task for this pass.
 - Do not rediscover a different active task by scanning the plan.
-- Re-read that bound task from the plan and identify every repository this pass must touch from the task's explicit instructions, including `Subtasks`, `Testing`, `Manual Testing Guidance`, `Affected Repositories`, and the story's `Additional Repositories` section when relevant.
+- Re-read that bound task from the plan and identify every repository this implementation pass must touch from the task's current implementation and documentation instructions, primarily the active task's `Subtasks` plus any explicit implementation-facing directions in the task body.
 - Treat `Repository Name` as planning metadata that may help describe task ownership, not as an exclusive execution boundary for code, documentation, or proof work during this pass.
 - Resolve `Current Repository` to the current repository root.
 - Resolve any other repository name from the plan's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`.
-- If the task's explicit instructions clearly require work in more than one repository and those repositories can be resolved from the current repository plus `Additional Repositories`, treat all of them as in scope for this pass.
-- If the task references a repository, file location, or command surface that cannot be mapped honestly to the current repository or a listed `Additional Repositories` entry, stop and say the repository reference is unclear and must be fixed in the plan before implementation continues.
-- If the task includes an `Affected Repositories` section, or if its `Testing` or `Manual Testing Guidance` explicitly names other repositories for implementation compatibility or proof, treat those repositories as in-scope repositories for this pass.
-- For the final story-validation task, treat every repository listed in `Affected Repositories` as required in-scope validation scope even when the task still carries only one administrative `Repository Name` field.
+- If the task's explicit implementation or documentation instructions clearly require the same category of work across more than one repository and those repositories can be resolved from the current repository plus `Additional Repositories`, treat all of them as in scope for this implementation pass.
+- If a generic file name such as `README.md`, `design.md`, or `projectStructure.md` appears in a multi-repository task and the task clearly intends the same update across the affected repositories, treat that as expected and follow the task across those repositories rather than stopping solely because the filename is generic.
+- Do not widen the current implementation-pass repository scope merely because `Testing`, `Manual Testing Guidance`, or `Affected Repositories` mentions additional repositories for later proof. Bring those repositories into scope in this step only when an unchecked subtask or another explicit implementation-facing instruction says work must happen there now.
+- Stop only when the repository set for the current implementation work cannot be determined honestly from the current repository, `Additional Repositories`, and the task's explicit implementation/documentation instructions.
 - When a task explicitly requires implementation, documentation, or proof work across multiple repositories, follow the task as written rather than refusing solely because `Repository Name` is singular.
 
 </task_selection_rules>
@@ -80,7 +80,7 @@ Explain the implementation gotchas for the currently active task using the store
 - Confirm you re-read the active plan from the stored handoff.
 - Confirm you re-read the active task from disk.
 - Confirm every in-scope repository branch matches the selected plan story number.
-- Confirm you identified any in-scope repositories named by `Subtasks`, `Testing`, `Manual Testing Guidance`, `Affected Repositories`, or the story's `Additional Repositories`.
+- Confirm you identified in-scope repositories from the active task's implementation/documentation instructions rather than widening scope just because later proof sections named other repositories.
 - Confirm any in-scope repositories had their branch state and `AGENTS.md` guidance re-checked before you relied on them.
 - Confirm you sanity-checked that the bound task is still the true next executable owner after any normalization or planner repair.
 - Confirm your gotchas reflect the latest task notes, subtasks, testing steps, and sequencing context when required.

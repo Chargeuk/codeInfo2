@@ -17,7 +17,7 @@ This is the baseline task structure to follow once the story sections above are 
 9. If helpful, add a `Manual Testing Guidance` section after `Testing` with optional suggestions for the manual testing agent. Do not use checkboxes or blocking language there.
 10. Outside the `Additional Repositories` section, never write full absolute filesystem paths into the plan. Use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead.
 11. For any task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and do not commit them.
-12. If a story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, add or update that ignore rule before later proof depends on the scratch path.
+12. If manual testing for the story will write task-level proof artifacts into `codeInfoTmp/` and `.gitignore` does not already ignore that scratch path, add or update that ignore rule before later proof depends on it.
 13. For story closeout, state that a later promotion step curates durable final proof into `codeInfoStatus/manual-proof/<story-number>/`.
 14. When Manual Testing Guidance mentions Playwright MCP screenshots, state that screenshots are captured in the Playwright output directory first and then transferred into the target repository task-scoped scratch destination. `CODEINFO_ROOT` is the harness root and may expose staging paths such as `$CODEINFO_ROOT/playwright-output-local`, but it is not the target artifact root unless the active plan is in the harness repository.
 15. When useful, recommend deterministic manual-proof basenames such as `proof-01-<slug>.png`, `support-console.txt`, `support-network.json`, and `support-<slug>.log` so later closeout can promote artifacts without guesswork.
@@ -146,7 +146,7 @@ Optional guidance for the manual testing agent only.
 
 - Describe the most useful browser-visible, runtime-visible, or externally observable scenarios to check manually when this task reaches manual validation.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help manual validation.
-- If a story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, add or update that ignore rule before later proof depends on the scratch path.
+- If manual testing for the story will write task-level proof artifacts into `codeInfoTmp/` and `.gitignore` does not already ignore that scratch path, add or update that ignore rule before later proof depends on it.
 - For any task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that they must not be committed because `codeInfoTmp/` is ignored.
 - When suggesting Playwright MCP screenshots, state that the MCP tool stages screenshots in the Playwright output directory first and the manual testing agent must transfer them into the target repository task-scoped scratch destination. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging bind when available.
 - When useful, recommend deterministic manual-proof basenames such as `proof-01-<slug>.png`, `support-console.txt`, `support-network.json`, and `support-<slug>.log`.

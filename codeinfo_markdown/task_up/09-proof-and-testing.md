@@ -49,7 +49,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - proof-authoring subtasks for the code, tests, markers, or harness changes that make those signals available; and
   - automated `Testing` steps or optional `Manual Testing Guidance` entries that describe how those signals will later be observed.
 - Automated screenshots, browser captures, and similar generated proof artifacts must be saved only under an ignored artifact location and must never be planned as checked-in repository files.
-- If a task will rely on non-final manual-proof artifacts and the current repository does not already ignore `codeInfoTmp/`, add the minimal `.gitignore` update needed before later proof depends on that scratch path.
+- If manual testing for the task will write task-level proof artifacts into `codeInfoTmp/` and the current repository does not already ignore that scratch path, add the minimal `.gitignore` update needed before later proof depends on it.
 - When a task needs manual-testing proof guidance, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that those artifacts must not be committed because `codeInfoTmp/` is ignored.
 - For Playwright MCP screenshots, Manual Testing Guidance should name both steps: capture to the Playwright output directory first, then transfer into the target repository's `codeInfoTmp/manual-testing/<story-number>/<task-number>/` scratch destination.
 - End each task's `Testing` section with these two separate final steps in this order:
@@ -118,7 +118,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether each `Testing` section ends with explicit separate lint and prettier or format-check steps in that order.
 - Check whether any planned auth or login test-enablement seam stays in test-owned harnesses or configuration rather than in the shipped production path.
 - Check whether any automated screenshot or browser artifact path points only to ignored artifact storage rather than tracked repository files.
-- Check whether any task that relies on non-final manual-proof artifacts also includes the required `.gitignore` update when `codeInfoTmp/` was not already ignored.
+- Check whether any task that writes manual-testing proof artifacts into `codeInfoTmp/` also includes the required `.gitignore` update when that scratch path was not already ignored.
 - Check whether any task-level manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and states that those artifacts must not be committed.
 - Check whether any Manual Testing Guidance that mentions Playwright MCP screenshots distinguishes the Playwright output staging path from the final target repository artifact destination.
 - Check whether manual-testing guidance prefers the normal human Docker stack whenever repository evidence supports it.

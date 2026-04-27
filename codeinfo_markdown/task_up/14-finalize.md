@@ -34,7 +34,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that each task ends with separate lint and prettier or format-check subtasks in that order.
 - Check that each `Testing` section ends with separate lint and prettier or format-check steps in that order.
 - Check the final task in the story.
-- Check that any task relying on non-final manual-proof artifacts also adds the required `.gitignore` update when `codeInfoTmp/` was not already ignored.
+- Check that any task writing manual-testing proof artifacts into `codeInfoTmp/` also adds the required `.gitignore` update when that scratch path was not already ignored.
 - Check that any task-level manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and states that those artifacts must not be committed.
 - If it has a runnable, browser-visible, or otherwise externally observable manual-proof surface, verify that its `Manual Testing Guidance` includes:
   - required prerequisite services;

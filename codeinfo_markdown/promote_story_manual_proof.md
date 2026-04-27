@@ -43,8 +43,8 @@ Do not commit or push in this step.
 
 <selection_rules>
 
-- If `codeInfoTmp/manual-testing/<story-number>/` does not exist, or it exists but contains no numeric task folders with eligible files, do not create `codeInfoStatus/manual-proof/<story-number>/`. Report that no curated manual-proof bundle was produced and stop.
-- If `codeInfoStatus/manual-proof/<story-number>/` already exists, clear only that story-specific destination before copying so no stale tracked proof remains.
+- If `codeInfoStatus/manual-proof/<story-number>/` already exists, clear only that story-specific destination before deciding whether any new curated manual-proof bundle will be produced, so no stale tracked proof remains.
+- If `codeInfoTmp/manual-testing/<story-number>/` does not exist, or it exists but contains no numeric task folders with eligible files, leave `codeInfoStatus/manual-proof/<story-number>/` absent. Report that no curated manual-proof bundle was produced and stop.
 - For every numeric task folder that contains at least one eligible screenshot proof file, create `codeInfoStatus/manual-proof/<story-number>/task-<task-number>/`.
 - Copy all eligible screenshot proof files from that task folder into the matching destination task folder, preserving basenames.
 - Copy at most two support files total across the whole story.

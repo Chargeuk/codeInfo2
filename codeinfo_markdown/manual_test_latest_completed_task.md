@@ -111,6 +111,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Save any manual-testing screenshots, logs, console captures, network captures, or similar proof artifacts under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
 - Treat `codeInfoTmp/manual-testing/<story-number>/<task-number>/` as the latest non-committed scratch proof for that one task because `codeInfoTmp/` is ignored.
 - If that same task is being manually retested, clear or replace the existing task folder contents before relying on new artifacts from the latest pass.
+- Save screenshot proof with basenames matching `proof-<nn>-<slug>.<ext>`, such as `proof-01-home.png`, so later closeout can promote them deterministically.
+- Save supporting console, network, and log captures with deterministic basenames such as `support-console.txt`, `support-network.json`, and `support-<slug>.log`.
 - The later story-closeout promotion step may copy a curated subset of this scratch proof into `codeInfoStatus/manual-proof/<story-number>/`, but this manual-testing step does not write durable story proof there directly.
 - If screenshot or log capture is blocked, record the intended artifact destination in the implementation notes instead of inventing another storage location.
 
@@ -120,7 +122,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - Playwright MCP screenshot filenames are resolved inside the Playwright runtime output directory, normally `/tmp/playwright-output`; they are not resolved relative to the target repository.
 - Do not pass an absolute target-repository path to Playwright MCP screenshot tools. Playwright MCP rejects paths outside its output directory.
-- Capture screenshots with a deterministic relative staging filename, such as `manual-testing/<story-number>/<task-number>/<short-proof-name>.png`.
+- Capture screenshots with a deterministic relative staging filename, such as `manual-testing/<story-number>/<task-number>/proof-01-home.png`.
 - After capture, transfer the image into the target repository artifact destination from `<manual_proof_artifact_rules>`.
 - When the Playwright output is host-visible through the harness repository, copy or move from `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` into the target repository destination.
 - When `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` does not exist because the active Playwright MCP uses a Docker-managed output volume, copy the file out of the supported `playwright-mcp` container for the runtime recorded in `manual-testing-runtime.json`, for example by resolving the container with the relevant Compose file under `CODEINFO_ROOT` and copying `/tmp/playwright-output/<staging-filename>` into the target repository destination.

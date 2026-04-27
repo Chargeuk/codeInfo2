@@ -16,13 +16,14 @@ This is the baseline task structure to follow once the story sections above are 
 8. Once all subtasks are complete, run the automated `Testing` section in order and mark each item complete immediately after it passes.
 9. If helpful, add a `Manual Testing Guidance` section after `Testing` with optional suggestions for the manual testing agent. Do not use checkboxes or blocking language there.
 10. Outside the `Additional Repositories` section, never write full absolute filesystem paths into the plan. Use repository-relative paths, repository aliases, commands, environment-variable names, or other portable lookup directions instead.
-11. For any non-final task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/` and do not commit them.
+11. For any task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and do not commit them.
 12. If a story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, add or update that ignore rule before later proof depends on the scratch path.
-13. For the final task, direct manual-testing screenshots, logs, and similar proof artifacts to `codeInfoStatus/manual-testing/<story-number>/` and commit them as durable final story proof.
-14. When Manual Testing Guidance mentions Playwright MCP screenshots, state that screenshots are captured in the Playwright output directory first and then transferred into the target repository artifact destination. `CODEINFO_ROOT` is the harness root and may expose staging paths such as `$CODEINFO_ROOT/playwright-output-local`, but it is not the target artifact root unless the active plan is in the harness repository.
-15. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
-16. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
-17. Repeat for the next task.
+13. For story closeout, state that a later promotion step curates durable final proof into `codeInfoStatus/manual-proof/<story-number>/`.
+14. When Manual Testing Guidance mentions Playwright MCP screenshots, state that screenshots are captured in the Playwright output directory first and then transferred into the target repository task-scoped scratch destination. `CODEINFO_ROOT` is the harness root and may expose staging paths such as `$CODEINFO_ROOT/playwright-output-local`, but it is not the target artifact root unless the active plan is in the harness repository.
+15. When useful, recommend deterministic manual-proof basenames such as `proof-01-<slug>.png`, `support-console.txt`, `support-network.json`, and `support-<slug>.log` so later closeout can promote artifacts without guesswork.
+16. After the task's implementation and proof are complete, update the `Implementation notes` section with concise, factual notes about what changed, what issues were encountered, and what decisions were made.
+17. Record the relevant git commit hash(es) in `Git Commits`, then set the task status to `__done__`.
+18. Repeat for the next task.
 
 ## Additional Repositories
 
@@ -146,14 +147,15 @@ Optional guidance for the manual testing agent only.
 - Describe the most useful browser-visible, runtime-visible, or externally observable scenarios to check manually when this task reaches manual validation.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help manual validation.
 - If a story will rely on non-final manual-proof artifacts and `.gitignore` does not already ignore `codeInfoTmp/`, add or update that ignore rule before later proof depends on the scratch path.
-- For tasks other than the final task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/` and state that they must not be committed because `codeInfoTmp/` is ignored.
-- When suggesting Playwright MCP screenshots, state that the MCP tool stages screenshots in the Playwright output directory first and the manual testing agent must transfer them into the target repository artifact destination. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging bind when available.
+- For any task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that they must not be committed because `codeInfoTmp/` is ignored.
+- When suggesting Playwright MCP screenshots, state that the MCP tool stages screenshots in the Playwright output directory first and the manual testing agent must transfer them into the target repository task-scoped scratch destination. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging bind when available.
+- When useful, recommend deterministic manual-proof basenames such as `proof-01-<slug>.png`, `support-console.txt`, `support-network.json`, and `support-<slug>.log`.
 - For the final task, when the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, include enough guidance for the `manual_testing_agent` to:
   - identify which services or surfaces must be started;
   - know any prerequisites that must already be running;
   - follow the required startup order when more than one service or surface matters;
   - know where credentials, seeded accounts, helper scripts, fixture data, or env-backed access come from without inlining secrets.
-- For the final task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoStatus/manual-testing/<story-number>/` and state that they should be committed as durable final story proof.
+- For the final task, keep task-level manual-testing screenshots, logs, and similar proof artifacts in `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that later story closeout promotes a curated durable bundle into `codeInfoStatus/manual-proof/<story-number>/`.
 - Prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access already exists for that normal stack.
 - Only if the normal human Docker stack is not enough should the plan describe the absolute minimum test-only harness or configuration needed for the `manual_testing_agent`.
 - Do not use checkboxes.
@@ -250,8 +252,9 @@ Optional guidance for the manual testing agent only.
 
 - Describe the most useful final browser-visible, runtime-visible, or externally observable scenarios to check manually after automated proof has completed.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help final manual validation.
-- Direct any final-task manual-testing screenshots, logs, or similar proof artifacts to `codeInfoStatus/manual-testing/<story-number>/` and state that they should be committed as durable final story proof.
-- When suggesting Playwright MCP screenshots, state that the MCP tool stages screenshots in the Playwright output directory first and the manual testing agent must transfer them into the target repository artifact destination. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging bind when available.
+- Direct any final-task manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that later story closeout promotes a curated durable bundle into `codeInfoStatus/manual-proof/<story-number>/`.
+- When suggesting Playwright MCP screenshots, state that the MCP tool stages screenshots in the Playwright output directory first and the manual testing agent must transfer them into the target repository task-scoped scratch destination. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging bind when available.
+- When useful, recommend deterministic manual-proof basenames such as `proof-01-<slug>.png`, `support-console.txt`, `support-network.json`, and `support-<slug>.log`.
 - Prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access already exists for that normal stack.
 - Only if the normal human Docker stack is not enough should this section describe the absolute minimum test-only harness or configuration needed for the `manual_testing_agent`.
 - Do not use checkboxes.

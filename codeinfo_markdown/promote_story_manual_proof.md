@@ -54,6 +54,7 @@ Do not commit or push in this step.
   2. `support-network.json`
   3. `support-*.log` in lexicographic filename order
 - Copy the first eligible support files encountered under that traversal until two total support files have been copied, then stop copying support files.
+- If a selected support file comes from a task folder that had no screenshot proof files, still create the matching destination task folder before copying that support file.
 - Do not copy duplicate support files with the same destination path more than once.
 - Do not rename source files except for placing them under `task-<task-number>/` destination folders.
 - Do not delete, move, or rewrite the source files in `codeInfoTmp/`.

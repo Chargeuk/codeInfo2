@@ -16375,7 +16375,7 @@ The same review cycle also recorded one `optional_simplification` note about pre
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `202`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F1`: `runReingestRepository(...)` must return a structured `OPENAI_MODEL_UNAVAILABLE` reingest error instead of throwing across shared callers.
   - `F2`: malformed or unsupported reingest input must fail as `INVALID_PARAMS` before repo-list dependency I/O can mask the contract.
@@ -16458,6 +16458,7 @@ Repair the shared pre-run `runReingestRepository(...)` contract seam so both unr
 - 2026-04-27: Updated `server/src/test/integration/ingest-reembed.test.ts` with dedicated route-parity cases for admission-time `OPENAI_MODEL_UNAVAILABLE` and whitespace-root ordering before repo-list I/O; the REST surface keeps its existing `NOT_FOUND` malformed-root contract while still proving the ordering-sensitive dependency guard.
 - 2026-04-27: Ran `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the targeted wrapper passed cleanly with `tests run: 77`, `passed: 77`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T05-51-57-174Z.log`.
 - 2026-04-27: Ran `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/ingest-reembed.test.ts`; the targeted wrapper passed cleanly with `tests run: 75`, `passed: 75`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T05-52-37-303Z.log`.
+- Automated-proof audit on 2026-04-27 closed Task 203 after confirming all eight implementation subtasks, both targeted `server:unit` wrapper runs, and the parser blocker state were complete with no remaining live blocker.
 
 ### Task 204. Re-Validate Story 55 After Review Pass `0000055-20260427T044024Z-13acd3c1`
 

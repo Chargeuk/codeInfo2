@@ -6,6 +6,8 @@ Append a final summary to the active canonical plan using fresh disk reads so th
 
 Read the stored current-plan handoff first and use only that scope for this step.
 Re-open the exact active plan file from disk before summarizing.
+Derive the story number from the active plan filename.
+Inspect `codeInfoStatus/manual-proof/<story-number>/` if it exists and treat that curated bundle as part of the story-closeout state on disk.
 Append a new section named `## Final Summary` to the end of that plan.
 Base the summary on the latest plan content, implementation notes, testing state, and review-relevant hotspots that exist on disk now.
 
@@ -17,6 +19,7 @@ Base the summary on the latest plan content, implementation notes, testing state
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Re-open the exact relative `plan_path` from disk before writing the summary, even if you read it earlier in the flow.
 - Use fresh disk reads and current git state, not conversational memory.
+- When the current repository contains `codeInfoStatus/manual-proof/<story-number>/`, use that repository-relative bundle path as additional closeout evidence. Do not invent that bundle when the folder is absent.
 - If the story scope includes additional repositories, the summary must cover changes and reviewer hotspots across all repositories in scope, not just the current repository.
 
 </scope_rules>
@@ -32,6 +35,7 @@ Write the final summary as a numbered list with these four items:
 
 Keep the summary concise, but make sure it reflects the latest state of the plan on disk rather than an earlier snapshot.
 This summary will later be used as the summary comment added to the code review.
+When `codeInfoStatus/manual-proof/<story-number>/` exists, mention that curated repository-relative proof bundle briefly in the summary, usually as part of reviewer focus or closeout evidence. Do not enumerate every file unless that is genuinely needed for clarity.
 
 </content_rules>
 
@@ -42,6 +46,7 @@ Before finishing:
 - confirm you re-read `current-plan.json`;
 - confirm you re-opened the exact plan from disk immediately before summarizing;
 - confirm the summary reflects the latest task/testing/review state present in the plan;
+- confirm any mentioned `codeInfoStatus/manual-proof/<story-number>/` bundle actually exists on disk;
 - confirm multi-repository scope is covered when applicable.
 
 </verification_loop>

@@ -103,14 +103,15 @@ Manually assess the latest honestly completed task using only the stored plan sc
 <manual_proof_artifact_rules>
 
 - Derive the story number from the active plan filename before saving any manual-proof artifact.
+- Derive the bound task number from `current-task.json` before saving any manual-proof artifact, and use that same task number consistently for scratch-proof storage in this step.
 - Keep all manual-proof artifact paths repository-relative rather than absolute.
 - The repository-relative artifact paths below are relative to the target repository that owns the active `plan_path`, not necessarily the harness repository at `CODEINFO_ROOT`.
 - Before transferring artifacts, resolve that target repository root from the active workflow repository or the directory containing the stored `plan_path`, for example with `git rev-parse --show-toplevel` from the selected working repository, and verify the resolved root is not accidentally `CODEINFO_ROOT` unless the active plan is actually in the harness repository.
 - Use `CODEINFO_ROOT` only for harness-owned files and staging locations, such as `$CODEINFO_ROOT/playwright-output-local`; do not treat `CODEINFO_ROOT` as the target artifact root unless the active plan itself is in the harness repository.
-- If the candidate task is not the final task in the story, save any manual-testing screenshots, logs, console captures, network captures, or similar proof artifacts under `codeInfoTmp/manual-testing/<story-number>/`.
-- Treat `codeInfoTmp/manual-testing/<story-number>/` as non-committed scratch proof because `codeInfoTmp/` is ignored.
-- If the candidate task is the final task in the story, save any manual-testing screenshots, logs, console captures, network captures, or similar proof artifacts under `codeInfoStatus/manual-testing/<story-number>/`.
-- Treat `codeInfoStatus/manual-testing/<story-number>/` as durable final-story proof that should remain available for commit when this step produces tracked changes.
+- Save any manual-testing screenshots, logs, console captures, network captures, or similar proof artifacts under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
+- Treat `codeInfoTmp/manual-testing/<story-number>/<task-number>/` as the latest non-committed scratch proof for that one task because `codeInfoTmp/` is ignored.
+- If that same task is being manually retested, clear or replace the existing task folder contents before relying on new artifacts from the latest pass.
+- The later story-closeout promotion step may copy a curated subset of this scratch proof into `codeInfoStatus/manual-proof/<story-number>/`, but this manual-testing step does not write durable story proof there directly.
 - If screenshot or log capture is blocked, record the intended artifact destination in the implementation notes instead of inventing another storage location.
 
 </manual_proof_artifact_rules>
@@ -119,7 +120,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - Playwright MCP screenshot filenames are resolved inside the Playwright runtime output directory, normally `/tmp/playwright-output`; they are not resolved relative to the target repository.
 - Do not pass an absolute target-repository path to Playwright MCP screenshot tools. Playwright MCP rejects paths outside its output directory.
-- Capture screenshots with a deterministic relative staging filename, such as `manual-testing/<story-number>/<short-proof-name>.png`.
+- Capture screenshots with a deterministic relative staging filename, such as `manual-testing/<story-number>/<task-number>/<short-proof-name>.png`.
 - After capture, transfer the image into the target repository artifact destination from `<manual_proof_artifact_rules>`.
 - When the Playwright output is host-visible through the harness repository, copy or move from `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` into the target repository destination.
 - When `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` does not exist because the active Playwright MCP uses a Docker-managed output volume, copy the file out of the supported `playwright-mcp` container for the runtime recorded in `manual-testing-runtime.json`, for example by resolving the container with the relevant Compose file under `CODEINFO_ROOT` and copying `/tmp/playwright-output/<staging-filename>` into the target repository destination.
@@ -193,13 +194,11 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - identify whether any layout, usability, behavioral, startup, or shutdown issues remain.
 - If the completed task has a browser-visible or connected frontend surface but you do not capture screenshots, treat the manual proof as incomplete unless a concrete tooling limitation prevents capture.
 - If screenshot capture is blocked, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
-- Save any captured manual-proof artifacts to the correct repository-relative destination for this task:
-  - non-final task: `codeInfoTmp/manual-testing/<story-number>/`;
-  - final task: `codeInfoStatus/manual-testing/<story-number>/`.
+- Save any captured manual-proof artifacts to the correct repository-relative scratch destination for this task: `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
 - For Playwright MCP screenshots, first capture to the Playwright MCP output directory with a relative staging filename, then transfer the file to the repository-relative destination above using the `playwright_mcp_artifact_transfer_rules`.
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.
 - When the candidate task is the final task in the story, extend that manual proof into the smallest honest full-story validation that still proves the story's end-to-end observable outcomes.
-- When the candidate task is the final task in the story, prefer saving durable proof artifacts where the surface supports them, including screenshots, console or network captures, and runtime log evidence that map back to the story acceptance criteria.
+- When the candidate task is the final task in the story, prefer capturing scratch proof that later closeout can curate honestly into `codeInfoStatus/manual-proof/<story-number>/`, including screenshots, console or network captures, and runtime log evidence that map back to the story acceptance criteria.
 - If one proof path contaminates later runtime state and a smaller supported proof path already demonstrated the candidate task's required behavior, stop at the smaller successful proof and record the later-task limitation as a concise implementation note rather than escalating it into a blocker.
 
 </execution_rules>
@@ -286,7 +285,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 - If manual testing succeeds without finding further work:
   - set the candidate task's `Task Status` to `__done__`;
-  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the proof artifacts were saved, whether those artifacts were non-committed `codeInfoTmp` proof or committed `codeInfoStatus` proof, and that no additional subtasks were needed.
+  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, and that no additional subtasks were needed.
 
 - If the non-run reason is `recoverable_runtime_trouble`:
   - prefer continuing manual testing if possible instead of blocking immediately;
@@ -341,7 +340,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Confirm a fully checked unblocked `__in_progress__` task was not incorrectly skipped.
 - Confirm the task was set to `__done__` when manual testing succeeded or was honestly not applicable and no further work remained.
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
-- Confirm non-final-task manual-proof artifacts were routed to `codeInfoTmp/manual-testing/<story-number>/` and final-task manual-proof artifacts were routed to `codeInfoStatus/manual-testing/<story-number>/`.
+- Confirm manual-proof artifacts were routed to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` for the bound task rather than split between separate non-final and final-task destinations.
 - Confirm Playwright MCP screenshots were not expected to save directly into the target repository; confirm they were transferred from the Playwright output directory or its harness-visible bind into the target repository destination.
 - Confirm any conflict between bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.

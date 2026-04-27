@@ -40,7 +40,8 @@ const getBridgeEmbeddingDimensions = () => {
     : DEFAULT_EMBEDDING_DIMENSIONS;
 };
 
-const getBridgeClient = () => new ChromaClient(toChromaClientArgs(getChromaUrl()));
+const getBridgeClient = () =>
+  new ChromaClient(toChromaClientArgs(getChromaUrl()));
 
 async function getRootsCollection() {
   const client = getBridgeClient();

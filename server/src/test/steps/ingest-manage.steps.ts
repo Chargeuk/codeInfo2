@@ -45,6 +45,7 @@ import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
+import { seedMixedShapeCanonicalOpenAiRoot } from '../support/mixedShapeRuntimeBridge.js';
 import {
   MockLMStudioClient,
   type MockScenario,
@@ -53,7 +54,6 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
-import { seedMixedShapeCanonicalOpenAiRoot } from '../support/mixedShapeRuntimeBridge.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;

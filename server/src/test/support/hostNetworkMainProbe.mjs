@@ -99,19 +99,22 @@ export const resolveMainStackProbeRestBaseUrl = (env = process.env) => {
     return explicitUrl.replace(/\/+$/, '');
   }
 
-  return buildHttpUrl(resolveMainStackProbeHost(env), DEFAULT_CLASSIC_MCP_PORT, '');
+  return buildHttpUrl(
+    resolveMainStackProbeHost(env),
+    DEFAULT_CLASSIC_MCP_PORT,
+    '',
+  );
 };
 
 export const resolveMixedShapeRuntimeBridgeRoot = (env = process.env) => {
-  const explicitRoot = trimToUndefined(env.CODEINFO_MAIN_STACK_MIXED_SHAPE_ROOT);
+  const explicitRoot = trimToUndefined(
+    env.CODEINFO_MAIN_STACK_MIXED_SHAPE_ROOT,
+  );
   if (explicitRoot) {
     return explicitRoot;
   }
 
-  return path.resolve(
-    process.cwd(),
-    MIXED_SHAPE_RUNTIME_BRIDGE_RELATIVE_PATH,
-  );
+  return path.resolve(process.cwd(), MIXED_SHAPE_RUNTIME_BRIDGE_RELATIVE_PATH);
 };
 
 const defaultMixedShapeRuntimeBridgeProbe = async ({

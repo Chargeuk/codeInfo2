@@ -123,6 +123,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Playwright MCP screenshot filenames are resolved inside the Playwright runtime output directory, normally `/tmp/playwright-output`; they are not resolved relative to the target repository.
 - Do not pass an absolute target-repository path to Playwright MCP screenshot tools. Playwright MCP rejects paths outside its output directory.
 - Capture screenshots with a deterministic relative staging filename, such as `manual-testing/<story-number>/<task-number>/proof-01-home.png`.
+- After capture, transfer the screenshot into `codeInfoTmp/manual-testing/<story-number>/<task-number>/` as a direct child file of that task folder, for example `codeInfoTmp/manual-testing/<story-number>/<task-number>/proof-01-home.png`.
+- Do not recreate the Playwright staging subdirectories such as `manual-testing/<story-number>/<task-number>/` inside the repository destination folder.
 - After capture, transfer the image into the target repository artifact destination from `<manual_proof_artifact_rules>`.
 - When the Playwright output is host-visible through the harness repository, copy or move from `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` into the target repository destination.
 - When `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` does not exist because the active Playwright MCP uses a Docker-managed output volume, copy the file out of the supported `playwright-mcp` container for the runtime recorded in `manual-testing-runtime.json`, for example by resolving the container with the relevant Compose file under `CODEINFO_ROOT` and copying `/tmp/playwright-output/<staging-filename>` into the target repository destination.

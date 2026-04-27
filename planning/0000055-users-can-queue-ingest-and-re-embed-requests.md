@@ -16943,7 +16943,7 @@ No additional repositories are in scope for this review-created repair task.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `208`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Final revalidation for review pass `0000055-20260427T120554Z-cfc8af21`, covering task-required `finding-1`.
   - Final revalidation owner for inline-resolved minor `finding-2` from the same active review cycle.
@@ -17035,3 +17035,4 @@ Optional later manual follow-up can reuse the supported main stack from the repo
 - 2026-04-27: Testing step 9 passed via `npm run compose:down`. The smoke stack stopped cleanly, removed the runtime containers and internal network, and returned the repository to its prior stopped state without shutdown repair.
 - 2026-04-27: Testing step 10 passed via `npm run lint` with a clean exit and no warnings. Repository hygiene stayed intact, so the final pass could finish on the formatting gate without a lint repair.
 - 2026-04-27: Testing step 11 passed via `npm run format:check` after one bounded baseline repair. The first rerun failed with a Node heap OOM inside the root `prettier . --check` script, so `package.json` now raises `NODE_OPTIONS=--max-old-space-size=8192` for the root format scripts and a targeted `npx prettier --write` normalized `client/src/hooks/useIngestRoots.ts`, `client/src/test/ingestRoots.test.tsx`, and `server/src/lmstudio/toolService.ts`; the final rerun ended with `All matched files use Prettier code style!`.
+- Implementation-plus-automated-proof audit on 2026-04-27 re-read the current handoffs and this exact task from disk, confirmed all subtasks and all eleven testing steps are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.

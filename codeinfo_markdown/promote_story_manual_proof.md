@@ -45,10 +45,9 @@ Do not commit or push in this step.
 
 - First determine whether `codeInfoTmp/manual-testing/<story-number>/` exists and contains any numeric task folders with eligible files.
 - If `codeInfoTmp/manual-testing/<story-number>/` does not exist, or it exists but contains no numeric task folders with eligible files, do not modify any existing `codeInfoStatus/manual-proof/<story-number>/` bundle. Report that no new curated manual-proof bundle was produced in this pass and that any existing durable bundle was left unchanged, then stop.
-- Identify the numeric task folders that contain promotable files in this pass. Treat only those task numbers as touched by the current promotion run.
-- Do not clear or rebuild `codeInfoStatus/manual-proof/<story-number>/` as a whole. Preserve any durable task folders whose task numbers are not touched in the current promotion run.
-- For every touched task folder, stage its promoted files into a temporary destination such as `codeInfoStatus/manual-proof/<story-number>/task-<task-number>.tmp/` before replacing the durable task folder for that one task.
-- Copy all eligible screenshot proof files for the touched task into that task's temporary destination, preserving basenames.
+- Identify the numeric task folders that contain promotable files in this pass as candidate task folders.
+- Do not clear or rebuild `codeInfoStatus/manual-proof/<story-number>/` as a whole. Preserve any durable task folders whose task numbers are not selected for replacement in the current promotion run.
+- Copy all eligible screenshot proof files for each candidate task folder, preserving basenames.
 - Copy at most two support files total across the whole story.
 - To choose support files, process numeric task folders in descending numeric order.
 - Within each task folder, evaluate support files in this order:
@@ -56,9 +55,12 @@ Do not commit or push in this step.
   2. `support-network.json`
   3. `support-*.log` in lexicographic filename order
 - Copy the first eligible support files encountered under that traversal until two total support files have been copied, then stop copying support files.
-- If a selected support file comes from a task folder that had no screenshot proof files, still create the matching temporary destination for that touched task before copying that support file.
-- Replace a durable `task-<task-number>/` folder only after all selected files for that same touched task have been copied successfully into its temporary destination.
-- If a touched task has no existing durable folder yet, promote it by renaming or moving the completed temporary destination into `task-<task-number>/`.
+- After applying the screenshot and support-file selection rules, treat only the task numbers that have at least one selected file as selected task folders for this promotion run.
+- If a candidate task folder ends up with zero selected files after the support-file cap and selection rules are applied, leave any existing durable `task-<task-number>/` folder unchanged.
+- For every selected task folder, stage its selected files into a temporary destination such as `codeInfoStatus/manual-proof/<story-number>/task-<task-number>.tmp/` before replacing the durable task folder for that one task.
+- If a selected support file comes from a task folder that had no screenshot proof files, still create the matching temporary destination for that selected task before copying that support file.
+- Replace a durable `task-<task-number>/` folder only after all selected files for that same selected task have been copied successfully into its temporary destination.
+- If a selected task has no existing durable folder yet, promote it by renaming or moving the completed temporary destination into `task-<task-number>/`.
 - Do not copy duplicate support files with the same destination path more than once.
 - Do not rename source files except for placing them under `task-<task-number>/` destination folders.
 - Do not delete, move, or rewrite the source files in `codeInfoTmp/`.
@@ -71,7 +73,7 @@ Do not commit or push in this step.
 - The curated durable bundle root for this step is `codeInfoStatus/manual-proof/<story-number>/`.
 - Preserve task ownership in the durable bundle by copying into per-task subfolders:
   - `codeInfoStatus/manual-proof/<story-number>/task-<task-number>/`
-- Use temporary per-task staging folders such as `codeInfoStatus/manual-proof/<story-number>/task-<task-number>.tmp/` during the copy phase, and remove them after a successful replace or a failed staged attempt.
+- Use temporary per-task staging folders such as `codeInfoStatus/manual-proof/<story-number>/task-<task-number>.tmp/` only for selected task folders during the copy phase, and remove them after a successful replace or a failed staged attempt.
 - Keep all reported paths repository-relative, not absolute.
 - `codeInfoStatus/manual-proof/` is durable tracked repository state. Do not treat it as ignored scratch output.
 - `codeInfoTmp/manual-testing/` remains ignored scratch storage and must remain untouched apart from reading its contents.
@@ -83,8 +85,9 @@ Do not commit or push in this step.
 - If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
 - If the selected `plan_path` is missing or unreadable, stop and report that the active plan could not be reopened from disk.
 - If a temporary or durable per-task destination cannot be created safely, stop and report the exact path and failure.
-- If copying a selected file for a touched task fails, stop and report the exact source path, intended temporary destination path, and task number.
-- If staging a touched task fails, leave any existing durable `task-<task-number>/` folder unchanged and report that the task-level promotion did not replace prior durable proof for that task.
+- If copying a selected file for a selected task fails, stop and report the exact source path, intended temporary destination path, and task number.
+- If staging a selected task fails, leave any existing durable `task-<task-number>/` folder unchanged and report that the task-level promotion did not replace prior durable proof for that task.
+- If a candidate task has zero selected files after the support-file cap is applied, treat that as a preserve-unchanged outcome rather than a failure.
 - Do not silently skip copy failures.
 
 </failure_modes>
@@ -94,8 +97,10 @@ Do not commit or push in this step.
 - Report the selected story number.
 - Report whether the curated manual-proof bundle was created, refreshed, or skipped because no eligible artifacts existed.
 - When no eligible scratch artifacts existed, report whether an existing durable bundle was preserved unchanged or no durable bundle existed yet.
-- Report which task numbers were touched by the current promotion run.
+- Report which task numbers were candidate task folders in the current promotion run.
+- Report which task numbers were selected task folders in the current promotion run.
 - Report which durable task folders were replaced, newly created, or preserved unchanged.
+- Report which candidate task folders were preserved unchanged because they ended up with zero selected files.
 - Report the exact repository-relative destination root.
 - Report the exact repository-relative files copied, grouped by task folder.
 - Report which eligible support files were copied, if any.
@@ -111,11 +116,14 @@ Do not commit or push in this step.
 - Confirm you used only the active story's `codeInfoTmp/manual-testing/<story-number>/` root as the candidate source.
 - Confirm you treated only numeric child directories as task folders.
 - Confirm you copied only approved filename patterns.
-- Confirm you copied all eligible screenshot proof files from every touched task folder.
+- Confirm you copied all eligible screenshot proof files from every candidate task folder.
 - Confirm you copied no more than two support files total.
 - Confirm support files were selected by descending task number, then by the defined per-folder priority order.
+- Confirm only task folders with at least one selected file were treated as selected task folders and staged for replacement.
 - Confirm the durable destination preserved untouched per-task subfolders under `codeInfoStatus/manual-proof/<story-number>/`.
-- Confirm each replaced durable task folder was updated only after successful staging for that same task.
+- Confirm candidate task folders with zero selected files were preserved unchanged.
+- Confirm each replaced durable task folder was updated only after successful staging for that same selected task.
+- Confirm the support-file cap did not cause an empty durable task replacement.
 - Confirm you did not delete an existing durable bundle merely because no new eligible scratch artifacts were available in this pass.
 - Confirm you did not delete an existing durable task folder merely because a different task was not retested in this pass.
 - Confirm you did not modify or delete source artifacts in `codeInfoTmp/`.

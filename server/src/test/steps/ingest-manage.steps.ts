@@ -53,6 +53,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { seedMixedShapeCanonicalOpenAiRoot } from '../support/mixedShapeRuntimeBridge.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
@@ -801,27 +802,9 @@ Given(
   'ingest manage mixed-shape canonical OpenAI root metadata exists for the temp repo',
   async () => {
     assert(tempDir, 'temp dir missing');
-    const roots = await getRootsCollection();
-    await roots.add({
-      ids: ['temp-mixed-shape-run'],
-      embeddings: [[0]],
-      metadatas: [
-        {
-          runId: 'temp-mixed-shape-run',
-          root: tempDir,
-          name: 'temp-mixed-shape-repo',
-          model: '',
-          embeddingProvider: 'openai',
-          embeddingModel: '',
-          embeddingDimensions: 0,
-          files: 1,
-          chunks: 1,
-          embedded: 1,
-          state: 'completed',
-          lastIngestAt: new Date().toISOString(),
-          ingestedAtMs: Date.now(),
-        },
-      ],
+    await seedMixedShapeCanonicalOpenAiRoot({
+      rootPath: tempDir,
+      name: 'temp-mixed-shape-repo',
     });
   },
 );

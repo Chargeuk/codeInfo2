@@ -1,9 +1,18 @@
+import path from 'node:path';
 import { existsSync } from 'node:fs';
+import {
+  cleanupMixedShapeCanonicalOpenAiRoot,
+  MIXED_SHAPE_RUNTIME_BRIDGE_NAME,
+  seedMixedShapeCanonicalOpenAiRoot,
+} from './mixedShapeRuntimeBridge.js';
 
 const DEFAULT_CLASSIC_MCP_PORT = 5010;
 const DEFAULT_CHAT_MCP_PORT = 5011;
 const DEFAULT_AGENTS_MCP_PORT = 5012;
 const DEFAULT_PLAYWRIGHT_MCP_PORT = 8932;
+const DEFAULT_CHROMA_PORT = 8000;
+const MIXED_SHAPE_RUNTIME_BRIDGE_RELATIVE_PATH =
+  'codeInfoTmp/manual-testing/0000055/task199-mixed-shape-runtime-bridge';
 
 const DEFAULT_JSON_RPC_REQUEST = {
   jsonrpc: '2.0',
@@ -73,6 +82,132 @@ export const resolveMainStackProbeHost = (env = process.env) => {
 const buildHttpUrl = (host, port, pathname = '/') =>
   `http://${host}:${port}${pathname}`;
 
+const parseEnabledFlag = (value) => {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  );
+};
+
+export const resolveMainStackProbeRestBaseUrl = (env = process.env) => {
+  const explicitUrl = trimToUndefined(env.CODEINFO_MAIN_STACK_REST_URL);
+  if (explicitUrl) {
+    return explicitUrl.replace(/\/+$/, '');
+  }
+
+  return buildHttpUrl(resolveMainStackProbeHost(env), DEFAULT_CLASSIC_MCP_PORT, '');
+};
+
+export const resolveMixedShapeRuntimeBridgeRoot = (env = process.env) => {
+  const explicitRoot = trimToUndefined(env.CODEINFO_MAIN_STACK_MIXED_SHAPE_ROOT);
+  if (explicitRoot) {
+    return explicitRoot;
+  }
+
+  return path.resolve(
+    process.cwd(),
+    MIXED_SHAPE_RUNTIME_BRIDGE_RELATIVE_PATH,
+  );
+};
+
+const defaultMixedShapeRuntimeBridgeProbe = async ({
+  env = process.env,
+  fetchImpl = fetch,
+  seedRoot = seedMixedShapeCanonicalOpenAiRoot,
+} = {}) => {
+  const host = resolveMainStackProbeHost(env);
+  const restBaseUrl = resolveMainStackProbeRestBaseUrl(env);
+  const rootsUrl = `${restBaseUrl}/ingest/roots`;
+  const rootPath = resolveMixedShapeRuntimeBridgeRoot(env);
+  const preserveSeed = parseEnabledFlag(
+    env.CODEINFO_MAIN_STACK_KEEP_MIXED_SHAPE_SEED,
+  );
+  const previousChromaUrl = process.env.CODEINFO_CHROMA_URL;
+  process.env.CODEINFO_CHROMA_URL = buildHttpUrl(host, DEFAULT_CHROMA_PORT, '');
+
+  try {
+    await seedRoot({
+      rootPath,
+      name: MIXED_SHAPE_RUNTIME_BRIDGE_NAME,
+    });
+
+    const response = await fetchImpl(rootsUrl, {
+      headers: { accept: 'application/json' },
+    });
+    const body = await response.json();
+    const roots = Array.isArray(body?.roots) ? body.roots : [];
+    const bridgeRoot = roots.find(
+      (root) => root && typeof root === 'object' && root.path === rootPath,
+    );
+
+    if (!response.ok) {
+      return {
+        rootPath,
+        restBaseUrl,
+        seeded: true,
+        observed: false,
+        cleaned: false,
+        preserved: preserveSeed,
+        httpStatus: response.status,
+        detail: `HTTP ${response.status} from ${rootsUrl}`,
+      };
+    }
+
+    if (!bridgeRoot) {
+      return {
+        rootPath,
+        restBaseUrl,
+        seeded: true,
+        observed: false,
+        cleaned: false,
+        preserved: preserveSeed,
+        httpStatus: response.status,
+        detail: `seeded row missing from ${rootsUrl}`,
+      };
+    }
+
+    if (
+      bridgeRoot.embeddingProvider !== 'openai' ||
+      bridgeRoot.embeddingModel !== '' ||
+      bridgeRoot.model !== '' ||
+      bridgeRoot.modelId !== ''
+    ) {
+      return {
+        rootPath,
+        restBaseUrl,
+        seeded: true,
+        observed: false,
+        cleaned: false,
+        preserved: preserveSeed,
+        httpStatus: response.status,
+        detail:
+          'seeded row did not preserve the expected mixed-shape OpenAI contract on /ingest/roots',
+      };
+    }
+
+    return {
+      rootPath,
+      restBaseUrl,
+      seeded: true,
+      observed: true,
+      cleaned: false,
+      preserved: preserveSeed,
+      httpStatus: response.status,
+      detail: `HTTP ${response.status}; observed mixed-shape row at ${rootsUrl}`,
+    };
+  } finally {
+    if (previousChromaUrl === undefined) {
+      delete process.env.CODEINFO_CHROMA_URL;
+    } else {
+      process.env.CODEINFO_CHROMA_URL = previousChromaUrl;
+    }
+  }
+};
+
 export const resolveMainStackProbeEndpoints = (env = process.env) => {
   const host = resolveMainStackProbeHost(env);
 
@@ -113,6 +248,7 @@ export const createMainStackProbeMarkerContext = (result) => ({
   playwrightMcp: result.endpoints.playwrightMcp.reachable
     ? 'reachable'
     : 'unreachable',
+  mixedShapeBridge: result.mixedShapeBridge.observed ? 'observed' : 'failed',
   result: result.result,
 });
 
@@ -179,6 +315,8 @@ export const probeMainStackEndpoints = async ({
   endpoints = resolveMainStackProbeEndpoints(),
   probeJsonRpc = defaultJsonRpcProbe,
   fetchImpl = fetch,
+  probeMixedShapeRuntimeBridge = defaultMixedShapeRuntimeBridgeProbe,
+  env = process.env,
 } = {}) => {
   const endpointEntries = Object.entries(endpoints);
   const endpointResults = {};
@@ -216,9 +354,56 @@ export const probeMainStackEndpoints = async ({
     }
   }
 
+  let mixedShapeBridge = await probeMixedShapeRuntimeBridge({
+    env,
+    fetchImpl,
+  });
+  if (!mixedShapeBridge.preserved) {
+    try {
+      const host = resolveMainStackProbeHost(env);
+      const previousChromaUrl = process.env.CODEINFO_CHROMA_URL;
+      process.env.CODEINFO_CHROMA_URL = buildHttpUrl(
+        host,
+        DEFAULT_CHROMA_PORT,
+        '',
+      );
+      try {
+        await cleanupMixedShapeCanonicalOpenAiRoot({
+          rootPath: mixedShapeBridge.rootPath,
+        });
+        mixedShapeBridge = {
+          ...mixedShapeBridge,
+          cleaned: true,
+        };
+      } finally {
+        if (previousChromaUrl === undefined) {
+          delete process.env.CODEINFO_CHROMA_URL;
+        } else {
+          process.env.CODEINFO_CHROMA_URL = previousChromaUrl;
+        }
+      }
+    } catch (error) {
+      mixedShapeBridge = {
+        ...mixedShapeBridge,
+        cleaned: false,
+        detail: `${mixedShapeBridge.detail}; cleanup failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+  }
+
+  if (
+    !mixedShapeBridge.observed ||
+    (!mixedShapeBridge.cleaned && !mixedShapeBridge.preserved)
+  ) {
+    failures.push('mixedShapeBridge');
+  }
+
   return {
     result: failures.length === 0 ? 'passed' : 'failed',
     endpoints: endpointResults,
+    mixedShapeBridge,
     failures,
   };
 };
@@ -237,6 +422,21 @@ export const renderMainStackProbeReport = (result) => {
         : `HTTP ${endpoint.httpStatus}; ${endpoint.detail}`;
     lines.push(`- ${name}: ${status} (${endpoint.url}) ${suffix}`);
   }
+
+  lines.push(
+    `- mixedShapeBridge: ${
+      result.mixedShapeBridge.observed ? 'observed' : 'missing'
+    } (${result.mixedShapeBridge.rootPath}) ${result.mixedShapeBridge.detail}`,
+  );
+  lines.push(
+    `- mixedShapeBridge cleanup: ${
+      result.mixedShapeBridge.preserved
+        ? 'preserved for later inspection'
+        : result.mixedShapeBridge.cleaned
+          ? 'cleaned'
+          : 'not cleaned'
+    }`,
+  );
 
   if (result.failures.length > 0) {
     lines.push(`- failing endpoints: ${result.failures.join(', ')}`);

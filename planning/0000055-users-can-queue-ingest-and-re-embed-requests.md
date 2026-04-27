@@ -16120,9 +16120,9 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
 
 #### Implementation notes
 
@@ -16151,6 +16151,9 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Manual testing on 2026-04-27 restarted the documented main compose stack from stale or unknown provenance, used `CODEINFO_MAIN_STACK_KEEP_MIXED_SHAPE_SEED=true npm run test:summary:host-network:main` to preserve the bridge row, then captured `codeInfoTmp/manual-testing/0000055/task200-roots-preserved.json`, `task200-rest-reembed.json`, `task200-classic-mcp.json`, and `task200-roots-after-reembed.json`; `/ingest/roots` surfaced the bridge row as a fully canonical OpenAI entry, `POST /ingest/reembed/:root` returned `202` with a running queue record instead of `INVALID_LOCK_METADATA`, and the later classic MCP call drifted to `NOT_FOUND` after that REST call made the row disappear from `/ingest/roots`, so follow-up subtasks were added on the live repo-list, REST, and shared-caller seams and all three automated proof steps were reopened before a later manual retest.
 - Reworked the producer-side mixed-shape seam so completed bridge rows keep blank canonical OpenAI top-level fields while preserving populated fallback `lock` metadata: `resolveRepoEmbeddingIdentity()` now fail-closed blocks alias or lock promotion for partial canonical OpenAI metadata, `listIngestedRepositories()` publishes that preserved invalid shape at the repo-list layer, and `/ingest/roots` now keeps the persisted lock envelope instead of rebuilding a canonical OpenAI identity from it.
 - Added the reopened bridge-style proof owners without running their wrappers yet: `ingest-roots-dedupe` now covers a completed mixed-shape row with blank top-level OpenAI fields plus populated fallback lock metadata, `ingest-reembed-invalid-state` now proves `POST /ingest/reembed/:root` leaves that row visible on later `/ingest/roots` inspection, and the classic MCP plus MCP2 proof files now exercise the real selector path with the bridge-style sourceId so a shared invalid-state result cannot drift into `NOT_FOUND` before the later automated-proof step.
+- Repaired the reopened Task 200 proof build by tightening the typed metadata handoff in `server/src/lmstudio/toolService.ts` and the bridge-style integration fixture literal types, then reran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`; the targeted owner proof passed cleanly with `69 passed, 0 failed`.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`; the reopened bridge-style REST proof passed cleanly with `5 passed, 0 failed`, confirming the failed exact-source re-embed attempt leaves the mixed-shape row visible on later `/ingest/roots` inspection.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the reopened bridge-style classic MCP and MCP2 transport proof rerun passed cleanly with `36 passed, 0 failed`, confirming the real selector path now stays on the shared mixed-shape invalid-state result instead of drifting to `NOT_FOUND`.
 
 #### Manual Testing Guidance
 

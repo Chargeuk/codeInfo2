@@ -1346,11 +1346,14 @@ export async function listIngestedRepositories(
           : null,
       );
       const repoIdentity = resolveRepoEmbeddingIdentity({
-        embeddingProvider: m.embeddingProvider,
-        embeddingModel: m.embeddingModel,
-        embeddingDimensions: m.embeddingDimensions,
-        model: m.model,
-        modelId: m.modelId,
+        embeddingProvider:
+          normalizeEmbeddingProvider(m.embeddingProvider) ?? undefined,
+        embeddingModel:
+          typeof m.embeddingModel === 'string' ? m.embeddingModel : undefined,
+        embeddingDimensions:
+          normalizeEmbeddingDimensions(m.embeddingDimensions) ?? undefined,
+        model: typeof m.model === 'string' ? m.model : undefined,
+        modelId: typeof m.modelId === 'string' ? m.modelId : undefined,
         lock: repoLock,
       });
       const sourceId = rawPath;

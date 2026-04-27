@@ -2,12 +2,12 @@
 
 Provide a small non-runtime checklist for reviewing future changes to the review-disposition prompts and related task-up guidance.
 
-This file is not part of the live flow. It is a maintenance aid for humans or agents reviewing prompt changes.
+This file is not part of the automated live review flows. It is a maintenance aid for humans or agents reviewing prompt changes, and it is used by a manually invoked regression command.
 
 <critical_rules>
 
-- Do not treat this checklist as a runtime prompt step unless a future human explicitly wires it into a flow.
-- Use this checklist only to review proposed edits to review-disposition prompts, minor-fix prompts, or task-up prompts.
+- Do not treat this checklist as part of an automated or live review flow unless a future human explicitly wires it into one. Manual use through the dedicated regression-review command is expected.
+- Use this checklist only for manual regression review of proposed edits to review-disposition prompts, minor-fix prompts, or task-up prompts.
 - Prefer short yes/no answers plus one sentence of reasoning for each item.
 
 </critical_rules>

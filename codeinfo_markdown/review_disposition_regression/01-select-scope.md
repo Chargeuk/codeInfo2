@@ -6,8 +6,9 @@ This is a review-only step. Do not edit files.
 
 <critical_rules>
 
-- Work only from the `"$CODEINFO_ROOT"` branch diff against `origin/main`.
-- Use direct git reads anchored to `"$CODEINFO_ROOT"`, such as `git -C "$CODEINFO_ROOT" diff --name-only origin/main...HEAD`, to identify the changed files in scope.
+- Work only from the `"$CODEINFO_ROOT"` branch diff against the resolved comparison base, not a hard-coded branch name.
+- Resolve the comparison base by preferring stored comparison metadata when present: use `comparison_base_ref` first, then `comparison_base_commit`. If neither is available, determine the repository default branch and prefer its remote-tracking ref when available; if that remote path is unavailable, fall back to the corresponding local branch or other local ref for that default branch.
+- Use direct git reads anchored to `"$CODEINFO_ROOT"` with that resolved base, such as `git -C "$CODEINFO_ROOT" diff --name-only "$COMPARISON_BASE"...HEAD`, to identify the changed files in scope.
 - Focus on review-disposition prompt files, especially:
   - `codeinfo_markdown/classify_review_disposition.md`
   - `codeinfo_markdown/fix_next_minor_review_finding.md`

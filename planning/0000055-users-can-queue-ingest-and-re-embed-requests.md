@@ -16582,7 +16582,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `204`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-3`: dead "non-rewriteable waiting request" fallback branches remain in `server/src/ingest/requestQueue.ts` even though the helper currently fetches and rewrites only waiting rows.
 

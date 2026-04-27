@@ -16600,8 +16600,9 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 #### Proof Mapping
 
-- `P1.` waiting-row rewrite, exact same-call rewrite-or-dedupe ordering, and duplicate-key recovery proof for `R1` through `R3` plus `R5`: implementation owner is `server/src/ingest/requestQueue.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`.
-- `P2.` cleanup-owned and queue-runtime sequencing proof for `R2` and `R4`: supporting proof homes are `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/ingest-cancel.test.ts`.
+- `P1.` waiting-row rewrite, exact same-call rewrite-or-dedupe ordering, and duplicate-key recovery proof for `R1`, `R3`, and `R5`: implementation owner is `server/src/ingest/requestQueue.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`.
+- `P2.` cleanup-owned runtime sequencing proof for `R2` and `R4` when queue terminal expectations shift: supporting proof home is `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`.
+- `P3.` cancel-path cleanup and queue handoff proof for `R2` and `R4` when cancellation expectations shift: supporting proof home is `server/src/test/unit/ingest-cancel.test.ts`.
 
 #### Risk Ownership
 
@@ -16628,7 +16629,8 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 1. [ ] Re-read the review findings for pass `0000055-20260427T065706Z-15b0a653`, then re-read `server/src/ingest/requestQueue.ts` to mark the exact fetch predicate, rewrite predicate, and the dead fallback branches that still imply a fetched waiting row can be non-rewriteable.
 2. [ ] Patch the waiting-row fetch or rewrite guard, the duplicate-key recovery path, and any nearby explanatory comments or diagnostics in `server/src/ingest/requestQueue.ts` so the helper reflects the real waiting-only contract without unreachable "non-rewriteable waiting request" branches, while preserving the current waiting-row rewrite, duplicate-key recovery, and queue sequencing behavior.
-3. [ ] Add or update `server/src/test/unit/ingest-request-queue.test.ts` so one proof now follows a single helper call from fetched waiting-row selection into rewrite-or-dedupe resolution without a second impossible "non-rewriteable waiting row" branch, then adjust `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` or `server/src/test/unit/ingest-cancel.test.ts` only where the dead-branch removal changes the honest cleanup or terminal expectations.
+3. [ ] Add or update `server/src/test/unit/ingest-request-queue.test.ts` so one proof now follows a single helper call from fetched waiting-row selection into rewrite-or-dedupe resolution without a second impossible "non-rewriteable waiting row" branch, and another assertion in that same proof owner keeps duplicate-key recovery on the real waiting-only seam.
+4. [ ] If the dead-branch removal changes cleanup-owned or cancellation expectations, update `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` for terminal queue sequencing and `server/src/test/unit/ingest-cancel.test.ts` for cancel-path cleanup only where those files are the honest proof owners for the affected invariant.
 
 #### Testing
 
@@ -16660,7 +16662,9 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 #### Proof Mapping
 
 - `P1.` retained-home inventory proof for `R1`, `R2`, and `R4`: proof home is the tracked file tree for the Story 55 retained-proof contract after the repair, validated from Git-tree output plus the bounded file list kept in the final references.
-- `P2.` reference-alignment proof for `R3`: proof homes are the Story 55 plan, the current review findings artifact, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+- `P2.` canonical-plan retained-proof contract proof for `R3`: proof home is `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`.
+- `P3.` current review findings-artifact retained-proof contract proof for `R3`: proof home is `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`.
+- `P4.` PR-summary retained-proof contract proof for `R3`: proof home is `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
 
 #### Risk Ownership
 
@@ -16686,7 +16690,9 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, noting which logs, screenshots, JSON or HTML captures, status sidecars, and summary files are actually referenced today.
 2. [ ] Bucket those current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set.
 3. [ ] Implement one explicit end state from `R1`: either prune and rename the retained subset into a clearly durable tracked proof home under `codeInfoStatus/`, or move the proof home into an ignored artifact location and leave only the tracked summary surfaces that still need to remain in Git for the plan, findings artifact, and PR summary references.
-4. [ ] Update the retained-proof references in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so they all describe the same final contract and no longer read like an accidental tracked scratch directory.
+4. [ ] Update the retained-proof references in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` so the canonical task and review text describe the same final contract chosen in Subtask 3.
+5. [ ] Update the retained-proof references in `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md` so the current review artifact points at the same final contract and no longer reads like an accidental tracked scratch directory.
+6. [ ] Update the retained-proof references in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the PR summary names the same final contract and bounded retained proof home or tracked summary surface chosen in Subtask 3.
 
 #### Testing
 

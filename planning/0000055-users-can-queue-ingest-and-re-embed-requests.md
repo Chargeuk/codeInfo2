@@ -15912,11 +15912,69 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-queue-runtime-pump.test.ts --file server/src/test/unit/ingest-queue-runtime-recovery.test.ts --file server/src/test/unit/ingest-start.test.ts`; the first reruns exposed a Task 197-owned type-signature mismatch and a racey queue-pump proof seam, which were repaired by widening `validateExecutableIngestInput()` only for optional replay `name`/`operation`, pinning the OpenAI validation unit test to `reembed`, and making the queue-pump proof drive queued runs through the explicit test scheduler before the final wrapper pass succeeded with `55 passed, 0 failed`.
 - Manual testing stayed task-scoped because Task 197 is not the final story task; after restarting the stale-or-unknown main stack with `npm run compose:build` and `npm run compose:up`, live proof confirmed immediate `POST /ingest/start` still returns `400 {"status":"error","code":"VALIDATION","message":"path and name are required"}`, direct queue promotion turns a persisted missing-`requestPayload.name` row into terminal `error` status with `counts {"files":0,"chunks":0,"embedded":0}` before any discovery work while the next reused waiting start row still promotes and completes, and startup recovery replays the same malformed persisted running row to the same zero-work `VALIDATION` error before the waiting control row starts and completes after restart; scratch artifacts were saved under `codeInfoTmp/manual-testing/0000055/` and the documented main stack was returned to its prior stopped state with `npm run compose:down`.
 
-### Task 198. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
+### Task 198. Add Supported Mixed-Shape Re-Embed Seed Harness For Live Validation
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196`
 - Task Status: `__in_progress__`
+- Addresses Findings:
+  - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
+
+#### Overview
+
+Add the missing Story 55 proof-owner seam that can seed a malformed canonical OpenAI row through supported test-owned fixtures instead of ad hoc database edits. This prerequisite task owns the fixture and cleanup path needed before Task 199 can retire its blocked unsupported live-proof route honestly.
+
+#### Task Exit Criteria
+
+- `R1.` Story 55 test-owned fixtures can seed and later clean a malformed canonical OpenAI row plus any required queue metadata without weakening production admission or relying on ad hoc database edits during later live proof.
+- `R2.` At least one supported ingest-manage proof surface demonstrates that the seeded mixed-shape row reaches the normal roots or re-embed flow and preserves the structured invalid-state contract instead of drifting into provider-unavailable behavior.
+- `R3.` The follow-up handoff for Task 199 names the supported seed or harness and cleanup path explicitly enough that later manual validation no longer depends on rediscovering a live-only seed route.
+
+#### Proof Mapping
+
+- `P1.` seed and cleanup harness proof for `R1`: implementation owner is `server/src/test/steps/ingest-manage.steps.ts`; proof home is `server/src/test/features/ingest-reembed.feature`.
+- `P2.` supported runtime-surface proof for `R2`: implementation owners are `server/src/test/steps/ingest-manage.steps.ts` and `server/src/test/features/ingest-reembed.feature`; proof home is the targeted cucumber scenario that exercises the seeded mixed-shape row through the normal ingest-manage roots or re-embed flow.
+- `P3.` handoff-proof alignment for `R3`: proof homes are this plan's Task 199 section plus any fixture-oriented guidance added to `server/src/test/features/ingest-reembed.feature` or its matching step definitions.
+
+#### Risk Ownership
+
+- Highest-risk invariant: the prerequisite must add a supported test-owned seed seam for malformed canonical metadata without weakening production validation or normalizing ad hoc database edits into an accepted live-proof path.
+- Keep Task 199's completed product fix and targeted automated proof intact; this task owns only the missing seed or harness seam and the explicit handoff needed for later live validation.
+
+#### High-Risk Invariants And Blocker Family
+
+- Fixture-ownership proof required: the malformed canonical OpenAI row must be created and cleaned through the existing Story 55 test-owned fixture layer in `server/src/test/steps/ingest-manage.steps.ts`, not through undocumented runtime mutation.
+- Default-path proof required: at least one supported proof must still reach the normal ingest-manage roots or re-embed surface after the seed is introduced, so the new fixture cannot hide only in a helper-level branch.
+- Cleanup proof required: the seeded malformed row and any queue metadata must be removed by the same supported harness so later Story 55 runs do not inherit stale invalid-state records.
+- Likely blocker family: proof or test harness seam, with a manual or runtime environment seam for the later live check. This task owns the prerequisite harness repair before Task 199 resumes its task-local close-out.
+
+#### Documentation Locations
+
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+
+#### Subtasks
+
+1. [ ] Re-read Task 199's `**BLOCKING ANSWER**`, `server/src/test/features/ingest-reembed.feature`, `server/src/test/steps/ingest-manage.steps.ts`, and the existing invalid-state proof in `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so the narrowest existing Story 55 fixture seam for a malformed canonical OpenAI row is isolated before patching.
+2. [ ] Add or update a test-owned seed helper in `server/src/test/steps/ingest-manage.steps.ts` that can create and later clean a mixed-shape canonical OpenAI row, plus any matching queue or roots metadata needed for later live verification, without weakening production admission or asking a later manual operator to edit Mongo state directly.
+3. [ ] Add or update `server/src/test/features/ingest-reembed.feature` and its matching step definitions so one explicit ingest-manage scenario proves the new supported seed surface reaches the normal roots or re-embed flow and preserves the structured invalid-state contract for the malformed canonical OpenAI row rather than drifting into `OPENAI_MODEL_UNAVAILABLE` or a transport throw.
+4. [ ] Re-open Task 199 in this plan after the fixture path is in place and replace its exhausted unsupported live-proof route with a direct dependency on this supported seed or harness, including any cleanup or later manual-guidance wording needed to keep the handoff honest.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`.
+
+#### Implementation notes
+
+- Planner repair on 2026-04-27 inserted this prerequisite after Task 199's blocker answer proved the missing owner is a Story 55 test-owned seed or harness seam, not more mixed-shape product code. This task now owns the supported fixture path in `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts` before Task 199 resumes its close-out.
+
+### Task 199. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `196, 198`
+- Task Status: `__to_do__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -15949,6 +16007,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Producer-consumer proof required: the repo-list producer in `server/src/lmstudio/toolService.ts`, the shared admission and result-shaping logic in `server/src/ingest/reingestService.ts`, and the REST plus MCP consumers must all agree on the same mixed-shape invalid-state contract.
 - Exact propagation proof required: prove the same mixed-shape row through service classification, REST response construction, and shared-caller transport shaping so the bug cannot remain fixed in one consumer while escaping another as a thrown exception.
 - Default-path proof required: at least one proof must reach the normal REST route and one must reach the normal shared caller transport path rather than only a helper-level unit branch.
+- Prerequisite handoff required: later fixture-backed live validation for this mixed-shape row must use the supported seed or harness from Task 198 rather than the exhausted unsupported live runtime path or ad hoc database edits.
 - Likely blocker family: product or story seam. If deterministic proof of the shared-caller no-throw path is missing in the current MCP test harness, classify that as proof or test harness seam and repair it in the listed proof homes before downstream product work relies on those transports.
 
 #### Documentation Locations
@@ -15961,6 +16020,8 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - `server/src/test/integration/ingest-reembed-invalid-state.test.ts`
 - `server/src/test/unit/mcp.reingest.classic.test.ts`
 - `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- `server/src/test/features/ingest-reembed.feature`
+- `server/src/test/steps/ingest-manage.steps.ts`
 
 #### Subtasks
 
@@ -15971,6 +16032,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 5. [x] Add or update `server/src/test/integration/ingest-reembed-invalid-state.test.ts` with a dedicated REST mixed-shape invalid-state scenario, or split any reused immediate invalid-state route proof that would otherwise still describe cancelled-root or deferred replay drift, so the route proof title matches the exact mixed-shape contract being claimed.
 6. [x] Add or update `server/src/test/unit/mcp.reingest.classic.test.ts` with a dedicated classic MCP mixed-shape invalid-state scenario; do not hide this proof inside an existing generic parity or terminal-payload test title unless that test is renamed or split so its title explicitly claims the shared-caller no-throw mixed-shape contract, and assert the returned tool payload directly instead of inferring success from missing stderr or log noise.
 7. [x] Add or update `server/src/test/unit/mcp2.reingest.tool.test.ts` with a dedicated MCP2 mixed-shape invalid-state scenario; do not rely on the existing parity baseline or generic terminal-payload titles unless the proof is renamed or split so the file still claims the exact mixed-shape transport invariant it is proving, and assert the structured MCP2 tool result directly instead of treating the absence of a thrown transport error as sufficient proof.
+8. [ ] After Task 198 lands, re-open the supported mixed-shape seed or harness surface in `server/src/test/features/ingest-reembed.feature` and `server/src/test/steps/ingest-manage.steps.ts`, then replace this task's exhausted unsupported live-proof route with the fixture-backed handoff and cleanup path before final close-out.
 
 #### Testing
 
@@ -15987,13 +16049,18 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Added a dedicated REST proof in `server/src/test/integration/ingest-reembed-invalid-state.test.ts` that `POST /ingest/reembed/:root` returns `INVALID_LOCK_METADATA` and does not enqueue the mixed-shape canonical OpenAI row.
 - Added a dedicated classic MCP proof in `server/src/test/unit/mcp.reingest.classic.test.ts` that the shared mixed-shape invalid-state result stays a structured tool error instead of surfacing as a transport throw or vague parity failure.
 - Added a dedicated MCP2 proof in `server/src/test/unit/mcp2.reingest.tool.test.ts` that the same mixed-shape invalid-state result stays a structured MCP2 tool error rather than escaping the transport layer.
-- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`; the first wrapper attempt failed on a Task 198-owned import mistake for `InvalidLockMetadataError`, and the rerun passed cleanly with `68 passed, 0 failed` after moving that import to `server/src/ingest/chromaClient.ts`.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`; the first wrapper attempt failed on a Task 199-owned import mistake for `InvalidLockMetadataError`, and the rerun passed cleanly with `68 passed, 0 failed` after moving that import to `server/src/ingest/chromaClient.ts`.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`; the targeted REST proof passed cleanly with `4 passed, 0 failed`, confirming the mixed-shape row now returns `INVALID_LOCK_METADATA` instead of drifting into `OPENAI_MODEL_UNAVAILABLE`.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the classic MCP and MCP2 transport parity proofs both passed cleanly with `34 passed, 0 failed`, confirming the mixed-shape invalid-state result remains a structured tool error instead of escaping either shared-caller transport.
-- **BLOCKER** 2026-04-27 manual proof could not honestly exercise Task 198's mixed-shape contract on supported live surfaces. The documented main stack restarted cleanly and `/health`, `/ingest/roots`, and `/tools/ingested-repos` were inspected, but current public Story 55 routes reject partial canonical start input at admission and the live repo list contains only fully canonical rows. No repository-documented route or supported fixture could seed a completed mixed-shape canonical OpenAI root or matching shared-caller target without ad hoc database edits, so task-scoped manual proof remains blocked pending a supported live seed or harness for that row.
-- **BLOCKING ANSWER** Repository precedent proves this blocker is a proof or test harness seam, with a manual or runtime environment seam for the later live check, not a fresh Task 198 product-code defect. The existing Story 55 cucumber harness in `server/src/test/steps/ingest-manage.steps.ts` already seeds queue-owned and malformed persisted ingest state directly through `IngestQueueRequestModel.create(...)` and cleans that state in `Before` and `After` hooks, while this plan's final manual guidance already says seeded queue-owned or replayable rows must come from supported Story 55 routes or test-owned fixtures rather than ad hoc database edits. Official MongoDB docs confirm that `insertOne()` and `updateOne()` are the supported primitives for creating and mutating explicit document states, and official Cucumber.js docs confirm `Before` and `After` hooks are the intended place to prepare and clean test fixtures; that matches the local harness pattern exactly. The proved solution is therefore to add a supported Story 55 seed or harness prerequisite that can create the malformed canonical OpenAI root for live verification, then rerun manual proof against that supported fixture while leaving Task 198's completed automated proof as the honest product-seam evidence today. Rejected alternatives are not suitable here: retrying public routes cannot create the malformed persisted row because admission now rejects it by design, ad hoc Mongo edits during manual proof would bypass the repo's documented fixture rule, broad wrapper reruns do not create the missing runtime seed, and weakening production validation just to make manual proof easier would reopen the product contract this task already repaired.
+- **RESOLVED ISSUE** 2026-04-27 manual proof could not honestly exercise Task 199's mixed-shape contract on supported live surfaces. The documented main stack restarted cleanly and `/health`, `/ingest/roots`, and `/tools/ingested-repos` were inspected, but current public Story 55 routes reject partial canonical start input at admission and the live repo list contains only fully canonical rows. No repository-documented route or supported fixture could seed a completed mixed-shape canonical OpenAI root or matching shared-caller target without ad hoc database edits, so the exhausted live-only path was re-owned into Task 198 as a prerequisite harness seam instead of reopening this task's product code.
+- **BLOCKING ANSWER** Repository precedent proves this blocker is a proof or test harness seam, with a manual or runtime environment seam for the later live check, not a fresh Task 199 product-code defect. The existing Story 55 cucumber harness in `server/src/test/steps/ingest-manage.steps.ts` already seeds queue-owned and malformed persisted ingest state directly through `IngestQueueRequestModel.create(...)` and cleans that state in `Before` and `After` hooks, while this plan's final manual guidance already says seeded queue-owned or replayable rows must come from supported Story 55 routes or test-owned fixtures rather than ad hoc database edits. Official MongoDB docs confirm that `insertOne()` and `updateOne()` are the supported primitives for creating and mutating explicit document states, and official Cucumber.js docs confirm `Before` and `After` hooks are the intended place to prepare and clean test fixtures; that matches the local harness pattern exactly. The proved solution is therefore to add a supported Story 55 seed or harness prerequisite that can create the malformed canonical OpenAI root for live verification, then rerun manual proof against that supported fixture while leaving Task 199's completed automated proof as the honest product-seam evidence today. Rejected alternatives are not suitable here: retrying public routes cannot create the malformed persisted row because admission now rejects it by design, ad hoc Mongo edits during manual proof would bypass the repo's documented fixture rule, broad wrapper reruns do not create the missing runtime seed, and weakening production validation just to make manual proof easier would reopen the product contract this task already repaired.
+- Planner repair on 2026-04-27 moved the missing supported mixed-shape seed or harness owner into Task 198 and reopened this task behind that prerequisite. The remaining open owner on this task is now the explicit fixture-backed handoff in Subtask 8 rather than more mixed-shape product-code or targeted automated-proof work.
 
-### Task 199. Enforce Exact Remove Selectors Before Target-First Queue Blocking
+#### Manual Testing Guidance
+
+After Task 198 lands, later manual validation for this seam should use the supported Story 55 seed or harness it adds rather than ad hoc database edits, then inspect `/ingest/roots`, `POST /ingest/reembed/:root`, and the shared caller surface for the same `INVALID_LOCK_METADATA` contract already proved by this task's automated coverage.
+
+### Task 200. Enforce Exact Remove Selectors Before Target-First Queue Blocking
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196`
@@ -16056,17 +16123,17 @@ Repair the production remove route so the public selector is validated as an exa
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts`.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
 
-### Task 200. Re-Validate Story 55 After Review Pass `0000055-20260426T203714Z-ff22e029`
+### Task 201. Re-Validate Story 55 After Review Pass `0000055-20260426T203714Z-ff22e029`
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `197, 198, 199`
+- Task Dependencies: `197, 198, 199, 200`
 - Task Status: `__to_do__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260426T203714Z-ff22e029`, covering task-required findings `F1` through `F4` and inline-resolved minor findings `5` through `9`.
 
 #### Overview
 
-Revalidate Story 55 after the serious review-created repair tasks for deferred start replay, mixed-shape re-embed classification, and production remove authority are complete. This final task owns the broad current-repository proof that the new review-created findings block and the already-resolved inline minor fixes close together without regressing the supported build, test, runtime, and browser-visible story surfaces.
+Revalidate Story 55 after the serious review-created repair tasks for deferred start replay, the supported mixed-shape live-seed harness, mixed-shape re-embed classification, and production remove authority are complete. This final task owns the broad current-repository proof that the new review-created findings block and the already-resolved inline minor fixes close together without regressing the supported build, test, runtime, and browser-visible story surfaces.
 
 #### Affected Repositories
 
@@ -16074,7 +16141,7 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 
 #### Task Exit Criteria
 
-- `R1.` Tasks `197` through `199` are `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `R1.` Tasks `197` through `200` are `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
 - `R2.` The appended `Code Review Findings` block for review pass `0000055-20260426T203714Z-ff22e029` is revalidated on disk rather than left as artifact-only review intent.
 - `R3.` The inline minor fixes recorded in `## Minor Review Fixes` for findings `5` through `9` are revalidated alongside the serious task-required findings in this same final pass rather than through a separate closing task.
 - `R4.` Fresh automated validation reruns the current repository supported server build, client build, server unit, server cucumber, client, e2e, compose build, compose up, host-network main, compose down, lint, and format wrappers needed to revalidate the repaired seams plus the supported main runtime path.
@@ -16082,7 +16149,7 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 
 #### Proof Mapping
 
-- `P1.` dependency completion for `R1`: proof home is parser output for Tasks `197` through `199` plus their checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
+- `P1.` dependency completion for `R1`: proof home is parser output for Tasks `197` through `200` plus their checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
 - `P2.` findings-block and inline-minor disposition for `R2` and `R3`: proof homes are this `Code Review Findings` block, `## Minor Review Fixes`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
 - `P3.` build-wrapper proof for the server and client portions of `R4`: proof homes are `logs/test-summaries/build-server-latest.log` and `logs/test-summaries/build-client-latest.log`.
 - `P4.` automated regression proof for the server, cucumber, and client portions of `R4`: proof homes are the latest `test-results/server-unit-tests-*.log`, `test-results/server-cucumber-tests-*.log`, `test-results/client-tests-*.log`, and the matching `test-results/client-tests-*.json`.
@@ -16097,7 +16164,7 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 
 #### High-Risk Invariants And Blocker Family
 
-- Default-path proof required: final validation must cover the repaired review-created block through the repository-supported server build, client build, server unit, server cucumber, client, e2e, compose, host-network, lint, and format wrappers, not just targeted owner tests from Tasks `197` through `199`.
+- Default-path proof required: final validation must cover the repaired review-created block through the repository-supported server build, client build, server unit, server cucumber, client, e2e, compose, host-network, lint, and format wrappers, not just targeted owner tests from Tasks `197` through `200`.
 - Stateful UI proof required: final validation must revalidate the inline client fixes where hidden, disabled, restored, or queue-derived UI state could otherwise leak into a derived payload or contradictory user-visible state.
 - Baseline and harness ownership required: if Compose, Docker, host-network, e2e, health-check, or long-running wrapper failures appear, classify them explicitly as product-owned, proof-harness-owned, shared-wrapper-owned, shared-baseline-owned, or manual/runtime-owned before retrying.
 - Runtime-handoff requirement: later manual validation depends on the supported main stack, mounted ingest namespace, readiness checks, seeded data source, and artifact destination being named here instead of being rediscovered by failure.
@@ -16119,7 +16186,7 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260426T203714Z-ff22e029`, the `## Minor Review Fixes` entries for findings `5` through `9`, and the completed proof-owner sections for Tasks `197` through `199`; check off this subtask only after parser output shows each dependency task is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker.
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260426T203714Z-ff22e029`, the `## Minor Review Fixes` entries for findings `5` through `9`, and the completed proof-owner sections for Tasks `197` through `200`; check off this subtask only after parser output shows each dependency task is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker.
 2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a finding-to-proof map that covers serious findings `F1` through `F4` plus inline-resolved minor findings `5` through `9`, naming the exact repaired files, retained review artifacts, and exact final-pass proof homes: `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/server-unit-tests-*.log`, `test-results/server-cucumber-tests-*.log`, `test-results/client-tests-*.log`, and matching `test-results/client-tests-*.json`, plus `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, and `logs/test-summaries/host-network-main-latest.log`; explicitly record that the client mixed-state fixes for findings `5` through `9` either preserve row-local state, exclude disabled state from submission, or keep queue-derived affordances aligned with the visible row state rather than letting stale local values leak into the next action.
 3. [ ] Re-open this plan after the summary refresh and verify that this findings block, the `## Minor Review Fixes` section, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` all list the same owners, proof homes, inline-minor coverage, and final validation scope, including the compose up or down plus lint or format proof surfaces that will be captured from terminal output rather than retained log files, the exact client mixed-state transitions revalidated in `client/src/test/ingestRoots.test.tsx` and `client/src/test/ingestForm.test.tsx`, and any baseline-failure classification needed to distinguish product regressions from shared wrapper, shared baseline, or runtime-handoff failures before close-out.
 

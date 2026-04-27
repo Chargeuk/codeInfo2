@@ -16945,8 +16945,8 @@ No additional repositories are in scope for this review cycle. The current findi
 
 - `R1.` Task `208` is `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
 - `R2.` The current `Code Review Findings` block for review pass `0000055-20260427T120554Z-cfc8af21` still matches `codeInfoStatus/flow-state/review-disposition-state.json`, including task-required `finding-1`, inline-resolved minor `finding-2`, and this task's ownership of final revalidation for the cycle.
-- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this review cycle: supported server build, supported client build, full server unit wrapper, full server cucumber wrapper, supported client test wrapper, supported compose build-plus-up/down smoke, lint, and format.
-- `R4.` The final pass records explicitly that no additional repository, browser-only, or end-to-end proof category applies to this review cycle.
+- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this review cycle: supported server build, supported client build, full server unit wrapper, full server cucumber wrapper, supported client test wrapper, supported automated e2e wrapper, supported compose build-plus-up/down smoke, lint, and format.
+- `R4.` The final pass records explicitly that no additional repository proof category applies to this review cycle and that browser-visible validation is covered by the repository-supported automated e2e wrapper rather than left implicit or deferred to manual-only follow-up.
 - `R5.` `review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title`, keeps `final_revalidation_owned_by_task_up_path: true`, and leaves `needs_final_minor_fix_revalidation_task: false`.
 - `R6.` If a broad proof surface fails outside Task `208` or the already-resolved inline minor seam, the final pass records that blocker honestly as shared wrapper, baseline, or runtime ownership instead of mutating this findings block into catch-all retries.
 
@@ -16958,15 +16958,16 @@ No additional repositories are in scope for this review cycle. The current findi
 - `P4.` supported client-build proof for `R3`: proof home is `logs/test-summaries/build-client-latest.log`.
 - `P5.` full server automated regression proof for `R3`: proof homes are the latest `test-results/server-unit-tests-*.log` and the latest `test-results/server-cucumber-tests-*.log`.
 - `P6.` current client regression proof for `R3`: proof homes are the latest `test-results/client-tests-*.log` and `test-results/client-tests-*.json`.
-- `P7.` supported compose build-and-smoke proof for `R3`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
-- `P8.` repository-hygiene proof for `R3` and applicability proof for `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary that records why no additional repository, browser-only, or end-to-end proof category applied to this review cycle.
-- `P9.` baseline-ownership classification proof for `R6`: proof homes are this task's `Implementation Notes` plus the refreshed PR summary when a broad wrapper failure has to be recorded as shared wrapper, baseline, or runtime ownership instead of as a Task `208` product-seam regression.
+- `P7.` supported automated browser proof for `R3` and `R4`: proof home is `logs/test-summaries/e2e-tests-latest.log`.
+- `P8.` supported compose build-and-smoke proof for `R3`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P9.` repository-hygiene proof for `R3` and applicability proof for `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary that records why no additional repository proof category applied to this review cycle and why browser-visible proof is satisfied by the automated e2e wrapper.
+- `P10.` baseline-ownership classification proof for `R6`: proof homes are this task's `Implementation Notes` plus the refreshed PR summary when a broad wrapper failure has to be recorded as shared wrapper, baseline, or runtime ownership instead of as a Task `208` product-seam regression.
 
 #### High-Risk Invariants And Blocker Family
 
 - Final-proof breadth required: this review cycle must not close on Task `208`'s focused proofs alone; the final pass must rerun the supported broad wrappers that prove the repaired degraded-read contract still holds in the current repository.
 - Review-loop ownership proof required: this task must remain the one final revalidation owner for review pass `0000055-20260427T120554Z-cfc8af21`, including inline-resolved minor `finding-2`.
-- Applicability proof required: the final pass must say explicitly why no additional repository, browser-only, or end-to-end proof category was required instead of silently omitting them.
+- Applicability proof required: the final pass must say explicitly why no additional repository proof category was required and must prove the client-visible surface through the supported automated e2e wrapper instead of silently omitting browser coverage.
 - Likely blocker family: shared wrapper or baseline seam for broad validation, unless Task `208` leaves a remaining product-seam blocker open.
 
 #### Documentation Locations
@@ -16979,7 +16980,7 @@ No additional repositories are in scope for this review cycle. The current findi
 #### Subtasks
 
 1. [ ] Re-read the current review findings block for pass `0000055-20260427T120554Z-cfc8af21`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entry for `finding-2`, and the completed proof-owner section for Task `208`; check off this subtask only after parser or plan evidence shows Task `208` is `__done__` with no unchecked `Subtasks`, unchecked `Testing`, or live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a findings-to-proof map for review pass `0000055-20260427T120554Z-cfc8af21`, naming Task `208`, inline-resolved minor `finding-2`, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/server-unit-tests-*.log`, the latest `test-results/server-cucumber-tests-*.log`, the latest `test-results/client-tests-*.log` and `test-results/client-tests-*.json`, `logs/test-summaries/compose-build-latest.log`, the retained compose up/down terminal proof, and the explicit statement that no additional repository, browser-only, or end-to-end proof category applied to this cycle.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a findings-to-proof map for review pass `0000055-20260427T120554Z-cfc8af21`, naming Task `208`, inline-resolved minor `finding-2`, `logs/test-summaries/build-server-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/server-unit-tests-*.log`, the latest `test-results/server-cucumber-tests-*.log`, the latest `test-results/client-tests-*.log` and `test-results/client-tests-*.json`, `logs/test-summaries/e2e-tests-latest.log`, `logs/test-summaries/compose-build-latest.log`, the retained compose up/down terminal proof, and the explicit statement that no additional repository proof category applied to this cycle because browser-visible proof is owned by the automated e2e wrapper.
 3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on review pass `0000055-20260427T120554Z-cfc8af21`, review-created Tasks `208` and `209`, inline-resolved minor `finding-2`, and the ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`; stop for blocker review if one source still points at a different final-task owner.
 
 #### Testing
@@ -16989,11 +16990,12 @@ No additional repositories are in scope for this review cycle. The current findi
 3. [ ] Run `npm run test:summary:server:unit`.
 4. [ ] Run `npm run test:summary:server:cucumber`.
 5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run compose:build:summary`.
-7. [ ] Run `npm run compose:up`.
-8. [ ] Run `npm run compose:down`.
-9. [ ] Run `npm run lint`.
-10. [ ] Run `npm run format:check`.
+6. [ ] Run `npm run test:summary:e2e`.
+7. [ ] Run `npm run compose:build:summary`.
+8. [ ] Run `npm run compose:up`.
+9. [ ] Run `npm run compose:down`.
+10. [ ] Run `npm run lint`.
+11. [ ] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 

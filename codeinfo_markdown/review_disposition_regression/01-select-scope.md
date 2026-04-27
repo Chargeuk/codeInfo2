@@ -6,8 +6,8 @@ This is a review-only step. Do not edit files.
 
 <critical_rules>
 
-- Work only from the current branch diff against `origin/main`.
-- Use direct git reads such as `git diff --name-only origin/main...HEAD` to identify the changed files in scope.
+- Work only from the `"$CODEINFO_ROOT"` branch diff against `origin/main`.
+- Use direct git reads anchored to `"$CODEINFO_ROOT"`, such as `git -C "$CODEINFO_ROOT" diff --name-only origin/main...HEAD`, to identify the changed files in scope.
 - Focus on review-disposition prompt files, especially:
   - `codeinfo_markdown/classify_review_disposition.md`
   - `codeinfo_markdown/fix_next_minor_review_finding.md`
@@ -20,7 +20,7 @@ This is a review-only step. Do not edit files.
 
 <output_contract>
 
-- Report the exact review-disposition prompt files that are in scope for this regression check.
+- Report the exact `"$CODEINFO_ROOT"` review-disposition prompt files that are in scope for this regression check.
 - If none of the review-disposition prompt files changed in the current diff, say that explicitly.
 - Briefly explain why each selected file is relevant to the regression check.
 

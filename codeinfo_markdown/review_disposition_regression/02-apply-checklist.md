@@ -7,7 +7,7 @@ This is a review-only step. Do not edit files.
 <critical_rules>
 
 - Read `"$CODEINFO_ROOT/codeinfo_markdown/review_disposition_regression_checklist.md"` and use it as the checklist source of truth.
-- Re-read the in-scope prompt files from the current branch diff before judging them. Do not answer from memory.
+- Re-read the in-scope prompt files from `"$CODEINFO_ROOT"` before judging them. Do not answer from memory.
 - Evaluate only the files identified by the previous scope-selection step.
 - Do not edit files, do not propose code changes inside this step, and do not task anything up.
 

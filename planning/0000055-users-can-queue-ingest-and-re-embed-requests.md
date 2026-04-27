@@ -16635,7 +16635,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts --file server/src/test/unit/ingest-cancel.test.ts`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts --file server/src/test/unit/ingest-cancel.test.ts`.
 
 #### Implementation Notes
 
@@ -16645,6 +16645,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 - 2026-04-27: Updated `server/src/test/unit/ingest-request-queue.test.ts` titles so the direct queue-owner proofs now explicitly claim the observed waiting-row rewrite-or-reuse ordering instead of sounding like adjacent stale-row or generic waiting-update coverage.
 - 2026-04-27: Renamed the duplicate-key retry proof in `server/src/test/unit/ingest-request-queue.test.ts` so it now explicitly owns the observed waiting-row rewrite resolution without an impossible third branch.
 - 2026-04-27: Re-read `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/ingest-cancel.test.ts`, then left them unchanged because the dead-branch removal does not alter cleanup-blocked sequencing or cancel-path cleanup ownership once the helper stays on the same waiting-row-or-gone contract.
+- 2026-04-27: Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts --file server/src/test/unit/ingest-cancel.test.ts`; the targeted wrapper passed cleanly with `tests run: 42`, `passed: 42`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T08-11-59-290Z.log`.
 
 ### Task 206. Define A Durable Story 55 Manual-Proof Artifact Home
 

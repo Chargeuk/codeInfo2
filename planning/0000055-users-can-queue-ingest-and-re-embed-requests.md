@@ -16790,14 +16790,14 @@ No additional repositories are in scope for this review cycle. The current findi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run compose:build:summary`.
-5. [ ] Run `npm run compose:up`.
-6. [ ] Run `npm run compose:down`.
-7. [ ] Run `npm run lint`.
-8. [ ] Run `npm run format:check`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run compose:build:summary`.
+5. [x] Run `npm run compose:up`.
+6. [x] Run `npm run compose:down`.
+7. [x] Run `npm run lint`.
+8. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -16809,3 +16809,11 @@ Optional later manual follow-up can reuse the supported main stack from the repo
 - 2026-04-27: Re-read the current findings block, `## Minor Review Fixes`, and `codeInfoStatus/flow-state/review-disposition-state.json`, then confirmed with `python3 scripts/plan_status.py --task-number 205` and `python3 scripts/plan_status.py --task-number 206` that both dependency tasks are `__done__` with zero unchecked subtasks, zero unchecked testing items, and no live blockers before the final summary refresh.
 - 2026-04-27: Refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` from the older `0000055-20260427T044024Z-13acd3c1` close-out to the active `0000055-20260427T065706Z-15b0a653` review cycle, carrying forward Tasks `205` and `206`, inline-resolved minors `finding-1` and `finding-4`, the bounded retained-proof-home contract, the retained broad proof homes for server build, server unit, server cucumber, compose smoke, lint, and format, and the explicit statement that no cross-repository, client-only, browser, or end-to-end proof category applies to this cycle.
 - 2026-04-27: Re-opened this Task `207` section, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json`, then verified they agree on review pass `0000055-20260427T065706Z-15b0a653`, review-created Tasks `205` through `207`, inline-resolved minors `finding-1` and `finding-4`, the bounded retained-proof contract chosen by Task `206`, and the ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task` with no blocker needed before the later automated-proof step.
+- 2026-04-27: Testing 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, `agent_action: skip_log`, and retained proof home `logs/test-summaries/build-server-latest.log`.
+- 2026-04-27: Testing 2 passed via `npm run test:summary:server:unit` with `tests run: 1814`, `passed: 1814`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T11-09-33-812Z.log`.
+- 2026-04-27: Testing 3 passed via `npm run test:summary:server:cucumber` with `tests run: 117`, `passed: 117`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-cucumber-tests-2026-04-27T11-26-17-225Z.log`.
+- 2026-04-27: Testing 4 passed via `npm run compose:build:summary` with `status: passed`, `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, retained proof home `logs/test-summaries/compose-build-latest.log`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker on wrapper stdout.
+- 2026-04-27: Testing 5 passed via `npm run compose:up`; the fixed-port preflight reported `DEV-0000050:T09:compose_preflight_result {\"result\":\"passed\"}`, the supported main stack came up on `docker-compose.yml`, and the terminal output ended with `codeinfo2-server-1` healthy plus `codeinfo2-client-1` started.
+- 2026-04-27: Testing 6 passed via `npm run compose:down`; the supported main stack removed the client, server, Mongo, Chroma, Zipkin, OpenTelemetry collector, Playwright MCP containers, and the `codeinfo2_internal` network cleanly from the same `docker-compose.yml` path.
+- 2026-04-27: Testing 7 passed via `npm run lint` with exit code `0` and no lint fixes required after the Task 207 plan-and-summary updates.
+- 2026-04-27: Testing 8 passed via `npm run format:check` with `All matched files use Prettier code style!`, so the retained repository-hygiene proof home for this cycle stays terminal output only with no formatting changes required.

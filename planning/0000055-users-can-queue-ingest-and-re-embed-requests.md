@@ -15981,7 +15981,7 @@ Add the missing Story 55 proof-owner seam that can seed a malformed canonical Op
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196, 198`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 

@@ -58,3 +58,21 @@ Feature: Ingest remove
     Then ingest manage response status is 409 with code "QUEUE_STATE_BLOCKED"
     When I GET ingest manage roots
     Then ingest manage roots count is 1
+
+  Scenario: direct production remove rejects a non-exact alias selector before destructive removal
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/alias-remove" with legacy model "embed-1"
+    When I POST ingest manage remove for root "/alias-remove/../alias-remove"
+    Then ingest manage response status is 404 with code "NOT_FOUND"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1
+
+  Scenario: direct production remove prefers target queue ownership over unrelated active work
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/queue-priority" with legacy model "embed-1"
+    And ingest manage mongo queue has waiting request for "/queue-priority"
+    And ingest manage active runtime owns root "/unrelated-active" with run id "run-remove-unrelated"
+    When I POST ingest manage remove for root "/queue-priority"
+    Then ingest manage response status is 409 with code "QUEUE_STATE_BLOCKED"
+    When I GET ingest manage roots
+    Then ingest manage roots count is 1

@@ -115,6 +115,16 @@ export function normalizeCanonicalQueueTargetPath(rawPath: string): string {
   return normalized;
 }
 
+export function validateExactDestructiveRootPath(
+  rawPath: unknown,
+  fieldName = 'root',
+): string {
+  return validateQueueableRepositoryRootPath(rawPath, {
+    fieldName,
+    allowedRoot: null,
+  });
+}
+
 export function validateQueueableRepositoryRootPath(
   rawPath: unknown,
   options?: {

@@ -4,18 +4,47 @@ import {
   isBusy,
   removeRoot,
 } from '../ingest/ingestJob.js';
-import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
+import { validateExactDestructiveRootPath } from '../ingest/requestContracts.js';
 import { findLiveQueueRequestForTarget } from '../ingest/requestQueue.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { baseLogger } from '../logger.js';
 
-export function createIngestRemoveRouter() {
+export function createIngestRemoveRouter({
+  getActiveRunContexts: getActiveRunContextsOverride = getActiveRunContexts,
+  isBusy: isBusyOverride = isBusy,
+  removeRoot: removeRootOverride = removeRoot,
+  findLiveQueueRequestForTarget:
+    findLiveQueueRequestForTargetOverride = findLiveQueueRequestForTarget,
+  listIngestedRepositories:
+    listIngestedRepositoriesOverride = listIngestedRepositories,
+}: {
+  getActiveRunContexts?: typeof getActiveRunContexts;
+  isBusy?: typeof isBusy;
+  removeRoot?: typeof removeRoot;
+  findLiveQueueRequestForTarget?: typeof findLiveQueueRequestForTarget;
+  listIngestedRepositories?: typeof listIngestedRepositories;
+} = {}) {
   const router = Router();
 
   router.post('/ingest/remove/:root', async (req, res) => {
-    const root = normalizeCanonicalQueueTargetPath(req.params.root);
+    let root: string;
     try {
-      const activeRun = getActiveRunContexts().find(
-        (context) => context.rootPath === root || context.sourceId === root,
+      try {
+        root = validateExactDestructiveRootPath(req.params.root);
+      } catch {
+        return res.status(404).json({ status: 'error', code: 'NOT_FOUND' });
+      }
+
+      const repos = await listIngestedRepositoriesOverride();
+      const targetRepo = repos.repos.find((repo) => repo.containerPath === root);
+      if (!targetRepo) {
+        return res.status(404).json({ status: 'error', code: 'NOT_FOUND' });
+      }
+
+      const activeRun = getActiveRunContextsOverride().find(
+        (context) =>
+          context.rootPath === targetRepo.containerPath ||
+          context.sourceId === targetRepo.containerPath,
       );
       if (activeRun) {
         return res.status(409).json({
@@ -28,11 +57,9 @@ export function createIngestRemoveRouter() {
         });
       }
 
-      if (isBusy()) {
-        return res.status(429).json({ status: 'error', code: 'BUSY' });
-      }
-
-      const liveQueueRequest = await findLiveQueueRequestForTarget(root);
+      const liveQueueRequest = await findLiveQueueRequestForTargetOverride(
+        targetRepo.containerPath,
+      );
       if (liveQueueRequest) {
         return res.status(409).json({
           status: 'error',
@@ -44,8 +71,12 @@ export function createIngestRemoveRouter() {
         });
       }
 
+      if (isBusyOverride()) {
+        return res.status(429).json({ status: 'error', code: 'BUSY' });
+      }
+
       baseLogger.info({ root }, 'ingest remove start');
-      const result = await removeRoot(root);
+      const result = await removeRootOverride(targetRepo.containerPath);
       baseLogger.info({ root, unlocked: result.unlocked }, 'ingest remove ok');
       return res.json({ status: 'ok', unlocked: result.unlocked });
     } catch (err) {

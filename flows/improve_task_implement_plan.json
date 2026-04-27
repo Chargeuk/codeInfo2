@@ -21,14 +21,14 @@
       "steps": [
         {
           "type": "llm",
-          "label": "Double check plan",
+          "label": "Double-check plan",
           "agentType": "planning_agent",
           "identifier": "planner",
           "messages": [
             {
               "role": "user",
               "content": [
-                "Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and determine the active `plan_path`, then re-open that exact relative `plan_path` from disk even if you have read it before, using explicit shell reads such as `sed`, `cat`, or `rg`. Re-check current repository branch state directly from git, for example with `git branch --show-current`, and check the most recent commit directly from git, for example with `git log --oneline -1`. You MUST double-check to see if another agent has edited the plan or changed its scope since you last looked at it. You MUST read the whole plan again and CANNOT assume you understand it from before. Once you have done this, give me a summary of what the plan entails."
+                "Use fresh disk reads and current git state, not conversational memory. Re-read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and determine the active `plan_path`, then reopen that exact relative `plan_path` from disk even if you have read it before, using explicit shell reads such as `sed`, `cat`, or `rg`. Recheck current repository branch state directly from git, for example with `git branch --show-current`, and check the most recent commit directly from git, for example with `git log --oneline -1`. You MUST double-check whether another agent has edited the plan or changed its scope since you last looked at it. You MUST read the whole plan again and CANNOT assume you understand it from before. Once you have done this, give me a summary of what the plan entails."
               ]
             }
           ]
@@ -60,7 +60,7 @@
           "label": "Check for No Further Questions",
           "agentType": "research_agent",
           "identifier": "researcher",
-          "question": "Re-open the plan that you are working on from disk, for example with `sed`, `cat`, or `rg`, ensuring that you re-read it from disk since another agent will have edited it, so what you think the plan contains is definitely out of date. Does the plan contain the line 'No Further Questions' within the '## Questions' section of the plan file? You MUST re-read the plan before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Reopen the plan that you are working on from disk, for example with `sed`, `cat`, or `rg`, ensuring that you re-read it from disk since another agent will have edited it, so what you think the plan contains is definitely out of date. Does the plan contain the line 'No Further Questions' within the '## Questions' section of the plan file? You MUST re-read the plan before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
         },
         {
@@ -130,14 +130,14 @@
     },
     {
       "type": "llm",
-      "label": "Check tasking up of plan",
+      "label": "Check task-up of plan",
       "agentType": "planning_agent",
       "identifier": "planner",
       "messages": [
         {
           "role": "user",
           "content": [
-            "Use fresh disk reads and current git state, not conversational memory. Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk now, using explicit shell reads such as `sed`, `cat`, or `rg`, and read the whole selected plan again before judging the tasking output, because another agent has just edited it. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. The plan has now been tasked up. Confirm the tasking output against the freshly re-read plan on disk, including any new tasks, subtasks, testing sections, manual-testing guidance, documentation locations, and the simple story that were just added or updated. Please check that the tasks created fully cover that selected plan and that nothing has been missed. Ensure the tasking followed the current task-up rules, including portable non-absolute paths outside concrete local `Additional Repositories` entries, test-only auth or login enablement, final lint then prettier subtasks, final lint then prettier testing steps, manual-testing preference for the unmodified human Docker stack when feasible, ignored artifact paths for automated screenshots, consistent `codeInfoTmp/` and `codeInfoStatus/` casing, and a `.gitignore` entry for `codeInfoTmp/` whenever non-final manual-proof artifacts are planned. If you feel something is missing, please update the plan, tasks, and simple story accordingly, and if you make changes in this audit step then create a follow-up commit for those edits before finishing. Remember to ensure that each task has clear implementation instructions and testing steps so a developer can fully understand what to do. Please confirm once you are happy that the plan has been fully tasked up and nothing is missing. Do not ask me any questions, instead just update the plan and tasks following the KISS principle until you are happy everything is fully covered."
+            "Use fresh disk reads and current git state, not conversational memory. Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Reopen the exact relative `plan_path` from disk now, using explicit shell reads such as `sed`, `cat`, or `rg`, and read the whole selected plan again before judging the tasking output, because another agent has just edited it. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. The plan has now been tasked up. Confirm the tasking output against the freshly re-read plan on disk, including any new tasks, subtasks, testing sections, manual-testing guidance, documentation locations, and the simple story that were just added or updated. Please check that the tasks created fully cover that selected plan and that nothing has been missed. Ensure the tasking followed the current task-up rules, including portable non-absolute paths outside concrete local `Additional Repositories` entries, test-only auth or login enablement, final lint then prettier subtasks, final lint then prettier testing steps, manual-testing preference for the unmodified human Docker stack when feasible, ignored artifact paths for automated screenshots, consistent `codeInfoTmp/` and `codeInfoStatus/` casing, and a `.gitignore` entry for `codeInfoTmp/` whenever non-final manual-proof artifacts are planned. If you feel something is missing, please update the plan, tasks, and simple story accordingly, and if you make changes in this audit step then create a follow-up commit for those edits before finishing. Remember to ensure that each task has clear implementation instructions and testing steps so a developer can fully understand what to do. Please confirm once you are happy that the plan has been fully tasked up and nothing is missing. Do not ask me any questions, instead just update the plan and tasks following the KISS principle until you are happy everything is fully covered."
           ]
         }
       ]
@@ -169,14 +169,14 @@
       "steps": [
         {
           "type": "llm",
-          "label": "Double check plan",
+          "label": "Double-check plan",
           "agentType": "coding_agent",
           "identifier": "coder",
           "messages": [
             {
               "role": "user",
               "content": [
-                "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, for example with `sed`, `cat`, or `rg`, before answering so you are not relying on memory. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last commit in the current repository and in every additional repository AND re-read that same plan, even if you have read it before. You MUST double-check to see if tasks have been added to it by another agent or if anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
+                "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Reopen the exact relative `plan_path` from disk, for example with `sed`, `cat`, or `rg`, before answering so you are not relying on memory. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last commit in the current repository and in every additional repository AND re-read that same plan, even if you have read it before. You MUST double-check whether tasks have been added to it by another agent or whether anything has changed. You must ensure you fully understand the plan and its remaining tasks before proceeding. You MUST read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
               ]
             }
           ]
@@ -359,13 +359,6 @@
               ]
             },
             {
-              "type": "llm",
-              "label": "Checkpoint Push Before Task-Batch Completion Check",
-              "agentType": "planning_agent",
-              "identifier": "planner",
-              "markdownFile": "final_push.md"
-            },
-            {
               "type": "break",
               "label": "Check for completion",
               "agentType": "planning_agent",
@@ -381,6 +374,13 @@
           "agentType": "planning_agent",
           "identifier": "planner",
           "markdownFile": "reset_review_cycle_state.md"
+        },
+        {
+          "type": "llm",
+          "label": "Checkpoint Push Before Review Loop",
+          "agentType": "planning_agent",
+          "identifier": "planner",
+          "markdownFile": "final_push.md"
         },
         {
           "type": "startLoop",
@@ -526,7 +526,7 @@
               "label": "Exit Review Loop After Serious Review Work Was Tasked Up",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Then read `codeInfoStatus/flow-state/current-plan.json` from disk, for example with `cat codeInfoStatus/flow-state/current-plan.json`, determine `plan_path`, and re-open that exact plan from disk using `sed`, `cat`, or `rg` before answering. Answer only from those freshly re-read files. Answer yes iff the current review loop added or updated numbered review-fix tasks for unresolved task-required findings or incomplete-review blockers, meaning the flow should leave the review loop and return to the main implementation loop. Answer no otherwise, including when no numbered task was added or when only a post-loop final minor-fix revalidation task may still need to be considered. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Then read `codeInfoStatus/flow-state/current-plan.json` from disk, for example with `cat codeInfoStatus/flow-state/current-plan.json`, determine `plan_path`, and reopen that exact plan from disk using `sed`, `cat`, or `rg` before answering. Answer only from those freshly re-read files. Answer yes iff the current review loop added or updated numbered review-fix tasks for unresolved task-required findings or incomplete-review blockers, meaning the flow should leave the review loop and return to the main implementation loop. Answer no otherwise, including when no numbered task was added or when only a post-loop final minor-fix revalidation task may still need to be considered. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             },
             {

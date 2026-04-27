@@ -15,6 +15,7 @@ const repoRoot = path.resolve(
 );
 
 const expectedPlanningAgentCommands = [
+  'check_review_disposition_regression.json',
   'create_new_story.json',
   'enhance_review_tasks.json',
   'improve_plan.json',

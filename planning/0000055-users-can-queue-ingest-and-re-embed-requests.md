@@ -16706,9 +16706,9 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 
 #### Testing
 
-1. [ ] Run `git ls-tree -r --name-only HEAD | rg '0000055'`.
-2. [ ] Run `rg -n "0000055" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
-3. [ ] Run `git status --short --ignored=matching -- codeInfoStatus/manual-testing/0000055 codeInfoTmp/manual-testing/0000055` so the chosen retained-proof branch is visible as intentionally tracked or intentionally ignored instead of being left implicit.
+1. [x] Run `git ls-tree -r --name-only HEAD | rg '0000055'`.
+2. [x] Run `rg -n "0000055" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+3. [x] Run `git status --short --ignored=matching -- codeInfoStatus/manual-testing/0000055 codeInfoTmp/manual-testing/0000055` so the chosen retained-proof branch is visible as intentionally tracked or intentionally ignored instead of being left implicit.
 
 #### Implementation Notes
 
@@ -16718,6 +16718,9 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 - 2026-04-27: Chose the bounded tracked-proof-home branch from `R1`. The tracked `codeInfoStatus/manual-testing/0000055/` directory now keeps only durable reviewer-facing summaries in Git, while raw runtime bulk moves under ignored `codeInfoTmp/manual-testing/0000055/` so the Story 55 retained-proof contract stays explicit instead of mixing tracked scratch with retained audit surfaces.
 - 2026-04-27: Applied the chosen retained-proof branch by pruning the tracked `codeInfoStatus/manual-testing/0000055/` home down to `README.md` plus the Task 204 retained summary exports and moving 159 older runtime bulk files into ignored `codeInfoTmp/manual-testing/0000055/rehomed-from-codeInfoStatus/`.
 - 2026-04-27: Updated the canonical plan, current findings artifact, and PR summary so they now point at the same retained-proof contract: bounded tracked summaries live under `codeInfoStatus/manual-testing/0000055/`, while raw Story 55 manual-proof captures live under ignored `codeInfoTmp/manual-testing/0000055/`.
+- 2026-04-27: Ran `git ls-tree -r --name-only HEAD | rg '0000055'`; the Git tree now shows the bounded tracked Story 55 proof home as `codeInfoStatus/manual-testing/0000055/README.md` plus the retained `task204-*` reviewer-facing summaries, alongside the expected Story 55 plan and review summary files.
+- 2026-04-27: Ran `rg -n "0000055" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`; the current plan, ignored findings artifact, and tracked PR summary all now describe the same bounded tracked proof home under `codeInfoStatus/manual-testing/0000055/README.md` with raw bulk staged under ignored `codeInfoTmp/manual-testing/0000055/`.
+- 2026-04-27: Ran `git status --short --ignored=matching -- codeInfoStatus/manual-testing/0000055 codeInfoTmp/manual-testing/0000055`; the tracked proof home is clean and the only reported path is ignored `codeInfoTmp/`, which keeps the raw Story 55 manual-proof bulk intentionally out of the Git tree.
 
 ### Task 207. Re-Validate Story 55 After Review Pass `0000055-20260427T065706Z-15b0a653`
 

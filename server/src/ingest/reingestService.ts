@@ -1,11 +1,11 @@
 import path from 'path';
 import {
-  InvalidLockMetadataError,
   listIngestedRepositories,
   type ListReposResult,
   type RepoEntry,
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
+import { InvalidLockMetadataError } from './chromaClient.js';
 import {
   pumpIngestQueue,
   QUEUE_READ_FAILED_WAIT_REASON,

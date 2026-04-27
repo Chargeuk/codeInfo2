@@ -15974,9 +15974,9 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
 
 #### Implementation notes
 
@@ -15987,6 +15987,9 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Added a dedicated REST proof in `server/src/test/integration/ingest-reembed-invalid-state.test.ts` that `POST /ingest/reembed/:root` returns `INVALID_LOCK_METADATA` and does not enqueue the mixed-shape canonical OpenAI row.
 - Added a dedicated classic MCP proof in `server/src/test/unit/mcp.reingest.classic.test.ts` that the shared mixed-shape invalid-state result stays a structured tool error instead of surfacing as a transport throw or vague parity failure.
 - Added a dedicated MCP2 proof in `server/src/test/unit/mcp2.reingest.tool.test.ts` that the same mixed-shape invalid-state result stays a structured MCP2 tool error rather than escaping the transport layer.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`; the first wrapper attempt failed on a Task 198-owned import mistake for `InvalidLockMetadataError`, and the rerun passed cleanly with `68 passed, 0 failed` after moving that import to `server/src/ingest/chromaClient.ts`.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`; the targeted REST proof passed cleanly with `4 passed, 0 failed`, confirming the mixed-shape row now returns `INVALID_LOCK_METADATA` instead of drifting into `OPENAI_MODEL_UNAVAILABLE`.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the classic MCP and MCP2 transport parity proofs both passed cleanly with `34 passed, 0 failed`, confirming the mixed-shape invalid-state result remains a structured tool error instead of escaping either shared-caller transport.
 
 ### Task 199. Enforce Exact Remove Selectors Before Target-First Queue Blocking
 

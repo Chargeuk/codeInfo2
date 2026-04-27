@@ -164,24 +164,6 @@ async function buildUpdatedWaitingQueueResult(
   });
 }
 
-async function buildCurrentQueueReuseResult(
-  queueRequest: IngestQueueRequest,
-): Promise<EnqueueIngestRequestResult> {
-  const refreshedQueueRequest =
-    (await findQueueRequestById(toRequestId(queueRequest._id))) ?? queueRequest;
-
-  if (refreshedQueueRequest.queueState === 'waiting') {
-    return buildReusedWaitingQueueResult(refreshedQueueRequest);
-  }
-
-  return buildQueueResult({
-    queueRequest: refreshedQueueRequest,
-    queuePosition: null,
-    reusedExisting: true,
-    updatedExisting: false,
-  });
-}
-
 export async function findLiveQueueRequestForTarget(
   canonicalTargetPath: string,
 ): Promise<IngestQueueRequest | null> {
@@ -202,12 +184,6 @@ async function findWaitingQueueRequestForTarget(
   })
     .sort({ createdAt: 1, _id: 1 })
     .exec();
-}
-
-function shouldRewriteWaitingRequest(
-  waitingRequest: IngestQueueRequest,
-): boolean {
-  return waitingRequest.queueState === 'waiting';
 }
 
 function buildRewriteableWaitingRequestFilter(
@@ -262,13 +238,6 @@ export async function enqueueOrReuseIngestRequest(
     input.canonicalTargetPath,
   );
 
-  if (
-    existingWaitingRequest &&
-    !shouldRewriteWaitingRequest(existingWaitingRequest)
-  ) {
-    return buildCurrentQueueReuseResult(existingWaitingRequest);
-  }
-
   const waitingRequest = existingWaitingRequest
     ? await rewriteWaitingQueueRequestIfAllowed(input, existingWaitingRequest)
     : null;
@@ -311,13 +280,6 @@ export async function enqueueOrReuseIngestRequest(
     const racedExistingWaitingRequest = await findWaitingQueueRequestForTarget(
       input.canonicalTargetPath,
     );
-
-    if (
-      racedExistingWaitingRequest &&
-      !shouldRewriteWaitingRequest(racedExistingWaitingRequest)
-    ) {
-      return buildCurrentQueueReuseResult(racedExistingWaitingRequest);
-    }
 
     const racedWaitingRequest = racedExistingWaitingRequest
       ? await rewriteWaitingQueueRequestIfAllowed(

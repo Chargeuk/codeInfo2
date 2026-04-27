@@ -451,7 +451,7 @@ test('start duplicate sees current running semantics when a waiting row is promo
   assert.equal(countMock.mock.calls.length, 0);
 });
 
-test('ordinary matched-row update race refuses to replay stale intent onto a newer waiting row', async () => {
+test('observed waiting-row rewrite-or-reuse race refuses to replay stale intent onto a newer waiting row', async () => {
   const observed = createQueueRequest({
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:05:00.000Z'),
@@ -610,7 +610,7 @@ test('ordinary matched-row update race preserves queue identity metadata on the 
   assert.deepEqual(result.queueRequest.requestPayload, existing.requestPayload);
 });
 
-test('allowed waiting-row rewrite preserves queue identity metadata and reports updatedExisting true', async () => {
+test('observed waiting-row rewrite preserves queue identity metadata and reports updatedExisting true', async () => {
   const createdAt = new Date('2026-01-01T00:00:00.000Z');
   const priorUpdatedAt = new Date('2026-01-01T00:10:00.000Z');
   const refreshedUpdatedAt = new Date('2026-01-01T00:15:00.000Z');
@@ -720,7 +720,7 @@ test('allowed waiting-row rewrite preserves queue identity metadata and reports 
   assert.equal(waitingUpdateMock.mock.calls.length, 1);
 });
 
-test('duplicate-key retry interleaving rewrites only the observed waiting row with later reembed settings', async () => {
+test('duplicate-key retry resolves the observed waiting-row rewrite without an impossible third branch', async () => {
   const createdAt = new Date('2026-01-01T00:00:00.000Z');
   const existing = createQueueRequest({
     createdAt,

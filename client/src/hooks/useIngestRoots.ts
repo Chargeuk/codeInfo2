@@ -66,6 +66,8 @@ type RootsResponse = {
   roots?: Array<Record<string, unknown>>;
   schemaVersion?: string;
   lockedModelId?: string;
+  queueReadDegraded?: boolean;
+  queueReadError?: unknown;
   lock?: {
     embeddingProvider?: string;
     embeddingModel?: string;
@@ -396,6 +398,12 @@ export function useIngestRoots(): State {
         (root) => root.error && Object.keys(root.error).length > 0,
       );
       const aliasFallbackUsed = !lockModelCanonical && Boolean(lockModelAlias);
+      const queueReadDegraded = data.queueReadDegraded === true;
+      const queueReadError = normalizeError(data.queueReadError);
+      const queueReadMessage = queueReadDegraded
+        ? normalizeLastError(undefined, queueReadError) ??
+          'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.'
+        : undefined;
 
       if (activeRequestIdRef.current !== requestId) {
         return;
@@ -413,9 +421,10 @@ export function useIngestRoots(): State {
         canonicalLockModel: resolvedLockModel ?? null,
         aliasFallbackUsed,
         normalizedErrorShapeDetected: hasNormalizedErrorObject,
+        queueReadDegraded,
       });
       setIsError(false);
-      setError(undefined);
+      setError(queueReadMessage);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       if (activeRequestIdRef.current !== requestId) {

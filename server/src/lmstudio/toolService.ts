@@ -101,9 +101,23 @@ export type ListReposResult = {
   } | null;
   lockedModelId: string | null;
   schemaVersion?: string;
+  queueReadDegraded?: boolean;
+  queueReadError?: RepoEntry['error'] | null;
 };
 
 export const INGEST_REPO_SCHEMA_VERSION = INGEST_ROOTS_SCHEMA_VERSION;
+
+const QUEUE_READ_DEGRADED_MESSAGE =
+  'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.';
+
+function buildQueueReadDegradedError(): NonNullable<ListReposResult['queueReadError']> {
+  return {
+    error: 'QUEUE_READ_DEGRADED',
+    message: QUEUE_READ_DEGRADED_MESSAGE,
+    retryable: true,
+    provider: 'ingest',
+  };
+}
 
 function parseDev0000038MarkerGate(value: string | undefined): boolean {
   if (typeof value !== 'string') return false;
@@ -1415,14 +1429,28 @@ export async function listIngestedRepositories(
     activeContexts.map((entry) => [entry.runId, entry]),
   );
 
-  const queueRequests =
-    mongoose.connection.readyState === 1
-      ? await IngestQueueRequestModel.find({
-          queueState: { $in: [...ingestLiveQueueTargetStates] },
-        })
-          .sort({ createdAt: 1, _id: 1 })
-          .exec()
-      : [];
+  let queueReadDegraded = false;
+  let queueReadError: ListReposResult['queueReadError'] = null;
+  let queueRequests: IngestQueueRequest[] = [];
+  if (mongoose.connection.readyState !== 1) {
+    queueReadDegraded = true;
+    queueReadError = buildQueueReadDegradedError();
+  } else {
+    try {
+      queueRequests = await IngestQueueRequestModel.find({
+        queueState: { $in: [...ingestLiveQueueTargetStates] },
+      })
+        .sort({ createdAt: 1, _id: 1 })
+        .exec();
+    } catch (err) {
+      queueReadDegraded = true;
+      queueReadError = buildQueueReadDegradedError();
+      baseLogger.warn(
+        { err },
+        'ingest repo-list queue read degraded; continuing without queue overlay',
+      );
+    }
+  }
   let waitingQueuePosition = 0;
 
   for (const queueRequest of queueRequests) {
@@ -1570,6 +1598,7 @@ export async function listIngestedRepositories(
     lock,
     lockedModelId: lock?.lockedModelId ?? null,
     schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
+    ...(queueReadDegraded ? { queueReadDegraded: true, queueReadError } : {}),
   };
 }
 

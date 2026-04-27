@@ -59,6 +59,15 @@ type RootEntry = {
   };
 };
 
+type QueueReadError = {
+  error: string;
+  message: string;
+  retryable: boolean;
+  provider: 'lmstudio' | 'openai' | 'ingest';
+  upstreamStatus?: number;
+  retryAfterMs?: number;
+};
+
 type Deps = {
   getLockedModel: typeof getLockedModel;
   getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
@@ -367,6 +376,12 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
         lock,
         lockedModelId: payload.lockedModelId,
         schemaVersion: payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
+        ...(payload.queueReadDegraded
+          ? {
+              queueReadDegraded: true,
+              queueReadError: payload.queueReadError as QueueReadError | null,
+            }
+          : {}),
       });
     } catch (err) {
       const classified = classifyIngestFailure(err, {

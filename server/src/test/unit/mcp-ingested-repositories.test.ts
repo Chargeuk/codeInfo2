@@ -364,6 +364,51 @@ test('ListIngestedRepositories default MCP path preserves documented id, name, a
   });
 });
 
+test('ListIngestedRepositories default MCP path surfaces explicit queue-read degradation when waiting queue rows cannot be read', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 0,
+  });
+
+  const app = createMcpApp({ lockedModelId: 'embed-model' });
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'queued-read-degraded',
+      method: 'tools/call',
+      params: { name: 'ListIngestedRepositories', arguments: {} },
+    });
+
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<unknown>;
+    queueReadDegraded?: boolean;
+    queueReadError?: {
+      error?: string;
+      message?: string;
+      retryable?: boolean;
+      provider?: string;
+    } | null;
+  };
+  assert.equal(response.status, 200);
+  assert.deepEqual(parsed.repos, []);
+  assert.equal(parsed.queueReadDegraded, true);
+  assert.deepEqual(parsed.queueReadError, {
+    error: 'QUEUE_READ_DEGRADED',
+    message:
+      'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',
+    retryable: true,
+    provider: 'ingest',
+  });
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('ListIngestedRepositories default MCP path propagates fresh running model metadata without stale payload-path row attachment', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

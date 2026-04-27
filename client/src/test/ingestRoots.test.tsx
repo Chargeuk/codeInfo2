@@ -49,6 +49,22 @@ function HookErrorHarness() {
   );
 }
 
+function HookQueueReadDegradedHarness() {
+  const { roots, isLoading, isError, error } = useIngestRoots();
+  if (isLoading) return <div>loading</div>;
+  return (
+    <>
+      <div data-testid="hard-error">{isError ? error ?? '' : ''}</div>
+      <div data-testid="queue-read-warning">{error ?? ''}</div>
+      <ul>
+        {roots.map((root) => (
+          <li key={root.path}>{root.name}</li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 describe('useIngestRoots', () => {
   it('loads roots from the server', async () => {
     mockFetch.mockResolvedValueOnce(
@@ -131,6 +147,54 @@ describe('useIngestRoots', () => {
     );
     expect(screen.getByTestId('root-error')).toHaveTextContent(
       '"retryAfterMs": 1200',
+    );
+  });
+
+  it('keeps visible roots while surfacing explicit queue-read degradation instead of a silent empty queue state', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({
+        roots: [
+          {
+            runId: 'run-1',
+            name: 'repo',
+            path: '/repo',
+            model: 'embed-1',
+            status: 'completed',
+            lastIngestAt: '2025-01-01T00:00:00.000Z',
+            counts: { files: 2, chunks: 4, embedded: 4 },
+            lastError: null,
+          },
+        ],
+        queueReadDegraded: true,
+        queueReadError: {
+          error: 'QUEUE_READ_DEGRADED',
+          message:
+            'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',
+          retryable: true,
+          provider: 'ingest',
+        },
+      }),
+    );
+
+    render(
+      <RouterProvider
+        router={createMemoryRouter([
+          {
+            path: '/',
+            element: <HookQueueReadDegradedHarness />,
+          },
+        ])}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText('repo')).toBeInTheDocument();
+    expect(screen.getByTestId('hard-error')).toHaveTextContent('');
+    expect(screen.getByTestId('queue-read-warning')).toHaveTextContent(
+      'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',
     );
   });
 });

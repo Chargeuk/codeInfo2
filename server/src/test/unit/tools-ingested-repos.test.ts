@@ -189,6 +189,33 @@ test('queued start rows keep canonical repository identity alongside request met
   });
 });
 
+test('surfaces explicit queue-read degradation for waiting-before-first-run rows when Mongo queue reads are unavailable', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 0,
+  });
+
+  const res = await request(
+    buildApp({ ids: [], metadatas: [] }, 'text-embed'),
+  ).get('/tools/ingested-repos');
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.repos, []);
+  assert.equal(res.body.queueReadDegraded, true);
+  assert.deepEqual(res.body.queueReadError, {
+    error: 'QUEUE_READ_DEGRADED',
+    message:
+      'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',
+    retryable: true,
+    provider: 'ingest',
+  });
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('preserves provider-qualified identity when providers share model ids', async () => {
   const res = await request(
     buildApp(

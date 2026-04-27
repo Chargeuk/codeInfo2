@@ -44,7 +44,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Add observability or diagnosability work when the story would be difficult to prove or debug without it.
 - Add documentation tasks only when the story actually changes documentation-relevant behavior, files, architecture, commands, contracts, or screenshots.
 - When the story needs auth bypasses, seeded identities, mocked providers, alternate login flows, or similar test-enablement seams, generate that work as test-only harness, fixture, support-code, or test-configuration changes rather than as shipped production-code behavior changes.
-- When the story will rely on non-final manual-proof artifacts and the current repository does not already ignore `codeInfoTmp/`, generate the minimal `.gitignore` update needed before later proof depends on that scratch path.
+- When manual testing for the story will write task-level proof artifacts into `codeInfoTmp/` and the current repository does not already ignore that scratch path, generate the minimal `.gitignore` update needed before later proof depends on it.
   </task_generation_rules>
 
 <task_shape_rules>

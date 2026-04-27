@@ -178,6 +178,9 @@ If repository evidence does not provide a trustworthy freshness marker, record t
 
 <file_contract>
 
+When the bound task number is known from `current-task.json`, write task-level scratch manual-proof destinations using `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
+When it is helpful to describe later story-closeout curation, also record the durable promotion target `codeInfoStatus/manual-proof/<story-number>/`.
+
 Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with this canonical structure:
 
 ```json
@@ -215,12 +218,13 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
           "notes": "Use the paired frontend for browser proof.",
           "task_guidance": {
             "consulted": true,
-            "artifact_destination": "codeInfoTmp/manual-testing/0000059/",
-            "notes": "Bound task Manual Testing Guidance requested frontend proof through the paired UI and non-final-task scratch artifact storage."
+            "artifact_destination": "codeInfoTmp/manual-testing/0000059/7/",
+            "notes": "Bound task Manual Testing Guidance requested frontend proof through the paired UI and task-scoped scratch artifact storage."
           },
           "artifacts": {
             "target_repository_root": "/abs/path/to/repo-that-owns-plan",
-            "target_destination": "codeInfoTmp/manual-testing/0000059/",
+            "target_destination": "codeInfoTmp/manual-testing/0000059/7/",
+            "curated_story_destination": "codeInfoStatus/manual-proof/0000059/",
             "playwright_mcp_output_root": "/tmp/playwright-output",
             "harness_playwright_output_bind": "$CODEINFO_ROOT/playwright-output-local",
             "copy_out": "Capture with a relative Playwright MCP filename, then copy from the harness output bind when present or from the documented playwright-mcp container output path into the target destination."

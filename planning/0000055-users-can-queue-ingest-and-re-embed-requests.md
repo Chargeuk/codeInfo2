@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -389,7 +389,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `65b908b8` - `DEV-[55] - finish task 2 queue runtime validation`
 
@@ -16850,7 +16850,7 @@ Inline-resolved minor findings already handled in this active review cycle:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `207`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-1`: silent queue-overlay fallback on Mongo disconnect hides queued rows from the repository-list source of truth.
 
@@ -16912,12 +16912,14 @@ No additional repositories are in scope for this review-created repair task.
 4. [x] Add or rename a dedicated degraded-read propagation case in `server/src/test/unit/mcp-ingested-repositories.test.ts` so the MCP proof names and asserts the repaired degraded-state behavior instead of relying on the adjacent happy-path queued-metadata case before execution starts, using deterministic mocked reader-state boundaries rather than timing-based negatives.
 5. [x] Add, split, or rename the client proof in `client/src/test/ingestRoots.test.tsx` so the title and assertions explicitly prove the repaired degraded-read contract without reintroducing a silent empty-state interpretation or relying only on neighboring queued-row rendering assertions, and so the client proof's degraded boundary is driven by deterministic mocked payloads rather than elapsed-time assumptions.
 6. [x] Refresh only the current review-cycle proof-summary surfaces for pass `0000055-20260427T120554Z-cfc8af21` when the repair changes which focused proof owners or retained proof homes demonstrate `finding-1`, updating this `Code Review Findings` block and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` without widening the task to older review passes.
+7. [ ] Patch `client/src/pages/IngestPage.tsx` and `client/src/components/ingest/RootsTable.tsx` so a degraded queue-read warning from `useIngestRoots` renders as a non-terminal warning while the existing roots table rows still render when `roots.length > 0`, instead of treating the degraded warning as a hard table-level error that hides visible repository rows.
+8. [ ] Add a page-level degraded-read integration proof in `client/src/test/ingestPage.layout.test.tsx` that renders the real `/ingest` route with a mocked `/ingest/roots` payload containing visible roots plus `queueReadDegraded` metadata and asserts the warning alert and at least one visible row render together.
 
 #### Testing
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts`.
-3. [x] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx --file client/src/test/ingestPage.layout.test.tsx`.
 
 #### Implementation Notes
 
@@ -16930,6 +16932,7 @@ No additional repositories are in scope for this review-created repair task.
 - 2026-04-27: Subtask 3 completed by re-reading the targeted REST proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` and keeping its existing title unchanged because it already states the healthy queued-row continuity contract honestly and does not imply degraded-state propagation.
 - 2026-04-27: Subtask 6 refreshed only the current review-cycle summary surfaces for pass `0000055-20260427T120554Z-cfc8af21`. This review block now points at the focused degraded-read proof owners, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` now maps `finding-1` to Task `208` plus the repaired producer, REST, MCP, and client proof homes while leaving Task `209` as the later broad final revalidation owner.
 - 2026-04-27: Implementation-plus-automated-proof audit confirmed Task `208` is honestly complete. All 6 subtasks and all 3 targeted testing steps are checked, `python3 scripts/plan_status.py --task-number 208` reports no live blocker, and the task now closes as `__done__` ahead of Task `209`'s broader review-cycle revalidation pass.
+- 2026-04-27: Task-scoped manual proof restarted the main compose stack because the prior runtime freshness was unknown, then proved the degraded REST and MCP contract with scratch artifacts under `codeInfoTmp/manual-testing/0000055/`, including `task208-health-healthy.json`, `task208-health-degraded.json`, `task208-tools-ingested-repos-degraded.json`, `task208-ingest-roots-degraded.json`, `task208-mcp-degraded.json`, and screenshot `task208-queue-read-degraded-alert.png`. The Ingest page surfaced the degraded warning but rendered no repository rows even though the degraded `/ingest/roots` payload still contained visible roots; bounded diagnosis traced the mismatch to `client/src/pages/IngestPage.tsx` passing the degraded warning into `RootsTable`, where `client/src/components/ingest/RootsTable.tsx` currently treats any `error` as a terminal table replacement. Added one concrete client repair subtask plus one page-level degraded-read proof subtask, and reopened the client wrapper as `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx --file client/src/test/ingestPage.layout.test.tsx` so automated proof must rerun before later manual retest.
 
 ### Task 209. Re-Validate Story 55 After Review Pass `0000055-20260427T120554Z-cfc8af21`
 

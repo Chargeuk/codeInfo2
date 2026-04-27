@@ -69,7 +69,7 @@ A finding is minor-batchable only when all of these are true:
 - It has one clear implementation owner repository, even if broader later validation may span other affected repositories.
 - It is low-risk and small enough to attempt directly without splitting or planning a multi-step implementation sequence.
 - It has a clear, bounded code/config/docs/test edit path, or a small combination of those, within the owning repository.
-- It does not redefine or reinterpret a public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, user-visible workflow contract, or destructive public authority boundary. Restoring parity with an already intended same-repository contract may still be minor-batchable when the rest of these rules are satisfied.
+- It does not change, redefine, or reinterpret a public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, user-visible workflow contract, or destructive public authority boundary. Restoring parity with an already intended same-repository contract may still be minor-batchable when the rest of these rules are satisfied.
 - It does not require broad refactoring, migration, state-machine redesign, lifecycle reordering, or new architecture.
 - It is not ambiguous, disputed, blocked on missing capability, or dependent on another unimplemented finding.
 - It can be checked with bounded local automated proof in the owning repository, including a small test update or one or two new focused tests when needed.

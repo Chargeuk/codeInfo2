@@ -18,7 +18,7 @@ This file is not part of the live flow. It is a maintenance aid for humans or ag
 2. Does the proposed change still allow one-function validation-before-dependency fixes to stay inline when they restore an already-settled request contract?
 3. Does the proposed change still allow bounded producer-consumer parity fixes to stay inline when one path is failing to follow an already-established returned-result contract?
 4. Does the proposed change still allow proven dead-branch cleanup in a queue, lifecycle, or concurrency-sensitive helper to stay inline when the seam is bounded and focused proof is available?
-5. Does the proposed change still force destructive public authority-boundary changes into task-up rather than the minor path?
+5. Does the proposed change still force destructive public authority boundary changes into task-up rather than the minor path?
 6. Does the proposed change still force broader workflow, storage-contract, lifecycle-reinterpretation, or multi-surface taxonomy work into task-up rather than the minor path?
 7. Does the proposed change avoid adding extra review-loop routing complexity unless that added complexity is clearly necessary?
 8. Does the proposed change avoid reintroducing wording that escalates findings solely because they sound contract-sensitive, queue-sensitive, concurrency-sensitive, lifecycle-sensitive, or shared-caller-sensitive?

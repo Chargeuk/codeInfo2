@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -389,7 +389,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `65b908b8` - `DEV-[55] - finish task 2 queue runtime validation`
 
@@ -16053,7 +16053,7 @@ Add the missing runtime-facing bridge between the supported mixed-shape seed fro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196, 198, 199`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -16112,12 +16112,17 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 6. [x] Add or update `server/src/test/unit/mcp.reingest.classic.test.ts` with a dedicated classic MCP mixed-shape invalid-state scenario; do not hide this proof inside an existing generic parity or terminal-payload test title unless that test is renamed or split so its title explicitly claims the shared-caller no-throw mixed-shape contract, and assert the returned tool payload directly instead of inferring success from missing stderr or log noise.
 7. [x] Add or update `server/src/test/unit/mcp2.reingest.tool.test.ts` with a dedicated MCP2 mixed-shape invalid-state scenario; do not rely on the existing parity baseline or generic terminal-payload titles unless the proof is renamed or split so the file still claims the exact mixed-shape transport invariant it is proving, and assert the structured MCP2 tool result directly instead of treating the absence of a thrown transport error as sufficient proof.
 8. [x] After Task 199 lands, replace this task's stale cucumber-only handoff with the supported runtime-facing seed or probe bridge, then retire the structural proof gap and make the later shared-surface proof path explicit enough that operators do not have to rediscover it.
+9. [ ] Update `server/src/lmstudio/toolService.ts` plus `server/src/ingest/reingestService.ts` so a bridge-seeded completed mixed-shape root with blank canonical OpenAI model metadata cannot inherit a valid canonical OpenAI identity from lock or alias fallback on shared-runtime repo-list reads, and exact-source re-embed admission still rejects that row before queueing.
+10. [ ] Add or update `server/src/test/unit/ingest-roots-dedupe.test.ts` with a persisted bridge-style mixed-shape completed root fixture whose canonical OpenAI model fields are blank while fallback lock metadata remains populated, and prove `/ingest/roots` still exposes that row as invalid mixed-shape metadata instead of a fully canonical OpenAI row.
+11. [ ] Add or update `server/src/test/integration/ingest-reembed-invalid-state.test.ts` so the exact bridge-style sourceId returns `INVALID_LOCK_METADATA`, does not enqueue a run, and does not make the mixed-shape row disappear from later `/ingest/roots` inspection.
+12. [ ] Add or update `server/src/test/unit/mcp.reingest.classic.test.ts` so the same exact bridge-style sourceId returns the shared mixed-shape `INVALID_PARAMS` tool error instead of drifting to `NOT_FOUND` after the live selector path resolves against repo-list data.
+13. [ ] Add or update `server/src/test/unit/mcp2.reingest.tool.test.ts` so the MCP2 transport keeps the same bridge-style mixed-shape invalid-state contract and does not regress behind the shared classic MCP fix.
 
 #### Testing
 
-1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
-2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
 
 #### Implementation notes
 
@@ -16143,6 +16148,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Task 199 landed the runtime-facing bridge by extracting the malformed-row seed into `server/src/test/support/mixedShapeRuntimeBridge.js` and extending `server/src/test/support/hostNetworkMainProbe.mjs` to seed, observe, and clean the row against the compose-backed `/ingest/roots` surface; the remaining open owner on this task is now only the reopened classic/MCP2 proof rerun in Testing step 3.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the reopened classic MCP and MCP2 transport parity proof rerun passed cleanly with `34 passed, 0 failed`, confirming the mixed-shape invalid-state result still stays a structured tool error after the Task 199 runtime-bridge repair.
 - Implementation-plus-automated-proof audit on 2026-04-27 re-read the current handoffs and this exact task from disk, confirmed all subtasks and all three automated proof steps are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.
+- Manual testing on 2026-04-27 restarted the documented main compose stack from stale or unknown provenance, used `CODEINFO_MAIN_STACK_KEEP_MIXED_SHAPE_SEED=true npm run test:summary:host-network:main` to preserve the bridge row, then captured `codeInfoTmp/manual-testing/0000055/task200-roots-preserved.json`, `task200-rest-reembed.json`, `task200-classic-mcp.json`, and `task200-roots-after-reembed.json`; `/ingest/roots` surfaced the bridge row as a fully canonical OpenAI entry, `POST /ingest/reembed/:root` returned `202` with a running queue record instead of `INVALID_LOCK_METADATA`, and the later classic MCP call drifted to `NOT_FOUND` after that REST call made the row disappear from `/ingest/roots`, so follow-up subtasks were added on the live repo-list, REST, and shared-caller seams and all three automated proof steps were reopened before a later manual retest.
 
 #### Manual Testing Guidance
 

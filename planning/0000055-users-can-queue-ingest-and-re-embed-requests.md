@@ -16465,7 +16465,7 @@ Repair the shared pre-run `runReingestRepository(...)` contract seam so both unr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `203`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Final validation for review pass `0000055-20260427T044024Z-13acd3c1`, covering task-required findings `F1` and `F2`.
   - Final revalidation owner for any inline-resolved minor findings that may be recorded later in this same active review cycle; none are currently recorded in `review-disposition-state.json`.

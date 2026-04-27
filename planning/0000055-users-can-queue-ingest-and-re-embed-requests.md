@@ -16850,7 +16850,7 @@ Inline-resolved minor findings already handled in this active review cycle:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `207`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-1`: silent queue-overlay fallback on Mongo disconnect hides queued rows from the repository-list source of truth.
 
@@ -16936,6 +16936,7 @@ No additional repositories are in scope for this review-created repair task.
 - 2026-04-27: Subtask 7 split the client repo-list message path into hard errors versus degraded warnings. `client/src/pages/IngestPage.tsx` now passes queue-read degradation into a dedicated non-terminal warning prop, and `client/src/components/ingest/RootsTable.tsx` renders that warning above the table instead of replacing visible rows with a terminal error state.
 - 2026-04-27: Testing step 3 reran via `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx --file client/src/test/ingestPage.layout.test.tsx` after the page-layout repair (`51` run, `51` passed, `0` failed; log `test-results/client-tests-2026-04-27T14-24-51-735Z.log`). The reopened client wrapper now covers both the hook-level degraded queue-read contract and the real `/ingest` route warning-plus-row layout contract without further repair.
 - 2026-04-27: Subtask 8 added page-level proof in `client/src/test/ingestPage.layout.test.tsx` for the real `/ingest` route. The new case mocks a degraded `/ingest/roots` payload with one visible repository row and asserts the warning alert and the row render together, leaving the combined client wrapper rerun for the later automated-proof step.
+- 2026-04-27: Implementation-plus-automated-proof audit rechecked Task `208` after the page-layout rerun. All 8 subtasks and all 3 testing steps are now honestly complete, `python3 scripts/plan_status.py --task-number 208` reports no live blocker, and the task closes again as `__done__` before Task `209`'s broader review-cycle revalidation pass.
 
 ### Task 209. Re-Validate Story 55 After Review Pass `0000055-20260427T120554Z-cfc8af21`
 

@@ -142,17 +142,6 @@ function buildQueueResult(params: {
   };
 }
 
-async function buildReusedWaitingQueueResult(
-  queueRequest: IngestQueueRequest,
-): Promise<EnqueueIngestRequestResult> {
-  return buildQueueResult({
-    queueRequest,
-    queuePosition: await countOlderWaitingRequests(queueRequest),
-    reusedExisting: true,
-    updatedExisting: false,
-  });
-}
-
 async function buildUpdatedWaitingQueueResult(
   queueRequest: IngestQueueRequest,
 ): Promise<EnqueueIngestRequestResult> {

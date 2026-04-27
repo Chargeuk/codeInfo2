@@ -16626,7 +16626,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 1. [ ] Re-read the review findings for pass `0000055-20260427T065706Z-15b0a653`, then re-read `server/src/ingest/requestQueue.ts` to mark the exact fetch predicate, rewrite predicate, and the dead fallback branches that still imply a fetched waiting row can be non-rewriteable.
 2. [ ] Patch `server/src/ingest/requestQueue.ts` so the helper, local comments, and any touched diagnostics reflect the real waiting-only contract without unreachable "non-rewriteable waiting request" branches, while preserving the current waiting-row rewrite, duplicate-key recovery, and queue sequencing behavior.
-3. [ ] Add or update the queue-owner proof files so the simplified waiting-only seam is asserted directly in `server/src/test/unit/ingest-request-queue.test.ts`, with any supporting cleanup or terminal sequencing coverage adjusted only where the dead-branch removal changes the honest expected behavior.
+3. [ ] Add or update `server/src/test/unit/ingest-request-queue.test.ts` so one proof now states directly that fetched rows in this seam are waiting-only and therefore take the rewrite-or-dedupe path without a second impossible "non-rewriteable waiting row" branch, then adjust `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` or `server/src/test/unit/ingest-cancel.test.ts` only where the dead-branch removal changes the honest cleanup or terminal expectations.
 
 #### Testing
 
@@ -16646,28 +16646,28 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 #### Overview
 
-Repair the retained-artifact contract for Story 55 by deciding what belongs in a durable tracked proof home, moving or pruning anything that should instead live in ignored scratch space, and updating references so the canonical plan and review materials no longer contradict the repository's artifact-hygiene rules. This task owns the proof-home contract, the retained file set, and the reference updates needed to make that contract explicit on disk.
+Repair the retained-artifact contract for Story 55 by choosing one explicit end state and making every retained-proof reference agree with it: either keep a bounded tracked retained-proof home with transient byproducts moved out, or move the proof home into an ignored artifact location and leave only the tracked summary surfaces that still need to stay in Git. This task owns the proof-home contract, the retained file set, and the reference updates needed to make that contract explicit on disk.
 
 #### Task Exit Criteria
 
-- `R1.` Story 55 has one explicit durable retained-proof home for manual or runtime evidence, and the tracked files inside it are intentionally bounded rather than an accidental dump of runtime byproducts.
-- `R2.` Any transient or scratch-only files under the current `codeInfoStatus/manual-testing/0000055/` tree are removed from the tracked retained set or moved into an ignored scratch location instead of remaining mixed with durable proof.
-- `R3.` The canonical plan, review artifact, and PR summary references that still point at Story 55 retained proof all agree on the chosen durable home and no longer imply that disposable runtime scratch is required source state.
-- `R4.` The resulting tracked file set is auditable from the Git tree and can be explained as retained proof without needing undocumented exceptions.
+- `R1.` Story 55 ends with one explicit retained-proof contract: either a bounded tracked retained-proof home inside the repository or a documented ignored proof home plus only the tracked summary surfaces that still need to remain in Git.
+- `R2.` Any transient or scratch-only files under the current `codeInfoStatus/manual-testing/0000055/` tree are removed from the tracked retained set or moved into the chosen ignored scratch or proof location instead of remaining mixed with durable proof.
+- `R3.` The canonical plan, current review findings artifact, and PR summary references that still point at Story 55 retained proof all agree on the chosen contract and no longer imply that disposable runtime scratch is required tracked source state.
+- `R4.` The resulting tracked file set is auditable from the Git tree and can be explained as retained proof or tracked summary without needing undocumented exceptions.
 
 #### Proof Mapping
 
-- `P1.` retained-home inventory proof for `R1`, `R2`, and `R4`: proof home is the tracked file tree rooted at `codeInfoStatus/manual-testing/0000055/` or its replacement durable home, validated from Git-tree output.
+- `P1.` retained-home inventory proof for `R1`, `R2`, and `R4`: proof home is the tracked file tree for the Story 55 retained-proof contract after the repair, validated from Git-tree output plus the bounded file list kept in the final references.
 - `P2.` reference-alignment proof for `R3`: proof homes are the Story 55 plan, the current review findings artifact, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
 
 #### Risk Ownership
 
-- Highest-risk invariant: this task must clarify the storage contract for retained Story 55 proof without silently deleting the evidence the plan or review materials still rely on.
+- Highest-risk invariant: this task must clarify the storage contract for retained Story 55 proof without silently deleting the evidence the plan or review materials still rely on, and without leaving the implementer to invent a third undocumented end state.
 - This is a retained-proof contract task, not a generic cleanup bucket. Keep it focused on Story 55 manual-proof artifacts and their on-disk references.
 
 #### High-Risk Invariants And Blocker Family
 
-- Retained-versus-scratch proof required: the task must draw a clear boundary between durable retained evidence and runtime scratch.
+- Retained-contract proof required: the task must end in one of the two explicitly allowed states from `R1`, not an ad hoc mix of partially tracked scratch and partially retained evidence.
 - Reference-alignment proof required: plan, review artifact, and PR-summary references must point at the same retained proof home after the repair.
 - Auditability proof required: the remaining tracked artifact set must be explainable from Git-tree output without special conversational context.
 - Likely blocker family: task-shape or planning seam around retained proof ownership, with repository-local file movement and reference repair in the current repository.
@@ -16682,13 +16682,14 @@ Repair the retained-artifact contract for Story 55 by deciding what belongs in a
 #### Subtasks
 
 1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in the canonical plan, current review findings artifact, and PR summary so the retained-versus-scratch boundary is explicit before files move.
-2. [ ] Establish the durable retained-proof home for Story 55 by pruning, relocating, or renaming files as needed so transient runtime byproducts no longer live in the tracked retained set, while keeping the evidence the plan and review materials still need.
-3. [ ] Update the plan, review artifact, and PR summary references that still cite Story 55 retained proof so they all describe the same durable proof home and no longer read like an accidental tracked scratch directory.
+2. [ ] Bucket the current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set.
+3. [ ] Implement one explicit end state from `R1`: either prune and rename the retained subset into a clearly durable tracked proof home, or move the proof home into an ignored artifact location and leave only the tracked summary surfaces that still need to remain in Git.
+4. [ ] Update the plan, current review findings artifact, and PR summary references that still cite Story 55 retained proof so they all describe the same final contract and no longer read like an accidental tracked scratch directory.
 
 #### Testing
 
-1. [ ] Run `git ls-tree -r --name-only HEAD | rg '^codeInfoStatus/manual-testing/0000055/'`.
-2. [ ] Run `rg -n "codeInfoStatus/manual-testing/0000055/" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+1. [ ] Run `git ls-tree -r --name-only HEAD | rg '0000055'`.
+2. [ ] Run `rg -n "0000055" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
 
 #### Implementation Notes
 
@@ -16755,8 +16756,8 @@ No additional repositories are in scope for this review cycle. The current findi
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260427T065706Z-15b0a653`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for `finding-1` and `finding-4`, and the completed proof-owner sections for Tasks `205` and `206`; check off this subtask only after parser output shows both repair tasks are `__done__`, have no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a findings-to-proof map for review pass `0000055-20260427T065706Z-15b0a653`, naming Tasks `205` and `206`, the inline-resolved minor findings `finding-1` and `finding-4`, the retained broad proof homes for build, server unit, server cucumber, compose smoke, lint, and format, and the explicit statement that no cross-repository, client-only, browser, or end-to-end proof category applied to this review cycle.
-3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on the current review pass id, the review-created tasks `205` through `207`, the inline-resolved minors `finding-1` and `finding-4`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a findings-to-proof map for review pass `0000055-20260427T065706Z-15b0a653`, naming Tasks `205` and `206`, the inline-resolved minor findings `finding-1` and `finding-4`, the final retained-proof contract chosen by Task `206`, the retained broad proof homes for build, server unit, server cucumber, compose smoke, lint, and format, and the explicit statement that no cross-repository, client-only, browser, or end-to-end proof category applied to this review cycle.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on the current review pass id, the review-created tasks `205` through `207`, the inline-resolved minors `finding-1` and `finding-4`, the retained-proof contract chosen by Task `206`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
 
 #### Testing
 

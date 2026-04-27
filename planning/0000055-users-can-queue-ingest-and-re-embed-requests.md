@@ -16349,3 +16349,187 @@ If later manual proof needs seeded queue-owned or replayable ingest rows, seed t
 - Reran `npm run format:check`; Prettier reported `All matched files use Prettier code style!`, closing the final repository-hygiene proof gate.
 - Automated-proof audit closed Task 202 after confirming all three subtasks, all twelve final validation wrappers, and the parser's blocker state were fully complete with no remaining live blocker.
 - Full-story manual proof reran the supported main compose stack from stale or unknown provenance, saved retained API and runtime artifacts under `codeInfoStatus/manual-testing/0000055/`, proved the `/ingest` UI can queue follow-up work while another ingest is active, proved queued-target remove returns `QUEUE_STATE_BLOCKED`, proved running plus waiting work survives `npm run compose:down` and `npm run compose:up` before the deferred row resumes with a fresh `runId`, and revalidated the mixed-shape REST `INVALID_LOCK_METADATA`, classic MCP `INVALID_PARAMS`, alias-remove `NOT_FOUND`, and exact-remove `ok` seams with no new follow-up subtasks. The replayed follow-up later hit provider-owned `OPENAI_RATE_LIMITED` after restart had already resumed it, which did not invalidate the queue handoff or selector contracts already proved. Browser screenshot capture was attempted through Playwright MCP with staging path `manual-testing/0000055/task202-replay-ui.png`, but transfer into the intended retained destination `codeInfoStatus/manual-testing/0000055/task202-replay-ui.png` was blocked because the tool runtime output was not host-visible, so the final proof relies on the retained JSON or HTML artifacts instead of a checked-in screenshot.
+
+## Code Review Findings - Review Pass `0000055-20260427T044024Z-13acd3c1`
+
+Review pass `0000055-20260427T044024Z-13acd3c1` reviewed local `HEAD` `13acd3c19b9edcd6711655922e6dbf56356cb03d` against remote base `origin/main` commit `f2a6f97a3411c76c36597d9e0756a1f7d003f341` using comparison rule `local_head_vs_resolved_base`. The current repository was the only repository in scope; `additional_repositories` was empty and no local fallback base was used because the review handoff recorded `remote_fetch_status: success`.
+
+Durable review artifacts for this pass:
+
+- Review handoff: `codeInfoTmp/reviews/0000055-current-review.json`
+- Evidence: `codeInfoTmp/reviews/0000055-20260427T044024Z-13acd3c1-evidence.md`
+- Findings: `codeInfoTmp/reviews/0000055-20260427T044024Z-13acd3c1-findings.md`
+- Saturation: `codeInfoTmp/reviews/0000055-20260427T044024Z-13acd3c1-findings-saturation.md`
+- Blind-spot challenge: `codeInfoTmp/reviews/0000055-20260427T044024Z-13acd3c1-blind-spot-challenge.md`
+
+The active `codeInfoStatus/flow-state/review-disposition-state.json` for this same pass records two unresolved task-required findings, zero unresolved minor-batchable findings, zero resolved minor findings, one rejected or non-actionable optional simplification note, and no incomplete-review blockers. No inline minor-fix path remains open for this review cycle, so the review loop must exit back to the main implementation loop through the numbered review-created tasks below.
+
+Endorsed findings requiring plan follow-up:
+
+- `F1` `must_fix`: `runReingestRepository(...)` drops the normalized pre-run `OPENAI_MODEL_UNAVAILABLE` branch on the floor and can throw out of the tool boundary instead of returning the structured reingest error expected by classic MCP, MCP v2, flows, and commands callers.
+- `F2` `should_fix`: `runReingestRepository(...)` performs repo-list I/O before malformed-input validation, so a repo-list failure can mask the promised `INVALID_PARAMS` contract before shared callers receive a structured result.
+
+The same review cycle also recorded one `optional_simplification` note about pre-aborted streaming test doubles. The disposition state classified that note as rejected or non-actionable for this cycle, so it is intentionally not reopened as a numbered task here.
+
+### Task 203. Restore Structured Pre-Run Reingest Contracts Across Shared Callers
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `202`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `F1`: `runReingestRepository(...)` must return a structured `OPENAI_MODEL_UNAVAILABLE` reingest error instead of throwing across shared callers.
+  - `F2`: malformed or unsupported reingest input must fail as `INVALID_PARAMS` before repo-list dependency I/O can mask the contract.
+
+#### Overview
+
+Repair the shared pre-run `runReingestRepository(...)` contract seam so both unresolved findings close together as one coherent service-owner task. This task owns the admission-order repair and the missing structured error mapping inside the service layer, plus the direct shared-caller proofs that classic MCP, MCP v2, commands, flows, and the mirrored REST boundary continue to consume a returned `ReingestResult` instead of a thrown exception.
+
+#### Task Exit Criteria
+
+- `R1.` `runReingestRepository(...)` validates malformed selectors, unsupported arguments, and missing, blank, whitespace-only, or otherwise invalid `sourceId` values before repo-list I/O or any dependency that could mask the promised `INVALID_PARAMS` contract.
+- `R2.` The pre-run `OPENAI_MODEL_UNAVAILABLE` branch emitted from the reingest selection path is normalized into the same structured `ReingestResult` family expected by classic MCP, MCP v2, commands, and flow callers rather than escaping through `throw error`.
+- `R3.` Existing structured handling for `INVALID_REEMBED_STATE`, `INVALID_LOCK_METADATA`, `MODEL_LOCKED`, and `QUEUE_UNAVAILABLE` remains intact, and the mirrored REST boundary keeps its current structured contract without duplicating inconsistent service logic.
+- `R4.` Proof explicitly covers both defect classes at the service owner and at representative shared consumers so this repair cannot close on service-only assumptions.
+- `R5.` When malformed input and repo-list dependency outage happen in the same call, the returned contract still resolves to `INVALID_PARAMS` rather than a downstream dependency failure, proving the repaired ordering rather than only separate happy-path and failure-path cases.
+
+#### Proof Mapping
+
+- `P1.` service-owner validation-order, constrained-input rejection, and pre-run error-normalization proof for `R1` through `R3` plus the exact invalid-input-versus-dependency ordering proof for `R5`: implementation owner is `server/src/ingest/reingestService.ts`; proof home is `server/src/test/unit/reingestService.test.ts`, including explicit missing-or-whitespace `sourceId` rejection before repo-list I/O.
+- `P2.` classic MCP returned-result proof for `R2` and `R4`: implementation owner is `server/src/mcp/server.ts`; proof home is `server/src/test/unit/mcp.reingest.classic.test.ts`.
+- `P3.` MCP v2 tool returned-result proof for `R2` and `R4`: implementation owner is `server/src/mcp2/tools/reingestRepository.ts`; proof home is `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+- `P4.` commands-runner consumer proof for `R2` and `R4`: implementation owner is `server/src/agents/commandsRunner.ts`; proof home is `server/src/test/integration/commands.reingest.test.ts`.
+- `P5.` flow-service default-path consumer proof for `R2` and `R4`: implementation owner is `server/src/flows/service.ts`; proof home is `server/src/test/integration/flows.run.command.test.ts`.
+- `P6.` mirrored REST parity proof for `R2` through `R5`: implementation owner is `server/src/routes/ingestReembed.ts`; proof home is `server/src/test/integration/ingest-reembed.test.ts`.
+
+#### Risk Ownership
+
+- Highest-risk invariant: every pre-run reingest validation failure must cross the shared caller boundary as a returned structured result instead of a thrown exception, and malformed-input validation must happen before a repo-list dependency failure can replace `INVALID_PARAMS` with an unrelated downstream outage.
+- This task owns one coherent service-contract seam. Do not split it into separate micro-tasks only because the proofs live in multiple files; the root cause is the same pre-run `runReingestRepository(...)` contract boundary.
+
+#### High-Risk Invariants And Blocker Family
+
+- Producer-consumer proof required: the service producer in `server/src/ingest/reingestService.ts` and the classic MCP, MCP v2, commands, flows, and REST consumers must agree on returned structured pre-run error shapes.
+- Validation-before-dependency proof required: malformed-input rejection must happen before repo-list I/O so a dependency outage cannot hide the shared `INVALID_PARAMS` contract.
+- Config-domain proof required: blank or whitespace-only `sourceId` values must still fail as `INVALID_PARAMS` before repo-list I/O rather than drifting into selector resolution or dependency-owned failures.
+- Exact ordering proof required: one proof must force malformed or unsupported input and a failing repo-list dependency in the same call so the task proves real ordering, not just adjacent isolated branches.
+- Default-path proof required: at least one proof must reach the shared commands or flows consumer path rather than closing only on direct unit seams.
+- Shared-wrapper boundary required: if the targeted server-unit wrapper fails outside the reingest caller files above, classify that failure as shared wrapper or baseline seam instead of weakening the service or consumer contracts to satisfy the wrapper.
+- Likely blocker family: product or story seam. If a proof surface proves flaky or missing, keep any blocker inside these proof-owner files rather than broadening story scope beyond the reingest pre-run contract seam.
+
+#### Documentation Locations
+
+- `server/src/ingest/reingestService.ts`
+- `server/src/routes/ingestReembed.ts`
+- `server/src/mcp/server.ts`
+- `server/src/mcp2/tools/reingestRepository.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/service.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/mcp.reingest.classic.test.ts`
+- `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- `server/src/test/integration/commands.reingest.test.ts`
+- `server/src/test/integration/flows.run.command.test.ts`
+- `server/src/test/integration/ingest-reembed.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read this `Code Review Findings` block for review pass `0000055-20260427T044024Z-13acd3c1`, then re-read `server/src/ingest/reingestService.ts`, `server/src/routes/ingestReembed.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/agents/commandsRunner.ts`, and `server/src/flows/service.ts` to locate three exact boundaries before patching: where `runReingestRepository(...)` validates `sourceId`, where it first reaches repo-list I/O, and where pre-run errors are normalized for callers. Keep the repair inside that shared service seam and do not move caller-specific error mapping into MCP, commands, flows, or REST files.
+2. [ ] Patch `server/src/ingest/reingestService.ts` so unsupported-key and `sourceId` validation completes before `listRepos()` or any retry-list build, then extend the existing pre-run error mapping so `OPENAI_MODEL_UNAVAILABLE` returns the same structured `ReingestResult` family as the other handled pre-run codes; do not add caller-specific catch wrappers as a workaround, and preserve the current structured handling for `INVALID_REEMBED_STATE`, `INVALID_LOCK_METADATA`, `MODEL_LOCKED`, and `QUEUE_UNAVAILABLE`.
+3. [ ] Add or update `server/src/test/unit/reingestService.test.ts` so the service-owner proof home uses dedicated test titles, or an explicit rename or split of the nearest existing pre-run validation case, to cover both new semantics honestly: pre-run `OPENAI_MODEL_UNAVAILABLE` returns a structured error result instead of throwing, and malformed, unsupported, or whitespace-only input still returns `INVALID_PARAMS` when the repo-list dependency fails in the same call. Do not hide that ordering claim inside the adjacent `pre-run invalid states remain protocol-level INVALID_PARAMS errors` case unless its title and assertions are rewritten to match the new combined scenario.
+4. [ ] Add or update `server/src/test/unit/mcp.reingest.classic.test.ts` so the classic MCP proof home adds or retitles a dedicated pre-run model-unavailable case whose title and assertions both state that the structured tool error is returned through the JSON-RPC envelope and no transport-level exception escapes. Do not rely on the nearby queue-outage envelope case unless its title and assertions are explicitly rewritten for `OPENAI_MODEL_UNAVAILABLE`.
+5. [ ] Add or update `server/src/test/unit/mcp2.reingest.tool.test.ts` so the MCP v2 proof home adds or retitles a dedicated pre-run model-unavailable case whose title and assertions both state that the structured tool error is returned and no exception escapes the MCP v2 tool boundary. Do not reuse an adjacent `QUEUE_UNAVAILABLE` or shared `INVALID_PARAMS` selector-parity case without renaming or splitting it to match the new invariant.
+6. [ ] Add or update `server/src/test/integration/commands.reingest.test.ts` so the commands-runner proof home uses a dedicated pre-run failure propagation case, or an explicit rename or split of the nearest background-runner precheck failure case, to show the shared caller receives a structured `OPENAI_MODEL_UNAVAILABLE` result instead of a thrown exception. Keep the test title aligned to model-unavailable propagation rather than generic precheck rejection.
+7. [ ] Add or update `server/src/test/integration/flows.run.command.test.ts` so the flow-service default-path proof home adds a dedicated pre-run failure propagation case whose title and assertions both state that the repaired structured reingest result reaches the flow caller boundary instead of escaping as a thrown exception. Do not overload the adjacent happy-path `flow-owned commands can execute reingest items` coverage with a different failure invariant unless that proof is renamed or split.
+8. [ ] Add or update `server/src/test/integration/ingest-reembed.test.ts` so the mirrored REST proof home uses dedicated route-parity cases, or an explicit rename or split of the nearest public-route guard cases, for both new semantics: structured pre-run `OPENAI_MODEL_UNAVAILABLE` stays returned through the route contract, and malformed, unsupported, or whitespace-only input still resolves to `INVALID_PARAMS` when repo-list failure is forced in the same request. The ordering-sensitive route proof must assert the combined same-call scenario, not separate adjacent assertions.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/ingest-reembed.test.ts`.
+
+#### Implementation Notes
+
+- Planner task-up on 2026-04-27 appended this task because review disposition state for pass `0000055-20260427T044024Z-13acd3c1` still carried two unresolved task-required findings on the same `runReingestRepository(...)` pre-run contract seam. The task intentionally keeps those findings merged into one substantive repair block because they share one service-owner boundary, one returned-result proof story, and one set of shared callers.
+
+### Task 204. Re-Validate Story 55 After Review Pass `0000055-20260427T044024Z-13acd3c1`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `203`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - Final validation for review pass `0000055-20260427T044024Z-13acd3c1`, covering task-required findings `F1` and `F2`.
+  - Final revalidation owner for any inline-resolved minor findings that may be recorded later in this same active review cycle; none are currently recorded in `review-disposition-state.json`.
+
+#### Overview
+
+Revalidate Story 55 after the current review-created reingest contract repair task is complete. This final task owns the broad current-repository proof that the new review-created findings block for pass `0000055-20260427T044024Z-13acd3c1` closes honestly on disk, that the shared reingest callers still agree on returned structured results, and that the review cycle does not create a second final revalidation task for the same pass.
+
+#### Affected Repositories
+
+- `Current Repository`: owns the full final regression proof for review findings `F1` and `F2`.
+
+No additional repositories are in scope for this review cycle. Client-only, browser-only, and end-to-end categories are not applicable to this findings block because the stored review outcome is limited to current-repository server-side reingest admission and caller-contract seams. The repository-supported broad proof that is still applicable here is the server build path, the full server `node:test` wrapper, the full server cucumber wrapper, and the normal supported compose build-plus-up/down smoke path for the current repository.
+
+#### Task Exit Criteria
+
+- `R1.` Task `203` is `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `R2.` The appended `Code Review Findings` block for review pass `0000055-20260427T044024Z-13acd3c1` is revalidated on disk and still matches the active `review-disposition-state.json` ownership for this review cycle.
+- `R3.` Fresh automated validation reruns the relevant current-repository server proof surfaces for this findings block: supported server build, full server unit wrapper, full server cucumber wrapper, compose build, supported compose up/down smoke, lint, and format.
+- `R4.` The final pass records explicitly that no additional repository, client, browser, or end-to-end proof category was applicable for this review-created findings block instead of silently omitting those categories.
+- `R5.` `review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title` and keeps `final_revalidation_owned_by_task_up_path: true`, so the current review cycle cannot accidentally create a second final revalidation owner.
+- `R6.` If the supported server build or full server-unit wrapper fails outside the reingest caller seam repaired in Task `203`, the final pass records that blocker as shared wrapper or baseline ownership instead of silently reopening Task `203` as if the product fix were incomplete.
+
+#### Proof Mapping
+
+- `P1.` dependency-completion proof for `R1`: proof home is parser output for Task `203` plus its checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
+- `P2.` findings-block and review-loop ownership proof for `R2` and `R5`: proof homes are this `Code Review Findings` block, `codeInfoStatus/flow-state/review-disposition-state.json`, and the refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+- `P3.` supported server-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-server-latest.log`.
+- `P4.` full server automated regression proof for `R3`: proof homes are the latest `test-results/server-unit-tests-*.log` and the latest `test-results/server-cucumber-tests-*.log`.
+- `P5.` supported compose build-and-smoke proof for `R3`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P6.` repository-hygiene and non-applicability proof for `R3` and `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` that records why client, browser, and end-to-end proof were not part of this server-only findings block.
+- `P7.` broad-wrapper blocker-classification proof for `R6`: proof homes are this task's implementation notes and the retained wrapper outputs from `npm run build:summary:server`, `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, and the supported compose wrappers.
+
+#### Risk Ownership
+
+- Highest-risk invariant: the review cycle must not re-close on targeted task-owner proofs alone; final validation must show the repaired service contract still holds on the repository-supported build and full server-unit paths and that this task remains the only final revalidation owner for review pass `0000055-20260427T044024Z-13acd3c1`.
+- If a broad proof surface exposes a new defect or harness regression, preserve it honestly rather than silently reclosing the story.
+
+#### High-Risk Invariants And Blocker Family
+
+- Default-path proof required: final validation must cover the repaired review-created findings block through the repository-supported server build, full server-unit wrapper, full server-cucumber wrapper, and supported compose smoke path, not only the targeted owner rerun from Task `203`.
+- Review-loop ownership proof required: this task must remain the one final revalidation owner for this review cycle, and no second closing task should be inferred from older story history.
+- Applicability proof required: the non-applicable client, browser, and end-to-end categories must be stated explicitly because this findings block is server-only, while broad server build, cucumber, and compose smoke proof stay applicable through the repository-supported backend path.
+- Baseline-ownership proof required: if supported server build or full server-unit wrappers fail in unrelated areas, the task must record that as shared wrapper or baseline ownership instead of mutating Task `203` into a catch-all retry bucket.
+- Likely blocker family: shared wrapper or baseline seam for broad automated proof. This task owns the final orchestration and residual-risk recording for the current review-created findings block.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `server/src/ingest/reingestService.ts`
+- `server/src/mcp/server.ts`
+- `server/src/mcp2/tools/reingestRepository.ts`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/flows/service.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260427T044024Z-13acd3c1`, the active `review-disposition-state.json`, and the completed proof-owner section for Task `203`; check off this subtask only after parser output shows Task `203` is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker, so the broad final proof in this task is not started against a half-finished repair.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a finding-to-proof map for review pass `0000055-20260427T044024Z-13acd3c1`, naming the repaired reingest service and caller files, the retained broad proof homes `logs/test-summaries/build-server-latest.log`, the latest `test-results/server-unit-tests-*.log`, the latest `test-results/server-cucumber-tests-*.log`, `logs/test-summaries/compose-build-latest.log`, and the terminal-output proof from `npm run compose:up` plus `npm run compose:down`, and the explicit statement that no inline-resolved minor findings, client-only proof, browser proof, or end-to-end proof category was applicable to this review cycle.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on the current review pass id, the findings covered by Task `203`, the server-only non-applicable proof categories, the broad server build-plus-unit-plus-cucumber-plus-compose proof owned by this task, the exact state keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, and `review_created_tasks_added_or_updated`, and the fact that this task's `Implementation Notes` remain the named proof surface for any shared-wrapper or baseline classification from the later broad proof runs; stop and record a blocker if any one of those ownership or findings strings diverges instead of silently hand-editing only one source.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run `npm run compose:up`.
+6. [ ] Run `npm run compose:down`.
+7. [ ] Run `npm run lint`.
+8. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Planner task-up on 2026-04-27 appended this final revalidation task because review disposition state for pass `0000055-20260427T044024Z-13acd3c1` still required serious task-up work and did not record any inline-resolved minor findings. This task is now the sole final revalidation owner for the active review cycle once Task `203` lands.

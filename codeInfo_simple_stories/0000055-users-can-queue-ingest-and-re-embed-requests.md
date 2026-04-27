@@ -9,11 +9,12 @@ Users can queue ingest and re-embed requests
 3. Users and automation receive a durable `requestId` for queued work and a `runId` once the queued job actually starts running.
 4. Users are protected from unsafe restart or cleanup behavior because the queue retries recovery in order and does not start newer work before blocked cleanup is resolved.
 5. Users and automation receive clear retryable queue-backend errors when Mongo-backed queue persistence is unavailable.
-6. The final reviewed story keeps the request-validation, shared caller behavior, destructive remove rules, and full regression proof aligned before the story closes.
+6. The remaining review-created work keeps shared reingest callers aligned so pre-run failures stay structured and malformed or blank selectors are rejected before downstream lookup.
+7. The story closes only after one final broad server revalidation pass proves the latest review fixes through the repository’s normal supported proof paths.
 
 # Description
 
-This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The final planned work now focuses on closing the last review findings around replayed queue admission, mixed-shape re-embed validation across shared callers, exact remove targeting, and one final full revalidation pass.
+This story makes ingest and re-embed work durable, visible, and predictable when the server is already busy. Instead of forcing users or automation to retry later, the system records queued work, shows where it is in line, and starts it safely when earlier work finishes. The remaining planned work is now narrowly focused on one last shared reingest contract repair plus one final broad server revalidation pass so the queue story can close cleanly.
 
 # Tasks
 
@@ -57,7 +58,12 @@ This story makes ingest and re-embed work durable, visible, and predictable when
 - Tighten production remove handling so alias-shaped selectors are rejected before queue-state blocking logic runs.
 - Prove exact selector handling and target-first blocking through route and integration proof owners.
 
-9. [Current Repository] - Re-validate Story 55 after the current review pass.
+9. [Current Repository] - Restore shared pre-run reingest caller contracts from the latest review pass.
 
-- Run the final broad server, client, compose, smoke, e2e, lint, and format proof for the current review-created findings block.
-- Refresh the final summary so the last review fixes and their proof homes are recorded together before close-out.
+- Repair the shared reingest service seam so pre-run `OPENAI_MODEL_UNAVAILABLE` stays structured for MCP, commands, flows, and REST callers.
+- Reject malformed, unsupported, blank, or whitespace-only `sourceId` input before repo-list lookup can hide the expected `INVALID_PARAMS` contract.
+
+10. [Current Repository] - Re-validate Story 55 after the latest review-created findings block.
+
+- Run the final broad server build, unit, cucumber, compose smoke, lint, and format proof for the latest review-created findings block.
+- Refresh the closing summary so the final review fixes, proof homes, and non-applicable proof categories are recorded together before close-out.

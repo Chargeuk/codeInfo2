@@ -17038,3 +17038,34 @@ Optional later manual follow-up can reuse the supported main stack from the repo
 - 2026-04-27: Testing step 11 passed via `npm run format:check` after one bounded baseline repair. The first rerun failed with a Node heap OOM inside the root `prettier . --check` script, so `package.json` now raises `NODE_OPTIONS=--max-old-space-size=8192` for the root format scripts and a targeted `npx prettier --write` normalized `client/src/hooks/useIngestRoots.ts`, `client/src/test/ingestRoots.test.tsx`, and `server/src/lmstudio/toolService.ts`; the final rerun ended with `All matched files use Prettier code style!`.
 - Implementation-plus-automated-proof audit on 2026-04-27 re-read the current handoffs and this exact task from disk, confirmed all subtasks and all eleven testing steps are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.
 - 2026-04-27: Manual proof re-read the stored handoff and runtime research, treated Task `209` as the final-task full-story pass, restarted the stale-or-unknown main stack with `npm run compose:build` plus `npm run compose:up`, and proved the Story 55 queue contract through REST, classic MCP, queued-row browser state, queued details, and Mongo-degraded repo visibility. Retained reviewer-facing artifacts were promoted into `codeInfoStatus/manual-testing/0000055/` from Playwright staging plus retained JSON proof, scratch runtime output stayed under `codeInfoTmp/manual-testing/0000055/`, error-level browser console output stayed empty, non-static browser requests stayed at `200` or `202`, and `npm run compose:down` returned the main stack to its prior stopped state without requiring new subtasks.
+
+### Task 210. Re-Validate Story 0000055 After Inline Minor Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Affected Repositories
+
+- `Current Repository`: owns the final automated revalidation scope for the inline-resolved client selection-parity fix recorded in review pass `0000055-20260427T162828Z-c3fe57dc`.
+
+#### Addresses Findings
+
+- `finding-1` `current_repository`: Queue-blocked rows no longer remain visibly selected when they have dropped out of the actionable bulk-selection set; resolution commit `0a6342c3`; final automated proof for that inline minor fix is owned here before story closure.
+
+#### Subtasks
+
+1. [ ] Re-read the current clean review disposition state for pass `0000055-20260427T172059Z-7061f168`, the `## Minor Review Fixes` entry for `finding-1`, and the changed-file proof note tied to commit `0a6342c3`; confirm this task still owns the only remaining post-review-loop automated revalidation work before running the broader wrappers.
+2. [ ] Re-check that the affected-repository scope, resolved-finding coverage, and retained proof references still match the current review cycle after the automated wrappers finish, and record any wrapper-owned blocker honestly instead of reopening inline repair work in this task.
+
+#### Testing
+
+1. [ ] `Current Repository`: Run `npm run build:summary:client`.
+2. [ ] `Current Repository`: Run `npm run test:summary:client`.
+3. [ ] `Current Repository`: Run `npm run test:summary:e2e`.
+4. [ ] `Current Repository`: Run `npm run lint`.
+5. [ ] `Current Repository`: Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Planner follow-up on 2026-04-27 appended this task because the active review loop for pass `0000055-20260427T172059Z-7061f168` is now clean, still carries inline minor fix history for `finding-1`, and therefore needs one normal final automated revalidation owner before the story can close honestly.
+- The inline code repair and bounded local proof already landed earlier and remain documented in `## Minor Review Fixes`; this task owns only the broader final automated confidence check for the affected repository and must not reopen implementation unless a wrapper exposes a new honest blocker.

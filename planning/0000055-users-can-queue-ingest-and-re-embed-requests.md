@@ -16869,11 +16869,12 @@ No additional repositories are in scope for this review-created repair task.
 - `R2.` The chosen degraded-read behavior is explicit and consistent across `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, and `client/src/hooks/useIngestRoots.ts` instead of silently presenting queue state as healthy when it is not.
 - `R3.` The repair preserves the current Story 55 repository-list source-of-truth contract for queued visibility, including brand-new queued rows and blocked queue state, or surfaces an explicit degraded-read contract that the current REST, MCP, and client readers can expose honestly without inventing queued data.
 - `R4.` Focused proof covers the reviewed degraded-read path plus the normal queued-row producer contract so the fix does not regress healthy queue overlays while repairing the degraded one.
+- `R5.` Focused proof includes the exact high-risk interleaving where a brand-new queued start request exists before its first ingest run materializes, so the repaired degraded-read contract is proved on the reviewed waiting-before-first-run path instead of only on later steady-state rows.
 
 #### Proof Mapping
 
 - `P1.` degraded-read producer proof for `R1` and `R2`: proof owners are `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, and `client/src/hooks/useIngestRoots.ts`.
-- `P2.` focused server repo-list proof for `R3` and `R4`: proof homes are `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- `P2.` focused server repo-list proof for `R3`, `R4`, and `R5`: proof homes are `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
 - `P3.` client normalization compatibility proof for `R2` and `R3`: proof home is `client/src/test/ingestRoots.test.tsx` when the repaired server-facing contract changes the hook-visible shape or degraded-state rendering path.
 
 #### Risk Ownership
@@ -16885,6 +16886,7 @@ No additional repositories are in scope for this review-created repair task.
 
 - Shared producer contract proof required: the repo-list producer and its mirrored REST, MCP, and client readers must agree on the same degraded-read behavior.
 - Queue-visibility contract proof required: healthy waiting or running rows must remain visible, while unavailable queue data must surface as degradation instead of vanishing behind an empty overlay.
+- Ordering proof required: the brand-new queued row that exists before its first ingest run document appears must stay covered by the repaired contract, because later steady-state queue rows would not prove the reviewed defect is gone.
 - Likely blocker family: product or story seam unless a focused proof owner reveals a shared wrapper or baseline issue instead.
 
 #### Documentation Locations
@@ -16901,7 +16903,7 @@ No additional repositories are in scope for this review-created repair task.
 
 1. [ ] Re-read `listIngestedRepositories(...)`, the queue-row synthesis helpers it calls, the mirrored REST and MCP readers, the client hook normalization surface, and the stored review artifacts for pass `0000055-20260427T120554Z-cfc8af21`; in the first implementation note for this task, name the exact degraded-read contract the patch will enforce and stop for blocker review if those seams still imply conflicting behaviors.
 2. [ ] Repair the shared repo-list producer seam in `server/src/lmstudio/toolService.ts` and only the directly dependent same-repository readers that need it so a Mongo-disconnected queue read no longer falls back to `[]`, healthy queued rows remain visible when their data is available, and unavailable queue data is surfaced as explicit degradation rather than silent emptiness.
-3. [ ] Extend `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts` or the nearest same-seam proof owners so one focused proof covers the degraded queue-read contract and one focused proof covers the still-healthy queued-row contract.
+3. [ ] Extend `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts` or the nearest same-seam proof owners so one focused proof covers the exact waiting-before-first-run degraded queue-read contract and one focused proof covers the still-healthy queued-row contract after the repair.
 4. [ ] If the repaired degraded-read contract changes the hook-visible shape or degraded-state rendering path, update `client/src/test/ingestRoots.test.tsx` or the nearest same-seam client proof owner so the client normalization surface stays aligned with the repaired server contract.
 5. [ ] Refresh only the current review-cycle summary surfaces that describe proof ownership for review pass `0000055-20260427T120554Z-cfc8af21` if the repair changes which focused proof owners or retained proof homes now demonstrate `finding-1`.
 
@@ -16989,7 +16991,7 @@ No additional repositories are in scope for this review cycle. The current findi
 
 #### Manual Testing Guidance
 
-Optional later manual follow-up can reuse the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` after the automated proof passes. If runtime-visible queue degradation behavior, queued-row persistence, or repo-list error surfacing needs later browser confirmation, capture raw runtime output under ignored `codeInfoTmp/manual-testing/0000055/` first and promote only bounded reviewer-facing summaries or screenshots into `codeInfoStatus/manual-testing/0000055/`. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory and then transfer only the retained reviewer-facing files into the story proof home.
+Optional later manual follow-up can reuse the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` after the automated proof passes. The supported env inputs are `server/.env` and `server/.env.local`; mounted ingest-path validation still depends on `CODEINFO_HOST_INGEST_DIR` reaching the container-side `CODEINFO_CODEX_WORKDIR`; readiness should come from the compose health checks plus `GET /health`; and the expected ports remain `http://localhost:5001` for the client, `http://localhost:5010` for the main server, `http://localhost:5011` and `http://localhost:5012` for the secondary MCP services, and `http://localhost:8932/mcp` for Playwright MCP. If runtime-visible queue degradation behavior, queued-row persistence, or repo-list error surfacing needs later browser confirmation, use the existing Story 55 queue fixtures and stage raw runtime output under ignored `codeInfoTmp/manual-testing/0000055/` first, then promote only bounded reviewer-facing summaries or screenshots into `codeInfoStatus/manual-testing/0000055/`. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory and then transfer only the retained reviewer-facing files into the story proof home.
 
 #### Implementation Notes
 

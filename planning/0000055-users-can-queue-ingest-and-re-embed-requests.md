@@ -16444,8 +16444,8 @@ Repair the shared pre-run `runReingestRepository(...)` contract seam so both unr
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/ingest-reembed.test.ts`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/ingest-reembed.test.ts`.
 
 #### Implementation Notes
 
@@ -16456,6 +16456,8 @@ Repair the shared pre-run `runReingestRepository(...)` contract seam so both unr
 - 2026-04-27: Updated `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts` with dedicated model-unavailable envelope cases so both MCP surfaces now claim the repaired structured tool-error contract explicitly instead of relying on adjacent queue-outage coverage.
 - 2026-04-27: Updated `server/src/test/integration/commands.reingest.test.ts` and `server/src/test/integration/flows.run.command.test.ts` with dedicated pre-run `OPENAI_MODEL_UNAVAILABLE` propagation cases so commands and flow callers prove they receive a structured failure result instead of a thrown exception.
 - 2026-04-27: Updated `server/src/test/integration/ingest-reembed.test.ts` with dedicated route-parity cases for admission-time `OPENAI_MODEL_UNAVAILABLE` and whitespace-root ordering before repo-list I/O; the REST surface keeps its existing `NOT_FOUND` malformed-root contract while still proving the ordering-sensitive dependency guard.
+- 2026-04-27: Ran `npm run test:summary:server:unit -- --file server/src/test/unit/reingestService.test.ts --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the targeted wrapper passed cleanly with `tests run: 77`, `passed: 77`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T05-51-57-174Z.log`.
+- 2026-04-27: Ran `npm run test:summary:server:unit -- --file server/src/test/integration/commands.reingest.test.ts --file server/src/test/integration/flows.run.command.test.ts --file server/src/test/integration/ingest-reembed.test.ts`; the targeted wrapper passed cleanly with `tests run: 75`, `passed: 75`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T05-52-37-303Z.log`.
 
 ### Task 204. Re-Validate Story 55 After Review Pass `0000055-20260427T044024Z-13acd3c1`
 

@@ -72,6 +72,12 @@ A finding is minor-batchable only when all of these are true:
 - It is not ambiguous, disputed, blocked on missing capability, or dependent on another unimplemented finding.
 - It can be checked with bounded local automated proof in the owning repository, including a small test update or one or two new focused tests when needed.
 - Broader cross-repository proof and later manual testing may be deferred to the final revalidation task and do not by themselves disqualify an otherwise bounded finding from the minor path.
+- Cross-surface error-classification or error-mapping findings are task-required by default.
+- Exception: classify a cross-surface error-classification or error-mapping finding as minor-batchable only when all of these are clearly true:
+  - The intended error or result contract is already clearly established elsewhere in the same repository.
+  - The reviewed finding is a bounded outlier path that is merely failing to follow that already-established same-repository contract.
+  - The repair is likely limited to one clear seam, such as one helper, one route, one service branch, or one caller catch/mapping path, plus one or two focused tests.
+  - The fix does not require choosing between competing public contracts, redefining the meaning of an existing error code, or coordinating multiple surfaces that currently disagree in a materially different way.
 
 Useful examples:
 

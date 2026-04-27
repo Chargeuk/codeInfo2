@@ -18,7 +18,7 @@
       "notes": "Passed with 12/12 after replacing the fixed-delay queue replay polling with deterministic attempt/start/terminal waiters in the cucumber step harness; log test-results/server-cucumber-tests-2026-04-27T17-14-14-269Z.log."
     }
   ],
-  "commit_sha": null,
+  "commit_sha": "7666a620",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

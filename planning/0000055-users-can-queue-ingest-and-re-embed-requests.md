@@ -16652,7 +16652,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `204`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-2`: Story 55 needs one explicit retained-proof contract so the bounded tracked proof home in `codeInfoStatus/manual-testing/0000055/` no longer reads like disposable runtime scratch and the raw runtime bulk is clearly rehomed under ignored `codeInfoTmp/manual-testing/0000055/`.
 

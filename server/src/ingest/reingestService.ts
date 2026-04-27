@@ -334,9 +334,13 @@ function normalizeRepoEmbeddingModel(value: unknown) {
 }
 
 function resolveQueuedReingestSelection(repo: RepoEntry) {
-  const canonicalProvider = normalizeRepoEmbeddingProvider(repo.embeddingProvider);
+  const canonicalProvider = normalizeRepoEmbeddingProvider(
+    repo.embeddingProvider,
+  );
   const canonicalModel = normalizeRepoEmbeddingModel(repo.embeddingModel);
-  const lockProvider = normalizeRepoEmbeddingProvider(repo.lock?.embeddingProvider);
+  const lockProvider = normalizeRepoEmbeddingProvider(
+    repo.lock?.embeddingProvider,
+  );
   const lockModel = normalizeRepoEmbeddingModel(repo.lock?.embeddingModel);
 
   if (canonicalProvider === 'openai' && canonicalModel === null) {
@@ -347,10 +351,16 @@ function resolveQueuedReingestSelection(repo: RepoEntry) {
 
   const provider = lockProvider ?? canonicalProvider ?? repo.embeddingProvider;
   const embeddingModel =
-    lockModel ?? canonicalModel ?? repo.lock?.embeddingModel ?? repo.embeddingModel;
+    lockModel ??
+    canonicalModel ??
+    repo.lock?.embeddingModel ??
+    repo.embeddingModel;
 
   if (provider === 'openai') {
-    if (typeof embeddingModel !== 'string' || embeddingModel.trim().length === 0) {
+    if (
+      typeof embeddingModel !== 'string' ||
+      embeddingModel.trim().length === 0
+    ) {
       throw new InvalidLockMetadataError(
         'OpenAI re-embed metadata is partially populated',
       );
@@ -368,7 +378,9 @@ function resolveQueuedReingestSelection(repo: RepoEntry) {
   return {
     provider,
     embeddingModel:
-      typeof embeddingModel === 'string' ? embeddingModel : String(embeddingModel ?? ''),
+      typeof embeddingModel === 'string'
+        ? embeddingModel
+        : String(embeddingModel ?? ''),
   };
 }
 

@@ -54,7 +54,7 @@ function HookQueueReadDegradedHarness() {
   if (isLoading) return <div>loading</div>;
   return (
     <>
-      <div data-testid="hard-error">{isError ? error ?? '' : ''}</div>
+      <div data-testid="hard-error">{isError ? (error ?? '') : ''}</div>
       <div data-testid="queue-read-warning">{error ?? ''}</div>
       <ul>
         {roots.map((root) => (

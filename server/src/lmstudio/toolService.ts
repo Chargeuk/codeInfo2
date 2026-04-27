@@ -110,7 +110,9 @@ export const INGEST_REPO_SCHEMA_VERSION = INGEST_ROOTS_SCHEMA_VERSION;
 const QUEUE_READ_DEGRADED_MESSAGE =
   'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.';
 
-function buildQueueReadDegradedError(): NonNullable<ListReposResult['queueReadError']> {
+function buildQueueReadDegradedError(): NonNullable<
+  ListReposResult['queueReadError']
+> {
   return {
     error: 'QUEUE_READ_DEGRADED',
     message: QUEUE_READ_DEGRADED_MESSAGE,

@@ -401,8 +401,8 @@ export function useIngestRoots(): State {
       const queueReadDegraded = data.queueReadDegraded === true;
       const queueReadError = normalizeError(data.queueReadError);
       const queueReadMessage = queueReadDegraded
-        ? normalizeLastError(undefined, queueReadError) ??
-          'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.'
+        ? (normalizeLastError(undefined, queueReadError) ??
+          'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.')
         : undefined;
 
       if (activeRequestIdRef.current !== requestId) {

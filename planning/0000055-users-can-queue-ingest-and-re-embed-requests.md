@@ -17002,17 +17002,17 @@ No additional repositories are in scope for this review cycle. The current findi
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:server:cucumber`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e`.
-7. [ ] Run `npm run compose:build:summary`.
-8. [ ] Run `npm run compose:up`.
-9. [ ] Run `npm run compose:down`.
-10. [ ] Run `npm run lint`.
-11. [ ] Run `npm run format:check`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run test:summary:server:cucumber`.
+5. [x] Run `npm run test:summary:client`.
+6. [x] Run `npm run test:summary:e2e`.
+7. [x] Run `npm run compose:build:summary`.
+8. [x] Run `npm run compose:up`.
+9. [x] Run `npm run compose:down`.
+10. [x] Run `npm run lint`.
+11. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -17024,3 +17024,14 @@ Optional later manual follow-up can reuse the supported main stack from the repo
 - 2026-04-27: Subtask 1 re-read the current findings block, `## Minor Review Fixes`, `codeInfoStatus/flow-state/review-disposition-state.json`, and Task `208`'s completed proof-owner section. `python3 scripts/plan_status.py --task-number 208` confirmed Task `208` is `__done__` with zero unchecked subtasks, zero unchecked testing items, and no live blockers before this final summary refresh began.
 - 2026-04-27: Subtask 2 refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` to the active `0000055-20260427T120554Z-cfc8af21` final revalidation cycle. The summary now names Task `208`, inline-resolved `finding-2`, the retained focused proof homes, the broad Task `209` build or test or e2e or compose or lint or format proof homes, and the explicit no-additional-repository plus automated-e2e browser-coverage applicability statement without claiming those broad wrappers have already run.
 - 2026-04-27: Subtask 3 re-opened the current findings block, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` and verified they agree on review pass `0000055-20260427T120554Z-cfc8af21`, review-created Tasks `208` and `209`, inline-resolved `finding-2`, and the ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+- 2026-04-27: Testing step 1 passed via `npm run build:summary:server` with `status: passed`, `warning_count: 0`, and retained log `logs/test-summaries/build-server-latest.log`. The server build wrapper stayed clean, so no baseline repair was required before broader final validation continued.
+- 2026-04-27: Testing step 2 passed via `npm run build:summary:client` with `status: passed`, `warning_count: 0`, and retained log `logs/test-summaries/build-client-latest.log`. The client typecheck-plus-build wrapper stayed clean, so the final pass could move on to the full regression suites without a front-end baseline repair.
+- 2026-04-27: Testing step 3 passed via `npm run test:summary:server:unit` (`1817` run, `1817` passed, `0` failed; log `test-results/server-unit-tests-2026-04-27T15-25-27-433Z.log`). The full server unit wrapper stayed clean across the Story 55 final revalidation surface, so no task-owned server baseline repair was required before cucumber coverage.
+- 2026-04-27: Testing step 4 passed via `npm run test:summary:server:cucumber` (`117` run, `117` passed, `0` failed; log `test-results/server-cucumber-tests-2026-04-27T15-42-27-095Z.log`). The full server feature suite stayed clean, so the final review-cycle proof could move on to the broader client and browser surfaces without a server cucumber repair.
+- 2026-04-27: Testing step 5 passed via `npm run test:summary:client` (`713` run, `713` passed, `0` failed; log `test-results/client-tests-2026-04-27T15-44-17-459Z.log`). The full client wrapper stayed clean, so the final pass kept browser-visible proof ownership on the supported automated e2e surface rather than needing a client-suite repair.
+- 2026-04-27: Testing step 6 passed via `npm run test:summary:e2e` (`60` run, `60` passed, `0` failed; log `logs/test-summaries/e2e-tests-latest.log`). The supported automated browser wrapper stayed clean and emitted `DEV-0000050:T13:e2e_host_network_config_verified`, so browser-visible proof remains satisfied by the repository-supported e2e surface without manual-only follow-up.
+- 2026-04-27: Testing step 7 passed via `npm run compose:build:summary` (`2` items passed, `0` failed; log `logs/test-summaries/compose-build-latest.log`). The compose build wrapper stayed clean and emitted `DEV-0000050:T10:image_runtime_assets_baked`, so the final smoke proof could proceed to compose startup without a container-build repair.
+- 2026-04-27: Testing step 8 passed via `npm run compose:up` after `DEV-0000050:T09:compose_preflight_result` reported `result:\"passed\"`. Mongo reached `Healthy`, the server reached `Healthy`, and the client started cleanly, so the final compose smoke proof advanced to the required shutdown checkpoint without runtime repair.
+- 2026-04-27: Testing step 9 passed via `npm run compose:down`. The smoke stack stopped cleanly, removed the runtime containers and internal network, and returned the repository to its prior stopped state without shutdown repair.
+- 2026-04-27: Testing step 10 passed via `npm run lint` with a clean exit and no warnings. Repository hygiene stayed intact, so the final pass could finish on the formatting gate without a lint repair.
+- 2026-04-27: Testing step 11 passed via `npm run format:check` after one bounded baseline repair. The first rerun failed with a Node heap OOM inside the root `prettier . --check` script, so `package.json` now raises `NODE_OPTIONS=--max-old-space-size=8192` for the root format scripts and a targeted `npx prettier --write` normalized `client/src/hooks/useIngestRoots.ts`, `client/src/test/ingestRoots.test.tsx`, and `server/src/lmstudio/toolService.ts`; the final rerun ended with `All matched files use Prettier code style!`.

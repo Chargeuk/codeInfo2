@@ -16053,7 +16053,7 @@ Add the missing runtime-facing bridge between the supported mixed-shape seed fro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196, 198, 199`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -16154,6 +16154,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Repaired the reopened Task 200 proof build by tightening the typed metadata handoff in `server/src/lmstudio/toolService.ts` and the bridge-style integration fixture literal types, then reran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`; the targeted owner proof passed cleanly with `69 passed, 0 failed`.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`; the reopened bridge-style REST proof passed cleanly with `5 passed, 0 failed`, confirming the failed exact-source re-embed attempt leaves the mixed-shape row visible on later `/ingest/roots` inspection.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the reopened bridge-style classic MCP and MCP2 transport proof rerun passed cleanly with `36 passed, 0 failed`, confirming the real selector path now stays on the shared mixed-shape invalid-state result instead of drifting to `NOT_FOUND`.
+- Implementation-plus-automated-proof audit on 2026-04-27 re-read the current handoffs and this exact task from disk, confirmed all thirteen subtasks and all three reopened automated proof steps are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.
 
 #### Manual Testing Guidance
 

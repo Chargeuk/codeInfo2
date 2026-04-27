@@ -42,6 +42,15 @@ export type FlowBreakStep = {
   breakOn: 'yes' | 'no';
 };
 
+export type FlowContinueStep = {
+  type: 'continue';
+  label?: string;
+  agentType: string;
+  identifier: string;
+  question: string;
+  continueOn: 'yes' | 'no';
+};
+
 export type FlowCommandStep = {
   type: 'command';
   label?: string;
@@ -59,6 +68,7 @@ export type FlowStep =
   | FlowStartLoopStep
   | FlowLlmStep
   | FlowBreakStep
+  | FlowContinueStep
   | FlowCommandStep
   | FlowReingestStep;
 
@@ -106,6 +116,17 @@ const FlowBreakStepSchema = z
   })
   .strict();
 
+const FlowContinueStepSchema = z
+  .object({
+    type: z.literal('continue'),
+    label: trimmedNonEmptyString.optional(),
+    agentType: trimmedNonEmptyString,
+    identifier: trimmedNonEmptyString,
+    question: trimmedNonEmptyString,
+    continueOn: z.union([z.literal('yes'), z.literal('no')]),
+  })
+  .strict();
+
 const FlowCommandStepSchema = z
   .object({
     type: z.literal('command'),
@@ -145,6 +166,7 @@ function flowStepUnionSchema() {
     FlowStartLoopStepSchema,
     FlowLlmStepSchema,
     FlowBreakStepSchema,
+    FlowContinueStepSchema,
     FlowCommandStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,

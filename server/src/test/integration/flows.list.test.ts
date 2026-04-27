@@ -124,6 +124,7 @@ describe('GET /flows', () => {
         'invalid-schema',
         'llm-basic',
         'loop-break',
+        'loop-continue',
         'multi-agent',
         'valid-flow',
       ]);

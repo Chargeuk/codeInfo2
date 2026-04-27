@@ -380,6 +380,23 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
+  test('continueOn only accepts yes or no', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'continue',
+          agentType: 'planning_agent',
+          identifier: 'loop',
+          question: 'Skip?',
+          continueOn: 'maybe',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
   test('llm requires agentType, identifier, and an instruction source', () => {
     const json = JSON.stringify({
       steps: [
@@ -411,6 +428,22 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
+  test('continue requires agentType, identifier, question, and continueOn', () => {
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'continue',
+          agentType: 'planning_agent',
+          identifier: 'loop',
+          continueOn: 'yes',
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
   test('command requires agentType, identifier, and commandName', () => {
     const json = JSON.stringify({
       steps: [
@@ -424,6 +457,29 @@ describe('flow schema (v1)', () => {
 
     const parsed = parseFlowFile(json);
     assert.equal(parsed.ok, false);
+  });
+
+  test('continue steps parse when they use the expected shape', () => {
+    const json = JSON.stringify({
+      description: 'Loop flow',
+      steps: [
+        {
+          type: 'startLoop',
+          steps: [
+            {
+              type: 'continue',
+              agentType: 'planning_agent',
+              identifier: 'loop',
+              question: 'Skip?',
+              continueOn: 'yes',
+            },
+          ],
+        },
+      ],
+    });
+
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
   });
 
   test('messages require role user and non-empty content strings', () => {

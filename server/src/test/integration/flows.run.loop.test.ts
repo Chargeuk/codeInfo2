@@ -377,6 +377,89 @@ test('flow loops until break answer matches breakOn', async () => {
   );
 });
 
+test('continue step skips remaining iteration steps and starts the next iteration', async () => {
+  let continueCount = 0;
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Skip remaining loop steps?')) {
+        continueCount += 1;
+        return JSON.stringify({
+          answer: continueCount === 1 ? 'yes' : 'no',
+        });
+      }
+      if (message.includes('Exit outer loop?')) {
+        return JSON.stringify({ answer: 'yes' });
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-continue-conv-1';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-continue/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      assert.equal(final.status, 'ok');
+      const turns = memoryTurns.get(conversationId) ?? [];
+      const outerLoopTurns = turns.filter(
+        (turn) =>
+          turn.role === 'user' && turn.content.includes('Outer loop step.'),
+      );
+      const continueTurns = turns.filter(
+        (turn) =>
+          turn.role === 'user' &&
+          turn.content.includes('Skip remaining loop steps?'),
+      );
+      const postContinueTurns = turns.filter(
+        (turn) =>
+          turn.role === 'user' &&
+          turn.content.includes('Reached post-continue step.'),
+      );
+      const breakTurns = turns.filter(
+        (turn) =>
+          turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+      );
+      const decisionAnswers = turns.filter(
+        (turn) =>
+          turn.role === 'assistant' && turn.content.includes('"answer"'),
+      );
+
+      assert.equal(outerLoopTurns.length, 2);
+      assert.equal(continueTurns.length, 2);
+      assert.equal(postContinueTurns.length, 1);
+      assert.equal(breakTurns.length, 1);
+      assert.equal(decisionAnswers.length, 3);
+      assert.equal(continueCount, 2);
+      const agentConversationId = getAgentConversationId(
+        conversationId,
+        'coding_agent:outer',
+      );
+      await cleanupConversationRuntime(conversationId, agentConversationId);
+    },
+  );
+});
+
 test('break step fails on invalid JSON response', async () => {
   await withFlowServer(
     (message) => {

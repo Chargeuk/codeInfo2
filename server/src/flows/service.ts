@@ -93,6 +93,7 @@ import {
   parseFlowFile,
   type FlowFile,
   type FlowBreakStep,
+  type FlowContinueStep,
   type FlowCommandStep,
   type FlowLlmStep,
   type FlowReingestStep,
@@ -842,7 +843,12 @@ const joinMessageContent = (content: string[]) => content.join('\n');
 type FlowTurnCommandMetadata = Extract<TurnCommandMetadata, { name: 'flow' }>;
 
 const buildFlowCommandMetadata = (params: {
-  step: FlowLlmStep | FlowBreakStep | FlowCommandStep | FlowReingestStep;
+  step:
+    | FlowLlmStep
+    | FlowBreakStep
+    | FlowContinueStep
+    | FlowCommandStep
+    | FlowReingestStep;
   stepIndex: number;
   totalSteps: number;
   loopDepth: number;
@@ -1638,7 +1644,7 @@ const emitStoppedFlowStep = async (params: {
   });
 };
 
-type FlowStepOutcome = TurnStatus | 'break';
+type FlowStepOutcome = TurnStatus | 'break' | 'continue';
 
 type LoopFrame = {
   loopStepPath: number[];
@@ -1949,11 +1955,12 @@ export const parseBreakAnswer = (
 
 const findFirstAgentStep = (
   steps: FlowStep[],
-): FlowLlmStep | FlowBreakStep | FlowCommandStep | undefined => {
+): FlowLlmStep | FlowBreakStep | FlowContinueStep | FlowCommandStep | undefined => {
   for (const step of steps) {
     if (
       step.type === 'llm' ||
       step.type === 'break' ||
+      step.type === 'continue' ||
       step.type === 'command'
     ) {
       return step;
@@ -2807,6 +2814,98 @@ async function runFlowUnlocked(params: {
     };
   };
 
+  const runContinueStep = async (
+    step: FlowContinueStep,
+    command: TurnCommandMetadata,
+  ): Promise<{
+    status: TurnStatus;
+    shouldContinue: boolean;
+  }> => {
+    let continueAnswer: 'yes' | 'no' | undefined;
+    const instruction = [
+      'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
+      `Question: ${step.question}`,
+    ].join('\n');
+
+    const result = await runInstruction({
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instruction,
+      deferFinal: true,
+      command,
+      postProcess: (candidate) => {
+        const parsed = parseBreakAnswer(candidate.content);
+        parsed.attempts.forEach((attempt) => {
+          append({
+            level: 'info',
+            message: 'DEV-0000036:T4:continue_parse_strategy_attempted',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              strategy: attempt.strategy,
+              candidateCount: attempt.candidateCount,
+            },
+          });
+        });
+        append({
+          level: parsed.ok ? 'info' : 'warn',
+          message: 'DEV-0000036:T4:continue_parse_result',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            accepted: parsed.ok,
+            reasonCode: parsed.reasonCode,
+          },
+        });
+
+        if (!parsed.ok) {
+          return {
+            status: 'failed',
+            content: parsed.message,
+            finalOverride: {
+              status: 'failed',
+              error: {
+                code: 'INVALID_CONTINUE_RESPONSE',
+                message: parsed.message,
+              },
+            },
+          };
+        }
+
+        continueAnswer = parsed.answer;
+        return {
+          content: parsed.normalizedContent,
+        };
+      },
+    });
+
+    if (shouldStopAfter(result.status)) {
+      return { status: result.status, shouldContinue: false };
+    }
+
+    if (!continueAnswer) {
+      return { status: 'failed', shouldContinue: false };
+    }
+
+    append({
+      level: 'info',
+      message: 'flows.run.continue_decision',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        answer: continueAnswer,
+        continueOn: step.continueOn,
+        loopDepth: loopStack.length,
+      },
+    });
+
+    return {
+      status: 'ok',
+      shouldContinue: continueAnswer === step.continueOn,
+    };
+  };
+
   const runCommandStep = async (
     step: FlowCommandStep,
     command: TurnCommandMetadata,
@@ -3240,6 +3339,9 @@ async function runFlowUnlocked(params: {
       loopFrame.iteration += 1;
       const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
       if (resumeForLoop) resumeForLoop = null;
+      if (outcome === 'continue') {
+        continue;
+      }
       if (outcome === 'break') {
         loopStack.pop();
         break;
@@ -3384,6 +3486,48 @@ async function runFlowUnlocked(params: {
           workingFolder: params.repositoryContext.workingRepositoryPath,
         });
         if (shouldBreak) return 'break';
+        continue;
+      }
+
+      if (step.type === 'continue') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const { status, shouldContinue } = await runContinueStep(step, command);
+        if (shouldStopAfter(status)) {
+          await persistFlowResumeState({
+            conversationId: params.conversationId,
+            executionId: params.executionId,
+            runtimeState,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
+          });
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        await persistFlowResumeState({
+          conversationId: params.conversationId,
+          executionId: params.executionId,
+          runtimeState,
+          stepPath: lastCompletedStepPath,
+          loopStack,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
+        });
+        if (shouldContinue) return 'continue';
         continue;
       }
 

@@ -16857,24 +16857,59 @@ Inline-resolved minor findings already handled in this active review cycle:
 
 Repair the shared repo-list producer so Mongo-degraded reads do not silently collapse queue-owned repository visibility. The fix must keep the Story 55 source-of-truth contract honest for queued rows, especially brand-new queued start requests that exist only in Mongo, and must make the degraded outcome explicit rather than silently presenting a clean empty queue overlay.
 
+#### Affected Repositories
+
+- `Current Repository`: owns the shared repo-list producer, mirrored REST and MCP readers, current client normalization surface, and the focused proof owners for this findings block.
+
+No additional repositories are in scope for this review-created repair task.
+
 #### Task Exit Criteria
 
 - `R1.` `server/src/lmstudio/toolService.ts` no longer replaces the queue overlay with a silent empty array in the reviewed Mongo-disconnected path when doing so would hide queued repository rows or queue-read degradation.
-- `R2.` The chosen degraded-read behavior is explicit and consistent across the shared repo-list producer and its mirrored REST or MCP consumers for this story, rather than silently presenting queue state as healthy when it is not.
-- `R3.` The repair preserves the current Story 55 repository-list source-of-truth contract for queued visibility, including brand-new queued rows and blocked queue state, or fails with an explicit contract that the current consumers can surface honestly.
+- `R2.` The chosen degraded-read behavior is explicit and consistent across `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, and `client/src/hooks/useIngestRoots.ts` instead of silently presenting queue state as healthy when it is not.
+- `R3.` The repair preserves the current Story 55 repository-list source-of-truth contract for queued visibility, including brand-new queued rows and blocked queue state, or surfaces an explicit degraded-read contract that the current REST, MCP, and client readers can expose honestly without inventing queued data.
 - `R4.` Focused proof covers the reviewed degraded-read path plus the normal queued-row producer contract so the fix does not regress healthy queue overlays while repairing the degraded one.
+
+#### Proof Mapping
+
+- `P1.` degraded-read producer proof for `R1` and `R2`: proof owners are `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, and `client/src/hooks/useIngestRoots.ts`.
+- `P2.` focused server repo-list proof for `R3` and `R4`: proof homes are `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- `P3.` client normalization compatibility proof for `R2` and `R3`: proof home is `client/src/test/ingestRoots.test.tsx` when the repaired server-facing contract changes the hook-visible shape or degraded-state rendering path.
+
+#### Risk Ownership
+
+- Highest-risk invariant: brand-new queued start requests must not disappear from the repository-list source of truth merely because the queue read path cannot reach Mongo at that moment.
+- If the reviewed seams cannot preserve queued visibility from available queue data, they must surface explicit degradation rather than silently pretending the queue is empty and healthy.
+
+#### High-Risk Invariants And Blocker Family
+
+- Shared producer contract proof required: the repo-list producer and its mirrored REST, MCP, and client readers must agree on the same degraded-read behavior.
+- Queue-visibility contract proof required: healthy waiting or running rows must remain visible, while unavailable queue data must surface as degradation instead of vanishing behind an empty overlay.
+- Likely blocker family: product or story seam unless a focused proof owner reveals a shared wrapper or baseline issue instead.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoTmp/reviews/0000055-20260427T120554Z-cfc8af21-findings.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/routes/ingestRoots.ts`
+- `server/src/mcp/server.ts`
+- `client/src/hooks/useIngestRoots.ts`
 
 #### Subtasks
 
-1. [ ] Re-read the reviewed degraded-read producer seam in `server/src/lmstudio/toolService.ts`, the mirrored readers in `server/src/routes/ingestRoots.ts` and `server/src/mcp/server.ts`, the current repo-list normalization in `client/src/hooks/useIngestRoots.ts`, and the review artifacts for pass `0000055-20260427T120554Z-cfc8af21` so the exact read-side contract for Mongo-degraded queue visibility is fixed before patching.
-2. [ ] Repair the shared repo-list producer and any directly dependent same-repository consumer seam so Mongo-degraded reads no longer silently hide queued rows or queue-read degradation behind an empty overlay, keeping the Story 55 queue-visibility contract honest for queued repository rows.
-3. [ ] Extend or add focused same-repository proof owners for the degraded queue-read path and the normal queued-row path so the repaired producer contract is directly asserted in code instead of remaining implied by healthy-only coverage.
-4. [ ] Update the current review-cycle summary surfaces that describe proof ownership for this findings block if the repaired degraded-read contract changes which focused proof owners or retained proof homes now demonstrate the fix.
+1. [ ] Re-read `listIngestedRepositories(...)`, the queue-row synthesis helpers it calls, the mirrored REST and MCP readers, the client hook normalization surface, and the stored review artifacts for pass `0000055-20260427T120554Z-cfc8af21`; in the first implementation note for this task, name the exact degraded-read contract the patch will enforce and stop for blocker review if those seams still imply conflicting behaviors.
+2. [ ] Repair the shared repo-list producer seam in `server/src/lmstudio/toolService.ts` and only the directly dependent same-repository readers that need it so a Mongo-disconnected queue read no longer falls back to `[]`, healthy queued rows remain visible when their data is available, and unavailable queue data is surfaced as explicit degradation rather than silent emptiness.
+3. [ ] Extend `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts` or the nearest same-seam proof owners so one focused proof covers the degraded queue-read contract and one focused proof covers the still-healthy queued-row contract.
+4. [ ] If the repaired degraded-read contract changes the hook-visible shape or degraded-state rendering path, update `client/src/test/ingestRoots.test.tsx` or the nearest same-seam client proof owner so the client normalization surface stays aligned with the repaired server contract.
+5. [ ] Refresh only the current review-cycle summary surfaces that describe proof ownership for review pass `0000055-20260427T120554Z-cfc8af21` if the repair changes which focused proof owners or retained proof homes now demonstrate `finding-1`.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/tools-ingested-repos.test.ts --file server/src/test/unit/ingest-roots-dedupe.test.ts`.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp-ingested-repositories.test.ts`.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx`.
 
 #### Implementation Notes
 
@@ -16903,8 +16938,8 @@ No additional repositories are in scope for this review cycle. The current findi
 
 - `R1.` Task `208` is `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
 - `R2.` The current `Code Review Findings` block for review pass `0000055-20260427T120554Z-cfc8af21` still matches `codeInfoStatus/flow-state/review-disposition-state.json`, including task-required `finding-1`, inline-resolved minor `finding-2`, and this task's ownership of final revalidation for the cycle.
-- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this review cycle: supported server build, full server unit wrapper, full server cucumber wrapper, supported client test wrapper, lint, and format.
-- `R4.` The final pass records explicitly that no additional repository proof category applies to this review cycle.
+- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this review cycle: supported server build, supported client build, full server unit wrapper, full server cucumber wrapper, supported client test wrapper, supported compose build-plus-up/down smoke, lint, and format.
+- `R4.` The final pass records explicitly that no additional repository, browser-only, or end-to-end proof category applies to this review cycle.
 - `R5.` `review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title`, keeps `final_revalidation_owned_by_task_up_path: true`, and leaves `needs_final_minor_fix_revalidation_task: false`.
 - `R6.` If a broad proof surface fails outside Task `208` or the already-resolved inline minor seam, the final pass records that blocker honestly as shared wrapper, baseline, or runtime ownership instead of mutating this findings block into catch-all retries.
 
@@ -16913,28 +16948,48 @@ No additional repositories are in scope for this review cycle. The current findi
 - `P1.` dependency-completion proof for `R1`: proof home is parser output for Task `208` plus its checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
 - `P2.` findings-block and review-loop ownership proof for `R2` and `R5`: proof homes are this `Code Review Findings` block, `codeInfoStatus/flow-state/review-disposition-state.json`, `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, and `## Minor Review Fixes`.
 - `P3.` supported server-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-server-latest.log`.
-- `P4.` full server automated regression proof for `R3`: proof homes are the latest `test-results/server-unit-tests-*.log` and the latest `test-results/server-cucumber-tests-*.log`.
-- `P5.` current client regression proof for `R3`: proof homes are the latest `test-results/client-tests-*.log` and `test-results/client-tests-*.json`.
-- `P6.` repository-hygiene proof for `R3` and applicability proof for `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary that records why no cross-repository proof category applied to this review cycle.
+- `P4.` supported client-build proof for `R3`: proof home is `logs/test-summaries/build-client-latest.log`.
+- `P5.` full server automated regression proof for `R3`: proof homes are the latest `test-results/server-unit-tests-*.log` and the latest `test-results/server-cucumber-tests-*.log`.
+- `P6.` current client regression proof for `R3`: proof homes are the latest `test-results/client-tests-*.log` and `test-results/client-tests-*.json`.
+- `P7.` supported compose build-and-smoke proof for `R3`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P8.` repository-hygiene proof for `R3` and applicability proof for `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary that records why no additional repository, browser-only, or end-to-end proof category applied to this review cycle.
+
+#### High-Risk Invariants And Blocker Family
+
+- Final-proof breadth required: this review cycle must not close on Task `208`'s focused proofs alone; the final pass must rerun the supported broad wrappers that prove the repaired degraded-read contract still holds in the current repository.
+- Review-loop ownership proof required: this task must remain the one final revalidation owner for review pass `0000055-20260427T120554Z-cfc8af21`, including inline-resolved minor `finding-2`.
+- Applicability proof required: the final pass must say explicitly why no additional repository, browser-only, or end-to-end proof category was required instead of silently omitting them.
+- Likely blocker family: shared wrapper or baseline seam for broad validation, unless Task `208` leaves a remaining product-seam blocker open.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `codeInfoTmp/reviews/0000055-20260427T120554Z-cfc8af21-findings.md`
 
 #### Subtasks
 
-1. [ ] Re-read the current review findings block for pass `0000055-20260427T120554Z-cfc8af21`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entry for `finding-2`, and the completed proof-owner section for Task `208`; check off this subtask only after parser output shows Task `208` is `__done__` with no unchecked `Subtasks`, unchecked `Testing`, or live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a findings-to-proof map for review pass `0000055-20260427T120554Z-cfc8af21`, naming Task `208`, inline-resolved minor `finding-2`, the retained proof homes for build, server unit, server cucumber, client tests, lint, and format, and the explicit statement that no cross-repository proof category applied to this cycle.
-3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on review pass `0000055-20260427T120554Z-cfc8af21`, review-created Tasks `208` and `209`, inline-resolved minor `finding-2`, and the ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+1. [ ] Re-read the current review findings block for pass `0000055-20260427T120554Z-cfc8af21`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entry for `finding-2`, and the completed proof-owner section for Task `208`; check off this subtask only after parser or plan evidence shows Task `208` is `__done__` with no unchecked `Subtasks`, unchecked `Testing`, or live blockers.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a findings-to-proof map for review pass `0000055-20260427T120554Z-cfc8af21`, naming Task `208`, inline-resolved minor `finding-2`, the retained proof homes for server build, client build, server unit, server cucumber, client tests, compose build-plus-up/down smoke, lint, and format, and the explicit statement that no additional repository, browser-only, or end-to-end proof category applied to this cycle.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on review pass `0000055-20260427T120554Z-cfc8af21`, review-created Tasks `208` and `209`, inline-resolved minor `finding-2`, and the ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`; stop for blocker review if one source still points at a different final-task owner.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run test:summary:client`.
-5. [ ] Run `npm run lint`.
-6. [ ] Run `npm run format:check`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run compose:build:summary`.
+7. [ ] Run `npm run compose:up`.
+8. [ ] Run `npm run compose:down`.
+9. [ ] Run `npm run lint`.
+10. [ ] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
-Optional later manual follow-up can reuse the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` after the automated proof passes. If runtime-visible queue degradation behavior, queued-row persistence, or repo-list error surfacing needs later browser confirmation, capture raw runtime output under ignored `codeInfoTmp/manual-testing/0000055/` first and promote only bounded reviewer-facing summaries or screenshots into `codeInfoStatus/manual-testing/0000055/`.
+Optional later manual follow-up can reuse the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` after the automated proof passes. If runtime-visible queue degradation behavior, queued-row persistence, or repo-list error surfacing needs later browser confirmation, capture raw runtime output under ignored `codeInfoTmp/manual-testing/0000055/` first and promote only bounded reviewer-facing summaries or screenshots into `codeInfoStatus/manual-testing/0000055/`. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory and then transfer only the retained reviewer-facing files into the story proof home.
 
 #### Implementation Notes
 

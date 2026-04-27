@@ -1,0 +1,319 @@
+
+> codeinfo2@1.0.0 compose:build
+> bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file server/.env.local build
+
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.59kB done
+#1 DONE 0.0s
+
+#2 [server internal] load build definition from Dockerfile
+#2 transferring dockerfile:
+#2 transferring dockerfile: 8.14kB done
+#2 DONE 0.1s
+
+#3 [client internal] load build definition from Dockerfile
+#3 transferring dockerfile: 3.18kB 0.0s done
+#3 DONE 0.1s
+
+#4 [server] resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#4 DONE 0.5s
+
+#5 [client internal] load metadata for docker.io/library/node:22-slim
+#5 DONE 0.6s
+
+#6 [server] docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#6 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e done
+#6 CACHED
+
+#7 [server internal] load metadata for docker.io/library/node:22.21.1-slim
+#7 ...
+
+#8 [client internal] load .dockerignore
+#8 transferring context: 402B done
+#8 DONE 0.0s
+
+#9 [client build  1/13] FROM docker.io/library/node:22-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c
+#9 resolve docker.io/library/node:22-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c done
+#9 DONE 0.0s
+
+#7 [server internal] load metadata for docker.io/library/node:22.21.1-slim
+#7 DONE 0.2s
+
+#10 [server internal] load .dockerignore
+#10 transferring context: 402B done
+#10 DONE 0.0s
+
+#11 [server runtime  1/37] FROM docker.io/library/node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c
+#11 resolve docker.io/library/node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c done
+#11 DONE 0.0s
+
+#12 [server internal] load build context
+#12 ...
+
+#13 [client internal] load build context
+#13 transferring context: 13.49kB 0.8s done
+#13 DONE 0.8s
+
+#12 [server internal] load build context
+#12 transferring context: 41.98kB 0.6s done
+#12 DONE 0.7s
+
+#14 [client runtime  4/12] COPY --from=build /app/node_modules /app/node_modules
+#14 CACHED
+
+#15 [client build  2/13] WORKDIR /app
+#15 CACHED
+
+#16 [client build  6/13] COPY client/package*.json ./client/
+#16 CACHED
+
+#17 [client runtime 10/12] COPY --from=build /app/client/.codeinfo-client-build-override-state.env ./.codeinfo-client-build-override-state.env
+#17 CACHED
+
+#18 [client runtime  3/12] RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+#18 CACHED
+
+#19 [client build  5/13] COPY common/package*.json ./common/
+#19 CACHED
+
+#20 [client build  9/13] COPY common ./common
+#20 CACHED
+
+#21 [client runtime  7/12] COPY --from=build /app/client/vite.config.ts ./vite.config.ts
+#21 CACHED
+
+#22 [client build  7/13] COPY tsconfig*.json ./
+#22 CACHED
+
+#23 [client build  3/13] COPY package*.json ./
+#23 CACHED
+
+#24 [client build 13/13] RUN npm run build --workspace client
+#24 CACHED
+
+#25 [client build  4/13] COPY package-lock.json ./
+#25 CACHED
+
+#26 [client build 10/13] COPY client ./client
+#26 CACHED
+
+#27 [client runtime  8/12] COPY --from=build /app/client/src/config/previewAllowedHosts.ts ./src/config/previewAllowedHosts.ts
+#27 CACHED
+
+#28 [client runtime 11/12] COPY client/entrypoint.sh ./entrypoint.sh
+#28 CACHED
+
+#29 [client runtime  2/12] WORKDIR /app/client
+#29 CACHED
+
+#30 [client build 11/13] RUN set -eu;     if [ -n "" ]; then       echo "[CODEINFO][T04_BUILD][client] npm registry override enabled";       NPM_CONFIG_REGISTRY=""       NPM_CONFIG_FETCH_RETRIES="5"       NPM_CONFIG_FETCH_RETRY_FACTOR="2"       NPM_CONFIG_FETCH_RETRY_MINTIMEOUT="10000"       NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT="120000"       NPM_CONFIG_FETCH_TIMEOUT="300000"       npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund;     else       echo "[CODEINFO][T04_BUILD][client] npm registry override disabled";       NPM_CONFIG_FETCH_RETRIES="5"       NPM_CONFIG_FETCH_RETRY_FACTOR="2"       NPM_CONFIG_FETCH_RETRY_MINTIMEOUT="10000"       NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT="120000"       NPM_CONFIG_FETCH_TIMEOUT="300000"       npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund;     fi
+#30 CACHED
+
+#31 [client build 12/13] RUN set -eu;     client_npm_override="off";     if [ -n "" ]; then       client_npm_override="on";     fi;     printf 'CODEINFO_CLIENT_BUILD_OVERRIDE_STATE=client_npm=%s\n' "$client_npm_override"       > /app/client/.codeinfo-client-build-override-state.env
+#31 CACHED
+
+#32 [client build  8/13] COPY tsconfig.base.json ./
+#32 CACHED
+
+#33 [client runtime  5/12] COPY --from=build /app/common /app/common
+#33 CACHED
+
+#34 [client runtime  6/12] COPY --from=build /app/client/dist ./dist
+#34 CACHED
+
+#35 [client runtime  9/12] COPY --from=build /app/client/package*.json ./
+#35 CACHED
+
+#36 [client runtime 12/12] RUN chmod +x ./entrypoint.sh
+#36 CACHED
+
+#37 [client] exporting to image
+#37 exporting layers done
+#37 exporting manifest sha256:9fe4859ab1bd62b8e93bcf5b913ec5b0db7c54295162546d03d9948bf3b5c436 done
+#37 exporting config sha256:94d69c0ae08326bdbf97d1ac91edf0f4ecbd85b98e3bc94241c432ecd605d9e7 done
+#37 exporting attestation manifest sha256:92b9ae064ea2e02fb7def24499fb672254a6020066c50deac9328cba838017c1 done
+#37 exporting manifest list sha256:ff1f3541ebf06e13f4ad75f0a3acfd892b9174b3217811f0ce99864971233e18 done
+#37 naming to docker.io/library/codeinfo2-client:latest done
+#37 unpacking to docker.io/library/codeinfo2-client:latest done
+#37 DONE 0.1s
+
+#38 [server runtime  4/37] RUN apt-get update && apt-get install -y     curl     ca-certificates     gnupg     lsb-release     && rm -rf /var/lib/apt/lists/*
+#38 CACHED
+
+#39 [server runtime 32/37] RUN npx playwright install-deps chromium
+#39 CACHED
+
+#40 [server runtime  5/37] RUN mkdir -p /etc/apt/keyrings &&     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+#40 CACHED
+
+#41 [server runtime 16/37] COPY server/npm-global.txt /tmp/npm-global.txt
+#41 CACHED
+
+#42 [server build 14/14] RUN npm run build --workspace common && npm run build --workspace server
+#42 CACHED
+
+#43 [server runtime 34/37] RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
+#43 CACHED
+
+#44 [server runtime 33/37] RUN npx playwright install chromium
+#44 CACHED
+
+#45 [server runtime 23/37] COPY --from=build /app/server/src/ast/queries ./src/ast/queries
+#45 CACHED
+
+#46 [server runtime 10/37] WORKDIR /app/server
+#46 CACHED
+
+#47 [server runtime 17/37] RUN --mount=type=cache,target=/root/.npm     set -eu;     if [ -n "" ]; then       echo "[CODEINFO][T03_BUILD][runtime] npm registry override enabled";       NPM_CONFIG_REGISTRY="" xargs -r npm install -g --force < /tmp/npm-global.txt;     else       echo "[CODEINFO][T03_BUILD][runtime] npm registry override disabled";       xargs -r npm install -g --force < /tmp/npm-global.txt;     fi
+#47 CACHED
+
+#48 [server build  5/14] COPY package*.json ./
+#48 CACHED
+
+#49 [server runtime 27/37] COPY codex_agents /app/codex_agents
+#49 CACHED
+
+#50 [server runtime 26/37] COPY --from=build /app/config.toml.example /app/server/config.toml.example
+#50 CACHED
+
+#51 [server build  4/14] COPY --from=deps /app/server/node_modules /app/server/node_modules
+#51 CACHED
+
+#52 [server build 13/14] COPY server ./server
+#52 CACHED
+
+#53 [server deps 8/8] RUN set -eu;     if [ -n "" ]; then       echo "[CODEINFO][T03_BUILD][deps] npm registry override enabled";       NPM_CONFIG_REGISTRY="" npm ci --workspaces --include-workspace-root --no-audit --no-fund;     else       echo "[CODEINFO][T03_BUILD][deps] npm registry override disabled";       npm ci --workspaces --include-workspace-root --no-audit --no-fund;     fi
+#53 CACHED
+
+#54 [server build  3/14] COPY --from=deps /app/node_modules /app/node_modules
+#54 CACHED
+
+#55 [server runtime  2/37] RUN mkdir -p /Users/danielstapleton/tmp
+#55 CACHED
+
+#56 [server runtime 21/37] COPY --from=build /app/common /app/common
+#56 CACHED
+
+#57 [server runtime 25/37] COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
+#57 CACHED
+
+#58 [server runtime 30/37] COPY e2e/fixtures /fixtures
+#58 CACHED
+
+#59 [server runtime 24/37] COPY --from=build /app/server/package*.json ./
+#59 CACHED
+
+#60 [server runtime 12/37] RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
+#60 CACHED
+
+#61 [server deps 5/8] COPY package-lock.json ./
+#61 CACHED
+
+#62 [server build  8/14] COPY server/package*.json ./server/
+#62 CACHED
+
+#63 [server runtime 29/37] COPY flows-sandbox /app/flows-sandbox
+#63 CACHED
+
+#64 [server deps 4/8] COPY package*.json ./
+#64 CACHED
+
+#65 [server runtime 14/37] COPY server/requirements.txt /tmp/requirements.txt
+#65 CACHED
+
+#66 [server build 12/14] COPY common ./common
+#66 CACHED
+
+#67 [server runtime 28/37] COPY flows /app/flows
+#67 CACHED
+
+#68 [server runtime  7/37] RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg
+#68 CACHED
+
+#69 [server runtime 15/37] RUN --mount=type=cache,target=/root/.cache/pip     set -eu;     if [ -n "" ] || [ -n "" ]; then       echo "[CODEINFO][T03_BUILD][runtime] pip override enabled";       if [ -n "" ] && [ -n "" ]; then         PIP_INDEX_URL="" PIP_TRUSTED_HOST=""           python3 -m pip install --break-system-packages --upgrade pip &&         PIP_INDEX_URL="" PIP_TRUSTED_HOST=""           python3 -m pip install --break-system-packages -r /tmp/requirements.txt;       elif [ -n "" ]; then         PIP_INDEX_URL=""           python3 -m pip install --break-system-packages --upgrade pip &&         PIP_INDEX_URL=""           python3 -m pip install --break-system-packages -r /tmp/requirements.txt;       else         PIP_TRUSTED_HOST=""           python3 -m pip install --break-system-packages --upgrade pip &&         PIP_TRUSTED_HOST=""           python3 -m pip install --break-system-packages -r /tmp/requirements.txt;       fi;     else       echo "[CODEINFO][T03_BUILD][runtime] pip override disabled";       python3 -m pip install --break-system-packages --upgrade pip &&       python3 -m pip install --break-system-packages -r /tmp/requirements.txt;     fi
+#69 CACHED
+
+#70 [server build  7/14] COPY common/package*.json ./common/
+#70 CACHED
+
+#71 [server runtime 31/37] COPY e2e/fixtures/repo /data
+#71 CACHED
+
+#72 [server runtime 18/37] RUN set -eu;     npm_override=off;     pip_index_override=off;     pip_trusted_host_override=off;     if [ -n "" ]; then       npm_override=on;     fi;     if [ -n "" ]; then       pip_index_override=on;     fi;     if [ -n "" ]; then       pip_trusted_host_override=on;     fi;     printf 'CODEINFO_SERVER_BUILD_OVERRIDE_STATE=npm=%s;pip_index=%s;pip_trusted_host=%s\n'       "$npm_override"       "$pip_index_override"       "$pip_trusted_host_override"       > /app/server/.codeinfo-server-build-override-state.env
+#72 CACHED
+
+#73 [server runtime 11/37] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked     apt-get update && apt-get install -y     curl     git     git-lfs     jq     netcat-openbsd     ripgrep     fd-find     bat     tree     less     procps     iproute2     dnsutils     diffutils     openssl     openssh-client     python3     python3-dev     python3-pip     python3-venv     unzip     util-linux     zip     vim-tiny     nano     rsync     terraform     tzdata     chromium     && rm -rf /var/lib/apt/lists/*
+#73 CACHED
+
+#74 [server runtime 13/37] RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
+#74 CACHED
+
+#75 [server runtime 35/37] RUN mkdir -p /app/codex /app/copilot && chmod 777 /app/codex /app/copilot
+#75 CACHED
+
+#76 [server build  9/14] COPY config.toml.example ./
+#76 CACHED
+
+#77 [server deps 3/8] RUN apt-get update && apt-get install -y     python3     make     g++     && rm -rf /var/lib/apt/lists/*
+#77 CACHED
+
+#78 [server deps 7/8] COPY server/package*.json ./server/
+#78 CACHED
+
+#79 [server deps 6/8] COPY common/package*.json ./common/
+#79 CACHED
+
+#80 [server runtime 19/37] COPY --from=build /app/node_modules /app/node_modules
+#80 CACHED
+
+#81 [server runtime 22/37] COPY --from=build /app/server/dist ./dist
+#81 CACHED
+
+#82 [server build  6/14] COPY package-lock.json ./
+#82 CACHED
+
+#83 [server build 11/14] COPY tsconfig.base.json ./
+#83 CACHED
+
+#84 [server runtime 36/37] RUN chmod -R 777 "/Users/danielstapleton"
+#84 CACHED
+
+#85 [server runtime 20/37] COPY --from=deps /app/server/node_modules /app/server/node_modules
+#85 CACHED
+
+#86 [server build 10/14] COPY tsconfig*.json ./
+#86 CACHED
+
+#87 [server runtime  6/37] RUN echo   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+#87 CACHED
+
+#88 [server runtime  9/37] RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
+#88 CACHED
+
+#89 [server deps 2/8] WORKDIR /app
+#89 CACHED
+
+#90 [server runtime  3/37] RUN mkdir -p /Users/danielstapleton/.docker
+#90 CACHED
+
+#91 [server runtime  8/37] RUN echo   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com   $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+#91 CACHED
+
+#92 [server runtime 37/37] RUN chmod +x ./entrypoint.sh
+#92 CACHED
+
+#93 [client] resolving provenance for metadata file
+#93 DONE 0.0s
+
+#94 [server] exporting to image
+#94 exporting layers done
+#94 exporting manifest sha256:30b4d40dc330d5ef788cea8bb37a114b26036c3d7a338be1ff6f22e911dea972 done
+#94 exporting config sha256:0eb1a9cd5c5e51d1739ada1c43095c5050234f8b8593158234337f62c926a3c2 done
+#94 exporting attestation manifest sha256:e299dbae70ea563be7d9e1354eb35e251a02e932a66decd7572d7030e3da7f60 done
+#94 exporting manifest list sha256:d1af1497443b677ea2d074e5276dfd4a9dd8c2d5c9be64ba60bc62071ce3ff7d done
+#94 naming to docker.io/library/codeinfo2-server:latest done
+#94 unpacking to docker.io/library/codeinfo2-server:latest 0.0s done
+#94 DONE 0.1s
+
+#95 [server] resolving provenance for metadata file
+#95 DONE 0.0s

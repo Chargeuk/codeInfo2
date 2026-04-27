@@ -16850,7 +16850,7 @@ Inline-resolved minor findings already handled in this active review cycle:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `207`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-1`: silent queue-overlay fallback on Mongo disconnect hides queued rows from the repository-list source of truth.
 
@@ -16929,6 +16929,7 @@ No additional repositories are in scope for this review-created repair task.
 - 2026-04-27: Subtasks 2, 4, and 5 added focused degraded-read proof owners without widening the task: `server/src/test/unit/tools-ingested-repos.test.ts` now names the waiting-before-first-run degraded queue-read seam explicitly, `server/src/test/unit/mcp-ingested-repositories.test.ts` now names explicit degraded propagation on the MCP mirror, and `client/src/test/ingestRoots.test.tsx` now proves the client keeps visible roots while surfacing the degraded queue-read warning instead of interpreting the payload as a silent empty healthy state.
 - 2026-04-27: Subtask 3 completed by re-reading the targeted REST proof in `server/src/test/unit/ingest-roots-dedupe.test.ts` and keeping its existing title unchanged because it already states the healthy queued-row continuity contract honestly and does not imply degraded-state propagation.
 - 2026-04-27: Subtask 6 refreshed only the current review-cycle summary surfaces for pass `0000055-20260427T120554Z-cfc8af21`. This review block now points at the focused degraded-read proof owners, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` now maps `finding-1` to Task `208` plus the repaired producer, REST, MCP, and client proof homes while leaving Task `209` as the later broad final revalidation owner.
+- 2026-04-27: Implementation-plus-automated-proof audit confirmed Task `208` is honestly complete. All 6 subtasks and all 3 targeted testing steps are checked, `python3 scripts/plan_status.py --task-number 208` reports no live blocker, and the task now closes as `__done__` ahead of Task `209`'s broader review-cycle revalidation pass.
 
 ### Task 209. Re-Validate Story 55 After Review Pass `0000055-20260427T120554Z-cfc8af21`
 

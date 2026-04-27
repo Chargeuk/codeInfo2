@@ -75,4 +75,4 @@ Feature: Ingest remove
     When I POST ingest manage remove for root "/queue-priority"
     Then ingest manage response status is 409 with code "QUEUE_STATE_BLOCKED"
     When I GET ingest manage roots
-    Then ingest manage roots count is 1
+    Then ingest manage roots entry for "/queue-priority" has queue state "waiting"

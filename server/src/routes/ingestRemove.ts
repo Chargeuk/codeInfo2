@@ -27,7 +27,7 @@ export function createIngestRemoveRouter({
   const router = Router();
 
   router.post('/ingest/remove/:root', async (req, res) => {
-    let root: string;
+    let root = '';
     try {
       try {
         root = validateExactDestructiveRootPath(req.params.root);

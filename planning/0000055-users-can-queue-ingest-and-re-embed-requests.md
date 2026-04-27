@@ -16220,9 +16220,9 @@ Repair the production remove route so the public selector is validated as an exa
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
+1. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts`.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`.
 
 #### Implementation Notes
 
@@ -16231,6 +16231,9 @@ Repair the production remove route so the public selector is validated as an exa
 - Added direct route proof in `server/src/test/integration/ingest-lock-lifecycle.test.ts` for non-exact selector rejection and for the target-plus-unrelated-active-run ordering case so `QUEUE_STATE_BLOCKED` cannot be hidden behind a generic `BUSY`.
 - Added higher-level feature proof in `server/src/test/features/ingest-remove.feature`; the existing remove step definitions in `server/src/test/steps/ingest-manage.steps.ts` were already explicit enough to drive exact-root and queue-owned target assertions, so no step-layer code change was needed.
 - Inspected `server/src/routes/ingestE2eCleanup.ts` and `server/src/test/integration/ingest-e2e-cleanup.test.ts`; the new exact destructive validator stays on the production remove route, so the env-gated cleanup boundary and its existing BUSY separation proof did not need a code or wording change.
+- Repaired the reopened Task 201 cucumber proof in two small steps: first by initializing the new remove-route root variable for TypeScript, then by tightening the new higher-level feature assertion to check the target root's preserved queue state instead of over-claiming a single visible root while unrelated active work is also present. Reran `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`; the feature proof passed cleanly with `8 passed, 0 failed`.
+- Repaired the reopened Task 201 direct-route unit proof in two small steps: updated the legacy BUSY case to use an exact persisted root selector and then stubbed its live-queue lookup so the new target-first ordering did not turn that old proof into an accidental database-dependent 500. Reran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts`; the direct route proof passed cleanly with `4 passed, 0 failed`.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`; the cleanup-route separation proof passed cleanly with `6 passed, 0 failed`, confirming the env-gated cleanup boundary still keeps its BUSY-versus-waiting-removal behavior after the production remove repair.
 
 ### Task 202. Re-Validate Story 55 After Review Pass `0000055-20260426T203714Z-ff22e029`
 

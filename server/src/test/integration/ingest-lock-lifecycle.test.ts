@@ -101,8 +101,41 @@ test('concurrent start/reembed/remove operations return deterministic BUSY while
 
   const app = express();
   app.use(express.json());
-  app.use(createIngestRemoveRouter());
-  const removeResponse = await request(app).post('/ingest/remove/repo-one');
+  app.use(
+    createIngestRemoveRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-one',
+            description: null,
+            containerPath: '/data/repo-one',
+            hostPath: '/host/repo-one',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            embeddingProvider: 'lmstudio' as const,
+            embeddingModel: 'embed-1',
+            embeddingDimensions: 768,
+            model: 'embed-1',
+            modelId: 'embed-1',
+            lock: {
+              embeddingProvider: 'lmstudio' as const,
+              embeddingModel: 'embed-1',
+              embeddingDimensions: 768,
+              lockedModelId: 'embed-1',
+              modelId: 'embed-1',
+            },
+            counts: { files: 1, chunks: 1, embedded: 1 },
+            lastError: null,
+            status: 'completed' as const,
+          },
+        ],
+        lockedModelId: 'embed-1',
+      }),
+      findLiveQueueRequestForTarget: async () => null,
+    }),
+  );
+  const removeResponse = await request(app).post(
+    '/ingest/remove/%2Fdata%2Frepo-one',
+  );
   assert.equal(removeResponse.status, 429);
   assert.equal(removeResponse.body.code, 'BUSY');
 

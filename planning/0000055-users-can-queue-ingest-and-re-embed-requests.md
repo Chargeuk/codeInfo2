@@ -16627,7 +16627,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 #### Subtasks
 
 1. [ ] Re-read the review findings for pass `0000055-20260427T065706Z-15b0a653`, then re-read `server/src/ingest/requestQueue.ts` to mark the exact fetch predicate, rewrite predicate, and the dead fallback branches that still imply a fetched waiting row can be non-rewriteable.
-2. [ ] Patch `server/src/ingest/requestQueue.ts` so the helper, local comments, and any touched diagnostics reflect the real waiting-only contract without unreachable "non-rewriteable waiting request" branches, while preserving the current waiting-row rewrite, duplicate-key recovery, and queue sequencing behavior.
+2. [ ] Patch the waiting-row fetch or rewrite guard, the duplicate-key recovery path, and any nearby explanatory comments or diagnostics in `server/src/ingest/requestQueue.ts` so the helper reflects the real waiting-only contract without unreachable "non-rewriteable waiting request" branches, while preserving the current waiting-row rewrite, duplicate-key recovery, and queue sequencing behavior.
 3. [ ] Add or update `server/src/test/unit/ingest-request-queue.test.ts` so one proof now follows a single helper call from fetched waiting-row selection into rewrite-or-dedupe resolution without a second impossible "non-rewriteable waiting row" branch, then adjust `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` or `server/src/test/unit/ingest-cancel.test.ts` only where the dead-branch removal changes the honest cleanup or terminal expectations.
 
 #### Testing
@@ -16683,10 +16683,10 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 
 #### Subtasks
 
-1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in the canonical plan, current review findings artifact, and PR summary so the retained-versus-scratch boundary is explicit before files move.
-2. [ ] Bucket the current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set.
-3. [ ] Implement one explicit end state from `R1`: either prune and rename the retained subset into a clearly durable tracked proof home, or move the proof home into an ignored artifact location and leave only the tracked summary surfaces that still need to remain in Git.
-4. [ ] Update the plan, current review findings artifact, and PR summary references that still cite Story 55 retained proof so they all describe the same final contract and no longer read like an accidental tracked scratch directory.
+1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, noting which logs, screenshots, JSON or HTML captures, status sidecars, and summary files are actually referenced today.
+2. [ ] Bucket those current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set.
+3. [ ] Implement one explicit end state from `R1`: either prune and rename the retained subset into a clearly durable tracked proof home under `codeInfoStatus/`, or move the proof home into an ignored artifact location and leave only the tracked summary surfaces that still need to remain in Git for the plan, findings artifact, and PR summary references.
+4. [ ] Update the retained-proof references in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so they all describe the same final contract and no longer read like an accidental tracked scratch directory.
 
 #### Testing
 

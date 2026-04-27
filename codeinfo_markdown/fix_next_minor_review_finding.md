@@ -39,11 +39,15 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Do not combine unrelated findings in one fix.
 - A minor fix may include one or two small focused automated test updates or additions in the owning repository when that keeps the change bounded and honest.
 - A minor fix may still restore an already intended same-repository contract, validation parity, or route-check ordering when that work remains bounded to one clear seam and does not broaden into a larger contract redesign.
+- A bounded producer-consumer alignment fix may remain minor when it restores an already-settled returned-result contract in one same-repository service or helper seam.
+- A bounded validation-order fix may remain minor when it moves malformed-input or unsupported-input validation ahead of dependency I/O to restore an already-settled request contract.
+- A bounded dead-branch cleanup in a queue, lifecycle, or concurrency-sensitive helper may remain minor when source inspection confirms the branch is unreachable under the current live-state or query contract.
 - For cross-surface error-classification findings, proceed in the minor path only when the classifier has already determined that the intended same-repository contract is clearly settled and the selected finding is just one bounded outlier alignment.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
 - Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.
 - This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.
 - If the fix starts to require a broader design change, stop and write a `reclassify_task_required` result.
+- Escalate only when the change stops being one bounded seam and starts requiring broader contract choice, broader lifecycle redesign, or wider multi-surface coordination.
 - If the implementation or proof needed for the selected finding starts to require broader proof-authoring, multi-repository change coordination, contract reinterpretation, or a larger refactor, stop and write a `reclassify_task_required` or `blocked` result.
 - If a targeted proof fails for an ordinary in-scope reason, inspect the failure once and repair the selected minor fix if the repair remains minor.
 - If the failure points to broader behavior or missing capability for only the selected finding, stop and write either a `reclassify_task_required` result or a `blocked` result with `blocker_scope: "finding_only"`.

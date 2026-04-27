@@ -52,6 +52,8 @@ This step is a traffic controller only. It must not fix findings, task up findin
   - `rejected_or_non_actionable_findings`
   - `incomplete_review_blockers`
 - Do not classify a finding as task-required solely because the finding description uses words such as `contract`, `route`, `user-visible`, `restart`, or `metadata ordering`.
+- Prefer the minor path for bounded same-repository findings unless a hard no-inline rule is clearly triggered.
+- Do not classify a finding as task-required solely because the finding description says the code is contract-sensitive, queue-sensitive, concurrency-sensitive, lifecycle-sensitive, or shared-caller-sensitive.
 - Treat `must_fix` findings as findings that must be resolved in this story, not as automatically task-required. A `must_fix` finding may still be classified as minor-batchable when it satisfies every minor-batchable rule below.
 - Treat `should_fix` findings as minor-batchable when every minor-batchable rule below is satisfied. Otherwise classify them as task-required.
 - Treat `optional_simplification` findings as rejected or non-actionable unless the finding is concrete, localized, low-risk, and explicitly worth fixing in the current story. If it is worth fixing and satisfies every minor-batchable rule, classify it as minor-batchable. Otherwise classify it as task-required only when the review artifact makes it blocking.
@@ -83,6 +85,10 @@ Useful examples:
 
 - A deferred replay path restoring the same required-field validation already enforced at admission may still be minor-batchable.
 - Reordering a route's bounded same-repository checks so the stronger already-intended target-owned contract wins over a generic fallback may still be minor-batchable.
+- Aligning one service function so it returns an already-established structured error instead of throwing may still be minor-batchable when the intended contract is already settled in the same repository.
+- Moving malformed-input validation ahead of dependency I/O in one function may still be minor-batchable when it restores an already-established `INVALID_PARAMS`-style contract and remains bounded to one seam plus focused tests.
+- A bounded producer-consumer alignment fix in one same-repository service/helper seam may still be minor-batchable when one path is failing to follow an already-established returned-result contract.
+- Removing dead or unreachable fallback branches from a queue, lifecycle, or concurrency-sensitive helper may still be minor-batchable when the live-state or query contract already proves the branch cannot execute and the change can be checked with focused proof.
 - Tightening or redefining a destructive route's public selector semantics before delete authority is exercised is not minor-batchable.
 - Reinterpreting a shared error taxonomy across multiple callers or surfaces is not minor-batchable.
 

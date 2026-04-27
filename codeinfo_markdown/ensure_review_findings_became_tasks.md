@@ -51,7 +51,9 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 1. Determine the task-up outcome primarily from `review-disposition-state.json` when it is present and valid; otherwise determine the review outcome from the findings artifact. Use any `finding_counts` values in the handoff only as helpful summary hints; if the counts disagree with the chosen source of truth, trust the chosen source and record the mismatch in the repair notes.
 2. If the chosen source of truth communicates unresolved task-required findings or incomplete-review blockers, the plan must visibly encode that unresolved review outcome on disk before this step finishes.
 3. Task-up is for findings that exceed the minor-path guardrails, such as contract/schema/lifecycle changes, broad refactors, unclear implementation ownership, ambiguity, destructive public authority-boundary changes, multi-surface error-taxonomy reinterpretation, or fixes that balloon during execution. It is not for otherwise bounded findings that only needed a small local test update or that merely restore an already intended same-repository contract.
-4. A task-required findings-present plan is considered correctly encoded only when all of the following are true:
+4. Do not create a numbered review-fix task solely because the affected code lives in a queue, concurrency, lifecycle, or shared-caller helper when the reviewed finding is still one bounded same-repository repair with an already-settled intended contract.
+5. Do not task up a finding solely because it restores validation ordering, returned-result parity, producer-consumer alignment, or dead-branch clarity inside one bounded same-repository seam.
+6. A task-required findings-present plan is considered correctly encoded only when all of the following are true:
    - the plan contains a new `Code Review Findings` section for the current `review_pass_id`;
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
@@ -63,10 +65,10 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - no review-created task was grouped only because findings share a repository or likely implementation owner;
    - no new review-created task was improperly absorbed into an older pre-existing story task;
    - tiny unrelated cleanup-only findings are not left as a trail of micro-tasks when they could be absorbed into a nearby substantive task or grouped into one cleanup task honestly.
-5. If the chosen source of truth communicates no unresolved task-required findings and no incomplete-review blockers, make no plan change in this task-up step.
-6. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of claiming the review is clean.
-7. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
-8. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
+7. If the chosen source of truth communicates no unresolved task-required findings and no incomplete-review blockers, make no plan change in this task-up step.
+8. If the findings artifact is missing, unreadable, or ambiguous even after safe inference, the plan must contain a bounded incomplete-review follow-up task instead of claiming the review is clean.
+9. If the current plan already satisfies the correct postcondition for the chosen source of truth, make no plan change.
+10. If the plan does not satisfy the correct postcondition, repair it in this step instead of reporting the gap and stopping.
 
 </decision_rules>
 

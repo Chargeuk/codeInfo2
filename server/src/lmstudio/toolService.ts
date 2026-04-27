@@ -873,9 +873,8 @@ function applyQueueRequestMetadata(
     });
 
   repo.name = name;
-  if (typeof payload.description === 'string') {
-    repo.description = payload.description;
-  }
+  repo.description =
+    typeof payload.description === 'string' ? payload.description : null;
   repo.embeddingProvider = embeddingProvider;
   repo.embeddingModel = embeddingModel;
   repo.embeddingDimensions = embeddingDimensions;

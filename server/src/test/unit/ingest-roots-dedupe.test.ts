@@ -1251,6 +1251,79 @@ test('GET /ingest/roots keeps the more complete duplicate metadata row before ap
   });
 });
 
+test('GET /ingest/roots clears stale persisted description when a waiting duplicate update removes it from the queued payload', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [
+            {
+              _id: new mongoose.Types.ObjectId('000000000000000000000063'),
+              canonicalTargetPath: '/data/repo',
+              operation: 'start',
+              queueState: 'waiting',
+              requestPayload: {
+                path: '/data/repo',
+                name: 'repo',
+                model: 'embed-model',
+                embeddingProvider: 'lmstudio',
+                embeddingModel: 'embed-model',
+              },
+              sourceSurface: 'rest:ingest/start',
+              runId: null,
+              createdAt: new Date('2026-04-02T00:00:00.000Z'),
+              updatedAt: new Date('2026-04-02T00:00:00.000Z'),
+            },
+          ],
+        }),
+      }) as never,
+  );
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-row'],
+        metadatas: [
+          {
+            name: 'repo',
+            description: 'stale persisted description',
+            root: '/data/repo',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            files: 4,
+            chunks: 8,
+            embedded: 8,
+            state: 'completed',
+            lastIngestAt: '2026-01-02T00:00:00.000Z',
+          },
+        ],
+      },
+      'embed-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots.length, 1);
+  const root = response.body.roots[0];
+  assert.equal(root.requestId, '000000000000000000000063');
+  assert.equal(root.queueState, 'waiting');
+  assert.equal(root.queuePosition, 1);
+  assert.equal(root.description, null);
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
+  });
+});
+
 test('GET /ingest/roots clears stale persisted diagnostics when a healthy waiting queue overlay replaces the old failure state', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

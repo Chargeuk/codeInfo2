@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -389,7 +389,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
   - `65b908b8` - `DEV-[55] - finish task 2 queue runtime validation`
 

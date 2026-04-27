@@ -466,6 +466,13 @@
     },
     {
       "type": "llm",
+      "label": "Promote Story Manual Proof",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "markdownFile": "promote_story_manual_proof.md"
+    },
+    {
+      "type": "llm",
       "label": "Create Final Summary",
       "agentType": "planning_agent",
       "identifier": "planner",

@@ -1,0 +1,8 @@
+{
+  "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+  "name": "Task 209 Final Story Queued Root",
+  "description": "Final story manual proof queued ingest using known eligible fixture.",
+  "embeddingProvider": "openai",
+  "embeddingModel": "text-embedding-3-small",
+  "dryRun": true
+}

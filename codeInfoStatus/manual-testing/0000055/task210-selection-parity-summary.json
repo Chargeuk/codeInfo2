@@ -1,0 +1,18 @@
+{
+  "candidatePath": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task188-queue-proof-repo",
+  "candidateName": "task188-manual-queue-proof",
+  "reembedResponse": {
+    "queued": true,
+    "requestId": "69efa7287584d84c13cb8c28",
+    "queuePosition": 2
+  },
+  "uiOutcome": {
+    "selectionBefore": "1 selected",
+    "selectionAfter": "0 selected",
+    "browserRefreshRequired": false
+  },
+  "notes": [
+    "The selected completed row was accepted into the queue while a known active head and waiting row were already present.",
+    "By the time the retained after-state screenshot was captured the queued work had already drained, so the durable UI artifact proves the cleared selection state while the queue-blocked transition itself is retained via the queued response payload and live browser observation."
+  ]
+}

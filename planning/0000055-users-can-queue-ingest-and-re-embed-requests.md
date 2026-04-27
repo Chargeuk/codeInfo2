@@ -16596,10 +16596,11 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 - `R2.` The helper still preserves waiting-row reuse, duplicate-key recovery, cleanup-owned transitions, and queue-start sequencing for the supported queue lifecycle.
 - `R3.` Any comments, diagnostics, or helper names touched by the repair describe the actual waiting-only contract instead of an impossible mixed-state branch.
 - `R4.` Proof covers the simplified waiting-row seam directly enough that a future regression would fail on the queue-owner files rather than being inferred from unrelated higher-level behavior.
+- `R5.` At least one proof exercises the same helper flow from fetched waiting-row selection through rewrite-or-dedupe resolution, so the task proves the real ordering and interleaving invariant rather than only separate adjacent happy-path and duplicate-key assertions.
 
 #### Proof Mapping
 
-- `P1.` waiting-row rewrite and dedupe proof for `R1` through `R3`: implementation owner is `server/src/ingest/requestQueue.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`.
+- `P1.` waiting-row rewrite, exact same-call rewrite-or-dedupe ordering, and duplicate-key recovery proof for `R1` through `R3` plus `R5`: implementation owner is `server/src/ingest/requestQueue.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`.
 - `P2.` cleanup-owned and queue-runtime sequencing proof for `R2` and `R4`: supporting proof homes are `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/ingest-cancel.test.ts`.
 
 #### Risk Ownership
@@ -16610,6 +16611,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 #### High-Risk Invariants And Blocker Family
 
 - Waiting-only contract proof required: the helper must keep fetching and rewriting only waiting rows after the dead branches are removed.
+- Exact ordering proof required: one proof must follow the same helper call from fetched waiting-row selection into rewrite-or-dedupe resolution so the task does not close on separate adjacent assertions that never prove the real interleaving.
 - Duplicate-key recovery proof required: race recovery after a waiting-row rewrite attempt must remain intact.
 - Cleanup-transition proof required: cleanup-owned rows and terminal queue sequencing must keep their current behavior without the removed fallback prose or branches.
 - Shared-wrapper boundary required: if the targeted server-unit wrapper fails outside the queue-owner files above, classify that as shared wrapper or baseline ownership instead of weakening the helper contract.
@@ -16626,7 +16628,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 1. [ ] Re-read the review findings for pass `0000055-20260427T065706Z-15b0a653`, then re-read `server/src/ingest/requestQueue.ts` to mark the exact fetch predicate, rewrite predicate, and the dead fallback branches that still imply a fetched waiting row can be non-rewriteable.
 2. [ ] Patch `server/src/ingest/requestQueue.ts` so the helper, local comments, and any touched diagnostics reflect the real waiting-only contract without unreachable "non-rewriteable waiting request" branches, while preserving the current waiting-row rewrite, duplicate-key recovery, and queue sequencing behavior.
-3. [ ] Add or update `server/src/test/unit/ingest-request-queue.test.ts` so one proof now states directly that fetched rows in this seam are waiting-only and therefore take the rewrite-or-dedupe path without a second impossible "non-rewriteable waiting row" branch, then adjust `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` or `server/src/test/unit/ingest-cancel.test.ts` only where the dead-branch removal changes the honest cleanup or terminal expectations.
+3. [ ] Add or update `server/src/test/unit/ingest-request-queue.test.ts` so one proof now follows a single helper call from fetched waiting-row selection into rewrite-or-dedupe resolution without a second impossible "non-rewriteable waiting row" branch, then adjust `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` or `server/src/test/unit/ingest-cancel.test.ts` only where the dead-branch removal changes the honest cleanup or terminal expectations.
 
 #### Testing
 
@@ -16743,6 +16745,7 @@ No additional repositories are in scope for this review cycle. The current findi
 - Review-loop ownership proof required: this task must remain the one final revalidation owner for this review cycle, and the inline minor findings already resolved in `## Minor Review Fixes` must stay covered here instead of spawning a second final task later.
 - Applicability proof required: the non-applicable cross-repository, client-only, browser, and end-to-end categories must be stated explicitly because the stored findings block remains current-repository-only.
 - Baseline-ownership proof required: if supported build or broad wrappers fail in unrelated areas, the task must record that as shared wrapper or baseline ownership instead of reopening Tasks `205` or `206` as if their product or proof-home seams were incomplete.
+- Runtime-handoff guidance required: if later manual retained-proof refresh or queue sanity validation is useful after Tasks `205` or `206`, this task must point the manual tester at the supported stack, env files, mounted path namespace, readiness checks, ports, and artifact destination instead of leaving those facts to be rediscovered by failure.
 - Likely blocker family: shared wrapper or baseline seam for broad automated proof and review-cycle closing ownership.
 
 #### Documentation Locations
@@ -16769,6 +16772,10 @@ No additional repositories are in scope for this review cycle. The current findi
 6. [ ] Run `npm run compose:down`.
 7. [ ] Run `npm run lint`.
 8. [ ] Run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+Optional later manual follow-up can reuse the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` after the automated proof passes. The supported env inputs are `server/.env` and `server/.env.local`; the mounted ingest-path namespace still depends on `CODEINFO_HOST_INGEST_DIR` reaching the container-side `CODEINFO_CODEX_WORKDIR`; and readiness should come from the compose health checks plus `GET /health` before any queue or retained-proof validation begins. The current repository stack is expected at `http://localhost:5001` for the client, `http://localhost:5010` for the main server, `http://localhost:5011` and `http://localhost:5012` for the secondary MCP services, and `http://localhost:8932/mcp` for Playwright MCP. If screenshots are useful while validating the retained-proof contract from Task `206`, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into the final Story 55 artifact destination chosen by Task `206` rather than assuming Playwright writes directly into the repository.
 
 #### Implementation Notes
 

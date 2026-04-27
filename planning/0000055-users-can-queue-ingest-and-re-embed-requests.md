@@ -15916,7 +15916,7 @@ Repair the deferred start replay seam so queued promotion and startup recovery p
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -15990,6 +15990,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`; the first wrapper attempt failed on a Task 198-owned import mistake for `InvalidLockMetadataError`, and the rerun passed cleanly with `68 passed, 0 failed` after moving that import to `server/src/ingest/chromaClient.ts`.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`; the targeted REST proof passed cleanly with `4 passed, 0 failed`, confirming the mixed-shape row now returns `INVALID_LOCK_METADATA` instead of drifting into `OPENAI_MODEL_UNAVAILABLE`.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`; the classic MCP and MCP2 transport parity proofs both passed cleanly with `34 passed, 0 failed`, confirming the mixed-shape invalid-state result remains a structured tool error instead of escaping either shared-caller transport.
+- **BLOCKER** 2026-04-27 manual proof could not honestly exercise Task 198's mixed-shape contract on supported live surfaces. The documented main stack restarted cleanly and `/health`, `/ingest/roots`, and `/tools/ingested-repos` were inspected, but current public Story 55 routes reject partial canonical start input at admission and the live repo list contains only fully canonical rows. No repository-documented route or supported fixture could seed a completed mixed-shape canonical OpenAI root or matching shared-caller target without ad hoc database edits, so task-scoped manual proof remains blocked pending a supported live seed or harness for that row.
 
 ### Task 199. Enforce Exact Remove Selectors Before Target-First Queue Blocking
 

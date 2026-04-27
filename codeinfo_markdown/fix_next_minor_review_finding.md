@@ -42,6 +42,7 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - A bounded producer-consumer alignment fix may remain minor when it restores an already-settled returned-result contract in one same-repository service or helper seam.
 - A bounded validation-order fix may remain minor when it moves malformed-input or unsupported-input validation ahead of dependency I/O to restore an already-settled request contract.
 - A bounded dead-branch cleanup in a queue, lifecycle, or concurrency-sensitive helper may remain minor when source inspection confirms the branch is unreachable under the current live-state or query contract.
+- When the classifier has already placed the selected finding in the minor path and fresh source inspection still shows one bounded same-repository seam, prefer attempting the repair first rather than immediately reclassifying it back to task-required.
 - For cross-surface error-classification findings, proceed in the minor path only when the classifier has already determined that the intended same-repository contract is clearly settled and the selected finding is just one bounded outlier alignment.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
 - Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.

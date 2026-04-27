@@ -10,8 +10,15 @@ import supertest from 'supertest';
 import type WebSocket from 'ws';
 
 import { AbortError, delayWithAbort } from '../../agents/retry.js';
-import { getActiveRunOwnership } from '../../agents/runLock.js';
-import { getInflight } from '../../chat/inflightRegistry.js';
+import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+} from '../../agents/runLock.js';
+import {
+  cleanupInflight,
+  getInflight,
+  getPendingConversationCancel,
+} from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -177,6 +184,11 @@ const withFlowServer = async (
       conversationId: string,
       expectedRunToken?: string,
     ) => boolean;
+    onStopUnwindCheckpoint?: (params: {
+      checkpoint: string;
+      conversationId: string;
+      detail?: string;
+    }) => void | Promise<void>;
   },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -194,6 +206,7 @@ const withFlowServer = async (
         startFlowRun({
           ...params,
           chatFactory: () => new ScriptedChat(responder),
+          onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
           cleanupInflightFn: options?.cleanupInflightFn,
           releaseConversationLockFn: options?.releaseConversationLockFn,
         }),
@@ -257,6 +270,45 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   });
 };
 
+type RuntimeCleanupSnapshot = {
+  inflightId: string | null;
+  ownershipRunToken: string | null;
+  pendingCancelRunToken: string | null;
+  pendingCancelInflightId: string | null;
+};
+
+type OwnershipReleaseCall = {
+  expectedRunToken?: string;
+  released: boolean;
+  beforeState: RuntimeCleanupSnapshot;
+  afterState: RuntimeCleanupSnapshot;
+};
+
+type StopUnwindCheckpoint = {
+  checkpoint: string;
+  conversationId: string;
+  detail?: string;
+  state: RuntimeCleanupSnapshot;
+};
+
+type CleanupPhaseCheckpoint = {
+  label: string;
+  conversationId: string;
+  state: RuntimeCleanupSnapshot;
+};
+
+const snapshotRuntimeCleanupState = (
+  conversationId: string,
+): RuntimeCleanupSnapshot => {
+  const pendingCancel = getPendingConversationCancel(conversationId);
+  return {
+    inflightId: getInflight(conversationId)?.inflightId ?? null,
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    pendingCancelRunToken: pendingCancel?.runToken ?? null,
+    pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
+  };
+};
+
 const cleanupConversationRuntime = async (
   conversationId: string | undefined,
   ...conversationIds: Array<string | undefined>
@@ -289,6 +341,19 @@ const waitForRuntimeCleanup = async (
   throw new Error(
     `Timed out waiting for flow runtime cleanup (inflight=${String(Boolean(inflight))}, ownership=${String(Boolean(ownership))}, inflightId=${inflight?.inflightId ?? 'none'}, runToken=${ownership?.runToken ?? 'none'})`,
   );
+};
+
+const waitForPredicate = async (
+  predicate: () => boolean,
+  timeoutMs: number,
+  message: string,
+) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return;
+    await delay(25);
+  }
+  throw new Error(message);
 };
 
 const expectNoTerminalFinal = async (
@@ -1218,6 +1283,148 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 });
 
 test('flow stop during a looped flow prevents later iterations from continuing', async () => {
+  const cleanupEventLimit = 20;
+  let cleanupEventCount = 0;
+  const ownershipReleaseCalls: OwnershipReleaseCall[] = [];
+  let ownershipReacquiredAfterRelease = false;
+  let ownershipReacquiredState: RuntimeCleanupSnapshot | null = null;
+  const stopUnwindCheckpointLimit = 20;
+  const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
+  const cleanupPhaseCheckpointLimit = 12;
+  const cleanupPhaseCheckpoints: CleanupPhaseCheckpoint[] = [];
+  let stopWs: WebSocket | null = null;
+  let stopRequestedAtBoundary = false;
+  const cleanupEvents: Array<
+    {
+      label: string;
+      state: RuntimeCleanupSnapshot;
+    } & Partial<{
+      conversationId: string;
+      inflightId: string;
+      expectedRunToken: string;
+      released: boolean;
+    }>
+  > = [];
+  const recordCleanupEvent = (
+    label: string,
+    conversationId: string,
+    extra?: Partial<{
+      inflightId: string;
+      expectedRunToken: string;
+      released: boolean;
+    }>,
+  ) => {
+    const state = snapshotRuntimeCleanupState(conversationId);
+    cleanupEventCount += 1;
+    if (
+      !ownershipReacquiredAfterRelease &&
+      ownershipReleaseCalls.some(
+        (call) => call.released && call.afterState.ownershipRunToken === null,
+      ) &&
+      state.ownershipRunToken !== null
+    ) {
+      ownershipReacquiredAfterRelease = true;
+      ownershipReacquiredState = state;
+    }
+    cleanupEvents.push({
+      label,
+      conversationId,
+      state,
+      ...extra,
+    });
+    if (cleanupEvents.length > cleanupEventLimit) {
+      cleanupEvents.shift();
+    }
+  };
+  const buildOwnershipReleaseSummary = () => ({
+    branch:
+      ownershipReleaseCalls.length === 0
+        ? 'never_reached'
+        : ownershipReleaseCalls.some((call) => !call.released)
+          ? 'returned_false'
+          : ownershipReacquiredAfterRelease
+            ? 'reacquired_after_release'
+            : 'released_without_reacquire_observed',
+    releaseCallCount: ownershipReleaseCalls.length,
+    releaseFalseCount: ownershipReleaseCalls.filter((call) => !call.released)
+      .length,
+    releaseTrueCount: ownershipReleaseCalls.filter((call) => call.released)
+      .length,
+    ownershipReacquiredAfterRelease,
+    ownershipReacquiredState,
+    recentReleaseCalls: ownershipReleaseCalls.slice(-5),
+  });
+  const recordStopUnwindCheckpoint = (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => {
+    stopUnwindCheckpoints.push({
+      ...params,
+      state: snapshotRuntimeCleanupState(params.conversationId),
+    });
+    if (stopUnwindCheckpoints.length > stopUnwindCheckpointLimit) {
+      stopUnwindCheckpoints.shift();
+    }
+  };
+  const waitForStopUnwindCheckpoint = async (
+    checkpoint: string,
+    conversationId: string,
+    timeoutMs = 5000,
+  ) => {
+    await waitForPredicate(
+      () =>
+        stopUnwindCheckpoints.some(
+          (item) =>
+            item.checkpoint === checkpoint &&
+            item.conversationId === conversationId,
+        ),
+      timeoutMs,
+      `Timed out waiting for stop-unwind checkpoint ${checkpoint}`,
+    );
+  };
+  const waitForStopUnwindCheckpointMatching = async (
+    predicate: (item: StopUnwindCheckpoint) => boolean,
+    description: string,
+    timeoutMs = 5000,
+  ) => {
+    await waitForPredicate(
+      () => stopUnwindCheckpoints.some((item) => predicate(item)),
+      timeoutMs,
+      `Timed out waiting for stop-unwind checkpoint ${description}`,
+    );
+  };
+  const recordCleanupPhaseCheckpoint = (
+    label: string,
+    conversationId: string,
+  ) => {
+    cleanupPhaseCheckpoints.push({
+      label,
+      conversationId,
+      state: snapshotRuntimeCleanupState(conversationId),
+    });
+    if (cleanupPhaseCheckpoints.length > cleanupPhaseCheckpointLimit) {
+      cleanupPhaseCheckpoints.shift();
+    }
+  };
+  const buildCleanupPhaseSummary = () => {
+    const labels = new Set(cleanupPhaseCheckpoints.map((item) => item.label));
+    const branch = labels.has('before cleanupConversationRuntime')
+      ? labels.has('after cleanupConversationRuntime')
+        ? 'post_test_teardown_or_resource_cleanup'
+        : 'stop_runtime_cleanup_divergence'
+      : labels.has('after stop request sent') ||
+          labels.has('after first outer break observed') ||
+          labels.has('after stopped final observed')
+        ? 'setup_not_owner'
+        : 'setup_contamination_or_earlier';
+    return {
+      branch,
+      totalCheckpoints: cleanupPhaseCheckpoints.length,
+      recentCheckpoints: cleanupPhaseCheckpoints,
+    };
+  };
+
   await withFlowServer(
     (message) => {
       if (message.includes('Exit inner loop?')) {
@@ -1230,6 +1437,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-stop-boundary-conv';
+      stopWs = wsUrl;
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       try {
         await supertest(baseUrl)
@@ -1247,29 +1455,43 @@ test('flow stop during a looped flow prevents later iterations from continuing',
             ),
           4000,
         );
+        recordCleanupPhaseCheckpoint(
+          'after first outer break observed',
+          conversationId,
+        );
+        await waitForStopUnwindCheckpoint(
+          'runStartLoopStep.before_next_iteration',
+          conversationId,
+        );
+        recordCleanupPhaseCheckpoint(
+          'after between-iteration gap observed',
+          conversationId,
+        );
 
-        sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+        recordCleanupPhaseCheckpoint(
+          'after stop request reached loop boundary',
+          conversationId,
+        );
 
-        await waitForEvent({
-          ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
-          timeoutMs: 5000,
-        });
+        await waitForStopUnwindCheckpointMatching(
+          (item) =>
+            item.conversationId === conversationId &&
+            (item.checkpoint.startsWith(
+              'runStartLoopStep.return.stop.pending_cancel',
+            ) ||
+              item.checkpoint === 'runSteps.return.stop.llm'),
+          'loop stop boundary after cancel request',
+        );
 
-        await delay(250);
+        await waitForStopUnwindCheckpoint(
+          'runFlowUnlocked.finalize.exit',
+          conversationId,
+        );
+        recordCleanupPhaseCheckpoint(
+          'after stop unwind finalized',
+          conversationId,
+        );
+        recordCleanupEvent('after stop unwind finalized', conversationId);
         const turns = memoryTurns.get(conversationId) ?? [];
         const outerBreakTurns = turns.filter(
           (turn) =>
@@ -1277,8 +1499,112 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         );
         assert.equal(outerBreakTurns.length, 1);
       } finally {
-        await cleanupConversationRuntime(conversationId);
+        recordCleanupPhaseCheckpoint(
+          'before cleanupConversationRuntime',
+          conversationId,
+        );
+        recordCleanupEvent('before cleanupConversationRuntime', conversationId);
+        try {
+          try {
+            await waitForRuntimeCleanup(conversationId, 15000);
+          } finally {
+            cleanupMemory(conversationId);
+          }
+          recordCleanupPhaseCheckpoint(
+            'after cleanupConversationRuntime',
+            conversationId,
+          );
+        } catch (error) {
+          const ownershipReleaseSummary = buildOwnershipReleaseSummary();
+          const cleanupPhaseSummary = buildCleanupPhaseSummary();
+          console.error(
+            'FLOW_LOOP_CLEANUP_EVENTS',
+            JSON.stringify({
+              totalEvents: cleanupEventCount,
+              recentEvents: cleanupEvents,
+            }),
+          );
+          console.error(
+            'FLOW_LOOP_OWNERSHIP_RELEASE',
+            JSON.stringify(ownershipReleaseSummary),
+          );
+          console.error(
+            'FLOW_LOOP_STOP_UNWIND',
+            JSON.stringify({
+              totalCheckpoints: stopUnwindCheckpoints.length,
+              recentCheckpoints: stopUnwindCheckpoints,
+            }),
+          );
+          console.error(
+            'FLOW_LOOP_CLEANUP_PHASE',
+            JSON.stringify(cleanupPhaseSummary),
+          );
+          if (error instanceof Error) {
+            error.message += ` cleanupEvents=${JSON.stringify({ totalEvents: cleanupEventCount, recentEvents: cleanupEvents })} ownershipRelease=${JSON.stringify(ownershipReleaseSummary)} stopUnwind=${JSON.stringify({ totalCheckpoints: stopUnwindCheckpoints.length, recentCheckpoints: stopUnwindCheckpoints })} cleanupPhase=${JSON.stringify(cleanupPhaseSummary)}`;
+          }
+          throw error;
+        }
       }
+    },
+    {
+      cleanupInflightFn: (params) => {
+        recordCleanupEvent('before cleanupInflightFn', params.conversationId, {
+          inflightId: params.inflightId,
+        });
+        cleanupInflight(params);
+        recordCleanupEvent('after cleanupInflightFn', params.conversationId, {
+          inflightId: params.inflightId,
+        });
+      },
+      releaseConversationLockFn: (conversationId, expectedRunToken) => {
+        const beforeState = snapshotRuntimeCleanupState(conversationId);
+        recordCleanupEvent('before releaseConversationLockFn', conversationId, {
+          expectedRunToken,
+        });
+        const released = releaseConversationLock(
+          conversationId,
+          expectedRunToken,
+        );
+        const afterState = snapshotRuntimeCleanupState(conversationId);
+        ownershipReleaseCalls.push({
+          expectedRunToken,
+          released,
+          beforeState,
+          afterState,
+        });
+        recordCleanupEvent('after releaseConversationLockFn', conversationId, {
+          expectedRunToken,
+          released,
+        });
+        return released;
+      },
+      onStopUnwindCheckpoint: async (params) => {
+        recordStopUnwindCheckpoint(params);
+        if (
+          params.conversationId === 'flow-loop-stop-boundary-conv' &&
+          params.checkpoint === 'runStartLoopStep.before_next_iteration' &&
+          !stopRequestedAtBoundary
+        ) {
+          assert.ok(
+            stopWs,
+            'Expected loop-stop websocket before stop boundary',
+          );
+          stopRequestedAtBoundary = true;
+          sendJson(stopWs, {
+            type: 'cancel_inflight',
+            conversationId: params.conversationId,
+          });
+          recordCleanupPhaseCheckpoint(
+            'after stop request sent',
+            params.conversationId,
+          );
+          await waitForPredicate(
+            () => Boolean(getPendingConversationCancel(params.conversationId)),
+            1000,
+            'Timed out waiting for pending cancel at loop boundary',
+          );
+        }
+      },
     },
   );
 });

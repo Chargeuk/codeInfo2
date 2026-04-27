@@ -1,5 +1,4 @@
-import path from 'path';
-
+import { normalizeCanonicalQueueTargetPath } from '../ingest/requestContracts.js';
 import {
   listIngestedRepositories,
   type ListReposResult,
@@ -18,14 +17,6 @@ function parseIsoTimestamp(value: string | null): number {
 
 function normalizeRepositoryId(value: string): string {
   return value.trim().toLowerCase();
-}
-
-function normalizeLookupPath(value: string): string {
-  const normalized = path.posix.normalize(value.replace(/\\/g, '/').trim());
-  if (normalized.length > 1 && normalized.endsWith('/')) {
-    return normalized.slice(0, -1);
-  }
-  return normalized;
 }
 
 function selectLatestRepo(
@@ -58,26 +49,28 @@ export async function resolveRepositorySelector(
   const listRepos = deps.listIngestedRepositories ?? listIngestedRepositories;
   const { repos } = await listRepos();
 
-  const normalizedId = normalizeRepositoryId(input);
-  const byId = selectLatestRepo(
-    repos,
-    (repo) => normalizeRepositoryId(repo.id) === normalizedId,
-  );
-  if (byId) {
-    return byId;
-  }
-
-  const normalizedPath = normalizeLookupPath(input);
+  const normalizedPath = normalizeCanonicalQueueTargetPath(input);
   const byContainerPath = selectLatestRepo(
     repos,
-    (repo) => normalizeLookupPath(repo.containerPath) === normalizedPath,
+    (repo) =>
+      normalizeCanonicalQueueTargetPath(repo.containerPath) === normalizedPath,
   );
   if (byContainerPath) {
     return byContainerPath;
   }
 
+  const byHostPath = selectLatestRepo(
+    repos,
+    (repo) =>
+      normalizeCanonicalQueueTargetPath(repo.hostPath) === normalizedPath,
+  );
+  if (byHostPath) {
+    return byHostPath;
+  }
+
+  const normalizedId = normalizeRepositoryId(input);
   return selectLatestRepo(
     repos,
-    (repo) => normalizeLookupPath(repo.hostPath) === normalizedPath,
+    (repo) => normalizeRepositoryId(repo.id) === normalizedId,
   );
 }

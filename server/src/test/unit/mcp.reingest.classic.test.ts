@@ -6,6 +6,7 @@ import type {
   ReingestError,
   ReingestResult,
 } from '../../ingest/reingestService.js';
+import { runReingestRepository } from '../../ingest/reingestService.js';
 import { createMcpRouter } from '../../mcp/server.js';
 
 const terminalCompleted = {
@@ -69,22 +70,108 @@ const parityNotFoundError: Extract<ReingestError, { code: 404 }> = {
   },
 };
 
-const parityBusyError: Extract<ReingestError, { code: 429 }> = {
-  code: 429,
-  message: 'BUSY',
+const parityQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
+  code: 503,
+  message: 'QUEUE_UNAVAILABLE',
   data: {
     tool: 'reingest_repository',
-    code: 'BUSY',
+    code: 'QUEUE_UNAVAILABLE',
     retryable: true,
     retryMessage:
       'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
-    fieldErrors: [{ field: 'sourceId', reason: 'busy', message: 'busy' }],
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+      },
+    ],
     reingestableRepositoryIds: ['repo-a'],
     reingestableSourceIds: ['/data/repo-a'],
   },
 };
 
-function createApp(result: ReingestResult) {
+const waitTimeQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
+  ...parityQueueUnavailableError,
+  data: {
+    ...parityQueueUnavailableError.data,
+    queueFailureStage: 'wait',
+    waitReason: 'queue-read-failed',
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
+};
+
+const mixedShapeInvalidStateError: Extract<ReingestError, { code: -32602 }> = {
+  ...parityInvalidParamsError,
+  data: {
+    ...parityInvalidParamsError.data,
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'sourceId points to a repository that cannot be re-embedded in its current state',
+      },
+    ],
+  },
+};
+
+const openAiModelUnavailableError: Extract<ReingestError, { code: 409 }> = {
+  code: 409,
+  message: 'OPENAI_MODEL_UNAVAILABLE',
+  data: {
+    tool: 'reingest_repository',
+    code: 'OPENAI_MODEL_UNAVAILABLE',
+    retryable: true,
+    retryMessage:
+      'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Requested OpenAI embedding model is unavailable for this deployment',
+      },
+    ],
+    reingestableRepositoryIds: ['repo-a'],
+    reingestableSourceIds: ['/data/repo-a'],
+  },
+};
+
+function createBridgeMixedShapeRepo() {
+  return {
+    id: 'repo-mixed-shape-bridge',
+    description: null,
+    containerPath: '/data/repo-mixed-shape-bridge',
+    hostPath: '/host/data/repo-mixed-shape-bridge',
+    lastIngestAt: '2026-04-27T00:00:00.000Z',
+    embeddingProvider: 'openai' as const,
+    embeddingModel: '',
+    embeddingDimensions: 0,
+    model: '',
+    modelId: '',
+    lock: {
+      embeddingProvider: 'openai' as const,
+      embeddingModel: 'legacy-lmstudio-model',
+      embeddingDimensions: 768,
+      lockedModelId: 'legacy-lmstudio-model',
+      modelId: 'legacy-lmstudio-model',
+    },
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    lastError: null,
+    status: 'completed' as const,
+  };
+}
+
+function createApp(result: ReingestResult, onRun?: (args: unknown) => void) {
   const app = express();
   app.use(express.json());
   app.use(
@@ -116,10 +203,34 @@ function createApp(result: ReingestResult) {
         ],
         lockedModelId: 'embed-model',
       }),
-      runReingestRepository: async () => result,
+      runReingestRepository: async (args) => {
+        onRun?.(args);
+        return result;
+      },
     }),
   );
   return app;
+}
+
+async function callClassicReingestWithArguments(args: unknown) {
+  let runCalled = false;
+  const app = createApp({ ok: true, value: terminalCompleted }, () => {
+    runCalled = true;
+  });
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'malformed-arguments',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: args,
+      },
+    });
+
+  return { res, runCalled };
 }
 
 test('tools/list includes reingest_repository metadata', async () => {
@@ -180,7 +291,7 @@ test('classic MCP success/cancel/error errorCode constraints', async () => {
   }
 });
 
-test('classic MCP canonicalizes reingest sourceId selectors before dispatch', async () => {
+test('classic MCP canonicalizes reingest sourceId selectors and preserves shared default wait dispatch', async () => {
   let capturedArgs: unknown;
   const app = express();
   app.use(express.json());
@@ -229,6 +340,71 @@ test('classic MCP canonicalizes reingest sourceId selectors before dispatch', as
       params: {
         name: 'reingest_repository',
         arguments: { sourceId: '/host/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+  assert.equal(
+    typeof capturedArgs === 'object' &&
+      capturedArgs !== null &&
+      'waitOptions' in capturedArgs,
+    false,
+  );
+});
+
+test('classic MCP resolves stable repository ids even when an active overlay exposes a transient runId', async () => {
+  let capturedArgs: unknown;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-a',
+            runId: 'active-run-a',
+            description: null,
+            containerPath: '/data/repo-a',
+            hostPath: '/host/repo-a',
+            lastIngestAt: '2025-01-01T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 768,
+            model: 'embed-model',
+            modelId: 'embed-model',
+            lock: {
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'embed-model',
+              embeddingDimensions: 768,
+              lockedModelId: 'embed-model',
+              modelId: 'embed-model',
+            },
+            counts: { files: 1, chunks: 2, embedded: 2 },
+            lastError: null,
+            status: 'ingesting',
+            phase: 'scanning',
+          },
+        ],
+        lockedModelId: 'embed-model',
+      }),
+      runReingestRepository: async (args) => {
+        capturedArgs = args;
+        return { ok: true, value: terminalCompleted } as ReingestResult;
+      },
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 2.15,
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: 'repo-a' },
       },
     });
 
@@ -292,11 +468,11 @@ test('classic MCP leaves unresolved reingest selectors unchanged', async () => {
   assert.deepEqual(capturedArgs, { sourceId: '/host/missing' });
 });
 
-test('classic MCP uses JSON-RPC envelope for pre-run validation errors', async () => {
+test('classic MCP uses JSON-RPC envelope for pre-run validation and queue outage errors', async () => {
   for (const error of [
     parityInvalidParamsError,
     parityNotFoundError,
-    parityBusyError,
+    parityQueueUnavailableError,
   ]) {
     const app = createApp({ ok: false, error });
     const res = await request(app)
@@ -311,6 +487,244 @@ test('classic MCP uses JSON-RPC envelope for pre-run validation errors', async (
     assert.equal(res.body.result, undefined);
     assert.deepEqual(res.body.error, error);
   }
+});
+
+test('classic MCP preserves degraded-startup QUEUE_UNAVAILABLE diagnostic without rewriting it', async () => {
+  const degradedStartupError: Extract<ReingestError, { code: 503 }> = {
+    ...parityQueueUnavailableError,
+    data: {
+      ...parityQueueUnavailableError.data,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message:
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+        },
+      ],
+    },
+  };
+  const app = createApp({ ok: false, error: degradedStartupError });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'degraded-startup-queue-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.error, degradedStartupError);
+  assert.equal(res.body.error.data.retryable, true);
+  assert.equal(
+    res.body.error.data.fieldErrors[0].message,
+    'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+  );
+});
+
+test('classic MCP propagates wait-time queue-read outage as retryable QUEUE_UNAVAILABLE error envelope', async () => {
+  const app = createApp({ ok: false, error: waitTimeQueueUnavailableError });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'wait-time-queue-read-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.deepEqual(res.body.error, waitTimeQueueUnavailableError);
+  assert.equal(res.body.error.data.retryable, true);
+  assert.equal(res.body.error.data.queueFailureStage, 'wait');
+  assert.equal(res.body.error.data.waitReason, 'queue-read-failed');
+});
+
+test('classic MCP rejects string arguments as malformed request shape before domain validation', async () => {
+  const { res, runCalled } =
+    await callClassicReingestWithArguments('/data/repo-a');
+
+  assert.equal(res.status, 200);
+  assert.equal(runCalled, false);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'arguments must be an object');
+});
+
+test('classic MCP rejects array arguments as malformed request shape before domain validation', async () => {
+  const { res, runCalled } = await callClassicReingestWithArguments([
+    ['sourceId', '/data/repo-a'],
+  ]);
+
+  assert.equal(res.status, 200);
+  assert.equal(runCalled, false);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'arguments must be an object');
+});
+
+test('classic MCP malformed arguments use dispatcher envelope instead of tool field errors', async () => {
+  const { res } = await callClassicReingestWithArguments(
+    'sourceId=/data/repo-a',
+  );
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'arguments must be an object');
+  assert.equal(res.body.error.data, undefined);
+});
+
+test('classic MCP well-formed object arguments still reach reingest happy path', async () => {
+  let capturedArgs: unknown;
+  const app = createApp({ ok: true, value: terminalCompleted }, (args) => {
+    capturedArgs = args;
+  });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'well-formed-success',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.error, undefined);
+  assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+  const payload = JSON.parse(res.body.result.content[0].text);
+  assert.equal(payload.status, 'completed');
+});
+
+test('classic MCP well-formed object arguments still reach domain error mapping', async () => {
+  let runCalled = false;
+  const app = createApp({ ok: false, error: parityInvalidParamsError }, () => {
+    runCalled = true;
+  });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'well-formed-domain-error',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: {},
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(runCalled, true);
+  assert.equal(res.body.result, undefined);
+  assert.deepEqual(res.body.error, parityInvalidParamsError);
+});
+
+test('classic MCP returns the shared mixed-shape invalid-state tool error without throwing a transport-level exception', async () => {
+  const app = createApp({ ok: false, error: mixedShapeInvalidStateError });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.deepEqual(res.body.error, mixedShapeInvalidStateError);
+});
+
+test('classic MCP returns the structured OPENAI_MODEL_UNAVAILABLE tool error through the JSON-RPC envelope without a transport-level exception', async () => {
+  const app = createApp({ ok: false, error: openAiModelUnavailableError });
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'openai-model-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.deepEqual(res.body.error, openAiModelUnavailableError);
+});
+
+test('classic MCP keeps a bridge-style mixed-shape sourceId on the shared INVALID_PARAMS tool error instead of drifting to NOT_FOUND after selector resolution', async () => {
+  let enqueueCalls = 0;
+  const bridgeRepo = createBridgeMixedShapeRepo();
+  const listIngestedRepositories = async () => ({
+    repos: [bridgeRepo],
+    lockedModelId: 'legacy-lmstudio-model',
+  });
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      listIngestedRepositories,
+      runReingestRepository: async (args) =>
+        runReingestRepository(args, {
+          listIngestedRepositories,
+          enqueueOrReuseIngestRequest: async () => {
+            enqueueCalls += 1;
+            return {
+              requestId: 'unexpected-queue-request',
+              canonicalTargetPath: bridgeRepo.containerPath,
+              queueState: 'waiting',
+              queuePosition: 1,
+              runId: null,
+              reusedExisting: false,
+              updatedExisting: false,
+              queueRequest: {} as never,
+            };
+          },
+        }),
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'bridge-mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: bridgeRepo.containerPath },
+      },
+    });
+
+  assert.equal(enqueueCalls, 0);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'INVALID_PARAMS');
+  assert.equal(
+    res.body.error.data.fieldErrors[0]?.message,
+    'sourceId points to a repository that cannot be re-embedded in its current state',
+  );
+  assert.deepEqual(res.body.error.data.reingestableSourceIds, [
+    bridgeRepo.containerPath,
+  ]);
 });
 
 test('classic MCP post-start failure remains terminal result (not JSON-RPC error)', async () => {

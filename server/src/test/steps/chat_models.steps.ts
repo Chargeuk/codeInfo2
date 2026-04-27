@@ -117,7 +117,7 @@ After(async () => {
     namedCopilotScenarioServer = null;
   }
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
 });

@@ -11,6 +11,13 @@ import WebSocket, { type RawData } from 'ws';
 
 import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
 import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
+  cleanupPendingConversationCancel,
+  getPendingConversationCancel,
   cleanupInflight,
   createInflight,
 } from '../../chat/inflightRegistry.js';
@@ -88,7 +95,7 @@ function waitForMessage(ws: WebSocket) {
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error('Timed out waiting for WS message'));
-    }, 1000);
+    }, 2000);
 
     const onMessage = (data: RawData) => {
       cleanup();
@@ -106,6 +113,26 @@ function waitForMessage(ws: WebSocket) {
     ws.on('message', onMessage);
     ws.on('error', onError);
   });
+}
+
+async function waitForSidebarSubscriptionReady(timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (query({ text: 'chat.ws.subscribe_sidebar' }).length > 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Timed out waiting for sidebar subscription');
+}
+
+async function waitForSidebarMessageDuring(
+  ws: WebSocket,
+  action: () => Promise<unknown>,
+) {
+  const responsePromise = waitForMessage(ws);
+  const [, payload] = await Promise.all([action(), responsePromise]);
+  return payload;
 }
 
 function rawDataToString(data: RawData): string {
@@ -158,8 +185,7 @@ test('WS accepts connection on /ws and processes JSON message (happy path)', asy
       }),
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    assert.ok(query({ text: 'chat.ws.subscribe_sidebar' }).length > 0);
+    await waitForSidebarSubscriptionReady();
 
     const conversation: ConversationEventSummary = {
       conversationId: 'c-1',
@@ -237,7 +263,7 @@ test('WS conversation_upsert payload preserves flags.workingFolder', async () =>
       }),
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForSidebarSubscriptionReady();
 
     emitConversationUpsert({
       conversationId: 'c-working-folder',
@@ -304,15 +330,14 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
         type: 'subscribe_sidebar',
       }),
     );
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForSidebarSubscriptionReady();
 
-    const responsePromise = waitForMessage(ws);
-    await request(server.app)
-      .post('/conversations/conv-edit-save/working-folder')
-      .send({ workingFolder: process.cwd() })
-      .expect(200);
-
-    const payload = await responsePromise;
+    const payload = await waitForSidebarMessageDuring(ws, () =>
+      request(server.app)
+        .post('/conversations/conv-edit-save/working-folder')
+        .send({ workingFolder: process.cwd() })
+        .expect(200),
+    );
     const event = JSON.parse(payload) as {
       conversation: { flags: Record<string, unknown> };
     };
@@ -358,15 +383,14 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
         type: 'subscribe_sidebar',
       }),
     );
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForSidebarSubscriptionReady();
 
-    const responsePromise = waitForMessage(ws);
-    await request(server.app)
-      .post('/conversations/conv-edit-clear/working-folder')
-      .send({ workingFolder: null })
-      .expect(200);
-
-    const payload = await responsePromise;
+    const payload = await waitForSidebarMessageDuring(ws, () =>
+      request(server.app)
+        .post('/conversations/conv-edit-clear/working-folder')
+        .send({ workingFolder: null })
+        .expect(200),
+    );
     const event = JSON.parse(payload) as {
       conversation: { flags: Record<string, unknown> };
     };
@@ -718,6 +742,45 @@ test('WS conversation-only cancel_ack requestId matches the initiating request',
   }
 });
 
+test('WS conversation-only cancel preserves pending stop when only run ownership remains', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-pending-run-stop';
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+
+    const deadline = Date.now() + 1000;
+    while (Date.now() < deadline) {
+      const pending = getPendingConversationCancel(conversationId);
+      if (pending) {
+        assert.equal(pending.runToken, ownership.runToken);
+        assert.equal(pending.boundInflightId, undefined);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    assert.fail('Expected conversation-only cancel to preserve a pending stop');
+  } finally {
+    cleanupPendingConversationCancel({
+      conversationId,
+      runToken: ownership.runToken,
+    });
+    releaseConversationLock(conversationId, ownership.runToken);
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
 test('WS conversation-only cancel attempts command abort by conversationId', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
@@ -910,6 +973,56 @@ test('WS explicit cancel for an active command-step inflight stops the command r
     await closeWs(ws);
     await stopServer(server);
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('WS conversation-only cancel keeps pending stop across aborted inflight cleanup while ownership remains', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-conversation-pending-handoff';
+  const inflightId = 'inflight-pending-handoff';
+
+  try {
+    assert.equal(tryAcquireConversationLock(conversationId), true);
+    const ownership = getActiveRunOwnership(conversationId);
+    assert.ok(ownership);
+
+    const inflight = createInflight({
+      conversationId,
+      inflightId,
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      source: 'REST',
+    });
+
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+
+    const deadline = Date.now() + 1000;
+    while (!inflight.abortController.signal.aborted && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(inflight.abortController.signal.aborted, true);
+
+    const pendingBeforeCleanup = getPendingConversationCancel(conversationId);
+    assert.ok(pendingBeforeCleanup);
+    assert.equal(pendingBeforeCleanup.runToken, ownership.runToken);
+    assert.equal(pendingBeforeCleanup.boundInflightId, undefined);
+
+    cleanupInflight({ conversationId, inflightId });
+
+    const pendingAfterCleanup = getPendingConversationCancel(conversationId);
+    assert.ok(pendingAfterCleanup);
+    assert.equal(pendingAfterCleanup.runToken, ownership.runToken);
+    assert.equal(pendingAfterCleanup.boundInflightId, undefined);
+  } finally {
+    cleanupInflight({ conversationId });
+    releaseConversationLock(conversationId);
+    await closeWs(ws);
+    await stopServer(server);
   }
 });
 

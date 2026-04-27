@@ -99,15 +99,15 @@ describe('codexConfig', () => {
   });
 
   it('migrated checked-in configs no longer depend on bridge-era playwright hosts or hard-coded localhost MCP ports', async () => {
+    const agentsRoot = path.join(repoRoot, 'codex_agents');
+    const agentEntries = await fs.readdir(agentsRoot, { withFileTypes: true });
     const configPaths = [
-      'codex/chat/config.toml',
-      'config.toml.example',
-      'codex_agents/lmstudio_agent/config.toml',
-      'codex_agents/research_agent/config.toml',
-      'codex_agents/planning_agent/config.toml',
-      'codex_agents/tasking_agent/config.toml',
-      'codex_agents/coding_agent/config.toml',
-    ].map((relPath) => path.join(repoRoot, relPath));
+      path.join(repoRoot, 'config.toml.example'),
+      ...agentEntries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(agentsRoot, entry.name, 'config.toml'))
+        .sort(),
+    ];
 
     const contents = await Promise.all(
       configPaths.map(async (configPath) => ({

@@ -1,0 +1,3 @@
+Non-static browser network traffic stayed healthy on the proof surface.
+Observed successful application requests included `GET /ingest/models` and `GET /ingest/roots` with `200 OK`, plus repeated client log forwarding `POST /logs` with `202 Accepted`.
+No failed browser network requests were required to exercise the Task 210 selection-parity seam or the degraded Mongo queue-read warning path.

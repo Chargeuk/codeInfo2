@@ -1,0 +1,8 @@
+Task 207 browser network check on 2026-04-27
+Surface: http://localhost:5001/ingest
+Method: Playwright MCP browser_network_requests(includeStatic=false)
+Observed successful product requests:
+- GET http://host.docker.internal:5010/ingest/models -> 200 OK
+- GET http://host.docker.internal:5010/ingest/roots -> 200 OK
+- POST http://host.docker.internal:5010/logs -> 202 Accepted
+Result: No failed non-static product requests were reported during the queued-row and details-dialog validation pass.

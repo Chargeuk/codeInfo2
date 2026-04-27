@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -27,6 +26,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 setDefaultTimeout(20_000);
 
@@ -83,7 +83,7 @@ Before(async () => {
 After(async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   if (repoDir) {
@@ -100,7 +100,7 @@ After(async () => {
 Given(
   'a git repo with tracked file {string} and untracked file {string}',
   async (tracked: string, untracked: string) => {
-    repoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-discover-'));
+    repoDir = await createTempRepoRoot('ingest-discover-');
     await fs.writeFile(path.join(repoDir, tracked), 'tracked content');
     await fs.writeFile(path.join(repoDir, untracked), 'untracked content');
     expectedTracked = [tracked];
@@ -120,7 +120,7 @@ Given(
 Given(
   'a folder with an invalid git repo containing {string}',
   async (filename: string) => {
-    repoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-discover-'));
+    repoDir = await createTempRepoRoot('ingest-discover-');
     await fs.mkdir(path.join(repoDir, '.git'), { recursive: true });
     await fs.writeFile(path.join(repoDir, filename), 'fallback content');
     expectedTracked = null;
@@ -128,7 +128,7 @@ Given(
 );
 
 Given('an empty git repo', async () => {
-  repoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-discover-'));
+  repoDir = await createTempRepoRoot('ingest-discover-');
   const { execFile } = await import('node:child_process');
   await execFile('git', ['-C', repoDir, 'init']);
   expectedTracked = [];

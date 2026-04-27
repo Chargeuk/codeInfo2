@@ -86,10 +86,16 @@ const buildApp = (params?: {
     lockedModelId: string | null;
   }>;
 }) => {
+  const listIngestedRepositories =
+    params?.listIngestedRepositories ??
+    (async () => ({
+      repos: [],
+      lockedModelId: null,
+    }));
   const app = express();
   app.use(
     createFlowsRouter({
-      listIngestedRepositories: params?.listIngestedRepositories,
+      listIngestedRepositories,
     }),
   );
   return app;

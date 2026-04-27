@@ -375,10 +375,13 @@ export function cleanupInflight(params: {
   if (!state) return;
   if (params.inflightId && state.inflightId !== params.inflightId) return;
   inflightByConversationId.delete(params.conversationId);
-  cleanupPendingConversationCancel({
-    conversationId: params.conversationId,
-    inflightId: state.inflightId,
-  });
+  const pending = pendingCancelByConversationId.get(params.conversationId);
+  if (pending?.boundInflightId === state.inflightId) {
+    cleanupPendingConversationCancel({
+      conversationId: params.conversationId,
+      inflightId: state.inflightId,
+    });
+  }
 }
 
 export function setInflightUserTurn(params: {

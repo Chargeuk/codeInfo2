@@ -51,7 +51,14 @@ export default function IngestPage() {
   const ingest = useIngestStatus();
 
   const terminalStates = useMemo(
-    () => new Set(['completed', 'cancelled', 'error', 'skipped']),
+    () =>
+      new Set([
+        'completed',
+        'cancelled',
+        'error',
+        'skipped',
+        'cleanup-blocked',
+      ]),
     [],
   );
   const lastFinishedRef = useRef<string | null>(null);
@@ -82,6 +89,8 @@ export default function IngestPage() {
   const isRunActive = Boolean(active);
   const skippedFileCount = ingest.status?.ast?.skippedFileCount ?? 0;
   const failedFileCount = ingest.status?.ast?.failedFileCount ?? 0;
+  const rootsTableError = rootsIsError ? rootsError : undefined;
+  const rootsTableWarning = !rootsIsError ? rootsError : undefined;
 
   useEffect(() => {
     if (!locked) return;
@@ -122,7 +131,10 @@ export default function IngestPage() {
       setTerminalErrorStatus(null);
       return;
     }
-    if (ingest.status.state === 'error') {
+    if (
+      ingest.status.state === 'error' ||
+      ingest.status.state === 'cleanup-blocked'
+    ) {
       setTerminalErrorStatus(ingest.status);
       return;
     }
@@ -164,9 +176,9 @@ export default function IngestPage() {
         {rootsIsError && rootsError ? (
           <Alert severity="error">{rootsError}</Alert>
         ) : null}
-        {terminalErrorStatus?.lastError ? (
+        {terminalErrorStatus?.lastError || terminalErrorStatus?.message ? (
           <Alert severity="error" data-testid="ingest-terminal-error">
-            {terminalErrorStatus.lastError}
+            {terminalErrorStatus.lastError ?? terminalErrorStatus.message}
           </Alert>
         ) : null}
         {ingest.connectionState === 'connecting' ? (
@@ -216,7 +228,10 @@ export default function IngestPage() {
             }}
             openai={openai}
             defaultModelId={defaultModelId}
-            disabled={isRunActive}
+            onAccepted={() => {
+              void refetchRoots();
+              void refresh();
+            }}
           />
         </Paper>
 
@@ -245,6 +260,7 @@ export default function IngestPage() {
         <Paper variant="outlined" sx={{ p: 3 }}>
           <RootsTable
             roots={roots}
+            activeRunId={active?.runId}
             lockedModelId={locked}
             lockedModel={{
               embeddingProvider: lockedProvider,
@@ -252,8 +268,9 @@ export default function IngestPage() {
               embeddingDimensions: lockedDimensions,
             }}
             isLoading={rootsLoading}
-            error={rootsError}
-            disabled={isRunActive}
+            error={rootsTableError}
+            warning={rootsTableWarning}
+            hasActiveRun={isRunActive}
             onRefresh={refetchRoots}
             onShowDetails={(root) => setDetailRoot(root)}
             onRefreshModels={refresh}

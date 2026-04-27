@@ -9,6 +9,14 @@ import {
 
 const serverBase = getApiBaseUrl();
 
+const terminalIngestStates = new Set<ChatWsIngestStatus['state']>([
+  'completed',
+  'cancelled',
+  'error',
+  'skipped',
+  'cleanup-blocked',
+]);
+
 type Status = {
   status: ChatWsIngestStatus | null;
   connectionState: ChatWsConnectionState;
@@ -70,6 +78,7 @@ export function useIngestStatus(): Status {
 
   const cancel = useCallback(async () => {
     if (!status?.runId) return;
+    if (terminalIngestStates.has(status.state)) return;
     setIsCancelling(true);
     try {
       const res = await fetch(
@@ -87,7 +96,7 @@ export function useIngestStatus(): Status {
     } finally {
       setIsCancelling(false);
     }
-  }, [status?.runId]);
+  }, [status?.runId, status?.state]);
 
   const isLoading = connectionState === 'connecting';
 

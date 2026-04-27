@@ -1,6 +1,7 @@
 import type {
   ExternalIngestPhase,
   ExternalIngestStatus,
+  IngestQueueState,
 } from '@codeinfo2/common';
 import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -18,10 +19,16 @@ export type NormalizedIngestError = {
   retryable?: boolean;
   details?: string;
   status?: number;
+  upstreamStatus?: number;
+  retryAfterMs?: number;
 };
 
 export type IngestRoot = {
-  runId: string;
+  id?: string;
+  requestId?: string | null;
+  runId?: string | null;
+  queuePosition?: number | null;
+  queueState?: IngestQueueState | null;
   name: string;
   description?: string | null;
   path: string;
@@ -59,6 +66,8 @@ type RootsResponse = {
   roots?: Array<Record<string, unknown>>;
   schemaVersion?: string;
   lockedModelId?: string;
+  queueReadDegraded?: boolean;
+  queueReadError?: unknown;
   lock?: {
     embeddingProvider?: string;
     embeddingModel?: string;
@@ -66,6 +75,17 @@ type RootsResponse = {
     lockedModelId?: string;
     modelId?: string;
   };
+};
+
+type IngestRootsErrorPayload = {
+  error?: unknown;
+  provider?: unknown;
+  message?: unknown;
+  retryable?: unknown;
+  details?: unknown;
+  status?: unknown;
+  upstreamStatus?: unknown;
+  retryAfterMs?: unknown;
 };
 
 type State = {
@@ -84,15 +104,21 @@ function normalizeProvider(value: unknown): IngestProviderId | undefined {
 
 function normalizeError(value: unknown): NormalizedIngestError | null {
   if (!value || typeof value !== 'object') return null;
-  const source = value as Record<string, unknown>;
+  const source = value as IngestRootsErrorPayload;
   return {
-    code: typeof source.code === 'string' ? source.code : undefined,
+    code: typeof source.error === 'string' ? source.error : undefined,
     provider: typeof source.provider === 'string' ? source.provider : undefined,
     message: typeof source.message === 'string' ? source.message : undefined,
     retryable:
       typeof source.retryable === 'boolean' ? source.retryable : undefined,
     details: typeof source.details === 'string' ? source.details : undefined,
     status: typeof source.status === 'number' ? source.status : undefined,
+    upstreamStatus:
+      typeof source.upstreamStatus === 'number'
+        ? source.upstreamStatus
+        : undefined,
+    retryAfterMs:
+      typeof source.retryAfterMs === 'number' ? source.retryAfterMs : undefined,
   };
 }
 
@@ -114,6 +140,32 @@ function normalizeLastError(
   return null;
 }
 
+function shouldClearStaleQueueOverlayDiagnostics(
+  status: ExternalIngestStatus,
+  queueState: IngestQueueState | null,
+) {
+  return (
+    status === 'ingesting' &&
+    (queueState === 'waiting' || queueState === 'running')
+  );
+}
+
+function normalizeIdentityCandidate(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function resolveRootIdentity(entry: Record<string, unknown>): string {
+  return (
+    normalizeIdentityCandidate(entry.id) ??
+    normalizeIdentityCandidate(entry.path) ??
+    normalizeIdentityCandidate(entry.containerPath) ??
+    normalizeIdentityCandidate(entry.name) ??
+    ''
+  );
+}
+
 function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
   const status =
     entry.status === 'ingesting' ||
@@ -130,7 +182,21 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
       ? entry.phase
       : undefined;
 
+  const queueState =
+    entry.queueState === 'waiting' ||
+    entry.queueState === 'running' ||
+    entry.queueState === 'cleanup-blocked'
+      ? entry.queueState
+      : null;
   const error = normalizeError(entry.error);
+  const clearStaleDiagnostics = shouldClearStaleQueueOverlayDiagnostics(
+    status,
+    queueState,
+  );
+  const queueOverlayPresent =
+    (queueState === 'waiting' || queueState === 'running') &&
+    typeof entry.requestId === 'string';
+  const canonicalEmbeddingProvider = normalizeProvider(entry.embeddingProvider);
   const embeddingModel =
     typeof entry.embeddingModel === 'string'
       ? entry.embeddingModel
@@ -142,34 +208,60 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
       ? (entry.lock as Record<string, unknown>)
       : undefined;
   const lockModel =
-    typeof lockObj?.embeddingModel === 'string'
-      ? lockObj.embeddingModel
-      : typeof lockObj?.lockedModelId === 'string'
-        ? lockObj.lockedModelId
-        : typeof lockObj?.modelId === 'string'
-          ? lockObj.modelId
-          : embeddingModel || undefined;
+    queueOverlayPresent && embeddingModel
+      ? embeddingModel
+      : typeof lockObj?.embeddingModel === 'string'
+        ? lockObj.embeddingModel
+        : typeof lockObj?.lockedModelId === 'string'
+          ? lockObj.lockedModelId
+          : typeof lockObj?.modelId === 'string'
+            ? lockObj.modelId
+            : embeddingModel || undefined;
   const lockProvider =
+    (queueOverlayPresent ? canonicalEmbeddingProvider : undefined) ??
     normalizeProvider(lockObj?.embeddingProvider) ??
-    normalizeProvider(entry.embeddingProvider) ??
+    canonicalEmbeddingProvider ??
     (lockModel ? 'lmstudio' : undefined);
   const lockDimensions =
-    typeof lockObj?.embeddingDimensions === 'number'
-      ? lockObj.embeddingDimensions
-      : typeof entry.embeddingDimensions === 'number'
-        ? entry.embeddingDimensions
-        : undefined;
+    queueOverlayPresent && typeof entry.embeddingDimensions === 'number'
+      ? entry.embeddingDimensions
+      : typeof lockObj?.embeddingDimensions === 'number'
+        ? lockObj.embeddingDimensions
+        : typeof entry.embeddingDimensions === 'number'
+          ? entry.embeddingDimensions
+          : undefined;
 
   return {
-    runId: typeof entry.runId === 'string' ? entry.runId : '',
-    name: typeof entry.name === 'string' ? entry.name : '',
+    id: resolveRootIdentity(entry),
+    requestId: typeof entry.requestId === 'string' ? entry.requestId : null,
+    runId: typeof entry.runId === 'string' ? entry.runId : null,
+    queuePosition:
+      typeof entry.queuePosition === 'number' && entry.queuePosition > 0
+        ? entry.queuePosition
+        : null,
+    queueState,
+    name:
+      typeof entry.name === 'string'
+        ? entry.name
+        : typeof entry.id === 'string'
+          ? entry.id
+          : '',
     description:
       typeof entry.description === 'string' ? entry.description : null,
-    path: typeof entry.path === 'string' ? entry.path : '',
+    path:
+      typeof entry.path === 'string'
+        ? entry.path
+        : typeof entry.containerPath === 'string'
+          ? entry.containerPath
+          : '',
     model: embeddingModel,
-    modelId: typeof entry.modelId === 'string' ? entry.modelId : embeddingModel,
-    embeddingProvider:
-      normalizeProvider(entry.embeddingProvider) ?? lockProvider ?? 'lmstudio',
+    modelId:
+      queueOverlayPresent && embeddingModel
+        ? embeddingModel
+        : typeof entry.modelId === 'string'
+          ? entry.modelId
+          : embeddingModel,
+    embeddingProvider: canonicalEmbeddingProvider ?? lockProvider ?? 'lmstudio',
     embeddingModel,
     embeddingDimensions:
       typeof entry.embeddingDimensions === 'number'
@@ -181,11 +273,17 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
           embeddingModel: lockModel,
           embeddingDimensions: lockDimensions,
           lockedModelId:
-            typeof lockObj?.lockedModelId === 'string'
-              ? lockObj.lockedModelId
-              : lockModel,
+            queueOverlayPresent && embeddingModel
+              ? embeddingModel
+              : typeof lockObj?.lockedModelId === 'string'
+                ? lockObj.lockedModelId
+                : lockModel,
           modelId:
-            typeof lockObj?.modelId === 'string' ? lockObj.modelId : lockModel,
+            queueOverlayPresent && embeddingModel
+              ? embeddingModel
+              : typeof lockObj?.modelId === 'string'
+                ? lockObj.modelId
+                : lockModel,
         }
       : undefined,
     status,
@@ -236,8 +334,10 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
                 : null,
           }
         : undefined,
-    error,
-    lastError: normalizeLastError(entry.lastError, error),
+    error: clearStaleDiagnostics ? null : error,
+    lastError: clearStaleDiagnostics
+      ? null
+      : normalizeLastError(entry.lastError, error),
   };
 }
 
@@ -251,11 +351,14 @@ export function useIngestRoots(): State {
   const [error, setError] = useState<string | undefined>();
 
   const controllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef(0);
 
   const fetchRoots = useCallback(async () => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
     setIsLoading(true);
     try {
       const res = await fetch(new URL('/ingest/roots', serverBase).toString(), {
@@ -295,6 +398,16 @@ export function useIngestRoots(): State {
         (root) => root.error && Object.keys(root.error).length > 0,
       );
       const aliasFallbackUsed = !lockModelCanonical && Boolean(lockModelAlias);
+      const queueReadDegraded = data.queueReadDegraded === true;
+      const queueReadError = normalizeError(data.queueReadError);
+      const queueReadMessage = queueReadDegraded
+        ? (normalizeLastError(undefined, queueReadError) ??
+          'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.')
+        : undefined;
+
+      if (activeRequestIdRef.current !== requestId) {
+        return;
+      }
 
       setRoots(normalizedRoots);
       setSchemaVersion(normalizedSchemaVersion);
@@ -308,18 +421,24 @@ export function useIngestRoots(): State {
         canonicalLockModel: resolvedLockModel ?? null,
         aliasFallbackUsed,
         normalizedErrorShapeDetected: hasNormalizedErrorObject,
+        queueReadDegraded,
       });
       setIsError(false);
-      setError(undefined);
+      setError(queueReadMessage);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
+      if (activeRequestIdRef.current !== requestId) {
+        return;
+      }
       setIsError(true);
       setError((err as Error).message);
     } finally {
       if (controllerRef.current === controller) {
         controllerRef.current = null;
       }
-      setIsLoading(false);
+      if (activeRequestIdRef.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }, [log]);
 

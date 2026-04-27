@@ -171,6 +171,7 @@ const fixturesDir = path.resolve(
 const buildRepoEntry = (params: {
   containerPath: string;
   id?: string;
+  lastIngestAt?: string | null;
 }): RepoEntry => ({
   id:
     params.id ??
@@ -179,7 +180,7 @@ const buildRepoEntry = (params: {
   description: null,
   containerPath: params.containerPath,
   hostPath: params.containerPath,
-  lastIngestAt: null,
+  lastIngestAt: params.lastIngestAt ?? '2026-01-01T00:00:00.000Z',
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,
@@ -218,6 +219,32 @@ const buildReingestSuccess = (
   embedded: 7,
   errorCode: null,
   ...overrides,
+});
+
+const buildWaitTimeQueueUnavailableError = (params: {
+  repositoryId: string;
+  sourceId: string;
+}) => ({
+  code: 503 as const,
+  message: 'QUEUE_UNAVAILABLE' as const,
+  data: {
+    tool: 'reingest_repository' as const,
+    code: 'QUEUE_UNAVAILABLE' as const,
+    retryable: true as const,
+    retryMessage: 'retry',
+    reingestableRepositoryIds: [params.repositoryId],
+    reingestableSourceIds: [params.sourceId],
+    queueFailureStage: 'wait' as const,
+    waitReason: 'queue-read-failed' as const,
+    fieldErrors: [
+      {
+        field: 'sourceId' as const,
+        reason: 'invalid_state' as const,
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
 });
 
 const withFlowServer = async (
@@ -1662,9 +1689,9 @@ test('flow-owned commands can execute reingest items', async () => {
   );
 });
 
-test('top-level flow target working reuses the selected working repository path', async () => {
+test('top-level flow target working reuses the selected repository path and preserves shared reingest default wait dispatch', async () => {
   const repos: RepoEntry[] = [];
-  const calls: string[] = [];
+  const calls: unknown[] = [];
 
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -1714,7 +1741,16 @@ test('top-level flow target working reuses the selected working repository path'
           }>;
         } | null
       )?.calls?.[0];
-      assert.deepEqual(calls, [workingRoot]);
+      assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      assert.equal(
+        calls.every(
+          (call) =>
+            typeof call !== 'object' ||
+            call === null ||
+            !('waitOptions' in call),
+        ),
+        true,
+      );
       assert.equal(toolCall?.stage, 'success');
       assert.equal(toolCall?.result?.targetMode, 'working');
       assert.equal(toolCall?.result?.sourceId, workingRoot);
@@ -1733,14 +1769,165 @@ test('top-level flow target working reuses the selected working repository path'
         lockedModelId: null,
       }),
       flowServiceDeps: {
-        runReingestRepository: async ({ sourceId }) => {
-          calls.push(sourceId ?? '(missing)');
+        runReingestRepository: async (args) => {
+          calls.push(args);
+          const sourceId = args.sourceId;
           return {
             ok: true,
             value: buildReingestSuccess({
               sourceId: sourceId ?? '/missing',
               resolvedRepositoryId: 'Working Repo',
             }),
+          };
+        },
+      },
+    },
+  );
+});
+
+test('top-level flow target working propagates wait-time queue-read outage as retryable QUEUE_UNAVAILABLE failure', async () => {
+  const repos: RepoEntry[] = [];
+  const calls: unknown[] = [];
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-flow-working-wait-outage');
+      const workingRoot = path.join(
+        tmpDir,
+        'repo-flow-working-wait-outage-target',
+      );
+      const conversationId = 'flow-target-working-wait-outage';
+      await fs.mkdir(workingRoot, { recursive: true });
+      await writeFlowFile({
+        repoRoot: sourceRoot,
+        flowName: 'repo-flow-working-wait-outage',
+        steps: [{ type: 'reingest', target: 'working' }],
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-flow-working-wait-outage/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
+        .expect(202);
+
+      const final = (await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'failed',
+      })) as { error?: { message?: string } };
+      assert.match(
+        final.error?.message ?? '',
+        /unavailable while waiting for re-ingest completion/i,
+      );
+      assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async (args) => {
+          calls.push(args);
+          const sourceId = args.sourceId ?? '/missing';
+          return {
+            ok: false,
+            error: buildWaitTimeQueueUnavailableError({
+              repositoryId: 'Working Repo',
+              sourceId,
+            }),
+          };
+        },
+      },
+    },
+  );
+});
+
+test('top-level flow target working receives the structured OPENAI_MODEL_UNAVAILABLE reingest failure instead of a thrown flow exception', async () => {
+  const repos: RepoEntry[] = [];
+  const calls: unknown[] = [];
+
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'repo-flow-working-openai-outage');
+      const workingRoot = path.join(
+        tmpDir,
+        'repo-flow-working-openai-outage-target',
+      );
+      const conversationId = 'flow-target-working-openai-outage';
+      await fs.mkdir(workingRoot, { recursive: true });
+      await writeFlowFile({
+        repoRoot: sourceRoot,
+        flowName: 'repo-flow-working-openai-outage',
+        steps: [{ type: 'reingest', target: 'working' }],
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/repo-flow-working-openai-outage/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+          working_folder: workingRoot,
+        })
+        .expect(202);
+
+      const final = (await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'failed',
+      })) as { error?: { message?: string } };
+      assert.equal(
+        final.error?.message,
+        'Requested OpenAI embedding model is unavailable for this deployment',
+      );
+      assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({
+        repos,
+        lockedModelId: null,
+      }),
+      flowServiceDeps: {
+        runReingestRepository: async (args) => {
+          calls.push(args);
+          const sourceId = args.sourceId ?? '/missing';
+          return {
+            ok: false,
+            error: {
+              code: 409,
+              message: 'OPENAI_MODEL_UNAVAILABLE',
+              data: {
+                tool: 'reingest_repository',
+                code: 'OPENAI_MODEL_UNAVAILABLE',
+                retryable: true,
+                retryMessage: 'retry later',
+                reingestableRepositoryIds: ['Working Repo'],
+                reingestableSourceIds: [sourceId],
+                fieldErrors: [
+                  {
+                    field: 'sourceId',
+                    reason: 'invalid_state',
+                    message:
+                      'Requested OpenAI embedding model is unavailable for this deployment',
+                  },
+                ],
+              },
+            },
           };
         },
       },
@@ -2022,7 +2209,7 @@ test('top-level flow target working fails fast when there is no owning repositor
   );
 });
 
-test('flow-owned command target plan_scope publishes success with warnings, continues after failures, and keeps updated wording', async () => {
+test('flow-owned command target plan_scope preserves degraded-startup diagnostics in warnings while continuing after failures', async () => {
   const repos: RepoEntry[] = [];
   const calls: string[] = [];
 
@@ -2112,7 +2299,7 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
               stage?: string;
               result?: {
                 targetMode?: string;
-                warnings?: Array<{ code?: string }>;
+                warnings?: Array<{ code?: string; message?: string }>;
               };
             };
           } => {
@@ -2124,7 +2311,7 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
                 stage?: string;
                 result?: {
                   targetMode?: string;
-                  warnings?: Array<{ code?: string }>;
+                  warnings?: Array<{ code?: string; message?: string }>;
                 };
               };
             };
@@ -2171,7 +2358,7 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
               result?: {
                 targetMode?: string;
                 repositories?: Array<{ sourceId?: string }>;
-                warnings?: Array<{ code?: string }>;
+                warnings?: Array<{ code?: string; message?: string }>;
               };
             }>;
           } | null
@@ -2181,6 +2368,12 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
         assert.deepEqual(
           toolEvent.event.result?.warnings?.map((warning) => warning.code),
           ['repository_skipped', 'repository_skipped', 'repository_failed'],
+        );
+        assert.equal(
+          toolEvent.event.result?.warnings?.[2]?.message?.includes(
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+          ),
+          true,
         );
         assert.deepEqual(calls, [
           fixture.workingRepositoryPath,
@@ -2202,6 +2395,12 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
         assert.deepEqual(
           toolCall?.result?.warnings?.map((warning) => warning.code),
           ['repository_skipped', 'repository_skipped', 'repository_failed'],
+        );
+        assert.equal(
+          toolCall?.result?.warnings?.[2]?.message?.includes(
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+          ),
+          true,
         );
         assert.match(
           turns[0]?.content ?? '',
@@ -2252,11 +2451,11 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
             return {
               ok: false,
               error: {
-                code: 429,
-                message: 'BUSY',
+                code: 503,
+                message: 'QUEUE_UNAVAILABLE',
                 data: {
                   tool: 'reingest_repository',
-                  code: 'BUSY',
+                  code: 'QUEUE_UNAVAILABLE',
                   retryable: true,
                   retryMessage: 'retry later',
                   reingestableRepositoryIds: ['Repo A'],
@@ -2264,8 +2463,9 @@ test('flow-owned command target plan_scope publishes success with warnings, cont
                   fieldErrors: [
                     {
                       field: 'sourceId',
-                      reason: 'busy',
-                      message: 'Repository is already being re-ingested',
+                      reason: 'invalid_state',
+                      message:
+                        'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
                     },
                   ],
                 },

@@ -1,0 +1,68 @@
+{
+  "focusedRoots": [
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+      "requestId": "69efa6e17584d84c13cb8c1c",
+      "runId": null,
+      "queuePosition": 1,
+      "queueState": "waiting",
+      "name": "Task 209 Final Story Queued Root",
+      "description": "Final story manual proof queued ingest using known eligible fixture.",
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+      "embeddingProvider": "openai",
+      "embeddingModel": "text-embedding-3-small",
+      "embeddingDimensions": 1536,
+      "model": "text-embedding-3-small",
+      "modelId": "text-embedding-3-small",
+      "lock": {
+        "embeddingProvider": "openai",
+        "embeddingModel": "text-embedding-3-small",
+        "embeddingDimensions": 1536,
+        "lockedModelId": "text-embedding-3-small",
+        "modelId": "text-embedding-3-small"
+      },
+      "status": "ingesting",
+      "phase": "queued",
+      "lastIngestAt": "2026-04-27T18:07:13.763Z",
+      "counts": {
+        "files": 30,
+        "chunks": 30,
+        "embedded": 30
+      },
+      "lastError": null,
+      "error": null
+    },
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+      "requestId": "69efa6e07584d84c13cb8c14",
+      "runId": "dbb7babf-4fc2-4ef9-87a0-88ee6ef4b06a",
+      "queuePosition": null,
+      "queueState": "running",
+      "name": "Task 209 Final Story Active Root",
+      "description": "Final story manual proof active queue head using known eligible fixture.",
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+      "embeddingProvider": "openai",
+      "embeddingModel": "text-embedding-3-small",
+      "embeddingDimensions": 1536,
+      "model": "text-embedding-3-small",
+      "modelId": "text-embedding-3-small",
+      "lock": {
+        "embeddingProvider": "openai",
+        "embeddingModel": "text-embedding-3-small",
+        "embeddingDimensions": 1536,
+        "lockedModelId": "text-embedding-3-small",
+        "modelId": "text-embedding-3-small"
+      },
+      "status": "ingesting",
+      "phase": "embedding",
+      "lastIngestAt": "2026-04-27T18:07:13.636Z",
+      "counts": {
+        "files": 1045,
+        "chunks": 0,
+        "embedded": 0
+      },
+      "lastError": null,
+      "error": null
+    }
+  ]
+}

@@ -1,8 +1,12 @@
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   expect,
   request,
   test,
   type APIRequestContext,
+  type Route,
 } from '@playwright/test';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
@@ -13,45 +17,140 @@ const mountedLargeFixturePath = `${fixturePath}/${largeFixtureRelPath}`;
 const fixtureName = 'fixtures-e2e';
 
 const preferredEmbeddingModel = 'text-embedding-qwen3-embedding-4b';
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
+const generatedScreenshotDir = path.join(
+  repoRoot,
+  'test-results/screenshots',
+  '0000055',
+);
 
 let skipReason: string | undefined;
 let ingestSkip: string | undefined;
 let chosenModelId: string | undefined;
 
+const overlappingRefreshRetainsVisibleRowsScenario =
+  'overlapping ingest-roots refresh keeps retained rows visible while the newest request owns loading';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function saveGeneratedScreenshot(
+  page: Parameters<typeof test>[0]['page'],
+  fileName: string,
+) {
+  await mkdir(generatedScreenshotDir, { recursive: true });
+  await page.screenshot({
+    path: path.join(generatedScreenshotDir, fileName),
+    fullPage: true,
+  });
+}
+
 async function ensureCleanRoots() {
   const ctx = await request.newContext();
   try {
-    const res = await ctx.get(`${apiBase}/ingest/roots`);
-    if (!res.ok()) {
-      throw new Error(`ingest/roots unavailable (${res.status()})`);
-    }
-    const data = await res.json();
-    const roots = Array.isArray(data.roots) ? data.roots : [];
-    for (const root of roots) {
-      const removeRes = await ctx.post(
-        `${apiBase}/ingest/remove/${encodeURIComponent(root.path)}`,
+    const deadline = Date.now() + 240_000;
+    let lastBusyRoot: string | undefined;
+    let lastRemainingRoots: string[] = [];
+
+    while (Date.now() < deadline) {
+      const res = await ctx.get(`${apiBase}/ingest/roots`);
+      if (!res.ok()) {
+        throw new Error(`ingest/roots unavailable (${res.status()})`);
+      }
+      const data = await res.json();
+      const roots = Array.isArray(data.roots) ? data.roots : [];
+      lastRemainingRoots = roots.map((root) =>
+        JSON.stringify({
+          path: root?.path ?? null,
+          status: root?.status ?? null,
+          queueState: root?.queueState ?? null,
+          runId: root?.runId ?? null,
+        }),
       );
-      if (!removeRes.ok()) {
+      if (roots.length === 0) {
+        const staleLockCleanup = await ctx.post(
+          `${apiBase}/ingest/e2e/cleanup/${encodeURIComponent(fixturePath)}`,
+        );
+        if (!staleLockCleanup.ok() && staleLockCleanup.status() !== 429) {
+          throw new Error(
+            `failed to clear stale ingest lock for ${fixturePath} (${staleLockCleanup.status()})`,
+          );
+        }
+        if (staleLockCleanup.status() !== 429) {
+          return;
+        }
+      }
+
+      for (const root of roots) {
+        if (
+          root?.runId &&
+          (root?.status === 'ingesting' || root?.queueState === 'running')
+        ) {
+          await ctx.post(`${apiBase}/ingest/cancel/${root.runId}`);
+        }
+      }
+
+      let sawBusy = false;
+
+      for (const root of roots) {
+        // Waiting queue items intentionally are not user-removable, so e2e
+        // teardown uses the dedicated cleanup seam instead of the product route.
+        const removeRes = await ctx.post(
+          `${apiBase}/ingest/e2e/cleanup/${encodeURIComponent(root.path)}`,
+        );
+        if (removeRes.ok()) {
+          continue;
+        }
+        if (removeRes.status() === 429) {
+          sawBusy = true;
+          lastBusyRoot = root.path;
+          continue;
+        }
         throw new Error(
-          `failed to remove root ${root.path} (${removeRes.status()})`,
+          `failed to cleanup root ${root.path} (${removeRes.status()})`,
         );
       }
-    }
-    if (roots.length > 0) {
-      const verify = await ctx.get(`${apiBase}/ingest/roots`);
-      const verifyData = await verify.json();
-      const remaining = Array.isArray(verifyData.roots)
-        ? verifyData.roots.length
-        : 0;
-      if (remaining !== 0) {
-        throw new Error(
-          `expected empty roots after cleanup, found ${remaining}`,
-        );
+
+      if (!sawBusy) {
+        const verify = await ctx.get(`${apiBase}/ingest/roots`);
+        const verifyData = await verify.json();
+        const remaining = Array.isArray(verifyData.roots)
+          ? verifyData.roots.length
+          : 0;
+        if (remaining === 0) {
+          return;
+        }
       }
+
+      await sleep(1_000);
     }
+
+    throw new Error(
+      `expected empty roots after cleanup, found busy root ${lastBusyRoot ?? 'none'}; remaining roots: ${lastRemainingRoots.join(', ') || 'none'}`,
+    );
   } finally {
     await ctx.dispose();
   }
+}
+
+async function fetchRoots(ctx: APIRequestContext) {
+  const res = await ctx.get(`${apiBase}/ingest/roots`);
+  if (!res.ok()) {
+    throw new Error(`ingest/roots unavailable (${res.status()})`);
+  }
+  const data = await res.json();
+  return Array.isArray(data.roots)
+    ? (data.roots as Array<{
+        path?: string;
+        name?: string;
+        status?: string;
+        queueState?: string | null;
+        runId?: string | null;
+        lastError?: string | null;
+      }>)
+    : [];
 }
 
 async function checkPrereqs() {
@@ -166,6 +265,23 @@ const waitForCompletion = async (
   });
 };
 
+const waitForQueuedRow = async (
+  page: Parameters<typeof test>[0]['page'],
+  rowMatcher: RegExp,
+  queuePosition?: number,
+) => {
+  const row = page.getByRole('row', { name: rowMatcher }).first();
+  await expect(row).toBeVisible({ timeout: 60_000 });
+  await expect(
+    row.getByText(
+      queuePosition
+        ? new RegExp(`queued \\(#${queuePosition}\\)`, 'i')
+        : /queued/i,
+    ),
+  ).toBeVisible({ timeout: 60_000 });
+  return row;
+};
+
 const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
   await expect(
     page.getByRole('heading', { name: /Active ingest/i }),
@@ -182,6 +298,165 @@ const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
       { timeout: 30_000, message: 'waiting for ingest to start' },
     )
     .toMatch(/(queued|scanning|embedding|completed)/);
+};
+
+const waitForCancelableInProgress = async (
+  page: Parameters<typeof test>[0]['page'],
+) => {
+  const activeHeading = page.getByRole('heading', { name: /Active ingest/i });
+  const runIdLabel = page.getByText(/^Run ID:/i);
+  const currentFile = page.getByTestId('ingest-current-file').first();
+  const cancelButton = page.getByRole('button', { name: /cancel ingest/i });
+
+  await waitForInProgress(page);
+  await expect(activeHeading).toBeVisible({ timeout: 30_000 });
+  await expect(runIdLabel).toBeVisible({ timeout: 30_000 });
+  await expect(currentFile).toHaveText(/\S+/, {
+    timeout: 60_000,
+  });
+  await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
+  await expect
+    .poll(
+      async () => {
+        const label = await page
+          .getByTestId('ingest-status-chip')
+          .textContent()
+          .catch(() => '');
+        return label?.toLowerCase().trim() ?? '';
+      },
+      {
+        timeout: 30_000,
+        message: 'waiting for a non-terminal in-progress status before cancel',
+      },
+    )
+    .toMatch(/(queued|scanning|embedding)/);
+};
+
+const startIngestAndCaptureOutcome = async (
+  page: Parameters<typeof test>[0]['page'],
+) => {
+  const startResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/ingest/start') &&
+      response.request().method() === 'POST',
+  );
+  const response = await test.step(
+    'remove-flow owner: start-response wait',
+    async () => {
+      await page.getByTestId('start-ingest').click();
+      return startResponsePromise;
+    },
+    { timeout: 30_000 },
+  );
+  const responseBody = (await response.json().catch(() => ({}))) as {
+    runId?: string;
+    requestId?: string;
+  };
+  const submitResolution = await test.step(
+    'remove-flow owner: submit-phase resolution',
+    async () => {
+      let resolution = 'pending';
+      await expect
+        .poll(
+          async () => {
+            if (page.isClosed()) {
+              return 'page-closed';
+            }
+
+            return page.evaluate(() => {
+              const normalize = (value: string | null | undefined) =>
+                value?.replace(/\s+/g, ' ').trim() ?? '';
+              const submitErrorText = normalize(
+                document.querySelector('[data-testid="submit-error"]')
+                  ?.textContent,
+              );
+              if (submitErrorText) {
+                return `submit-error:${submitErrorText}`;
+              }
+
+              const statusChipText = normalize(
+                document.querySelector('[data-testid="ingest-status-chip"]')
+                  ?.textContent,
+              );
+              if (statusChipText) {
+                return `active-status:${statusChipText}`;
+              }
+
+              const activeHeading = Array.from(
+                document.querySelectorAll('h1, h2, h3, h4, h5, h6'),
+              )
+                .map((heading) => normalize(heading.textContent))
+                .find((text) => /active ingest/i.test(text));
+              if (activeHeading) {
+                return `active-heading:${activeHeading}`;
+              }
+
+              return 'pending';
+            });
+          },
+          {
+            timeout: 30_000,
+            message:
+              'waiting for remove-flow submit phase to resolve before later owner markers',
+          },
+        )
+        .not.toBe('pending');
+      resolution = await (async () => {
+        if (page.isClosed()) {
+          return 'page-closed';
+        }
+
+        return page.evaluate(() => {
+          const normalize = (value: string | null | undefined) =>
+            value?.replace(/\s+/g, ' ').trim() ?? '';
+          const submitErrorText = normalize(
+            document.querySelector('[data-testid="submit-error"]')?.textContent,
+          );
+          if (submitErrorText) {
+            return `submit-error:${submitErrorText}`;
+          }
+
+          const statusChipText = normalize(
+            document.querySelector('[data-testid="ingest-status-chip"]')
+              ?.textContent,
+          );
+          if (statusChipText) {
+            return `active-status:${statusChipText}`;
+          }
+
+          const activeHeading = Array.from(
+            document.querySelectorAll('h1, h2, h3, h4, h5, h6'),
+          )
+            .map((heading) => normalize(heading.textContent))
+            .find((text) => /active ingest/i.test(text));
+          if (activeHeading) {
+            return `active-heading:${activeHeading}`;
+          }
+
+          return 'pending';
+        });
+      })();
+      return resolution;
+    },
+    { timeout: 30_000 },
+  );
+
+  if (submitResolution === 'page-closed') {
+    throw new Error(
+      'remove-flow owner: page lifecycle around submit closed before the submit phase resolved',
+    );
+  }
+  const errorMessage = submitResolution.startsWith('submit-error:')
+    ? submitResolution.slice('submit-error:'.length)
+    : null;
+
+  return {
+    ok: response.ok(),
+    status: response.status(),
+    runId: responseBody.runId ?? null,
+    requestId: responseBody.requestId ?? null,
+    errorMessage: errorMessage || null,
+  };
 };
 
 const selectEmbeddingModel = async (
@@ -213,8 +488,24 @@ const selectEmbeddingModel = async (
     }
     await modelSelect.selectOption(resolvedValue);
   } else {
+    const lockedSelection = await modelSelect.evaluate((el) => {
+      const select = el as HTMLSelectElement;
+      const selected = select.selectedOptions[0];
+      return {
+        value: selected?.value ?? '',
+        label: selected?.textContent?.trim() ?? '',
+      };
+    });
+    const lockedMatchesChosenModel =
+      lockedSelection.value === (chosenModelId as string) ||
+      lockedSelection.value.endsWith(`::${chosenModelId}`) ||
+      lockedSelection.label.toLowerCase().includes('qwen3 embedding 4b');
+    if (!lockedMatchesChosenModel) {
+      ingestSkip = `embedding model locked to ${lockedSelection.value || lockedSelection.label || 'unknown'} instead of ${chosenModelId}`;
+      test.skip(ingestSkip);
+    }
     console.log(
-      `[e2e:ingest] embedding model select disabled; assuming locked to ${chosenModelId}`,
+      `[e2e:ingest] embedding model select disabled; confirmed locked to ${lockedSelection.value || lockedSelection.label || chosenModelId}`,
     );
   }
 };
@@ -225,9 +516,14 @@ test.describe.serial('Ingest flows', () => {
     await checkPrereqs();
   });
 
-  test.beforeEach(async () => {
+  test.beforeEach(async ({}, testInfo) => {
     test.skip(Boolean(skipReason), skipReason ?? 'prerequisites missing');
-    test.skip(Boolean(ingestSkip), ingestSkip ?? 'ingest unavailable');
+    const requiresLiveIngestPrereqs =
+      testInfo.title !== overlappingRefreshRetainsVisibleRowsScenario;
+    test.skip(
+      requiresLiveIngestPrereqs && Boolean(ingestSkip),
+      ingestSkip ?? 'ingest unavailable',
+    );
     await ensureCleanRoots();
   });
 
@@ -367,49 +663,71 @@ test.describe.serial('Ingest flows', () => {
     await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
 
-    await waitForInProgress(page);
-    await expect(page.getByText(/^Run ID:/i)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('ingest-current-file').first()).toHaveText(
-      /\S+/,
-      {
-        timeout: 60_000,
-      },
-    );
-    await page.waitForTimeout(1_000);
-
     const cancelButton = page.getByRole('button', { name: /cancel ingest/i });
-    await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
+    await test.step('wait for deterministic cancel readiness', async () => {
+      await waitForCancelableInProgress(page);
+    });
+    await test.step('re-check current in-progress readiness before cancel', async () => {
+      await waitForCancelableInProgress(page);
+    });
     await cancelButton.click();
 
-    await expect(
-      page.getByRole('heading', { name: /Active ingest/i }),
-    ).toBeHidden({
-      timeout: 180_000,
-    });
-    const cancelRow = page
-      .getByRole('row', { name: new RegExp(fixtureName, 'i') })
-      .first();
-    await expect(cancelRow).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
-      timeout: 120_000,
+    await test.step('await cancelled terminal state', async () => {
+      await expect(
+        page.getByRole('heading', { name: /Active ingest/i }),
+      ).toBeHidden({
+        timeout: 180_000,
+      });
+      const cancelRow = page
+        .getByRole('row', { name: new RegExp(fixtureName, 'i') })
+        .first();
+      await expect(cancelRow).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
+        timeout: 120_000,
+      });
     });
   });
 
-  test('re-embed updates row and stays locked', async ({ page }) => {
+  test('re-embed rows keep one stable identity through retry progression and stay locked', async ({
+    page,
+  }) => {
     await page.goto(`${baseUrl}/ingest`);
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
     await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
 
+    const statusCtx = await request.newContext();
+    try {
+      await expect
+        .poll(
+          async () => {
+            const roots = await fetchRoots(statusCtx);
+            const root = roots.find(
+              (entry) =>
+                entry.path === fixturePath || entry.name === fixtureName,
+            );
+            return root
+              ? `${root.status ?? 'unknown'}:${root.queueState ?? 'none'}`
+              : 'missing';
+          },
+          {
+            timeout: 180_000,
+            message: 'waiting for seeded ingest to reach a completed root',
+          },
+        )
+        .toMatch(/^completed:/i);
+    } finally {
+      await statusCtx.dispose();
+    }
+
     const row = page
       .getByRole('row', {
         name: new RegExp(`^Select ${fixtureName} `, 'i'),
       })
       .first();
-    await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /re-embed/i }).click();
@@ -422,78 +740,752 @@ test.describe.serial('Ingest flows', () => {
     await assertNoReembedErrors();
   });
 
-  test('remove clears entry and unlocks model when empty', async ({ page }) => {
+  test('queued submission stays available while another run is active and exposes queued row state', async ({
+    page,
+  }) => {
     await page.goto(`${baseUrl}/ingest`);
+
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
     await selectEmbeddingModel(page);
-    const submitError = page.getByTestId('submit-error');
-    const activeEmpty = page
-      .getByText(/No active ingest\. Start a run to see status here\./i)
-      .first();
+    await page.getByTestId('start-ingest').click();
+    await waitForInProgress(page);
 
-    let started = false;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByLabel('Folder path').fill(`${fixturePath}/docs`);
+    await page.getByLabel('Display name').fill(`${fixtureName}-queued`);
+    await page.getByTestId('start-ingest').click();
+
+    const queuedRow = await waitForQueuedRow(
+      page,
+      new RegExp(`${fixtureName}-queued`, 'i'),
+      1,
+    );
+    await queuedRow.getByRole('button', { name: /details/i }).click();
+    await expect(page.getByText(/Request ID/i)).toBeVisible();
+    await expect(page.getByText(/Pending queue start/i)).toBeVisible();
+    await saveGeneratedScreenshot(page, '0000055-queued-row-state.png');
+  });
+
+  test('queued row stays visible after a page refresh while the request is still waiting', async ({
+    page,
+  }) => {
+    await page.goto(`${baseUrl}/ingest`);
+
+    await page.getByLabel('Folder path').fill(fixturePath);
+    await page.getByLabel('Display name').fill(fixtureName);
+    await selectEmbeddingModel(page);
+    await page.getByTestId('start-ingest').click();
+    await waitForInProgress(page);
+
+    await page.getByLabel('Folder path').fill(`${fixturePath}/docs`);
+    await page.getByLabel('Display name').fill(`${fixtureName}-refresh`);
+    await page.getByTestId('start-ingest').click();
+    await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
+
+    await page.reload();
+    await waitForQueuedRow(page, new RegExp(`${fixtureName}-refresh`, 'i'), 1);
+  });
+
+  test(overlappingRefreshRetainsVisibleRowsScenario, async ({ page }) => {
+    let rootsRequestCount = 0;
+    let releaseRefreshResponse: (() => void) | undefined;
+    let observedRefreshRequest: (() => void) | undefined;
+    const refreshRequestObserved = new Promise<void>((resolve) => {
+      observedRefreshRequest = resolve;
+    });
+    const routePattern = '**/ingest/roots*';
+    const rootsRoute = async (route: Route) => {
+      rootsRequestCount += 1;
+      if (rootsRequestCount === 1) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            roots: [
+              {
+                id: '/data/stable-repo',
+                requestId: 'queue-request-stable',
+                runId: null,
+                name: 'stable-before-refresh',
+                path: '/data/stable-repo',
+                embeddingProvider: 'openai',
+                embeddingModel: 'text-embedding-3-small',
+                model: 'text-embedding-3-small',
+                modelId: 'text-embedding-3-small',
+                status: 'ingesting',
+                phase: 'queued',
+                queueState: 'waiting',
+                queuePosition: 1,
+                lastIngestAt: '2025-01-01T00:00:00.000Z',
+                counts: { files: 2, chunks: 4, embedded: 4 },
+                lastError: null,
+              },
+            ],
+            schemaVersion: '0000055-queued-repo-list-v1',
+            lockedModelId: 'text-embedding-3-small',
+          }),
+        });
+        return;
+      }
+
+      observedRefreshRequest?.();
+      await new Promise<void>((resolve) => {
+        releaseRefreshResponse = resolve;
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          roots: [
+            {
+              id: '/data/stable-repo',
+              requestId: 'queue-request-stable',
+              runId: null,
+              name: 'stable-after-refresh',
+              path: '/data/stable-repo',
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-3-small',
+              model: 'text-embedding-3-small',
+              modelId: 'text-embedding-3-small',
+              status: 'ingesting',
+              phase: 'queued',
+              queueState: 'waiting',
+              queuePosition: 1,
+              lastIngestAt: '2025-01-01T00:00:00.000Z',
+              counts: { files: 2, chunks: 4, embedded: 4 },
+              lastError: null,
+            },
+          ],
+          schemaVersion: '0000055-queued-repo-list-v1',
+          lockedModelId: 'text-embedding-3-small',
+        }),
+      });
+    };
+
+    await page.route(routePattern, rootsRoute);
+
+    try {
+      await page.goto(`${baseUrl}/ingest`);
+
+      const oldRow = page.getByRole('row', { name: /stable-before-refresh/i });
+      const newRow = page.getByRole('row', { name: /stable-after-refresh/i });
+      const refreshButton = page.getByRole('button', { name: /^refresh$/i });
+
+      await expect(oldRow).toBeVisible();
+      await expect(newRow).toHaveCount(0);
+      await expect(
+        oldRow.getByText('openai / text-embedding-3-small'),
+      ).toBeVisible();
+
+      await refreshButton.click();
+      await refreshRequestObserved;
+
+      await expect(refreshButton).toBeDisabled();
+      await expect(oldRow).toBeVisible();
+      await expect(newRow).toHaveCount(0);
+      await saveGeneratedScreenshot(
+        page,
+        '0000055-overlapping-refetch-retained-rows.png',
+      );
+
+      releaseRefreshResponse?.();
+
+      await expect(refreshButton).toBeEnabled();
+      await expect(newRow).toBeVisible();
+      await expect(oldRow).toHaveCount(0);
+    } finally {
+      releaseRefreshResponse?.();
+      await page.unroute(routePattern, rootsRoute);
+    }
+  });
+
+  test('queued ingest rows keep one stable identity while queue ownership resumes after the current head finishes', async ({
+    page,
+  }) => {
+    const activeName = `${fixtureName}-startup-head`;
+    const queuedName = `${fixtureName}-startup-next`;
+    const queuedPath = `${fixturePath}/docs`;
+    const queuedPathMatcher = new RegExp(
+      `^${queuedPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+      'i',
+    );
+    const queuedRows = page
+      .getByRole('row')
+      .filter({ has: page.getByRole('cell', { name: queuedPathMatcher }) });
+    const ctx = await request.newContext();
+
+    try {
+      await page.goto(`${baseUrl}/ingest`);
+
+      await page.getByLabel('Folder path').fill(fixturePath);
+      await page.getByLabel('Display name').fill(activeName);
+      await selectEmbeddingModel(page);
+      await page.getByTestId('start-ingest').click();
+      await waitForInProgress(page);
+
+      await page.getByLabel('Folder path').fill(queuedPath);
+      await page.getByLabel('Display name').fill(queuedName);
       await page.getByTestId('start-ingest').click();
 
-      const outcome = await Promise.race<'error' | 'started' | 'timeout'>([
-        submitError
-          .waitFor({ state: 'visible', timeout: 10_000 })
-          .then(() => 'error')
-          .catch(() => 'timeout'),
-        activeEmpty
-          .waitFor({ state: 'hidden', timeout: 10_000 })
-          .then(() => 'started')
-          .catch(() => 'timeout'),
-      ]);
+      await waitForQueuedRow(page, new RegExp(queuedName, 'i'), 1);
+      await waitForCompletion(page, new RegExp(activeName, 'i'));
 
-      if (outcome === 'started') {
-        started = true;
-        break;
-      }
+      await expect
+        .poll(
+          async () => {
+            const roots = await fetchRoots(ctx);
+            const queuedRoot = roots.find((root) => root.path === queuedPath);
+            if (!queuedRoot) {
+              return 'missing';
+            }
+            if (queuedRoot.lastError) {
+              return `error:${queuedRoot.lastError}`;
+            }
+            if (queuedRoot.status === 'error') {
+              return 'error-status';
+            }
+            if (queuedRoot.name !== queuedName) {
+              return `name-mismatch:${queuedRoot.name ?? 'none'}`;
+            }
+            if (
+              queuedRoot.queueState === 'waiting' &&
+              queuedRoot.runId == null
+            ) {
+              return 'waiting-without-owner';
+            }
+            if (queuedRoot.status === 'ingesting' && queuedRoot.runId == null) {
+              return 'ingesting-without-run-id';
+            }
+            return queuedRoot.status ?? 'present';
+          },
+          {
+            timeout: 120_000,
+            message:
+              'waiting for the queued follow-up request to survive in /ingest/roots with a request owner',
+          },
+        )
+        .not.toMatch(
+          /^(missing|error:|error-status|name-mismatch:|waiting-without-owner|ingesting-without-run-id)/,
+        );
 
-      const message = (await submitError.textContent())?.trim() ?? 'unknown';
-      if (message.includes('429') && attempt < 2) {
-        await page.waitForTimeout(2_000);
-        continue;
-      }
-      console.warn(
-        `ingest remove test: start failed (${message}), skipping assertions`,
+      const queuedRootAfterHandoff = (await fetchRoots(ctx)).find(
+        (root) => root.path === queuedPath,
       );
-      return;
-    }
+      expect(
+        queuedRootAfterHandoff,
+        'expected queued follow-up request to remain present after the head finished',
+      ).toBeTruthy();
+      expect(queuedRootAfterHandoff?.name).toBe(queuedName);
+      expect(queuedRootAfterHandoff?.lastError ?? null).toBeNull();
 
-    if (!started) {
-      console.warn('ingest remove test: start timed out, skipping');
-      return;
-    }
+      await expect
+        .poll(
+          async () => {
+            const queuedRoot = (await fetchRoots(ctx)).find(
+              (root) => root.path === queuedPath,
+            );
+            if (!queuedRoot) {
+              return 'missing-after-handoff';
+            }
+            if (queuedRoot.lastError) {
+              return `error:${queuedRoot.lastError}`;
+            }
+            if (queuedRoot.name !== queuedName) {
+              return `name-mismatch:${queuedRoot.name ?? 'none'}`;
+            }
+            return queuedRoot.queueState === 'waiting'
+              ? 'still-waiting'
+              : 'survived';
+          },
+          {
+            timeout: 120_000,
+            message:
+              'waiting for the queued follow-up request to survive as the same request after handoff',
+          },
+        )
+        .toBe('survived');
 
-    const lateError = await submitError
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (lateError) {
-      const message = (await submitError.textContent())?.trim() ?? 'unknown';
-      console.warn(
-        `ingest remove test: late start error (${message}), skipping assertions`,
+      await page.reload();
+      await expect
+        .poll(
+          async () => {
+            if ((await queuedRows.count()) === 0) {
+              return 'missing';
+            }
+            const text = (await queuedRows.first().textContent()) ?? '';
+            const normalized = text.toLowerCase();
+            return (await queuedRows.count()) === 1 &&
+              normalized.includes(queuedName.toLowerCase()) &&
+              !normalized.includes('queued (#1)') &&
+              !normalized.includes('enoent')
+              ? 'settled'
+              : `${await queuedRows.count()}:${normalized}`;
+          },
+          {
+            timeout: 60_000,
+            message:
+              'waiting for the queued follow-up row to survive the refresh without queue or ENOENT state',
+          },
+        )
+        .toBe('settled');
+
+      await expect(queuedRows).toHaveCount(1);
+      await expect(queuedRows.first()).toContainText(
+        new RegExp(queuedName, 'i'),
       );
-      return;
+      await expect(queuedRows.first()).toContainText(queuedPath);
+      await expect(queuedRows.first()).not.toContainText(/queued \(#1\)/i);
+      await expect(queuedRows.first()).not.toContainText(/enoent/i);
+    } finally {
+      await ctx.dispose();
     }
+  });
 
-    const row = page
-      .getByRole('row', {
-        name: new RegExp(`^Select ${fixtureName} `, 'i'),
-      })
+  test('aligned row and bulk re-embed affordances', async ({ page }) => {
+    const reembedRequests: string[] = [];
+    const mockedRoots = {
+      roots: [
+        {
+          runId: 'run-removable',
+          name: 'mock-removable',
+          description: 'completed fixture',
+          path: '/mock-removable',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+        {
+          requestId: 'queue-request-queued',
+          runId: null,
+          name: 'mock-queued',
+          description: 'waiting fixture',
+          path: '/mock-queued',
+          model: 'embed-1',
+          status: 'ingesting',
+          phase: 'queued',
+          queueState: 'waiting',
+          queuePosition: 1,
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '2025-02-19',
+      lockedModelId: 'embed-1',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+    await page.route('**/ingest/reembed/**', async (route) => {
+      reembedRequests.push(route.request().url());
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          requestId: 'queue-request-removable',
+          runId: 'run-removable-next',
+          queued: false,
+        }),
+      });
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    const queuedRow = page.getByRole('row', { name: /mock-queued/i }).first();
+    const removableRow = page
+      .getByRole('row', { name: /mock-removable/i })
       .first();
-    await waitForCompletion(page, new RegExp(fixtureName, 'i'));
-    await expect(row).toBeVisible({ timeout: 30_000 });
-
-    await row.getByRole('button', { name: /^Remove$/i }).click();
-    await expect(page.getByText(/Removed/i).first()).toBeVisible({
-      timeout: 30_000,
+    const bulkReembed = page.getByRole('button', {
+      name: /re-embed selected/i,
     });
 
-    await expect(page.getByText(/No embedded folders yet/i)).toBeVisible({
-      timeout: 30_000,
+    await expect(removableRow).toBeVisible();
+    await expect(queuedRow).toBeVisible();
+    await expect(
+      queuedRow.getByRole('button', { name: /^re-embed$/i }),
+    ).toBeDisabled();
+    await expect(
+      removableRow.getByRole('button', { name: /^re-embed$/i }),
+    ).toBeEnabled();
+
+    const queuedCheckbox = page.getByRole('checkbox', {
+      name: /^Select mock-queued$/i,
     });
+    await expect(queuedCheckbox).toBeDisabled();
+    await expect(bulkReembed).toBeDisabled();
+
+    await page
+      .getByRole('checkbox', { name: /^Select mock-removable$/i })
+      .check();
+    await expect(page.getByText('1 selected')).toBeVisible();
+    await expect(bulkReembed).toBeEnabled();
+    await saveGeneratedScreenshot(page, '0000055-bulk-selection-state.png');
+
+    await bulkReembed.click();
+
+    await expect
+      .poll(() => reembedRequests.length, {
+        timeout: 10_000,
+        message: 'waiting for bulk re-embed to issue the eligible request only',
+      })
+      .toBe(1);
+    expect(reembedRequests[0]).toContain('/ingest/reembed/%2Fmock-removable');
+    expect(reembedRequests[0]).not.toContain('/ingest/reembed/%2Fmock-queued');
+  });
+
+  test('Remove selected ignores queued rows in a mixed selection', async ({
+    page,
+  }) => {
+    const removeRequests: string[] = [];
+    const mockedRoots = {
+      roots: [
+        {
+          runId: 'run-removable',
+          name: 'mock-removable',
+          description: 'completed fixture',
+          path: '/mock-removable',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+        {
+          requestId: 'queue-request-queued',
+          runId: null,
+          name: 'mock-queued',
+          description: 'waiting fixture',
+          path: '/mock-queued',
+          model: 'embed-1',
+          status: 'ingesting',
+          phase: 'queued',
+          queueState: 'waiting',
+          queuePosition: 1,
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '2025-02-19',
+      lockedModelId: 'embed-1',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+    await page.route('**/ingest/remove/**', async (route) => {
+      removeRequests.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'ok', unlocked: false }),
+      });
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    const bulkRemove = page.getByRole('button', { name: /remove selected/i });
+    await expect(
+      page.getByRole('row', { name: /mock-removable/i }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('row', { name: /mock-queued/i }).first(),
+    ).toBeVisible();
+
+    const queuedCheckbox = page.getByRole('checkbox', {
+      name: /^Select mock-queued$/i,
+    });
+    await expect(queuedCheckbox).toBeDisabled();
+    await expect(bulkRemove).toBeDisabled();
+
+    await page
+      .getByRole('checkbox', { name: /^Select mock-removable$/i })
+      .check();
+    await expect(bulkRemove).toBeEnabled();
+
+    await bulkRemove.click();
+
+    await expect
+      .poll(() => removeRequests.length, {
+        timeout: 10_000,
+        message: 'waiting for bulk remove to issue the removable request only',
+      })
+      .toBe(1);
+    expect(removeRequests[0]).toContain('/ingest/remove/%2Fmock-removable');
+    expect(removeRequests[0]).not.toContain('/ingest/remove/%2Fmock-queued');
+  });
+
+  test('bulk remove keeps failed rows selected and reports partial failure honestly', async ({
+    page,
+  }) => {
+    const removeRequests: string[] = [];
+    let mockedRoots = {
+      roots: [
+        {
+          runId: 'run-success',
+          name: 'mock-success',
+          description: 'completed fixture',
+          path: '/mock-success',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+        {
+          runId: 'run-failed',
+          name: 'mock-failed',
+          description: 'completed fixture',
+          path: '/mock-failed',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        },
+      ],
+      schemaVersion: '2025-02-19',
+      lockedModelId: 'embed-1',
+    };
+
+    await page.route('**/ingest/roots*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockedRoots),
+      });
+    });
+    await page.route('**/ingest/remove/**', async (route) => {
+      const url = route.request().url();
+      removeRequests.push(url);
+      if (url.includes('/ingest/remove/%2Fmock-success')) {
+        mockedRoots = {
+          ...mockedRoots,
+          roots: mockedRoots.roots.filter(
+            (root) => root.path !== '/mock-success',
+          ),
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'ok', unlocked: false }),
+        });
+        return;
+      }
+      if (url.includes('/ingest/remove/%2Fmock-failed')) {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'error', code: 'REMOVE_FAILED' }),
+        });
+        return;
+      }
+      await route.abort('failed');
+    });
+
+    await page.goto(`${baseUrl}/ingest`);
+
+    await page
+      .getByRole('checkbox', { name: /^Select mock-success$/i })
+      .check();
+    await page.getByRole('checkbox', { name: /^Select mock-failed$/i }).check();
+    await expect(page.getByText('2 selected')).toBeVisible();
+
+    await page.getByRole('button', { name: /remove selected/i }).click();
+
+    await expect
+      .poll(() => removeRequests.length, {
+        timeout: 10_000,
+        message: 'waiting for bulk remove mixed-success requests',
+      })
+      .toBe(2);
+
+    await expect(
+      page.getByText(
+        'Partial failure: 1 of 2 selected actions completed. 1 failed and remain selected for retry.',
+      ),
+    ).toBeVisible();
+    await expect(page.getByText('1 selected')).toBeVisible();
+    await expect(
+      page.getByRole('checkbox', { name: /^Select mock-failed$/i }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole('checkbox', { name: /^Select mock-success$/i }),
+    ).toHaveCount(0);
+
+    await saveGeneratedScreenshot(
+      page,
+      '0000055-bulk-partial-failure-state.png',
+    );
+  });
+
+  test('remove clears entry and unlocks model when empty', async ({ page }) => {
+    const removeFixtureName = `${fixtureName}-remove`;
+    const removeRowNamePattern = new RegExp(
+      `^Select ${removeFixtureName} `,
+      'i',
+    );
+    const getRoleMatchedRows = () =>
+      page.getByRole('row', {
+        name: removeRowNamePattern,
+      });
+    const getStableRemoveRows = () =>
+      page
+        .getByRole('row')
+        .filter({ hasText: removeFixtureName })
+        .filter({ hasText: fixturePath })
+        .filter({ hasText: /completed/i })
+        .filter({
+          has: page.getByRole('button', { name: /^Remove$/i }),
+        });
+    await page.goto(`${baseUrl}/ingest`);
+    // Keep the validated mounted repo-root fixture path here. Task 35's
+    // carried-forward timeout artifacts showed the previous `/fixtures/repo/docs`
+    // shortcut was not guaranteed by the current e2e image contract.
+    await page.getByLabel('Folder path').fill(fixturePath);
+    await page.getByLabel('Display name').fill(removeFixtureName);
+    await selectEmbeddingModel(page);
+    const cleanupCtx = await request.newContext();
+    let removeRunId: string | null = null;
+
+    try {
+      let started = false;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const outcome = await startIngestAndCaptureOutcome(page);
+        if (outcome.ok) {
+          removeRunId = outcome.runId;
+          started = true;
+          break;
+        }
+
+        if (outcome.status === 429 && attempt < 2) {
+          await expect
+            .poll(async () => (await fetchRoots(cleanupCtx)).length, {
+              timeout: 60_000,
+              message:
+                'waiting for existing ingest roots to clear before retrying remove-flow setup',
+            })
+            .toBe(0);
+          continue;
+        }
+
+        throw new Error(
+          `ingest remove test start failed (${outcome.errorMessage ?? `HTTP ${outcome.status}`})`,
+        );
+      }
+
+      if (!started) {
+        throw new Error(
+          'ingest remove test failed to start after the bounded retry budget',
+        );
+      }
+      if (!removeRunId) {
+        throw new Error(
+          'ingest remove test start response did not include a runId',
+        );
+      }
+    } finally {
+      await cleanupCtx.dispose();
+    }
+
+    const statusCtx = await request.newContext();
+    try {
+      await test.step(
+        'remove-flow owner: server completion polling',
+        async () => {
+          await expect
+            .poll(
+              async () => {
+                const roots = await fetchRoots(statusCtx);
+                // Match the exact started root so prior suite state with the
+                // same fixture path cannot satisfy this boundary early.
+                const root = roots.find(
+                  (entry) =>
+                    entry.runId === removeRunId ||
+                    entry.name === removeFixtureName,
+                );
+                return root
+                  ? `${root.status ?? 'unknown'}:${root.queueState ?? 'none'}`
+                  : 'missing';
+              },
+              {
+                timeout: 180_000,
+                message:
+                  'waiting for remove-flow ingest to reach a completed root',
+              },
+            )
+            .toMatch(/^completed:/i);
+        },
+        { timeout: 180_000 },
+      );
+    } finally {
+      await statusCtx.dispose();
+    }
+
+    await test.step(
+      'remove-flow owner: row-selection contract before remove',
+      async () => {
+        const roleMatchedRows = getRoleMatchedRows();
+        const stableRows = getStableRemoveRows();
+        await expect
+          .poll(
+            async () => {
+              const roleMatchedCount = await roleMatchedRows.count();
+              const stableCount = await stableRows.count();
+              const stableTexts = (await stableRows.allTextContents()).map(
+                (value) => value.replace(/\s+/g, ' ').trim(),
+              );
+              if (stableCount === 0) {
+                return `stable-missing roleMatched=${roleMatchedCount}`;
+              }
+              if (stableCount > 1) {
+                return `multiple-stable stableCount=${stableCount} roleMatched=${roleMatchedCount}`;
+              }
+              const [stableText] = stableTexts;
+              if (roleMatchedCount === 0) {
+                return `role-mismatch ${stableText ?? 'missing'}`;
+              }
+              if (roleMatchedCount > 1) {
+                return `multiple-role-matches roleMatched=${roleMatchedCount} stableText=${stableText ?? 'missing'}`;
+              }
+              return `stable-ready ${stableText ?? 'missing'}`;
+            },
+            {
+              timeout: 30_000,
+              message:
+                'waiting for a stable remove-flow row-selection contract before remove',
+            },
+          )
+          .toMatch(/^stable-ready /);
+      },
+      { timeout: 30_000 },
+    );
+
+    await test.step(
+      'remove-flow owner: remove-click success confirmation',
+      async () => {
+        const row = getStableRemoveRows().first();
+        await row.getByRole('button', { name: /^Remove$/i }).click();
+        await expect(page.getByText(/Removed/i).first()).toBeVisible({
+          timeout: 30_000,
+        });
+
+        await expect(page.getByText(/No embedded folders yet/i)).toBeVisible({
+          timeout: 30_000,
+        });
+      },
+      { timeout: 30_000 },
+    );
   });
 });

@@ -287,7 +287,7 @@ test('returns mapped search results with host path and model id', async () => {
   assert.equal(res.body.modelId, 'text-embed');
   assert.equal(res.body.results.length, 1);
   const result = res.body.results[0];
-  assert.equal(result.repo, 'repo-one');
+  assert.equal(result.repo, '/data/repo-one');
   assert.equal(result.relPath, 'docs/readme.md');
   assert.equal(result.containerPath, '/data/repo-one/docs/readme.md');
   assert.equal(result.hostPath, '/host/base/repo-one/docs/readme.md');
@@ -1093,7 +1093,7 @@ test('caps limit to 20 and applies repository filter when provided', async () =>
     }),
   )
     .post('/tools/vector-search')
-    .send({ query: 'test', limit: 50, repository: 'repo-one' });
+    .send({ query: 'test', limit: 50, repository: '/data/repo-one' });
 
   assert.equal(res.status, 200);
   assert.equal(capturedLimit, 20);

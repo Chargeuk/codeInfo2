@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import type { WebSocketMockRegistry } from './support/mockWebSocket';
 
@@ -81,5 +81,71 @@ describe('Ingest page layout', () => {
     });
 
     expect(document.querySelector('.MuiContainer-maxWidthLg')).toBeNull();
+  });
+
+  it('renders a degraded queue-read warning while keeping visible roots on the page', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/models')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ models: [], lockedModelId: undefined }),
+        };
+      }
+      if (url.includes('/ingest/roots')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            roots: [
+              {
+                runId: 'run-1',
+                name: 'repo',
+                path: '/repo',
+                model: 'embed-model',
+                status: 'completed',
+                lastIngestAt: '2025-01-01T00:00:00.000Z',
+                counts: { files: 2, chunks: 4, embedded: 4 },
+                lastError: null,
+              },
+            ],
+            lockedModelId: 'embed-model',
+            queueReadDegraded: true,
+            queueReadError: {
+              error: 'QUEUE_READ_DEGRADED',
+              message:
+                'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',
+              retryable: true,
+              provider: 'ingest',
+            },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'ok' }),
+      };
+    });
+
+    const router = createMemoryRouter(ingestRoutes, {
+      initialEntries: ['/ingest'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(await screen.findByText('repo')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.',
+      ),
+    ).toBeInTheDocument();
   });
 });

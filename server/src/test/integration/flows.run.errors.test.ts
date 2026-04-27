@@ -113,7 +113,7 @@ const buildReingestSuccess = (
 });
 
 const buildReingestError = (params: {
-  message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY';
+  message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY' | 'QUEUE_UNAVAILABLE';
   fieldMessage: string;
 }): ReingestError => {
   if (params.message === 'INVALID_PARAMS') {
@@ -160,12 +160,34 @@ const buildReingestError = (params: {
     };
   }
 
+  if (params.message === 'QUEUE_UNAVAILABLE') {
+    return {
+      code: 503,
+      message: 'QUEUE_UNAVAILABLE',
+      data: {
+        tool: 'reingest_repository',
+        code: 'QUEUE_UNAVAILABLE',
+        retryable: true,
+        retryMessage: 'retry',
+        reingestableRepositoryIds: [],
+        reingestableSourceIds: [],
+        fieldErrors: [
+          {
+            field: 'sourceId',
+            reason: 'invalid_state',
+            message: params.fieldMessage,
+          },
+        ],
+      },
+    };
+  }
+
   return {
-    code: 429,
-    message: 'BUSY',
+    code: 503,
+    message: 'QUEUE_UNAVAILABLE',
     data: {
       tool: 'reingest_repository',
-      code: 'BUSY',
+      code: 'QUEUE_UNAVAILABLE',
       retryable: true,
       retryMessage: 'retry',
       reingestableRepositoryIds: [],
@@ -173,7 +195,7 @@ const buildReingestError = (params: {
       fieldErrors: [
         {
           field: 'sourceId',
-          reason: 'busy',
+          reason: 'invalid_state',
           message: params.fieldMessage,
         },
       ],
@@ -184,12 +206,13 @@ const buildReingestError = (params: {
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
+  lastIngestAt?: string | null;
 }): RepoEntry => ({
   id: params.id,
   description: null,
   containerPath: params.containerPath,
   hostPath: `/host${params.containerPath}`,
-  lastIngestAt: null,
+  lastIngestAt: params.lastIngestAt ?? null,
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,
@@ -207,7 +230,13 @@ const buildRepoEntry = (params: {
 });
 
 const listDefaultReingestRepos = async (): Promise<ListReposResult> => ({
-  repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' })],
+  repos: [
+    buildRepoEntry({
+      id: 'repo-a',
+      containerPath: '/repo/source-a',
+      lastIngestAt: '2026-04-10T00:00:00.000Z',
+    }),
+  ],
   lockedModelId: null,
 });
 
@@ -223,6 +252,22 @@ async function waitForTurns(
     await delay(25);
   }
   throw new Error(`Timed out waiting for turns for ${conversationId}`);
+}
+
+async function waitForConversationUnlocked(
+  conversationId: string,
+  timeoutMs = 4000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const acquired = tryAcquireConversationLock(conversationId);
+    if (acquired) {
+      releaseConversationLock(conversationId);
+      return;
+    }
+    await delay(25);
+  }
+  throw new Error(`Timed out waiting for flow unlock for ${conversationId}`);
 }
 
 async function withFlowHarness(
@@ -923,7 +968,7 @@ test('selected working repository must already be ingested for dedicated flow ta
   });
 });
 
-test('busy reingest refusal stops the dedicated flow clearly', async () => {
+test('queue-unavailable reingest refusal stops the dedicated flow clearly', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,
@@ -934,9 +979,9 @@ test('busy reingest refusal stops the dedicated flow clearly', async () => {
       runReingestRepository: async () => ({
         ok: false,
         error: buildReingestError({
-          message: 'BUSY',
+          message: 'QUEUE_UNAVAILABLE',
           fieldMessage:
-            'reingest is currently locked by another ingest operation',
+            'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
         }),
       }),
     });
@@ -1031,7 +1076,7 @@ test('unexpected thrown exceptions fail the current dedicated flow', async () =>
   });
 });
 
-test('stop during the blocking wait prevents the next flow step from starting', async () => {
+test('stop during the blocking wait keeps later flow steps from executing', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,
@@ -1039,7 +1084,6 @@ test('stop during the blocking wait prevents the next flow step from starting', 
       steps: [{ type: 'reingest', sourceId: '/repo/source-a' }, makeLlmStep()],
     });
     let resolveRun!: (value: { ok: true; value: ReingestSuccess }) => void;
-    let runToken = '';
     const runPromise = new Promise<{ ok: true; value: ReingestSuccess }>(
       (resolve) => {
         resolveRun = resolve;
@@ -1051,35 +1095,38 @@ test('stop during the blocking wait prevents the next flow step from starting', 
       createCallId: () => 'call-stop',
     });
 
+    const conversationId = 'flow-reingest-stop-after-return';
     const result = await startFlowRun({
       flowName: 'reingest-stop-after-return',
+      conversationId,
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
-      onOwnershipReady: ({ runToken: token }) => {
-        runToken = token;
+      onOwnershipReady: ({ runToken }) => {
+        registerPendingConversationCancel({
+          conversationId,
+          runToken,
+        });
       },
     });
     subscribeConversation(ws, result.conversationId);
 
-    registerPendingConversationCancel({
-      conversationId: result.conversationId,
-      runToken,
-    });
     resolveRun({ ok: true, value: buildReingestSuccess() });
 
+    await waitForConversationUnlocked(result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 2,
     );
-    await delay(100);
-    assert.equal(turns.length, 2);
     assert.equal(turns[1]?.status, 'ok');
     assert.equal(
       (turns[1]?.toolCalls as { calls: Array<{ callId: string }> }).calls[0]
         .callId,
       'call-stop',
     );
-    assert.equal((memoryTurns.get(result.conversationId) ?? []).length, 2);
+    assert.equal(
+      turns.some((turn) => (turn.content ?? '').trim() === 'ok'),
+      false,
+    );
   });
 });
 

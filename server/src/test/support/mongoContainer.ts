@@ -40,7 +40,17 @@ async function ensureMongoContainer() {
   return containerPromise;
 }
 
-Before({ tags: 'not @mongo' }, async () => {
+async function connectScenarioMongo() {
+  const started = await ensureMongoContainer();
+  const host = started.getHost();
+  const port = started.getMappedPort(27017);
+  const uri = `mongodb://${host}:${port}/db?directConnection=true`;
+  process.env.CODEINFO_MONGO_URI = uri;
+  await connectMongo(uri);
+  await IngestFileModel.deleteMany({}).exec();
+}
+
+Before({ tags: '@no_mongo' }, async () => {
   if (!isMongoConnected()) return;
   try {
     await disconnectMongo();
@@ -49,14 +59,8 @@ Before({ tags: 'not @mongo' }, async () => {
   }
 });
 
-Before({ tags: '@mongo' }, async () => {
-  const started = await ensureMongoContainer();
-  const host = started.getHost();
-  const port = started.getMappedPort(27017);
-  const uri = `mongodb://${host}:${port}/db?directConnection=true`;
-  process.env.CODEINFO_MONGO_URI = uri;
-  await connectMongo(uri);
-  await IngestFileModel.deleteMany({}).exec();
+Before({ tags: 'not @no_mongo' }, async () => {
+  await connectScenarioMongo();
 });
 
 AfterAll(async () => {

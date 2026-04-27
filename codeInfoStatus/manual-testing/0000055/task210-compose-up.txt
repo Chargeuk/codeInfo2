@@ -1,0 +1,39 @@
+
+> codeinfo2@1.0.0 compose:up
+> bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file server/.env.local up -d
+
+DEV-0000050:T09:compose_preflight_result {"composeFile":"docker-compose.yml","result":"passed","playwrightServicePresent":true,"checkedPorts":[5010,5011,5012,8932]}
+ Network codeinfo2_internal Creating 
+ Network codeinfo2_internal Created 
+ Container codeinfo2-playwright-mcp-1 Creating 
+ Container codeinfo2-otel-collector-1 Creating 
+ Container mongo_db_CodeInfo Creating 
+ Container codeinfo2-otel-collector-1 Created 
+ Container codeinfo2-zipkin-1 Creating 
+ Container codeinfo2-playwright-mcp-1 Created 
+ Container mongo_db_CodeInfo Created 
+ Container codeinfo2-zipkin-1 Created 
+ Container codeinfo2-chroma-1 Creating 
+ Container codeinfo2-chroma-1 Created 
+ Container codeinfo2-server-1 Creating 
+ Container codeinfo2-server-1 Created 
+ Container codeinfo2-client-1 Creating 
+ Container codeinfo2-client-1 Created 
+ Container codeinfo2-playwright-mcp-1 Starting 
+ Container mongo_db_CodeInfo Starting 
+ Container codeinfo2-otel-collector-1 Starting 
+ Container codeinfo2-playwright-mcp-1 Started 
+ Container codeinfo2-otel-collector-1 Started 
+ Container codeinfo2-zipkin-1 Starting 
+ Container mongo_db_CodeInfo Started 
+ Container codeinfo2-zipkin-1 Started 
+ Container codeinfo2-chroma-1 Starting 
+ Container codeinfo2-chroma-1 Started 
+ Container mongo_db_CodeInfo Waiting 
+ Container mongo_db_CodeInfo Healthy 
+ Container codeinfo2-server-1 Starting 
+ Container codeinfo2-server-1 Started 
+ Container codeinfo2-server-1 Waiting 
+ Container codeinfo2-server-1 Healthy 
+ Container codeinfo2-client-1 Starting 
+ Container codeinfo2-client-1 Started 

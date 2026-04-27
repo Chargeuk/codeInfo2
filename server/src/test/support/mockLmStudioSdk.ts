@@ -17,7 +17,17 @@ export type MockScenario =
   | 'chat-tools';
 
 let scenario: MockScenario = 'many';
-let lastPrediction: { cancelled: boolean } | null = null;
+let lastPrediction: {
+  cancelled: boolean;
+  emittedEventCount: number;
+  roundStartCount: number;
+  abortListenerRemoved: boolean;
+} | null = null;
+let lastControlledEmbedding: {
+  preAborted: boolean;
+  liveWorkRegistered: boolean;
+  abortListenerRemoved: boolean;
+} | null = null;
 let lastChatHistory: Array<{ role?: string; content?: string }> = [];
 type ControlledEmbeddingCall = {
   text: string;
@@ -30,6 +40,7 @@ let controlledEmbeddingWaiters: Array<() => void> = [];
 
 export function startMock({ scenario: next }: { scenario: MockScenario }) {
   scenario = next;
+  lastControlledEmbedding = null;
   controlledEmbeddingCalls = [];
   controlledEmbeddingWaiters = [];
 }
@@ -37,6 +48,7 @@ export function startMock({ scenario: next }: { scenario: MockScenario }) {
 export function stopMock() {
   scenario = 'many';
   lastPrediction = null;
+  lastControlledEmbedding = null;
   lastChatHistory = [];
   controlledEmbeddingCalls = [];
   controlledEmbeddingWaiters = [];
@@ -79,7 +91,12 @@ export function getLastChatHistory() {
 }
 
 function createPrediction(events: unknown[]) {
-  const state = { cancelled: false };
+  const state = {
+    cancelled: false,
+    emittedEventCount: 0,
+    roundStartCount: 0,
+    abortListenerRemoved: false,
+  };
   lastPrediction = state;
 
   return {
@@ -115,76 +132,97 @@ function createPrediction(events: unknown[]) {
       signal?: AbortSignal;
     }) {
       let currentRound = 0;
+      if (opts?.signal?.aborted) {
+        state.cancelled = true;
+        state.abortListenerRemoved = true;
+        return { rounds: 0, totalExecutionTimeSeconds: 0 };
+      }
       const listener = () => {
         state.cancelled = true;
       };
       opts?.signal?.addEventListener('abort', listener);
 
-      for (const event of events) {
-        if (state.cancelled) break;
-        await delay(20);
-        const record = event as { type?: string; roundIndex?: number };
-        const roundIndex =
-          typeof record.roundIndex === 'number'
-            ? record.roundIndex
-            : currentRound;
-        switch (record.type) {
-          case 'token':
-          case 'predictionFragment':
-            opts?.onPredictionFragment?.({ ...record, roundIndex });
+      try {
+        for (const event of events) {
+          if (state.cancelled || opts?.signal?.aborted) break;
+          await delay(20);
+          if (state.cancelled || opts?.signal?.aborted) {
+            state.cancelled = true;
             break;
-          case 'final':
-          case 'message':
-            opts?.onMessage?.({ ...(event as object), roundIndex });
-            break;
-          case 'toolCallRequestStart':
-            opts?.onToolCallRequestStart?.(
-              roundIndex,
-              (event as { callId?: string }).callId ?? 'call-1',
-            );
-            break;
-          case 'toolCallRequestNameReceived':
-            opts?.onToolCallRequestNameReceived?.(
-              roundIndex,
-              (event as { callId?: string }).callId ?? 'call-1',
-              (event as { name?: string }).name ?? 'tool',
-            );
-            break;
-          case 'toolCallRequestArgumentFragmentGenerated':
-            opts?.onToolCallRequestArgumentFragmentGenerated?.(
-              roundIndex,
-              (event as { callId?: string }).callId ?? 'call-1',
-              (event as { content?: string }).content ?? '',
-            );
-            break;
-          case 'toolCallRequestEnd':
-            opts?.onToolCallRequestEnd?.(
-              roundIndex,
-              (event as { callId?: string }).callId ?? 'call-1',
-            );
-            break;
-          case 'toolCallResult':
-            opts?.onToolCallResult?.(
-              roundIndex,
-              (event as { callId?: string }).callId ?? 'call-1',
-              event,
-            );
-            break;
-          case 'error':
-            opts?.onToolCallRequestFailure?.(
-              roundIndex,
-              (event as { callId?: string }).callId ?? 'call-1',
-              new Error((event as { message?: string }).message ?? 'error'),
-            );
-            break;
-          default:
-            break;
+          }
+          const record = event as { type?: string; roundIndex?: number };
+          const roundIndex =
+            typeof record.roundIndex === 'number'
+              ? record.roundIndex
+              : currentRound;
+          switch (record.type) {
+            case 'token':
+            case 'predictionFragment':
+              opts?.onPredictionFragment?.({ ...record, roundIndex });
+              state.emittedEventCount += 1;
+              break;
+            case 'final':
+            case 'message':
+              opts?.onMessage?.({ ...(event as object), roundIndex });
+              state.emittedEventCount += 1;
+              break;
+            case 'toolCallRequestStart':
+              opts?.onToolCallRequestStart?.(
+                roundIndex,
+                (event as { callId?: string }).callId ?? 'call-1',
+              );
+              state.emittedEventCount += 1;
+              break;
+            case 'toolCallRequestNameReceived':
+              opts?.onToolCallRequestNameReceived?.(
+                roundIndex,
+                (event as { callId?: string }).callId ?? 'call-1',
+                (event as { name?: string }).name ?? 'tool',
+              );
+              state.emittedEventCount += 1;
+              break;
+            case 'toolCallRequestArgumentFragmentGenerated':
+              opts?.onToolCallRequestArgumentFragmentGenerated?.(
+                roundIndex,
+                (event as { callId?: string }).callId ?? 'call-1',
+                (event as { content?: string }).content ?? '',
+              );
+              state.emittedEventCount += 1;
+              break;
+            case 'toolCallRequestEnd':
+              opts?.onToolCallRequestEnd?.(
+                roundIndex,
+                (event as { callId?: string }).callId ?? 'call-1',
+              );
+              state.emittedEventCount += 1;
+              break;
+            case 'toolCallResult':
+              opts?.onToolCallResult?.(
+                roundIndex,
+                (event as { callId?: string }).callId ?? 'call-1',
+                event,
+              );
+              state.emittedEventCount += 1;
+              break;
+            case 'error':
+              opts?.onToolCallRequestFailure?.(
+                roundIndex,
+                (event as { callId?: string }).callId ?? 'call-1',
+                new Error((event as { message?: string }).message ?? 'error'),
+              );
+              state.emittedEventCount += 1;
+              break;
+            default:
+              break;
+          }
+          opts?.onRoundStart?.(roundIndex);
+          state.roundStartCount += 1;
+          currentRound = roundIndex;
         }
-        opts?.onRoundStart?.(roundIndex);
-        currentRound = roundIndex;
+      } finally {
+        opts?.signal?.removeEventListener('abort', listener);
+        state.abortListenerRemoved = true;
       }
-
-      opts?.signal?.removeEventListener('abort', listener);
       return { rounds: events.length, totalExecutionTimeSeconds: 0 };
     },
   };
@@ -192,6 +230,10 @@ function createPrediction(events: unknown[]) {
 
 export function getLastPredictionState() {
   return lastPrediction;
+}
+
+export function getLastControlledEmbeddingState() {
+  return lastControlledEmbedding;
 }
 
 export function getControlledEmbeddingCalls() {
@@ -333,15 +375,37 @@ export class MockLMStudioClient {
       return {
         async embed(text: string, options?: { signal?: AbortSignal }) {
           if (scenario === 'controlled-embedding') {
+            const state = {
+              preAborted: false,
+              liveWorkRegistered: false,
+              abortListenerRemoved: false,
+            };
+            lastControlledEmbedding = state;
+            if (options?.signal?.aborted) {
+              state.preAborted = true;
+              state.abortListenerRemoved = true;
+              return { modelKey, embedding: [] };
+            }
             return await new Promise<{ modelKey: string; embedding: number[] }>(
               (resolve, reject) => {
+                let settled = false;
+                const cleanup = () => {
+                  if (settled) return;
+                  settled = true;
+                  options?.signal?.removeEventListener('abort', abortListener);
+                  state.abortListenerRemoved = true;
+                };
                 const call: ControlledEmbeddingCall = {
                   text,
                   aborted: options?.signal?.aborted ?? false,
                   resolve: (embedding = [0.4]) => {
+                    cleanup();
                     resolve({ modelKey, embedding });
                   },
-                  reject,
+                  reject: (error) => {
+                    cleanup();
+                    reject(error);
+                  },
                 };
                 const abortListener = () => {
                   call.aborted = true;
@@ -350,6 +414,7 @@ export class MockLMStudioClient {
                   once: true,
                 });
                 controlledEmbeddingCalls.push(call);
+                state.liveWorkRegistered = true;
                 for (const waiter of controlledEmbeddingWaiters) {
                   waiter();
                 }

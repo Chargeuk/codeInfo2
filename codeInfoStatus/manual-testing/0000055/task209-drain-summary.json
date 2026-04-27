@@ -1,0 +1,33 @@
+{
+  "polls": 4,
+  "focusedRoots": [
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+      "status": "completed",
+      "queueState": null,
+      "queuePosition": null,
+      "requestId": null,
+      "runId": null,
+      "lastIngestAt": "2026-04-27T16:10:01.056Z"
+    },
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+      "status": "completed",
+      "queueState": null,
+      "queuePosition": null,
+      "requestId": null,
+      "runId": null,
+      "lastIngestAt": "2026-04-27T16:10:00.947Z"
+    },
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task189-reembed-proof-repo",
+      "status": "completed",
+      "queueState": null,
+      "queuePosition": null,
+      "requestId": null,
+      "runId": null,
+      "lastIngestAt": "2026-04-22T10:22:14.591Z"
+    }
+  ],
+  "schemaVersion": "0000055-queued-repo-list-v1"
+}

@@ -1,4 +1,8 @@
 import path from 'path';
+import {
+  normalizeCanonicalQueueTargetPath,
+  validateQueueableRepositoryRootPath,
+} from './requestContracts.js';
 
 const DEFAULT_CONTAINER_ROOT = '/data';
 
@@ -15,9 +19,11 @@ export function mapIngestPath(
   hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR ||
     DEFAULT_CONTAINER_ROOT,
 ): MappedPath {
-  const normalizedContainer = path.posix.normalize(
-    containerPath.replace(/\\/g, '/'),
-  );
+  const normalizedContainer = normalizeCanonicalQueueTargetPath(containerPath);
+  const isAbsoluteHostStylePath =
+    path.posix.isAbsolute(normalizedContainer) &&
+    !normalizedContainer.startsWith(`${DEFAULT_CONTAINER_ROOT}/`) &&
+    normalizedContainer !== DEFAULT_CONTAINER_ROOT;
 
   let repo = '';
   let relPath = '';
@@ -37,13 +43,17 @@ export function mapIngestPath(
   const normalizedHostRoot = path.posix.normalize(
     hostIngestDir.replace(/\\/g, '/'),
   );
-  const hostPath = repo
-    ? path.posix.join(normalizedHostRoot, repo, relPath)
-    : path.posix.join(normalizedHostRoot, relPath);
+  const hostPath = isAbsoluteHostStylePath
+    ? normalizedContainer
+    : repo
+      ? path.posix.join(normalizedHostRoot, repo, relPath)
+      : path.posix.join(normalizedHostRoot, relPath);
 
-  const hostPathWarning = process.env.CODEINFO_HOST_INGEST_DIR
+  const hostPathWarning = isAbsoluteHostStylePath
     ? undefined
-    : 'CODEINFO_HOST_INGEST_DIR not set; using container path base';
+    : process.env.CODEINFO_HOST_INGEST_DIR
+      ? undefined
+      : 'CODEINFO_HOST_INGEST_DIR not set; using container path base';
 
   return {
     repo,
@@ -129,6 +139,113 @@ export function mapHostWorkingFolderToWorkdir(params: {
     mappedPath: path.posix.join(normalizedCodexWorkdir, relPath),
     relPath,
   };
+}
+
+export function resolveMountedIngestPath(params: {
+  containerPath: string;
+  hostPath?: string | null;
+  hostIngestDir?: string;
+  codexWorkdir?: string;
+}): string {
+  const normalizedContainerPath = normalizeCanonicalQueueTargetPath(
+    params.containerPath,
+  );
+  const hostPath = params.hostPath?.trim();
+  const hostIngestDir =
+    params.hostIngestDir?.trim() ?? process.env.CODEINFO_HOST_INGEST_DIR;
+  const codexWorkdir =
+    params.codexWorkdir?.trim() ?? process.env.CODEINFO_CODEX_WORKDIR;
+
+  if (!hostPath || !hostIngestDir || !codexWorkdir) {
+    return normalizedContainerPath;
+  }
+
+  const mapped = mapHostWorkingFolderToWorkdir({
+    hostIngestDir,
+    codexWorkdir,
+    hostWorkingFolder: hostPath,
+  });
+  if ('error' in mapped) {
+    return normalizedContainerPath;
+  }
+
+  return normalizeCanonicalQueueTargetPath(mapped.mappedPath);
+}
+
+export function resolveQueuedReembedExecutionPath(params: {
+  canonicalTargetPath: string;
+  requestPayloadPath?: string;
+  codexWorkdir?: string | null;
+}): string {
+  const canonicalTargetPath = validateQueueableRepositoryRootPath(
+    params.canonicalTargetPath,
+    {
+      fieldName: 'canonicalTargetPath',
+      allowedRoot: null,
+    },
+  );
+  const requestPayloadPath = params.requestPayloadPath?.trim();
+  if (!requestPayloadPath) {
+    return canonicalTargetPath;
+  }
+
+  const executionPath = validateQueueableRepositoryRootPath(
+    requestPayloadPath,
+    {
+      fieldName: 'requestPayload.path',
+      allowedRoot: params.codexWorkdir ?? process.env.CODEINFO_CODEX_WORKDIR,
+    },
+  );
+  const expectedMountedPath = resolveExpectedMountedExecutionPath({
+    canonicalTargetPath,
+    codexWorkdir: params.codexWorkdir ?? process.env.CODEINFO_CODEX_WORKDIR,
+  });
+  if (expectedMountedPath && executionPath !== expectedMountedPath) {
+    const error = new Error(
+      'queued reembed requestPayload.path must match the mounted canonicalTargetPath',
+    );
+    (error as { code?: string }).code = 'VALIDATION';
+    throw error;
+  }
+
+  return executionPath;
+}
+
+function resolveExpectedMountedExecutionPath(params: {
+  canonicalTargetPath: string;
+  codexWorkdir?: string | null;
+}) {
+  const codexWorkdir = params.codexWorkdir?.trim();
+  if (!codexWorkdir || codexWorkdir === '$CODEINFO_CODEX_WORKDIR') {
+    return null;
+  }
+  const canonicalWorkdir = validateQueueableRepositoryRootPath(codexWorkdir, {
+    fieldName: 'CODEINFO_CODEX_WORKDIR',
+    allowedRoot: null,
+  });
+  const dataPrefix = `${DEFAULT_CONTAINER_ROOT}/`;
+  if (params.canonicalTargetPath === DEFAULT_CONTAINER_ROOT) {
+    return canonicalWorkdir;
+  }
+  if (params.canonicalTargetPath.startsWith(dataPrefix)) {
+    return validateQueueableRepositoryRootPath(
+      path.posix.join(
+        canonicalWorkdir,
+        params.canonicalTargetPath.slice(dataPrefix.length),
+      ),
+      {
+        fieldName: 'requestPayload.path',
+        allowedRoot: canonicalWorkdir,
+      },
+    );
+  }
+  if (
+    params.canonicalTargetPath === canonicalWorkdir ||
+    params.canonicalTargetPath.startsWith(`${canonicalWorkdir}/`)
+  ) {
+    return params.canonicalTargetPath;
+  }
+  return null;
 }
 
 export function describeMountedWorkingFolder(params: {

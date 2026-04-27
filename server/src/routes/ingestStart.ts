@@ -1,30 +1,38 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import {
-  collectionIsEmpty,
   getLockedEmbeddingModel,
   InvalidLockMetadataError,
 } from '../ingest/chromaClient.js';
 import {
   getStatus,
-  isBusy,
-  startIngest,
   type IngestJobStatus,
+  pumpIngestQueue,
+  validateExecutableIngestInput,
 } from '../ingest/ingestJob.js';
 import {
   appendIngestFailureLog,
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
-import { resolveRequestEmbeddingSelection } from '../ingest/requestContracts.js';
+import {
+  resolveRequestEmbeddingSelection,
+  validateStartIngestRequestBody,
+  validateQueueableRepositoryRootPath,
+} from '../ingest/requestContracts.js';
+import {
+  enqueueOrReuseIngestRequest,
+  getCurrentQueueRequestPosition,
+  QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+} from '../ingest/requestQueue.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
-import { toWebSocketUrl } from './lmstudioUrl.js';
 
 type Deps = {
   clientFactory: (baseUrl: string) => LMStudioClient;
-  collectionIsEmpty?: typeof collectionIsEmpty;
   getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
-  startIngest?: typeof startIngest;
+  enqueueOrReuseIngestRequest?: typeof enqueueOrReuseIngestRequest;
+  getCurrentQueueRequestPosition?: typeof getCurrentQueueRequestPosition;
+  pumpIngestQueue?: typeof pumpIngestQueue;
 };
 
 function sanitizeErrorMessage(value: string): string {
@@ -73,21 +81,34 @@ function logLockResolverState(
 }
 
 export function createIngestStartRouter({
-  clientFactory,
-  collectionIsEmpty: collectionIsEmptyOverride = collectionIsEmpty,
   getLockedEmbeddingModel:
     getLockedEmbeddingModelOverride = getLockedEmbeddingModel,
-  startIngest: startIngestOverride = startIngest,
+  enqueueOrReuseIngestRequest:
+    enqueueOrReuseIngestRequestOverride = enqueueOrReuseIngestRequest,
+  getCurrentQueueRequestPosition:
+    getCurrentQueueRequestPositionOverride = getCurrentQueueRequestPosition,
+  pumpIngestQueue: pumpIngestQueueOverride = pumpIngestQueue,
 }: Deps) {
   const router = Router();
 
   router.post('/ingest/start', async (req, res) => {
-    const { path, name, description, dryRun = false } = req.body ?? {};
-    if (!path || !name) {
+    const bodyValidation = validateStartIngestRequestBody(req.body);
+    if ('status' in bodyValidation) {
+      return res.status(bodyValidation.status).json({
+        status: 'error',
+        code: bodyValidation.code,
+        message: bodyValidation.message,
+      });
+    }
+    const { path, name, description, dryRun = false } = bodyValidation;
+    let canonicalQueuePath: string;
+    try {
+      canonicalQueuePath = validateQueueableRepositoryRootPath(path);
+    } catch (error) {
       return res.status(400).json({
         status: 'error',
-        code: 'VALIDATION',
-        message: 'path and name are required',
+        code: (error as { code?: string }).code ?? 'VALIDATION',
+        message: (error as Error).message,
       });
     }
     const requestId =
@@ -131,37 +152,36 @@ export function createIngestStartRouter({
       },
     });
 
-    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
-    const wsBaseUrl = toWebSocketUrl(baseUrl);
-
     try {
       const locked = await getLockedEmbeddingModelOverride();
-      const empty = await collectionIsEmptyOverride();
       logLockResolverState(requestId, 'ingest/start', locked);
       const requested = resolvedSelection.selection;
-      if (
-        !empty &&
-        locked &&
-        (locked.embeddingProvider !== requested.providerId ||
-          locked.embeddingModel !== requested.modelKey)
-      ) {
-        return res.status(409).json({
-          status: 'error',
-          code: 'MODEL_LOCKED',
-          lock: {
-            embeddingProvider: locked.embeddingProvider,
-            embeddingModel: locked.embeddingModel,
-            embeddingDimensions: locked.embeddingDimensions,
-          },
-          lockedModelId: locked.embeddingModel,
+      try {
+        await validateExecutableIngestInput(req.body ?? {}, {
+          selection: requested,
+          getLockedEmbeddingModel: async () => locked,
         });
+      } catch (err) {
+        if ((err as { code?: string }).code === 'MODEL_LOCKED' && locked) {
+          return res.status(409).json({
+            status: 'error',
+            code: 'MODEL_LOCKED',
+            lock: {
+              embeddingProvider: locked.embeddingProvider,
+              embeddingModel: locked.embeddingModel,
+              embeddingDimensions: locked.embeddingDimensions,
+            },
+            lockedModelId: locked.embeddingModel,
+          });
+        }
+        throw err;
       }
-      if (isBusy()) {
-        return res.status(429).json({ status: 'error', code: 'BUSY' });
-      }
-      const runId = await startIngestOverride(
-        {
-          path,
+      const queueResult = await enqueueOrReuseIngestRequestOverride({
+        canonicalTargetPath: canonicalQueuePath,
+        operation: 'start',
+        sourceSurface: 'rest:ingest/start',
+        requestPayload: {
+          path: canonicalQueuePath,
           name,
           description,
           model: resolvedSelection.requestedModelId,
@@ -169,9 +189,68 @@ export function createIngestStartRouter({
           embeddingModel: requested.modelKey,
           dryRun,
         },
-        { lmClientFactory: clientFactory, baseUrl: wsBaseUrl },
+      });
+      const pumpResult = await pumpIngestQueueOverride();
+      const currentQueuePosition = await getCurrentQueueRequestPositionOverride(
+        queueResult.requestId,
       );
-      return res.status(202).json({ runId });
+      const runId =
+        queueResult.runId ??
+        currentQueuePosition.runId ??
+        (pumpResult.requestId === queueResult.requestId
+          ? (pumpResult.runId ?? null)
+          : null);
+      const waitingQueuePosition = runId
+        ? undefined
+        : currentQueuePosition.queuePosition;
+      if (queueResult.updatedExisting) {
+        append({
+          level: 'info',
+          message: QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            endpoint: '/ingest/start',
+            queueRequestId: queueResult.requestId,
+            canonicalTargetPath: queueResult.canonicalTargetPath,
+            runId,
+            queued: !runId,
+            queuePosition: waitingQueuePosition,
+            reusedExisting: queueResult.reusedExisting,
+            updatedExisting: queueResult.updatedExisting,
+          },
+        });
+      }
+      append({
+        level: 'info',
+        message: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          endpoint: '/ingest/start',
+          queueRequestId: queueResult.requestId,
+          canonicalTargetPath: queueResult.canonicalTargetPath,
+          runId,
+          queued: !runId,
+          queuePosition: waitingQueuePosition,
+        },
+      });
+      return res.status(202).json(
+        runId
+          ? {
+              queued: false,
+              requestId: queueResult.requestId,
+              runId,
+              queueState: 'running',
+            }
+          : {
+              queued: true,
+              requestId: queueResult.requestId,
+              queuePosition: waitingQueuePosition,
+            },
+      );
     } catch (err) {
       const classified = classifyIngestFailure(err, {
         surface: 'ingest/start',
@@ -208,8 +287,19 @@ export function createIngestStartRouter({
       if (code === 'OPENAI_MODEL_UNAVAILABLE') {
         return res.status(409).json({ status: 'error', code });
       }
-      if (code === 'BUSY') {
-        return res.status(429).json({ status: 'error', code });
+      if (code === 'QUEUE_UNAVAILABLE') {
+        if (typeof classified.retryAfterMs === 'number') {
+          res.setHeader(
+            'Retry-After',
+            String(Math.max(1, Math.ceil(classified.retryAfterMs / 1000))),
+          );
+        }
+        return res.status(503).json({
+          status: 'error',
+          code: 'QUEUE_UNAVAILABLE',
+          retryable: true,
+          message: classified.message,
+        });
       }
       return res.status(500).json({
         status: 'error',

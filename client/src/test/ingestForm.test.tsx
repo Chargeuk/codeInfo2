@@ -121,8 +121,10 @@ describe('IngestForm', () => {
     expect(select).toBeDisabled();
   });
 
-  it('submits payload and surfaces runId via onStarted', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-123' }));
+  it('treats requestId plus runId as immediate ingest success and surfaces runId via onStarted', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-123', runId: 'run-123' }),
+    );
     const onStarted = jest.fn();
 
     render(
@@ -158,6 +160,138 @@ describe('IngestForm', () => {
     });
   });
 
+  it('treats requestId plus queued metadata as queued ingest acceptance while another run is active', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 2,
+      }),
+    );
+    const onAccepted = jest.fn();
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        onAccepted={onAccepted}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+
+    const submit = screen.getByRole('button', { name: /start ingest/i });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(onAccepted).toHaveBeenCalledWith({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 2,
+      }),
+    );
+  });
+
+  it('retains visible edits locally until a later explicit resubmit', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 1,
+      }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-1',
+        queuePosition: 1,
+      }),
+    );
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo edited locally' },
+    });
+    expect(screen.getByLabelText(/display name/i)).toHaveValue(
+      'Repo edited locally',
+    );
+    expect(JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string).name).toBe(
+      'Repo',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string).name).toBe(
+      'Repo edited locally',
+    );
+  });
+
+  it('uses the currently visible target fields when switching from one queued target to another before the next submit', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        queued: true,
+        requestId: 'queue-request-2',
+        queuePosition: 1,
+      }),
+    );
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo-a' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo A' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo-b' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo B' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+
+    expect(
+      JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string),
+    ).toMatchObject({
+      path: '/repo-b',
+      name: 'Repo B',
+    });
+  });
+
   it('renders provider-qualified model options and keeps same model ids distinct by provider', () => {
     render(
       <IngestForm
@@ -186,14 +320,21 @@ describe('IngestForm', () => {
     );
   });
 
-  it('clears stale selection when selected option is no longer in refreshed models', async () => {
+  it('retains valid model selection but clears stale prior selection before submitting canonical payload', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        requestId: 'queue-request-stale',
+        runId: 'run-stale',
+      }),
+    );
+    const onStarted = jest.fn();
     const { rerender } = render(
       <IngestForm
         models={[
           { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
           { id: 'embed-b', displayName: 'Embed B', provider: 'lmstudio' },
         ]}
-        onStarted={jest.fn()}
+        onStarted={onStarted}
         defaultModelId="embed-a"
       />,
     );
@@ -206,13 +347,42 @@ describe('IngestForm', () => {
       <IngestForm
         models={[
           { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
+          { id: 'embed-b', displayName: 'Embed B', provider: 'lmstudio' },
         ]}
-        onStarted={jest.fn()}
+        onStarted={onStarted}
+        defaultModelId="embed-a"
+      />,
+    );
+
+    await waitFor(() => expect(select).toHaveValue('lmstudio::embed-b'));
+
+    rerender(
+      <IngestForm
+        models={[
+          { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
+        ]}
+        onStarted={onStarted}
         defaultModelId="embed-a"
       />,
     );
 
     await waitFor(() => expect(select).toHaveValue('lmstudio::embed-a'));
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-stale'));
+    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    expect(body).toMatchObject({
+      model: 'embed-a',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-a',
+    });
   });
 
   it('shows OPENAI_DISABLED info banner copy', () => {
@@ -321,7 +491,9 @@ describe('IngestForm', () => {
   });
 
   it('submits canonical embedding fields for provider-qualified selection', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-200' }));
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-200', runId: 'run-200' }),
+    );
 
     render(
       <IngestForm
@@ -354,7 +526,9 @@ describe('IngestForm', () => {
   });
 
   it('keeps provider-qualified selection and payload unambiguous for same model ids', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-300' }));
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-300', runId: 'run-300' }),
+    );
     const onStarted = jest.fn();
 
     render(
@@ -388,7 +562,9 @@ describe('IngestForm', () => {
   });
 
   it('keeps locked openai fallback option when fetched models only include lmstudio same-id', async () => {
-    mockFetch.mockResolvedValue(mockJsonResponse({ runId: 'run-301' }));
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({ requestId: 'queue-request-301', runId: 'run-301' }),
+    );
     const onStarted = jest.fn();
 
     render(
@@ -457,6 +633,60 @@ describe('IngestForm', () => {
     expect(await screen.findByTestId('submit-error')).toHaveTextContent(
       /boom/i,
     );
+  });
+
+  it('disables non-submit sibling controls while an ingest submit is in flight', async () => {
+    let resolveResponse:
+      | ((value: ReturnType<typeof mockJsonResponse>) => void)
+      | undefined;
+    mockFetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveResponse = resolve;
+        }),
+    );
+    const onStarted = jest.fn();
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={onStarted}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    expect(screen.getByLabelText(/folder path/i)).toBeDisabled();
+    expect(screen.getByLabelText(/display name/i)).toBeDisabled();
+    expect(screen.getByLabelText(/description/i)).toBeDisabled();
+    expect(
+      screen.getByRole('combobox', { name: /embedding model/i }),
+    ).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /dry run/i })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /choose folder/i }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: /starting/i })).toBeDisabled();
+    expect(screen.getByText(/submitting ingest request/i)).toBeInTheDocument();
+
+    await waitFor(() => expect(resolveResponse).toBeDefined());
+
+    await waitFor(async () => {
+      resolveResponse?.(
+        mockJsonResponse({ requestId: 'queue-request-400', runId: 'run-400' }),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-400'));
   });
 
   it('selecting a directory updates the Folder path input value', async () => {
@@ -565,6 +795,43 @@ describe('IngestForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /use this folder/i }));
 
     expect(screen.getByLabelText(/folder path/i)).toHaveValue('/data');
+  });
+
+  it('closes the already-open directory picker and prevents late path mutation when the form becomes disabled', async () => {
+    enqueueFetchJson([{ base: '/data', path: '/data', dirs: ['projects'] }]);
+
+    const { rerender } = render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
+
+    const useThisFolder = await screen.findByRole('button', {
+      name: /use this folder/i,
+    });
+
+    rerender(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+        disabled
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /use this folder/i }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(useThisFolder);
+
+    expect(screen.getByLabelText(/folder path/i)).toHaveValue('');
   });
 
   it('error path displays an error message when server returns OUTSIDE_BASE', async () => {

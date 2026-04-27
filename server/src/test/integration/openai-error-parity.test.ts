@@ -20,7 +20,7 @@ process.env.NODE_ENV = 'test';
 function openAiRateLimitError() {
   return new OpenAiEmbeddingError(
     'OPENAI_RATE_LIMITED',
-    'rate limited',
+    'rate limited for organization org-b0ryOxiEjneU4p7xMv88rMQr',
     true,
     429,
     1500,
@@ -70,6 +70,7 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
   assert.equal(rest.body.error, 'OPENAI_RATE_LIMITED');
   assert.equal(rest.body.retryable, true);
   assert.equal(rest.body.provider, 'openai');
+  assert.equal(String(rest.body.message ?? '').includes('org-b0ry'), false);
 
   const mcpApp = express();
   mcpApp.use(express.json());
@@ -98,6 +99,10 @@ test('equivalent OpenAI failures map to the same normalized code/retryability ac
   assert.equal(mcp.body.error.data.error, 'OPENAI_RATE_LIMITED');
   assert.equal(mcp.body.error.data.retryable, true);
   assert.equal(mcp.body.error.data.provider, 'openai');
+  assert.equal(
+    String(mcp.body.error.data.message ?? '').includes('org-b0ry'),
+    false,
+  );
 
   __setStatusForTest('run-openai-rate-limit', {
     runId: 'run-openai-rate-limit',

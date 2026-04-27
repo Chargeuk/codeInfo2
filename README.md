@@ -281,6 +281,23 @@ codex_agents/<agentName>/
 - Delta re-embed AST behavior stays conservative: if no AST-supported file was added, changed, or deleted, AST rebuild is skipped entirely; if any AST-supported add/change/delete or boundary-crossing move is present, the runtime reuses the existing full AST rebuild path. Story 54 does not add partial AST updates or rename detection.
 - The checked-in Story 54 browser/runtime proof fixture is [`e2e/fixtures/repo/large-planning-doc.md`](./e2e/fixtures/repo/large-planning-doc.md), mounted at `/fixtures/repo/large-planning-doc.md` in the compose-backed runtime used by e2e and manual validation.
 
+## Story 55 Durable Ingest Queue
+
+- Queueable ingest and re-embed requests now use one durable Mongo-backed queue instead of failing immediately whenever another ingest run is active.
+- Queue admission is canonical-target based. Start-ingest and re-embed requests that normalize to the same embed target reuse one durable queue record instead of creating duplicate waiting work.
+- Queue responses split durable queue identity from runtime execution identity:
+  - `requestId` is the durable queue record id.
+  - `runId` appears only after execution starts.
+  - waiting responses return `queued: true` plus waiting-only `queuePosition`.
+- Queue state stays intentionally small: `waiting`, `running`, and `cleanup-blocked`.
+- Queue order is FIFO by queue creation time. On startup, cleanup-blocked work is resolved before newer waiting work, and leftover `running` records are retried as abandoned previously-active work.
+- Waiting duplicate submits keep the existing `requestId`, queue position, original `createdAt`, and original source-surface provenance while replacing the stored normalized request settings with the latest submit.
+- Queue cleanup stays ordered: the runtime deletes a finished queue record before advancing newer waiting work, and a delete failure leaves the queue in `cleanup-blocked` until cleanup succeeds.
+- Queue-backed outages are explicit. REST surfaces Mongo queue outages as `503` with `QUEUE_UNAVAILABLE`, and MCP, flow, and command paths preserve that same retryable error meaning instead of flattening it into a generic invalid request.
+- Re-embed callers that already blocked until terminal completion still block after queueing. Queue wait time is part of the contract; Story 55 does not convert those callers into fire-and-forget behavior.
+- Shared repository-list readers are the source of truth for queued visibility. The ingest UI, `/ingest/roots`, and classic `ListIngestedRepositories` all use the same queued row shape with `requestId`, nullable `runId`, waiting-only `queuePosition`, and `queueState`, including temporary rows for brand-new queued roots.
+- The ingest UI keeps queueable submissions enabled while another run is active, but Story 55 still does not add user-facing removal or cancellation for queued-but-not-started work.
+
 ## Common Usage
 
 1. Start the local stack: `npm run compose:local`.
@@ -504,6 +521,17 @@ Wrapper log review rule:
 
 - if a summary wrapper reports clean success with `agent_action: skip_log`, do not open the saved log just to inspect it
 - only open full logs when the wrapper reports failure, unexpected warnings, or ambiguous/unknown counts
+
+Flow-stop cleanup troubleshooting:
+
+- If `npm run test:summary:server:unit` appears to keep running after a flow-loop stop/cancel test should have finished, inspect the saved log for these server markers before changing code blindly:
+  - `CANCEL_INFLIGHT_RECEIVED` with `inflightSnapshot`, `ownershipRunToken`, and `pendingCancelRunToken`
+  - `flows stopped final emitted before cleanup`
+  - `flows runtime cleanup starting`
+  - `flows runtime cleanupInflight completed` or `flows runtime cleanupInflight skipped because active inflight did not match`
+  - `flows runtime cleanup finished`
+- These lines are emitted from the flow stop path and are intended to show whether the runtime still has inflight state, active ownership, or pending cancel state after a looped flow reports `stopped`.
+- The most useful comparison is the before/after snapshot in `flows runtime cleanup starting` versus `flows runtime cleanup finished`; if `inflightId`, `ownershipRunToken`, or pending-cancel fields remain populated at the end, the issue is likely a real cleanup leak rather than a wrapper problem.
 
 ### Story 50 Manual Proof Markers
 

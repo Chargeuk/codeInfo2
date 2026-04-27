@@ -1,0 +1,22 @@
+
+> codeinfo2@1.0.0 test:summary:server:cucumber
+> node ./scripts/test-summary-server-cucumber.mjs --feature server/src/test/features/ingest-reembed.feature --scenario re-embed rejects a non-allowlisted lock-derived OpenAI model before queue admission
+
+[server:cucumber] timestamp: 2026-04-27T06:50:19.924Z
+[server:cucumber] phase: build
+[server:cucumber] status: running
+[server:cucumber] log_size_bytes: 0
+[server:cucumber] agent_action: wait
+[server:cucumber] do_not_read_log: true
+[server:cucumber] reason: running
+[server:cucumber] tests run: 1
+[server:cucumber] passed: 1
+[server:cucumber] failed: 0
+[server:cucumber] timestamp: 2026-04-27T06:50:32.044Z
+[server:cucumber] phase: test
+[server:cucumber] status: passed
+[server:cucumber] log_size_bytes: 2415
+[server:cucumber] agent_action: skip_log
+[server:cucumber] do_not_read_log: true
+[server:cucumber] reason: clean_success
+[server:cucumber] log: test-results/server-cucumber-tests-2026-04-27T06-50-19-923Z.log

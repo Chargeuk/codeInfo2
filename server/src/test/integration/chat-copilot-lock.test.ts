@@ -6,6 +6,14 @@ import request from 'supertest';
 import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
 
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
 async function waitForConversationLock(
   conversationId: string,
   timeoutMs = 4000,
@@ -20,11 +28,12 @@ async function waitForConversationLock(
   throw new Error(`Timed out waiting for conversation lock: ${conversationId}`);
 }
 
-test('copilot chat keeps the existing conversation lock for concurrent turns', async () => {
+test('copilot chat keeps the existing conversation lock while the first run remains active', async () => {
+  const sendGate = createDeferred();
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-lock',
-      sendDelayMs: 200,
+      sendGate: sendGate.promise,
     },
   });
 
@@ -49,6 +58,7 @@ test('copilot chat keeps the existing conversation lock for concurrent turns', a
       message: 'Second turn',
     });
 
+    sendGate.resolve();
     const firstResponse = await first;
     assert.equal(firstResponse.status, 202);
     assert.equal(second.status, 409);

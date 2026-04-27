@@ -1,5 +1,10 @@
 import path from 'path';
 import {
+  INGEST_ROOTS_SCHEMA_VERSION,
+  type IngestQueueState,
+} from '@codeinfo2/common';
+import mongoose from 'mongoose';
+import {
   type EmbeddingProviderId,
   IngestRequiredError,
   generateLockedQueryEmbedding,
@@ -8,10 +13,23 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
-import { getActiveRunContexts } from '../ingest/ingestJob.js';
+import {
+  getActiveRunContexts,
+  getStatus,
+  type ActiveIngestRunContext,
+} from '../ingest/ingestJob.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
+import {
+  normalizeCanonicalQueueTargetPath,
+  resolveRequestEmbeddingSelection,
+} from '../ingest/requestContracts.js';
 import { append } from '../logStore.js';
 import { baseLogger, parseNumber } from '../logger.js';
+import {
+  ingestLiveQueueTargetStates,
+  IngestQueueRequestModel,
+  type IngestQueueRequest,
+} from '../mongo/ingestQueueRequest.js';
 
 export type ExternalIngestStatus =
   | 'ingesting'
@@ -30,6 +48,7 @@ export type ToolDeps = {
 
 export type RepoEntry = {
   id: string;
+  name?: string;
   description: string | null;
   containerPath: string;
   hostPath: string;
@@ -49,6 +68,24 @@ export type RepoEntry = {
   };
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
+  requestId?: string | null;
+  runId?: string | null;
+  queuePosition?: number | null;
+  queueState?: IngestQueueState | null;
+  ast?: {
+    supportedFileCount: number;
+    skippedFileCount: number;
+    failedFileCount: number;
+    lastIndexedAt: string | null;
+  };
+  error?: {
+    error: string;
+    message: string;
+    retryable: boolean;
+    provider: 'lmstudio' | 'openai' | 'ingest';
+    upstreamStatus?: number;
+    retryAfterMs?: number;
+  } | null;
   status?: ExternalIngestStatus;
   phase?: ExternalIngestPhase;
 };
@@ -64,9 +101,25 @@ export type ListReposResult = {
   } | null;
   lockedModelId: string | null;
   schemaVersion?: string;
+  queueReadDegraded?: boolean;
+  queueReadError?: RepoEntry['error'] | null;
 };
 
-export const INGEST_REPO_SCHEMA_VERSION = '0000038-status-phase-v1';
+export const INGEST_REPO_SCHEMA_VERSION = INGEST_ROOTS_SCHEMA_VERSION;
+
+const QUEUE_READ_DEGRADED_MESSAGE =
+  'Queue-backed repository visibility may be incomplete because Mongo queue reads are unavailable.';
+
+function buildQueueReadDegradedError(): NonNullable<
+  ListReposResult['queueReadError']
+> {
+  return {
+    error: 'QUEUE_READ_DEGRADED',
+    message: QUEUE_READ_DEGRADED_MESSAGE,
+    retryable: true,
+    provider: 'ingest',
+  };
+}
 
 function parseDev0000038MarkerGate(value: string | undefined): boolean {
   if (typeof value !== 'string') return false;
@@ -216,13 +269,17 @@ export function validateVectorSearch(body: {
   return { query, repository, limit };
 }
 
-function buildRepoId(
+function buildCanonicalRepoId(repoPath: string): string {
+  return buildRepoKey(mapIngestPath(repoPath).containerPath);
+}
+
+function buildRepoDisplayName(
   name: string | null,
-  containerPath: string,
+  repoPath: string,
   fallback: string,
 ): string {
   if (name?.trim()) return name.trim();
-  const normalized = containerPath.replace(/\\/g, '/');
+  const normalized = mapIngestPath(repoPath).containerPath.replace(/\\/g, '/');
   const base = path.posix.basename(normalized);
   return base || fallback;
 }
@@ -237,6 +294,193 @@ type RootsGetter = {
     metadatas?: Record<string, unknown>[];
   }>;
 };
+
+function parseAstMetadata(
+  meta: Record<string, unknown>,
+): RepoEntry['ast'] | undefined {
+  const astRaw = meta.ast;
+  const ast =
+    astRaw && typeof astRaw === 'object'
+      ? (astRaw as Record<string, unknown>)
+      : {
+          supportedFileCount: meta.astSupportedFileCount,
+          skippedFileCount: meta.astSkippedFileCount,
+          failedFileCount: meta.astFailedFileCount,
+          lastIndexedAt: meta.astLastIndexedAt,
+        };
+  const hasAstFields =
+    ast.supportedFileCount !== undefined ||
+    ast.skippedFileCount !== undefined ||
+    ast.failedFileCount !== undefined ||
+    ast.lastIndexedAt !== undefined;
+  if (!hasAstFields) return undefined;
+
+  return {
+    supportedFileCount: Number(ast.supportedFileCount ?? 0),
+    skippedFileCount: Number(ast.skippedFileCount ?? 0),
+    failedFileCount: Number(ast.failedFileCount ?? 0),
+    lastIndexedAt:
+      typeof ast.lastIndexedAt === 'string' ? ast.lastIndexedAt : null,
+  };
+}
+
+function parseNormalizedError(meta: Record<string, unknown>) {
+  const candidate = (
+    meta.error && typeof meta.error === 'object'
+      ? meta.error
+      : meta.lastError && typeof meta.lastError === 'object'
+        ? meta.lastError
+        : null
+  ) as Record<string, unknown> | null;
+  if (!candidate) return null;
+  const provider = candidate.provider;
+  const error = candidate.error;
+  const message = candidate.message;
+  const retryable = candidate.retryable;
+  if (
+    (provider === 'openai' ||
+      provider === 'lmstudio' ||
+      provider === 'ingest') &&
+    typeof error === 'string' &&
+    typeof message === 'string' &&
+    typeof retryable === 'boolean'
+  ) {
+    return {
+      error,
+      message,
+      retryable,
+      provider,
+      ...(typeof candidate.upstreamStatus === 'number'
+        ? { upstreamStatus: candidate.upstreamStatus }
+        : {}),
+      ...(typeof candidate.retryAfterMs === 'number'
+        ? { retryAfterMs: candidate.retryAfterMs }
+        : {}),
+    } as RepoEntry['error'];
+  }
+  return null;
+}
+
+function resolveQueueRequestEmbeddingIdentity(params: {
+  payload: Record<string, unknown>;
+  fallbackLock: ListReposResult['lock'] | RepoEntry['lock'] | null | undefined;
+  currentRepo?: RepoEntry;
+}) {
+  const { payload, fallbackLock, currentRepo } = params;
+  const payloadModel = normalizeEmbeddingModel(payload.model);
+  const requestedSelection = resolveRequestEmbeddingSelection({
+    embeddingProvider: payload.embeddingProvider,
+    embeddingModel: payload.embeddingModel,
+    model: payload.model,
+  });
+  const currentProvider = normalizeEmbeddingProvider(
+    currentRepo?.embeddingProvider,
+  );
+  const currentModel = normalizeEmbeddingModel(currentRepo?.embeddingModel);
+  const currentDimensions = normalizeEmbeddingDimensions(
+    currentRepo?.embeddingDimensions,
+  );
+  const fallbackProvider = normalizeEmbeddingProvider(
+    fallbackLock?.embeddingProvider,
+  );
+  const fallbackModel = normalizeEmbeddingModel(fallbackLock?.embeddingModel);
+  const fallbackDimensions = normalizeEmbeddingDimensions(
+    fallbackLock?.embeddingDimensions,
+  );
+  const payloadDimensions = normalizeEmbeddingDimensions(
+    payload.embeddingDimensions,
+  );
+
+  if (
+    currentRepo &&
+    payload.embeddingProvider === undefined &&
+    payload.embeddingModel === undefined &&
+    (payloadModel === null || !payloadModel.includes('/'))
+  ) {
+    if (currentProvider && currentModel) {
+      return {
+        embeddingProvider: currentProvider,
+        embeddingModel: currentModel,
+        embeddingDimensions: currentDimensions ?? 0,
+      };
+    }
+    if (fallbackProvider && fallbackModel) {
+      return {
+        embeddingProvider: fallbackProvider,
+        embeddingModel: fallbackModel,
+        embeddingDimensions: fallbackDimensions ?? 0,
+      };
+    }
+  }
+
+  if (!('status' in requestedSelection)) {
+    const provider = requestedSelection.selection.providerId;
+    const model = requestedSelection.selection.modelKey;
+    const dimensions =
+      payloadDimensions ??
+      (currentProvider === provider && currentModel === model
+        ? currentDimensions
+        : fallbackProvider === provider && fallbackModel === model
+          ? fallbackDimensions
+          : null) ??
+      0;
+
+    return {
+      embeddingProvider: provider,
+      embeddingModel: model,
+      embeddingDimensions: dimensions,
+    };
+  }
+
+  const partialCanonicalProvider = normalizeEmbeddingProvider(
+    payload.embeddingProvider,
+  );
+  const partialCanonicalModel = normalizeEmbeddingModel(payload.embeddingModel);
+
+  if (
+    payload.embeddingProvider !== undefined ||
+    payload.embeddingModel !== undefined
+  ) {
+    const provider =
+      partialCanonicalProvider ??
+      currentProvider ??
+      fallbackProvider ??
+      'lmstudio';
+    const model = partialCanonicalModel ?? '';
+    const dimensions =
+      model.length > 0
+        ? (payloadDimensions ??
+          (currentProvider === provider && currentModel === model
+            ? currentDimensions
+            : fallbackProvider === provider && fallbackModel === model
+              ? fallbackDimensions
+              : null) ??
+          0)
+        : 0;
+    return {
+      embeddingProvider: provider,
+      embeddingModel: model,
+      embeddingDimensions: dimensions,
+    };
+  }
+
+  const provider = currentProvider ?? fallbackProvider ?? 'lmstudio';
+  const model = normalizeEmbeddingModel(payload.model) ?? '';
+  const dimensions =
+    payloadDimensions ??
+    (currentProvider === provider && currentModel === model
+      ? currentDimensions
+      : fallbackProvider === provider && fallbackModel === model
+        ? fallbackDimensions
+        : null) ??
+    0;
+
+  return {
+    embeddingProvider: provider,
+    embeddingModel: model,
+    embeddingDimensions: dimensions,
+  };
+}
 
 function normalizeEmbeddingProvider(
   value: unknown,
@@ -283,6 +527,18 @@ export function resolveRepoEmbeddingIdentity(
     normalizeEmbeddingModel(repo.lock?.modelId) ??
     normalizeEmbeddingModel(repo.model) ??
     '';
+
+  // Preserve partially populated canonical OpenAI metadata as invalid state
+  // instead of silently inheriting a valid identity from lock/alias fallbacks.
+  if (canonicalProvider === 'openai' && canonicalModel === null) {
+    return {
+      embeddingProvider: 'openai',
+      embeddingModel: '',
+      embeddingDimensions: canonicalDimensions ?? 0,
+      modelId: '',
+      aliasFallbackUsed: true,
+    };
+  }
 
   const embeddingProvider = canonicalProvider ?? lockProvider ?? 'lmstudio';
   const embeddingModel = canonicalModel ?? lockModel ?? aliasModel;
@@ -384,6 +640,444 @@ function logOverlayApplied(sourceId: string, synthesized: boolean) {
     { sourceId, synthesized },
     '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
   );
+}
+
+function buildRepoKey(containerPath: string): string {
+  return normalizeCanonicalQueueTargetPath(containerPath);
+}
+
+function buildRepoLookupKeys(
+  paths: Array<string | null | undefined>,
+): string[] {
+  const keys = new Set<string>();
+
+  paths.forEach((value) => {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return;
+    }
+    const normalized = normalizeCanonicalQueueTargetPath(value);
+    const mapped = mapIngestPath(normalized);
+    keys.add(buildRepoKey(normalized));
+    keys.add(buildRepoKey(mapped.containerPath));
+    keys.add(buildRepoKey(mapped.hostPath));
+  });
+
+  return [...keys];
+}
+
+function indexRepoByLookupKeys(
+  repoBySourceId: Map<string, RepoEntry>,
+  repo: RepoEntry,
+  paths: Array<string | null | undefined>,
+) {
+  buildRepoLookupKeys(paths).forEach((key) => {
+    repoBySourceId.set(key, repo);
+  });
+}
+
+function findRepoByLookupKeys(
+  repoBySourceId: Map<string, RepoEntry>,
+  paths: Array<string | null | undefined>,
+): RepoEntry | undefined {
+  for (const key of buildRepoLookupKeys(paths)) {
+    const existing = repoBySourceId.get(key);
+    if (existing) {
+      return existing;
+    }
+  }
+  return undefined;
+}
+
+type PersistedRepoCandidate = {
+  id: string;
+  idx: number;
+  rawPath: string;
+  canonicalPath: string;
+  metadata: Record<string, unknown>;
+};
+
+function hasRawLockMetadata(metadata: Record<string, unknown>): boolean {
+  return (
+    normalizeEmbeddingProvider(metadata.embeddingProvider) !== null &&
+    normalizeEmbeddingModel(metadata.embeddingModel) !== null &&
+    normalizeEmbeddingDimensions(metadata.embeddingDimensions) !== null
+  );
+}
+
+function hasRawModelMetadata(metadata: Record<string, unknown>): boolean {
+  return (
+    normalizeEmbeddingModel(metadata.embeddingModel) !== null ||
+    normalizeEmbeddingModel(metadata.model) !== null
+  );
+}
+
+function hasRawCountMetadata(metadata: Record<string, unknown>): boolean {
+  return (
+    typeof metadata.files === 'number' ||
+    typeof metadata.chunks === 'number' ||
+    typeof metadata.embedded === 'number'
+  );
+}
+
+function persistedMetadataCompletenessScore(
+  metadata: Record<string, unknown>,
+): number {
+  return (
+    (hasRawLockMetadata(metadata) ? 4 : 0) +
+    (hasRawModelMetadata(metadata) ? 2 : 0) +
+    (hasRawCountMetadata(metadata) ? 1 : 0)
+  );
+}
+
+function comparePersistedRepoCandidates(
+  a: PersistedRepoCandidate,
+  b: PersistedRepoCandidate,
+): number {
+  const scoreDiff =
+    persistedMetadataCompletenessScore(a.metadata) -
+    persistedMetadataCompletenessScore(b.metadata);
+  if (scoreDiff !== 0) return scoreDiff;
+
+  const aTs =
+    typeof a.metadata.lastIngestAt === 'string'
+      ? Date.parse(a.metadata.lastIngestAt)
+      : 0;
+  const bTs =
+    typeof b.metadata.lastIngestAt === 'string'
+      ? Date.parse(b.metadata.lastIngestAt)
+      : 0;
+  if (aTs !== bTs) return aTs - bTs;
+
+  const idDiff = a.id.localeCompare(b.id);
+  if (idDiff !== 0) return idDiff;
+
+  return a.idx - b.idx;
+}
+
+function dedupePersistedRepoCandidates(
+  metadatas: Record<string, unknown>[],
+  ids: unknown[],
+): PersistedRepoCandidate[] {
+  const bestByPath = new Map<string, PersistedRepoCandidate>();
+
+  metadatas.forEach((metadata, idx) => {
+    const rawPath = typeof metadata.root === 'string' ? metadata.root : '';
+    const canonicalPath = buildRepoKey(mapIngestPath(rawPath).containerPath);
+    const candidate: PersistedRepoCandidate = {
+      id: typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
+      idx,
+      rawPath,
+      canonicalPath,
+      metadata,
+    };
+    const existing = bestByPath.get(canonicalPath);
+    if (!existing || comparePersistedRepoCandidates(candidate, existing) > 0) {
+      bestByPath.set(canonicalPath, candidate);
+    }
+  });
+
+  return [...bestByPath.values()].sort((a, b) => {
+    const tsDiff = comparePersistedRepoCandidates(b, a);
+    if (tsDiff !== 0) return tsDiff;
+    return a.canonicalPath.localeCompare(b.canonicalPath);
+  });
+}
+
+function deriveQueuePayloadName(
+  queueRequest: Pick<
+    IngestQueueRequest,
+    'canonicalTargetPath' | 'requestPayload'
+  >,
+) {
+  const payloadName = queueRequest.requestPayload.name;
+  if (typeof payloadName === 'string' && payloadName.trim().length > 0) {
+    return payloadName.trim();
+  }
+  return path.posix.basename(queueRequest.canonicalTargetPath) || 'repo';
+}
+
+function buildRepoFromQueueRequest(params: {
+  queueRequest: IngestQueueRequest;
+  lock: ListReposResult['lock'];
+}): RepoEntry {
+  const { queueRequest, lock } = params;
+  const payload = queueRequest.requestPayload;
+  const mapped = mapIngestPath(queueRequest.canonicalTargetPath);
+  const name = deriveQueuePayloadName(queueRequest);
+  const { embeddingProvider, embeddingModel, embeddingDimensions } =
+    resolveQueueRequestEmbeddingIdentity({
+      payload,
+      fallbackLock: lock,
+    });
+  const repoLock = {
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    lockedModelId: embeddingModel,
+    modelId: embeddingModel,
+  };
+
+  return {
+    id: buildCanonicalRepoId(mapped.containerPath),
+    name,
+    description:
+      typeof payload.description === 'string' ? payload.description : null,
+    containerPath: mapped.containerPath,
+    hostPath: mapped.hostPath,
+    ...(mapped.hostPathWarning
+      ? { hostPathWarning: mapped.hostPathWarning }
+      : {}),
+    lastIngestAt: null,
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    model: embeddingModel,
+    modelId: embeddingModel,
+    lock: repoLock,
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    lastError: null,
+    status: 'ingesting',
+    phase: 'queued',
+  };
+}
+
+function pathsResolveToSameRepoTarget(first: string, second: string): boolean {
+  const firstKeys = new Set(buildRepoLookupKeys([first]));
+  return buildRepoLookupKeys([second]).some((key) => firstKeys.has(key));
+}
+
+function getSameTargetPayloadPathAlias(
+  queueRequest: Pick<
+    IngestQueueRequest,
+    'canonicalTargetPath' | 'requestPayload'
+  >,
+): string | null {
+  const payloadPath = queueRequest.requestPayload.path;
+  if (typeof payloadPath !== 'string') {
+    return null;
+  }
+  const trimmedPath = payloadPath.trim();
+  if (trimmedPath.length === 0) {
+    return null;
+  }
+  return pathsResolveToSameRepoTarget(
+    queueRequest.canonicalTargetPath,
+    trimmedPath,
+  )
+    ? trimmedPath
+    : null;
+}
+
+function buildQueueRequestLookupPaths(queueRequest: IngestQueueRequest) {
+  const payloadPathAlias = getSameTargetPayloadPathAlias(queueRequest);
+  return payloadPathAlias
+    ? [queueRequest.canonicalTargetPath, payloadPathAlias]
+    : [queueRequest.canonicalTargetPath];
+}
+
+function applyQueueRequestMetadata(
+  repo: RepoEntry,
+  queueRequest: IngestQueueRequest,
+) {
+  const payload = queueRequest.requestPayload;
+  const name = deriveQueuePayloadName(queueRequest);
+  const { embeddingProvider, embeddingModel, embeddingDimensions } =
+    resolveQueueRequestEmbeddingIdentity({
+      payload,
+      fallbackLock: repo.lock ?? null,
+      currentRepo: repo,
+    });
+
+  repo.name = name;
+  repo.description =
+    typeof payload.description === 'string' ? payload.description : null;
+  repo.embeddingProvider = embeddingProvider;
+  repo.embeddingModel = embeddingModel;
+  repo.embeddingDimensions = embeddingDimensions;
+  repo.model = embeddingModel;
+  repo.modelId = embeddingModel;
+  repo.lock = {
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    lockedModelId: embeddingModel,
+    modelId: embeddingModel,
+  };
+}
+
+function clearHealthyQueueOverlayDiagnostics(repo: RepoEntry) {
+  repo.lastError = null;
+  repo.error = null;
+}
+
+function applyRuntimeOverlayDiagnostics(
+  repo: RepoEntry,
+  runtimeStatus: {
+    lastError?: string | null;
+    error?: unknown;
+  },
+) {
+  const candidate =
+    runtimeStatus.error && typeof runtimeStatus.error === 'object'
+      ? (runtimeStatus.error as Record<string, unknown>)
+      : null;
+  const normalizedProvider =
+    candidate?.provider === 'openai' ||
+    candidate?.provider === 'lmstudio' ||
+    candidate?.provider === 'ingest'
+      ? candidate.provider
+      : null;
+  const normalizedError: RepoEntry['error'] =
+    candidate &&
+    normalizedProvider &&
+    typeof candidate.error === 'string' &&
+    typeof candidate.message === 'string' &&
+    typeof candidate.retryable === 'boolean'
+      ? {
+          error: candidate.error,
+          message: candidate.message,
+          retryable: candidate.retryable,
+          provider: normalizedProvider,
+          ...(typeof candidate.upstreamStatus === 'number'
+            ? { upstreamStatus: candidate.upstreamStatus }
+            : {}),
+          ...(typeof candidate.retryAfterMs === 'number'
+            ? { retryAfterMs: candidate.retryAfterMs }
+            : {}),
+        }
+      : null;
+
+  repo.error = normalizedError;
+  if (typeof runtimeStatus.lastError === 'string') {
+    repo.lastError = runtimeStatus.lastError;
+    return;
+  }
+  if (normalizedError && normalizedError.message.length > 0) {
+    repo.lastError = normalizedError.message;
+    return;
+  }
+  repo.lastError = null;
+}
+
+function getQueueOverlayPrecedence(
+  queueState: IngestQueueState | null | undefined,
+) {
+  switch (queueState) {
+    case 'cleanup-blocked':
+      return 3;
+    case 'running':
+      return 2;
+    case 'waiting':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function shouldApplyQueueOverlay(
+  repo: RepoEntry,
+  queueRequest: IngestQueueRequest,
+) {
+  if (!repo.requestId || !repo.queueState) {
+    return true;
+  }
+
+  if (repo.requestId === queueRequest._id.toString()) {
+    return true;
+  }
+
+  return (
+    getQueueOverlayPrecedence(queueRequest.queueState) >=
+    getQueueOverlayPrecedence(repo.queueState)
+  );
+}
+
+function applyQueueOverlay(params: {
+  repo: RepoEntry;
+  queueRequest: IngestQueueRequest;
+  queuePosition: number | null;
+  activeContextsByRunId: Map<string, ActiveIngestRunContext>;
+}) {
+  const { repo, queueRequest, queuePosition, activeContextsByRunId } = params;
+  const requestId = queueRequest._id.toString();
+  const activeContext =
+    typeof queueRequest.runId === 'string'
+      ? activeContextsByRunId.get(queueRequest.runId)
+      : undefined;
+  const runtimeStatus =
+    typeof queueRequest.runId === 'string'
+      ? getStatus(queueRequest.runId)
+      : null;
+
+  repo.requestId = requestId;
+  repo.runId = queueRequest.runId ?? null;
+  repo.queueState = queueRequest.queueState;
+  repo.queuePosition =
+    queueRequest.queueState === 'waiting' ? queuePosition : null;
+
+  if (queueRequest.queueState === 'waiting') {
+    applyQueueRequestMetadata(repo, queueRequest);
+    clearHealthyQueueOverlayDiagnostics(repo);
+    repo.status = 'ingesting';
+    repo.phase = 'queued';
+    return;
+  }
+
+  if (queueRequest.queueState === 'running') {
+    applyQueueRequestMetadata(repo, queueRequest);
+  }
+
+  if (queueRequest.queueState === 'cleanup-blocked') {
+    repo.status = 'error';
+    delete repo.phase;
+    if (runtimeStatus) {
+      repo.counts = { ...runtimeStatus.counts };
+      applyRuntimeOverlayDiagnostics(repo, runtimeStatus);
+      if (!repo.lastError) {
+        repo.lastError = 'Queue cleanup blocked';
+      }
+    } else {
+      repo.lastError = 'Queue cleanup blocked';
+    }
+    return;
+  }
+
+  if (activeContext) {
+    const mappedState = mapInternalStateToExternal(activeContext.state);
+    if (mappedState.status === 'ingesting') {
+      clearHealthyQueueOverlayDiagnostics(repo);
+    }
+    repo.status = mappedState.status;
+    if (mappedState.phase) {
+      repo.phase = mappedState.phase;
+    } else {
+      delete repo.phase;
+    }
+    repo.counts = { ...activeContext.counts };
+    repo.name = activeContext.name ?? repo.name;
+    repo.description = activeContext.description ?? repo.description;
+    return;
+  }
+
+  if (runtimeStatus) {
+    const mappedState = mapInternalStateToExternal(runtimeStatus.state);
+    if (mappedState.status === 'ingesting' && !runtimeStatus.error) {
+      clearHealthyQueueOverlayDiagnostics(repo);
+    }
+    repo.status = mappedState.status;
+    if (mappedState.phase) {
+      repo.phase = mappedState.phase;
+    } else {
+      delete repo.phase;
+    }
+    repo.counts = { ...runtimeStatus.counts };
+    applyRuntimeOverlayDiagnostics(repo, runtimeStatus);
+    return;
+  }
+
+  clearHealthyQueueOverlayDiagnostics(repo);
+  repo.status = 'ingesting';
+  repo.phase = 'queued';
 }
 
 type ChromaQueryable = {
@@ -638,16 +1332,24 @@ export async function listIngestedRepositories(
 
   const metadatas = Array.isArray(raw?.metadatas) ? raw.metadatas : [];
   const ids = Array.isArray(raw?.ids) ? raw.ids : [];
-  const repos: RepoEntry[] = metadatas
-    .map((meta, idx) => {
-      const m = (meta ?? {}) as Record<string, unknown>;
-      const rawPath = typeof m.root === 'string' ? m.root : '';
+  const persistedCandidates = dedupePersistedRepoCandidates(
+    metadatas.map((meta) => (meta ?? {}) as Record<string, unknown>),
+    ids,
+  );
+  const repos: RepoEntry[] = persistedCandidates
+    .map((candidate) => {
+      const m = candidate.metadata;
+      const rawPath = candidate.rawPath;
       const mapped = mapIngestPath(rawPath);
-      const repoId = buildRepoId(
-        typeof m.name === 'string' ? m.name : null,
-        rawPath,
-        typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
-      );
+      const name =
+        typeof m.name === 'string' && m.name.trim().length > 0
+          ? m.name.trim()
+          : buildRepoDisplayName(
+              typeof m.name === 'string' ? m.name : null,
+              rawPath,
+              candidate.canonicalPath,
+            );
+      const repoId = candidate.canonicalPath;
       const repoLock = resolveRepoLock(
         m,
         lock
@@ -658,6 +1360,17 @@ export async function listIngestedRepositories(
             }
           : null,
       );
+      const repoIdentity = resolveRepoEmbeddingIdentity({
+        embeddingProvider:
+          normalizeEmbeddingProvider(m.embeddingProvider) ?? undefined,
+        embeddingModel:
+          typeof m.embeddingModel === 'string' ? m.embeddingModel : undefined,
+        embeddingDimensions:
+          normalizeEmbeddingDimensions(m.embeddingDimensions) ?? undefined,
+        model: typeof m.model === 'string' ? m.model : undefined,
+        modelId: typeof m.modelId === 'string' ? m.modelId : undefined,
+        lock: repoLock,
+      });
       const sourceId = rawPath;
       const mappedState = mapInternalStateToExternal(m.state);
       logStatusMapped({
@@ -668,6 +1381,7 @@ export async function listIngestedRepositories(
       });
       return {
         id: repoId,
+        name,
         description: typeof m.description === 'string' ? m.description : null,
         containerPath: mapped.containerPath,
         hostPath: mapped.hostPath,
@@ -676,17 +1390,19 @@ export async function listIngestedRepositories(
           : {}),
         lastIngestAt:
           typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null,
-        embeddingProvider: repoLock.embeddingProvider,
-        embeddingModel: repoLock.embeddingModel,
-        embeddingDimensions: repoLock.embeddingDimensions,
-        model: repoLock.embeddingModel,
-        modelId: repoLock.modelId,
+        embeddingProvider: repoIdentity.embeddingProvider,
+        embeddingModel: repoIdentity.embeddingModel,
+        embeddingDimensions: repoIdentity.embeddingDimensions,
+        model: repoIdentity.embeddingModel,
+        modelId: repoIdentity.modelId,
         lock: repoLock,
         counts: {
           files: Number(m.files ?? 0),
           chunks: Number(m.chunks ?? 0),
           embedded: Number(m.embedded ?? 0),
         },
+        ast: parseAstMetadata(m),
+        error: parseNormalizedError(m),
         lastError:
           typeof m.lastError === 'string'
             ? m.lastError
@@ -703,18 +1419,84 @@ export async function listIngestedRepositories(
       return bTs - aTs;
     });
 
-  const repoBySourceId = new Map(
-    repos.map((repo) => [repo.containerPath, repo]),
-  );
+  const repoBySourceId = new Map<string, RepoEntry>();
+  repos.forEach((repo) => {
+    indexRepoByLookupKeys(repoBySourceId, repo, [
+      repo.containerPath,
+      repo.hostPath,
+    ]);
+  });
   const activeContexts = getActiveRunContexts();
+  const activeContextsByRunId = new Map(
+    activeContexts.map((entry) => [entry.runId, entry]),
+  );
+
+  let queueReadDegraded = false;
+  let queueReadError: ListReposResult['queueReadError'] = null;
+  let queueRequests: IngestQueueRequest[] = [];
+  if (mongoose.connection.readyState !== 1) {
+    queueReadDegraded = true;
+    queueReadError = buildQueueReadDegradedError();
+  } else {
+    try {
+      queueRequests = await IngestQueueRequestModel.find({
+        queueState: { $in: [...ingestLiveQueueTargetStates] },
+      })
+        .sort({ createdAt: 1, _id: 1 })
+        .exec();
+    } catch (err) {
+      queueReadDegraded = true;
+      queueReadError = buildQueueReadDegradedError();
+      baseLogger.warn(
+        { err },
+        'ingest repo-list queue read degraded; continuing without queue overlay',
+      );
+    }
+  }
+  let waitingQueuePosition = 0;
+
+  for (const queueRequest of queueRequests) {
+    const queueLookupPaths = buildQueueRequestLookupPaths(queueRequest);
+    let repo = findRepoByLookupKeys(repoBySourceId, queueLookupPaths);
+    if (!repo) {
+      repo = buildRepoFromQueueRequest({ queueRequest, lock });
+      repos.push(repo);
+    }
+    indexRepoByLookupKeys(repoBySourceId, repo, [
+      repo.containerPath,
+      repo.hostPath,
+      ...queueLookupPaths,
+    ]);
+
+    if (!shouldApplyQueueOverlay(repo, queueRequest)) {
+      continue;
+    }
+
+    applyQueueOverlay({
+      repo,
+      queueRequest,
+      queuePosition:
+        queueRequest.queueState === 'waiting' ? ++waitingQueuePosition : null,
+      activeContextsByRunId,
+    });
+  }
 
   for (const active of activeContexts) {
     const sourceIdRaw = active.sourceId ?? active.rootPath ?? '';
     if (!sourceIdRaw) continue;
-    const normalizedSourceId = mapIngestPath(sourceIdRaw).containerPath;
+    const normalizedSourceId = buildRepoKey(sourceIdRaw);
     const mappedState = mapInternalStateToExternal(active.state);
-    const existing = repoBySourceId.get(normalizedSourceId);
+    const existing = findRepoByLookupKeys(repoBySourceId, [
+      active.sourceId,
+      active.rootPath,
+    ]);
     if (existing) {
+      if (
+        existing.queueState === 'waiting' ||
+        existing.queueState === 'cleanup-blocked'
+      ) {
+        continue;
+      }
       existing.status = mappedState.status;
       if (mappedState.phase) {
         existing.phase = mappedState.phase;
@@ -722,7 +1504,13 @@ export async function listIngestedRepositories(
         delete existing.phase;
       }
       existing.counts = { ...active.counts };
-      existing.id = active.runId;
+      existing.runId = active.runId;
+      indexRepoByLookupKeys(repoBySourceId, existing, [
+        existing.containerPath,
+        existing.hostPath,
+        active.sourceId,
+        active.rootPath,
+      ]);
       logStatusMapped({
         sourceId: normalizedSourceId,
         internalState: active.state,
@@ -744,8 +1532,12 @@ export async function listIngestedRepositories(
           },
         )
       : resolveRepoLock({}, null);
+    const synthesizedId = buildCanonicalRepoId(mapped.containerPath);
     const synthesized: RepoEntry = {
-      id: active.runId,
+      id: synthesizedId,
+      name:
+        active.name ??
+        buildRepoDisplayName(null, mapped.containerPath, synthesizedId),
       description: active.description ?? null,
       containerPath: mapped.containerPath,
       hostPath: mapped.hostPath,
@@ -761,11 +1553,17 @@ export async function listIngestedRepositories(
       lock: repoLock,
       counts: { ...active.counts },
       lastError: null,
+      runId: active.runId,
       status: mappedState.status,
       ...(mappedState.phase ? { phase: mappedState.phase } : {}),
     };
     repos.push(synthesized);
-    repoBySourceId.set(mapped.containerPath, synthesized);
+    indexRepoByLookupKeys(repoBySourceId, synthesized, [
+      mapped.containerPath,
+      mapped.hostPath,
+      active.sourceId,
+      active.rootPath,
+    ]);
     logStatusMapped({
       sourceId: normalizedSourceId,
       internalState: active.state,
@@ -774,6 +1572,23 @@ export async function listIngestedRepositories(
     });
     logOverlayApplied(normalizedSourceId, true);
   }
+
+  repos.sort((a, b) => {
+    const aWaiting =
+      a.queueState === 'waiting' && typeof a.queuePosition === 'number'
+        ? a.queuePosition
+        : Number.POSITIVE_INFINITY;
+    const bWaiting =
+      b.queueState === 'waiting' && typeof b.queuePosition === 'number'
+        ? b.queuePosition
+        : Number.POSITIVE_INFINITY;
+    if (aWaiting !== bWaiting) return aWaiting - bWaiting;
+
+    const aTs = a.lastIngestAt ? Date.parse(a.lastIngestAt) : 0;
+    const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
+    if (aTs !== bTs) return bTs - aTs;
+    return (a.name ?? a.id).localeCompare(b.name ?? b.id);
+  });
 
   logLockResolverState(
     'tools/listIngestedRepositories',
@@ -784,7 +1599,8 @@ export async function listIngestedRepositories(
     repos,
     lock,
     lockedModelId: lock?.lockedModelId ?? null,
-    schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+    schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
+    ...(queueReadDegraded ? { queueReadDegraded: true, queueReadError } : {}),
   };
 }
 
@@ -835,16 +1651,10 @@ export async function vectorSearch(
   const metadatas = Array.isArray(rawRoots?.metadatas)
     ? rawRoots.metadatas
     : [];
-  const ids = Array.isArray(rawRoots?.ids) ? rawRoots.ids : [];
-
-  const repoMeta = metadatas.map((meta, idx) => {
+  const repoMeta = metadatas.map((meta) => {
     const m = (meta ?? {}) as Record<string, unknown>;
     const rootPath = typeof m.root === 'string' ? m.root : '';
-    const repoId = buildRepoId(
-      typeof m.name === 'string' ? m.name : null,
-      rootPath,
-      typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
-    );
+    const repoId = buildCanonicalRepoId(rootPath);
     return {
       id: repoId,
       root: rootPath,

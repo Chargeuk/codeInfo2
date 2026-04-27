@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -28,6 +27,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -38,6 +38,7 @@ let tempDir: string | null = null;
 Before(async () => {
   setDefaultTimeout(10000);
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -79,13 +80,14 @@ Before(async () => {
 After(async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   if (tempDir) {
     await fs.rm(tempDir, { recursive: true, force: true });
     tempDir = null;
   }
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   await clearLockedModel();
 });
 
@@ -101,10 +103,14 @@ Given('ingest start models scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
 
+Given('configured queueable workdir is {string}', (configuredRoot: string) => {
+  process.env.CODEINFO_CODEX_WORKDIR = configuredRoot;
+});
+
 Given(
   'temp repo with file {string} containing {string}',
   async (rel: string, content: string) => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-start-'));
+    tempDir = await createTempRepoRoot('ingest-start-');
     const filePath = path.join(tempDir, rel);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
@@ -113,7 +119,7 @@ Given(
 
 When('I POST ingest start with model {string}', async (model: string) => {
   if (!tempDir) {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-start-'));
+    tempDir = await createTempRepoRoot('ingest-start-');
   }
   const res = await fetch(`${baseUrl}/ingest/start`, {
     method: 'POST',
@@ -130,7 +136,7 @@ When(
   'I POST ingest start with model {string} and dryRun',
   async (model: string) => {
     if (!tempDir) {
-      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-start-'));
+      tempDir = await createTempRepoRoot('ingest-start-');
     }
     const res = await fetch(`${baseUrl}/ingest/start`, {
       method: 'POST',
@@ -149,6 +155,19 @@ Then('the ingest start status code is {int}', (status: number) => {
   assert.equal(response.status, status);
 });
 
+Then('the ingest start error code is {string}', (code: string) => {
+  assert(response, 'expected response');
+  assert.equal((response.body as { code?: string } | null)?.code, code);
+});
+
+Then('the ingest start error message is {string}', (message: string) => {
+  assert(response, 'expected response');
+  assert.equal(
+    (response.body as { message?: string } | null)?.message,
+    message,
+  );
+});
+
 Then(
   'ingest status for the last run becomes {string}',
   async (state: string) => {
@@ -156,7 +175,10 @@ Then(
     for (let i = 0; i < 60; i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
-      if (body.state === state || body.state === 'error') return;
+      if (body.state === state) return;
+      if (body.state === 'error' && state !== 'error') {
+        throw new Error(`Run ended in error: ${body.lastError}`);
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);

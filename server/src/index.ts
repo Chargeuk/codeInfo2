@@ -15,15 +15,16 @@ import { buildCopilotClientOptions } from './config/copilotConfig.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
 import { resolveServerPort } from './config/serverPort.js';
-import './flows/flowSchema.js';
-import './ingest/index.js';
-import './mongo/astCoverage.js';
 import {
   ensureStartupEnvLoaded,
   resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
+import './flows/flowSchema.js';
+import './ingest/index.js';
+import { setIngestDeps } from './ingest/ingestJob.js';
+import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';
@@ -52,12 +53,14 @@ import { createFlowsRouter } from './routes/flows.js';
 import { createFlowsRunRouter } from './routes/flowsRun.js';
 import { createIngestCancelRouter } from './routes/ingestCancel.js';
 import { createIngestDirsRouter } from './routes/ingestDirs.js';
+import { createIngestE2eCleanupRouter } from './routes/ingestE2eCleanup.js';
 import { createIngestModelsRouter } from './routes/ingestModels.js';
 import { createIngestReembedRouter } from './routes/ingestReembed.js';
 import { createIngestRemoveRouter } from './routes/ingestRemove.js';
 import { createIngestRootsRouter } from './routes/ingestRoots.js';
 import { createIngestStartRouter } from './routes/ingestStart.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
+import { toWebSocketUrl } from './routes/lmstudioUrl.js';
 import { createLogsRouter } from './routes/logs.js';
 import { createToolsAstCallGraphRouter } from './routes/toolsAstCallGraph.js';
 import { createToolsAstFindDefinitionRouter } from './routes/toolsAstFindDefinition.js';
@@ -66,6 +69,10 @@ import { createToolsAstListSymbolsRouter } from './routes/toolsAstListSymbols.js
 import { createToolsAstModuleImportsRouter } from './routes/toolsAstModuleImports.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
+import {
+  recoverIngestQueueForStartup,
+  recordIngestQueueStartupMongoUnavailable,
+} from './startup/ingestQueueStartup.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
@@ -339,6 +346,7 @@ app.use('/', createIngestRootsRouter());
 app.use('/', createIngestDirsRouter());
 app.use('/', createIngestCancelRouter());
 app.use('/', createIngestReembedRouter({ clientFactory }));
+app.use('/', createIngestE2eCleanupRouter());
 app.use('/', createIngestRemoveRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
 app.use('/', createToolsIngestedReposRouter());
@@ -385,8 +393,15 @@ const start = async () => {
   try {
     await connectMongo(mongoUri);
   } catch (err) {
-    baseLogger.error({ err }, 'Failed to connect to Mongo');
-    process.exit(1);
+    recordIngestQueueStartupMongoUnavailable({ error: err });
+  }
+
+  setIngestDeps({
+    lmClientFactory: clientFactory,
+    baseUrl: toWebSocketUrl(process.env.CODEINFO_LMSTUDIO_BASE_URL ?? ''),
+  });
+  if (isMongoConnected()) {
+    await recoverIngestQueueForStartup();
   }
 
   const httpServer = http.createServer(app);

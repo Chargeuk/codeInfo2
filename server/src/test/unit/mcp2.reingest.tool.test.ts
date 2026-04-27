@@ -6,6 +6,7 @@ import type {
   ReingestError,
   ReingestResult,
 } from '../../ingest/reingestService.js';
+import { runReingestRepository } from '../../ingest/reingestService.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 
@@ -66,20 +67,106 @@ const parityNotFoundError: Extract<ReingestError, { code: 404 }> = {
   },
 };
 
-const parityBusyError: Extract<ReingestError, { code: 429 }> = {
-  code: 429,
-  message: 'BUSY',
+const parityQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
+  code: 503,
+  message: 'QUEUE_UNAVAILABLE',
   data: {
     tool: 'reingest_repository',
-    code: 'BUSY',
+    code: 'QUEUE_UNAVAILABLE',
     retryable: true,
     retryMessage:
       'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
-    fieldErrors: [{ field: 'sourceId', reason: 'busy', message: 'busy' }],
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+      },
+    ],
     reingestableRepositoryIds: ['repo-a'],
     reingestableSourceIds: ['/data/repo-a'],
   },
 };
+
+const waitTimeQueueUnavailableError: Extract<ReingestError, { code: 503 }> = {
+  ...parityQueueUnavailableError,
+  data: {
+    ...parityQueueUnavailableError.data,
+    queueFailureStage: 'wait',
+    waitReason: 'queue-read-failed',
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
+};
+
+const mixedShapeInvalidStateError: Extract<ReingestError, { code: -32602 }> = {
+  ...parityInvalidParamsError,
+  data: {
+    ...parityInvalidParamsError.data,
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'sourceId points to a repository that cannot be re-embedded in its current state',
+      },
+    ],
+  },
+};
+
+const openAiModelUnavailableError: Extract<ReingestError, { code: 409 }> = {
+  code: 409,
+  message: 'OPENAI_MODEL_UNAVAILABLE',
+  data: {
+    tool: 'reingest_repository',
+    code: 'OPENAI_MODEL_UNAVAILABLE',
+    retryable: true,
+    retryMessage:
+      'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
+    fieldErrors: [
+      {
+        field: 'sourceId',
+        reason: 'invalid_state',
+        message:
+          'Requested OpenAI embedding model is unavailable for this deployment',
+      },
+    ],
+    reingestableRepositoryIds: ['repo-a'],
+    reingestableSourceIds: ['/data/repo-a'],
+  },
+};
+
+function createBridgeMixedShapeRepo() {
+  return {
+    id: 'repo-mixed-shape-bridge',
+    description: null,
+    containerPath: '/data/repo-mixed-shape-bridge',
+    hostPath: '/host/data/repo-mixed-shape-bridge',
+    lastIngestAt: '2026-04-27T00:00:00.000Z',
+    embeddingProvider: 'openai' as const,
+    embeddingModel: '',
+    embeddingDimensions: 0,
+    model: '',
+    modelId: '',
+    lock: {
+      embeddingProvider: 'openai' as const,
+      embeddingModel: 'legacy-lmstudio-model',
+      embeddingDimensions: 768,
+      lockedModelId: 'legacy-lmstudio-model',
+      modelId: 'legacy-lmstudio-model',
+    },
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    lastError: null,
+    status: 'completed' as const,
+  };
+}
 
 async function postJson(
   port: number,
@@ -186,7 +273,7 @@ test('MCP v2 completed/cancelled/error errorCode constraints', async () => {
   }
 });
 
-test('MCP v2 canonicalizes reingest sourceId selectors before dispatch', async () => {
+test('MCP v2 canonicalizes reingest sourceId selectors and preserves shared default wait dispatch', async () => {
   let capturedArgs: unknown;
   setToolDeps({
     listIngestedRepositories: async () => ({
@@ -234,6 +321,12 @@ test('MCP v2 canonicalizes reingest sourceId selectors before dispatch', async (
 
     assert.equal(body.error, undefined);
     assert.deepEqual(capturedArgs, { sourceId: '/data/repo-a' });
+    assert.equal(
+      typeof capturedArgs === 'object' &&
+        capturedArgs !== null &&
+        'waitOptions' in capturedArgs,
+      false,
+    );
   });
 });
 
@@ -288,11 +381,11 @@ test('MCP v2 leaves unresolved reingest selectors unchanged', async () => {
   });
 });
 
-test('MCP v2 failures use JSON-RPC error envelope for pre-run validation', async () => {
+test('MCP v2 failures use JSON-RPC error envelope for pre-run validation and queue outages', async () => {
   for (const error of [
     parityInvalidParamsError,
     parityNotFoundError,
-    parityBusyError,
+    parityQueueUnavailableError,
   ]) {
     setToolDeps({
       runReingestRepository: async () =>
@@ -311,6 +404,72 @@ test('MCP v2 failures use JSON-RPC error envelope for pre-run validation', async
       assert.deepEqual(body.error, error);
     });
   }
+});
+
+test('MCP v2 preserves degraded-startup QUEUE_UNAVAILABLE diagnostic without rewriting it', async () => {
+  const degradedStartupError: Extract<ReingestError, { code: 503 }> = {
+    ...parityQueueUnavailableError,
+    data: {
+      ...parityQueueUnavailableError.data,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message:
+            'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+        },
+      ],
+    },
+  };
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: degradedStartupError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'degraded-startup-queue-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, degradedStartupError);
+    assert.equal(body.error.data.retryable, true);
+    assert.equal(
+      body.error.data.fieldErrors[0].message,
+      'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+    );
+  });
+});
+
+test('MCP v2 propagates wait-time queue-read outage as retryable QUEUE_UNAVAILABLE tool error', async () => {
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: waitTimeQueueUnavailableError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'wait-time-queue-read-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, waitTimeQueueUnavailableError);
+    assert.equal(body.error.data.retryable, true);
+    assert.equal(body.error.data.queueFailureStage, 'wait');
+    assert.equal(body.error.data.waitReason, 'queue-read-failed');
+  });
 });
 
 test('MCP v2 post-start failure returns terminal result payload (not JSON-RPC error)', async () => {
@@ -374,6 +533,104 @@ test('MCP v2 request-shape guards reject wait/blocking args', async () => {
     });
     assert.equal(body.result, undefined);
     assert.equal(body.error.code, -32602);
+  });
+});
+
+test('MCP v2 returns the shared mixed-shape invalid-state tool error without throwing a transport exception', async () => {
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: mixedShapeInvalidStateError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, mixedShapeInvalidStateError);
+  });
+});
+
+test('MCP v2 returns the structured OPENAI_MODEL_UNAVAILABLE tool error without letting an exception escape the tool boundary', async () => {
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({ ok: false, error: openAiModelUnavailableError }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'openai-model-unavailable',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/data/repo-a' },
+      },
+    });
+
+    assert.equal(body.result, undefined);
+    assert.deepEqual(body.error, openAiModelUnavailableError);
+  });
+});
+
+test('MCP v2 keeps a bridge-style mixed-shape sourceId on the shared INVALID_PARAMS tool error instead of drifting to NOT_FOUND after selector resolution', async () => {
+  let enqueueCalls = 0;
+  const bridgeRepo = createBridgeMixedShapeRepo();
+  const listIngestedRepositories = async () => ({
+    repos: [bridgeRepo],
+    lockedModelId: 'legacy-lmstudio-model',
+  });
+
+  setToolDeps({
+    listIngestedRepositories,
+    runReingestRepository: async (args) =>
+      runReingestRepository(args, {
+        listIngestedRepositories,
+        enqueueOrReuseIngestRequest: async () => {
+          enqueueCalls += 1;
+          return {
+            requestId: 'unexpected-queue-request',
+            canonicalTargetPath: bridgeRepo.containerPath,
+            queueState: 'waiting',
+            queuePosition: 1,
+            runId: null,
+            reusedExisting: false,
+            updatedExisting: false,
+            queueRequest: {} as never,
+          };
+        },
+      }),
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'bridge-mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: bridgeRepo.containerPath },
+      },
+    });
+
+    assert.equal(enqueueCalls, 0);
+    assert.equal(body.result, undefined);
+    assert.equal(body.error.code, -32602);
+    assert.equal(body.error.message, 'INVALID_PARAMS');
+    assert.equal(
+      body.error.data.fieldErrors[0]?.message,
+      'sourceId points to a repository that cannot be re-embedded in its current state',
+    );
+    assert.deepEqual(body.error.data.reingestableSourceIds, [
+      bridgeRepo.containerPath,
+    ]);
   });
 });
 

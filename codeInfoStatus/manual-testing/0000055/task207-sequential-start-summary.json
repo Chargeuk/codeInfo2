@@ -1,0 +1,15 @@
+{
+  "activePath": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+  "queuedPath": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+  "active": {
+    "queued": false,
+    "requestId": "69ef4c9212bee55cd4fd57a3",
+    "runId": "c4f8f227-aebc-4db2-b534-d49c5703d3c2",
+    "queueState": "running"
+  },
+  "queued": {
+    "queued": true,
+    "requestId": "69ef4c9212bee55cd4fd57ab",
+    "queuePosition": 1
+  }
+}

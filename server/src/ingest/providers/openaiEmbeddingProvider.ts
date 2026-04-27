@@ -18,7 +18,7 @@ import type {
   ProviderEmbeddingModel,
 } from './types.js';
 
-type OpenAiClientLike = {
+export type OpenAiClientLike = {
   embeddings: {
     create: (
       body: { model: string; input: string[] },

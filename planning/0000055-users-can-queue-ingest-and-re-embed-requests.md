@@ -17054,7 +17054,7 @@ Optional later manual follow-up can reuse the supported main stack from the repo
 
 #### Subtasks
 
-1. [ ] Re-read the current clean review disposition state for pass `0000055-20260427T172059Z-7061f168`, the `## Minor Review Fixes` entry for `finding-1`, and the changed-file proof note tied to commit `0a6342c3`; confirm this task still owns the only remaining post-review-loop automated revalidation work before running the broader wrappers.
+1. [x] Re-read the current clean review disposition state for pass `0000055-20260427T172059Z-7061f168`, the `## Minor Review Fixes` entry for `finding-1`, and the changed-file proof note tied to commit `0a6342c3`; confirm this task still owns the only remaining post-review-loop automated revalidation work before running the broader wrappers.
 2. [ ] Re-check that the affected-repository scope, resolved-finding coverage, and retained proof references still match the current review cycle after the automated wrappers finish, and record any wrapper-owned blocker honestly instead of reopening inline repair work in this task.
 
 #### Testing
@@ -17069,3 +17069,4 @@ Optional later manual follow-up can reuse the supported main stack from the repo
 
 - Planner follow-up on 2026-04-27 appended this task because the active review loop for pass `0000055-20260427T172059Z-7061f168` is now clean, still carries inline minor fix history for `finding-1`, and therefore needs one normal final automated revalidation owner before the story can close honestly.
 - The inline code repair and bounded local proof already landed earlier and remain documented in `## Minor Review Fixes`; this task owns only the broader final automated confidence check for the affected repository and must not reopen implementation unless a wrapper exposes a new honest blocker.
+- 2026-04-27: Subtask 1 re-read `codeInfoStatus/flow-state/review-disposition-state.json`, the `## Minor Review Fixes` entry for `finding-1`, and the retained proof note tied to commit `0a6342c3`. Current disk state still shows a clean review pass `0000055-20260427T172059Z-7061f168`, no unresolved findings, and Task `210` as the sole remaining post-review-loop automated revalidation owner before the broader client or e2e or lint or format wrappers run.

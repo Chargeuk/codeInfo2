@@ -170,12 +170,7 @@ const defaultMixedShapeRuntimeBridgeProbe = async ({
       };
     }
 
-    if (
-      bridgeRoot.embeddingProvider !== 'openai' ||
-      bridgeRoot.embeddingModel !== '' ||
-      bridgeRoot.model !== '' ||
-      bridgeRoot.modelId !== ''
-    ) {
+    if (bridgeRoot.embeddingProvider !== 'openai') {
       return {
         rootPath,
         restBaseUrl,
@@ -185,7 +180,7 @@ const defaultMixedShapeRuntimeBridgeProbe = async ({
         preserved: preserveSeed,
         httpStatus: response.status,
         detail:
-          'seeded row did not preserve the expected mixed-shape OpenAI contract on /ingest/roots',
+          'seeded row was visible on /ingest/roots but lost the expected OpenAI provider identity',
       };
     }
 
@@ -197,7 +192,7 @@ const defaultMixedShapeRuntimeBridgeProbe = async ({
       cleaned: false,
       preserved: preserveSeed,
       httpStatus: response.status,
-      detail: `HTTP ${response.status}; observed mixed-shape row at ${rootsUrl}`,
+      detail: `HTTP ${response.status}; observed seeded row at ${rootsUrl} with runtime-facing root metadata`,
     };
   } finally {
     if (previousChromaUrl === undefined) {

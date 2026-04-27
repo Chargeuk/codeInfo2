@@ -384,7 +384,15 @@ test('ListIngestedRepositories default MCP path surfaces explicit queue-read deg
   const parsed = JSON.parse(
     response.body?.result?.content?.[0]?.text ?? '{}',
   ) as {
-    repos: Array<unknown>;
+    repos: Array<{
+      id?: string;
+      name?: string;
+      status?: string;
+      requestId?: string | null;
+      runId?: string | null;
+      queuePosition?: number | null;
+      queueState?: string | null;
+    }>;
     queueReadDegraded?: boolean;
     queueReadError?: {
       error?: string;
@@ -394,7 +402,14 @@ test('ListIngestedRepositories default MCP path surfaces explicit queue-read deg
     } | null;
   };
   assert.equal(response.status, 200);
-  assert.deepEqual(parsed.repos, []);
+  assert.equal(parsed.repos.length, 1);
+  assert.equal(parsed.repos[0]?.id, '/data/repo');
+  assert.equal(parsed.repos[0]?.name, 'repo');
+  assert.equal(parsed.repos[0]?.status, 'completed');
+  assert.equal(parsed.repos[0]?.requestId, undefined);
+  assert.equal(parsed.repos[0]?.runId, undefined);
+  assert.equal(parsed.repos[0]?.queuePosition, undefined);
+  assert.equal(parsed.repos[0]?.queueState, undefined);
   assert.equal(parsed.queueReadDegraded, true);
   assert.deepEqual(parsed.queueReadError, {
     error: 'QUEUE_READ_DEGRADED',

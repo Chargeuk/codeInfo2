@@ -74,6 +74,21 @@ function buildApp(
 }
 
 test('returns empty repos list with null lock when no roots exist', async () => {
+  const originalReadyState = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: 1,
+  });
+  mock.method(
+    IngestQueueRequestModel,
+    'find',
+    () =>
+      ({
+        sort: () => ({
+          exec: async () => [],
+        }),
+      }) as never,
+  );
   const res = await request(buildApp({ ids: [], metadatas: [] }, null)).get(
     '/tools/ingested-repos',
   );
@@ -84,6 +99,10 @@ test('returns empty repos list with null lock when no roots exist', async () => 
     lock: null,
     lockedModelId: null,
     schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
+  });
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    configurable: true,
+    value: originalReadyState,
   });
 });
 

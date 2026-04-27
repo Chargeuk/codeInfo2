@@ -255,11 +255,11 @@ export default function RootsTable({
   useEffect(() => {
     setSelected((prev) => {
       const next = new Set(
-        Array.from(prev).filter((path) => rootSelectionKeys.has(path)),
+        Array.from(prev).filter((path) => selectableRootPaths.has(path)),
       );
       return next.size === prev.size ? prev : next;
     });
-  }, [rootSelectionKeys]);
+  }, [selectableRootPaths]);
 
   const toggle = (path: string) => {
     if (!selectableRootPaths.has(path)) {

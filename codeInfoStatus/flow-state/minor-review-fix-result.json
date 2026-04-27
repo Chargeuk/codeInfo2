@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-04-27T17:06:27Z",
+  "story_number": "0000055",
+  "plan_path": "planning/0000055-users-can-queue-ingest-and-re-embed-requests.md",
+  "review_pass_id": "0000055-20260427T162828Z-c3fe57dc",
+  "finding_id": "finding-1",
+  "repository": "current_repository",
+  "status": "fixed",
+  "summary": "Queue-blocked rows no longer remain visibly selected when they have dropped out of the actionable bulk-selection set.",
+  "changed_files": [
+    "client/src/components/ingest/RootsTable.tsx",
+    "client/src/test/ingestRoots.test.tsx"
+  ],
+  "targeted_proof": [
+    {
+      "command": "npm run test:summary:client -- --file client/src/test/ingestRoots.test.tsx",
+      "result": "passed",
+      "notes": "Passed with 49/49 after updating the blocked-row selection parity expectations; log test-results/client-tests-2026-04-27T17-06-13-906Z.log."
+    }
+  ],
+  "commit_sha": null,
+  "reclassification_reason": null,
+  "blocker": null,
+  "blocker_scope": null
+}

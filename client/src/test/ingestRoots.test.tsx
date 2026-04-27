@@ -478,7 +478,7 @@ describe('RootsTable', () => {
     fireEvent.click(
       await screen.findByRole('checkbox', { name: /select repo/i }),
     );
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(await screen.findByText('1 selected')).toBeInTheDocument();
 
     const row = await screen.findByRole('row', { name: /repo/i });
     await act(async () => {
@@ -491,7 +491,7 @@ describe('RootsTable', () => {
       expect.objectContaining({ method: 'POST' }),
     );
     expect(await screen.findByText(/Removed/)).toBeInTheDocument();
-    expect(screen.getByText('0 selected')).toBeInTheDocument();
+    expect(await screen.findByText('0 selected')).toBeInTheDocument();
   });
 
   it('keeps destructive remove gated while queueable re-embed stays available during an active run', async () => {
@@ -658,7 +658,7 @@ describe('RootsTable', () => {
     expect(runningReembed).toBeDisabled();
 
     fireEvent.click(selectAll);
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(await screen.findByText('1 selected')).toBeInTheDocument();
     expect(bulkRemove).toBeEnabled();
     expect(bulkReembed).toBeEnabled();
 
@@ -946,7 +946,7 @@ describe('RootsTable', () => {
     expect(reembedUrls.join(' ')).not.toContain('/persisted-b');
   });
 
-  it('retains stale selected keys locally while excluding queued running cleanup-blocked and active rows from bulk Remove payloads', async () => {
+  it('clears queue-blocked and active rows from visible bulk Remove selection when live row data changes', async () => {
     mockFetch.mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes('/ingest/remove/%2Fpersisted-eligible')) {
@@ -1064,7 +1064,7 @@ describe('RootsTable', () => {
       />,
     );
 
-    expect(screen.getByText('5 selected')).toBeInTheDocument();
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
     for (const name of [
       'repo-queued',
       'repo-running',
@@ -1076,12 +1076,12 @@ describe('RootsTable', () => {
         within(row).getByRole('checkbox', {
           name: new RegExp(`select ${name}`, 'i'),
         }),
-      ).toBeChecked();
+      ).toBeDisabled();
       expect(
         within(row).getByRole('checkbox', {
           name: new RegExp(`select ${name}`, 'i'),
         }),
-      ).toBeDisabled();
+      ).not.toBeChecked();
     }
 
     await act(async () => {
@@ -1100,7 +1100,7 @@ describe('RootsTable', () => {
     expect(removeUrls.join(' ')).not.toContain('persisted-running');
     expect(removeUrls.join(' ')).not.toContain('persisted-cleanup');
     expect(removeUrls.join(' ')).not.toContain('persisted-active');
-    expect(screen.getByText('4 selected')).toBeInTheDocument();
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
@@ -1383,7 +1383,7 @@ describe('RootsTable', () => {
     expect(bulkReembed).toBeEnabled();
   });
 
-  it('retains a stale selected key locally but excludes it from bulk re-embed when live row data becomes queue-blocked', async () => {
+  it('clears a selected row once live row data becomes queue-blocked before bulk re-embed', async () => {
     const { rerender } = render(
       <RootsTable
         roots={[{ ...root, path: '/repo-transition', name: 'repo-transition' }]}
@@ -1425,16 +1425,16 @@ describe('RootsTable', () => {
       />,
     );
 
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /re-embed selected/i }),
     ).toBeDisabled();
     expect(
       screen.getByRole('checkbox', { name: /select repo-transition/i }),
-    ).toBeChecked();
+    ).toBeDisabled();
     expect(
       screen.getByRole('checkbox', { name: /select repo-transition/i }),
-    ).toBeDisabled();
+    ).not.toBeChecked();
   });
 
   it('refreshes roots and models once after a successful bulk re-embed batch', async () => {
@@ -1609,7 +1609,7 @@ describe('RootsTable', () => {
     expect(await screen.findByText('network down')).toBeInTheDocument();
   });
 
-  it('re-filters bulk re-embed targets against the current live eligible row set before submit', async () => {
+  it('re-filters mixed bulk re-embed selection when live row data becomes queue-blocked before submit', async () => {
     mockFetch.mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes('/ingest/reembed/%2Frepo-eligible')) {
@@ -1669,7 +1669,15 @@ describe('RootsTable', () => {
       />,
     );
 
-    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-stale/i }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /select repo-stale/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /re-embed selected/i }),
+    ).toBeEnabled();
 
     await act(async () => {
       fireEvent.click(
@@ -1687,7 +1695,6 @@ describe('RootsTable', () => {
       '/ingest/reembed/%2Frepo-eligible',
     );
     expect(String(reembedCalls[0]?.[0] ?? '')).not.toContain('/repo-stale');
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(onRefreshModels).toHaveBeenCalledTimes(1);
   });

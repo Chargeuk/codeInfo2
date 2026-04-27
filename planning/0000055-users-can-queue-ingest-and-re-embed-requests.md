@@ -16053,7 +16053,7 @@ Add the missing runtime-facing bridge between the supported mixed-shape seed fro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196, 198, 199`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 

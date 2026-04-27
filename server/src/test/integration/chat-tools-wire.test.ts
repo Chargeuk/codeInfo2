@@ -132,10 +132,37 @@ class ScriptedChat extends ChatInterface {
   ): Promise<void> {
     void _model;
     const signal = (flags as { signal?: AbortSignal }).signal;
+    if (signal?.aborted) {
+      this.emit('error', { type: 'error', message: 'aborted' });
+      return;
+    }
     this.emit('thread', { type: 'thread', threadId: conversationId });
     await this.script(this, signal);
   }
 }
+
+test('ScriptedChat rejects already-aborted state before transcript events', async () => {
+  const controller = new AbortController();
+  const events: string[] = [];
+  let scriptRan = false;
+  controller.abort();
+
+  const chat = new ScriptedChat(async () => {
+    scriptRan = true;
+  });
+  chat.on('error', () => events.push('error'));
+  chat.on('thread', () => events.push('thread'));
+
+  await chat.execute(
+    'hello',
+    { signal: controller.signal },
+    'chat-tools-preaborted-conv',
+    'model',
+  );
+
+  assert.equal(scriptRan, false);
+  assert.deepEqual(events, ['error']);
+});
 
 beforeEach(() => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';

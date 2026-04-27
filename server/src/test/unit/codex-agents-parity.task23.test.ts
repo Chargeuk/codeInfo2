@@ -45,7 +45,12 @@ function assertNoDeleteOrRename(entries: string[]): void {
 }
 
 async function readCommandFileSet(agentName: string): Promise<string[]> {
-  const commandsDir = path.join(repoRoot, 'codex_agents', agentName, 'commands');
+  const commandsDir = path.join(
+    repoRoot,
+    'codex_agents',
+    agentName,
+    'commands',
+  );
   return (await fs.readdir(commandsDir))
     .filter((entry) => entry.toLowerCase().endsWith('.json'))
     .sort();

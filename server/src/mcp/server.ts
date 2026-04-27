@@ -283,6 +283,7 @@ const baseToolDefinitions = [
             type: 'object',
             required: [
               'id',
+              'name',
               'containerPath',
               'hostPath',
               'status',
@@ -296,10 +297,18 @@ const baseToolDefinitions = [
             ],
             properties: {
               id: { type: 'string' },
+              name: { type: 'string' },
               description: { type: ['string', 'null'] },
               containerPath: { type: 'string' },
               hostPath: { type: 'string' },
               hostPathWarning: { type: 'string' },
+              requestId: { type: ['string', 'null'] },
+              runId: { type: ['string', 'null'] },
+              queuePosition: { type: ['integer', 'null'], minimum: 1 },
+              queueState: {
+                type: ['string', 'null'],
+                enum: ['waiting', 'running', 'cleanup-blocked', null],
+              },
               status: {
                 type: 'string',
                 enum: ['ingesting', 'completed', 'cancelled', 'error'],
@@ -348,6 +357,22 @@ const baseToolDefinitions = [
                 },
               },
               lastError: { type: ['string', 'null'] },
+              error: {
+                type: ['object', 'null'],
+                required: ['error', 'message', 'retryable', 'provider'],
+                properties: {
+                  error: { type: 'string' },
+                  message: { type: 'string' },
+                  retryable: { type: 'boolean' },
+                  provider: {
+                    type: 'string',
+                    enum: ['lmstudio', 'openai', 'ingest'],
+                  },
+                  upstreamStatus: { type: 'integer' },
+                  retryAfterMs: { type: 'integer' },
+                },
+                additionalProperties: false,
+              },
             },
             additionalProperties: false,
           },
@@ -738,7 +763,13 @@ export function createMcpRouter(
           if (typeof toolCall.name !== 'string' || !toolCall.name.trim()) {
             return invalidParams(id, 'name is required');
           }
-          const args = isObject(toolCall.arguments) ? toolCall.arguments : {};
+          if (
+            toolCall.arguments !== undefined &&
+            !isObject(toolCall.arguments)
+          ) {
+            return invalidParams(id, 'arguments must be an object');
+          }
+          const args = toolCall.arguments ?? {};
 
           try {
             if (toolCall.name === 'ListIngestedRepositories') {

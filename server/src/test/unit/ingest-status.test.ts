@@ -2,10 +2,14 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 
 import {
+  __finalizeQueueRequestForRunForTest,
   __resetIngestJobsForTest,
+  __setQueueRuntimeOpsForTest,
+  __setQueueRequestIdForRunForTest,
   __setStatusForTest,
   getActiveStatus,
   getStatus,
+  pumpIngestQueue,
 } from '../../ingest/ingestJob.js';
 import { acquire, release } from '../../ingest/lock.js';
 
@@ -18,6 +22,15 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => null,
+    ensureQueueRequestRunId: async () => null,
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => null,
+    getQueueRequestId: () => 'noop',
+    markQueueRequestCleanupBlocked: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
   __resetIngestJobsForTest();
   release();
   process.env.NODE_ENV = ORIGINAL_ENV;
@@ -165,4 +178,46 @@ test('ingest status snapshots preserve normalized error object with legacy lastE
   assert.equal(snapshot?.lastError, 'quota exhausted');
   assert.equal(snapshot?.error?.error, 'OPENAI_QUOTA_EXCEEDED');
   assert.equal(snapshot?.error?.retryable, false);
+});
+
+test('cleanup-blocked status stays visible and stalls newer queued work', async () => {
+  __setStatusForTest('run-blocked', {
+    runId: 'run-blocked',
+    state: 'completed',
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    message: 'Completed',
+    lastError: null,
+  });
+  __setQueueRequestIdForRunForTest('run-blocked', 'queue-blocked');
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => {
+      throw new Error('delete failed');
+    },
+    markQueueRequestCleanupBlocked: async () =>
+      ({
+        _id: { toString: () => 'queue-blocked' },
+        canonicalTargetPath: '/data/repo-blocked',
+        operation: 'reembed',
+        queueState: 'cleanup-blocked',
+        requestPayload: { path: '/data/repo-blocked', model: 'embed-1' },
+        runId: 'run-blocked',
+      }) as never,
+    findOldestCleanupBlockedQueueRequest: async () =>
+      ({
+        _id: { toString: () => 'queue-blocked' },
+        canonicalTargetPath: '/data/repo-blocked',
+        operation: 'reembed',
+        queueState: 'cleanup-blocked',
+        requestPayload: { path: '/data/repo-blocked', model: 'embed-1' },
+        runId: 'run-blocked',
+      }) as never,
+  });
+
+  const cleaned = await __finalizeQueueRequestForRunForTest('run-blocked');
+  const stalled = await pumpIngestQueue();
+
+  assert.equal(cleaned, false);
+  assert.equal(getStatus('run-blocked')?.state, 'cleanup-blocked');
+  assert.equal(stalled.started, false);
+  assert.equal(stalled.blockedByCleanup, true);
 });

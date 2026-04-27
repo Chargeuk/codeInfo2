@@ -17,7 +17,7 @@ Feature: ingest lifecycle logging
     Then ingest logging status for the last run becomes "error"
     And logs for the last run contain state "error" and level "error"
 
-  Scenario: re-embed with no files logs completed
+  Scenario: re-embed with no files logs completed cleanup
     Given logging temp repo with file "b.ts" containing "export const b=2;"
     When I POST ingest logging start with model "embed-1"
     And ingest logging status for the last run becomes "completed"

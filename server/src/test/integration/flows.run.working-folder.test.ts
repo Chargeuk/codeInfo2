@@ -27,7 +27,7 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   description: null,
   containerPath,
   hostPath: containerPath,
-  lastIngestAt: null,
+  lastIngestAt: '2025-01-01T00:00:00.000Z',
   embeddingProvider: 'lmstudio',
   embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
   embeddingDimensions: 768,

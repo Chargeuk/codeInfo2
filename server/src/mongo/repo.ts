@@ -1210,6 +1210,9 @@ export async function upsertIngestFiles(params: {
   return { ok: true };
 }
 
+// Keep delta re-embed deleted-file cleanup from building one unbounded relPath selector.
+const INGEST_FILE_REL_PATH_DELETE_BATCH_SIZE = 200;
+
 export async function deleteIngestFilesByRelPaths(params: {
   root: string;
   relPaths: string[];
@@ -1217,10 +1220,17 @@ export async function deleteIngestFilesByRelPaths(params: {
   // Avoid Mongoose buffering timeouts when Mongo is unavailable (tests and degraded runtime).
   if (mongoose.connection.readyState !== 1) return null;
 
-  const { root, relPaths } = params;
+  const { root } = params;
+  const relPaths = uniqueStrings(params.relPaths);
   if (relPaths.length === 0) return { ok: true };
 
-  await IngestFileModel.deleteMany({ root, relPath: { $in: relPaths } }).exec();
+  for (const batch of chunkItems(
+    relPaths,
+    INGEST_FILE_REL_PATH_DELETE_BATCH_SIZE,
+  )) {
+    await IngestFileModel.deleteMany({ root, relPath: { $in: batch } }).exec();
+  }
+
   return { ok: true };
 }
 

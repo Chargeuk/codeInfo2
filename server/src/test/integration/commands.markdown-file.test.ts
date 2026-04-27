@@ -5,6 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  __resetAgentCommandRunnerDepsForTests,
+  __setAgentCommandRunnerDepsForTests,
+} from '../../agents/commandsRunner.js';
+import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
   runAgentCommand,
@@ -65,12 +69,13 @@ class FlagsCapturingChat extends ChatInterface {
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
+  lastIngestAt?: string | null;
 }): RepoEntry => ({
   id: params.id,
   description: null,
   containerPath: params.containerPath,
   hostPath: params.containerPath,
-  lastIngestAt: null,
+  lastIngestAt: params.lastIngestAt ?? null,
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,
@@ -157,6 +162,93 @@ const writeFlowFile = async (params: {
     'utf8',
   );
 };
+
+test('runAgentCommand preserves command-owned degraded-startup QUEUE_UNAVAILABLE diagnostic', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-markdown-file-queue-unavailable-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(agentHome, 'commands'),
+      commandName: 'queue-unavailable-reingest',
+      items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () => ({
+        repos: [
+          buildRepoEntry({
+            id: 'repo-a',
+            containerPath: '/repo/source-a',
+            lastIngestAt: '2026-04-21T10:00:00.000Z',
+          }),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: {
+          code: 503,
+          message: 'QUEUE_UNAVAILABLE',
+          data: {
+            tool: 'reingest_repository',
+            code: 'QUEUE_UNAVAILABLE',
+            retryable: true,
+            retryMessage: 'retry later',
+            reingestableRepositoryIds: ['repo-a'],
+            reingestableSourceIds: ['/repo/source-a'],
+            fieldErrors: [
+              {
+                field: 'sourceId',
+                reason: 'invalid_state',
+                message:
+                  'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'queue-unavailable-reingest',
+          source: 'REST',
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        (error as { reason?: string }).reason ===
+          'Mongo-backed ingest queue is unavailable because Mongo connection failed during startup',
+    );
+  } finally {
+    __resetAgentCommandRunnerDepsForTests();
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    memoryConversations.clear();
+    memoryTurns.clear();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
 
 test('runAgentCommand executes local markdown-backed direct commands', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -263,12 +355,9 @@ test('runAgentCommand passes CODEINFO_ROOT into direct markdown-backed command r
     const envOverrides = capturedFlags['envOverrides'] as
       | NodeJS.ProcessEnv
       | undefined;
-    assert.deepEqual(
-      envOverrides ?? {},
-      {
-        CODEINFO_ROOT: codeInfo2Root,
-      },
-    );
+    assert.deepEqual(envOverrides ?? {}, {
+      CODEINFO_ROOT: codeInfo2Root,
+    });
   } finally {
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();

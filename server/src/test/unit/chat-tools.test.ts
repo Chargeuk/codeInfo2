@@ -68,7 +68,7 @@ test('ListIngestedRepositories tool returns mapped repos and logs metadata', asy
   assert.equal(result.lockedModelId, 'embed-model');
   assert.equal(result.repos.length, 1);
   const repo = result.repos[0];
-  assert.equal(repo.id, 'repo-name');
+  assert.equal(repo.id, '/data/repo-id');
   assert.equal(repo.containerPath, '/data/repo-id');
   assert.equal(repo.hostPath, '/host/base/repo-id');
   assert.equal(repo.counts.embedded, 2);
@@ -94,7 +94,7 @@ test('VectorSearch tool returns chunk with paths and clamps limit', async () => 
   assert.equal(result.modelId, 'embed-model');
   assert.equal(result.results.length, 1);
   const item = result.results[0];
-  assert.equal(item.repo, 'repo-name');
+  assert.equal(item.repo, '/data/repo-id');
   assert.equal(item.relPath, 'docs/readme.md');
   assert.equal(item.containerPath, '/data/repo-id/docs/readme.md');
   assert.equal(item.hostPath, '/host/base/repo-id/docs/readme.md');

@@ -93,6 +93,11 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
   let terminalError: unknown = null;
   let dispatchCount = 0;
   const idle = createDeferred();
+  void idle.promise.catch(() => {
+    // The producer may not call waitForIdle() until after an in-flight request
+    // fails. Attach a passive handler now so that early terminal errors still
+    // flow through waitForIdle() without becoming process-level rejections.
+  });
   const queueLimit = deriveQueueLimit(
     params.effectiveBatchSize,
     params.maxInFlight,

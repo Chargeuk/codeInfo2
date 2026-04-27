@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -22,11 +21,17 @@ import {
   clearRootsCollection,
   clearVectorsCollection,
 } from '../../ingest/chromaClient.js';
-import { setIngestDeps } from '../../ingest/ingestJob.js';
+import {
+  __resetIngestJobsForTest,
+  isBusy,
+  setIngestDeps,
+} from '../../ingest/ingestJob.js';
+import { release } from '../../ingest/lock.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { MockLMStudioClient, stopMock } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 const VECTOR_COLLECTION =
   process.env.CODEINFO_INGEST_COLLECTION ?? 'ingest_vectors';
@@ -59,6 +64,8 @@ async function vectorsState() {
 }
 
 Before(async () => {
+  release();
+  __resetIngestJobsForTest();
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   const app = express();
   app.use(cors());
@@ -94,9 +101,10 @@ Before(async () => {
 });
 
 After(async () => {
+  release();
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   if (tempDir) {
@@ -108,12 +116,13 @@ After(async () => {
   await deleteVectorsCollection();
   lastRunId = null;
   lastResponse = null;
+  __resetIngestJobsForTest();
 });
 
 Given(
   'a temp repo for cleanup with file {string} containing {string}',
   async (rel: string, content: string) => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-cleanup-'));
+    tempDir = await createTempRepoRoot('ingest-cleanup-');
     const filePath = path.join(tempDir, rel);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
@@ -142,7 +151,13 @@ When('the ingest run finishes successfully', async () => {
     if (body.state === 'completed' || body.state === 'error') {
       lastResponse = { status: res.status, body };
       assert.equal(body.state, 'completed');
-      return;
+      for (let j = 0; j < 60; j += 1) {
+        if (!isBusy()) {
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      assert.fail('ingest completed but busy cleanup did not settle');
     }
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -151,12 +166,21 @@ When('the ingest run finishes successfully', async () => {
 
 When('I remove the repo ingest entry', async () => {
   assert(tempDir, 'temp dir missing');
-  const res = await fetch(
-    `${baseUrl}/ingest/remove/${encodeURIComponent(tempDir)}`,
-    { method: 'POST' },
-  );
-  lastResponse = { status: res.status, body: await res.json() };
-  assert.equal(res.status, 200);
+  for (let i = 0; i < 60; i += 1) {
+    const res = await fetch(
+      `${baseUrl}/ingest/remove/${encodeURIComponent(tempDir)}`,
+      { method: 'POST' },
+    );
+    lastResponse = { status: res.status, body: await res.json() };
+    if (res.status === 200) {
+      return;
+    }
+    if (res.status !== 429) {
+      assert.equal(res.status, 200);
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(lastResponse?.status, 200);
 });
 
 Then('the vectors collection is deleted and the lock is cleared', async () => {

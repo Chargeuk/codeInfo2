@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -27,6 +26,7 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -78,7 +78,7 @@ Before({ tags: '@batch-flush' }, async () => {
 After({ tags: '@batch-flush' }, async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   if (tempDir) {
@@ -97,7 +97,7 @@ After({ tags: '@batch-flush' }, async () => {
 });
 
 Given('a batch flush temp repo with {int} files', async (count: number) => {
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-batch-'));
+  tempDir = await createTempRepoRoot('ingest-batch-');
   for (let i = 0; i < count; i += 1) {
     const filePath = path.join(tempDir, `file-${i}.txt`);
     await fs.writeFile(filePath, `file ${i} content ${'x'.repeat(10)}`);

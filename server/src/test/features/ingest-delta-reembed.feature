@@ -89,6 +89,34 @@ Feature: Ingest delta re-embed
     And ingest delta vectors for "b.ts" should be absent
 
   @mongo
+  Scenario: Supported deletions-only re-embed keeps surviving files while cleaning deleted files
+    Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+    And ingest delta temp repo with file "b.ts" containing "export const b=1;"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    When I delete ingest delta temp file "b.ts"
+    And I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And ingest delta vectors for "b.ts" should be absent
+    And ingest delta ingest_files row for "b.ts" should be absent
+    And ingest delta vectors for "a.ts" should contain its original hash
+    And ingest delta ingest_files row for "a.ts" should equal its original hash
+
+  @mongo
+  Scenario: Supported large deletions-only re-embed cleans generated deleted files through bounded cleanup
+    Given ingest delta temp repo with 205 generated files under "deleted" containing "export const deleted=1;"
+    And ingest delta temp repo with file "src/survivor.ts" containing "export const survivor=1;"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    When I delete 205 generated ingest delta temp files under "deleted"
+    And I POST ingest reembed for the delta repo
+    Then ingest delta status for the last run becomes "completed"
+    And ingest delta vectors under "deleted" should be absent
+    And ingest delta ingest_files rows under "deleted" should be absent
+    And ingest delta vectors for "src/survivor.ts" should contain its original hash
+    And ingest delta ingest_files row for "src/survivor.ts" should equal its original hash
+
+  @mongo
   Scenario: Non-AST-only delta re-embed skips AST work
     Given ingest delta temp repo with file "src/app.ts" containing "export const app=1;"
     And ingest delta temp repo with file "docs/guide.md" containing "# Guide"
@@ -123,14 +151,16 @@ Feature: Ingest delta re-embed
     And I POST ingest delta cancel for the last run
     Then ingest delta terminal outcome should stabilize as a single terminal state
 
-  Scenario: No-Mongo corner case re-embed works when Mongo is disconnected
+  @mongo
+  Scenario: No-Mongo re-embed surfaces retryable queue unavailability
     Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
-    And ingest delta mongo should be disconnected
+    When I disconnect ingest delta mongo before reembed
+    Then ingest delta mongo should already be disconnected
     When I change ingest delta temp file "a.ts" to "export const a=2;"
     And I POST ingest reembed for the delta repo
-    Then ingest delta status for the last run becomes "completed"
+    Then ingest delta response status is 503 with code "QUEUE_UNAVAILABLE"
 
   @mongo
   Scenario: Legacy root upgrade removes old vectors and repopulates ingest_files
@@ -138,8 +168,8 @@ Feature: Ingest delta re-embed
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
     And I remember the ingest delta runId
-    And I delete all ingest_files rows for the delta repo root
-    When I POST ingest reembed for the delta repo
+    When I delete all ingest_files rows for the delta repo root
+    And I POST ingest reembed for the delta repo
     Then ingest delta status for the last run becomes "completed"
     And ingest delta vectors should not contain any vectors from the remembered runId
     And ingest delta ingest_files should be populated for all discovered files

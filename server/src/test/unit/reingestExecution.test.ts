@@ -3,7 +3,10 @@ import fs from 'node:fs/promises';
 import test, { afterEach, describe } from 'node:test';
 
 import { executeReingestRequest } from '../../ingest/reingestExecution.js';
-import { runReingestRepository } from '../../ingest/reingestService.js';
+import {
+  runReingestRepository,
+  type ReingestError,
+} from '../../ingest/reingestService.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { append, query, resetStore } from '../../logStore.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
@@ -21,7 +24,10 @@ function buildRepoEntry(params: {
     description: null,
     containerPath: params.containerPath,
     hostPath: params.hostPath ?? `/host${params.containerPath}`,
-    lastIngestAt: params.lastIngestAt ?? null,
+    lastIngestAt:
+      params.lastIngestAt === undefined
+        ? '2025-01-01T00:00:00.000Z'
+        : params.lastIngestAt,
     embeddingProvider: 'lmstudio',
     embeddingModel: 'model',
     embeddingDimensions: 768,
@@ -58,6 +64,38 @@ function buildReingestSuccess(params: {
     chunks: 2,
     embedded: 2,
     errorCode: params.errorCode ?? null,
+  };
+}
+
+function buildQueueUnavailableError(params?: {
+  waitTimeQueueRead?: boolean;
+}): Extract<ReingestError, { code: 503 }> {
+  return {
+    code: 503,
+    message: 'QUEUE_UNAVAILABLE',
+    data: {
+      tool: 'reingest_repository',
+      code: 'QUEUE_UNAVAILABLE',
+      retryable: true,
+      retryMessage: 'retry',
+      reingestableRepositoryIds: ['repo-a'],
+      reingestableSourceIds: ['/data/repo-a'],
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message: params?.waitTimeQueueRead
+            ? 'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion'
+            : 'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+        },
+      ],
+      ...(params?.waitTimeQueueRead
+        ? {
+            queueFailureStage: 'wait' as const,
+            waitReason: 'queue-read-failed' as const,
+          }
+        : {}),
+    },
   };
 }
 
@@ -120,7 +158,6 @@ describe('executeReingestRequest', () => {
         runReingestRepository: (args) =>
           runReingestRepository(args, {
             listIngestedRepositories,
-            isBusy: () => false,
             appendLog: noopLog,
           }),
         appendLog: noopLog,
@@ -130,6 +167,54 @@ describe('executeReingestRequest', () => {
     assert.equal(result.ok, false);
     if (result.ok) return;
     assert.equal(result.error.data.code, 'NOT_FOUND');
+    assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
+  });
+
+  test('queued-only repo-list rows stay visible but are rejected as stale sourceId selectors from one bounded ingested snapshot', async () => {
+    let listCalls = 0;
+    let runCalls = 0;
+    const result = await executeReingestRequest({
+      request: { sourceId: '/data/queued-only' },
+      surface: 'command',
+      deps: {
+        listIngestedRepositories: async () => {
+          listCalls += 1;
+          return {
+            repos: [
+              buildRepoEntry({
+                id: 'queued-only',
+                containerPath: '/data/queued-only',
+                lastIngestAt: null,
+              }),
+              buildRepoEntry({
+                id: 'repo-a',
+                containerPath: '/data/repo-a',
+              }),
+            ],
+            lockedModelId: 'model',
+          };
+        },
+        runReingestRepository: async () => {
+          runCalls += 1;
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: '/data/queued-only',
+              resolvedRepositoryId: 'queued-only',
+            }),
+          };
+        },
+        appendLog: noopLog,
+      },
+    });
+
+    assert.equal(listCalls, 1);
+    assert.equal(runCalls, 0);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.error.data.code, 'NOT_FOUND');
+    assert.deepEqual(result.error.data.reingestableRepositoryIds, ['repo-a']);
+    assert.deepEqual(result.error.data.reingestableSourceIds, ['/data/repo-a']);
     assert.equal(result.error.data.fieldErrors[0]?.reason, 'unknown_root');
   });
 
@@ -674,28 +759,7 @@ describe('executeReingestRequest', () => {
           if (sourceId === fixture.additionalRepositoryPaths[0]) {
             return {
               ok: false,
-              error: {
-                code: 429,
-                message: 'BUSY',
-                data: {
-                  tool: 'reingest_repository',
-                  code: 'BUSY',
-                  retryable: true,
-                  retryMessage: 'retry',
-                  reingestableRepositoryIds: ['repo-a'],
-                  reingestableSourceIds: [
-                    fixture.additionalRepositoryPaths[0]!,
-                  ],
-                  fieldErrors: [
-                    {
-                      field: 'sourceId',
-                      reason: 'busy',
-                      message:
-                        'reingest is currently locked by another ingest operation',
-                    },
-                  ],
-                },
-              },
+              error: buildQueueUnavailableError(),
             };
           }
           return {
@@ -731,6 +795,76 @@ describe('executeReingestRequest', () => {
       result.value.warnings.map((warning) => warning.code),
       ['repository_failed'],
     );
+  });
+
+  test('plan_scope propagates retryable wait-time queue-read failure instead of warning-only success', async () => {
+    const fixture = await createPlanScopeFixture({
+      additionalRepositories: [{ name: 'repo-a' }, { name: 'repo-b' }],
+    });
+    cleanups.push(fixture.cleanup);
+
+    const calls: string[] = [];
+    const waitFailure = buildQueueUnavailableError({
+      waitTimeQueueRead: true,
+    });
+    const result = await executeReingestRequest({
+      request: { target: 'plan_scope' },
+      surface: 'command',
+      workingRepositoryPath: fixture.workingRepositoryPath,
+      deps: {
+        listIngestedRepositories: async () => ({
+          repos: [
+            buildRepoEntry({
+              id: 'working-repo',
+              containerPath: fixture.workingRepositoryPath,
+              hostPath: fixture.workingRepositoryPath,
+            }),
+            buildRepoEntry({
+              id: 'repo-a',
+              containerPath: fixture.additionalRepositoryPaths[0]!,
+              hostPath: fixture.additionalRepositoryPaths[0]!,
+            }),
+            buildRepoEntry({
+              id: 'repo-b',
+              containerPath: fixture.additionalRepositoryPaths[1]!,
+              hostPath: fixture.additionalRepositoryPaths[1]!,
+            }),
+          ],
+          lockedModelId: 'model',
+        }),
+        runReingestRepository: async ({ sourceId }) => {
+          calls.push(sourceId ?? '(missing)');
+          if (sourceId === fixture.additionalRepositoryPaths[0]) {
+            return {
+              ok: false,
+              error: waitFailure,
+            };
+          }
+          return {
+            ok: true,
+            value: buildReingestSuccess({
+              sourceId: sourceId ?? '/missing',
+              resolvedRepositoryId:
+                sourceId === fixture.workingRepositoryPath
+                  ? 'working-repo'
+                  : 'repo-b',
+            }),
+          };
+        },
+        appendLog: noopLog,
+      },
+    });
+
+    assert.deepEqual(calls, [
+      fixture.workingRepositoryPath,
+      fixture.additionalRepositoryPaths[0],
+    ]);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.deepEqual(result.error, waitFailure);
+    assert.equal(result.error.message, 'QUEUE_UNAVAILABLE');
+    assert.equal(result.error.data.queueFailureStage, 'wait');
+    assert.equal(result.error.data.waitReason, 'queue-read-failed');
   });
 
   test('plan_scope records repository_failed warnings for ok-shaped terminal error and cancelled outcomes', async () => {

@@ -142,7 +142,8 @@ test('retry exhaustion returns normalized terminal metadata without SDK object l
   const raw = {
     status: 503,
     headers: { 'retry-after-ms': '1200' },
-    message: 'temporary outage sk-test-key',
+    message:
+      'temporary outage for organization org-b0ryOxiEjneU4p7xMv88rMQr with sk-test-key',
     stack: 'stack-trace',
   };
 
@@ -170,6 +171,7 @@ test('retry exhaustion returns normalized terminal metadata without SDK object l
       assert.equal(mapped.upstreamStatus, 503);
       assert.equal(mapped.retryAfterMs, 1200);
       assert.equal(String(mapped.message ?? '').includes('sk-test-key'), false);
+      assert.equal(String(mapped.message ?? '').includes('org-b0ry'), false);
       return true;
     },
   );

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import express from 'express';
 import request from 'supertest';
 import { createMcpRouter } from '../../mcp/server.js';
@@ -22,7 +23,7 @@ function createMcpApp(
   return app;
 }
 
-test('ListIngestedRepositories returns canonical and compatibility lock fields', async () => {
+test('ListIngestedRepositories default MCP path returns documented id, name, and compatibility lock fields', async () => {
   const app = createMcpApp(
     {
       ids: ['run-1'],
@@ -70,6 +71,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
     schemaVersion: string;
     repos: Array<{
       id: string;
+      name: string;
       status: string;
       embeddingProvider: string;
       embeddingModel: string;
@@ -82,8 +84,10 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
   assert.equal(parsed.lock?.embeddingModel, 'text-embedding-openai');
   assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
-  assert.equal(parsed.schemaVersion, '0000038-status-phase-v1');
+  assert.equal(parsed.schemaVersion, INGEST_ROOTS_SCHEMA_VERSION);
   assert.equal(parsed.repos.length, 1);
+  assert.equal(parsed.repos[0]?.id, '/data/repo');
+  assert.equal(parsed.repos[0]?.name, 'repo');
   assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
   assert.equal(parsed.repos[0].embeddingModel, 'embed-model');
   assert.equal(parsed.repos[0].model, 'embed-model');
@@ -94,25 +98,90 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.repos[0].status, 'completed');
 });
 
-test('ListIngestedRepositories keeps provider-qualified identity when model ids collide', async () => {
+test('ListIngestedRepositories default MCP path preserves documented structured error fields', async () => {
   const app = createMcpApp(
     {
-      ids: ['openai-run', 'lmstudio-run'],
+      ids: ['run-ingest-error'],
       metadatas: [
         {
-          name: 'openai-repo',
-          root: '/data/openai',
-          model: 'shared-id',
+          name: 'repo-error',
+          root: '/data/repo-error',
+          model: 'text-embedding-3-small',
           embeddingProvider: 'openai',
-          embeddingModel: 'shared-id',
-          embeddingDimensions: 1536,
+          embeddingModel: 'text-embedding-3-small',
+          files: 3,
+          chunks: 12,
+          embedded: 12,
+          lastIngestAt: '2026-01-01T00:00:00.000Z',
+          state: 'error',
+          lastError: 'queue replay validation failed',
+          error: {
+            error: 'INVALID_REEMBED_STATE',
+            message: 'queue replay validation failed',
+            retryable: false,
+            provider: 'ingest',
+          },
+        },
+      ],
+    },
+    'text-embedding-3-small',
+  );
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'structured-ingest-error',
+      method: 'tools/call',
+      params: {
+        name: 'ListIngestedRepositories',
+        arguments: {},
+      },
+    });
+
+  assert.equal(response.status, 200);
+  const parsed = JSON.parse(
+    response.body?.result?.content?.[0]?.text ?? '{}',
+  ) as {
+    repos: Array<{
+      id: string;
+      name: string;
+      lastError?: string | null;
+      error?: {
+        error?: string;
+        message?: string;
+        retryable?: boolean;
+        provider?: string;
+      } | null;
+    }>;
+  };
+  assert.equal(parsed.repos[0]?.id, '/data/repo-error');
+  assert.equal(parsed.repos[0]?.name, 'repo-error');
+  assert.equal(parsed.repos[0]?.lastError, 'queue replay validation failed');
+  assert.equal(parsed.repos[0]?.error?.error, 'INVALID_REEMBED_STATE');
+  assert.equal(
+    parsed.repos[0]?.error?.message,
+    'queue replay validation failed',
+  );
+  assert.equal(parsed.repos[0]?.error?.retryable, false);
+  assert.equal(parsed.repos[0]?.error?.provider, 'ingest');
+});
+
+test('ListIngestedRepositories emits canonical repository identity even when display names differ', async () => {
+  const app = createMcpApp(
+    {
+      ids: ['older-row', 'newer-row'],
+      metadatas: [
+        {
+          name: 'display-name-old',
+          root: '/data/stable-repo',
+          model: 'shared-id',
           files: 1,
           chunks: 1,
           embedded: 1,
         },
         {
-          name: 'lmstudio-repo',
-          root: '/data/lmstudio',
+          name: 'display-name-new',
+          root: '/data/stable-repo',
           model: 'shared-id',
           embeddingProvider: 'lmstudio',
           embeddingModel: 'shared-id',
@@ -143,17 +212,146 @@ test('ListIngestedRepositories keeps provider-qualified identity when model ids 
   ) as {
     repos: Array<{
       id: string;
-      embeddingProvider: string;
-      embeddingModel: string;
-      modelId: string;
+      name: string;
+      containerPath: string;
     }>;
   };
-  const openai = parsed.repos.find((repo) => repo.id === 'openai-repo');
-  const lmstudio = parsed.repos.find((repo) => repo.id === 'lmstudio-repo');
-  assert.equal(openai?.embeddingProvider, 'openai');
-  assert.equal(openai?.embeddingModel, 'shared-id');
-  assert.equal(openai?.modelId, 'shared-id');
-  assert.equal(lmstudio?.embeddingProvider, 'lmstudio');
-  assert.equal(lmstudio?.embeddingModel, 'shared-id');
-  assert.equal(lmstudio?.modelId, 'shared-id');
+  assert.equal(parsed.repos.length, 1);
+  assert.equal(parsed.repos[0]?.id, '/data/stable-repo');
+  assert.equal(parsed.repos[0]?.name, 'display-name-new');
+  assert.equal(parsed.repos[0]?.containerPath, '/data/stable-repo');
+});
+
+test('reingest_repository canonicalizes selectors to canonical repository identity ahead of stale display-facing repo.id', async () => {
+  let capturedSourceId: string | null = null;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    createMcpRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'display-facing-stale-id',
+            name: 'stable-repo',
+            description: null,
+            containerPath: '/data/stable-repo',
+            hostPath: '/host/stable-repo',
+            lastIngestAt: '2026-04-13T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 0,
+            modelId: 'embed-model',
+            counts: { files: 1, chunks: 1, embedded: 1 },
+            lastError: null,
+            status: 'completed',
+          },
+        ],
+        lock: null,
+        lockedModelId: null,
+        schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
+      }),
+      runReingestRepository: async (args) => {
+        const { sourceId } = args as { sourceId: string };
+        capturedSourceId = sourceId;
+        return {
+          ok: true,
+          value: {
+            status: 'completed',
+            operation: 'reembed',
+            runId: 'run-1',
+            sourceId,
+            resolvedRepositoryId: sourceId,
+            completionMode: 'reingested',
+            durationMs: 1,
+            files: 1,
+            chunks: 1,
+            embedded: 1,
+            errorCode: null,
+          },
+        };
+      },
+    }),
+  );
+
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'selector-canonical',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/host/stable-repo' },
+      },
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(capturedSourceId, '/data/stable-repo');
+});
+
+test('reingest_repository still prefers canonical repository identity when stale display-facing repo.id and fresh canonical path coexist on the same row', async () => {
+  let capturedSourceId: string | null = null;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    createMcpRouter({
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'stable-repo',
+            name: 'stable-repo',
+            description: null,
+            containerPath: '/data/stable-repo',
+            hostPath: '/host/stable-repo',
+            lastIngestAt: '2026-04-13T00:00:00.000Z',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'embed-model',
+            embeddingDimensions: 0,
+            modelId: 'embed-model',
+            counts: { files: 1, chunks: 1, embedded: 1 },
+            lastError: null,
+            status: 'completed',
+          },
+        ],
+        lock: null,
+        lockedModelId: null,
+        schemaVersion: INGEST_ROOTS_SCHEMA_VERSION,
+      }),
+      runReingestRepository: async (args) => {
+        const { sourceId } = args as { sourceId: string };
+        capturedSourceId = sourceId;
+        return {
+          ok: true,
+          value: {
+            status: 'completed',
+            operation: 'reembed',
+            runId: 'run-2',
+            sourceId,
+            resolvedRepositoryId: sourceId,
+            completionMode: 'reingested',
+            durationMs: 1,
+            files: 1,
+            chunks: 1,
+            embedded: 1,
+            errorCode: null,
+          },
+        };
+      },
+    }),
+  );
+
+  const response = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'selector-stale-vs-fresh',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: '/host/stable-repo' },
+      },
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(capturedSourceId, '/data/stable-repo');
 });

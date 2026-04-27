@@ -1,0 +1,7 @@
+Browser network check used Playwright MCP `browser_network_requests` with `includeStatic=false`.
+
+Key retained observations:
+- `GET http://host.docker.internal:5010/ingest/models` returned `200 OK`.
+- `GET http://host.docker.internal:5010/ingest/roots` returned `200 OK`.
+- Client log forwarding `POST http://host.docker.internal:5010/logs` calls returned `202 Accepted`.
+- No failed non-static browser requests were observed in the retained Task 209 manual-proof pass.

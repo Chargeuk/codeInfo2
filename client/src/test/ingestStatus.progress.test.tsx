@@ -133,4 +133,68 @@ describe('ingest status progress display', () => {
     );
     expect(screen.getByText(/2 \/ 3 .*66\.7% .*00:00:08/i)).toBeInTheDocument();
   });
+
+  it('renders cleanup-blocked as terminal error state without a cancel action after a cancellable update', async () => {
+    render(
+      <RouterProvider
+        router={createMemoryRouter(
+          [
+            {
+              path: '/',
+              element: <Harness />,
+            },
+          ],
+          { initialEntries: ['/'] },
+        )}
+      />,
+    );
+
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 1,
+        status: {
+          runId: 'run-cleanup-blocked',
+          state: 'embedding',
+          counts: { files: 1, chunks: 1, embedded: 0 },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /cancel ingest/i }),
+      ).toBeInTheDocument(),
+    );
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 2,
+        status: {
+          runId: 'run-cleanup-blocked',
+          state: 'cleanup-blocked',
+          counts: { files: 1, chunks: 1, embedded: 1 },
+          message: 'Queue cleanup blocked',
+          lastError: 'Queue record delete failed',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ingest-status-chip')).toHaveTextContent(
+        'cleanup-blocked',
+      );
+      expect(screen.getByTestId('ingest-last-error')).toHaveTextContent(
+        'Queue record delete failed',
+      );
+      expect(
+        screen.queryByRole('button', { name: /cancel ingest/i }),
+      ).not.toBeInTheDocument();
+    });
+  });
 });

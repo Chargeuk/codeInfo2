@@ -89,7 +89,8 @@ export type ChatWsIngestStatus = {
     | 'completed'
     | 'cancelled'
     | 'error'
-    | 'skipped';
+    | 'skipped'
+    | 'cleanup-blocked';
   counts?: WsIngestCounts;
   ast?: WsAstCounts;
   currentFile?: string;

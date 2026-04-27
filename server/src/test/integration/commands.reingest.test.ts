@@ -111,6 +111,32 @@ const buildReingestSuccess = (
   ...overrides,
 });
 
+const buildWaitTimeQueueUnavailableError = (params: {
+  repositoryId: string;
+  sourceId: string;
+}) => ({
+  code: 503 as const,
+  message: 'QUEUE_UNAVAILABLE' as const,
+  data: {
+    tool: 'reingest_repository' as const,
+    code: 'QUEUE_UNAVAILABLE' as const,
+    retryable: true as const,
+    retryMessage: 'retry',
+    reingestableRepositoryIds: [params.repositoryId],
+    reingestableSourceIds: [params.sourceId],
+    queueFailureStage: 'wait' as const,
+    waitReason: 'queue-read-failed' as const,
+    fieldErrors: [
+      {
+        field: 'sourceId' as const,
+        reason: 'invalid_state' as const,
+        message:
+          'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion',
+      },
+    ],
+  },
+});
+
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
@@ -120,7 +146,7 @@ const buildRepoEntry = (params: {
   description: null,
   containerPath: params.containerPath,
   hostPath: `/host${params.containerPath}`,
-  lastIngestAt: params.lastIngestAt ?? null,
+  lastIngestAt: params.lastIngestAt ?? '2026-01-01T00:00:00.000Z',
   embeddingProvider: 'lmstudio',
   embeddingModel: 'model',
   embeddingDimensions: 768,
@@ -464,11 +490,11 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
       runReingestRepository: async () => ({
         ok: false,
         error: {
-          code: 429,
-          message: 'BUSY',
+          code: 503,
+          message: 'QUEUE_UNAVAILABLE',
           data: {
             tool: 'reingest_repository',
-            code: 'BUSY',
+            code: 'QUEUE_UNAVAILABLE',
             retryable: true,
             retryMessage: 'retry later',
             reingestableRepositoryIds: ['codeinfo2'],
@@ -476,8 +502,9 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
             fieldErrors: [
               {
                 field: 'sourceId',
-                reason: 'busy',
-                message: 'Repository is already being re-ingested',
+                reason: 'invalid_state',
+                message:
+                  'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
               },
             ],
           },
@@ -528,14 +555,145 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
     assert.equal(final.error?.code, 'COMMAND_INVALID');
     assert.equal(
       final.error?.message,
-      'Repository is already being re-ingested',
+      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
     );
     assert.equal(turns.length, 2);
     assert.equal(turns[0]?.role, 'user');
     assert.equal(turns[0]?.content, 'Re-ingest repository /repo/source-a');
     assert.equal(turns[1]?.role, 'assistant');
     assert.equal(turns[1]?.status, 'failed');
-    assert.equal(turns[1]?.content, 'Repository is already being re-ingested');
+    assert.equal(
+      turns[1]?.content,
+      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
+    );
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    __resetAgentCommandRunnerDepsForTests();
+    __resetAgentServiceDepsForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    memoryConversations.clear();
+    memoryTurns.clear();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reingest result instead of a thrown background-runner exception', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'commands-reingest-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const agentHome = await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+
+  const app = express();
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'reingest-openai-unavailable-conversation';
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(agentHome, 'commands'),
+      commandName: 'reingest-openai-unavailable',
+      items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => ({
+        ok: false,
+        error: {
+          code: 409,
+          message: 'OPENAI_MODEL_UNAVAILABLE',
+          data: {
+            tool: 'reingest_repository',
+            code: 'OPENAI_MODEL_UNAVAILABLE',
+            retryable: true,
+            retryMessage: 'retry later',
+            reingestableRepositoryIds: ['repo-a'],
+            reingestableSourceIds: ['/repo/source-a'],
+            fieldErrors: [
+              {
+                field: 'sourceId',
+                reason: 'invalid_state',
+                message:
+                  'Requested OpenAI embedding model is unavailable for this deployment',
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId,
+    });
+
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        conversationId: string;
+        status: string;
+        error?: { code?: string; message?: string };
+      } => {
+        const payload = event as {
+          type?: string;
+          conversationId?: string;
+        };
+        return (
+          payload.type === 'turn_final' &&
+          payload.conversationId === conversationId
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const result = await startAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'reingest-openai-unavailable',
+      conversationId,
+      source: 'REST',
+    });
+
+    const final = await finalPromise;
+
+    await waitForMemoryTurns(result.conversationId, 2);
+
+    const turns = memoryTurns.get(result.conversationId) ?? [];
+    assert.equal(final.status, 'failed');
+    assert.equal(final.error?.code, 'COMMAND_INVALID');
+    assert.equal(
+      final.error?.message,
+      'Requested OpenAI embedding model is unavailable for this deployment',
+    );
+    assert.equal(turns[1]?.status, 'failed');
+    assert.equal(
+      turns[1]?.content,
+      'Requested OpenAI embedding model is unavailable for this deployment',
+    );
   } finally {
     await closeWs(ws);
     await wsHandle.close();
@@ -693,10 +851,10 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
   }
 });
 
-test('repo id selectors resolve to the canonical container path before direct command reingest starts', async () => {
+test('repo id selectors resolve to the canonical container path and preserve shared reingest default wait dispatch', async () => {
   const harness = await setupRepoCommandHarness('selector-id');
   const selectedRoot = path.join(harness.tempRoot, 'repo-selected');
-  let capturedSourceId: string | undefined;
+  let capturedArgs: unknown;
 
   try {
     await writeCommandFile({
@@ -720,9 +878,13 @@ test('repo id selectors resolve to the canonical container path before direct co
       }),
     });
     __setAgentCommandRunnerDepsForTests({
-      runReingestRepository: async ({ sourceId }) => {
-        capturedSourceId = sourceId;
-        return { ok: true, value: buildReingestSuccess({ sourceId }) };
+      runReingestRepository: async (args) => {
+        capturedArgs = args;
+        const sourceId = args.sourceId;
+        return {
+          ok: true,
+          value: buildReingestSuccess({ sourceId: sourceId ?? '/missing' }),
+        };
       },
     });
 
@@ -732,7 +894,13 @@ test('repo id selectors resolve to the canonical container path before direct co
       source: 'REST',
     });
 
-    assert.equal(capturedSourceId, selectedRoot);
+    assert.deepEqual(capturedArgs, { sourceId: selectedRoot });
+    assert.equal(
+      typeof capturedArgs === 'object' &&
+        capturedArgs !== null &&
+        'waitOptions' in capturedArgs,
+      false,
+    );
   } finally {
     await harness.restore();
   }
@@ -1000,6 +1168,54 @@ test('direct command target working resolves a host working_folder into the moun
   }
 });
 
+test('direct command target working propagates wait-time queue-read outage as command failure', async () => {
+  const harness = await setupRepoCommandHarness(
+    'target-working-wait-queue-unavailable',
+  );
+
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: 'working-target-wait-queue-unavailable',
+      items: [{ type: 'reingest', target: 'working' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({
+        id: 'Owner Repo',
+        containerPath: harness.repoRoot,
+      }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => ({
+        ok: false,
+        error: buildWaitTimeQueueUnavailableError({
+          repositoryId: 'Owner Repo',
+          sourceId: sourceId ?? harness.repoRoot,
+        }),
+      }),
+      createCallId: () => 'call-working-wait-queue-unavailable',
+    });
+
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'working-target-wait-queue-unavailable',
+          working_folder: harness.repoRoot,
+          source: 'REST',
+        }),
+      (error) =>
+        (error as { code?: string; reason?: string }).code ===
+          'COMMAND_INVALID' &&
+        /unavailable while waiting for re-ingest completion/i.test(
+          (error as { reason?: string }).reason ?? '',
+        ),
+    );
+  } finally {
+    await harness.restore();
+  }
+});
+
 test('target plan_scope fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-order');
   const repoA = path.join(harness.tempRoot, 'repo-a');
@@ -1034,11 +1250,11 @@ test('target plan_scope fails fast until the surface passes an explicit working 
           return {
             ok: false,
             error: {
-              code: 429,
-              message: 'BUSY',
+              code: 503,
+              message: 'QUEUE_UNAVAILABLE',
               data: {
                 tool: 'reingest_repository',
-                code: 'BUSY',
+                code: 'QUEUE_UNAVAILABLE',
                 retryable: true,
                 retryMessage: 'retry',
                 reingestableRepositoryIds: [],
@@ -1046,9 +1262,9 @@ test('target plan_scope fails fast until the surface passes an explicit working 
                 fieldErrors: [
                   {
                     field: 'sourceId',
-                    reason: 'busy',
+                    reason: 'invalid_state',
                     message:
-                      'reingest is currently locked by another ingest operation',
+                      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
                   },
                 ],
               },
@@ -1289,11 +1505,11 @@ test('direct command target plan_scope publishes success with warnings, continue
           return {
             ok: false,
             error: {
-              code: 429,
-              message: 'BUSY',
+              code: 503,
+              message: 'QUEUE_UNAVAILABLE',
               data: {
                 tool: 'reingest_repository',
-                code: 'BUSY',
+                code: 'QUEUE_UNAVAILABLE',
                 retryable: true,
                 retryMessage: 'retry later',
                 reingestableRepositoryIds: ['Repo A'],
@@ -1301,8 +1517,9 @@ test('direct command target plan_scope publishes success with warnings, continue
                 fieldErrors: [
                   {
                     field: 'sourceId',
-                    reason: 'busy',
-                    message: 'Repository is already being re-ingested',
+                    reason: 'invalid_state',
+                    message:
+                      'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
                   },
                 ],
               },
@@ -1492,11 +1709,11 @@ test('target working fails before strict BUSY handling until the surface passes 
         return {
           ok: false,
           error: {
-            code: 429,
-            message: 'BUSY',
+            code: 503,
+            message: 'QUEUE_UNAVAILABLE',
             data: {
               tool: 'reingest_repository',
-              code: 'BUSY',
+              code: 'QUEUE_UNAVAILABLE',
               retryable: true,
               retryMessage: 'retry',
               reingestableRepositoryIds: ['Owner Repo'],
@@ -1504,9 +1721,9 @@ test('target working fails before strict BUSY handling until the surface passes 
               fieldErrors: [
                 {
                   field: 'sourceId',
-                  reason: 'busy',
+                  reason: 'invalid_state',
                   message:
-                    'reingest is currently locked by another ingest operation',
+                    'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
                 },
               ],
             },

@@ -75,6 +75,7 @@ class StreamingChat extends ChatInterface {
       return true;
     };
 
+    if (abortIfNeeded()) return;
     this.emit('thread', { type: 'thread', threadId: conversationId });
     this.emit('analysis', { type: 'analysis', content: 'thinking...' });
     await delay(30);

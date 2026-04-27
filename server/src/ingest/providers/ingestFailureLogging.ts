@@ -54,6 +54,7 @@ export class LmStudioEmbeddingError extends Error {
 function sanitizeMessage(value: string): string {
   return value
     .replace(/sk-[a-zA-Z0-9_-]+/g, 'sk-***')
+    .replace(/org-[a-zA-Z0-9]{20,}/g, 'org-***')
     .replace(/bearer\s+[a-zA-Z0-9._-]+/gi, 'bearer ***')
     .replace(/authorization\s*:\s*[^\s]+/gi, 'authorization:***')
     .slice(0, 300);

@@ -79,10 +79,10 @@ Before(async () => {
   });
 });
 
-After(() => {
+After(async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
 });

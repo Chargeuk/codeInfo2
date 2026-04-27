@@ -42,7 +42,7 @@ function baseConfig(overrides?: Partial<IngestConfig>): IngestConfig {
   };
 }
 
-test('dispatcher enforces queue cap for same-turn enqueue bursts and refills freed slots immediately', async () => {
+test('dispatcher queue cap stays owned by embeddingDispatcher and refills freed slots immediately', async () => {
   const requests: Array<{
     texts: string[];
     deferred: ReturnType<typeof createDeferred<number[][]>>;

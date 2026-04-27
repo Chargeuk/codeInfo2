@@ -1,0 +1,5 @@
+
+> codeinfo2@1.0.0 compose:up
+> bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file server/.env.local up -d
+
+DEV-0000050:T09:compose_preflight_result {"composeFile":"docker-compose.yml","result":"passed","playwrightServicePresent":true,"checkedPorts":[5010,5011,5012,8932]}

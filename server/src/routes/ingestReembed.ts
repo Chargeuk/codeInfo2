@@ -1,38 +1,127 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { isBusy, reembed } from '../ingest/ingestJob.js';
+import { pumpIngestQueue } from '../ingest/ingestJob.js';
 import {
   appendIngestFailureLog,
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
+import {
+  assertRepoCanAdmitQueuedReingest,
+  buildQueuedReingestRequest,
+  findReingestableRepoByExactSourceId,
+  validateExactReingestSourceId,
+} from '../ingest/reingestService.js';
+import {
+  enqueueOrReuseIngestRequest,
+  getCurrentQueueRequestPosition,
+  QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+} from '../ingest/requestQueue.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
-import { toWebSocketUrl } from './lmstudioUrl.js';
 
 export function createIngestReembedRouter({
-  clientFactory,
-  reembed: reembedOverride = reembed,
-  isBusy: isBusyOverride = isBusy,
+  listIngestedRepositories:
+    listIngestedRepositoriesOverride = listIngestedRepositories,
+  enqueueOrReuseIngestRequest:
+    enqueueOrReuseIngestRequestOverride = enqueueOrReuseIngestRequest,
+  getCurrentQueueRequestPosition:
+    getCurrentQueueRequestPositionOverride = getCurrentQueueRequestPosition,
+  pumpIngestQueue: pumpIngestQueueOverride = pumpIngestQueue,
 }: {
   clientFactory: (baseUrl: string) => LMStudioClient;
-  reembed?: typeof reembed;
-  isBusy?: typeof isBusy;
+  listIngestedRepositories?: typeof listIngestedRepositories;
+  enqueueOrReuseIngestRequest?: typeof enqueueOrReuseIngestRequest;
+  getCurrentQueueRequestPosition?: typeof getCurrentQueueRequestPosition;
+  pumpIngestQueue?: typeof pumpIngestQueue;
 }) {
   const router = Router();
 
   router.post('/ingest/reembed/:root', async (req, res) => {
-    if (isBusyOverride()) {
-      return res.status(429).json({ status: 'error', code: 'BUSY' });
-    }
     const { root } = req.params;
-    const baseUrl = toWebSocketUrl(
-      process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
-    );
     try {
-      const runId = await reembedOverride(root, {
-        lmClientFactory: clientFactory,
-        baseUrl,
+      const validatedRoot = validateExactReingestSourceId(root);
+      if (!validatedRoot.ok) {
+        const error = new Error('NOT_FOUND');
+        (error as { code?: string }).code = 'NOT_FOUND';
+        throw error;
+      }
+      const repos = await listIngestedRepositoriesOverride();
+      const selectedRepo = findReingestableRepoByExactSourceId(
+        repos,
+        validatedRoot.sourceId,
+      );
+      if (!selectedRepo) {
+        const error = new Error('NOT_FOUND');
+        (error as { code?: string }).code = 'NOT_FOUND';
+        throw error;
+      }
+      assertRepoCanAdmitQueuedReingest(selectedRepo);
+
+      const queueResult = await enqueueOrReuseIngestRequestOverride(
+        buildQueuedReingestRequest(selectedRepo),
+      );
+      const pumpResult = await pumpIngestQueueOverride();
+      const currentQueuePosition = await getCurrentQueueRequestPositionOverride(
+        queueResult.requestId,
+      );
+      const runId =
+        queueResult.runId ??
+        currentQueuePosition.runId ??
+        (pumpResult.requestId === queueResult.requestId
+          ? (pumpResult.runId ?? null)
+          : null);
+      const waitingQueuePosition = runId
+        ? undefined
+        : currentQueuePosition.queuePosition;
+      if (queueResult.updatedExisting) {
+        append({
+          level: 'info',
+          message: QUEUE_REQUEST_UPDATED_IN_PLACE_LOG_MESSAGE,
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId: (res.locals?.requestId as string | undefined) ?? undefined,
+          context: {
+            endpoint: '/ingest/reembed/:root',
+            queueRequestId: queueResult.requestId,
+            canonicalTargetPath: queueResult.canonicalTargetPath,
+            runId,
+            queued: !runId,
+            queuePosition: waitingQueuePosition,
+            reusedExisting: queueResult.reusedExisting,
+            updatedExisting: queueResult.updatedExisting,
+          },
+        });
+      }
+      append({
+        level: 'info',
+        message: 'QUEUE_REQUEST_ACCEPTED_WITH_REQUEST_ID',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId: (res.locals?.requestId as string | undefined) ?? undefined,
+        context: {
+          endpoint: '/ingest/reembed/:root',
+          queueRequestId: queueResult.requestId,
+          canonicalTargetPath: queueResult.canonicalTargetPath,
+          runId,
+          queued: !runId,
+          queuePosition: waitingQueuePosition,
+        },
       });
-      return res.status(202).json({ runId });
+      return res.status(202).json(
+        runId
+          ? {
+              queued: false,
+              requestId: queueResult.requestId,
+              runId,
+              queueState: 'running',
+            }
+          : {
+              queued: true,
+              requestId: queueResult.requestId,
+              queuePosition: waitingQueuePosition,
+            },
+      );
     } catch (err) {
       const classified = classifyIngestFailure(err, {
         surface: 'ingest/reembed',
@@ -56,8 +145,6 @@ export function createIngestReembedRouter({
       });
       baseLogger.error({ root, err }, 'ingest reembed failed');
       const code = (err as { code?: string }).code;
-      if (code === 'BUSY')
-        return res.status(429).json({ status: 'error', code });
       if (code === 'MODEL_LOCKED')
         return res.status(409).json({ status: 'error', code });
       if (code === 'OPENAI_MODEL_UNAVAILABLE')
@@ -68,6 +155,20 @@ export function createIngestReembedRouter({
         return res.status(409).json({ status: 'error', code });
       if (code === 'NOT_FOUND')
         return res.status(404).json({ status: 'error', code });
+      if (code === 'QUEUE_UNAVAILABLE') {
+        if (typeof classified.retryAfterMs === 'number') {
+          res.setHeader(
+            'Retry-After',
+            String(Math.max(1, Math.ceil(classified.retryAfterMs / 1000))),
+          );
+        }
+        return res.status(503).json({
+          status: 'error',
+          code: 'QUEUE_UNAVAILABLE',
+          retryable: true,
+          message: classified.message,
+        });
+      }
       return res.status(500).json({
         status: 'error',
         code: classified.code,

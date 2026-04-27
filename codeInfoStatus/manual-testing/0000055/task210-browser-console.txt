@@ -1,0 +1,3 @@
+No error-level browser console messages were observed during the Task 210 final-story proof.
+Visible info-level evidence included repeated ingest status websocket updates, `DEV-0000036:T12:useIngestRoots_normalized`, `DEV-0000036:T13:ingest_ui_state_rendered`, and `DEV-0000032:T11:ast-banner-evaluated` after both the queue-state render and the degraded-read refresh.
+The selected-row parity transition completed without a browser-side exception, and the degraded-read refresh rendered the warning banner plus repository rows without a console failure.

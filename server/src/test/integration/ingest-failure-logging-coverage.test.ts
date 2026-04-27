@@ -17,11 +17,10 @@ function createApp() {
   app.use(
     createIngestStartRouter({
       clientFactory: () => ({}) as never,
-      collectionIsEmpty: async () => true,
       getLockedEmbeddingModel: async () => null,
-      startIngest: async () => {
-        const error = new Error('temporarily busy');
-        (error as { code?: string }).code = 'BUSY';
+      enqueueOrReuseIngestRequest: async () => {
+        const error = new Error('queue unavailable');
+        (error as { code?: string }).code = 'QUEUE_UNAVAILABLE';
         throw error;
       },
     }),
@@ -30,12 +29,32 @@ function createApp() {
   app.use(
     createIngestReembedRouter({
       clientFactory: () => ({}) as never,
-      isBusy: () => false,
-      reembed: async () => {
-        const error = new Error('locked');
-        (error as { code?: string }).code = 'MODEL_LOCKED';
-        throw error;
-      },
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'repo-1',
+            description: null,
+            containerPath: '/tmp/repo',
+            hostPath: '/host/tmp/repo',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            embeddingProvider: 'openai',
+            embeddingModel: 'text-embedding-ada-002',
+            embeddingDimensions: 1536,
+            model: 'text-embedding-ada-002',
+            modelId: 'text-embedding-ada-002',
+            lock: {
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-ada-002',
+              embeddingDimensions: 1536,
+              lockedModelId: 'text-embedding-ada-002',
+              modelId: 'text-embedding-ada-002',
+            },
+            counts: { files: 1, chunks: 1, embedded: 1 },
+            lastError: null,
+          },
+        ],
+        lockedModelId: 'text-embedding-ada-002',
+      }),
     }),
   );
 
@@ -65,6 +84,8 @@ function createApp() {
 }
 
 test('ingest route failure coverage emits structured warn/error entries via /logs and /logs/stream', async () => {
+  const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   resetStore();
   const app = createApp();
 
@@ -78,7 +99,7 @@ test('ingest route failure coverage emits structured warn/error entries via /log
     await request(app)
       .post('/ingest/start')
       .send({ path: '/tmp/repo', name: 'repo', model: 'nomic-embed' })
-      .expect(429);
+      .expect(503);
     await request(app).post('/ingest/reembed/%2Ftmp%2Frepo').expect(409);
     await request(app).post('/ingest/cancel/run-1').expect(404);
     await request(app).get('/ingest/roots').expect(502);
@@ -98,7 +119,7 @@ test('ingest route failure coverage emits structured warn/error entries via /log
           entry.level === 'warn' &&
           entry.context?.surface === 'ingest/start' &&
           entry.context?.retryable === true &&
-          entry.context?.code === 'BUSY',
+          entry.context?.code === 'QUEUE_UNAVAILABLE',
       ),
     );
     assert.ok(
@@ -106,13 +127,13 @@ test('ingest route failure coverage emits structured warn/error entries via /log
         (entry) =>
           entry.level === 'error' &&
           entry.context?.surface === 'ingest/reembed' &&
-          entry.context?.code === 'MODEL_LOCKED',
+          entry.context?.code === 'OPENAI_MODEL_UNAVAILABLE',
       ),
     );
     const reembedEntry = items.find(
       (entry) =>
         entry.context?.surface === 'ingest/reembed' &&
-        entry.context?.code === 'MODEL_LOCKED',
+        entry.context?.code === 'OPENAI_MODEL_UNAVAILABLE',
     );
     assert.equal(reembedEntry?.context?.root, '/tmp/repo');
     assert.equal(reembedEntry?.context?.runId, undefined);
@@ -164,6 +185,11 @@ test('ingest route failure coverage emits structured warn/error entries via /log
     assert.ok(streamBody.includes('DEV-0000036:T17:ingest_provider_failure'));
     assert.ok(streamBody.includes('"surface":"ingest/start"'));
   } finally {
+    if (originalCodexWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalCodexWorkdir;
+    }
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });

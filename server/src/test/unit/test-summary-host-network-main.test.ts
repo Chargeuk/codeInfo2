@@ -15,6 +15,18 @@ const createEndpoints = () => ({
   playwrightMcp: { label: 'playwrightMcp', url: 'http://host.test:8932/mcp' },
 });
 
+const createObservedMixedShapeBridge = () => ({
+  rootPath: '/tmp/task199-mixed-shape-runtime-bridge',
+  restBaseUrl: 'http://host.test:5010',
+  seeded: true,
+  observed: true,
+  cleaned: false,
+  preserved: true,
+  httpStatus: 200,
+  detail:
+    'HTTP 200; observed seeded row at /ingest/roots with runtime-facing root metadata',
+});
+
 test('main-stack host-network probe succeeds when all required listeners are reachable', async () => {
   const result = await probeMainStackEndpoints({
     endpoints: createEndpoints(),
@@ -23,6 +35,7 @@ test('main-stack host-network probe succeeds when all required listeners are rea
       httpStatus: 200,
       detail: 'HTTP 200',
     }),
+    probeMixedShapeRuntimeBridge: async () => createObservedMixedShapeBridge(),
   });
 
   assert.equal(result.result, 'passed');
@@ -32,6 +45,7 @@ test('main-stack host-network probe succeeds when all required listeners are rea
     chatMcp: 'reachable',
     agentsMcp: 'reachable',
     playwrightMcp: 'reachable',
+    mixedShapeBridge: 'observed',
     result: 'passed',
   });
 });
@@ -58,6 +72,7 @@ test('main-stack host-network probe fails when one required listener is unavaila
         detail: 'HTTP 200',
       };
     },
+    probeMixedShapeRuntimeBridge: async () => createObservedMixedShapeBridge(),
   });
 
   assert.equal(result.result, 'failed');
@@ -84,6 +99,7 @@ test('main-stack host-network probe report keeps failing endpoint output inspect
         detail: 'HTTP 200',
       };
     },
+    probeMixedShapeRuntimeBridge: async () => createObservedMixedShapeBridge(),
   });
 
   const report = renderMainStackProbeReport(result);
@@ -112,6 +128,7 @@ test('main-stack host-network probe accepts event-stream style initialize respon
         },
       );
     },
+    probeMixedShapeRuntimeBridge: async () => createObservedMixedShapeBridge(),
   });
 
   assert.equal(result.result, 'passed');

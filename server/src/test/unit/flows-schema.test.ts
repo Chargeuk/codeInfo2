@@ -201,15 +201,9 @@ describe('flow schema (v1)', () => {
     ] as const;
 
     for (const flowFile of flowFiles) {
-      const raw = await fs.readFile(
-        path.join(repoRoot, flowFile),
-        'utf8',
-      );
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      assert.ok(
-        Array.isArray(parsed.steps),
-        `${flowFile} should define steps`,
-      );
+      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
 
       const markers = flattenSteps(parsed.steps ?? []).map((step) => {
         if (step.type === 'llm') {

@@ -26,6 +26,7 @@ import {
   consumePendingConversationCancel,
   createInflight,
   getInflight,
+  getPendingConversationCancel,
   markInflightPersisted,
 } from '../chat/inflightRegistry.js';
 import type {
@@ -78,6 +79,16 @@ import type {
 } from '../mongo/turn.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
+
+const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
+  const pendingCancel = getPendingConversationCancel(conversationId);
+  return {
+    inflightId: getInflight(conversationId)?.inflightId ?? null,
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    pendingCancelRunToken: pendingCancel?.runToken ?? null,
+    pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
+  };
+};
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
@@ -1096,6 +1107,11 @@ const runFlowInstruction = async (params: {
   runtime?: TurnRuntimeMetadata;
   envOverrides?: NodeJS.ProcessEnv;
   runToken?: string;
+  onStopUnwindCheckpoint?: (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
 }): Promise<FlowInstructionResult> => {
   const createdAtIso = new Date().toISOString();
@@ -1189,44 +1205,49 @@ const runFlowInstruction = async (params: {
       return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
     }
 
-    const pendingCancel = consumePendingConversationCancel({
+    const aborted = abortInflight({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    });
+    if (!aborted.ok) return false;
+
+    cleanupPendingConversationCancel({
       conversationId: params.flowConversationId,
       runToken: params.runToken,
       inflightId: params.inflightId,
     });
-    if (!pendingCancel) return false;
-
-    return abortInflight({
-      conversationId: params.flowConversationId,
-      inflightId: params.inflightId,
-    }).ok;
+    return true;
   };
 
   try {
-    consumePendingFlowStop();
-
-    await chat.run(
-      params.instruction,
-      {
-        provider: 'codex',
-        inflightId: params.inflightId,
-        threadId: params.threadId,
-        useConfigDefaults: true,
-        runtimeConfig: params.runtimeConfig,
-        ...(params.workingDirectoryOverride !== undefined
-          ? { workingDirectoryOverride: params.workingDirectoryOverride }
-          : {}),
-        ...(params.envOverrides ? { envOverrides: params.envOverrides } : {}),
-        disableSystemContext: true,
-        systemPrompt: params.systemPrompt,
-        deferInflightCleanup: true,
-        signal: inflightSignal,
-        source: params.source,
-        skipPersistence: true,
-      },
-      params.agentConversationId,
-      params.modelId,
-    );
+    const pendingStopConsumed = consumePendingFlowStop();
+    if (pendingStopConsumed) {
+      status = 'stopped';
+      lastErrorMessage = 'aborted';
+    } else {
+      await chat.run(
+        params.instruction,
+        {
+          provider: 'codex',
+          inflightId: params.inflightId,
+          threadId: params.threadId,
+          useConfigDefaults: true,
+          runtimeConfig: params.runtimeConfig,
+          ...(params.workingDirectoryOverride !== undefined
+            ? { workingDirectoryOverride: params.workingDirectoryOverride }
+            : {}),
+          ...(params.envOverrides ? { envOverrides: params.envOverrides } : {}),
+          disableSystemContext: true,
+          systemPrompt: params.systemPrompt,
+          deferInflightCleanup: true,
+          signal: inflightSignal,
+          source: params.source,
+          skipPersistence: true,
+        },
+        params.agentConversationId,
+        params.modelId,
+      );
+    }
   } catch (err) {
     const errorMessage =
       err && typeof err === 'object'
@@ -1261,6 +1282,23 @@ const runFlowInstruction = async (params: {
   }
   if (status === 'ok' && !sawComplete && lastErrorMessage) {
     status = deriveStatusFromError(lastErrorMessage);
+  }
+  if (status === 'ok' && params.runToken) {
+    const pendingStopAfterStep = consumePendingConversationCancel({
+      conversationId: params.flowConversationId,
+      runToken: params.runToken,
+      inflightId: params.inflightId,
+    });
+    if (pendingStopAfterStep) {
+      status = 'stopped';
+      finalContent = '';
+      tokenBuffer.length = 0;
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowInstruction.postStepPendingStopConsumed',
+        conversationId: params.flowConversationId,
+        detail: `inflightId=${params.inflightId}`,
+      });
+    }
   }
 
   let content = finalContent || tokenBuffer.join('');
@@ -1416,12 +1454,22 @@ const runFlowInstruction = async (params: {
         threadId: params.threadId,
       },
     });
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowInstruction.afterBridgeFinalize',
+      conversationId: params.flowConversationId,
+      detail: `status=${result.status}`,
+    });
   }
 
   try {
     cleanupInflightFn({
       conversationId: params.flowConversationId,
       inflightId: params.inflightId,
+    });
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowInstruction.afterCleanupInflight',
+      conversationId: params.flowConversationId,
+      detail: `inflightId=${params.inflightId}`,
     });
   } catch (cleanupError) {
     baseLogger.error(
@@ -1437,13 +1485,30 @@ const runFlowInstruction = async (params: {
       inflightId: params.inflightId,
     });
   } finally {
-    cleanupPendingConversationCancel({
+    // Preserve a stop request that arrives after an `ok` step finishes so the
+    // next loop boundary can still observe it. This cleanup path should only
+    // clear pending cancellation when the current instruction actually stopped
+    // or failed and is now unwinding the run.
+    const shouldClearPendingCancel = result.status !== 'ok';
+    const pendingCancelCleared = shouldClearPendingCancel
+      ? cleanupPendingConversationCancel({
+          conversationId: params.flowConversationId,
+          runToken: params.runToken,
+          inflightId: params.inflightId,
+        })
+      : false;
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowInstruction.afterCleanupPendingConversationCancel',
       conversationId: params.flowConversationId,
-      runToken: params.runToken,
-      inflightId: params.inflightId,
+      detail: `cleared=${String(pendingCancelCleared)} shouldClear=${String(shouldClearPendingCancel)}`,
     });
   }
 
+  params.onStopUnwindCheckpoint?.({
+    checkpoint: 'runFlowInstruction.returnResult',
+    conversationId: params.flowConversationId,
+    detail: `status=${result.status}`,
+  });
   return result;
 };
 
@@ -1630,6 +1695,16 @@ const emitStoppedFlowStep = async (params: {
       status: 'stopped',
     },
   });
+  baseLogger.info(
+    {
+      flowConversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      stoppedStateBeforeCleanup: snapshotFlowRuntimeCleanupState(
+        params.flowConversationId,
+      ),
+    },
+    'flows stopped final emitted before cleanup',
+  );
   bridge.cleanup();
 
   cleanupInflight({
@@ -2333,6 +2408,11 @@ async function runFlowUnlocked(params: {
   resumeStepPath?: number[];
   customTitle?: string;
   runToken: string;
+  onStopUnwindCheckpoint?: (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
 }) {
@@ -2366,12 +2446,28 @@ async function runFlowUnlocked(params: {
   const finalizeFlowRuntime = () => {
     if (finalizedFlowRuntime) return;
     finalizedFlowRuntime = true;
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowUnlocked.finalize.enter',
+      conversationId: params.conversationId,
+    });
 
     const inflightState = getInflight(params.conversationId);
     const activeInflight =
       inflightState && inflightState.inflightId === stepInflightId
         ? inflightState
         : undefined;
+    baseLogger.info(
+      {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        stepInflightId,
+        runToken: params.runToken,
+        cleanupStartState: snapshotFlowRuntimeCleanupState(
+          params.conversationId,
+        ),
+      },
+      'flows runtime cleanup starting',
+    );
 
     try {
       if (activeInflight) {
@@ -2379,6 +2475,29 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           inflightId: stepInflightId,
         });
+        baseLogger.info(
+          {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            stepInflightId,
+            runToken: params.runToken,
+            stateAfterCleanupInflight: snapshotFlowRuntimeCleanupState(
+              params.conversationId,
+            ),
+          },
+          'flows runtime cleanupInflight completed',
+        );
+      } else {
+        baseLogger.info(
+          {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            stepInflightId,
+            runToken: params.runToken,
+            inflightStateSeen: inflightState?.inflightId ?? null,
+          },
+          'flows runtime cleanupInflight skipped because active inflight did not match',
+        );
       }
     } catch (cleanupError) {
       baseLogger.error(
@@ -2395,12 +2514,34 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
       });
     } finally {
-      cleanupPendingConversationCancel({
+      const pendingCancelCleared = cleanupPendingConversationCancel({
         conversationId: params.conversationId,
         runToken: params.runToken,
         inflightId: stepInflightId,
       });
-      releaseConversationLockFn(params.conversationId, params.runToken);
+      const lockReleased = releaseConversationLockFn(
+        params.conversationId,
+        params.runToken,
+      );
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.finalize.exit',
+        conversationId: params.conversationId,
+        detail: `pendingCancelCleared=${String(pendingCancelCleared)} lockReleased=${String(lockReleased)}`,
+      });
+      baseLogger.info(
+        {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          stepInflightId,
+          runToken: params.runToken,
+          pendingCancelCleared,
+          lockReleased,
+          cleanupEndState: snapshotFlowRuntimeCleanupState(
+            params.conversationId,
+          ),
+        },
+        'flows runtime cleanup finished',
+      );
     }
   };
 
@@ -2524,6 +2665,7 @@ async function runFlowUnlocked(params: {
         runtime: instructionParams.runtime,
         attempt,
         runToken: params.runToken,
+        onStopUnwindCheckpoint: params.onStopUnwindCheckpoint,
         cleanupInflightFn,
         onResult: (candidate) => {
           if (
@@ -2620,6 +2762,12 @@ async function runFlowUnlocked(params: {
 
       if (!shouldStopAfter(result.status)) {
         stepInflightId = crypto.randomUUID();
+      } else {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runInstruction.return.stop',
+          conversationId: params.conversationId,
+          detail: `status=${result.status} step=${instructionParams.command?.stepIndex ?? 'none'}`,
+        });
       }
       return result;
     }
@@ -2781,6 +2929,11 @@ async function runFlowUnlocked(params: {
     });
 
     if (shouldStopAfter(result.status)) {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runBreakStep.return.stop',
+        conversationId: params.conversationId,
+        detail: `status=${result.status} step=${command.stepIndex}`,
+      });
       return { status: result.status, shouldBreak: false };
     }
 
@@ -3237,6 +3390,20 @@ async function runFlowUnlocked(params: {
     loopStack.push(loopFrame);
     let resumeForLoop = resumePath;
     while (true) {
+      const pendingCancelBeforeIteration = consumePendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+      });
+      if (pendingCancelBeforeIteration) {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint:
+            'runStartLoopStep.return.stop.pending_cancel.before_iteration',
+          conversationId: params.conversationId,
+          detail: `loopDepth=${loopStack.length} loopPath=${nextPath.join('.')}`,
+        });
+        loopStack.pop();
+        return 'stopped';
+      }
       loopFrame.iteration += 1;
       const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
       if (resumeForLoop) resumeForLoop = null;
@@ -3245,8 +3412,31 @@ async function runFlowUnlocked(params: {
         break;
       }
       if (outcome !== 'ok') {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runStartLoopStep.return.non_ok',
+          conversationId: params.conversationId,
+          detail: `outcome=${outcome} loopDepth=${loopStack.length}`,
+        });
         loopStack.pop();
         return outcome;
+      }
+      await params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runStartLoopStep.before_next_iteration',
+        conversationId: params.conversationId,
+        detail: `loopDepth=${loopStack.length} loopPath=${nextPath.join('.')}`,
+      });
+      const pendingCancel = consumePendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+      });
+      if (pendingCancel) {
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runStartLoopStep.return.stop.pending_cancel',
+          conversationId: params.conversationId,
+          detail: `loopDepth=${loopStack.length} loopPath=${nextPath.join('.')}`,
+        });
+        loopStack.pop();
+        return 'stopped';
       }
     }
     lastCompletedStepPath = nextPath;
@@ -3323,6 +3513,11 @@ async function runFlowUnlocked(params: {
         });
         const status = await runLlmStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.llm',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3364,6 +3559,11 @@ async function runFlowUnlocked(params: {
         });
         const { status, shouldBreak } = await runBreakStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.break',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3412,6 +3612,11 @@ async function runFlowUnlocked(params: {
         });
         const status = await runCommandStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.command',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3453,6 +3658,11 @@ async function runFlowUnlocked(params: {
         });
         const status = await runReingestStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.reingest',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistFlowResumeState({
             conversationId: params.conversationId,
             executionId: params.executionId,
@@ -3486,7 +3696,18 @@ async function runFlowUnlocked(params: {
 
   try {
     const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
-    if (outcome !== 'ok') return;
+    if (outcome !== 'ok') {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.return.non_ok',
+        conversationId: params.conversationId,
+        detail: `outcome=${outcome}`,
+      });
+      return;
+    }
+    params.onStopUnwindCheckpoint?.({
+      checkpoint: 'runFlowUnlocked.return.ok',
+      conversationId: params.conversationId,
+    });
   } finally {
     finalizeFlowRuntime();
   }
@@ -3770,8 +3991,13 @@ export async function startFlowRun(
         resumeStepPath,
         customTitle: params.customTitle,
         runToken,
+        onStopUnwindCheckpoint: params.onStopUnwindCheckpoint,
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
+      });
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
+        conversationId,
       });
     } catch (err) {
       if ((err as FlowRunError | undefined)?.code) {
@@ -3786,10 +4012,19 @@ export async function startFlowRun(
         );
       }
     } finally {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'startFlowRun.async.finally.enter',
+        conversationId,
+      });
       cleanupPendingConversationCancel({ conversationId, runToken });
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
-      releaseConversationLockFn(conversationId, runToken);
+      const released = releaseConversationLockFn(conversationId, runToken);
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'startFlowRun.async.finally.exit',
+        conversationId,
+        detail: `lockReleased=${String(released)}`,
+      });
     }
   })();
 

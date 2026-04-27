@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -26,6 +25,7 @@ import {
   stopMock,
   type MockScenario,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 setDefaultTimeout(10000);
 
@@ -37,6 +37,7 @@ let expectedFiles = 0;
 
 Before(async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -72,7 +73,7 @@ Before(async () => {
 After(async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   if (tempDir) {
@@ -81,6 +82,7 @@ After(async () => {
   }
   lastRunId = null;
   expectedFiles = 0;
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   await clearLockedModel();
 });
 
@@ -90,7 +92,7 @@ Given('ingest status models scenario {string}', (name: string) => {
 
 Given('temp repo for ingest status with {int} files', async (count: number) => {
   expectedFiles = count;
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-status-'));
+  tempDir = await createTempRepoRoot('ingest-status-');
   for (let i = 0; i < count; i += 1) {
     const rel = `file-${i + 1}.txt`;
     const filePath = path.join(tempDir, rel);
@@ -102,7 +104,7 @@ When(
   'I POST ingest start for status with model {string}',
   async (model: string) => {
     if (!tempDir) {
-      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-status-'));
+      tempDir = await createTempRepoRoot('ingest-status-');
       expectedFiles = 1;
       await fs.writeFile(path.join(tempDir, 'file-1.txt'), 'content');
     }

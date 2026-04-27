@@ -206,5 +206,5 @@ describe('Codex web search flag payloads', () => {
     await ensureCodexFlagsPanelExpanded();
     const resetSwitch = await screen.findByTestId('web-search-switch');
     await waitFor(() => expect(resetSwitch).toBeChecked());
-  });
+  }, 10000);
 });

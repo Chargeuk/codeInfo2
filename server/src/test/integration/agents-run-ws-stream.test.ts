@@ -41,6 +41,7 @@ class StreamingChat extends ChatInterface {
       return true;
     };
 
+    if (abortIfNeeded()) return;
     this.emit('thread', { type: 'thread', threadId: conversationId });
     this.emit('analysis', { type: 'analysis', content: 'thinking...' });
     await delay(50);
@@ -55,6 +56,28 @@ class StreamingChat extends ChatInterface {
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
+
+test('StreamingChat rejects already-aborted state before transcript events', async () => {
+  const chat = new StreamingChat();
+  const controller = new AbortController();
+  const events: string[] = [];
+  controller.abort();
+
+  chat.on('error', () => events.push('error'));
+  chat.on('thread', () => events.push('thread'));
+  chat.on('analysis', () => events.push('analysis'));
+  chat.on('token', () => events.push('token'));
+  chat.on('final', () => events.push('final'));
+
+  await chat.execute(
+    'Hello',
+    { signal: controller.signal },
+    'agents-preaborted-conv',
+    'model',
+  );
+
+  assert.deepEqual(events, ['error']);
+});
 
 test('Agents runs publish WS transcript events while the run is in progress', async () => {
   assert.equal(

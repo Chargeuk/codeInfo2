@@ -1,0 +1,4 @@
+
+> codeinfo2@1.0.0 compose:down
+> bash ./scripts/docker-compose-with-env.sh --env-file server/.env --env-file server/.env.local down
+

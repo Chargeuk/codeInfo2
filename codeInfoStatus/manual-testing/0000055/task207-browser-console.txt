@@ -1,0 +1,4 @@
+Task 207 browser console check on 2026-04-27
+Surface: http://localhost:5001/ingest
+Method: Playwright MCP browser_console_messages(level="error")
+Result: No error-level console messages were present during the queued-row and details-dialog validation pass.

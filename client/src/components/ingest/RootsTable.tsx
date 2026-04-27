@@ -22,6 +22,7 @@ import { createLogger } from '../../logging';
 
 export type RootsTableProps = {
   roots: IngestRoot[];
+  activeRunId?: string;
   lockedModelId?: string;
   lockedModel?: {
     embeddingProvider?: 'lmstudio' | 'openai';
@@ -30,7 +31,9 @@ export type RootsTableProps = {
   };
   isLoading: boolean;
   error?: string;
+  warning?: string;
   disabled?: boolean;
+  hasActiveRun?: boolean;
   onRefresh: () => Promise<void> | void;
   onRunStarted?: (runId: string) => void;
   onShowDetails?: (root: IngestRoot) => void;
@@ -40,6 +43,20 @@ export type RootsTableProps = {
 type ActionState = {
   status: 'idle' | 'loading' | 'success' | 'error';
   message?: string;
+};
+
+type ActionResult = {
+  ok: boolean;
+  path: string;
+};
+
+type BulkActionTarget = {
+  selectionKey: string;
+  path: string;
+};
+
+type BulkActionResult = ActionResult & {
+  selectionKey: string;
 };
 
 const statusColor: Record<
@@ -55,13 +72,81 @@ const statusColor: Record<
   error: 'error',
 };
 
+function blocksDestructiveAction(root: IngestRoot) {
+  return (
+    root.status === 'ingesting' ||
+    root.queueState === 'waiting' ||
+    root.queueState === 'running' ||
+    root.queueState === 'cleanup-blocked'
+  );
+}
+
+function blocksUserRemove(root: IngestRoot) {
+  return blocksDestructiveAction(root);
+}
+
+function blocksSharedSelection(root: IngestRoot, activeRunId?: string) {
+  return (
+    blocksDestructiveAction(root) ||
+    (typeof activeRunId === 'string' &&
+      activeRunId.length > 0 &&
+      root.runId === activeRunId)
+  );
+}
+
+function getRootEmbeddingDisplay(root: IngestRoot) {
+  const provider =
+    root.queueState === 'waiting'
+      ? (root.embeddingProvider ?? root.lock?.embeddingProvider)
+      : root.embeddingProvider;
+  const model =
+    root.queueState === 'waiting'
+      ? (root.embeddingModel ?? root.model)
+      : (root.embeddingModel ?? root.model);
+  if (provider && model) {
+    return `${provider} / ${model}`;
+  }
+  return model ?? '—';
+}
+
+function getRootSelectionKey(root: IngestRoot) {
+  return root.id || root.path;
+}
+
+function getRootReembedPath(root: IngestRoot) {
+  return root.id || root.path;
+}
+
+function getRootRemovePath(root: IngestRoot) {
+  return root.path;
+}
+
+function getRootActionStatusKeys(root: IngestRoot) {
+  return Array.from(
+    new Set([getRootReembedPath(root), getRootRemovePath(root)]),
+  );
+}
+
+function getRenderableRootError(root: IngestRoot) {
+  if (
+    root.status === 'ingesting' &&
+    (root.queueState === 'waiting' || root.queueState === 'running')
+  ) {
+    return null;
+  }
+  return root.lastError ?? root.error?.message ?? root.error?.details;
+}
+
 export default function RootsTable({
   roots,
+  activeRunId,
   lockedModelId,
   lockedModel,
   isLoading,
   error,
+  warning,
   disabled,
+  hasActiveRun = false,
   onRefresh,
   onRunStarted,
   onShowDetails,
@@ -86,8 +171,100 @@ export default function RootsTable({
         .filter(Boolean)
         .join(' · ')
     : null;
+  const selectableRootPaths = useMemo(
+    () =>
+      new Set(
+        roots
+          .filter((root) => !blocksSharedSelection(root, activeRunId))
+          .map((root) => getRootSelectionKey(root)),
+      ),
+    [activeRunId, roots],
+  );
+  const rootSelectionKeys = useMemo(
+    () => new Set(roots.map((root) => getRootSelectionKey(root))),
+    [roots],
+  );
+  const rootsBySelectionKey = useMemo(
+    () =>
+      new Map(
+        roots.map((root) => [
+          getRootSelectionKey(root),
+          {
+            root,
+            selectionKey: getRootSelectionKey(root),
+            reembedPath: getRootReembedPath(root),
+            removePath: getRootRemovePath(root),
+          },
+        ]),
+      ),
+    [roots],
+  );
+  const selectedEligibleRoots = useMemo(
+    () =>
+      Array.from(selected)
+        .map((selectionKey) => rootsBySelectionKey.get(selectionKey))
+        .filter(
+          (
+            entry,
+          ): entry is {
+            root: IngestRoot;
+            selectionKey: string;
+            reembedPath: string;
+            removePath: string;
+          } => {
+            if (!entry) {
+              return false;
+            }
+            return selectableRootPaths.has(entry.selectionKey);
+          },
+        ),
+    [rootsBySelectionKey, selectableRootPaths, selected],
+  );
+  const selectedStaleCurrentKeys = useMemo(
+    () =>
+      Array.from(selected).filter(
+        (selectionKey) =>
+          rootSelectionKeys.has(selectionKey) &&
+          !selectableRootPaths.has(selectionKey),
+      ),
+    [rootSelectionKeys, selectableRootPaths, selected],
+  );
+  const removableSelectedTargets: BulkActionTarget[] = useMemo(
+    () =>
+      selectedEligibleRoots.map((entry) => ({
+        selectionKey: entry.selectionKey,
+        path: entry.removePath,
+      })),
+    [selectedEligibleRoots],
+  );
+  const reembeddableSelectedTargets: BulkActionTarget[] = useMemo(
+    () =>
+      selectedEligibleRoots.map((entry) => ({
+        selectionKey: entry.selectionKey,
+        path: entry.reembedPath,
+      })),
+    [selectedEligibleRoots],
+  );
+  const canBulkRemove =
+    !busy && !hasActiveRun && removableSelectedTargets.length > 0;
+  const selectableRootCount = selectableRootPaths.size;
+  const selectedSelectableCount = selectedEligibleRoots.length;
+  const allSelectableSelected =
+    selectableRootCount > 0 && selectedSelectableCount === selectableRootCount;
+
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = new Set(
+        Array.from(prev).filter((path) => selectableRootPaths.has(path)),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+  }, [selectableRootPaths]);
 
   const toggle = (path: string) => {
+    if (!selectableRootPaths.has(path)) {
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
@@ -103,9 +280,7 @@ export default function RootsTable({
     setActionState((prev) => ({ ...prev, [path]: status }));
   };
 
-  const clearSelection = () => setSelected(new Set());
-
-  const doReembed = async (path: string) => {
+  const doReembed = async (path: string): Promise<ActionResult> => {
     setStatus(path, { status: 'loading', message: 'Starting re-embed…' });
     try {
       const res = await fetch(
@@ -116,19 +291,50 @@ export default function RootsTable({
         { method: 'POST', headers: { 'content-type': 'application/json' } },
       );
       if (!res.ok) throw new Error(`Re-embed failed (${res.status})`);
-      const data = (await res.json()) as { runId?: string };
-      if (data?.runId) {
-        onRunStarted?.(data.runId);
+      const data = (await res.json()) as {
+        queued?: boolean;
+        requestId?: string;
+        runId?: string;
+        queueState?: 'running' | null;
+        queuePosition?: number | null;
+      };
+      if (typeof data.requestId !== 'string' || data.requestId.length === 0) {
+        throw new Error('Missing requestId in response');
       }
-      setStatus(path, { status: 'success', message: 'Re-embed started' });
-      await onRefresh();
-      await onRefreshModels?.();
+      const isWaiting = data.queued === true;
+      const runId =
+        typeof data.runId === 'string' && data.runId.length > 0
+          ? data.runId
+          : undefined;
+      if (isWaiting) {
+        setStatus(path, {
+          status: 'success',
+          message: `Queued${
+            typeof data.queuePosition === 'number'
+              ? ` (#${data.queuePosition})`
+              : ''
+          }`,
+        });
+      } else if (runId || data.queueState === 'running') {
+        if (!runId) {
+          throw new Error('Malformed re-embed response');
+        }
+        onRunStarted?.(runId);
+        setStatus(path, {
+          status: 'success',
+          message: 'Re-embed started',
+        });
+      } else {
+        throw new Error('Malformed re-embed response');
+      }
+      return { ok: true, path };
     } catch (err) {
       setStatus(path, { status: 'error', message: (err as Error).message });
+      return { ok: false, path };
     }
   };
 
-  const doRemove = async (path: string) => {
+  const doRemove = async (path: string): Promise<ActionResult> => {
     setStatus(path, { status: 'loading', message: 'Removing…' });
     try {
       const res = await fetch(
@@ -140,34 +346,86 @@ export default function RootsTable({
       );
       if (!res.ok) throw new Error(`Remove failed (${res.status})`);
       setStatus(path, { status: 'success', message: 'Removed' });
-      await onRefresh();
-      await onRefreshModels?.();
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(path);
-        return next;
-      });
+      return { ok: true, path };
     } catch (err) {
       setStatus(path, { status: 'error', message: (err as Error).message });
+      return { ok: false, path };
     }
   };
 
+  const handleRowReembed = async (path: string) => {
+    const result = await doReembed(path);
+    if (!result.ok) {
+      return;
+    }
+    await onRefresh();
+    await onRefreshModels?.();
+  };
+
+  const handleRowRemove = async (path: string, selectionKey: string) => {
+    const result = await doRemove(path);
+    if (!result.ok) {
+      return;
+    }
+    await onRefresh();
+    await onRefreshModels?.();
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(selectionKey);
+      return next;
+    });
+  };
+
   const handleBulk = async (action: 'reembed' | 'remove') => {
-    if (!selected.size) return;
+    const targets =
+      action === 'remove'
+        ? removableSelectedTargets
+        : reembeddableSelectedTargets;
+    if (targets.length === 0) return;
     setBulkMessage({ status: 'loading', message: 'Working on selected…' });
-    try {
-      for (const path of selected) {
-        if (action === 'reembed') await doReembed(path);
-        if (action === 'remove') await doRemove(path);
+    const results: BulkActionResult[] = [];
+    for (const target of targets) {
+      if (action === 'reembed') {
+        results.push({
+          ...(await doReembed(target.path)),
+          selectionKey: target.selectionKey,
+        });
       }
+      if (action === 'remove') {
+        results.push({
+          ...(await doRemove(target.path)),
+          selectionKey: target.selectionKey,
+        });
+      }
+    }
+    const failedSelectionKeys = results
+      .filter((result) => !result.ok)
+      .map((result) => result.selectionKey);
+    const successCount = results.length - failedSelectionKeys.length;
+    if (successCount > 0) {
+      await onRefresh();
+      await onRefreshModels?.();
+    }
+    if (failedSelectionKeys.length === 0) {
       setBulkMessage({
         status: 'success',
         message: 'Finished selected actions',
       });
-      clearSelection();
-    } catch (err) {
-      setBulkMessage({ status: 'error', message: (err as Error).message });
+      setSelected(new Set(selectedStaleCurrentKeys));
+      return;
     }
+    setSelected(new Set([...selectedStaleCurrentKeys, ...failedSelectionKeys]));
+    if (successCount === 0) {
+      setBulkMessage({
+        status: 'error',
+        message: `${failedSelectionKeys.length} selected action${failedSelectionKeys.length === 1 ? '' : 's'} failed. The failed row${failedSelectionKeys.length === 1 ? ' remains' : 's remain'} selected for retry.`,
+      });
+      return;
+    }
+    setBulkMessage({
+      status: 'error',
+      message: `Partial failure: ${successCount} of ${results.length} selected actions completed. ${failedSelectionKeys.length} failed and remain selected for retry.`,
+    });
   };
 
   const headerActions = useMemo(
@@ -258,6 +516,7 @@ export default function RootsTable({
   return (
     <Stack spacing={2}>
       {headerActions}
+      {warning ? <Alert severity="warning">{warning}</Alert> : null}
 
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="body2" color="text.secondary">
@@ -267,7 +526,7 @@ export default function RootsTable({
           variant="outlined"
           size="small"
           onClick={() => void handleBulk('reembed')}
-          disabled={busy || selected.size === 0}
+          disabled={busy || reembeddableSelectedTargets.length === 0}
         >
           Re-embed selected
         </Button>
@@ -276,7 +535,7 @@ export default function RootsTable({
           color="error"
           size="small"
           onClick={() => void handleBulk('remove')}
-          disabled={busy || selected.size === 0}
+          disabled={!canBulkRemove}
         >
           Remove selected
         </Button>
@@ -298,18 +557,25 @@ export default function RootsTable({
                 <Checkbox
                   inputProps={{ 'aria-label': 'Select all roots' }}
                   indeterminate={
-                    selected.size > 0 && selected.size < roots.length
+                    selectedSelectableCount > 0 &&
+                    selectedSelectableCount < selectableRootCount
                   }
-                  checked={roots.length > 0 && selected.size === roots.length}
-                  disabled={busy}
+                  checked={allSelectableSelected}
+                  disabled={busy || selectableRootCount === 0}
                   onChange={() => {
                     if (busy) return;
-                    const allSelected = selected.size === roots.length;
-                    setSelected(
-                      allSelected
-                        ? new Set()
-                        : new Set(roots.map((r) => r.path)),
-                    );
+                    const allSelected = allSelectableSelected;
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      for (const path of selectableRootPaths) {
+                        if (allSelected) {
+                          next.delete(path);
+                        } else {
+                          next.add(path);
+                        }
+                      }
+                      return next;
+                    });
                   }}
                 />
               </TableCell>
@@ -324,30 +590,47 @@ export default function RootsTable({
           </TableHead>
           <TableBody>
             {roots.map((root) => {
-              const state = actionState[root.path]?.status;
-              const message = actionState[root.path]?.message;
+              const reembedPath = getRootReembedPath(root);
+              const removePath = getRootRemovePath(root);
+              const activeActionState =
+                getRootActionStatusKeys(root)
+                  .map((statusKey) => actionState[statusKey])
+                  .find((status) => status?.status === 'loading') ??
+                getRootActionStatusKeys(root)
+                  .map((statusKey) => actionState[statusKey])
+                  .find(Boolean);
+              const state = activeActionState?.status;
+              const message = activeActionState?.message;
               const rowDisabled = busy || state === 'loading';
-              const isSelected = selected.has(root.path);
+              const reembedDisabled =
+                rowDisabled || blocksSharedSelection(root, activeRunId);
+              const removeDisabled =
+                rowDisabled || hasActiveRun || blocksUserRemove(root);
+              const rowKey = getRootSelectionKey(root);
+              const isSelected = selected.has(rowKey);
               const chipColor = statusColor[root.status] ?? 'default';
               const phase =
                 root.status === 'ingesting' ? root.phase : undefined;
-              const statusLabel = phase
-                ? `${root.status} (${phase})`
-                : root.status;
-              const rootModelDisplay =
-                root.embeddingModel && root.embeddingProvider
-                  ? `${root.embeddingProvider} / ${root.embeddingModel}`
-                  : root.model;
-              const rootError =
-                root.lastError ?? root.error?.message ?? root.error?.details;
+              const statusLabel =
+                root.queueState === 'cleanup-blocked'
+                  ? 'cleanup blocked'
+                  : root.queueState === 'waiting'
+                    ? `queued${typeof root.queuePosition === 'number' ? ` (#${root.queuePosition})` : ''}`
+                    : phase
+                      ? `${root.status} (${phase})`
+                      : root.status;
+              const rootModelDisplay = getRootEmbeddingDisplay(root);
+              const rootError = getRenderableRootError(root);
               const astCounts = root.ast;
               return (
-                <TableRow key={root.path} hover selected={isSelected}>
+                <TableRow key={rowKey} hover selected={isSelected}>
                   <TableCell padding="checkbox">
                     <Checkbox
                       checked={isSelected}
-                      disabled={busy}
-                      onChange={() => toggle(root.path)}
+                      disabled={
+                        busy || blocksSharedSelection(root, activeRunId)
+                      }
+                      onChange={() => toggle(rowKey)}
                       inputProps={{ 'aria-label': `Select ${root.name}` }}
                     />
                   </TableCell>
@@ -403,8 +686,8 @@ export default function RootsTable({
                       <Button
                         variant="text"
                         size="small"
-                        onClick={() => void doReembed(root.path)}
-                        disabled={rowDisabled}
+                        onClick={() => void handleRowReembed(reembedPath)}
+                        disabled={reembedDisabled}
                       >
                         Re-embed
                       </Button>
@@ -412,8 +695,8 @@ export default function RootsTable({
                         variant="text"
                         color="error"
                         size="small"
-                        onClick={() => void doRemove(root.path)}
-                        disabled={rowDisabled}
+                        onClick={() => void handleRowRemove(removePath, rowKey)}
+                        disabled={removeDisabled}
                       >
                         Remove
                       </Button>
@@ -440,11 +723,6 @@ export default function RootsTable({
                         color={state === 'error' ? 'error' : 'text.secondary'}
                       >
                         {message}
-                      </Typography>
-                    ) : null}
-                    {root.lastError ? (
-                      <Typography variant="body2" color="error">
-                        Last error: {root.lastError}
                       </Typography>
                     ) : null}
                   </TableCell>

@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -32,7 +31,7 @@ import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { AstCoverageModel } from '../../mongo/astCoverage.js';
-import { isMongoConnected } from '../../mongo/connection.js';
+import { disconnectMongo, isMongoConnected } from '../../mongo/connection.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -44,12 +43,14 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
 let lastStatus: { state?: string; message?: string } | null = null;
+let lastResponse: { status: number; body: unknown } | null = null;
 
 const originalHashesByRelPath = new Map<string, string>();
 const previousHashesByRelPath = new Map<string, string>();
@@ -57,9 +58,18 @@ let rememberedVectorCount: number | null = null;
 let rememberedRunId: string | null = null;
 let rememberedAstCoverageTimestamp: string | null = null;
 
+function buildGeneratedRelPaths(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) =>
+    path.posix.join(
+      prefix,
+      `generated-${String(index + 1).padStart(3, '0')}.md`,
+    ),
+  );
+}
+
 async function ensureTempDir() {
   if (tempDir) return tempDir;
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-delta-'));
+  tempDir = await createTempRepoRoot('ingest-delta-');
   return tempDir;
 }
 
@@ -134,7 +144,7 @@ Before(async () => {
 After(async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   if (tempDir) {
@@ -143,6 +153,7 @@ After(async () => {
   }
   lastRunId = null;
   lastStatus = null;
+  lastResponse = null;
   rememberedVectorCount = null;
   rememberedRunId = null;
   rememberedAstCoverageTimestamp = null;
@@ -184,6 +195,20 @@ Given(
   },
 );
 
+Given(
+  'ingest delta temp repo with {int} generated files under {string} containing {string}',
+  async (count: number, prefix: string, content: string) => {
+    const dir = await ensureTempDir();
+    for (const rel of buildGeneratedRelPaths(prefix, count)) {
+      const filePath = path.join(dir, rel);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, content);
+      const fileHash = await hashFile(filePath);
+      originalHashesByRelPath.set(rel, fileHash);
+    }
+  },
+);
+
 When(
   'I POST ingest start for the delta repo with model {string}',
   async (model: string) => {
@@ -194,6 +219,7 @@ When(
       body: JSON.stringify({ path: dir, name: 'tmp', model }),
     });
     const body = (await res.json()) as { runId?: string };
+    lastResponse = { status: res.status, body };
     if (res.status === 202) {
       lastRunId = body.runId ?? null;
     }
@@ -207,6 +233,7 @@ When('I POST ingest reembed for the delta repo', async () => {
     { method: 'POST' },
   );
   const body = (await res.json()) as { runId?: string };
+  lastResponse = { status: res.status, body };
   if (res.status === 202) {
     lastRunId = body.runId ?? null;
   }
@@ -254,6 +281,19 @@ When('I delete ingest delta temp file {string}', async (rel: string) => {
   await fs.rm(filePath, { force: true });
 });
 
+When(
+  'I delete {int} generated ingest delta temp files under {string}',
+  async (count: number, prefix: string) => {
+    assert(tempDir, 'temp dir missing');
+    for (const rel of buildGeneratedRelPaths(prefix, count)) {
+      const filePath = path.join(tempDir, rel);
+      const before = await hashFile(filePath);
+      previousHashesByRelPath.set(rel, before);
+      await fs.rm(filePath, { force: true });
+    }
+  },
+);
+
 When('I remember ingest delta vector count for the delta repo', async () => {
   assert(tempDir, 'temp dir missing');
   rememberedVectorCount = await vectorCountForRoot(tempDir);
@@ -278,12 +318,39 @@ Then(
     assert(lastRunId, 'runId missing');
     for (let i = 0; i < 120; i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-      const body = (await res.json()) as { state?: string; message?: string };
+      const body = (await res.json()) as {
+        state?: string;
+        message?: string;
+        lastError?: string | null;
+        error?: {
+          error?: string;
+          message?: string;
+          retryable?: boolean;
+          provider?: string;
+          upstreamStatus?: number;
+          retryAfterMs?: number;
+        } | null;
+      };
       lastStatus = body;
-      if (body.state === state || body.state === 'error') return;
+      if (body.state === state) return;
+      if (body.state === 'error' && state !== 'error') {
+        throw new Error(
+          `Run ended in error: ${body.lastError ?? body.error?.message ?? body.message ?? 'unknown error'}` +
+            ` [code=${body.error?.error ?? 'unknown'}]`,
+        );
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);
+  },
+);
+
+Then(
+  'ingest delta response status is {int} with code {string}',
+  (status: number, code: string) => {
+    assert(lastResponse, 'missing last response');
+    assert.equal(lastResponse.status, status);
+    assert.equal((lastResponse.body as { code?: string }).code, code);
   },
 );
 
@@ -350,6 +417,20 @@ Then(
 );
 
 Then(
+  'ingest delta vectors under {string} should be absent',
+  async (prefix: string) => {
+    assert(tempDir, 'temp dir missing');
+    const raw = await vectorIdsFor({ root: tempDir });
+    const remaining = raw.metadatas.filter((metadata) =>
+      String((metadata as Metadata | undefined)?.relPath ?? '').startsWith(
+        `${prefix}/`,
+      ),
+    );
+    assert.equal(remaining.length, 0);
+  },
+);
+
+Then(
   'ingest delta ingest_files row for {string} should equal the current hash',
   async (rel: string) => {
     assert(tempDir, 'temp dir missing');
@@ -373,6 +454,22 @@ Then(
       .lean()
       .exec();
     assert.equal(row, null);
+  },
+);
+
+Then(
+  'ingest delta ingest_files rows under {string} should be absent',
+  async (prefix: string) => {
+    assert(tempDir, 'temp dir missing');
+    assert(isMongoConnected(), 'mongo should be connected for this step');
+    const rows = (await IngestFileModel.find({ root: tempDir })
+      .select({ _id: 0, relPath: 1 })
+      .lean()
+      .exec()) as Array<{ relPath: string }>;
+    const remaining = rows.filter((row) =>
+      row.relPath.startsWith(`${prefix}/`),
+    );
+    assert.deepEqual(remaining, []);
   },
 );
 
@@ -435,6 +532,18 @@ Then(
   },
 );
 
+When('I disconnect ingest delta mongo before reembed', async () => {
+  await disconnectMongo();
+});
+
+Then('ingest delta mongo should already be disconnected', () => {
+  assert.equal(
+    isMongoConnected(),
+    false,
+    'expected ingest delta mongo to already be disconnected before this assertion step',
+  );
+});
+
 Then('ingest delta mongo should be disconnected', () => {
   assert.equal(isMongoConnected(), false);
 });
@@ -444,7 +553,7 @@ Then('I remember the ingest delta runId', () => {
   rememberedRunId = lastRunId;
 });
 
-Then('I delete all ingest_files rows for the delta repo root', async () => {
+When('I delete all ingest_files rows for the delta repo root', async () => {
   assert(tempDir, 'temp dir missing');
   assert(isMongoConnected(), 'mongo should be connected for this step');
   await IngestFileModel.deleteMany({ root: tempDir }).exec();

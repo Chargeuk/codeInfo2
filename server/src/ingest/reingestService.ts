@@ -1,24 +1,39 @@
 import path from 'path';
-import type { LMStudioClient } from '@lmstudio/sdk';
-import { getClient } from '../lmstudio/clientPool.js';
 import {
   listIngestedRepositories,
   type ListReposResult,
+  type RepoEntry,
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
-import { toWebSocketUrl } from '../routes/lmstudioUrl.js';
+import { InvalidLockMetadataError } from './chromaClient.js';
 import {
-  getStatus,
-  isBusy,
-  reembed,
-  type WaitForTerminalIngestStatusOptions,
-  type WaitForTerminalIngestStatusResult,
-  waitForTerminalIngestStatus,
+  pumpIngestQueue,
+  QUEUE_READ_FAILED_WAIT_REASON,
+  type WaitForQueueRequestTerminalStatusOptions,
+  type WaitForQueueRequestTerminalStatusResult,
+  waitForQueueRequestTerminalStatus,
 } from './ingestJob.js';
+import { resolveMountedIngestPath } from './pathMap.js';
+import {
+  OpenAiEmbeddingError,
+  isOpenAiAllowlistedEmbeddingModel,
+} from './providers/index.js';
+import {
+  assertReembedRootStateAllowed,
+  normalizeCanonicalQueueTargetPath,
+  splitQueuedIngestExecutionPath,
+} from './requestContracts.js';
+import {
+  enqueueOrReuseIngestRequest,
+  type EnqueueIngestRequestResult,
+} from './requestQueue.js';
 
 const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
   'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.';
+const QUEUE_WAIT_READ_FAILURE_MESSAGE =
+  'Mongo-backed ingest queue is unavailable while waiting for re-ingest completion';
+export const REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 type ValidationReason =
   | 'missing'
@@ -58,9 +73,29 @@ type NotFoundData = ReingestRetryLists & {
   fieldErrors: ValidationFieldError[];
 };
 
-type BusyData = ReingestRetryLists & {
+type QueueUnavailableData = ReingestRetryLists & {
   tool: typeof TOOL_NAME;
-  code: 'BUSY';
+  code: 'QUEUE_UNAVAILABLE';
+  retryable: true;
+  retryMessage: string;
+  fieldErrors: ValidationFieldError[];
+  queueFailureStage?: 'wait';
+  waitReason?: typeof QUEUE_READ_FAILED_WAIT_REASON;
+};
+
+type QueueCleanupBlockedData = ReingestRetryLists & {
+  tool: typeof TOOL_NAME;
+  code: 'QUEUE_CLEANUP_BLOCKED';
+  retryable: true;
+  retryMessage: string;
+  fieldErrors: ValidationFieldError[];
+  sourceId: string;
+  runId: string | null;
+};
+
+type OpenAiModelUnavailableData = ReingestRetryLists & {
+  tool: typeof TOOL_NAME;
+  code: 'OPENAI_MODEL_UNAVAILABLE';
   retryable: true;
   retryMessage: string;
   fieldErrors: ValidationFieldError[];
@@ -78,9 +113,19 @@ export type ReingestError =
       data: NotFoundData;
     }
   | {
-      code: 429;
-      message: 'BUSY';
-      data: BusyData;
+      code: 503;
+      message: 'QUEUE_UNAVAILABLE';
+      data: QueueUnavailableData;
+    }
+  | {
+      code: 503;
+      message: 'QUEUE_CLEANUP_BLOCKED';
+      data: QueueCleanupBlockedData;
+    }
+  | {
+      code: 409;
+      message: 'OPENAI_MODEL_UNAVAILABLE';
+      data: OpenAiModelUnavailableData;
     };
 
 type ReingestTerminalStatus = 'completed' | 'cancelled' | 'error';
@@ -105,26 +150,22 @@ export type ReingestResult =
 
 export type ReingestServiceDeps = {
   listIngestedRepositories?: () => Promise<ListReposResult>;
-  isBusy?: () => boolean;
-  reembed?: (
-    rootPath: string,
-    deps: {
-      lmClientFactory: (baseUrl: string) => LMStudioClient;
-      baseUrl: string;
-    },
-  ) => Promise<string>;
-  lmClientFactory?: (baseUrl: string) => LMStudioClient;
-  lmBaseUrl?: string;
+  enqueueOrReuseIngestRequest?: (
+    input: Parameters<typeof enqueueOrReuseIngestRequest>[0],
+  ) => Promise<EnqueueIngestRequestResult>;
   appendLog?: (entry: Parameters<typeof append>[0]) => unknown;
-  waitForTerminalIngestStatus?: (
-    runId: string,
-    options: WaitForTerminalIngestStatusOptions,
-  ) => Promise<WaitForTerminalIngestStatusResult>;
-  waitOptions?: Partial<WaitForTerminalIngestStatusOptions>;
+  pumpIngestQueue?: typeof pumpIngestQueue;
+  waitForQueueRequestTerminalStatus?: (
+    requestId: string,
+    options: WaitForQueueRequestTerminalStatusOptions,
+  ) => Promise<WaitForQueueRequestTerminalStatusResult>;
+  waitOptions?: Partial<WaitForQueueRequestTerminalStatusOptions>;
 };
 
-function normalizePosixPath(rawPath: string) {
-  return path.posix.normalize(rawPath.replace(/\\/g, '/'));
+export function isRepoReingestable(repo: RepoEntry): boolean {
+  return (
+    typeof repo.lastIngestAt === 'string' && repo.lastIngestAt.trim().length > 0
+  );
 }
 
 function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
@@ -132,9 +173,12 @@ function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
   const sourceIds = new Set<string>();
 
   repos.repos.forEach((repo) => {
+    if (!isRepoReingestable(repo)) {
+      return;
+    }
     if (repo.id) repositoryIds.add(repo.id);
     if (repo.containerPath) {
-      sourceIds.add(normalizePosixPath(repo.containerPath));
+      sourceIds.add(normalizeCanonicalQueueTargetPath(repo.containerPath));
     }
   });
 
@@ -145,6 +189,13 @@ function buildRetryLists(repos: ListReposResult): ReingestRetryLists {
     reingestableSourceIds: Array.from(sourceIds).sort((a, b) =>
       a.localeCompare(b),
     ),
+  };
+}
+
+function emptyRetryLists(): ReingestRetryLists {
+  return {
+    reingestableRepositoryIds: [],
+    reingestableSourceIds: [],
   };
 }
 
@@ -195,23 +246,69 @@ function notFoundError(retryLists: ReingestRetryLists): ReingestError {
   };
 }
 
-function busyError(retryLists: ReingestRetryLists): ReingestError {
+function queueUnavailableError(
+  retryLists: ReingestRetryLists,
+  message: string,
+  options?: {
+    queueFailureStage?: 'wait';
+    waitReason?: typeof QUEUE_READ_FAILED_WAIT_REASON;
+  },
+): ReingestError {
   return {
-    code: 429,
-    message: 'BUSY',
+    code: 503,
+    message: 'QUEUE_UNAVAILABLE',
     data: {
       tool: TOOL_NAME,
-      code: 'BUSY',
+      code: 'QUEUE_UNAVAILABLE',
       retryable: true,
       retryMessage: RETRY_MESSAGE,
       fieldErrors: [
         {
           field: 'sourceId',
-          reason: 'busy',
-          message: 'reingest is currently locked by another ingest operation',
+          reason: 'invalid_state',
+          message,
         },
       ],
+      ...(options?.queueFailureStage
+        ? { queueFailureStage: options.queueFailureStage }
+        : {}),
+      ...(options?.waitReason ? { waitReason: options.waitReason } : {}),
       ...retryLists,
+    },
+  };
+}
+
+function getQueueUnavailableMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return 'Mongo-backed ingest queue is unavailable while Mongo is disconnected';
+}
+
+function queueCleanupBlockedError(params: {
+  retryLists: ReingestRetryLists;
+  sourceId: string;
+  runId: string | null;
+  message: string;
+}): ReingestError {
+  return {
+    code: 503,
+    message: 'QUEUE_CLEANUP_BLOCKED',
+    data: {
+      ...params.retryLists,
+      tool: TOOL_NAME,
+      code: 'QUEUE_CLEANUP_BLOCKED',
+      retryable: true,
+      retryMessage: RETRY_MESSAGE,
+      sourceId: params.sourceId,
+      runId: params.runId,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message: params.message,
+        },
+      ],
     },
   };
 }
@@ -240,86 +337,200 @@ function invalidStateError(
   };
 }
 
+function openAiModelUnavailableError(
+  retryLists: ReingestRetryLists,
+  message: string,
+): ReingestError {
+  return {
+    code: 409,
+    message: 'OPENAI_MODEL_UNAVAILABLE',
+    data: {
+      tool: TOOL_NAME,
+      code: 'OPENAI_MODEL_UNAVAILABLE',
+      retryable: true,
+      retryMessage: RETRY_MESSAGE,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message,
+        },
+      ],
+      ...retryLists,
+    },
+  };
+}
+
+export function assertRepoCanQueueReingest(repo: RepoEntry) {
+  assertReembedRootStateAllowed(repo.status);
+}
+
+function normalizeRepoEmbeddingProvider(value: unknown) {
+  return value === 'lmstudio' || value === 'openai' ? value : null;
+}
+
+function normalizeRepoEmbeddingModel(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveQueuedReingestSelection(repo: RepoEntry) {
+  const canonicalProvider = normalizeRepoEmbeddingProvider(
+    repo.embeddingProvider,
+  );
+  const canonicalModel = normalizeRepoEmbeddingModel(repo.embeddingModel);
+  const lockProvider = normalizeRepoEmbeddingProvider(
+    repo.lock?.embeddingProvider,
+  );
+  const lockModel = normalizeRepoEmbeddingModel(repo.lock?.embeddingModel);
+
+  if (canonicalProvider === 'openai' && canonicalModel === null) {
+    throw new InvalidLockMetadataError(
+      'Canonical OpenAI re-embed metadata is partially populated',
+    );
+  }
+
+  const provider = lockProvider ?? canonicalProvider ?? repo.embeddingProvider;
+  const embeddingModel =
+    lockModel ??
+    canonicalModel ??
+    repo.lock?.embeddingModel ??
+    repo.embeddingModel;
+
+  if (provider === 'openai') {
+    if (
+      typeof embeddingModel !== 'string' ||
+      embeddingModel.trim().length === 0
+    ) {
+      throw new InvalidLockMetadataError(
+        'OpenAI re-embed metadata is partially populated',
+      );
+    }
+    if (!isOpenAiAllowlistedEmbeddingModel(embeddingModel)) {
+      throw new OpenAiEmbeddingError(
+        'OPENAI_MODEL_UNAVAILABLE',
+        'Requested OpenAI embedding model is unavailable for this deployment',
+        false,
+        404,
+      );
+    }
+  }
+
+  return {
+    provider,
+    embeddingModel:
+      typeof embeddingModel === 'string'
+        ? embeddingModel
+        : String(embeddingModel ?? ''),
+  };
+}
+
+export function assertRepoCanAdmitQueuedReingest(repo: RepoEntry) {
+  assertRepoCanQueueReingest(repo);
+  resolveQueuedReingestSelection(repo);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function createValidationError(
-  sourceId: unknown,
-  retryLists: ReingestRetryLists,
-): ReingestError | null {
+export function validateExactReingestSourceId(sourceId: unknown):
+  | { ok: true; sourceId: string }
+  | {
+      ok: false;
+      reason: ValidationReason;
+      message: string;
+    } {
   if (sourceId === undefined) {
-    return invalidParamsError('missing', 'sourceId is required', retryLists);
+    return {
+      ok: false,
+      reason: 'missing',
+      message: 'sourceId is required',
+    };
   }
 
   if (typeof sourceId !== 'string') {
-    return invalidParamsError(
-      'non_string',
-      'sourceId must be a string',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_string',
+      message: 'sourceId must be a string',
+    };
   }
 
   if (!sourceId.trim()) {
-    return invalidParamsError(
-      'empty',
-      'sourceId must be a non-empty string',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'empty',
+      message: 'sourceId must be a non-empty string',
+    };
   }
 
   const hasForwardSlash = sourceId.includes('/');
   const hasBackslash = sourceId.includes('\\');
   if (hasForwardSlash && hasBackslash) {
-    return invalidParamsError(
-      'ambiguous_path',
-      'sourceId must not mix slash styles',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'ambiguous_path',
+      message: 'sourceId must not mix slash styles',
+    };
   }
 
   if (sourceId.length > 1 && sourceId.endsWith('/')) {
-    return invalidParamsError(
-      'ambiguous_path',
-      'sourceId must not include a trailing slash variant',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'ambiguous_path',
+      message: 'sourceId must not include a trailing slash variant',
+    };
   }
 
   if (/\/(\.\.?)(\/|$)/.test(sourceId)) {
-    return invalidParamsError(
-      'ambiguous_path',
-      'sourceId must not include dot-segment path traversal forms',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'ambiguous_path',
+      message: 'sourceId must not include dot-segment path traversal forms',
+    };
   }
 
   if (!path.posix.isAbsolute(sourceId)) {
-    return invalidParamsError(
-      'non_absolute',
-      'sourceId must be an absolute normalized container path',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_absolute',
+      message: 'sourceId must be an absolute normalized container path',
+    };
   }
 
   if (hasBackslash) {
-    return invalidParamsError(
-      'non_normalized',
-      'sourceId must be an absolute normalized container path',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_normalized',
+      message: 'sourceId must be an absolute normalized container path',
+    };
   }
 
-  const normalized = normalizePosixPath(sourceId);
+  const normalized = normalizeCanonicalQueueTargetPath(sourceId);
   if (normalized !== sourceId) {
-    return invalidParamsError(
-      'non_normalized',
-      'sourceId must be an absolute normalized container path',
-      retryLists,
-    );
+    return {
+      ok: false,
+      reason: 'non_normalized',
+      message: 'sourceId must be an absolute normalized container path',
+    };
   }
 
-  return null;
+  return { ok: true, sourceId };
+}
+
+export function findReingestableRepoByExactSourceId(
+  repos: ListReposResult,
+  sourceId: string,
+): RepoEntry | null {
+  return (
+    repos.repos.find(
+      (repo) => isRepoReingestable(repo) && repo.containerPath === sourceId,
+    ) ?? null
+  );
 }
 
 function findUnsupportedArgKeys(args: unknown) {
@@ -391,46 +602,82 @@ function logNormalizedResult(
   });
 }
 
+export function buildQueuedReingestRequest(
+  repo: RepoEntry,
+): Parameters<typeof enqueueOrReuseIngestRequest>[0] {
+  assertRepoCanAdmitQueuedReingest(repo);
+  const { provider, embeddingModel } = resolveQueuedReingestSelection(repo);
+  const model =
+    provider === 'openai' ? `${provider}/${embeddingModel}` : embeddingModel;
+  const requestPaths = splitQueuedIngestExecutionPath({
+    canonicalTargetPath: repo.containerPath,
+    mountedPath: resolveMountedIngestPath({
+      containerPath: repo.containerPath,
+      hostPath: repo.hostPath,
+    }),
+  });
+  const stableName =
+    typeof repo.name === 'string' && repo.name.trim().length > 0
+      ? repo.name.trim()
+      : path.posix.basename(requestPaths.canonicalTargetPath) || 'repo';
+
+  return {
+    canonicalTargetPath: requestPaths.canonicalTargetPath,
+    operation: 'reembed',
+    sourceSurface: 'reingest_repository',
+    requestPayload: {
+      path: requestPaths.requestPayloadPath,
+      name: stableName,
+      ...(repo.description ? { description: repo.description } : {}),
+      model,
+      embeddingProvider: provider,
+      embeddingModel,
+    },
+  };
+}
+
 export async function runReingestRepository(
   args: unknown,
   deps: ReingestServiceDeps = {},
 ): Promise<ReingestResult> {
-  const WAIT_TIMEOUT_MS = deps.waitOptions?.timeoutMs ?? 90_000;
-  const WAIT_POLL_MS = deps.waitOptions?.pollMs ?? 100;
+  const WAIT_TIMEOUT_MS =
+    deps.waitOptions?.timeoutMs ?? REINGEST_QUEUE_WAIT_SAFETY_TIMEOUT_MS;
   const listRepos = deps.listIngestedRepositories ?? listIngestedRepositories;
-  const checkBusy = deps.isBusy ?? isBusy;
-  const runReembed = deps.reembed ?? reembed;
-  const lmClientFactory = deps.lmClientFactory ?? getClient;
-  const lmBaseUrl = toWebSocketUrl(
-    deps.lmBaseUrl ?? process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
-  );
   const appendLog = deps.appendLog ?? append;
-  const waitForTerminal =
-    deps.waitForTerminalIngestStatus ?? waitForTerminalIngestStatus;
+  const enqueueRequest =
+    deps.enqueueOrReuseIngestRequest ?? enqueueOrReuseIngestRequest;
+  const pumpQueue = deps.pumpIngestQueue ?? pumpIngestQueue;
+  const waitForQueueTerminal =
+    deps.waitForQueueRequestTerminalStatus ?? waitForQueueRequestTerminalStatus;
 
   const sourceId = isRecord(args) ? args.sourceId : undefined;
   logValidationEvaluated(appendLog, sourceId);
-
-  const repos = await listRepos();
-  const retryLists = buildRetryLists(repos);
+  const validationRetryLists = emptyRetryLists();
 
   const unsupportedArgKeys = findUnsupportedArgKeys(args);
   if (unsupportedArgKeys.length > 0) {
     const err = invalidStateError(
       `Unsupported arguments for reingest_repository: ${unsupportedArgKeys.join(', ')}`,
-      retryLists,
+      validationRetryLists,
     );
     logValidationResult(appendLog, { kind: 'error', error: err });
     return { ok: false, error: err };
   }
 
-  const validationError = createValidationError(sourceId, retryLists);
-  if (validationError) {
+  const validatedSourceId = validateExactReingestSourceId(sourceId);
+  if (!validatedSourceId.ok) {
+    const validationError = invalidParamsError(
+      validatedSourceId.reason,
+      validatedSourceId.message,
+      validationRetryLists,
+    );
     logValidationResult(appendLog, { kind: 'error', error: validationError });
     return { ok: false, error: validationError };
   }
 
-  const normalizedSourceId = normalizePosixPath(sourceId as string);
+  const repos = await listRepos();
+  const retryLists = buildRetryLists(repos);
+  const normalizedSourceId = validatedSourceId.sourceId;
   const knownRoots = new Set(retryLists.reingestableSourceIds);
   if (!knownRoots.has(normalizedSourceId)) {
     const err = notFoundError(retryLists);
@@ -438,43 +685,43 @@ export async function runReingestRepository(
     return { ok: false, error: err };
   }
 
-  if (checkBusy()) {
-    const err = busyError(retryLists);
+  const selectedRepo = findReingestableRepoByExactSourceId(
+    repos,
+    normalizedSourceId,
+  );
+  if (!selectedRepo) {
+    const err = notFoundError(retryLists);
     logValidationResult(appendLog, { kind: 'error', error: err });
     return { ok: false, error: err };
   }
 
-  const selectedRepo = repos.repos.find(
-    (repo) => normalizePosixPath(repo.containerPath) === normalizedSourceId,
-  );
-
   try {
     const requestStartedAt = Date.now();
-    const runId = await runReembed(normalizedSourceId, {
-      lmClientFactory,
-      baseUrl: lmBaseUrl,
-    });
+    const queueRequest = await enqueueRequest(
+      buildQueuedReingestRequest(selectedRepo),
+    );
+    const pumpResult = await pumpQueue();
+    const queueRunId =
+      queueRequest.runId ??
+      (pumpResult.requestId === queueRequest.requestId
+        ? pumpResult.runId
+        : null);
+
     appendLog({
       level: 'info',
       source: 'server',
       timestamp: new Date().toISOString(),
-      message: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=${normalizedSourceId} runId=${runId}`,
+      message: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=${normalizedSourceId} requestId=${queueRequest.requestId} runId=${queueRunId ?? 'pending'}`,
       context: {
         sourceId: normalizedSourceId,
-        runId,
+        requestId: queueRequest.requestId,
+        runId: queueRunId,
       },
     });
 
-    const initialStatus = getStatus(runId);
-    const shouldCallWait = Boolean(deps.waitForTerminalIngestStatus)
-      ? true
-      : Boolean(initialStatus);
-    const waitResult = shouldCallWait
-      ? await waitForTerminal(runId, {
-          timeoutMs: WAIT_TIMEOUT_MS,
-          pollMs: WAIT_POLL_MS,
-        })
-      : { reason: 'missing' as const, status: null, lastKnown: null };
+    const waitResult = await waitForQueueTerminal(queueRequest.requestId, {
+      timeoutMs: WAIT_TIMEOUT_MS,
+    });
 
     const lastKnownCounts = waitResult.lastKnown?.counts ?? {
       files: 0,
@@ -488,9 +735,30 @@ export async function runReingestRepository(
     if (waitResult.reason === 'timeout') {
       terminalStatus = 'error';
       errorCode = 'WAIT_TIMEOUT';
-    } else if (waitResult.reason === 'missing') {
-      terminalStatus = 'error';
-      errorCode = 'RUN_STATUS_MISSING';
+    } else if (waitResult.reason === QUEUE_READ_FAILED_WAIT_REASON) {
+      const err = queueUnavailableError(
+        retryLists,
+        QUEUE_WAIT_READ_FAILURE_MESSAGE,
+        {
+          queueFailureStage: 'wait',
+          waitReason: QUEUE_READ_FAILED_WAIT_REASON,
+        },
+      );
+      appendLog({
+        level: 'info',
+        source: 'server',
+        timestamp: new Date().toISOString(),
+        message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=error requestId=${queueRequest.requestId} runId=${waitResult.runId ?? queueRunId ?? 'unknown-run'} errorCode=QUEUE_UNAVAILABLE`,
+        context: {
+          status: 'error',
+          requestId: queueRequest.requestId,
+          runId: waitResult.runId ?? queueRunId ?? null,
+          errorCode: 'QUEUE_UNAVAILABLE',
+          waitReason: QUEUE_READ_FAILED_WAIT_REASON,
+        },
+      });
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
     } else if (waitResult.status?.state === 'cancelled') {
       terminalStatus = 'cancelled';
     } else if (waitResult.status?.state === 'completed') {
@@ -499,6 +767,9 @@ export async function runReingestRepository(
     } else if (waitResult.status?.state === 'skipped') {
       terminalStatus = 'completed';
       completionMode = 'skipped';
+    } else if (waitResult.status?.state === 'cleanup-blocked') {
+      terminalStatus = 'error';
+      errorCode = 'QUEUE_CLEANUP_BLOCKED';
     } else if (waitResult.status?.state === 'error') {
       terminalStatus = 'error';
       errorCode = waitResult.status.error?.error ?? 'INGEST_ERROR';
@@ -507,10 +778,36 @@ export async function runReingestRepository(
       errorCode = 'UNKNOWN_TERMINAL_STATE';
     }
 
+    if (errorCode === 'QUEUE_CLEANUP_BLOCKED') {
+      const runId = waitResult.runId ?? queueRunId ?? null;
+      const err = queueCleanupBlockedError({
+        retryLists,
+        sourceId: normalizedSourceId,
+        runId,
+        message:
+          waitResult.status?.lastError ??
+          'Queued re-embed finished, but queue cleanup is blocked',
+      });
+      appendLog({
+        level: 'info',
+        source: 'server',
+        timestamp: new Date().toISOString(),
+        message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=error requestId=${queueRequest.requestId} runId=${runId ?? 'unknown-run'} errorCode=QUEUE_CLEANUP_BLOCKED`,
+        context: {
+          status: 'error',
+          requestId: queueRequest.requestId,
+          runId,
+          errorCode: 'QUEUE_CLEANUP_BLOCKED',
+        },
+      });
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
+    }
+
     const success: ReingestSuccess = {
       status: terminalStatus,
       operation: 'reembed',
-      runId,
+      runId: waitResult.runId ?? queueRunId ?? 'unknown-run',
       sourceId: normalizedSourceId,
       resolvedRepositoryId: selectedRepo?.id ?? null,
       completionMode,
@@ -524,9 +821,10 @@ export async function runReingestRepository(
       level: 'info',
       source: 'server',
       timestamp: new Date().toISOString(),
-      message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=${success.status} runId=${success.runId} errorCode=${success.errorCode ?? 'null'}`,
+      message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=${success.status} requestId=${queueRequest.requestId} runId=${success.runId} errorCode=${success.errorCode ?? 'null'}`,
       context: {
         status: success.status,
+        requestId: queueRequest.requestId,
         runId: success.runId,
         errorCode: success.errorCode,
       },
@@ -535,17 +833,11 @@ export async function runReingestRepository(
     logValidationResult(appendLog, {
       kind: 'success',
       sourceId: normalizedSourceId,
-      runId,
+      runId: success.runId,
     });
     return { ok: true, value: success };
   } catch (error) {
     const code = (error as { code?: string } | null)?.code;
-    if (code === 'BUSY') {
-      const err = busyError(retryLists);
-      logValidationResult(appendLog, { kind: 'error', error: err });
-      return { ok: false, error: err };
-    }
-
     if (code === 'NOT_FOUND') {
       const err = notFoundError(retryLists);
       logValidationResult(appendLog, { kind: 'error', error: err });
@@ -560,6 +852,24 @@ export async function runReingestRepository(
       const err = invalidStateError(
         'sourceId points to a repository that cannot be re-embedded in its current state',
         retryLists,
+      );
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
+    }
+
+    if (code === 'OPENAI_MODEL_UNAVAILABLE') {
+      const err = openAiModelUnavailableError(
+        retryLists,
+        getQueueUnavailableMessage(error),
+      );
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
+    }
+
+    if (code === 'QUEUE_UNAVAILABLE') {
+      const err = queueUnavailableError(
+        retryLists,
+        getQueueUnavailableMessage(error),
       );
       logValidationResult(appendLog, { kind: 'error', error: err });
       return { ok: false, error: err };

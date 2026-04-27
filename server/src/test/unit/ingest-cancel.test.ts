@@ -12,9 +12,15 @@ import { createEmbeddingDispatcher } from '../../ingest/embeddingDispatcher.js';
 import { hashFile } from '../../ingest/hashing.js';
 import {
   __setBeforeTerminalStatusPublishHookForTest,
+  __setJobInputForTest,
+  __setQueueRequestIdForRunForTest,
+  __setQueueRuntimeOpsForTest,
+  __setRunProcessorForTest,
   __resetIngestJobsForTest,
+  __setStatusForTest,
   cancelRun,
   getStatus,
+  setIngestDeps,
   startIngest,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
@@ -41,6 +47,7 @@ function buildApp(options?: {
 }
 
 test.beforeEach(() => {
+  process.env.NODE_ENV = 'test';
   resetStore();
   __resetIngestJobsForTest();
   resetCollectionsForTests();
@@ -49,6 +56,17 @@ test.beforeEach(() => {
 
 test.afterEach(() => {
   __setBeforeTerminalStatusPublishHookForTest(null);
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => null,
+    ensureQueueRequestRunId: async () => null,
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    findOldestRunningQueueRequest: async () => null,
+    getQueueRequestId: () => 'noop',
+    markQueueRequestCleanupBlocked: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async () => null,
+  });
+  __setRunProcessorForTest(null);
   __resetIngestJobsForTest();
   resetCollectionsForTests();
   release();
@@ -303,6 +321,91 @@ test('ingest-cancel catch path logs non-retryable failures as error', async () =
   );
   assert.ok(errorEntry, 'expected error-level cancel failure log');
   assert.equal(errorEntry?.context?.retryable, false);
+});
+
+test('cancel waits on an unresolved cleanup gate before newer queued work advances', async () => {
+  const deleteGate = createDeferred<void>();
+  const events: string[] = [];
+
+  __setStatusForTest('run-cancel', {
+    runId: 'run-cancel',
+    state: 'embedding',
+    counts: { files: 1, chunks: 1, embedded: 0 },
+    message: 'Embedding',
+    lastError: null,
+  });
+  __setJobInputForTest('run-cancel', {
+    path: '/data/repo-cancel',
+    name: 'repo-cancel',
+    model: 'embed-1',
+    operation: 'reembed',
+  });
+  __setQueueRequestIdForRunForTest('run-cancel', 'queue-cancel');
+  setIngestDeps({
+    lmClientFactory: () => ({}) as never,
+    baseUrl: 'ws://host.docker.internal:1234',
+  });
+  __setQueueRuntimeOpsForTest({
+    deleteQueueRequestById: async () => {
+      events.push('delete-start');
+      await deleteGate.promise;
+      events.push('delete-complete');
+      return {
+        _id: { toString: () => 'queue-cancel' },
+        canonicalTargetPath: '/data/repo-cancel',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: { path: '/data/repo-cancel', model: 'embed-1' },
+        runId: 'run-cancel',
+      } as never;
+    },
+    findOldestCleanupBlockedQueueRequest: async () => null,
+    markQueueRequestTerminalPublished: async () => null,
+    promoteOldestWaitingQueueRequest: async (runId: string) =>
+      ({
+        _id: { toString: () => 'queue-next' },
+        canonicalTargetPath: '/data/repo-next',
+        operation: 'reembed',
+        queueState: 'running',
+        requestPayload: {
+          path: '/data/repo-next',
+          name: 'repo-next',
+          model: 'embed-1',
+        },
+        runId,
+      }) as never,
+  });
+  __setRunProcessorForTest(async (runId, input) => {
+    events.push(`start:${input.path}`);
+    release(runId);
+  });
+
+  const cancelPromise = cancelRun('run-cancel');
+  await waitForStatus(
+    'run-cancel',
+    (status) =>
+      status?.state === 'cancelled' && events.includes('delete-start'),
+  );
+
+  let resolvedEarly = false;
+  void cancelPromise.then(() => {
+    resolvedEarly = true;
+  });
+  await Promise.resolve();
+
+  assert.equal(resolvedEarly, false);
+  assert.deepEqual(events, ['delete-start']);
+
+  deleteGate.resolve();
+  const result = await cancelPromise;
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(result, { cleanupState: 'complete', found: true });
+  assert.deepEqual(events, [
+    'delete-start',
+    'delete-complete',
+    'start:/data/repo-next',
+  ]);
 });
 
 test('cancel stops new embedding work immediately once dispatch has started', async () => {

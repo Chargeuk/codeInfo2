@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import type { Server } from 'node:http';
-import os from 'node:os';
 import path from 'node:path';
 import {
   After,
@@ -37,6 +36,7 @@ import {
   stopMock,
   waitForControlledEmbeddingCalls,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -125,7 +125,7 @@ Given('ingest embedding dispatch models scenario {string}', (name: string) => {
 });
 
 Given('ingest embedding dispatch temp repo has files:', async (table) => {
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-dispatch-'));
+  tempDir = await createTempRepoRoot('ingest-dispatch-');
   const rows = table.hashes() as Array<{ relPath: string; content: string }>;
   for (const row of rows) {
     const fullPath = path.join(tempDir, row.relPath);

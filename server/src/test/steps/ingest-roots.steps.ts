@@ -3,7 +3,6 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
-import os from 'os';
 import path from 'path';
 import {
   After,
@@ -30,12 +29,43 @@ import {
   startMock,
   stopMock,
 } from '../support/mockLmStudioSdk.js';
+import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
 let server: Server | null = null;
 let baseUrl = '';
 let response: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
+
+type IngestStatusBody = {
+  state?: string;
+  message?: string;
+  lastError?: string;
+  [key: string]: unknown;
+};
+
+async function waitForIngestRootsStatus(expectedState: string) {
+  assert(lastRunId, 'runId missing');
+  let lastObserved: IngestStatusBody | null = null;
+  for (let i = 0; i < 60; i += 1) {
+    const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
+    const body = (await res.json()) as IngestStatusBody;
+    lastObserved = body;
+    console.log(
+      `[ingest-roots] poll ${i} runId=${lastRunId} state=${body.state} message=${body.message ?? ''}`,
+    );
+    if (body.state === expectedState) return;
+    if (body.state === 'error' && expectedState !== 'error') {
+      assert.fail(
+        `Expected ingest roots run ${lastRunId} to reach state "${expectedState}" but actual state was "error". Payload: ${JSON.stringify(body)}`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.fail(
+    `Did not reach state "${expectedState}". Last observed payload: ${JSON.stringify(lastObserved)}`,
+  );
+}
 
 Before(async () => {
   setDefaultTimeout(10000);
@@ -81,7 +111,7 @@ Before(async () => {
 After(async () => {
   stopMock();
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   if (tempDir) {
@@ -106,7 +136,7 @@ Given('ingest roots models scenario {string}', (name: string) => {
 Given(
   'ingest roots temp repo with file {string} containing {string}',
   async (rel: string, content: string) => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-roots-'));
+    tempDir = await createTempRepoRoot('ingest-roots-');
     const filePath = path.join(tempDir, rel);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
@@ -115,7 +145,7 @@ Given(
 
 When('I POST ingest roots start with model {string}', async (model: string) => {
   if (!tempDir) {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-roots-'));
+    tempDir = await createTempRepoRoot('ingest-roots-');
   }
   const res = await fetch(`${baseUrl}/ingest/start`, {
     method: 'POST',
@@ -136,17 +166,28 @@ When('I GET ingest roots', async () => {
 Then(
   'ingest roots status for the last run becomes {string}',
   async (state: string) => {
-    assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 60; i += 1) {
-      const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-      const body = await res.json();
-      console.log(
-        `[ingest-roots] poll ${i} runId=${lastRunId} state=${body.state} message=${body.message ?? ''}`,
-      );
-      if (body.state === state || body.state === 'error') return;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    assert.fail(`did not reach state ${state}`);
+    await waitForIngestRootsStatus(state);
+  },
+);
+
+Then(
+  'ingest roots status assertion for the last run expecting {string} fails with mismatch mentioning {string}',
+  async (expectedState: string, actualState: string) => {
+    await assert.rejects(
+      async () => waitForIngestRootsStatus(expectedState),
+      (error: unknown) => {
+        assert(error instanceof Error, 'expected an Error mismatch');
+        assert(
+          error.message.includes(`state "${expectedState}"`),
+          `expected mismatch to mention requested state ${expectedState}, got: ${error.message}`,
+        );
+        assert(
+          error.message.includes(`actual state was "${actualState}"`),
+          `expected mismatch to mention actual state ${actualState}, got: ${error.message}`,
+        );
+        return true;
+      },
+    );
   },
 );
 

@@ -1,0 +1,8 @@
+{
+  "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+  "name": "Task 209 Final Story Active Root",
+  "description": "Final story manual proof active queue head using known eligible fixture.",
+  "embeddingProvider": "openai",
+  "embeddingModel": "text-embedding-3-small",
+  "dryRun": true
+}

@@ -54,7 +54,7 @@ Before(async () => {
   await startServer();
 });
 
-After(() => {
+After(async () => {
   if (streamAbort) {
     streamAbort.abort();
     streamAbort = null;
@@ -68,7 +68,7 @@ After(() => {
   streamEvents = [];
   streamHeartbeats = 0;
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
   resetStore();

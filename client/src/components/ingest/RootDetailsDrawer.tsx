@@ -51,12 +51,8 @@ export default function RootDetailsDrawer({
         .filter(Boolean)
         .join(' · ')
     : null;
-  const rootModelDisplay =
-    root?.embeddingProvider && root?.embeddingModel
-      ? `${root.embeddingProvider} / ${root.embeddingModel}`
-      : root?.model;
-  const rootError =
-    root?.lastError ?? root?.error?.message ?? root?.error?.details;
+  const rootModelDisplay = root ? getRootEmbeddingDisplay(root) : undefined;
+  const rootError = root ? getRenderableRootError(root) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -114,7 +110,26 @@ export default function RootDetailsDrawer({
                     : '—'
                 }
               />
-              <LabelValue label="Run ID" value={root.runId} mono />
+              {root.requestId ? (
+                <LabelValue label="Request ID" value={root.requestId} mono />
+              ) : null}
+              <LabelValue
+                label="Run ID"
+                value={root.runId ?? 'Pending queue start'}
+                mono
+              />
+              {root.queueState ? (
+                <LabelValue
+                  label="Queue state"
+                  value={
+                    root.queueState === 'waiting'
+                      ? typeof root.queuePosition === 'number'
+                        ? `waiting (#${root.queuePosition})`
+                        : 'waiting'
+                      : root.queueState
+                  }
+                />
+              ) : null}
             </Stack>
 
             <Divider />
@@ -167,6 +182,31 @@ export default function RootDetailsDrawer({
       </Box>
     </Drawer>
   );
+}
+
+function getRenderableRootError(root: IngestRoot) {
+  if (
+    root.status === 'ingesting' &&
+    (root.queueState === 'waiting' || root.queueState === 'running')
+  ) {
+    return null;
+  }
+  return root.lastError ?? root.error?.message ?? root.error?.details;
+}
+
+function getRootEmbeddingDisplay(root: IngestRoot) {
+  const provider =
+    root.queueState === 'waiting'
+      ? (root.embeddingProvider ?? root.lock?.embeddingProvider)
+      : root.embeddingProvider;
+  const model =
+    root.queueState === 'waiting'
+      ? (root.embeddingModel ?? root.model)
+      : (root.embeddingModel ?? root.model);
+  if (provider && model) {
+    return `${provider} / ${model}`;
+  }
+  return model ?? '—';
 }
 
 function LabelValue({

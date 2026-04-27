@@ -1,0 +1,125 @@
+{
+  "activeStart": {
+    "queued": false,
+    "requestId": "69ef89044c9bace36b3c5800",
+    "runId": "8eb1bc69-a8c3-40a4-83b1-4eb60e7a8033",
+    "queueState": "running"
+  },
+  "queuedStart": {
+    "queued": true,
+    "requestId": "69ef89044c9bace36b3c5808",
+    "queuePosition": 1
+  },
+  "queuedReembed": {
+    "queued": true,
+    "requestId": "69ef89044c9bace36b3c5810",
+    "queuePosition": 2
+  },
+  "focusedRoots": [
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+      "name": "Task 209 Final Story Queued Root",
+      "status": "ingesting",
+      "phase": "queued",
+      "requestId": "69ef89044c9bace36b3c5808",
+      "runId": null,
+      "queueState": "waiting",
+      "queuePosition": 1,
+      "counts": {
+        "files": 30,
+        "chunks": 30,
+        "embedded": 30
+      }
+    },
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+      "name": "Task 209 Final Story Active Root",
+      "status": "ingesting",
+      "phase": "embedding",
+      "requestId": "69ef89044c9bace36b3c5800",
+      "runId": "8eb1bc69-a8c3-40a4-83b1-4eb60e7a8033",
+      "queueState": "running",
+      "queuePosition": null,
+      "counts": {
+        "files": 1036,
+        "chunks": 0,
+        "embedded": 0
+      }
+    },
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task189-reembed-proof-repo",
+      "name": "task189-reembed-manual-proof",
+      "status": "ingesting",
+      "phase": "queued",
+      "requestId": "69ef89044c9bace36b3c5810",
+      "runId": null,
+      "queueState": "waiting",
+      "queuePosition": 2,
+      "counts": {
+        "files": 1,
+        "chunks": 1,
+        "embedded": 1
+      }
+    }
+  ],
+  "focusedTools": [
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+      "name": "Task 209 Final Story Queued Root",
+      "status": "ingesting",
+      "requestId": "69ef89044c9bace36b3c5808",
+      "runId": null,
+      "queueState": "waiting",
+      "queuePosition": 1
+    },
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task189-reembed-proof-repo",
+      "name": "task189-reembed-manual-proof",
+      "status": "ingesting",
+      "requestId": "69ef89044c9bace36b3c5810",
+      "runId": null,
+      "queueState": "waiting",
+      "queuePosition": 2
+    },
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+      "name": "Task 209 Final Story Active Root",
+      "status": "ingesting",
+      "requestId": "69ef89044c9bace36b3c5800",
+      "runId": "8eb1bc69-a8c3-40a4-83b1-4eb60e7a8033",
+      "queueState": "running",
+      "queuePosition": null
+    }
+  ],
+  "focusedMcp": [
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+      "name": "Task 209 Final Story Queued Root",
+      "status": "ingesting",
+      "requestId": "69ef89044c9bace36b3c5808",
+      "runId": null,
+      "queueState": "waiting",
+      "queuePosition": 1
+    },
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task189-reembed-proof-repo",
+      "name": "task189-reembed-manual-proof",
+      "status": "ingesting",
+      "requestId": "69ef89044c9bace36b3c5810",
+      "runId": null,
+      "queueState": "waiting",
+      "queuePosition": 2
+    },
+    {
+      "id": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+      "name": "Task 209 Final Story Active Root",
+      "status": "ingesting",
+      "requestId": "69ef89044c9bace36b3c5800",
+      "runId": "8eb1bc69-a8c3-40a4-83b1-4eb60e7a8033",
+      "queueState": "running",
+      "queuePosition": null
+    }
+  ],
+  "schemaVersion": "0000055-queued-repo-list-v1",
+  "queueReadDegraded": false
+}

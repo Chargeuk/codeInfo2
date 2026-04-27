@@ -12,6 +12,7 @@ import { getActiveRunOwnership } from '../agents/runLock.js';
 import {
   abortInflightByConversation,
   abortInflight,
+  getPendingConversationCancel,
   bumpSeq,
   registerPendingConversationCancel,
   snapshotInflight,
@@ -544,6 +545,12 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
             connectionId,
             conversationId: message.conversationId,
             inflightId,
+            inflightSnapshot: snapshotInflight(message.conversationId),
+            ownershipRunToken:
+              getActiveRunOwnership(message.conversationId)?.runToken ?? null,
+            pendingCancelRunToken:
+              getPendingConversationCancel(message.conversationId)?.runToken ??
+              null,
           },
           cancelReceivedMessage,
         );
@@ -655,11 +662,20 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
 
         logAbortRequested();
 
+        const ownership = getActiveRunOwnership(message.conversationId);
+        if (ownership) {
+          registerPendingConversationCancel({
+            conversationId: message.conversationId,
+            runToken: ownership.runToken,
+          });
+        }
+
         if (abortAgentCommandRun(message.conversationId)) {
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,
             conversationId: message.conversationId,
+            ...(ownership ? { runToken: ownership.runToken } : {}),
             stopPath: 'conversation_only_agent_run',
           });
           return;
@@ -672,25 +688,25 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
             connectionId,
             conversationId: message.conversationId,
             inflightId: cancelled.inflightId,
-            runToken: null,
-            stopPath: 'conversation_only_inflight',
+            runToken: ownership?.runToken ?? null,
+            stopPath: ownership
+              ? 'conversation_inflight_plus_pending_run'
+              : 'conversation_only_inflight',
           });
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,
             conversationId: message.conversationId,
             inflightId: cancelled.inflightId,
-            stopPath: 'conversation_only_inflight',
+            ...(ownership ? { runToken: ownership.runToken } : {}),
+            stopPath: ownership
+              ? 'conversation_inflight_plus_pending_run'
+              : 'conversation_only_inflight',
           });
           return;
         }
 
-        const ownership = getActiveRunOwnership(message.conversationId);
         if (ownership) {
-          registerPendingConversationCancel({
-            conversationId: message.conversationId,
-            runToken: ownership.runToken,
-          });
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,

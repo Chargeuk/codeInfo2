@@ -15964,7 +15964,7 @@ Add the missing Story 55 proof-owner seam that can seed a malformed canonical Op
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`.
+1. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`.
 
 #### Implementation notes
 
@@ -15973,6 +15973,7 @@ Add the missing Story 55 proof-owner seam that can seed a malformed canonical Op
 - Added a dedicated ingest-manage seed step in `server/src/test/steps/ingest-manage.steps.ts` that persists a malformed canonical OpenAI root for the temp repo through the existing test-owned fixture layer; cleanup stays on the existing `After` hook that clears Chroma roots and Mongo queue state, so no ad hoc database mutation is handed to later operators.
 - Added a focused `server/src/test/features/ingest-reembed.feature` scenario that exercises the supported seed through `/ingest/roots` and then `POST /ingest/reembed/:root`, proving the malformed row stays visible on a normal ingest-manage surface and returns `INVALID_LOCK_METADATA` instead of drifting into `OPENAI_MODEL_UNAVAILABLE`.
 - Re-opened Task 199's remaining live-proof handoff so it now depends on the new supported ingest-manage seed scenario and its existing cleanup hook instead of the exhausted unsupported runtime-only route.
+- Ran `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`; the targeted ingest-manage wrapper passed cleanly with `12 passed, 0 failed`, so the new supported mixed-shape seed scenario and its surrounding Story 55 cucumber coverage are now recorded as the task-owned proof surface.
 
 ### Task 199. Align Mixed-Shape Re-Embed Validation Across REST And Shared Callers
 

@@ -307,7 +307,7 @@ The queue is FIFO by creation time. On server startup, if the queue collection c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `05e5cc6c` - `DEV-[55] - add durable queue admission model`
 
@@ -389,7 +389,7 @@ This task adds the durable Mongo-backed queue artifact and the one shared admiss
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
   - `65b908b8` - `DEV-[55] - finish task 2 queue runtime validation`
 
@@ -15981,7 +15981,7 @@ Add the missing Story 55 proof-owner seam that can seed a malformed canonical Op
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196, 198`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -16045,7 +16045,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-roots-dedupe.test.ts --file server/src/test/unit/reingestService.test.ts`.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-reembed-invalid-state.test.ts`.
-3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/mcp.reingest.classic.test.ts --file server/src/test/unit/mcp2.reingest.tool.test.ts`.
 
 #### Implementation notes
 
@@ -16064,6 +16064,8 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - Planner repair on 2026-04-27 moved the missing supported mixed-shape seed or harness owner into Task 198 and reopened this task behind that prerequisite. The remaining open owner on this task is now the explicit fixture-backed handoff in Subtask 8 rather than more mixed-shape product-code or targeted automated-proof work.
 - Task 198 landed a supported ingest-manage seed in `server/src/test/steps/ingest-manage.steps.ts` plus the `supported ingest-manage seed exposes a mixed-shape canonical OpenAI row for invalid-state re-embed validation` scenario in `server/src/test/features/ingest-reembed.feature`; the handoff now depends on that fixture path and the existing `After` hook cleanup instead of the exhausted unsupported runtime-only route.
 - Implementation-plus-automated-proof audit on 2026-04-27: re-read the current handoffs and this exact task from disk, confirmed all subtasks and the targeted automated proof are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.
+- Manual testing on 2026-04-27 restarted the documented main compose stack from stale or unknown provenance, confirmed `GET /health` returned `{"status":"ok"...}` with `mongoConnected=true`, and inspected `GET /ingest/roots`; the live stack still exposed only previously persisted canonical rows and no supported public route for creating the malformed mixed-shape row that this task needs.
+- **BLOCKER** Manual proof for Task 199 remains in `structural_proof_gap`: the supported seed path named in Task 199's Manual Testing Guidance currently lives inside `server/src/test/steps/ingest-manage.steps.ts`, whose `Before` hook starts an isolated `app.listen(0)` test server and whose `After` hook clears the seeded roots and queue state. That means the Task 198 cucumber harness can prove the mixed-shape row inside its own wrapper-owned surface, but it does not seed a persistent mixed-shape row onto the documented main compose stack or another later manual-proof shared-caller surface without ad hoc database edits. This pass restarted and shut down the documented main stack cleanly, inspected the live `/ingest/roots` output, re-read the Task 198 scenario plus the Task 199 guidance and step-layer cleanup behavior, and found no repository-supported bridge that leaves the malformed row available long enough for later manual REST or shared-caller inspection. The exact remaining missing evidence is a supported bridge between the Task 198 seed harness and a persistent live proof surface; until that exists, Task 199's current Manual Testing Guidance conflicts with fresher repository evidence. Reopened the final checked automated proof item so a later repair to that bridge must rerun automated proof before another manual retest.
 
 #### Manual Testing Guidance
 

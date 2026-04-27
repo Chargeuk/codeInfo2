@@ -50,6 +50,13 @@ async function getRootsCollection() {
   });
 }
 
+const resolveRootsCollectionDimension = (rootsCollection) => {
+  const dimension = rootsCollection?.dimension;
+  return Number.isInteger(dimension) && dimension > 0
+    ? dimension
+    : getBridgeEmbeddingDimensions();
+};
+
 async function clearRootsCollection(where) {
   const collection = await getRootsCollection();
   const whereClause = where ?? { ingestedAtMs: { $gt: 0 } };
@@ -104,9 +111,10 @@ export async function seedMixedShapeCanonicalOpenAiRoot({
   });
 
   const roots = await getRootsCollectionImpl();
+  const embeddingDimensions = resolveRootsCollectionDimension(roots);
   await roots.add({
     ids: [MIXED_SHAPE_RUNTIME_BRIDGE_RUN_ID],
-    embeddings: [new Array(getBridgeEmbeddingDimensions()).fill(0)],
+    embeddings: [new Array(embeddingDimensions).fill(0)],
     metadatas: [
       {
         runId: MIXED_SHAPE_RUNTIME_BRIDGE_RUN_ID,

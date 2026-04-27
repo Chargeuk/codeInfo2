@@ -802,10 +802,22 @@ Given(
   'ingest manage mixed-shape canonical OpenAI root metadata exists for the temp repo',
   async () => {
     assert(tempDir, 'temp dir missing');
-    await seedMixedShapeCanonicalOpenAiRoot({
-      rootPath: tempDir,
-      name: 'temp-mixed-shape-repo',
-    });
+    const previousDimensions =
+      process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS;
+    process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS = '1';
+    try {
+      await seedMixedShapeCanonicalOpenAiRoot({
+        rootPath: tempDir,
+        name: 'temp-mixed-shape-repo',
+      });
+    } finally {
+      if (previousDimensions === undefined) {
+        delete process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS;
+      } else {
+        process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS =
+          previousDimensions;
+      }
+    }
   },
 );
 

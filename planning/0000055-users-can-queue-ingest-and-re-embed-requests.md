@@ -16306,18 +16306,18 @@ Revalidate Story 55 after the serious review-created repair tasks for deferred s
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:server:cucumber`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run compose:build:summary`.
-7. [ ] Run `npm run compose:up`.
-8. [ ] Run `npm run test:summary:host-network:main`.
-9. [ ] Run `npm run compose:down`.
-10. [ ] Run `npm run test:summary:e2e`.
-11. [ ] Run `npm run lint`.
-12. [ ] Run `npm run format:check`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run test:summary:server:cucumber`.
+5. [x] Run `npm run test:summary:client`.
+6. [x] Run `npm run compose:build:summary`.
+7. [x] Run `npm run compose:up`.
+8. [x] Run `npm run test:summary:host-network:main`.
+9. [x] Run `npm run compose:down`.
+10. [x] Run `npm run test:summary:e2e`.
+11. [x] Run `npm run lint`.
+12. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -16332,3 +16332,18 @@ If later manual proof needs seeded queue-owned or replayable ingest rows, seed t
 - Re-read the `0000055-20260426T203714Z-ff22e029` findings block, the inline minor fixes for findings `5` through `9`, and the completed proof-owner sections for Tasks `197` through `201`; parser output for Tasks `197`, `198`, `199`, `200`, and `201` now confirms each dependency is `__done__` with no unchecked subtasks, no unchecked testing, and no live blocker before final-pass close-out moves on.
 - Refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` for review pass `0000055-20260426T203714Z-ff22e029` with a direct finding-to-proof map for `F1` through `F4` and inline findings `5` through `9`, plus the exact retained logs, JSON proof homes, and the client mixed-state invariants that final validation still has to rerun.
 - Re-opened the Task 202 plan section after the summary refresh and verified the findings block, `## Minor Review Fixes`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md` now agree on owners, retained proof homes, terminal-output-only surfaces for `compose:up`, `compose:down`, `lint`, and `format:check`, the `client/src/test/ingestRoots.test.tsx` plus `client/src/test/ingestForm.test.tsx` mixed-state transitions, and the baseline-versus-wrapper-versus-runtime failure classification expected before close-out.
+- Ran `npm run build:summary:server`; the wrapper passed cleanly with `warning_count: 0`, `agent_action: skip_log`, and retained proof home `logs/test-summaries/build-server-latest.log`.
+- Ran `npm run build:summary:client`; the wrapper passed cleanly through typecheck and build with `warning_count: 0`, `agent_action: skip_log`, and retained proof home `logs/test-summaries/build-client-latest.log`.
+- The first broad `npm run test:summary:server:unit` rerun exposed four failing `server/src/test/unit/test-summary-host-network-main.test.ts` cases because the unit file was still using the real mixed-shape runtime bridge, which now reaches Chroma during the main-stack probe path. Stubbed `probeMixedShapeRuntimeBridge` in that unit file, marked the stub as preserved so the cleanup path stays isolated, confirmed the targeted owner rerun passed with `4 passed, 0 failed`, then reran the original full wrapper honestly.
+- Reran `npm run test:summary:server:unit`; the full wrapper passed cleanly with `tests run: 1803`, `passed: 1803`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T03-37-46-454Z.log`.
+- The first broad `npm run test:summary:server:cucumber` rerun exposed the Task 198 mixed-shape seed step using a 1536-length placeholder embedding against the cucumber Chroma roots collection, which still expected dimension `1`. Kept the shared runtime bridge dimension fallback, then scoped a cucumber-only `CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS=1` hint inside `server/src/test/steps/ingest-manage.steps.ts`, confirmed the targeted `server/src/test/features/ingest-reembed.feature` rerun passed with `12 passed, 0 failed`, and reran the original full wrapper honestly.
+- Reran `npm run test:summary:server:cucumber`; the full wrapper passed cleanly with `tests run: 117`, `passed: 117`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-cucumber-tests-2026-04-27T03-56-59-967Z.log`.
+- Ran `npm run test:summary:client`; the full client wrapper passed cleanly with `tests run: 711`, `passed: 711`, `failed: 0`, `agent_action: skip_log`, retained proof home `test-results/client-tests-2026-04-27T03-58-56-239Z.log`, and the matching JSON artifact from the same timestamp for the inline mixed-state client fixes.
+- Ran `npm run compose:build:summary`; the compose build wrapper passed with `items passed: 2`, `items failed: 0`, retained proof home `logs/test-summaries/compose-build-latest.log`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker for the supported runtime-assets path.
+- Ran `npm run compose:up`; the supported main stack passed the fixed-port preflight with `DEV-0000050:T09:compose_preflight_result {"result":"passed"}`, created the `codeinfo2_internal` network, and brought `mongo_db_CodeInfo`, `codeinfo2-server-1`, and `codeinfo2-client-1` up with the server reaching `Healthy`.
+- Ran `npm run test:summary:host-network:main`; the live-stack probe passed with all four MCP endpoints reachable over `host.docker.internal` at HTTP 200, the mixed-shape runtime bridge observed then cleaned, retained proof home `logs/test-summaries/host-network-main-latest.log`, and marker `DEV-0000050:T12:main_stack_probe_completed {"result":"passed"}`.
+- Ran `npm run compose:down`; the supported stack stopped and removed `codeinfo2-client-1`, `codeinfo2-server-1`, `codeinfo2-chroma-1`, `mongo_db_CodeInfo`, `codeinfo2-zipkin-1`, `codeinfo2-otel-collector-1`, `codeinfo2-playwright-mcp-1`, and the `codeinfo2_internal` network cleanly.
+- Ran `npm run test:summary:e2e`; the broad wrapper passed with `tests run: 60`, `passed: 60`, `failed: 0`, retained proof home `logs/test-summaries/e2e-tests-latest.log`, and marker `DEV-0000050:T13:e2e_host_network_config_verified` confirming the expected host-network browser setup.
+- Ran `npm run lint`; ESLint exited cleanly with code `0` and no lint repairs were required before the final format gate.
+- The first `npm run format:check` run failed on `server/src/routes/ingestRemove.ts` and `server/src/test/unit/test-summary-host-network-main.test.ts`, so I formatted those in-scope proof-repair files with Prettier and reran the exact check honestly.
+- Reran `npm run format:check`; Prettier reported `All matched files use Prettier code style!`, closing the final repository-hygiene proof gate.

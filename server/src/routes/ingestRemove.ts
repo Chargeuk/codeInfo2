@@ -36,7 +36,9 @@ export function createIngestRemoveRouter({
       }
 
       const repos = await listIngestedRepositoriesOverride();
-      const targetRepo = repos.repos.find((repo) => repo.containerPath === root);
+      const targetRepo = repos.repos.find(
+        (repo) => repo.containerPath === root,
+      );
       if (!targetRepo) {
         return res.status(404).json({ status: 'error', code: 'NOT_FOUND' });
       }

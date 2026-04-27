@@ -16873,9 +16873,11 @@ No additional repositories are in scope for this review-created repair task.
 
 #### Proof Mapping
 
-- `P1.` degraded-read producer proof for `R1` and `R2`: proof owners are `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, and `client/src/hooks/useIngestRoots.ts`.
-- `P2.` focused server repo-list proof for `R3`, `R4`, and `R5`: proof homes are `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
-- `P3.` client normalization compatibility proof for `R2` and `R3`: proof home is `client/src/test/ingestRoots.test.tsx` when the repaired server-facing contract changes the hook-visible shape or degraded-state rendering path.
+- `P1.` degraded-read producer proof for `R1` and `R2`: implementation owners are `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, and `client/src/hooks/useIngestRoots.ts`; proof home is the repaired producer seam plus the focused assertions in `server/src/test/unit/tools-ingested-repos.test.ts`.
+- `P2.` waiting-before-first-run degraded queue-read proof for `R3` and `R5`: implementation owners are `server/src/lmstudio/toolService.ts` and the queue-row synthesis helpers it uses; proof home is `server/src/test/unit/tools-ingested-repos.test.ts`.
+- `P3.` healthy REST queued-row continuity proof for `R3` and `R4`: implementation owners are `server/src/lmstudio/toolService.ts` and `server/src/routes/ingestRoots.ts`; proof home is `server/src/test/unit/ingest-roots-dedupe.test.ts`.
+- `P4.` MCP propagation proof for `R2`, `R3`, and `R4`: implementation owners are `server/src/lmstudio/toolService.ts` and `server/src/mcp/server.ts`; proof home is `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+- `P5.` client normalization compatibility proof for `R2` and `R3`: implementation owners are `server/src/lmstudio/toolService.ts` and `client/src/hooks/useIngestRoots.ts`; proof home is `client/src/test/ingestRoots.test.tsx`.
 
 #### Risk Ownership
 
@@ -16902,9 +16904,10 @@ No additional repositories are in scope for this review-created repair task.
 #### Subtasks
 
 1. [ ] Patch the degraded-read repo-list seam across `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, and `client/src/hooks/useIngestRoots.ts` only where needed so Mongo-disconnected queue reads no longer fall back to `[]`, healthy queued rows remain visible when their data is available, and unavailable queue data is surfaced as explicit degradation; in the first implementation note for this task, record the exact degraded-read contract enforced and stop for blocker review if those surfaces still imply conflicting behaviors.
-2. [ ] Extend the focused server proof owners in `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, and `server/src/test/unit/mcp-ingested-repositories.test.ts` so one compact proof set covers the exact waiting-before-first-run degraded queue-read path and the still-healthy queued-row path after the repair.
-3. [ ] Bring `client/src/test/ingestRoots.test.tsx` or the nearest same-seam client proof owner into line with the repaired server contract when the hook-visible shape or degraded-state rendering path changes, or record in the implementation note why the existing client proof remained sufficient without a file edit.
-4. [ ] Refresh only the current review-cycle proof-summary surfaces for pass `0000055-20260427T120554Z-cfc8af21` if the repair changes which focused proof owners or retained proof homes now demonstrate `finding-1`.
+2. [ ] Extend `server/src/test/unit/tools-ingested-repos.test.ts` to prove both the degraded waiting-before-first-run path and the explicit degraded-state behavior on the shared repo-list producer seam after the repair.
+3. [ ] Extend `server/src/test/unit/ingest-roots-dedupe.test.ts` to prove the REST repo-list path still preserves the healthy queued-row contract, and extend `server/src/test/unit/mcp-ingested-repositories.test.ts` to prove the repaired degraded-read contract propagates honestly through the MCP path.
+4. [ ] Extend `client/src/test/ingestRoots.test.tsx` so the client normalization surface proves the repaired degraded-read contract without reintroducing a silent empty-state interpretation.
+5. [ ] Refresh only the current review-cycle proof-summary surfaces for pass `0000055-20260427T120554Z-cfc8af21` if the repair changes which focused proof owners or retained proof homes now demonstrate `finding-1`.
 
 #### Testing
 
@@ -16954,6 +16957,7 @@ No additional repositories are in scope for this review cycle. The current findi
 - `P6.` current client regression proof for `R3`: proof homes are the latest `test-results/client-tests-*.log` and `test-results/client-tests-*.json`.
 - `P7.` supported compose build-and-smoke proof for `R3`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
 - `P8.` repository-hygiene proof for `R3` and applicability proof for `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary that records why no additional repository, browser-only, or end-to-end proof category applied to this review cycle.
+- `P9.` baseline-ownership classification proof for `R6`: proof homes are this task's `Implementation Notes` plus the refreshed PR summary when a broad wrapper failure has to be recorded as shared wrapper, baseline, or runtime ownership instead of as a Task `208` product-seam regression.
 
 #### High-Risk Invariants And Blocker Family
 

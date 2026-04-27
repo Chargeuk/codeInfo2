@@ -43,8 +43,9 @@ Do not commit or push in this step.
 
 <selection_rules>
 
-- If `codeInfoStatus/manual-proof/<story-number>/` already exists, clear only that story-specific destination before deciding whether any new curated manual-proof bundle will be produced, so no stale tracked proof remains.
-- If `codeInfoTmp/manual-testing/<story-number>/` does not exist, or it exists but contains no numeric task folders with eligible files, leave `codeInfoStatus/manual-proof/<story-number>/` absent. Report that no curated manual-proof bundle was produced and stop.
+- First determine whether `codeInfoTmp/manual-testing/<story-number>/` exists and contains any numeric task folders with eligible files.
+- If `codeInfoTmp/manual-testing/<story-number>/` does not exist, or it exists but contains no numeric task folders with eligible files, do not modify any existing `codeInfoStatus/manual-proof/<story-number>/` bundle. Report that no new curated manual-proof bundle was produced in this pass and that any existing durable bundle was left unchanged, then stop.
+- If a new curated manual-proof bundle will be produced and `codeInfoStatus/manual-proof/<story-number>/` already exists, clear only that story-specific destination immediately before copying so no stale tracked proof remains.
 - For every numeric task folder that contains at least one eligible screenshot proof file, create `codeInfoStatus/manual-proof/<story-number>/task-<task-number>/`.
 - Copy all eligible screenshot proof files from that task folder into the matching destination task folder, preserving basenames.
 - Copy at most two support files total across the whole story.
@@ -88,6 +89,7 @@ Do not commit or push in this step.
 
 - Report the selected story number.
 - Report whether the curated manual-proof bundle was created, refreshed, or skipped because no eligible artifacts existed.
+- When no eligible scratch artifacts existed, report whether an existing durable bundle was preserved unchanged or no durable bundle existed yet.
 - Report the exact repository-relative destination root.
 - Report the exact repository-relative files copied, grouped by task folder.
 - Report which eligible support files were copied, if any.
@@ -107,6 +109,7 @@ Do not commit or push in this step.
 - Confirm you copied no more than two support files total.
 - Confirm support files were selected by descending task number, then by the defined per-folder priority order.
 - Confirm the durable destination preserved per-task subfolders under `codeInfoStatus/manual-proof/<story-number>/`.
+- Confirm you did not delete an existing durable bundle merely because no new eligible scratch artifacts were available in this pass.
 - Confirm you did not modify or delete source artifacts in `codeInfoTmp/`.
 - Confirm you did not edit the plan in this step.
 - Confirm you did not commit or push in this step.

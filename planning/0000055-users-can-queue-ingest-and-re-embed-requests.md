@@ -16676,6 +16676,7 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 
 - Retained-contract proof required: the task must end in one of the two explicitly allowed states from `R1`, not an ad hoc mix of partially tracked scratch and partially retained evidence.
 - Reference-alignment proof required: plan, review artifact, and PR-summary references must point at the same retained proof home after the repair.
+- Writer-reader cleanup proof required: the task must name the writer surfaces that currently populate Story 55 retained artifacts, the reader surfaces that still consume them, and the cleanup owner for transient byproducts so later proof does not depend on half-moved state.
 - Auditability proof required: the remaining tracked artifact set must be explainable from Git-tree output without special conversational context.
 - Likely blocker family: task-shape or planning seam around retained proof ownership, with repository-local file movement and reference repair in the current repository.
 
@@ -16688,9 +16689,9 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 
 #### Subtasks
 
-1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, noting which logs, screenshots, JSON or HTML captures, status sidecars, and summary files are actually referenced today.
-2. [ ] Bucket those current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set.
-3. [ ] Implement one explicit end state from `R1`: either prune and rename the retained subset into a clearly durable tracked proof home under `codeInfoStatus/`, or move the proof home into an ignored artifact location and leave only the tracked summary surfaces that still need to remain in Git for the plan, findings artifact, and PR summary references.
+1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, noting which logs, screenshots, JSON or HTML captures, status sidecars, and summary files are actually referenced today and which writer surface produced each retained artifact class.
+2. [ ] Bucket those current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set; name the reader surface for each retained or tracked-summary group and the cleanup owner for each transient group before any move or deletion happens.
+3. [ ] Implement one explicit end state from `R1`: either prune and rename the retained subset into a clearly durable tracked proof home under `codeInfoStatus/`, or move the raw proof home into `codeInfoTmp/manual-testing/0000055/` and leave only the tracked summary surfaces that still need to remain in Git for the plan, findings artifact, and PR summary references.
 4. [ ] Update the retained-proof references in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` so the canonical task and review text describe the same final contract chosen in Subtask 3.
 5. [ ] Update the retained-proof references in `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md` so the current review artifact points at the same final contract and no longer reads like an accidental tracked scratch directory.
 6. [ ] Update the retained-proof references in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the PR summary names the same final contract and bounded retained proof home or tracked summary surface chosen in Subtask 3.
@@ -16699,6 +16700,7 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 
 1. [ ] Run `git ls-tree -r --name-only HEAD | rg '0000055'`.
 2. [ ] Run `rg -n "0000055" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+3. [ ] Run `git status --short --ignored=matching -- codeInfoStatus/manual-testing/0000055 codeInfoTmp/manual-testing/0000055` so the chosen retained-proof branch is visible as intentionally tracked or intentionally ignored instead of being left implicit.
 
 #### Implementation Notes
 

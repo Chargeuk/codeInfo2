@@ -16558,3 +16558,217 @@ No additional repositories are in scope for this review cycle. Client-only, brow
 - 2026-04-27: Ran `npm run format:check`; Prettier completed with `All matched files use Prettier code style!`, so the broad final proof kept formatting clean across the current repository baseline.
 - Automated-proof audit on 2026-04-27 closed Task 204 after confirming all three subtasks, all eight broad final revalidation testing steps, and the parser blocker state were complete with no remaining live blocker.
 - Full-story manual proof on 2026-04-27 restarted the supported main stack from stale or unknown provenance with `npm run compose:down`, `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`, then saved durable artifacts under `codeInfoStatus/manual-testing/0000055/`. The retained proof kept the review-loop ownership aligned on disk via `task204-review-disposition-state.json`, `task204-pr-summary.txt`, `task204-task203-parser.json`, and `task204-task204-parser.json`, showed live `/health` returning `status:"ok"` with `mongoConnected:true`, and revalidated the repaired shared-caller seams through `task204-classic-invalid-params.json`, `task204-mcpv2-invalid-params.json`, `task204-mcpv2-tools-list.json`, and `task204-rest-whitespace-root.json` plus `.status`, where classic MCP and MCP v2 both returned structured `INVALID_PARAMS` for whitespace `sourceId` and REST kept the route-level `404 NOT_FOUND` malformed-selector contract. Because the review-created findings block remains server-only and the refreshed PR summary explicitly marks client, browser, and end-to-end categories non-applicable, no screenshots were required; the checked-in fallback scenario `re-embed rejects a non-allowlisted lock-derived OpenAI model before queue admission` also passed cleanly through `task204-cucumber-model-unavailable-summary.txt` after the live stack was back down, so no additional subtasks or testing changes were needed.
+
+## Code Review Findings - Review Pass `0000055-20260427T065706Z-15b0a653`
+
+Review pass `0000055-20260427T065706Z-15b0a653` reviewed local `HEAD` `15b0a653da58b133bc37b6bb3b9e1cc98e5324c8` against remote base `origin/main` commit `f2a6f97a3411c76c36597d9e0756a1f7d003f341` using comparison rule `local_head_vs_resolved_base`. The current repository was the only repository in scope; `additional_repositories` was empty and no local fallback base was used because the review handoff recorded `remote_fetch_status: success`.
+
+Durable review artifacts for this pass:
+
+- Review handoff: `codeInfoTmp/reviews/0000055-current-review.json`
+- Evidence: `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-evidence.md`
+- Findings: `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`
+- Saturation: `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings-saturation.md`
+- Blind-spot challenge: `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-blind-spot-challenge.md`
+
+The active `codeInfoStatus/flow-state/review-disposition-state.json` for this same pass records two unresolved task-required findings, zero unresolved minor-batchable findings, two resolved inline minor findings, and no incomplete-review blockers. Inline findings `finding-1` and `finding-4` remain documented in `## Minor Review Fixes` and must be covered by the fresh final revalidation task below rather than reopened as numbered repair tasks.
+
+Endorsed findings requiring plan follow-up:
+
+- `finding-3` `should_fix`: remove the dead "non-rewriteable waiting request" fallback branches from the queue admission helper and keep the waiting-row rewrite or dedupe proof honest around the real state machine.
+- `finding-2` `should_fix`: re-home or reinterpret the tracked `codeInfoStatus/manual-testing/0000055/` retained artifacts through an explicit durable storage contract so Story 55 proof files stop reading like disposable runtime scratch.
+
+### Task 205. Simplify Waiting-Only Queue Admission Fallbacks
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `204`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-3`: dead "non-rewriteable waiting request" fallback branches remain in `server/src/ingest/requestQueue.ts` even though the helper currently fetches and rewrites only waiting rows.
+
+#### Overview
+
+Repair the queue-admission helper seam by removing the unreachable waiting-row fallback branches and tightening the proof story around the real waiting-only contract. This task owns the helper implementation and the queue-focused proof files that show waiting-row rewrite, dedupe, and cleanup-owned state transitions still behave correctly after the dead-branch simplification.
+
+#### Task Exit Criteria
+
+- `R1.` `server/src/ingest/requestQueue.ts` no longer carries fallback branches that claim a fetched waiting row can still be "non-rewriteable" under the current query contract.
+- `R2.` The helper still preserves waiting-row reuse, duplicate-key recovery, cleanup-owned transitions, and queue-start sequencing for the supported queue lifecycle.
+- `R3.` Any comments, diagnostics, or helper names touched by the repair describe the actual waiting-only contract instead of an impossible mixed-state branch.
+- `R4.` Proof covers the simplified waiting-row seam directly enough that a future regression would fail on the queue-owner files rather than being inferred from unrelated higher-level behavior.
+
+#### Proof Mapping
+
+- `P1.` waiting-row rewrite and dedupe proof for `R1` through `R3`: implementation owner is `server/src/ingest/requestQueue.ts`; proof home is `server/src/test/unit/ingest-request-queue.test.ts`.
+- `P2.` cleanup-owned and queue-runtime sequencing proof for `R2` and `R4`: supporting proof homes are `server/src/test/unit/ingest-queue-runtime-terminal.test.ts` and `server/src/test/unit/ingest-cancel.test.ts`.
+
+#### Risk Ownership
+
+- Highest-risk invariant: the queue helper must keep its real waiting-row rewrite and dedupe guarantees while dropping impossible branches, so the simplification cannot blur cleanup-owned or duplicate-key behavior.
+- This task owns one coherent queue-helper seam. Do not widen it into unrelated ingest lifecycle refactors just because nearby queue code shares the same repository.
+
+#### High-Risk Invariants And Blocker Family
+
+- Waiting-only contract proof required: the helper must keep fetching and rewriting only waiting rows after the dead branches are removed.
+- Duplicate-key recovery proof required: race recovery after a waiting-row rewrite attempt must remain intact.
+- Cleanup-transition proof required: cleanup-owned rows and terminal queue sequencing must keep their current behavior without the removed fallback prose or branches.
+- Shared-wrapper boundary required: if the targeted server-unit wrapper fails outside the queue-owner files above, classify that as shared wrapper or baseline ownership instead of weakening the helper contract.
+- Likely blocker family: product or story seam within `server/src/ingest/requestQueue.ts` and its direct queue proof owners.
+
+#### Documentation Locations
+
+- `server/src/ingest/requestQueue.ts`
+- `server/src/test/unit/ingest-request-queue.test.ts`
+- `server/src/test/unit/ingest-queue-runtime-terminal.test.ts`
+- `server/src/test/unit/ingest-cancel.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the review findings for pass `0000055-20260427T065706Z-15b0a653`, then re-read `server/src/ingest/requestQueue.ts` to mark the exact fetch predicate, rewrite predicate, and the dead fallback branches that still imply a fetched waiting row can be non-rewriteable.
+2. [ ] Patch `server/src/ingest/requestQueue.ts` so the helper, local comments, and any touched diagnostics reflect the real waiting-only contract without unreachable "non-rewriteable waiting request" branches, while preserving the current waiting-row rewrite, duplicate-key recovery, and queue sequencing behavior.
+3. [ ] Add or update the queue-owner proof files so the simplified waiting-only seam is asserted directly in `server/src/test/unit/ingest-request-queue.test.ts`, with any supporting cleanup or terminal sequencing coverage adjusted only where the dead-branch removal changes the honest expected behavior.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/ingest-request-queue.test.ts --file server/src/test/unit/ingest-queue-runtime-terminal.test.ts --file server/src/test/unit/ingest-cancel.test.ts`.
+
+#### Implementation Notes
+
+- Planner task-up on 2026-04-27 appended this task because review disposition state for pass `0000055-20260427T065706Z-15b0a653` still carried unresolved task-required finding `finding-3` on the queue admission helper seam. The task stays tightly scoped to the waiting-only helper contract and its direct queue proofs.
+
+### Task 206. Define A Durable Story 55 Manual-Proof Artifact Home
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `204`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-2`: the tracked `codeInfoStatus/manual-testing/0000055/` tree currently reads like disposable runtime scratch even though Story 55 now relies on it as a retained proof surface.
+
+#### Overview
+
+Repair the retained-artifact contract for Story 55 by deciding what belongs in a durable tracked proof home, moving or pruning anything that should instead live in ignored scratch space, and updating references so the canonical plan and review materials no longer contradict the repository's artifact-hygiene rules. This task owns the proof-home contract, the retained file set, and the reference updates needed to make that contract explicit on disk.
+
+#### Task Exit Criteria
+
+- `R1.` Story 55 has one explicit durable retained-proof home for manual or runtime evidence, and the tracked files inside it are intentionally bounded rather than an accidental dump of runtime byproducts.
+- `R2.` Any transient or scratch-only files under the current `codeInfoStatus/manual-testing/0000055/` tree are removed from the tracked retained set or moved into an ignored scratch location instead of remaining mixed with durable proof.
+- `R3.` The canonical plan, review artifact, and PR summary references that still point at Story 55 retained proof all agree on the chosen durable home and no longer imply that disposable runtime scratch is required source state.
+- `R4.` The resulting tracked file set is auditable from the Git tree and can be explained as retained proof without needing undocumented exceptions.
+
+#### Proof Mapping
+
+- `P1.` retained-home inventory proof for `R1`, `R2`, and `R4`: proof home is the tracked file tree rooted at `codeInfoStatus/manual-testing/0000055/` or its replacement durable home, validated from Git-tree output.
+- `P2.` reference-alignment proof for `R3`: proof homes are the Story 55 plan, the current review findings artifact, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+
+#### Risk Ownership
+
+- Highest-risk invariant: this task must clarify the storage contract for retained Story 55 proof without silently deleting the evidence the plan or review materials still rely on.
+- This is a retained-proof contract task, not a generic cleanup bucket. Keep it focused on Story 55 manual-proof artifacts and their on-disk references.
+
+#### High-Risk Invariants And Blocker Family
+
+- Retained-versus-scratch proof required: the task must draw a clear boundary between durable retained evidence and runtime scratch.
+- Reference-alignment proof required: plan, review artifact, and PR-summary references must point at the same retained proof home after the repair.
+- Auditability proof required: the remaining tracked artifact set must be explainable from Git-tree output without special conversational context.
+- Likely blocker family: task-shape or planning seam around retained proof ownership, with repository-local file movement and reference repair in the current repository.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `codeInfoStatus/manual-testing/0000055/`
+
+#### Subtasks
+
+1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in the canonical plan, current review findings artifact, and PR summary so the retained-versus-scratch boundary is explicit before files move.
+2. [ ] Establish the durable retained-proof home for Story 55 by pruning, relocating, or renaming files as needed so transient runtime byproducts no longer live in the tracked retained set, while keeping the evidence the plan and review materials still need.
+3. [ ] Update the plan, review artifact, and PR summary references that still cite Story 55 retained proof so they all describe the same durable proof home and no longer read like an accidental tracked scratch directory.
+
+#### Testing
+
+1. [ ] Run `git ls-tree -r --name-only HEAD | rg '^codeInfoStatus/manual-testing/0000055/'`.
+2. [ ] Run `rg -n "codeInfoStatus/manual-testing/0000055/" planning/0000055-users-can-queue-ingest-and-re-embed-requests.md codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+
+#### Implementation Notes
+
+- Planner task-up on 2026-04-27 appended this task because review disposition state for pass `0000055-20260427T065706Z-15b0a653` reclassified `finding-2` out of the inline minor path: Story 55 currently treats `codeInfoStatus/manual-testing/0000055/` as a retained proof surface, so fixing the artifact-hygiene finding now requires a broader retained-home contract and reference repair rather than one tiny cleanup edit.
+
+### Task 207. Re-Validate Story 55 After Review Pass `0000055-20260427T065706Z-15b0a653`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `205, 206`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - Final validation for review pass `0000055-20260427T065706Z-15b0a653`, covering task-required findings `finding-3` and `finding-2`.
+  - Final revalidation owner for inline-resolved minor findings `finding-1` and `finding-4` from the same active review cycle.
+
+#### Overview
+
+Revalidate Story 55 after the current review-created queue-helper and retained-proof-home repair tasks are complete. This final task owns the broad current-repository regression proof for the full current findings block, also closes the loop on inline-resolved minor findings `finding-1` and `finding-4`, and remains the one final revalidation owner for review pass `0000055-20260427T065706Z-15b0a653`.
+
+#### Affected Repositories
+
+- `Current Repository`: owns the full final regression proof for review findings `finding-2`, `finding-3`, `finding-1`, and `finding-4`.
+
+No additional repositories are in scope for this review cycle. The current findings block mixes one server queue-helper seam and one retained-proof-home contract seam, so broad current-repository proof remains applicable through the supported server build, full server unit wrapper, full server cucumber wrapper, supported compose build-plus-up/down smoke path, lint, and format checks. Client-only, browser-only, and end-to-end categories are not required by the stored review outcome for this cycle.
+
+#### Task Exit Criteria
+
+- `R1.` Tasks `205` and `206` are `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `R2.` The appended `Code Review Findings` block for review pass `0000055-20260427T065706Z-15b0a653` still matches the active `review-disposition-state.json`, including task-required findings `finding-2` and `finding-3`, resolved inline minors `finding-1` and `finding-4`, and this task's ownership of final revalidation for the cycle.
+- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this findings block: supported server build, full server unit wrapper, full server cucumber wrapper, supported compose build-plus-up/down smoke, lint, and format.
+- `R4.` The final pass records explicitly that no additional repository, client-only, browser, or end-to-end proof category was required for this review-created findings block instead of silently omitting those categories.
+- `R5.` `review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title`, keeps `final_revalidation_owned_by_task_up_path: true`, and leaves `needs_final_minor_fix_revalidation_task: false`, so the current review cycle cannot accidentally create a second final revalidation owner.
+- `R6.` If a broad proof surface fails outside the queue-helper or retained-proof-home seams repaired in Tasks `205` and `206`, the final pass records that blocker as shared wrapper or baseline ownership instead of mutating those repair tasks into catch-all retry buckets.
+
+#### Proof Mapping
+
+- `P1.` dependency-completion proof for `R1`: proof home is parser output for Tasks `205` and `206` plus their checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
+- `P2.` findings-block and review-loop ownership proof for `R2` and `R5`: proof homes are this `Code Review Findings` block, `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`.
+- `P3.` supported server-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-server-latest.log`.
+- `P4.` full server automated regression proof for `R3`: proof homes are the latest `test-results/server-unit-tests-*.log` and the latest `test-results/server-cucumber-tests-*.log`.
+- `P5.` supported compose build-and-smoke proof for `R3`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P6.` repository-hygiene proof for `R3` and non-applicability proof for `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary that records why no cross-repository, client-only, browser, or end-to-end validation category was required for this cycle.
+
+#### Risk Ownership
+
+- Highest-risk invariant: the review cycle must not re-close on the targeted Task `205` and Task `206` owner proofs alone; final validation must show the current repository still passes broad supported proof while keeping this task as the sole final revalidation owner for pass `0000055-20260427T065706Z-15b0a653`.
+- If a broad proof surface exposes a new defect or harness regression, preserve it honestly rather than silently reclosing the story.
+
+#### High-Risk Invariants And Blocker Family
+
+- Default-path proof required: final validation must cover the repaired review-created findings block through the supported server build, full server-unit wrapper, full server-cucumber wrapper, and supported compose smoke path, not only the targeted owner reruns from Tasks `205` and `206`.
+- Review-loop ownership proof required: this task must remain the one final revalidation owner for this review cycle, and the inline minor findings already resolved in `## Minor Review Fixes` must stay covered here instead of spawning a second final task later.
+- Applicability proof required: the non-applicable cross-repository, client-only, browser, and end-to-end categories must be stated explicitly because the stored findings block remains current-repository-only.
+- Baseline-ownership proof required: if supported build or broad wrappers fail in unrelated areas, the task must record that as shared wrapper or baseline ownership instead of reopening Tasks `205` or `206` as if their product or proof-home seams were incomplete.
+- Likely blocker family: shared wrapper or baseline seam for broad automated proof and review-cycle closing ownership.
+
+#### Documentation Locations
+
+- `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
+- `server/src/ingest/requestQueue.ts`
+- `codeInfoStatus/manual-testing/0000055/`
+
+#### Subtasks
+
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000055-20260427T065706Z-15b0a653`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for `finding-1` and `finding-4`, and the completed proof-owner sections for Tasks `205` and `206`; check off this subtask only after parser output shows both repair tasks are `__done__`, have no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000055-pr-summary.md` with a findings-to-proof map for review pass `0000055-20260427T065706Z-15b0a653`, naming Tasks `205` and `206`, the inline-resolved minor findings `finding-1` and `finding-4`, the retained broad proof homes for build, server unit, server cucumber, compose smoke, lint, and format, and the explicit statement that no cross-repository, client-only, browser, or end-to-end proof category applied to this review cycle.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on the current review pass id, the review-created tasks `205` through `207`, the inline-resolved minors `finding-1` and `finding-4`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run test:summary:server:unit`.
+3. [ ] Run `npm run test:summary:server:cucumber`.
+4. [ ] Run `npm run compose:build:summary`.
+5. [ ] Run `npm run compose:up`.
+6. [ ] Run `npm run compose:down`.
+7. [ ] Run `npm run lint`.
+8. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Planner task-up on 2026-04-27 appended this final revalidation task because review disposition state for pass `0000055-20260427T065706Z-15b0a653` still carried serious task-up work and also recorded inline-resolved minor findings `finding-1` and `finding-4`. This task is now the sole final revalidation owner for the active review cycle.

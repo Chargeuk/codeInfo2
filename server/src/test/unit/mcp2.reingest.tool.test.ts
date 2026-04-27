@@ -6,6 +6,7 @@ import type {
   ReingestError,
   ReingestResult,
 } from '../../ingest/reingestService.js';
+import { runReingestRepository } from '../../ingest/reingestService.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 
@@ -119,6 +120,31 @@ const mixedShapeInvalidStateError: Extract<ReingestError, { code: -32602 }> = {
     ],
   },
 };
+
+function createBridgeMixedShapeRepo() {
+  return {
+    id: 'repo-mixed-shape-bridge',
+    description: null,
+    containerPath: '/data/repo-mixed-shape-bridge',
+    hostPath: '/host/data/repo-mixed-shape-bridge',
+    lastIngestAt: '2026-04-27T00:00:00.000Z',
+    embeddingProvider: 'openai' as const,
+    embeddingModel: '',
+    embeddingDimensions: 0,
+    model: '',
+    modelId: '',
+    lock: {
+      embeddingProvider: 'openai' as const,
+      embeddingModel: 'legacy-lmstudio-model',
+      embeddingDimensions: 768,
+      lockedModelId: 'legacy-lmstudio-model',
+      modelId: 'legacy-lmstudio-model',
+    },
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    lastError: null,
+    status: 'completed' as const,
+  };
+}
 
 async function postJson(
   port: number,
@@ -507,6 +533,60 @@ test('MCP v2 returns the shared mixed-shape invalid-state tool error without thr
 
     assert.equal(body.result, undefined);
     assert.deepEqual(body.error, mixedShapeInvalidStateError);
+  });
+});
+
+test('MCP v2 keeps a bridge-style mixed-shape sourceId on the shared INVALID_PARAMS tool error instead of drifting to NOT_FOUND after selector resolution', async () => {
+  let enqueueCalls = 0;
+  const bridgeRepo = createBridgeMixedShapeRepo();
+  const listIngestedRepositories = async () => ({
+    repos: [bridgeRepo],
+    lockedModelId: 'legacy-lmstudio-model',
+  });
+
+  setToolDeps({
+    listIngestedRepositories,
+    runReingestRepository: async (args) =>
+      runReingestRepository(args, {
+        listIngestedRepositories,
+        enqueueOrReuseIngestRequest: async () => {
+          enqueueCalls += 1;
+          return {
+            requestId: 'unexpected-queue-request',
+            canonicalTargetPath: bridgeRepo.containerPath,
+            queueState: 'waiting',
+            queuePosition: 1,
+            runId: null,
+            reusedExisting: false,
+            updatedExisting: false,
+            queueRequest: {} as never,
+          };
+        },
+      }),
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 'bridge-mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: bridgeRepo.containerPath },
+      },
+    });
+
+    assert.equal(enqueueCalls, 0);
+    assert.equal(body.result, undefined);
+    assert.equal(body.error.code, -32602);
+    assert.equal(body.error.message, 'INVALID_PARAMS');
+    assert.equal(
+      body.error.data.fieldErrors[0]?.message,
+      'sourceId points to a repository that cannot be re-embedded in its current state',
+    );
+    assert.deepEqual(body.error.data.reingestableSourceIds, [
+      bridgeRepo.containerPath,
+    ]);
   });
 });
 

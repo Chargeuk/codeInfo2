@@ -674,6 +674,40 @@ test('GET /ingest/roots keeps a mixed-shape canonical OpenAI waiting row distinc
   });
 });
 
+test('GET /ingest/roots keeps a bridge-style completed mixed-shape OpenAI row invalid while preserving populated fallback lock metadata', async () => {
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: '',
+            embeddingProvider: 'openai',
+            embeddingModel: '',
+            embeddingDimensions: 0,
+            state: 'completed',
+            lastIngestAt: '2026-04-27T00:00:00.000Z',
+          },
+        ],
+      },
+      'legacy-lmstudio-model',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const root = response.body.roots[0];
+  assert.equal(root.embeddingProvider, 'openai');
+  assert.equal(root.embeddingModel, '');
+  assert.equal(root.model, '');
+  assert.equal(root.modelId, '');
+  assert.equal(root.lock.embeddingProvider, 'openai');
+  assert.equal(root.lock.embeddingModel, 'legacy-lmstudio-model');
+  assert.equal(root.lock.lockedModelId, 'legacy-lmstudio-model');
+  assert.equal(root.lock.modelId, 'legacy-lmstudio-model');
+});
+
 test('GET /ingest/roots keeps a fully canonical waiting overlay unchanged', async () => {
   const originalReadyState = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {

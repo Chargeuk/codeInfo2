@@ -120,6 +120,7 @@ function normalizeEmbeddingDimensions(value: unknown): number | null {
 function resolveRootEmbeddingModel(
   repo: {
     queueState?: RootEntry['queueState'];
+    embeddingProvider?: EmbeddingProviderId;
     embeddingModel?: string;
     model?: string;
   },
@@ -132,6 +133,13 @@ function resolveRootEmbeddingModel(
     if (typeof repo.model === 'string') {
       return repo.model;
     }
+  }
+
+  if (
+    normalizeEmbeddingProvider(repo.embeddingProvider) === 'openai' &&
+    normalizeEmbeddingModel(repo.embeddingModel) === null
+  ) {
+    return '';
   }
 
   return (
@@ -179,6 +187,28 @@ function resolveRootModelId(
   }
 
   return normalizeEmbeddingModel(repo.modelId) ?? embeddingModel;
+}
+
+function resolveRootLockEnvelope(
+  repo: {
+    lock?: LockEnvelope | null;
+  },
+  fallback: LockEnvelope,
+): LockEnvelope {
+  const provider = normalizeEmbeddingProvider(repo.lock?.embeddingProvider);
+  const model = normalizeEmbeddingModel(repo.lock?.embeddingModel);
+  if (provider === null || model === null) {
+    return fallback;
+  }
+
+  return {
+    embeddingProvider: provider,
+    embeddingModel: model,
+    embeddingDimensions:
+      normalizeEmbeddingDimensions(repo.lock?.embeddingDimensions) ?? 0,
+    lockedModelId: model,
+    modelId: model,
+  };
 }
 
 function getStableIdentityScore(root: RootEntry): number {
@@ -298,13 +328,14 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
               ? lock.embeddingDimensions
               : 0);
           const modelId = resolveRootModelId(repo, embeddingModel);
-          const rootLock: LockEnvelope = {
+          const fallbackRootLock: LockEnvelope = {
             embeddingProvider,
             embeddingModel,
             embeddingDimensions,
             lockedModelId: embeddingModel,
             modelId: embeddingModel,
           };
+          const rootLock = resolveRootLockEnvelope(repo, fallbackRootLock);
           return {
             id: repo.id,
             requestId: repo.requestId ?? null,

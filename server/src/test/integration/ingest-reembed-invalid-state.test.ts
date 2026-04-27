@@ -7,6 +7,7 @@ import {
   pumpIngestQueue,
 } from '../../ingest/ingestJob.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
+import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import {
   createQueueRequest,
   createTempRepo,
@@ -130,6 +131,89 @@ function createAppForMixedShapeInvalidLockMetadata() {
   return { app, getEnqueueCalls: () => enqueueCalls };
 }
 
+function createAppForBridgeMixedShapeInvalidLockMetadata() {
+  let enqueueCalls = 0;
+  const app = express();
+  app.use(express.json());
+
+  const roots = {
+    ids: ['repo-mixed-shape'],
+    metadatas: [
+      {
+        name: 'repo-mixed-shape',
+        root: '/data/repo-mixed-shape',
+        model: '',
+        embeddingProvider: 'openai',
+        embeddingModel: '',
+        embeddingDimensions: 0,
+        files: 1,
+        chunks: 1,
+        embedded: 1,
+        state: 'completed',
+        lastIngestAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+  };
+
+  const listIngestedRepositories = async () => ({
+    repos: [
+      {
+        id: 'repo-mixed-shape',
+        description: null,
+        containerPath: '/data/repo-mixed-shape',
+        hostPath: '/host/data/repo-mixed-shape',
+        lastIngestAt: '2026-01-01T00:00:00.000Z',
+        embeddingProvider: 'openai',
+        embeddingModel: '',
+        embeddingDimensions: 0,
+        model: '',
+        modelId: '',
+        lock: {
+          embeddingProvider: 'openai',
+          embeddingModel: 'legacy-lmstudio-model',
+          embeddingDimensions: 768,
+          lockedModelId: 'legacy-lmstudio-model',
+          modelId: 'legacy-lmstudio-model',
+        },
+        counts: { files: 1, chunks: 1, embedded: 1 },
+        lastError: null,
+        status: 'completed',
+      },
+    ],
+    lockedModelId: 'legacy-lmstudio-model',
+  });
+
+  app.use(
+    createIngestReembedRouter({
+      clientFactory: () => ({}) as never,
+      listIngestedRepositories,
+      enqueueOrReuseIngestRequest: async () => {
+        enqueueCalls += 1;
+        return {
+          requestId: 'unexpected-queue-request',
+          canonicalTargetPath: '/data/repo-mixed-shape',
+          queueState: 'waiting' as const,
+          queuePosition: 1,
+          runId: null,
+          reusedExisting: false,
+          updatedExisting: false,
+          queueRequest: {} as never,
+        };
+      },
+    }),
+  );
+  app.use(
+    createIngestRootsRouter({
+      getLockedModel: async () => 'legacy-lmstudio-model',
+      getRootsCollection: async () =>
+        ({
+          get: async () => roots,
+        }) as never,
+    }),
+  );
+  return { app, getEnqueueCalls: () => enqueueCalls };
+}
+
 test('POST /ingest/reembed keeps the immediate cancelled-root INVALID_REEMBED_STATE contract aligned with deferred execution rejection', async () => {
   const { app, getEnqueueCalls } = createAppForInvalidReembedState('cancelled');
 
@@ -157,6 +241,29 @@ test('POST /ingest/reembed returns INVALID_LOCK_METADATA for mixed-shape canonic
   assert.equal(res.status, 409);
   assert.equal(res.body.code, 'INVALID_LOCK_METADATA');
   assert.equal(getEnqueueCalls(), 0);
+});
+
+test('POST /ingest/reembed keeps a bridge-style mixed-shape sourceId on INVALID_LOCK_METADATA without making the row disappear from later /ingest/roots inspection', async () => {
+  const { app, getEnqueueCalls } =
+    createAppForBridgeMixedShapeInvalidLockMetadata();
+
+  const res = await request(app).post(
+    '/ingest/reembed/%2Fdata%2Frepo-mixed-shape',
+  );
+  assert.equal(res.status, 409);
+  assert.equal(res.body.code, 'INVALID_LOCK_METADATA');
+  assert.equal(getEnqueueCalls(), 0);
+
+  const rootsResponse = await request(app).get('/ingest/roots');
+  assert.equal(rootsResponse.status, 200);
+  const root = rootsResponse.body.roots.find(
+    (entry: { path?: string }) => entry.path === '/data/repo-mixed-shape',
+  );
+  assert.ok(root);
+  assert.equal(root.embeddingProvider, 'openai');
+  assert.equal(root.embeddingModel, '');
+  assert.equal(root.modelId, '');
+  assert.equal(root.lock.embeddingModel, 'legacy-lmstudio-model');
 });
 
 test('deferred queue replay keeps the immediate INVALID_REEMBED_STATE contract when fresh live root-state checks reject a queued re-embed', async () => {

@@ -6,6 +6,7 @@ import type {
   ReingestError,
   ReingestResult,
 } from '../../ingest/reingestService.js';
+import { runReingestRepository } from '../../ingest/reingestService.js';
 import { createMcpRouter } from '../../mcp/server.js';
 
 const terminalCompleted = {
@@ -122,6 +123,31 @@ const mixedShapeInvalidStateError: Extract<ReingestError, { code: -32602 }> = {
     ],
   },
 };
+
+function createBridgeMixedShapeRepo() {
+  return {
+    id: 'repo-mixed-shape-bridge',
+    description: null,
+    containerPath: '/data/repo-mixed-shape-bridge',
+    hostPath: '/host/data/repo-mixed-shape-bridge',
+    lastIngestAt: '2026-04-27T00:00:00.000Z',
+    embeddingProvider: 'openai' as const,
+    embeddingModel: '',
+    embeddingDimensions: 0,
+    model: '',
+    modelId: '',
+    lock: {
+      embeddingProvider: 'openai' as const,
+      embeddingModel: 'legacy-lmstudio-model',
+      embeddingDimensions: 768,
+      lockedModelId: 'legacy-lmstudio-model',
+      modelId: 'legacy-lmstudio-model',
+    },
+    counts: { files: 1, chunks: 1, embedded: 1 },
+    lastError: null,
+    status: 'completed' as const,
+  };
+}
 
 function createApp(result: ReingestResult, onRun?: (args: unknown) => void) {
   const app = express();
@@ -599,6 +625,65 @@ test('classic MCP returns the shared mixed-shape invalid-state tool error withou
   assert.equal(res.status, 200);
   assert.equal(res.body.result, undefined);
   assert.deepEqual(res.body.error, mixedShapeInvalidStateError);
+});
+
+test('classic MCP keeps a bridge-style mixed-shape sourceId on the shared INVALID_PARAMS tool error instead of drifting to NOT_FOUND after selector resolution', async () => {
+  let enqueueCalls = 0;
+  const bridgeRepo = createBridgeMixedShapeRepo();
+  const listIngestedRepositories = async () => ({
+    repos: [bridgeRepo],
+    lockedModelId: 'legacy-lmstudio-model',
+  });
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      listIngestedRepositories,
+      runReingestRepository: async (args) =>
+        runReingestRepository(args, {
+          listIngestedRepositories,
+          enqueueOrReuseIngestRequest: async () => {
+            enqueueCalls += 1;
+            return {
+              requestId: 'unexpected-queue-request',
+              canonicalTargetPath: bridgeRepo.containerPath,
+              queueState: 'waiting',
+              queuePosition: 1,
+              runId: null,
+              reusedExisting: false,
+              updatedExisting: false,
+              queueRequest: {} as never,
+            };
+          },
+        }),
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 'bridge-mixed-shape-invalid-state',
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: { sourceId: bridgeRepo.containerPath },
+      },
+    });
+
+  assert.equal(enqueueCalls, 0);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.result, undefined);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'INVALID_PARAMS');
+  assert.equal(
+    res.body.error.data.fieldErrors[0]?.message,
+    'sourceId points to a repository that cannot be re-embedded in its current state',
+  );
+  assert.deepEqual(res.body.error.data.reingestableSourceIds, [
+    bridgeRepo.containerPath,
+  ]);
 });
 
 test('classic MCP post-start failure remains terminal result (not JSON-RPC error)', async () => {

@@ -512,6 +512,18 @@ export function resolveRepoEmbeddingIdentity(
     normalizeEmbeddingModel(repo.model) ??
     '';
 
+  // Preserve partially populated canonical OpenAI metadata as invalid state
+  // instead of silently inheriting a valid identity from lock/alias fallbacks.
+  if (canonicalProvider === 'openai' && canonicalModel === null) {
+    return {
+      embeddingProvider: 'openai',
+      embeddingModel: '',
+      embeddingDimensions: canonicalDimensions ?? 0,
+      modelId: '',
+      aliasFallbackUsed: true,
+    };
+  }
+
   const embeddingProvider = canonicalProvider ?? lockProvider ?? 'lmstudio';
   const embeddingModel = canonicalModel ?? lockModel ?? aliasModel;
   const embeddingDimensions = canonicalDimensions ?? lockDimensions ?? 0;
@@ -1333,6 +1345,14 @@ export async function listIngestedRepositories(
             }
           : null,
       );
+      const repoIdentity = resolveRepoEmbeddingIdentity({
+        embeddingProvider: m.embeddingProvider,
+        embeddingModel: m.embeddingModel,
+        embeddingDimensions: m.embeddingDimensions,
+        model: m.model,
+        modelId: m.modelId,
+        lock: repoLock,
+      });
       const sourceId = rawPath;
       const mappedState = mapInternalStateToExternal(m.state);
       logStatusMapped({
@@ -1352,11 +1372,11 @@ export async function listIngestedRepositories(
           : {}),
         lastIngestAt:
           typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null,
-        embeddingProvider: repoLock.embeddingProvider,
-        embeddingModel: repoLock.embeddingModel,
-        embeddingDimensions: repoLock.embeddingDimensions,
-        model: repoLock.embeddingModel,
-        modelId: repoLock.modelId,
+        embeddingProvider: repoIdentity.embeddingProvider,
+        embeddingModel: repoIdentity.embeddingModel,
+        embeddingDimensions: repoIdentity.embeddingDimensions,
+        model: repoIdentity.embeddingModel,
+        modelId: repoIdentity.modelId,
         lock: repoLock,
         counts: {
           files: Number(m.files ?? 0),

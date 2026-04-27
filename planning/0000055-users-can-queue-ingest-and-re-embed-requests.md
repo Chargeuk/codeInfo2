@@ -16375,7 +16375,7 @@ The same review cycle also recorded one `optional_simplification` note about pre
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `202`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `F1`: `runReingestRepository(...)` must return a structured `OPENAI_MODEL_UNAVAILABLE` reingest error instead of throwing across shared callers.
   - `F2`: malformed or unsupported reingest input must fail as `INVALID_PARAMS` before repo-list dependency I/O can mask the contract.

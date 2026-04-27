@@ -76,6 +76,9 @@ Explain the implementation gotchas for the currently active task using the store
 
 - Name the highest task heading currently present in the plan.
 - Name the active task heading and its `Task Status`.
+- Name the resolved default owner repository from `Repository Name`, using the plan alias and resolved repository path when available.
+- List the resolved implementation-scope repositories for this pass, using plan aliases and resolved repository paths when available.
+- List the resolved proof-scope repositories for this pass, using plan aliases and resolved repository paths when available.
 - Explain the main gotchas for the next implementation pass.
 - Call out any repair-driven task-status changes, inserted tasks, or renumbering when they affect this pass.
 - Call out any repeated-pass stall state or bounded-diagnostic stopping rule when applicable.

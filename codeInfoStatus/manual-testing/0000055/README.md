@@ -11,6 +11,10 @@ Story 55 keeps a bounded tracked proof home in `codeInfoStatus/manual-testing/00
   - Role: the final retained Task 204 reviewer-facing summaries for the latest pre-review-cycle full-story manual proof.
   - Writers: the Task 204 manual proof pass and its closeout export step.
   - Readers: the Task 204 implementation note, Task 206 retained-proof contract repair, and Task 207 final revalidation closeout.
+- `task207-*.json`, `task207-*.txt`, `task207-*.png`, `task207-manual-proof-summary.md`
+  - Role: the final retained Task 207 full-story manual-proof summaries for the active review-cycle closeout.
+  - Writers: the Task 207 manual proof pass and its retained-proof export step.
+  - Readers: the Task 207 implementation note, the Story 55 plan closeout, and later reviewer verification of the final queue-behavior proof.
 
 ## Ignored Raw Proof Home
 
@@ -41,3 +45,16 @@ Story 55 keeps a bounded tracked proof home in `codeInfoStatus/manual-testing/00
 - `task204-review-disposition-state.json`
 - `task204-task203-parser.json`
 - `task204-task204-parser.json`
+
+## Additional Retained Proof From Task 207
+
+- `task207-active-status-sequential.json`
+- `task207-browser-console.txt`
+- `task207-browser-network.txt`
+- `task207-drain-wait.json`
+- `task207-health.json`
+- `task207-ingest-queued-details.png`
+- `task207-ingest-queued-row.png`
+- `task207-manual-proof-summary.md`
+- `task207-queue-roots-focused.json`
+- `task207-sequential-start-summary.json`

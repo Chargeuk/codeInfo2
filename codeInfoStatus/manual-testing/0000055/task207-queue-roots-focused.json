@@ -1,0 +1,43 @@
+{
+  "roots": [
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task191-waiting-root",
+      "name": "Task 207 Sequential Queued Root",
+      "status": "ingesting",
+      "phase": "queued",
+      "requestId": "69ef4c9212bee55cd4fd57ab",
+      "runId": null,
+      "queueState": "waiting",
+      "queuePosition": 1,
+      "counts": {
+        "files": 30,
+        "chunks": 30,
+        "embedded": 30
+      }
+    },
+    {
+      "path": "/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/manual-testing/0000055/task181-fixture",
+      "name": "Task 207 Sequential Active Root",
+      "status": "ingesting",
+      "phase": "embedding",
+      "requestId": "69ef4c9212bee55cd4fd57a3",
+      "runId": "c4f8f227-aebc-4db2-b534-d49c5703d3c2",
+      "queueState": "running",
+      "queuePosition": null,
+      "counts": {
+        "files": 1027,
+        "chunks": 0,
+        "embedded": 0
+      }
+    }
+  ],
+  "lock": {
+    "embeddingProvider": "openai",
+    "embeddingModel": "text-embedding-3-small",
+    "embeddingDimensions": 1536,
+    "lockedModelId": "text-embedding-3-small",
+    "modelId": "text-embedding-3-small"
+  },
+  "lockedModelId": "text-embedding-3-small",
+  "schemaVersion": "0000055-queued-repo-list-v1"
+}

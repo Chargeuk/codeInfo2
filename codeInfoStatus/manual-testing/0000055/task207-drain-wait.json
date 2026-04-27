@@ -1,0 +1,44 @@
+{
+  "settled": true,
+  "elapsedMs": 24,
+  "history": [
+    {
+      "elapsedMs": 24,
+      "activeStatus": {
+        "runId": "c4f8f227-aebc-4db2-b534-d49c5703d3c2",
+        "state": "completed",
+        "counts": {
+          "files": 1027,
+          "chunks": 3854,
+          "embedded": 3854
+        },
+        "ast": {
+          "supportedFileCount": 639,
+          "skippedFileCount": 388,
+          "failedFileCount": 28
+        },
+        "message": "Completed",
+        "lastError": null,
+        "error": null,
+        "currentFile": "usefulCommands.txt.md",
+        "fileIndex": 1027,
+        "fileTotal": 1027,
+        "percent": 100,
+        "etaMs": 0
+      },
+      "activeRoot": {
+        "queueState": null,
+        "status": "completed",
+        "runId": null,
+        "requestId": null
+      },
+      "queuedRoot": {
+        "queueState": null,
+        "status": "completed",
+        "runId": null,
+        "requestId": null,
+        "queuePosition": null
+      }
+    }
+  ]
+}

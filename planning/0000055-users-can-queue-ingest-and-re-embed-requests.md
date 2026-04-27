@@ -15981,7 +15981,7 @@ Add the missing Story 55 proof-owner seam that can seed a malformed canonical Op
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `198`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -16043,6 +16043,7 @@ Add the missing runtime-facing bridge between the supported mixed-shape seed fro
 - Updated `server/src/test/support/hostNetworkMainProbe.mjs` so the shared host-network probe now seeds the malformed row through the shared helper, observes it through the compose-backed `/ingest/roots` surface, and cleans it afterward by default while still allowing a preserve-seeded mode for later task-scoped inspection.
 - Re-opened Task 200's remaining handoff so it now points at the runtime-facing host-network bridge and the shared helper instead of the cucumber-only seed, and updated its later manual guidance to use the bridge's preserve-seeded path rather than direct step-layer seeding.
 - Ran `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-reembed.feature`; the first two wrapper attempts failed at server build because the new shared helper lacked a declaration file that TypeScript could resolve for the `.js` import, so `server/src/test/support/mixedShapeRuntimeBridge.d.ts` was added and the task-listed rerun then passed cleanly with `12 passed, 0 failed`.
+- Implementation-plus-automated-proof audit on 2026-04-27: re-read the current handoffs and this exact task from disk, confirmed all subtasks and all four listed automated proof steps are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.
 - Ran `npm run compose:up`; the compose-backed Story 55 stack started cleanly after the new bridge landed, with `codeinfo2-server-1` reaching `Healthy` and `codeinfo2-client-1` reaching `Started`, so the shared-runtime probe surface is now ready for the next task-listed checkpoint.
 - Ran `npm run test:summary:host-network:main`; the first probe attempt failed because the shared helper imported the server's TypeScript-only `chromaClient` module from a plain `.mjs` runtime, and the second failed because the bridge wrote a one-dimensional placeholder embedding into a 1536-dimensional main-stack roots collection, so the helper was moved to a plain `chromadb` client with a collection-compatible zero vector and the probe contract was tightened to require shared-runtime row visibility plus cleanup instead of blank field preservation on the lock-overlay `/ingest/roots` surface; the task-listed rerun then passed cleanly with every MCP endpoint reachable and the mixed-shape bridge observed and cleaned.
 - Ran `npm run compose:down`; the compose-backed Story 55 stack shut down cleanly after the shared-runtime bridge probe, removing the server, client, Chroma, Mongo, and supporting containers plus the internal Docker network so the task ends with no leftover runtime state.

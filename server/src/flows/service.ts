@@ -2030,7 +2030,12 @@ export const parseBreakAnswer = (
 
 const findFirstAgentStep = (
   steps: FlowStep[],
-): FlowLlmStep | FlowBreakStep | FlowContinueStep | FlowCommandStep | undefined => {
+):
+  | FlowLlmStep
+  | FlowBreakStep
+  | FlowContinueStep
+  | FlowCommandStep
+  | undefined => {
   for (const step of steps) {
     if (
       step.type === 'llm' ||

@@ -486,7 +486,25 @@ test('continue step skips remaining iteration steps and starts the next iteratio
       });
 
       assert.equal(final.status, 'ok');
-      const turns = memoryTurns.get(conversationId) ?? [];
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Skip remaining loop steps?'),
+          ).length === 2 &&
+          items.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Reached post-continue step.'),
+          ).length === 1 &&
+          items.filter(
+            (turn) =>
+              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+          ).length === 1,
+        4000,
+      );
       const outerLoopTurns = turns.filter(
         (turn) =>
           turn.role === 'user' && turn.content.includes('Outer loop step.'),

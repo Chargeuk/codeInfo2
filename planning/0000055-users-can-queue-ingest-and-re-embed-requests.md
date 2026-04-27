@@ -15981,7 +15981,7 @@ Add the missing Story 55 proof-owner seam that can seed a malformed canonical Op
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196, 198`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F2`: mixed-shape canonical re-embed metadata is misclassified and can escape shared callers as an uncaught exception.
 
@@ -16063,6 +16063,7 @@ Repair the mixed-shape canonical re-embed validation seam so repo-list metadata,
 - **BLOCKING ANSWER** Repository precedent proves this blocker is a proof or test harness seam, with a manual or runtime environment seam for the later live check, not a fresh Task 199 product-code defect. The existing Story 55 cucumber harness in `server/src/test/steps/ingest-manage.steps.ts` already seeds queue-owned and malformed persisted ingest state directly through `IngestQueueRequestModel.create(...)` and cleans that state in `Before` and `After` hooks, while this plan's final manual guidance already says seeded queue-owned or replayable rows must come from supported Story 55 routes or test-owned fixtures rather than ad hoc database edits. Official MongoDB docs confirm that `insertOne()` and `updateOne()` are the supported primitives for creating and mutating explicit document states, and official Cucumber.js docs confirm `Before` and `After` hooks are the intended place to prepare and clean test fixtures; that matches the local harness pattern exactly. The proved solution is therefore to add a supported Story 55 seed or harness prerequisite that can create the malformed canonical OpenAI root for live verification, then rerun manual proof against that supported fixture while leaving Task 199's completed automated proof as the honest product-seam evidence today. Rejected alternatives are not suitable here: retrying public routes cannot create the malformed persisted row because admission now rejects it by design, ad hoc Mongo edits during manual proof would bypass the repo's documented fixture rule, broad wrapper reruns do not create the missing runtime seed, and weakening production validation just to make manual proof easier would reopen the product contract this task already repaired.
 - Planner repair on 2026-04-27 moved the missing supported mixed-shape seed or harness owner into Task 198 and reopened this task behind that prerequisite. The remaining open owner on this task is now the explicit fixture-backed handoff in Subtask 8 rather than more mixed-shape product-code or targeted automated-proof work.
 - Task 198 landed a supported ingest-manage seed in `server/src/test/steps/ingest-manage.steps.ts` plus the `supported ingest-manage seed exposes a mixed-shape canonical OpenAI row for invalid-state re-embed validation` scenario in `server/src/test/features/ingest-reembed.feature`; the handoff now depends on that fixture path and the existing `After` hook cleanup instead of the exhausted unsupported runtime-only route.
+- Implementation-plus-automated-proof audit on 2026-04-27: re-read the current handoffs and this exact task from disk, confirmed all subtasks and the targeted automated proof are checked, confirmed there is no live `**BLOCKER**`, and closed the task as `__done__`.
 
 #### Manual Testing Guidance
 

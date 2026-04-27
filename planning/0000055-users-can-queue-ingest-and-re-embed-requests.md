@@ -16165,7 +16165,7 @@ Later manual validation for this seam should start from the supported runtime-fa
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `196`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `F3`: production remove normalizes a public selector before the destructive authority boundary.
   - `F4`: production remove can hide target-owned queue blocking behind a generic `BUSY` response.
@@ -16234,6 +16234,7 @@ Repair the production remove route so the public selector is validated as an exa
 - Repaired the reopened Task 201 cucumber proof in two small steps: first by initializing the new remove-route root variable for TypeScript, then by tightening the new higher-level feature assertion to check the target root's preserved queue state instead of over-claiming a single visible root while unrelated active work is also present. Reran `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-remove.feature`; the feature proof passed cleanly with `8 passed, 0 failed`.
 - Repaired the reopened Task 201 direct-route unit proof in two small steps: updated the legacy BUSY case to use an exact persisted root selector and then stubbed its live-queue lookup so the new target-first ordering did not turn that old proof into an accidental database-dependent 500. Reran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-lock-lifecycle.test.ts`; the direct route proof passed cleanly with `4 passed, 0 failed`.
 - Ran `npm run test:summary:server:unit -- --file server/src/test/integration/ingest-e2e-cleanup.test.ts`; the cleanup-route separation proof passed cleanly with `6 passed, 0 failed`, confirming the env-gated cleanup boundary still keeps its BUSY-versus-waiting-removal behavior after the production remove repair.
+- Automated-proof audit closed Task 201 after confirming all five subtasks, all three task-owned proof wrappers, and the parser's blocker state were fully complete with no remaining live blocker.
 
 ### Task 202. Re-Validate Story 55 After Review Pass `0000055-20260426T203714Z-ff22e029`
 

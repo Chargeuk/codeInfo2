@@ -17079,3 +17079,42 @@ Optional later manual follow-up can reuse the supported main stack from the repo
 - 2026-04-27: Subtask 2 rechecked the current review disposition after the wrapper set finished and confirmed the cycle still has one affected repository, one resolved inline minor (`finding-1` at commit `0a6342c3`), no unresolved findings, and aligned retained proof references across the clean review disposition plus this task's client-build or client-test or e2e or lint or format proof homes. No wrapper-owned blocker appeared, so this task remains a pure final automated revalidation owner rather than a reopened inline repair task.
 - 2026-04-27: Implementation-plus-automated-proof audit re-read the current handoffs and Task `210` from disk, confirmed both subtasks and all five testing steps are checked, and verified `python3 scripts/plan_status.py --task-number 210` reports no live blocker and no remaining unchecked checklist work. With no honest remaining gate left outside optional later manual follow-up, the task now closes as `__done__`.
 - 2026-04-27: Final-task manual proof ran at full-story scope after restarting the stale main compose stack with `npm run compose:build` and `npm run compose:up`, then returning it to the prior stopped state with `npm run compose:down`. The pass re-proved REST or tools or classic-MCP queue admission, confirmed the Task `210` selection-parity seam by queueing `task188-manual-queue-proof` while selected and observing the UI drop from `1 selected` to `0 selected` without a manual page reload, and re-proved degraded Mongo queue reads through `task210-health-degraded.json`, `task210-roots-degraded.json`, `task210-tools-degraded.json`, and `task210-mcp-degraded.json` while the browser still rendered the degraded warning plus visible rows. Reviewer-facing proof was retained under `codeInfoStatus/manual-testing/0000055/` in `task210-manual-proof-summary.md` plus the `task210-*.json` and `task210-*.txt` artifacts there; Playwright screenshot staging names were `manual-testing/0000055/task210-story-queue-state.png`, `manual-testing/0000055/task210-queue-table.png`, `manual-testing/0000055/task210-selection-before-queue.png`, `manual-testing/0000055/task210-selection-cleared-after-queue.png`, and `manual-testing/0000055/task210-degraded-warning-plus-rows.png`, but their transfer out of Playwright staging could not be completed because the reported `/tmp/playwright-output/...` files were not host-visible and were not present in the running `playwright-mcp` container or its named volume path during this pass. No additional subtasks or testing steps were needed.
+
+## Post-Implementation Code Review
+
+### Review Pass `0000055-20260427T182528Z-2c21a0f4`
+
+- Review scope stayed on the current repository only because `codeInfoStatus/flow-state/current-plan.json` still points at `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` and names no additional repositories.
+- Branch-vs-base checks performed:
+  - current repository branch: `feature/0000055-users-can-queue-ingest-and-re-embed-requests`
+  - canonical plan story number: `0000055`
+  - comparison base ref: `origin/main`
+  - comparison base commit: `8a68d55801438b1e789d0c4aa0067dbf4e4257fa`
+  - comparison head ref: `HEAD`
+  - comparison head commit: `2c21a0f4a3dc6985024b48a58a6f1468f4dd408b`
+  - comparison rule: `local_head_vs_resolved_base`
+  - base source and fallback status: reviewed local `HEAD` against remote-tracking base `origin/main`; no local fallback was needed and `remote_fetch_status` stayed `success`
+- Acceptance-evidence checks performed:
+  - verified the stored review artifacts for this pass at `codeInfoTmp/reviews/0000055-20260427T182528Z-2c21a0f4-evidence.md`, `codeInfoTmp/reviews/0000055-20260427T182528Z-2c21a0f4-findings.md`, `codeInfoTmp/reviews/0000055-20260427T182528Z-2c21a0f4-findings-saturation.md`, and `codeInfoTmp/reviews/0000055-20260427T182528Z-2c21a0f4-blind-spot-challenge.md`
+  - rechecked that the current review-state handoff records no unresolved task-required findings, no unresolved minor findings, no incomplete-review blockers, no rerun requirement, and no review-created follow-up work for this pass
+  - confirmed the canonical plan still shows the final story revalidation owners already completed, including Task `209` and the older inline-minor follow-up Task `210`
+- Files and surfaces inspected for this pass, as recorded in the evidence and findings artifacts:
+  - queue admission and waiting-row rewrite seams: `server/src/ingest/requestQueue.ts`, `server/src/test/unit/ingest-request-queue.test.ts`
+  - queue runtime, startup recovery, and fast-path execution seams: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-queue-runtime-recovery.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`
+  - queue-proof and lifecycle step ownership: `server/src/test/steps/ingest-manage.steps.ts`
+  - client queued-selection parity seam: `client/src/components/ingest/RootsTable.tsx`, `client/src/test/ingestRoots.test.tsx`
+  - support-file hygiene and review-loop cleanup surface: `codeInfoStatus/flow-state/current-plan.json`, deleted `codeInfoStatus/flow-state/minor-review-fix-result.json`, and the current review artifacts under `codeInfoTmp/reviews/`
+- Why the repository in scope remains complete:
+  - the current `HEAD` review against `origin/main` endorsed no actionable findings, and both the saturation pass and the blind-spot challenge kept that no-findings conclusion intact
+  - the plan remains fully complete on current disk, with the final broad revalidation task and the earlier inline-minor final revalidation task both already closed as `__done__`
+  - no additional repository is in scope, so there is no unresolved cross-repository compatibility owner left open for this story
+- Why the overall story remains complete:
+  - durable queue admission, waiting-row dedupe, startup recovery ordering, queue-aware repo-list visibility, blocking proof ownership, and the previously repaired queued-selection parity seam all retain accepted proof without generating new contradictory findings in this pass
+  - the fresh review cycle found only residual weak-proof areas, not new defects, so there is no new task-up, inline minor-fix, or final revalidation owner to add before story closure
+- Cross-repository integration evidence:
+  - not applicable for this pass because `additional_repositories` is empty and the selected plan host is the only repository in scope
+- Rejected-risk and residual-risk notes carried forward honestly:
+  - rejected risk: `enqueueOrReuseIngestRequest(...)` stale-intent overwrite remained rejected because the rewrite filter still pins `_id`, `canonicalTargetPath`, and `queueState: 'waiting'`, while the queue race proofs still collapse back onto the live durable row instead of inventing a third branch
+  - rejected risk: `processRun(...)` fast-path dependency leakage remained rejected because the zero-work decision still happens before late provider or bootstrap work and the existing provider-free proofs still hold
+  - residual weak-proof limit: malformed `cleanup-blocked` startup rows without `runId` still rely on the warning-and-return branch in `server/src/ingest/ingestJob.ts`; this pass did not find enough evidence to promote that edge into an endorsed finding, so confidence there remains weaker than the directly proved cleanup-blocked and durable-barrier recovery paths
+  - residual weak-proof limit: the queue-overlay read path in `server/src/lmstudio/toolService.ts` remains more lightly proven at large live-queue scale than at ordinary scale; this review did not find an actionable selector bug, but it also did not add a dedicated large-scale stress proof

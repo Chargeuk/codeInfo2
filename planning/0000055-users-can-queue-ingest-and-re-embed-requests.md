@@ -12845,7 +12845,7 @@ Normalize the repo-wide Prettier ownership boundary so committed final-story man
 
 - `.prettierignore`
 - `package.json`
-- `codeInfoStatus/manual-testing/0000055/`
+- `codeInfoStatus/manual-testing/0000055/README.md`
 
 #### Subtasks
 
@@ -16557,7 +16557,7 @@ No additional repositories are in scope for this review cycle. Client-only, brow
 - 2026-04-27: Ran `npm run lint`; `eslint . --ext .ts,.tsx --max-warnings=0` exited cleanly with no lint violations on the current broad proof baseline.
 - 2026-04-27: Ran `npm run format:check`; Prettier completed with `All matched files use Prettier code style!`, so the broad final proof kept formatting clean across the current repository baseline.
 - Automated-proof audit on 2026-04-27 closed Task 204 after confirming all three subtasks, all eight broad final revalidation testing steps, and the parser blocker state were complete with no remaining live blocker.
-- Full-story manual proof on 2026-04-27 restarted the supported main stack from stale or unknown provenance with `npm run compose:down`, `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`, then saved durable artifacts under `codeInfoStatus/manual-testing/0000055/`. The retained proof kept the review-loop ownership aligned on disk via `task204-review-disposition-state.json`, `task204-pr-summary.txt`, `task204-task203-parser.json`, and `task204-task204-parser.json`, showed live `/health` returning `status:"ok"` with `mongoConnected:true`, and revalidated the repaired shared-caller seams through `task204-classic-invalid-params.json`, `task204-mcpv2-invalid-params.json`, `task204-mcpv2-tools-list.json`, and `task204-rest-whitespace-root.json` plus `.status`, where classic MCP and MCP v2 both returned structured `INVALID_PARAMS` for whitespace `sourceId` and REST kept the route-level `404 NOT_FOUND` malformed-selector contract. Because the review-created findings block remains server-only and the refreshed PR summary explicitly marks client, browser, and end-to-end categories non-applicable, no screenshots were required; the checked-in fallback scenario `re-embed rejects a non-allowlisted lock-derived OpenAI model before queue admission` also passed cleanly through `task204-cucumber-model-unavailable-summary.txt` after the live stack was back down, so no additional subtasks or testing changes were needed.
+- Full-story manual proof on 2026-04-27 restarted the supported main stack from stale or unknown provenance with `npm run compose:down`, `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`, then exported reviewer-facing retained summaries into the bounded tracked proof home `codeInfoStatus/manual-testing/0000055/` that Task 206 later formalized via `README.md`. The retained proof kept the review-loop ownership aligned on disk via `task204-review-disposition-state.json`, `task204-pr-summary.txt`, `task204-task203-parser.json`, and `task204-task204-parser.json`, showed live `/health` returning `status:"ok"` with `mongoConnected:true`, and revalidated the repaired shared-caller seams through `task204-classic-invalid-params.json`, `task204-mcpv2-invalid-params.json`, `task204-mcpv2-tools-list.json`, and `task204-rest-whitespace-root.json` plus `.status`, where classic MCP and MCP v2 both returned structured `INVALID_PARAMS` for whitespace `sourceId` and REST kept the route-level `404 NOT_FOUND` malformed-selector contract. Because the review-created findings block remains server-only and the refreshed PR summary explicitly marks client, browser, and end-to-end categories non-applicable, no screenshots were required; the checked-in fallback scenario `re-embed rejects a non-allowlisted lock-derived OpenAI model before queue admission` also passed cleanly through `task204-cucumber-model-unavailable-summary.txt` after the live stack was back down, while older raw runtime bulk from Story 55 manual passes is now rehomed under ignored `codeInfoTmp/manual-testing/0000055/`.
 
 ## Code Review Findings - Review Pass `0000055-20260427T065706Z-15b0a653`
 
@@ -16576,7 +16576,7 @@ The active `codeInfoStatus/flow-state/review-disposition-state.json` for this sa
 Endorsed findings requiring plan follow-up:
 
 - `finding-3` `should_fix`: remove the dead "non-rewriteable waiting request" fallback branches from the queue admission helper and keep the waiting-row rewrite or dedupe proof honest around the real state machine.
-- `finding-2` `should_fix`: re-home or reinterpret the tracked `codeInfoStatus/manual-testing/0000055/` retained artifacts through an explicit durable storage contract so Story 55 proof files stop reading like disposable runtime scratch.
+- `finding-2` `should_fix`: formalize Story 55 manual-proof storage so only a bounded tracked retained-proof subset remains under `codeInfoStatus/manual-testing/0000055/` and the raw runtime bulk lives under ignored `codeInfoTmp/manual-testing/0000055/`.
 
 ### Task 205. Simplify Waiting-Only Queue Admission Fallbacks
 
@@ -16654,7 +16654,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 - Task Dependencies: `204`
 - Task Status: `__in_progress__`
 - Addresses Findings:
-  - `finding-2`: the tracked `codeInfoStatus/manual-testing/0000055/` tree currently reads like disposable runtime scratch even though Story 55 now relies on it as a retained proof surface.
+  - `finding-2`: Story 55 needs one explicit retained-proof contract so the bounded tracked proof home in `codeInfoStatus/manual-testing/0000055/` no longer reads like disposable runtime scratch and the raw runtime bulk is clearly rehomed under ignored `codeInfoTmp/manual-testing/0000055/`.
 
 #### Overview
 
@@ -16692,17 +16692,17 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 - `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`
 - `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`
 - `codeInfoStatus/pr-summaries/0000055-pr-summary.md`
-- `codeInfoStatus/manual-testing/0000055/`
+- `codeInfoStatus/manual-testing/0000055/README.md`
 
 #### Subtasks
 
-1. [ ] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, noting which logs, screenshots, JSON or HTML captures, status sidecars, and summary files are actually referenced today and which writer surface produced each retained artifact class.
-2. [ ] Bucket those current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set; name the reader surface for each retained or tracked-summary group and the cleanup owner for each transient group before any move or deletion happens.
-3. [ ] Choose the final retained-proof branch from `R1` before moving files: keep a tracked proof home under `codeInfoStatus/` only when every retained file is durable reviewer-facing proof that still needs to stay in Git, and move the raw proof home into `codeInfoTmp/manual-testing/0000055/` when any artifact is only runtime bulk, staging output, or disposable scratch that should no longer be tracked.
-4. [ ] Apply the branch chosen in Subtask 3: either prune and rename the retained subset into a clearly durable tracked proof home under `codeInfoStatus/`, or move the raw proof home into `codeInfoTmp/manual-testing/0000055/` and leave only the tracked summary surfaces that still need to remain in Git for the plan, findings artifact, and PR summary references.
-5. [ ] Update the retained-proof references in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` so the canonical task and review text describe the same final contract chosen in Subtask 3 and applied in Subtask 4.
-6. [ ] Update the retained-proof references in `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md` so the current review artifact points at the same final contract and no longer reads like an accidental tracked scratch directory.
-7. [ ] Update the retained-proof references in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the PR summary names the same final contract and bounded retained proof home or tracked summary surface chosen in Subtask 3.
+1. [x] Inventory the current `codeInfoStatus/manual-testing/0000055/` tree and the Story 55 references to it in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md`, `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md`, and `codeInfoStatus/pr-summaries/0000055-pr-summary.md`, noting which logs, screenshots, JSON or HTML captures, status sidecars, and summary files are actually referenced today and which writer surface produced each retained artifact class.
+2. [x] Bucket those current Story 55 files into three explicit groups before editing anything else: retained proof that must stay reachable from plan or review references, tracked summary surfaces that can stay in Git without carrying raw runtime bulk, and transient runtime byproducts that should move to an ignored location or disappear from the tracked set; name the reader surface for each retained or tracked-summary group and the cleanup owner for each transient group before any move or deletion happens.
+3. [x] Choose the final retained-proof branch from `R1` before moving files: keep a tracked proof home under `codeInfoStatus/` only when every retained file is durable reviewer-facing proof that still needs to stay in Git, and move the raw proof home into `codeInfoTmp/manual-testing/0000055/` when any artifact is only runtime bulk, staging output, or disposable scratch that should no longer be tracked.
+4. [x] Apply the branch chosen in Subtask 3: either prune and rename the retained subset into a clearly durable tracked proof home under `codeInfoStatus/`, or move the raw proof home into `codeInfoTmp/manual-testing/0000055/` and leave only the tracked summary surfaces that still need to remain in Git for the plan, findings artifact, and PR summary references.
+5. [x] Update the retained-proof references in `planning/0000055-users-can-queue-ingest-and-re-embed-requests.md` so the canonical task and review text describe the same final contract chosen in Subtask 3 and applied in Subtask 4.
+6. [x] Update the retained-proof references in `codeInfoTmp/reviews/0000055-20260427T065706Z-15b0a653-findings.md` so the current review artifact points at the same final contract and no longer reads like an accidental tracked scratch directory.
+7. [x] Update the retained-proof references in `codeInfoStatus/pr-summaries/0000055-pr-summary.md` so the PR summary names the same final contract and bounded retained proof home or tracked summary surface chosen in Subtask 3.
 
 #### Testing
 
@@ -16713,6 +16713,11 @@ Repair the retained-artifact contract for Story 55 by choosing one explicit end 
 #### Implementation Notes
 
 - Planner task-up on 2026-04-27 appended this task because review disposition state for pass `0000055-20260427T065706Z-15b0a653` reclassified `finding-2` out of the inline minor path: Story 55 currently treats `codeInfoStatus/manual-testing/0000055/` as a retained proof surface, so fixing the artifact-hygiene finding now requires a broader retained-home contract and reference repair rather than one tiny cleanup edit.
+- 2026-04-27: Inventoried the tracked `codeInfoStatus/manual-testing/0000055/` tree against the current plan, findings artifact, and PR summary. The current tracked set mixes raw compose logs, screenshots, browser or API payload captures, parser snapshots, and task summary files from manual proof writers across Tasks 160, 184, 191, 196, 202, and 204, while the current review readers only still need a bounded retained contract they can cite directly.
+- 2026-04-27: Bucketed the Story 55 files before moving anything. Durable retained proof is the small Task 204 reviewer-facing summary set plus a tracked contract README; tracked summary readers are the canonical plan, current findings artifact, and PR summary; transient runtime byproducts are the older screenshots, raw logs, browser captures, and payload dumps now rehomed by Task 206 into ignored `codeInfoTmp/manual-testing/0000055/` storage, with later manual-proof writers expected to stage raw captures there first.
+- 2026-04-27: Chose the bounded tracked-proof-home branch from `R1`. The tracked `codeInfoStatus/manual-testing/0000055/` directory now keeps only durable reviewer-facing summaries in Git, while raw runtime bulk moves under ignored `codeInfoTmp/manual-testing/0000055/` so the Story 55 retained-proof contract stays explicit instead of mixing tracked scratch with retained audit surfaces.
+- 2026-04-27: Applied the chosen retained-proof branch by pruning the tracked `codeInfoStatus/manual-testing/0000055/` home down to `README.md` plus the Task 204 retained summary exports and moving 159 older runtime bulk files into ignored `codeInfoTmp/manual-testing/0000055/rehomed-from-codeInfoStatus/`.
+- 2026-04-27: Updated the canonical plan, current findings artifact, and PR summary so they now point at the same retained-proof contract: bounded tracked summaries live under `codeInfoStatus/manual-testing/0000055/`, while raw Story 55 manual-proof captures live under ignored `codeInfoTmp/manual-testing/0000055/`.
 
 ### Task 207. Re-Validate Story 55 After Review Pass `0000055-20260427T065706Z-15b0a653`
 
@@ -16792,7 +16797,7 @@ No additional repositories are in scope for this review cycle. The current findi
 
 #### Manual Testing Guidance
 
-Optional later manual follow-up can reuse the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` after the automated proof passes. The supported env inputs are `server/.env` and `server/.env.local`; the mounted ingest-path namespace still depends on `CODEINFO_HOST_INGEST_DIR` reaching the container-side `CODEINFO_CODEX_WORKDIR`; and readiness should come from the compose health checks plus `GET /health` before any queue or retained-proof validation begins. The current repository stack is expected at `http://localhost:5001` for the client, `http://localhost:5010` for the main server, `http://localhost:5011` and `http://localhost:5012` for the secondary MCP services, and `http://localhost:8932/mcp` for Playwright MCP. If screenshots are useful while validating the retained-proof contract from Task `206`, capture them first with a relative staging filename in the Playwright output directory, then transfer sanitized retained files into the final Story 55 artifact destination chosen by Task `206` rather than assuming Playwright writes directly into the repository.
+Optional later manual follow-up can reuse the supported main stack from the repository root with `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` after the automated proof passes. The supported env inputs are `server/.env` and `server/.env.local`; the mounted ingest-path namespace still depends on `CODEINFO_HOST_INGEST_DIR` reaching the container-side `CODEINFO_CODEX_WORKDIR`; and readiness should come from the compose health checks plus `GET /health` before any queue or retained-proof validation begins. The current repository stack is expected at `http://localhost:5001` for the client, `http://localhost:5010` for the main server, `http://localhost:5011` and `http://localhost:5012` for the secondary MCP services, and `http://localhost:8932/mcp` for Playwright MCP. If screenshots are useful while validating the retained-proof contract from Task `206`, capture them first with a relative staging filename in the Playwright output directory, stage raw runtime output under ignored `codeInfoTmp/manual-testing/0000055/`, and only promote sanitized reviewer-facing summaries into the bounded tracked proof home documented in `codeInfoStatus/manual-testing/0000055/README.md`.
 
 #### Implementation Notes
 

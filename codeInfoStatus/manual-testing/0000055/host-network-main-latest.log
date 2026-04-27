@@ -1,7 +1,0 @@
-Main-stack host-network probe summary:
-- result: passed
-- classicMcp: reachable (http://host.docker.internal:5010/mcp) HTTP 200; HTTP 200
-- chatMcp: reachable (http://host.docker.internal:5011/) HTTP 200; HTTP 200
-- agentsMcp: reachable (http://host.docker.internal:5012/) HTTP 200; HTTP 200
-- playwrightMcp: reachable (http://host.docker.internal:8932/mcp) HTTP 200; HTTP 200
-DEV-0000050:T12:main_stack_probe_completed {"classicMcp":"reachable","chatMcp":"reachable","agentsMcp":"reachable","playwrightMcp":"reachable","result":"passed"}

@@ -23,6 +23,12 @@ This summary is refreshed for review pass `0000055-20260427T044024Z-13acd3c1`. T
 
 - Task `203` is `__done__` with `8/8` subtasks checked, `2/2` testing items checked, and no live blockers.
 
+## Story 55 Retained Manual-Proof Contract
+
+- Task `206` chooses a bounded tracked retained-proof home under [codeInfoStatus/manual-testing/0000055/README.md](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/manual-testing/0000055/README.md), with only the reviewer-facing Task 204 summary exports still tracked in [codeInfoStatus/manual-testing/0000055](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoStatus/manual-testing/0000055).
+- Raw runtime bulk from older Story 55 manual passes now lives under ignored `codeInfoTmp/manual-testing/0000055/`, including the `rehomed-from-codeInfoStatus/` subtree created by Task `206`.
+- Readers that need the retained-proof contract should use the tracked README plus the canonical plan and current findings artifact instead of assuming every raw screenshot, log, or payload dump remains committed in Git.
+
 ## Final Validation Proof Homes
 
 - Build proof home: `logs/test-summaries/build-server-latest.log`

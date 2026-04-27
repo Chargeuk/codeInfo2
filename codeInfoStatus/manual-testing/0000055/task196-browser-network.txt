@@ -1,8 +1,0 @@
-Browser proof network summary for Task 196:
-
-POST http://host.docker.internal:5010/logs -> 202 Accepted
-GET http://host.docker.internal:5010/ingest/models -> 200 OK
-GET http://host.docker.internal:5010/ingest/roots -> 200 OK
-GET http://localhost:5001/vite.svg -> 200 OK
-
-Playwright reported no warning-or-higher browser console messages during the sanitized queue-state screenshot proof.

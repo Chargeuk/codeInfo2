@@ -1,8 +1,0 @@
-[CODEINFO][T04_CLIENT_BUILD_OVERRIDE_STATE] client_npm_registry_override=off
-
-> @codeinfo2/client@0.0.1 preview
-> vite preview --host --port 5001 --host --port 5001
-
-DEV_0000053_VITE_PREVIEW_ALLOWED_HOSTS { configuredValue: 'ALL', resolvedMode: 'allow-all' }
-  ➜  Local:   http://localhost:5001/
-  ➜  Network: http://172.29.0.6:5001/

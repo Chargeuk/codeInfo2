@@ -1,8 +1,0 @@
-rs0 [direct: primary] db> {
-  acknowledged: true,
-  deletedCount: 3
-}
-
-rs0 [direct: primary] db> []
-
-rs0 [direct: primary] db> 

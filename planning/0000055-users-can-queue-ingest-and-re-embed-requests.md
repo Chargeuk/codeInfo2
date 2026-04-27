@@ -16652,7 +16652,7 @@ Repair the queue-admission helper seam by removing the unreachable waiting-row f
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `204`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-2`: the tracked `codeInfoStatus/manual-testing/0000055/` tree currently reads like disposable runtime scratch even though Story 55 now relies on it as a retained proof surface.
 

@@ -520,9 +520,35 @@ Then(
 );
 
 Then(
+  'ingest manage roots entry for the temp repo has embedding provider {string}',
+  (expectedProvider: string) => {
+    assert(tempDir, 'temp dir missing');
+    const root = findCapturedRootByPath(tempDir) as {
+      embeddingProvider?: string;
+    };
+    assert.equal(root.embeddingProvider, expectedProvider);
+  },
+);
+
+Then(
   'ingest manage roots entry for {string} has embedding model {string}',
   (rootPath: string, expectedModel: string) => {
     const root = findCapturedRootByPath(rootPath) as {
+      embeddingModel?: string;
+      model?: string;
+      modelId?: string;
+    };
+    assert.equal(root.embeddingModel, expectedModel);
+    assert.equal(root.model, expectedModel);
+    assert.equal(root.modelId, expectedModel);
+  },
+);
+
+Then(
+  'ingest manage roots entry for the temp repo has embedding model {string}',
+  (expectedModel: string) => {
+    assert(tempDir, 'temp dir missing');
+    const root = findCapturedRootByPath(tempDir) as {
       embeddingModel?: string;
       model?: string;
       modelId?: string;
@@ -763,6 +789,35 @@ Given(
           chunks: 1,
           embedded: 1,
           state,
+          lastIngestAt: new Date().toISOString(),
+          ingestedAtMs: Date.now(),
+        },
+      ],
+    });
+  },
+);
+
+Given(
+  'ingest manage mixed-shape canonical OpenAI root metadata exists for the temp repo',
+  async () => {
+    assert(tempDir, 'temp dir missing');
+    const roots = await getRootsCollection();
+    await roots.add({
+      ids: ['temp-mixed-shape-run'],
+      embeddings: [[0]],
+      metadatas: [
+        {
+          runId: 'temp-mixed-shape-run',
+          root: tempDir,
+          name: 'temp-mixed-shape-repo',
+          model: '',
+          embeddingProvider: 'openai',
+          embeddingModel: '',
+          embeddingDimensions: 0,
+          files: 1,
+          chunks: 1,
+          embedded: 1,
+          state: 'completed',
           lastIngestAt: new Date().toISOString(),
           ingestedAtMs: Date.now(),
         },

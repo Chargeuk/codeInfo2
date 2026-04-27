@@ -116,3 +116,15 @@ Feature: Ingest re-embed
     Then ingest manage queue runtime attempted paths are the temp repo
     And ingest manage queue runtime validation-passed started paths are empty
     And ingest manage runtime status for run "run-recovered-invalid-canonical-model" reports error "VALIDATION" with message "embeddingProvider and embeddingModel are required when canonical fields are present"
+
+  @mongo
+  Scenario: supported ingest-manage seed exposes a mixed-shape canonical OpenAI row for invalid-state re-embed validation
+    Given ingest manage chroma stub is empty
+    And ingest manage mongo queue is empty
+    And ingest manage temp repo with file "src/feature-mixed-shape.ts" containing "export const featureMixedShape = true;"
+    And ingest manage mixed-shape canonical OpenAI root metadata exists for the temp repo
+    When I GET ingest manage roots
+    Then ingest manage roots entry for the temp repo has embedding provider "openai"
+    And ingest manage roots entry for the temp repo has embedding model ""
+    When I POST ingest manage reembed for the temp repo
+    Then ingest manage response status is 409 with code "INVALID_LOCK_METADATA"

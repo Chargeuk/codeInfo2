@@ -16531,14 +16531,14 @@ No additional repositories are in scope for this review cycle. Client-only, brow
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run test:summary:server:unit`.
-3. [ ] Run `npm run test:summary:server:cucumber`.
-4. [ ] Run `npm run compose:build:summary`.
-5. [ ] Run `npm run compose:up`.
-6. [ ] Run `npm run compose:down`.
-7. [ ] Run `npm run lint`.
-8. [ ] Run `npm run format:check`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run test:summary:server:cucumber`.
+4. [x] Run `npm run compose:build:summary`.
+5. [x] Run `npm run compose:up`.
+6. [x] Run `npm run compose:down`.
+7. [x] Run `npm run lint`.
+8. [x] Run `npm run format:check`.
 
 #### Implementation Notes
 
@@ -16546,3 +16546,11 @@ No additional repositories are in scope for this review cycle. Client-only, brow
 - 2026-04-27: Re-read the active findings block, `codeInfoStatus/flow-state/review-disposition-state.json`, and Task `203` from the current plan, then confirmed via parser output that Task `203` is `__done__` with no unchecked subtasks, no unchecked testing, and no live blocker before Task `204` begins its broad final revalidation orchestration.
 - 2026-04-27: Refreshed `codeInfoStatus/pr-summaries/0000055-pr-summary.md` for review pass `0000055-20260427T044024Z-13acd3c1` so it now names Task `203` as the repair owner, Task `204` as the server-only final revalidation owner, the retained server build or unit or cucumber or compose proof homes, and the explicit non-applicability of inline minor, client-only, browser, and end-to-end proof categories for this review cycle.
 - 2026-04-27: Re-opened the Task `204` plan section, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json`, then verified they agree on review pass `0000055-20260427T044024Z-13acd3c1`, Task `203` owning findings `F1` and `F2`, the server-only broad proof scope, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, and `review_created_tasks_added_or_updated` with no blocker needed.
+- 2026-04-27: Ran `npm run build:summary:server`; the wrapper passed cleanly with `warning_count: 0`, `agent_action: skip_log`, and retained proof home `logs/test-summaries/build-server-latest.log`.
+- 2026-04-27: Ran `npm run test:summary:server:unit`; the full wrapper passed cleanly with `tests run: 1811`, `passed: 1811`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-unit-tests-2026-04-27T06-19-22-534Z.log`.
+- 2026-04-27: Ran `npm run test:summary:server:cucumber`; the full wrapper passed cleanly with `tests run: 117`, `passed: 117`, `failed: 0`, `agent_action: skip_log`, and retained proof home `test-results/server-cucumber-tests-2026-04-27T06-36-38-216Z.log`.
+- 2026-04-27: Ran `npm run compose:build:summary`; the wrapper passed with `items passed: 2`, `items failed: 0`, retained proof home `logs/test-summaries/compose-build-latest.log`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker for the supported runtime-assets path.
+- 2026-04-27: Ran `npm run compose:up`; the supported main stack passed preflight, created the `codeinfo2_internal` network, and reached the expected terminal state with `mongo_db_CodeInfo` healthy, `codeinfo2-server-1` healthy, and `codeinfo2-client-1` started.
+- 2026-04-27: Ran `npm run compose:down`; the supported main stack shut down cleanly and removed the server, client, Chroma, Mongo, Zipkin, OTEL collector, Playwright MCP containers, and the `codeinfo2_internal` network.
+- 2026-04-27: Ran `npm run lint`; `eslint . --ext .ts,.tsx --max-warnings=0` exited cleanly with no lint violations on the current broad proof baseline.
+- 2026-04-27: Ran `npm run format:check`; Prettier completed with `All matched files use Prettier code style!`, so the broad final proof kept formatting clean across the current repository baseline.

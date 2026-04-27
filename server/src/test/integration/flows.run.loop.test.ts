@@ -1024,13 +1024,13 @@ test('break step fails on invalid JSON response', async () => {
         ): event is {
           type: 'turn_final';
           status: string;
-          error?: { code?: string };
+          error?: { code?: string; message?: string };
         } => {
           const e = event as {
             type?: string;
             conversationId?: string;
             status?: string;
-            error?: { code?: string };
+            error?: { code?: string; message?: string };
           };
           return (
             e.type === 'turn_final' &&
@@ -1043,6 +1043,10 @@ test('break step fails on invalid JSON response', async () => {
 
       assert.equal(final.status, 'failed');
       assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      assert.equal(
+        final.error?.message,
+        'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+      );
       await cleanupConversationRuntime(conversationId);
     },
   );
@@ -1120,13 +1124,13 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
         ): event is {
           type: 'turn_final';
           status: string;
-          error?: { code?: string };
+          error?: { code?: string; message?: string };
         } => {
           const e = event as {
             type?: string;
             conversationId?: string;
             status?: string;
-            error?: { code?: string };
+            error?: { code?: string; message?: string };
           };
           return (
             e.type === 'turn_final' &&
@@ -1139,6 +1143,10 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
 
       assert.equal(final.status, 'failed');
       assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      assert.equal(
+        final.error?.message,
+        'Break response must include answer "yes" or "no".',
+      );
       await cleanupConversationRuntime(conversationId);
     },
   );

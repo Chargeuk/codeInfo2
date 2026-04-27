@@ -2938,7 +2938,7 @@ async function runFlowUnlocked(params: {
       deferFinal: true,
       command,
       postProcess: (candidate) => {
-        const parsed = parseContinueAnswer(candidate.content);
+        const parsed = parseBreakAnswer(candidate.content);
         parsed.attempts.forEach((attempt) => {
           append({
             level: 'info',

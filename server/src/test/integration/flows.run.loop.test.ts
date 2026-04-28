@@ -647,7 +647,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
 
-      const firstRun = await supertest(baseUrl)
+      await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
@@ -871,7 +871,9 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         kind: 'continue',
         loopStepPath: [0],
       });
-      const outerCountAfterStop = (memoryTurns.get(conversationId) ?? []).filter(
+      const outerCountAfterStop = (
+        memoryTurns.get(conversationId) ?? []
+      ).filter(
         (turn) =>
           turn.role === 'user' && turn.content.includes('Outer loop step.'),
       ).length;
@@ -909,7 +911,8 @@ test('continue resume keeps its boundary marker until the next iteration makes p
           items.filter(
             (turn) =>
               turn.role === 'user' && turn.content.includes('Outer loop step.'),
-          ).length === outerCountAfterStop + 1 &&
+          ).length ===
+            outerCountAfterStop + 1 &&
           items.filter(
             (turn) =>
               turn.role === 'user' &&

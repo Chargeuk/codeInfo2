@@ -489,7 +489,7 @@ Overall, when this story is complete:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `29fcf217`, `229d9671`
 
 #### Overview
@@ -571,7 +571,7 @@ This task replaces the remaining shared default-model contract with one provider
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `01f725ae`, `eed54638`, `b2d92c03`
 
 #### Overview

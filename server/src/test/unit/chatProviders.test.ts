@@ -662,11 +662,14 @@ test('providers route exposes the chat-config-aware Codex default and falls back
 });
 
 test('providers route exposes shared resolver-backed codex defaults and warnings parity', async () => {
+  await setCodexHome();
   const fixture: CodexCapabilityResolution = {
     defaults: {
       sandboxMode: 'workspace-write',
       approvalPolicy: 'on-request',
       modelReasoningEffort: 'medium',
+      modelReasoningSummary: 'auto',
+      modelVerbosity: 'medium',
       networkAccessEnabled: false,
       webSearchEnabled: false,
       webSearchMode: 'disabled',

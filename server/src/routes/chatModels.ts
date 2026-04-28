@@ -368,6 +368,7 @@ export function createChatModelsRouter({
         available: detection.available,
         toolsAvailable: codexToolsAvailable,
         reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
+        codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
         agentFlags: buildCodexAgentFlags({
           capabilities,
@@ -385,6 +386,7 @@ export function createChatModelsRouter({
         reason: copilotAvailable
           ? readiness.reason
           : (readiness.reason ?? COPILOT_MODELS_REASON),
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings:
           copilotAvailable && readiness.reason
             ? [readiness.reason]
@@ -401,6 +403,7 @@ export function createChatModelsRouter({
         available: lmstudioAvailable,
         toolsAvailable: lmstudioAvailable,
         reason: lmstudioReason,
+        lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: lmstudioReason ? [lmstudioReason] : [],
         agentFlags: buildLmStudioAgentFlags({}),
       }),
@@ -507,6 +510,7 @@ export function createChatModelsRouter({
         provider: 'lmstudio',
         available: false,
         toolsAvailable: false,
+        reason: lmstudioReason ?? 'lmstudio unavailable',
         models: [],
         providers,
         providerInfo: providerMap.lmstudio,

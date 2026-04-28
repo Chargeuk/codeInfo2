@@ -296,6 +296,7 @@ test('codex models include defaultReasoningEffort present in supportedReasoningE
 });
 
 test('chat models payload is derived from shared capability resolver fixture', async () => {
+  await setCodexHome('model = "fixture-home-model"\n');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -362,7 +363,8 @@ test('chat models payload is derived from shared capability resolver fixture', a
       },
     ]);
     assert.equal(res.body.providerInfo.id, 'codex');
-    assert.equal(res.body.defaultModel, 'gpt-5.3-codex');
+    assert.equal(res.body.defaultModel, 'fixture-home-model');
+    assert.equal(res.body.defaultModelSource, 'config');
     assert.equal(res.body.compatibility.codexDefaults.webSearchMode, 'live');
   } finally {
     await stopServer(server);
@@ -484,6 +486,8 @@ test('chat models parity fixture remains deterministic across resolver-backed de
       sandboxMode: 'workspace-write',
       approvalPolicy: 'on-request',
       modelReasoningEffort: 'medium',
+      modelReasoningSummary: 'auto',
+      modelVerbosity: 'medium',
       networkAccessEnabled: false,
       webSearchEnabled: false,
       webSearchMode: 'disabled',
@@ -1123,7 +1127,7 @@ test('lmstudio models mark provider unavailable when no chat-capable model is re
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
-      .expect(200);
+      .expect(503);
 
     assert.equal(res.body.provider, 'lmstudio');
     assert.equal(res.body.available, false);

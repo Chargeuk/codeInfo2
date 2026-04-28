@@ -147,6 +147,7 @@ export function createChatProvidersRouter({
         available: copilot.available,
         toolsAvailable: copilot.toolsAvailable,
         reason: copilot.reason,
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings: copilot.reason ? [copilot.reason] : [],
         agentFlags: buildCopilotAgentFlags({
           models: copilot.modelsRaw,
@@ -158,6 +159,7 @@ export function createChatProvidersRouter({
         available: lmstudioModels.length > 0,
         toolsAvailable: lmstudioModels.length > 0,
         reason: lmstudioReason,
+        lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: lmstudioReason ? [lmstudioReason] : [],
         agentFlags: buildLmStudioAgentFlags({}),
       }),
@@ -166,6 +168,7 @@ export function createChatProvidersRouter({
         available: codex.available,
         toolsAvailable: codex.available && mcp.available,
         reason: codex.reason ?? (mcp.available ? undefined : mcp.reason),
+        codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
         agentFlags: buildCodexAgentFlags({
           capabilities,

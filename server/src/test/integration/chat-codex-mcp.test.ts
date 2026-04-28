@@ -1201,11 +1201,19 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
         }
       | undefined;
     assert.ok(markerContext?.defaults);
-    assert.deepEqual(markerContext?.defaults, restModels.body.codexDefaults);
-    assert.deepEqual(
-      restProviders.body.codexDefaults,
-      restModels.body.codexDefaults,
-    );
+    const restCodexDefaults = restModels.body.codexDefaults as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(markerContext?.defaults, {
+      sandboxMode: restCodexDefaults.sandboxMode,
+      approvalPolicy: restCodexDefaults.approvalPolicy,
+      modelReasoningEffort: restCodexDefaults.modelReasoningEffort,
+      networkAccessEnabled: restCodexDefaults.networkAccessEnabled,
+      webSearchEnabled: restCodexDefaults.webSearchEnabled,
+      webSearchMode: restCodexDefaults.webSearchMode,
+    });
+    assert.deepEqual(restProviders.body.codexDefaults, restModels.body.codexDefaults);
     assert.ok(
       (markerContext?.warningFields ?? []).includes('sandbox_mode'),
       'MCP warning fields should include sandbox fallback',

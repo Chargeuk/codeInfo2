@@ -608,7 +608,7 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root to prove the shared discovery contract compiles cleanly through the server and common workspaces. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+1. [x] Run `npm run build:summary:server` from the repository root to prove the shared discovery contract compiles cleanly through the server and common workspaces. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the combined models-and-flags payload, provider ordering, Copilot model metadata mapping, and LM Studio option exposure. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared provider/model discovery path stays honest after the payload change. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 4. [ ] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
@@ -624,6 +624,7 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 - Refreshed the Task 2 proof owners in `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, `common/src/fixtures/mockModels.ts`, `server/src/test/features/chat_models.feature`, and `server/src/test/steps/chat_models.steps.ts` so ordered fallback, provider-local default ownership, dual defaults, Codex capability narrowing, Copilot reasoning metadata, and LM Studio first-wave option exposure each have an explicit proof home before the later wrapper pass.
 - Ran `npm run lint`, used `npm run lint:fix` to clean import-order fallout from the new shared discovery helper, then removed the remaining unused symbols by hand so the Task 2 surface is lint-clean before the formal wrapper-based proof pass.
 - Ran `npm run format:check`, applied `npm run format` when Prettier flagged the new discovery-route and proof-owner files, and reran `format:check` to leave the full Task 2 surface formatting-clean for the later automated-proof step.
+- `npm run build:summary:server` passed with `agent_action: skip_log`, so the shared provider-neutral discovery contract now compiles cleanly through the Task 2 server/common workspace surface on the wrapper-first build path.
 
 ---
 

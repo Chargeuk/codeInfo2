@@ -711,8 +711,8 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `184e0148`, `0e889c19`
 
 #### Overview
 
@@ -778,6 +778,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - `npm run test:summary:server:cucumber` then passed cleanly with `117` scenarios green, so the shared chat integration surface stayed honest after the Task 4 runtime changes.
 - The final Task 4 `npm run lint` proof checkpoint passed cleanly after the wrapper-backed runtime and test repairs, so only the final formatting proof item remains open.
 - The final Task 4 `npm run format:check` proof checkpoint also passed cleanly with `All matched files use Prettier code style!`, so every Task 4 automated proof item is now complete and ready for the later audit step.
+- Automated-proof audit closed Task 4 as `__done__` because the current plan now shows all subtasks and all five automated testing steps complete with no live blocker and no remaining prose-only gate.
 
 ---
 

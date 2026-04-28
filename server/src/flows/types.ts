@@ -19,7 +19,8 @@ export type FlowRunErrorCode =
   | 'AGENT_MISMATCH'
   | 'COMMAND_INVALID'
   | 'UNSUPPORTED_STEP'
-  | 'NO_STEPS';
+  | 'NO_STEPS'
+  | 'CONTINUE_OUTSIDE_LOOP';
 
 export type FlowRunError = {
   code: FlowRunErrorCode;

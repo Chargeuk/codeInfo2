@@ -3754,6 +3754,12 @@ async function runFlowUnlocked(params: {
         if (!shouldContinue) {
           clearContinueBoundaryForActiveLoop();
         }
+        if (shouldContinue && loopStack.length === 0) {
+          throw toFlowRunError(
+            'CONTINUE_OUTSIDE_LOOP',
+            'A continue step was reached outside of a startLoop context.',
+          );
+        }
         if (shouldContinue && loopStack.length > 0) {
           const activeLoopFrame = loopStack[loopStack.length - 1];
           pendingLoopControl = {

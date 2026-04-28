@@ -14,6 +14,7 @@ import {
 } from './openaiErrors.js';
 
 export type RetryHeaders = Headers | Record<string, unknown> | undefined;
+const OPENAI_RATE_LIMIT_SAFETY_PAD_MS = 250;
 
 function getHeaderValue(
   headers: RetryHeaders,
@@ -62,6 +63,122 @@ export function resolveRetryAfterMs(headers: RetryHeaders): number | undefined {
   return parseRetryAfterSeconds(getHeaderValue(headers, 'retry-after'));
 }
 
+function parsePositiveNumber(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return parsed;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+export function parseRateLimitResetMs(
+  value: string | undefined,
+): number | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const parts = [...trimmed.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h)/gi)];
+  if (parts.length > 0) {
+    let consumed = '';
+    let totalMs = 0;
+    for (const part of parts) {
+      const amount = Number(part[1]);
+      const unit = part[2]?.toLowerCase();
+      if (!Number.isFinite(amount) || !unit) {
+        return undefined;
+      }
+      consumed += part[0];
+      switch (unit) {
+        case 'ms':
+          totalMs += amount;
+          break;
+        case 's':
+          totalMs += amount * 1000;
+          break;
+        case 'm':
+          totalMs += amount * 60_000;
+          break;
+        case 'h':
+          totalMs += amount * 3_600_000;
+          break;
+        default:
+          return undefined;
+      }
+    }
+
+    if (consumed.length === trimmed.length && totalMs >= 0) {
+      return Math.floor(totalMs);
+    }
+  }
+
+  const asNumber = Number(trimmed);
+  if (Number.isFinite(asNumber) && asNumber > 0) {
+    return Math.floor(asNumber * 1000);
+  }
+
+  const asDate = Date.parse(trimmed);
+  if (!Number.isFinite(asDate)) return undefined;
+  const waitMs = asDate - Date.now();
+  if (waitMs <= 0) return undefined;
+  return Math.floor(waitMs);
+}
+
+export function resolveOpenAiRateLimitWaitMs(params: {
+  headers: RetryHeaders;
+  tokenEstimate: number;
+  fallbackWaitMs: number;
+}) {
+  const retryAfterMs = resolveRetryAfterMs(params.headers);
+  const providerWaitMs =
+    typeof retryAfterMs === 'number' ? retryAfterMs : params.fallbackWaitMs;
+  const remainingTokens = parsePositiveNumber(
+    getHeaderValue(params.headers, 'x-ratelimit-remaining-tokens'),
+  );
+  const resetTokensMs = parseRateLimitResetMs(
+    getHeaderValue(params.headers, 'x-ratelimit-reset-tokens'),
+  );
+  const remainingRequests = parsePositiveNumber(
+    getHeaderValue(params.headers, 'x-ratelimit-remaining-requests'),
+  );
+  const resetRequestsMs = parseRateLimitResetMs(
+    getHeaderValue(params.headers, 'x-ratelimit-reset-requests'),
+  );
+
+  const tokenBudgetWaitMs =
+    isFiniteNumber(remainingTokens) &&
+    isFiniteNumber(resetTokensMs) &&
+    remainingTokens < params.tokenEstimate
+      ? Math.floor(resetTokensMs + OPENAI_RATE_LIMIT_SAFETY_PAD_MS)
+      : 0;
+
+  const requestBudgetWaitMs =
+    isFiniteNumber(remainingRequests) &&
+    isFiniteNumber(resetRequestsMs) &&
+    remainingRequests < 1
+      ? Math.floor(resetRequestsMs + OPENAI_RATE_LIMIT_SAFETY_PAD_MS)
+      : 0;
+
+  return {
+    retryAfterMs,
+    providerWaitMs,
+    remainingTokens,
+    resetTokensMs,
+    remainingRequests,
+    resetRequestsMs,
+    tokenBudgetWaitMs,
+    requestBudgetWaitMs,
+    chosenWaitMs: Math.max(
+      providerWaitMs,
+      tokenBudgetWaitMs,
+      requestBudgetWaitMs,
+    ),
+  };
+}
+
 export function computeExponentialDelayMs(attempt: number): number {
   const exponent = Math.max(0, attempt - 1);
   const base = OPENAI_RETRY_BASE_DELAY_MS * 2 ** exponent;
@@ -89,6 +206,32 @@ export async function runOpenAiWithRetry<T>(params: {
   let nextDelayMs = OPENAI_RETRY_BASE_DELAY_MS;
   let attemptCounter = 0;
   let terminalLogged = false;
+  let pendingRetryLogContext:
+    | {
+        runId?: string;
+        path?: string;
+        root?: string;
+        currentFile?: string;
+        provider: 'openai';
+        code: string;
+        retryable: boolean;
+        attempt: number;
+        waitMs: number;
+        model: string;
+        message: string;
+        stage: 'retry';
+        upstreamStatus?: number;
+        retryAfterMs?: number;
+        providerWaitMs: number;
+        tokenBudgetWaitMs: number;
+        requestBudgetWaitMs: number;
+        remainingTokens?: number;
+        resetTokensMs?: number;
+        remainingRequests?: number;
+        resetRequestsMs?: number;
+        waitState: 'scheduled' | 'finished';
+      }
+    | undefined;
 
   try {
     const maxRetries = getOpenAiIngestMaxRetries();
@@ -96,8 +239,18 @@ export async function runOpenAiWithRetry<T>(params: {
       maxAttempts: maxRetries + 1,
       baseDelayMs: OPENAI_RETRY_BASE_DELAY_MS,
       signal: params.signal,
-      sleep: async (_delayMs: number, signal?: AbortSignal) =>
-        (params.sleep ?? delayWithAbort)(nextDelayMs, signal),
+      sleep: async (_delayMs: number, signal?: AbortSignal) => {
+        const waitMs = nextDelayMs;
+        await (params.sleep ?? delayWithAbort)(waitMs, signal);
+        if (pendingRetryLogContext) {
+          appendIngestFailureLog('info', {
+            ...pendingRetryLogContext,
+            waitState: 'finished',
+            waitMs,
+          });
+          pendingRetryLogContext = undefined;
+        }
+      },
       isRetryableError: (error: unknown) => {
         const mapped = mapOpenAiError(error);
         return isRetryableOpenAiCode(mapped.code);
@@ -108,17 +261,18 @@ export async function runOpenAiWithRetry<T>(params: {
       },
       onRetry: ({ attempt, error }) => {
         const mapped = mapOpenAiError(error);
-        const retryAfterMs = resolveRetryAfterMs(
+        const headers =
           error && typeof error === 'object'
             ? ((error as { headers?: RetryHeaders }).headers ?? undefined)
-            : undefined,
-        );
-        nextDelayMs =
-          typeof retryAfterMs === 'number'
-            ? retryAfterMs
-            : computeExponentialDelayMs(attempt);
+            : undefined;
+        const waitDecision = resolveOpenAiRateLimitWaitMs({
+          headers,
+          tokenEstimate: params.tokenEstimate,
+          fallbackWaitMs: computeExponentialDelayMs(attempt),
+        });
+        nextDelayMs = waitDecision.chosenWaitMs;
 
-        appendIngestFailureLog('warn', {
+        pendingRetryLogContext = {
           ...params.ingestFailureContext?.(),
           provider: 'openai',
           code: mapped.code,
@@ -128,11 +282,31 @@ export async function runOpenAiWithRetry<T>(params: {
           model: params.model,
           message: mapped.message,
           stage: 'retry',
+          waitState: 'scheduled',
+          providerWaitMs: waitDecision.providerWaitMs,
+          tokenBudgetWaitMs: waitDecision.tokenBudgetWaitMs,
+          requestBudgetWaitMs: waitDecision.requestBudgetWaitMs,
+          ...(typeof waitDecision.remainingTokens === 'number'
+            ? { remainingTokens: waitDecision.remainingTokens }
+            : {}),
+          ...(typeof waitDecision.resetTokensMs === 'number'
+            ? { resetTokensMs: waitDecision.resetTokensMs }
+            : {}),
+          ...(typeof waitDecision.remainingRequests === 'number'
+            ? { remainingRequests: waitDecision.remainingRequests }
+            : {}),
+          ...(typeof waitDecision.resetRequestsMs === 'number'
+            ? { resetRequestsMs: waitDecision.resetRequestsMs }
+            : {}),
           ...(typeof mapped.upstreamStatus === 'number'
             ? { upstreamStatus: mapped.upstreamStatus }
             : {}),
-          ...(typeof retryAfterMs === 'number' ? { retryAfterMs } : {}),
-        });
+          ...(typeof waitDecision.retryAfterMs === 'number'
+            ? { retryAfterMs: waitDecision.retryAfterMs }
+            : {}),
+        };
+
+        appendIngestFailureLog('warn', pendingRetryLogContext);
       },
       onExhausted: ({ attempt, error }) => {
         const mapped = mapOpenAiError(error);

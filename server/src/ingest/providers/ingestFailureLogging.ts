@@ -1,8 +1,9 @@
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 
-export type IngestFailureSeverity = 'warn' | 'error';
+export type IngestFailureSeverity = 'info' | 'warn' | 'error';
 export type IngestFailureStage = 'retry' | 'terminal';
+export type IngestFailureWaitState = 'scheduled' | 'finished';
 
 export type IngestFailureLogContext = {
   runId?: string;
@@ -21,6 +22,14 @@ export type IngestFailureLogContext = {
   operation?: string;
   upstreamStatus?: number;
   retryAfterMs?: number;
+  providerWaitMs?: number;
+  tokenBudgetWaitMs?: number;
+  requestBudgetWaitMs?: number;
+  remainingTokens?: number;
+  resetTokensMs?: number;
+  remainingRequests?: number;
+  resetRequestsMs?: number;
+  waitState?: IngestFailureWaitState;
 };
 
 export type IngestLmStudioNormalizedError = {
@@ -193,6 +202,14 @@ export function appendIngestFailureLog(
     operation: context.operation,
     upstreamStatus: context.upstreamStatus,
     retryAfterMs: context.retryAfterMs,
+    providerWaitMs: context.providerWaitMs,
+    tokenBudgetWaitMs: context.tokenBudgetWaitMs,
+    requestBudgetWaitMs: context.requestBudgetWaitMs,
+    remainingTokens: context.remainingTokens,
+    resetTokensMs: context.resetTokensMs,
+    remainingRequests: context.remainingRequests,
+    resetRequestsMs: context.resetRequestsMs,
+    waitState: context.waitState,
   };
 
   append({
@@ -205,6 +222,11 @@ export function appendIngestFailureLog(
     ),
   });
 
-  const logger = severity === 'error' ? baseLogger.error : baseLogger.warn;
+  const logger =
+    severity === 'error'
+      ? baseLogger.error
+      : severity === 'warn'
+        ? baseLogger.warn
+        : baseLogger.info;
   logger.call(baseLogger, payload, 'DEV-0000036:T17:ingest_provider_failure');
 }

@@ -337,6 +337,7 @@ Overall, when this story is complete:
 - Missing prerequisite capabilities:
   - The normal chat request and response contracts are still Codex-shaped, and the MCP `codebase_question` provider contract still excludes Copilot.
   - Copilot normal-chat tool parity still needs to be wired through the repository-managed tool path rather than relying on provider-native discovery.
+  - The currently installed `@openai/codex-sdk` thread options, and the published `0.125.0` SDK types rechecked for this story, expose `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, `networkAccessEnabled`, `webSearchMode`, and legacy `webSearchEnabled`, but they still do not expose dedicated thread-option fields for reasoning summary or verbosity. Story work must therefore treat `modelReasoningSummary` and `modelVerbosity` as outward product fields that only ship once their exact adapter mapping is verified against the bumped Codex runtime, rather than assuming the current SDK already has matching option names.
 - Assumptions currently invalid:
   - The current `codexFlags` request shape and `codexDefaults` response shape cannot simply be reused unchanged for multi-provider Agent Flags.
 - Feasibility and sequencing note:
@@ -460,7 +461,7 @@ Overall, when this story is complete:
 - `Server config and fallback proofs`
   - Keep distinct proof for provider-local config seeding, removal of `CODEINFO_CHAT_DEFAULT_MODEL`, automatic fallback behavior, explicit-provider failure behavior, and legacy Codex normalization so those invariants do not collapse into one generic defaults test.
 - `Server contract and validation proofs`
-  - Keep separate proof for the combined discovery response shape, provider-neutral `agentFlags` request validation, provider-specific option rejection, and conversation flag persistence behavior.
+  - Keep separate proof for the combined discovery response shape, exact provider fallback ordering, provider-neutral `agentFlags` request validation, provider-specific option rejection, and conversation flag plus `threadId` persistence behavior.
 - `Copilot execution proofs`
   - Keep separate proof for Copilot readiness and model discovery, normal-chat tool registration, `On` versus `Off` tool-access behavior, and non-interrupting permission handling.
 - `LM Studio execution proofs`
@@ -472,6 +473,380 @@ Overall, when this story is complete:
 - `Lifecycle and teardown proofs`
   - Keep separate proof for create-versus-resume behavior, stop-versus-fail terminal state handling, final cleanup ordering, and the guarantee that provider tool and permission wiring is in place before the first provider event is emitted.
 - `Isolation and ordering proofs`
-  - Keep separate proof that config readers never observe partial writes, that test runs do not leak provider-local defaults or conversation flags across cases, and that negative assertions use explicit route responses or log markers instead of fixed sleeps.
+  - Keep separate proof that config readers never observe partial writes, that provider or model switches do not leak provider-specific flags or `threadId` state into the next execution context, that test runs do not leak provider-local defaults or conversation flags across cases, and that negative assertions use explicit route responses or log markers instead of fixed sleeps.
 - `Default-path runtime proofs`
   - Keep separate proof that the normal human Docker stack remains the default reachability path, that seeded defaults are observable through route behavior and the existing log markers, and that the story does not require a new compose file, listener, or manual-only runtime surface.
+
+# Tasks
+
+### Task 1. Refresh the shared provider-local chat-config defaults and bootstrap foundation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task replaces the remaining shared default-model contract with one provider-local chat-config foundation for Codex, Copilot, and LM Studio. It also refreshes the pinned chat-provider packages to the verified versions for this story so later tasks build against the current SDK contracts instead of the older local assumptions.
+
+#### Task Exit Criteria
+
+- `CODEINFO_CHAT_DEFAULT_PROVIDER` remains the only top-level chat-default selector, and default model ownership moves into `codex/chat/config.toml`, `copilot/chat/config.toml`, and `lmstudio/chat/config.toml`.
+- The repository can seed, reread, and safely rewrite provider-local chat defaults without partial-write corruption, without reviving `CODEINFO_CHAT_DEFAULT_MODEL`, and without moving Copilot runtime state out of `copilot/`.
+
+#### Documentation Locations
+
+- `https://www.npmjs.com/package/@openai/codex-sdk` - use for the verified `0.125.0` Codex SDK target that this task must pin in `server/package.json` and `package-lock.json`.
+- `https://www.npmjs.com/package/@openai/codex` - use for the verified `0.125.0` Codex CLI package target that this task must pin in `server/package.json` and `package-lock.json`.
+- `https://www.npmjs.com/package/@github/copilot-sdk` - use for the verified `0.3.0` Copilot SDK target that this task must pin in `server/package.json` and `package-lock.json`.
+- `https://www.npmjs.com/package/@lmstudio/sdk` - use for the verified current `1.5.0` LM Studio SDK version so this task only changes it when the lockfile is behind that already-current release.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Description`, `Acceptance Criteria`, `Runtime And Repo Prerequisites`, `Persistence And Cleanup`, `Message Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, and `Implementation Ideas`, then inspect `server/package.json`, `package-lock.json`, `server/src/config/runtimeConfig.ts`, `server/src/config/chatDefaults.ts`, and `server/src/config/startupEnv.ts`. Purpose: anchor the defaults-foundation work to the current package pins and the current request-time defaults readers before editing any code.
+2. [ ] Inspect `server/src/config/copilotConfig.ts`, `server/.env`, `.gitignore`, `.dockerignore`, and `scripts/docker-compose-with-env.sh`. Purpose: confirm the existing repo-local provider-home and bootstrap surfaces that must seed `lmstudio/` without moving Copilot runtime state out of `copilot/`.
+3. [ ] Update `server/package.json` to pin `@openai/codex@0.125.0`, `@openai/codex-sdk@0.125.0`, and `@github/copilot-sdk@0.3.0`, and keep `@lmstudio/sdk` at `1.5.0` unless the package manifest is already behind that version. Purpose: move Story 56 onto the verified provider package versions without bundling unrelated dependency churn.
+4. [ ] Update `package-lock.json` so it matches the Story 56 provider package pins from `server/package.json` and does not pull in unrelated lockfile noise. Purpose: keep later tasks building against the same verified dependency graph.
+5. [ ] Add one shared provider-local chat-config schema and request-time reader in `server/src/config/runtimeConfig.ts` for `codex/chat/config.toml`, `copilot/chat/config.toml`, and `lmstudio/chat/config.toml`. Purpose: make provider-local config the single read path for default-model ownership.
+6. [ ] Update `server/src/config/chatDefaults.ts` to consume the shared provider-local reader and to resolve defaults from the selected provider’s `chat/config.toml` instead of from the old shared default-model contract. Purpose: keep the active defaults contract provider-first and request-driven.
+7. [ ] Extend the safe temp-write plus rename bootstrap path in `server/src/config/runtimeConfig.ts` so seeded provider-local chat-config writes remain atomic and readers can see only the previous good config or the fully written new config. Purpose: preserve the current partial-write safety invariant while adding Copilot and LM Studio provider-local defaults.
+8. [ ] Update `server/src/config/runtimeConfig.ts` so the writer owns cleanup of failed or abandoned temp chat-config artifacts and readers ignore those temp artifacts instead of deleting or misreading them. Purpose: make cleanup ownership explicit for the persisted provider-local config path.
+9. [ ] Update `server/src/config/copilotConfig.ts` and `scripts/docker-compose-with-env.sh` so the repository bootstrap creates the LM Studio provider folder alongside the existing provider-local folders without treating `copilot/chat/config.toml` as the Copilot runtime `configDir`. Purpose: keep repo-local defaults symmetric while preserving the real Copilot runtime home contract.
+10. [ ] Remove `CODEINFO_CHAT_DEFAULT_MODEL` from the active env and startup contract by updating `server/src/config/startupEnv.ts` and `server/.env`. Purpose: leave `CODEINFO_CHAT_DEFAULT_PROVIDER` as the only top-level chat-default selector.
+11. [ ] Update `.gitignore` and `.dockerignore` so repo-local provider folders, including `lmstudio/`, stay out of Git and Docker build context. Purpose: keep Story 56 runtime defaults from becoming tracked source noise or image build input.
+12. [ ] Extend `server/src/config/chatDefaults.ts` to treat missing or invalid provider-local chat config as provider misconfiguration and to fall back only through provider-first resolution. Purpose: keep broken provider-local config from silently selecting a surprising model source.
+13. [ ] Extend `server/src/config/chatDefaults.ts` to normalize older Codex values such as boolean-style web search or removed approval settings forward with warnings on read. Purpose: preserve local-repo compatibility without leaving legacy outward defaults in place.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Requirement: provider-local config seeding must create the expected `chat/config.toml` defaults for Codex, Copilot, and LM Studio. Implementation owners: `server/src/config/runtimeConfig.ts` and `server/src/config/copilotConfig.ts`. Purpose: prove that default-model ownership moved fully into provider-local config files.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Requirement: request-time reread must observe a newly written provider-local config without requiring process restart or stale cache invalidation. Implementation owners: `server/src/config/runtimeConfig.ts` and `server/src/config/chatDefaults.ts`. Purpose: prove the story’s reread-on-request invariant instead of only proving initial bootstrap.
+16. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Requirement: LM Studio folder bootstrap must create `lmstudio/chat/` through the same repo-local startup path that already prepares provider homes. Implementation owners: `server/src/config/copilotConfig.ts` and `scripts/docker-compose-with-env.sh`. Purpose: give the new LM Studio repo-local folder contract its own proof home.
+17. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Requirement: readers must tolerate the writer’s temp-write plus rename flow by seeing either the previous good provider-local config or the fully written next config, never a partial file. Implementation owner: `server/src/config/runtimeConfig.ts`. Purpose: keep the reader-writer compatibility and partial-write safety invariant explicit.
+18. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Requirement: failed or abandoned temp chat-config artifacts must be ignored by readers and cleaned up only by the writer path that created them. Implementation owner: `server/src/config/runtimeConfig.ts`. Purpose: give cleanup ownership and stale-temp handling their own proof home instead of burying them inside generic partial-write coverage.
+19. [ ] Test type: server unit. Location: `server/src/test/unit/config.chatDefaults.test.ts`. Requirement: provider-first default resolution must fail clearly for broken provider-local config when the user explicitly chose that provider. Implementation owner: `server/src/config/chatDefaults.ts`. Purpose: give the explicit-provider misconfiguration path its own proof home.
+20. [ ] Test type: server unit. Location: `server/src/test/unit/config.chatDefaults.test.ts`. Requirement: default-provider fallback must stay available only when provider selection is still being resolved rather than explicitly chosen. Implementation owner: `server/src/config/chatDefaults.ts`. Purpose: keep fallback ordering separate from explicit-provider failure and make the precedence rule reviewable.
+21. [ ] Test type: server unit. Location: `server/src/test/unit/config.chatDefaults.test.ts`. Requirement: legacy Codex values such as boolean-style web search and removed approval settings must normalize forward with warnings instead of failing the provider-local read. Implementation owner: `server/src/config/chatDefaults.ts`. Purpose: keep compatibility normalization distinct from fallback behavior.
+22. [ ] Test type: server unit. Location: `server/src/test/unit/env-loading.test.ts`. Requirement: `CODEINFO_CHAT_DEFAULT_MODEL` must no longer participate in the active chat-default contract even when present in env input. Implementation owners: `server/src/config/startupEnv.ts` and `server/.env`. Purpose: keep the startup-env cleanup honest at the repository-supported proof seam.
+23. [ ] Test type: server unit. Location: `server/src/test/unit/codexEnvDefaults.test.ts`. Requirement: the remaining accepted Codex compatibility env inputs must still normalize or warn exactly as Story 56 allows. Implementation owners: `server/src/config/chatDefaults.ts` and `server/src/config/codexEnvDefaults.ts`. Purpose: keep legacy Codex inputs explicit instead of relying on incidental coverage.
+24. [ ] Run `npm run lint` for this task’s surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+25. [ ] Run `npm run format:check` for this task’s surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root to prove the Task 1 Docker build context still works after the `.dockerignore`, bootstrap, and provider-folder changes. This is the task-owned container proof for `server/.env`, `.dockerignore`, `scripts/docker-compose-with-env.sh`, and provider-local config bootstrap; shared normal-stack startup smoke remains owned by Task 6. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:server` from the repository root to prove the shared server config and dependency-refresh changes compile cleanly. This build is expected to cover the Task 1 implementation owners in `server/src/config/runtimeConfig.ts`, `server/src/config/chatDefaults.ts`, and `server/src/config/startupEnv.ts`. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the Task 1 unit proof owners in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/env-loading.test.ts`, and `server/src/test/unit/codexEnvDefaults.test.ts`. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the normal server integration path stays honest after the defaults-foundation change. This wrapper is expected to catch regressions in startup/default-resolution behavior that escape the named Task 1 unit proof owners; unrelated stack-wide failures should be treated as shared-baseline follow-up rather than hidden Task 1 acceptance criteria. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+5. [ ] Run `npm run lint` for the final Task 1 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for the final Task 1 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 2. Publish the combined provider-model-Agent-Flags discovery contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task turns the current Codex-shaped discovery payload into one provider-neutral contract that carries provider availability, models, and Agent Flag descriptors together. It is the contract foundation the client and the MCP parity work will consume, so it must keep fallback ordering and per-model capability narrowing explicit.
+
+#### Task Exit Criteria
+
+- `/chat/providers` and `/chat/models` expose one provider-neutral discovery contract with provider metadata, ordered fallback visibility, shared Agent Flag descriptors, and per-model capability narrowing where needed.
+- Codex, Copilot, and LM Studio advertise only the supported first-wave options chosen by Story 56, with each descriptor carrying both the seed default and the current config-resolved default.
+
+#### Documentation Locations
+
+- `https://github.com/github/copilot-sdk/blob/main/nodejs/README.md` - use for the official Copilot model metadata and session-field vocabulary, including reasoning-effort support.
+- `https://github.com/github/copilot-sdk/blob/main/docs/troubleshooting/compatibility.md` - use for the official Copilot tool-availability contract that underpins the outward `toolAccess` descriptor.
+- `https://lmstudio.ai/docs/typescript/api-reference/llm-prediction-config-input` - use for the official LM Studio option names and exact `contextOverflowPolicy` values `stopAtLimit`, `truncateMiddle`, and `rollingWindow`.
+- `server/node_modules/@openai/codex-sdk/dist/index.d.ts` - use as the installed library-code reference for the current Codex thread-option vocabulary, including `webSearchMode`, legacy `webSearchEnabled`, and the fields that do not yet exist as direct thread options.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Message Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then inspect `common/src/lmstudio.ts` and `common/src/fixtures/mockModels.ts`. Purpose: start from the current shared payload types and fixture data that the client already consumes.
+2. [ ] Inspect `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, `server/src/codex/capabilityResolver.ts`, and `server/src/providers/copilotReadiness.ts`. Purpose: confirm the current discovery routes, provider ordering, and capability-mapping seams before splitting them into a combined provider-neutral contract.
+3. [ ] Replace the Codex-only shared response types in `common/src/lmstudio.ts` with one provider-neutral combined provider-model-Agent-Flags contract. Purpose: give the server and client one shared payload family instead of a Codex-first shape plus compatibility add-ons.
+4. [ ] Update `server/src/routes/chatProviders.ts` so `/chat/providers` returns the provider-neutral contract with explicit ordered fallback visibility and stops relying on `codexDefaults` as the primary outward shape. Purpose: keep provider ordering and provider-level defaults visible at the route boundary that already owns ordered provider selection.
+5. [ ] Update `server/src/routes/chatModels.ts` so `/chat/models` returns provider availability, models, provider-level Agent Flag descriptors, and any per-model overrides or capability narrowing in the combined payload. Purpose: keep model selection and Agent Flag selection on one response family instead of two independent fetch paths.
+6. [ ] Update `server/src/codex/capabilityResolver.ts` and any shared discovery helper touched by this path so Codex descriptors expose sandbox mode, approval policy, reasoning effort, `modelReasoningSummary`, `modelVerbosity`, workspace-write-scoped `networkAccessEnabled`, and `webSearchMode`. Purpose: refresh the Codex outward contract to the Story 56 option set while using only verified adapter field names from the bumped runtime.
+7. [ ] Update the Copilot discovery mapping inside `server/src/routes/chatModels.ts` and `server/src/providers/copilotReadiness.ts` so Copilot exposes only reasoning effort plus `toolAccess`. Purpose: keep Copilot’s outward controls honest to the supported first-wave contract.
+8. [ ] Update the LM Studio discovery mapping inside `server/src/routes/chatModels.ts` so LM Studio exposes only `temperature`, bounded positive-integer `maxTokens`, `contextOverflowPolicy`, and `toolAccess`. Purpose: keep LM Studio’s outward controls honest to the supported first-wave contract.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/chatProviders.test.ts`. Requirement: `/chat/providers` must expose the exact provider fallback ordering that Story 56 promises. Implementation owner: `server/src/routes/chatProviders.ts`. Purpose: give ordered provider resolution its own direct proof home.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/chatProviders.test.ts`. Requirement: `/chat/providers` must show provider-local default-model ownership and any remaining compatibility fields without making those compatibility fields the primary contract. Implementation owner: `server/src/routes/chatProviders.ts`. Purpose: separate default-model ownership proof from fallback-order proof in the same route seam.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.codex.test.ts`. Requirement: the refreshed Codex descriptor surface must expose `webSearchMode`, workspace-write-scoped `networkAccessEnabled`, and the other Story 56 outward Codex options without silently regressing compatibility behavior. Implementation owners: `server/src/routes/chatModels.ts` and `server/src/codex/capabilityResolver.ts`. Purpose: give the Codex discovery mapping a direct proof owner.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/chatModels.copilot.test.ts`. Requirement: Copilot reasoning metadata must map cleanly into the provider-neutral response family. Implementation owners: `server/src/routes/chatModels.ts` and `server/src/providers/copilotReadiness.ts`. Purpose: keep the Copilot reasoning contract explicit instead of hiding it inside broader discovery coverage.
+13. [ ] Test type: shared proof fixture maintenance. Location: `common/src/fixtures/mockModels.ts`. Requirement: the shared combined-payload fixture shape must stay aligned to the provider-neutral response family consumed by client and server tests. Implementation owners: `common/src/lmstudio.ts` and `server/src/routes/chatModels.ts`. Purpose: keep fixture drift from hiding contract regressions in later tests.
+14. [ ] Test type: server cucumber. Location: `server/src/test/features/chat_models.feature` and `server/src/test/steps/chat_models.steps.ts`. Requirement: the combined discovery payload must expose only the supported LM Studio first-wave options through the integration-facing contract. Implementation owners: `server/src/routes/chatModels.ts` and `server/src/routes/chatProviders.ts`. Purpose: give LM Studio option exposure a proof home beyond route-level unit tests.
+15. [ ] Test type: server cucumber. Location: `server/src/test/features/chat_models.feature` and `server/src/test/steps/chat_models.steps.ts`. Requirement: the combined discovery payload must preserve per-model capability narrowing and provider-neutral response structure through the route path the client actually consumes. Implementation owners: `server/src/routes/chatModels.ts` and `server/src/routes/chatProviders.ts`. Purpose: keep capability narrowing distinct from simple option presence.
+16. [ ] Run `npm run lint` for this task’s surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+17. [ ] Run `npm run format:check` for this task’s surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root to prove the shared discovery contract compiles cleanly through the server and common workspaces. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the combined models-and-flags payload, provider ordering, Copilot model metadata mapping, and LM Studio option exposure. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared provider/model discovery path stays honest after the payload change. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 3. Replace the normal chat request and persistence contract with provider-neutral `agentFlags`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 2`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task removes the last Codex-only naming from the normal `/chat` request path and makes persisted chat state provider-neutral. It also carries the highest-risk lifecycle invariants for this story: explicit-provider failure versus default-provider fallback, same-conversation flag edits, next-send provider/model switches, and `threadId` isolation.
+
+#### Task Exit Criteria
+
+- The normal chat request path uses `agentFlags`, validates provider/model/flag combinations strictly, and resolves provider-local defaults on each request without reviving Codex-only naming as the main abstraction.
+- Persisted chat state keeps provider-neutral flag keys, clears stale provider-specific state such as Codex `threadId` whenever it no longer applies, and preserves the existing rule that Agent Flag changes stay in the current conversation while provider or model changes remain next-send new-conversation boundaries.
+
+#### Documentation Locations
+
+- `https://github.com/openai/codex/blob/main/codex-rs/README.md` - use for the current Codex sandbox vocabulary that the provider-neutral request validator must still map honestly.
+- `https://github.com/openai/codex/blob/main/codex-rs/skills/src/assets/samples/imagegen/references/codex-network.md` - use for the Codex workspace-write network-access semantics behind `networkAccessEnabled`.
+- `server/node_modules/@openai/codex-sdk/dist/index.d.ts` - use as the installed library-code reference for the current request-time Codex thread options that must remain compatible while the outward request contract becomes provider-neutral.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Message Contracts And Storage Shapes`, `Edge Cases And Failure Modes`, `Lifecycle And Ordering`, `Implementation Ideas`, and `Proof Seams`, then inspect `server/src/routes/chatValidators.ts` and `server/src/routes/chat.ts`. Purpose: start from the live request validator and send path that still own the Codex-only request shape.
+2. [ ] Inspect `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, `server/src/routes/conversations.ts`, and `server/src/chat/chatStreamBridge.ts`. Purpose: confirm the current persistence, restored-conversation, websocket, and `threadId` ownership seams before changing any request payload shape.
+3. [ ] Replace the top-level Codex-only chat option fields in `server/src/routes/chatValidators.ts` with a provider-neutral `agentFlags` object while keeping the existing transport fields `provider`, `model`, `message`, `conversationId`, optional `inflightId`, optional `threadId`, and optional `working_folder`. Purpose: move the request contract to provider-neutral naming without widening the transport surface.
+4. [ ] Update `server/src/routes/chatValidators.ts` so provider-specific option rejection stays strict: unsupported provider-specific keys, contradictory provider/model/flag combinations, blank or out-of-range LM Studio values, and stale hidden values left behind by provider switches, model switches, or restored mixed-state drafts must fail validation instead of being silently coerced. Purpose: keep the new outward contract honest once the client begins sending provider-neutral flags.
+5. [ ] Update `server/src/routes/chat.ts` so default-provider fallback stays separate from explicit-provider failure and provider-local defaults are reread on each request through the provider-neutral `agentFlags` path. Purpose: preserve the story’s trust rule that explicit provider choice must not silently switch providers.
+6. [ ] Update `server/src/mongo/conversation.ts` and `server/src/mongo/repo.ts` so persisted runtime state uses the same stable `agentFlags` keys as the wire contract and strips Codex-only `threadId` state on non-Codex persistence paths. Purpose: keep persisted flags and provider-specific state aligned with the new request shape.
+7. [ ] Update `server/src/routes/conversations.ts` and `server/src/chat/chatStreamBridge.ts` so restored-conversation state, websocket state, and provider/model next-send switching do not leak stale provider-specific flags or `threadId` into the next execution context. Clear or exclude stale mixed-state values instead of merging them into the next send path. Purpose: keep the lifecycle matrix explicit across admission, running, stop, failure, cleanup, and history restore.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/chatValidators.test.ts`. Requirement: the new `agentFlags` request shape must reject contradictory provider/model/flag combinations instead of coercing them. Implementation owner: `server/src/routes/chatValidators.ts`. Purpose: give contradictory provider-model input its own validator proof home.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/chatValidators.test.ts`. Requirement: stale hidden provider-specific flags must fail validation rather than slipping through after a provider switch, model switch, or restored mixed-state draft. Implementation owner: `server/src/routes/chatValidators.ts`. Purpose: make hidden-state rejection explicit instead of relying on adjacent invalid-input coverage.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/chatValidators.test.ts`. Requirement: blank or whitespace-only LM Studio flag values must fail validation rather than being trimmed into valid input. Implementation owner: `server/src/routes/chatValidators.ts`. Purpose: give blank-input handling its own proof home for the constrained flag parser.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/chatValidators.test.ts`. Requirement: out-of-range, non-numeric, or non-integer LM Studio flag values must fail validation rather than being clamped or coerced. Implementation owner: `server/src/routes/chatValidators.ts`. Purpose: keep numeric-domain enforcement explicit for the provider-neutral request contract.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`. Requirement: persisted runtime state must store stable `agentFlags` keys instead of the older Codex-only field family. Implementation owners: `server/src/mongo/conversation.ts` and `server/src/mongo/repo.ts`. Purpose: give the persisted request-shape migration its own proof home.
+13. [ ] Test type: server integration. Location: `server/src/test/integration/chat-assistant-persistence.test.ts`. Requirement: same-conversation Agent Flag edits must remain in the current conversation after the provider-neutral persistence migration. Implementation owners: `server/src/routes/conversations.ts` and `server/src/mongo/conversation.ts`. Purpose: keep same-conversation edit behavior distinct from generic persistence-shape proof.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`. Requirement: non-Codex persistence paths must clear stale Codex `threadId` state before the next execution context is saved. Implementation owners: `server/src/mongo/repo.ts` and `server/src/chat/chatStreamBridge.ts`. Purpose: give provider-specific state cleanup its own isolated proof home.
+15. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-fallback.test.ts`. Requirement: explicit-provider failure must stay distinct from automatic provider fallback when the user selected a broken provider directly. Implementation owner: `server/src/routes/chat.ts`. Purpose: keep the trust boundary around explicit provider choice reviewable at the route seam.
+16. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-fallback.test.ts`. Requirement: default-provider fallback must still succeed when provider selection is unresolved and the preferred provider is unavailable or misconfigured. Implementation owner: `server/src/routes/chat.ts`. Purpose: give automatic fallback its own proof home instead of bundling it with explicit-provider failure.
+17. [ ] Test type: server unit. Location: `server/src/test/unit/ws-chat-stream.test.ts`. Requirement: websocket-side lifecycle cleanup must clear runtime state at the deterministic stream boundary without relying on fixed sleeps or adjacent happy-path assertions. Implementation owner: `server/src/chat/chatStreamBridge.ts`. Purpose: make cleanup ordering explicit at the async boundary that owns stream teardown.
+18. [ ] Test type: server unit. Location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`. Requirement: provider-neutral request wording must stay aligned with response streaming and reasoning-delta behavior after `agentFlags` replaces the old request shape. Implementation owners: `server/src/routes/chat.ts` and `server/src/routes/chatValidators.ts`. Purpose: keep response-stream proof aligned with the new wire contract.
+19. [ ] Test type: server proof maintenance. Location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`. Requirement: no test title or description should still claim the old `codexFlags` contract once the provider-neutral request shape ships. Implementation owners: `server/src/routes/chat.ts` and `server/src/routes/chatValidators.ts`. Purpose: keep proof names truthful so reviewers can trust what each test actually proves.
+20. [ ] Run `npm run lint` for this task’s surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+21. [ ] Run `npm run format:check` for this task’s surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root to prove the request-contract and persistence changes compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove provider-neutral validation, persisted flag ownership, `threadId` cleanup, and lifecycle isolation. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the normal chat integration path still passes after the request-contract change. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 4. Wire provider-neutral flags into Copilot, LM Studio, and MCP execution
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 3`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task applies the provider-neutral contract to the real runtime adapters and the shared MCP chat surface. It delivers the actual Copilot tool parity, honest LM Studio runtime flag handling, and `codebase_question` provider parity that make Story 56 more than a payload refactor.
+
+#### Task Exit Criteria
+
+- Copilot normal chat and MCP chat can run with repository-managed tools, `toolAccess` `On` or `Off`, and a non-interrupting permission-handler default while keeping Copilot runtime state under `copilot/`.
+- LM Studio accepts only the honest first-wave runtime flags this story supports, and MCP `codebase_question` accepts `provider: 'copilot'` while keeping its public input limited to provider and model.
+
+#### Documentation Locations
+
+- `https://github.com/github/copilot-sdk/blob/main/nodejs/README.md` - use for the official Node session lifecycle and the required `onPermissionRequest` handler on both create and resume flows.
+- `https://github.com/github/copilot-sdk/blob/main/docs/troubleshooting/compatibility.md` - use for the official `availableTools` and `excludedTools` contract that the product-level `toolAccess` control must map onto.
+- `https://lmstudio.ai/docs/typescript/api-reference/llm-prediction-config-input` - use for the official LM Studio generation-option names and domains this runtime path must honor.
+- `https://github.com/openai/codex/blob/main/codex-rs/skills/src/assets/samples/imagegen/references/codex-network.md` - use for the Codex workspace-write network-access semantics that must stay distinct from provider-wide permissions.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Message Contracts And Storage Shapes`, `Lifecycle And Ordering`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/copilotLifecycle.ts`, `server/src/chat/factory.ts`, and `server/src/providers/copilotReadiness.ts`. Purpose: start from the current Copilot runtime seams that already own create, resume, and readiness behavior.
+2. [ ] Inspect `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/lmstudio/tools.ts`, `server/src/routes/chatValidators.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts`. Purpose: confirm the current LM Studio runtime seam and the shared MCP provider path before changing any runtime mapping or validation logic.
+3. [ ] Update `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so Copilot maps reasoning effort and product-level `toolAccess` onto the real SDK fields and keeps visible approval controls out of the outward Agent Flags contract. Purpose: make the provider-neutral outward flags honest to the actual Copilot session config.
+4. [ ] Update `server/src/chat/copilotLifecycle.ts` and `server/src/chat/factory.ts` so Copilot registers repository-managed tools for both create and resume flows, keeps `copilot/chat/config.toml` separate from the runtime `configDir`, and installs a non-interrupting always-approve-style permission handler before the first provider event is emitted. Purpose: deliver the actual Copilot tool and permission parity this story promises.
+5. [ ] Update `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and `server/src/chat/copilotLifecycle.ts` so stop, failure, and final cleanup paths await Copilot session teardown and do not reuse partially initialized create or resume state. Purpose: make the lifecycle-sensitive teardown boundary explicit instead of relying on happy-path completion.
+6. [ ] Add one shared LM Studio validation helper for `temperature`, bounded positive-integer `maxTokens`, exact `contextOverflowPolicy`, and `toolAccess`, then wire it into `server/src/routes/chatValidators.ts`. Purpose: give the LM Studio request path one explicit owner for bounds, blank input, and unlimited-value rejection.
+7. [ ] Update `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` and any related runtime helper touched by this path so LM Studio uses the shared validation output, rejects blank, whitespace-only, non-numeric, non-integer, or unlimited values instead of clamping them, and keeps tool-enabled versus tool-disabled execution on the existing adapter-level split. Purpose: keep the LM Studio runtime honest to the first-wave supported controls.
+8. [ ] Extend `server/src/chat/factory.ts` and `server/src/mcp2/tools/codebaseQuestion.ts` so `provider: 'copilot'` is accepted anywhere the shared chat-provider contract applies, inherits the same provider-local defaults and fallback rules as normal chat, and still does not add `agentFlags` to the public MCP input shape. Purpose: make MCP parity reuse the same provider-resolution rules as normal chat instead of inventing a second provider contract.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/chat-interface-copilot.test.ts`. Requirement: Copilot create-flow setup must register repository-managed tools and install the non-interrupting permission handler before the first provider event is emitted. Implementation owners: `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and `server/src/chat/factory.ts`. Purpose: give the create-flow ordering boundary its own proof home.
+10. [ ] Test type: server unit. Location: `server/src/test/unit/copilotLifecycle.test.ts`. Requirement: Copilot resume-flow setup must preserve the same tool-registration and non-interrupting permission guarantees as create flow. Implementation owners: `server/src/chat/copilotLifecycle.ts` and `server/src/chat/factory.ts`. Purpose: keep resume-path lifecycle proof separate from create-flow proof.
+11. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-stop.test.ts`. Requirement: stop, failure, and final cleanup must complete in the correct order so a stopped or failed Copilot run cannot report the wrong terminal state or leave partially initialized resume state behind. Implementation owners: `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and `server/src/chat/copilotLifecycle.ts`. Purpose: give the exact lifecycle teardown boundary a proof home that cannot pass on adjacent before-state or after-state assertions alone.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/lmstudio-provider-dispatch.test.ts`. Requirement: LM Studio must reject blank or whitespace-only runtime flag values instead of trimming them into valid input. Implementation owners: `server/src/routes/chatValidators.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`. Purpose: give blank-input rejection its own proof home at the runtime adapter seam.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/lmstudio-provider-dispatch.test.ts`. Requirement: LM Studio must reject non-numeric or non-integer numeric runtime values instead of coercing them. Implementation owners: `server/src/routes/chatValidators.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`. Purpose: keep numeric parsing failures separate from other invalid-input coverage.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`. Requirement: LM Studio must reject unlimited or out-of-range numeric values while preserving diagnosable runtime logging. Implementation owners: `server/src/routes/chatValidators.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`. Purpose: give upper-bound enforcement and logging behavior an explicit proof home.
+15. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`. Requirement: LM Studio must preserve the existing tool-enabled versus tool-disabled execution split while accepting only the exact supported `contextOverflowPolicy` values. Implementation owners: `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` and `server/src/lmstudio/tools.ts`. Purpose: keep execution-mode splitting distinct from simple invalid-input coverage.
+16. [ ] Test type: MCP unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`. Requirement: `codebase_question` must accept `provider: 'copilot'` while keeping the public MCP input limited to provider and model. Implementation owners: `server/src/chat/factory.ts` and `server/src/mcp2/tools/codebaseQuestion.ts`. Purpose: give the public MCP input contract its own proof home.
+17. [ ] Test type: MCP unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`. Requirement: `codebase_question` must reuse the shared provider-default resolution rules instead of inventing a second default-selection path for Copilot. Implementation owners: `server/src/chat/factory.ts` and `server/src/mcp2/tools/codebaseQuestion.ts`. Purpose: keep MCP default-resolution parity distinct from input validation.
+18. [ ] Test type: MCP unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`. Requirement: `codebase_question` must surface provider-unavailable behavior honestly for Copilot without widening the public MCP input shape. Implementation owners: `server/src/chat/factory.ts` and `server/src/mcp2/tools/codebaseQuestion.ts`. Purpose: give the unavailable-provider path its own proof home.
+19. [ ] Test type: MCP integration. Location: `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`. Requirement: the MCP websocket stream path must preserve Copilot provider parity through the normal streamed tool result flow. Implementation owners: `server/src/chat/factory.ts` and `server/src/mcp2/tools/codebaseQuestion.ts`. Purpose: keep streamed MCP behavior distinct from route-level happy-path coverage.
+20. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-resume.test.ts`. Requirement: the normal chat runtime must prove Copilot `toolAccess` `On` versus `Off` through the real integration seam. Implementation owners: `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and `server/src/routes/chat.ts`. Purpose: give outward `toolAccess` behavior its own normal-chat proof home.
+21. [ ] Test type: server integration. Location: `server/src/test/integration/chat-copilot-fallback.test.ts`. Requirement: the normal chat runtime must preserve explicit-provider failure behavior for Copilot with the same trust boundary used elsewhere in Story 56. Implementation owners: `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and `server/src/routes/chat.ts`. Purpose: keep Copilot integration failure behavior distinct from `toolAccess` coverage.
+22. [ ] Run `npm run lint` for this task’s surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+23. [ ] Run `npm run format:check` for this task’s surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root to prove the Copilot, LM Studio, and MCP runtime changes compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove Copilot tool parity, LM Studio validation, and MCP provider parity. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared chat integration path stays honest after the provider-runtime changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 5. Replace the chat page’s Codex-only flags architecture with a server-driven Agent Flags panel
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task completes the user-facing part of Story 56 by removing the Codex-only flags architecture from the chat page. The client must become a consumer of the new combined provider-model-Agent-Flags contract while preserving the current conversation rules around same-conversation flag edits and next-send provider/model changes.
+
+#### Task Exit Criteria
+
+- The chat page renders only the supported Agent Flags for the selected provider and model, using the server’s config-resolved defaults and model-specific narrowing instead of hardcoded `provider === 'codex'` logic.
+- The client sends `agentFlags` with each normal chat request, clears hidden incompatible values immediately, preserves same-conversation Agent Flag changes, and ensures restored conversation state wins over an unsent staged provider or model draft.
+
+#### Documentation Locations
+
+- `https://github.com/mui/material-ui` - use the repository’s MUI MCP workflow against the installed Material UI version if component behavior needs confirmation while replacing the current flags panel.
+- `https://github.com/github/copilot-sdk/blob/main/nodejs/README.md` - use as the external contract reference for Copilot-facing labels and reasoning-effort behavior exposed by the new UI.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Edge Cases And Failure Modes`, `Message Contracts And Storage Shapes`, `Implementation Ideas`, and `Proof Seams`, then inspect `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/chat/CodexFlagsPanel.tsx`, and `common/src/lmstudio.ts`. Purpose: start from the current client state and shared payload types that still assume a Codex-first flags architecture.
+2. [ ] Inspect `client/src/test/support/fetchMock.ts`, `client/src/test/support/ensureCodexFlagsPanelExpanded.ts`, `client/src/test/chatSendPayload.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, `client/src/test/chatPage.models.test.tsx`, and the existing `client/src/test/chatPage.flags.*.test.tsx` suites. Purpose: confirm the current proof owners and identify any file names, test titles, helper names, or test ids that would become misleading once the panel is provider-neutral.
+3. [ ] Replace `client/src/components/chat/CodexFlagsPanel.tsx` with a provider-neutral `client/src/components/chat/AgentFlagsPanel.tsx` that renders from the server descriptor contract and shows only the supported controls for the selected provider and model. Purpose: move the UI surface off the hardcoded Codex-only panel concept.
+4. [ ] Update `client/src/hooks/useChatModel.ts` so the client refreshes the combined provider-model-Agent-Flags payload when the provider changes and applies model-specific overrides or narrowing when the model changes. Purpose: keep the client’s state source aligned to the combined server contract.
+5. [ ] Update `client/src/pages/ChatPage.tsx` so visible controls initialize from config-resolved defaults and rebuild the active draft on provider or model changes. Purpose: preserve the story’s provider/model mode-switch behavior at the main page state owner.
+6. [ ] Update `client/src/pages/ChatPage.tsx` so any hidden or disabled Agent Flag value is cleared from local draft state immediately when the selected provider or model no longer supports it, instead of being retained invisibly. Purpose: prevent hidden local state from influencing later sends or restored view state.
+7. [ ] Update `client/src/pages/ChatPage.tsx` so selecting a restored conversation replaces any staged unsent provider/model draft instead of merging stale draft flags into the restored state. Purpose: make the new-versus-selected-old conversation transition deterministic and reviewable.
+8. [ ] Update `client/src/hooks/useChatStream.ts` and `common/src/lmstudio.ts` so the chat page sends `agentFlags` instead of the current Codex-only field family, preserves same-conversation Agent Flag edits, keeps provider/model changes as next-send new-conversation boundaries, and excludes hidden incompatible values from submission. Purpose: migrate the client send path to the provider-neutral contract without leaving Codex-only payload shaping as the main path.
+9. [ ] Test type: client unit. Location: `client/src/test/chatSendPayload.test.tsx`. Requirement: the client must send a provider-neutral `agentFlags` payload instead of the old Codex-only request field family. Implementation owners: `client/src/hooks/useChatStream.ts` and `common/src/lmstudio.ts`. Purpose: give the send-path contract a direct proof home.
+10. [ ] Test type: client unit. Location: `client/src/test/chatSendPayload.test.tsx`. Requirement: hidden incompatible values must be excluded from submission after provider or model changes hide them, even if they were previously populated in local draft state. Implementation owners: `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx`. Purpose: separate mixed-state payload omission proof from general payload-shape proof.
+11. [ ] Test type: client proof maintenance. Location: `client/src/test/chatSendPayload.test.tsx`. Requirement: any existing test title or inline description that still claims `codexFlags` or generic “Codex-only flags” behavior must be renamed, split, or rewritten so the assertions explicitly prove provider-neutral `agentFlags` payload shaping and mixed-state omission. Implementation owners: `client/src/hooks/useChatStream.ts` and `common/src/lmstudio.ts`. Purpose: prevent payload proofs from claiming the old contract while asserting only adjacent behavior.
+12. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Requirement: the chat page must render the Agent Flags panel from provider capability data instead of hardcoded `provider === 'codex'` logic. Implementation owners: `client/src/components/chat/AgentFlagsPanel.tsx` and `client/src/pages/ChatPage.tsx`. Purpose: give provider-driven rendering its own UI proof home.
+13. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Requirement: the visible Agent Flags set must refresh when the provider selection changes. Implementation owners: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: keep provider-change refresh distinct from initial rendering coverage.
+14. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.test.tsx`. Requirement: provider changes must clear any now-hidden or disabled local draft values immediately instead of retaining them invisibly. Implementation owners: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: give provider-switch stale-state clearing its own proof home.
+15. [ ] Test type: client proof maintenance. Location: `client/src/test/chatPage.provider.test.tsx`. Requirement: any existing test title, inline description, or test id that still claims `codex-flags-panel` semantics must be renamed, split, or rewritten so provider-neutral Agent Flags rendering is what the proof actually claims. Implementation owners: `client/src/components/chat/AgentFlagsPanel.tsx` and `client/src/pages/ChatPage.tsx`. Purpose: keep provider-switch proofs semantically aligned with the renamed panel surface.
+16. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Requirement: model-specific Agent Flag narrowing must stay aligned to the combined server payload when the selected model changes. Implementation owners: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: give model-driven narrowing its own proof home.
+17. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Requirement: model changes must clear any no-longer-supported local draft values instead of retaining disabled hidden state. Implementation owners: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: give model-switch stale-state clearing its own proof home.
+18. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.conversationSelection.test.tsx`. Requirement: restored conversation state must win over a staged unsent provider or model draft. Implementation owners: `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatModel.ts`. Purpose: give the history-restore seam a direct proof owner.
+19. [ ] Test type: client unit. Location: `client/src/test/chatPage.provider.conversationSelection.test.tsx`. Requirement: selecting a restored conversation must replace staged draft state instead of merging hidden stale flags from the draft into the restored conversation view. Implementation owners: `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatModel.ts`. Purpose: make the new-versus-selected-old conversation transition explicit and reviewable.
+20. [ ] Test type: client unit. Location: `client/src/test/chatPage.newConversation.test.tsx`. Requirement: provider changes must remain next-send new-conversation boundaries. Implementation owners: `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts`. Purpose: keep provider-boundary proof separate from model-boundary proof.
+21. [ ] Test type: client unit. Location: `client/src/test/chatPage.newConversation.test.tsx`. Requirement: model changes must remain next-send new-conversation boundaries. Implementation owners: `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts`. Purpose: keep model-boundary proof distinct from provider-boundary proof.
+22. [ ] Test type: client unit. Location: `client/src/test/chatPage.models.test.tsx`. Requirement: model-driven default refresh must show the latest config-resolved defaults from the combined server payload. Implementation owners: `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`. Purpose: separate default-refresh proof from capability-narrowing proof.
+23. [ ] Test type: client proof maintenance. Location: split `client/src/test/chatPage.codexDefaults.test.tsx` into `client/src/test/chatPage.resolvedDefaults.test.tsx` for provider-neutral resolved-default behavior and a narrowed `client/src/test/chatPage.codexDefaults.test.tsx` for Codex-only compatibility behavior. Requirement: generic config-resolved default assertions must not live under a proof file or test titles that still claim Codex-only defaults. Implementation owners: `client/src/pages/ChatPage.tsx` and `common/src/lmstudio.ts`. Purpose: stop provider-neutral default behavior from being “proved” under a Codex-specific filename.
+24. [ ] Test type: client unit. Location: `client/src/test/chatPage.resolvedDefaults.test.tsx`. Requirement: the UI must show config-resolved defaults rather than seed defaults when both are present in the combined provider-model-Agent-Flags payload. Implementation owners: `client/src/pages/ChatPage.tsx` and `common/src/lmstudio.ts`. Purpose: keep resolved-default display explicit at the client surface.
+25. [ ] Test type: client unit. Location: `client/src/test/chatPage.codexDefaults.test.tsx`. Requirement: the UI must show only the remaining Codex compatibility behavior that Story 56 still tolerates after the provider-neutral panel rewrite. Implementation owners: `client/src/pages/ChatPage.tsx` and `common/src/lmstudio.ts`. Purpose: separate compatibility display proof from resolved-default display proof.
+26. [ ] Test type: client unit. Location: the existing `client/src/test/chatPage.flags.*.test.tsx` suites. Requirement: hidden incompatible flags must clear immediately from both rendered controls and local draft state when the selected provider or model no longer supports them. Implementation owners: `client/src/pages/ChatPage.tsx` and `client/src/components/chat/AgentFlagsPanel.tsx`. Purpose: give stale hidden-state clearing its own proof home.
+27. [ ] Test type: client unit. Location: the existing `client/src/test/chatPage.flags.*.test.tsx` suites. Requirement: same-conversation Agent Flag edits must be retained and submitted on the current conversation instead of forcing a new conversation. Implementation owners: `client/src/pages/ChatPage.tsx`, `client/src/components/chat/AgentFlagsPanel.tsx`, and `client/src/hooks/useChatStream.ts`. Purpose: keep conversation-stability proof distinct from stale-state clearing.
+28. [ ] Test type: client test support maintenance. Location: `client/src/test/support/fetchMock.ts`. Requirement: provider-neutral fixtures and helper naming must match the new combined discovery payload instead of implying a Codex-only panel. Implementation owners: `client/src/components/chat/AgentFlagsPanel.tsx` and `client/src/hooks/useChatModel.ts`. Purpose: keep shared test fixtures truthful once the UI surface is renamed.
+29. [ ] Test type: client test support maintenance. Location: rename `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` to `client/src/test/support/ensureAgentFlagsPanelExpanded.ts` and update any related test descriptions that still name the old Codex-only panel. Requirement: support helpers and their messages must use the same provider-neutral panel name that the UI now exposes. Implementation owners: `client/src/components/chat/AgentFlagsPanel.tsx` and `client/src/pages/ChatPage.tsx`. Purpose: keep proof support code and helper names aligned with the actual UI.
+30. [ ] Run `npm run lint` for this task’s surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+31. [ ] Run `npm run format:check` for this task’s surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` from the repository root to prove the client typecheck and build pass after the Agent Flags UI and payload changes. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:client` from the repository root to prove the Task 5 client proof owners in `client/src/test/chatSendPayload.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.resolvedDefaults.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, and the `client/src/test/chatPage.flags.*.test.tsx` suites. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:e2e` from the repository root as the repository-supported automated browser proof for the chat page. This wrapper owns the Task 5 browser-visible regression surface for provider selection, visible Agent Flags behavior, and next-send conversation transitions through the supported e2e stack; the separate normal human Docker stack smoke remains owned by Task 6. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run lint` for the final Task 5 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 6. Run final Story 0000056 validation and close out the provider-neutral chat contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This final task validates Story 56 end to end across the server, client, and MCP chat surface, then updates the operator-facing docs and durable close-out artifact. It proves the whole story through the repository’s wrapper-first workflows rather than through isolated spot checks.
+
+#### Task Exit Criteria
+
+- Every Acceptance Criterion and important in-scope behavior from Story 56 has both a finished implementation home and a finished automated proof home.
+- The checked-in docs and close-out artifact describe the final provider-local defaults contract, provider-neutral Agent Flags behavior, Copilot and LM Studio parity, and final validation status accurately.
+
+#### Documentation Locations
+
+- No external documentation is required for this final task; all final updates are repository-owned files named in the subtasks below.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 56 `Description`, `Acceptance Criteria`, `Out Of Scope`, `Log Or Proof Markers`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then trace every in-scope behavior to a concrete implementation file and a concrete proof-owning file before changing the final documentation set.
+2. [ ] Update `README.md` so it explains the final provider-local defaults contract, the removal of `CODEINFO_CHAT_DEFAULT_MODEL`, the meaning of `CODEINFO_CHAT_DEFAULT_PROVIDER`, the automatic seeding of provider-local `chat/config.toml` files, and the rule that each provider’s own `chat/config.toml` chooses that provider’s default model and supported default Agent Flags.
+3. [ ] Update `design.md` so the architecture narrative reflects the shared provider-local defaults layer, the combined provider-model-Agent-Flags discovery contract, the normal-chat `agentFlags` request shape, the provider-first fallback rules, the Copilot and LM Studio runtime mapping decisions, and Copilot parity on `codebase_question`.
+4. [ ] Update `projectStructure.md` so it documents any new or renamed Story 56 files, especially the shared provider-default helpers, any new option-descriptor types, any new runtime validation helpers, the new `AgentFlagsPanel`, and any new proof-owning files created by the story.
+5. [ ] Create `codeInfoStatus/pr-summaries/0000056-pr-summary.md` as the durable reviewer-facing close-out artifact for this story after the final behavior is validated. Keep it derived from the finished story rather than duplicating unchecked task state.
+6. [ ] Run `npm run lint` for the final Story 56 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+7. [ ] Run `npm run format:check` for the final Story 56 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` and `npm run build:summary:client` from the repository root so both application workspaces pass their wrapper-first build gates on the final Story 56 code. If either wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun that same wrapper.
+2. [ ] Run `npm run compose:build:summary` from the repository root so the normal Docker build path still succeeds after the provider-folder, config-seeding, and full-stack contract changes. This is the shared Story 56 container baseline that covers the normal server and client images rather than any single task’s narrow proof owners. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit` and `npm run test:summary:server:cucumber` from the repository root so the server proves the named Story 56 server proof owners across provider-local defaults, provider-neutral validation, Copilot tool parity, LM Studio option handling, and MCP provider parity. If either wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun that same wrapper.
+4. [ ] Run `npm run test:summary:client` from the repository root so the client proves the named Story 56 proof owners for provider-neutral Agent Flags rendering, request payload migration, stale-state clearing, and conversation-state rules on the full wrapper path. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+5. [ ] Run `npm run test:summary:e2e` from the repository root so the repository-supported automated browser flow still passes after the provider-neutral UI and request-contract changes. This wrapper owns the automated browser regression surface; it uses the repository’s e2e stack, not the normal human stack. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+6. [ ] Run `npm run compose:up` from the repository root, verify the normal human Docker stack answers on `http://localhost:5010/health` and `http://localhost:5001` with `curl -f`, then run `npm run compose:down`. If `compose:up` fails or either readiness check fails, inspect `npm run compose:logs`, fix the issue, rerun this step, and still finish with `npm run compose:down`. This is the shared Story 56 smoke proof for the normal supported runtime path after the narrower wrappers above have passed.
+7. [ ] Run `npm run lint` for the final Story 56 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+8. [ ] Run `npm run format:check` for the final Story 56 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+Optional guidance for the manual testing agent only.
+
+- Prefer the normal human stack first: run `npm run compose:build`, then `npm run compose:up`, and use the standard browser chat surface at `http://localhost:5001` with the server on `http://localhost:5010`, the server health endpoint at `http://localhost:5010/health`, and the shared chat MCP listener on port `5011`.
+- Use the normal env-file path through `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local` rather than inventing a Story 56-only runtime configuration path.
+- Direct task-level manual proof for this final task into `codeInfoTmp/manual-testing/0000056/06/` and do not commit it because `codeInfoTmp/` is already ignored. Recommended deterministic basenames are `proof-01-provider-default.png`, `proof-02-copilot-agent-flags.png`, `proof-03-lmstudio-agent-flags.png`, `proof-04-restored-conversation.png`, `support-console.txt`, and `support-network.json`.
+- If Playwright MCP screenshots help, capture them with a relative staging filename in the Playwright output directory first, then transfer them into `codeInfoTmp/manual-testing/0000056/06/`. Use `$CODEINFO_ROOT/playwright-output-local` only as the harness-side staging location when it is available.
+- Check these visible scenarios on the running stack: default provider selection from `CODEINFO_CHAT_DEFAULT_PROVIDER`; provider-local default model selection from each provider’s `chat/config.toml`; Codex `webSearchMode`, `modelReasoningSummary`, `modelVerbosity`, and workspace-write-scoped `networkAccessEnabled`; Copilot `toolAccess` `On` and `Off`; LM Studio `temperature`, `maxTokens`, `contextOverflowPolicy`, and `toolAccess`; provider or model changes creating a new next-send conversation; Agent Flag changes staying in the current conversation; and restored conversations winning over a staged unsent provider or model change.
+- Review the server logs for the story markers already named in the plan’s `Log Or Proof Markers` section so manual validation can confirm config bootstrap, ordered provider contract, defaults resolution, Copilot readiness, and fallback behavior on the normal stack.
+- After story closeout, promote any curated durable final manual-proof bundle from the task-scoped scratch artifacts into `codeInfoStatus/manual-proof/0000056/`.
+
+#### Implementation notes
+
+- Starts empty.

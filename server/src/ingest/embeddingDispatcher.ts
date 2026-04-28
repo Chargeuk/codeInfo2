@@ -147,7 +147,10 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
     pumpScheduled = true;
     queueMicrotask(() => {
       pumpScheduled = false;
-      void pump();
+      const launched = pump();
+      void launched.catch((error) => {
+        fail(error);
+      });
     });
   };
 
@@ -156,20 +159,19 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
     const dispatchId = nextDispatchId++;
     controllers.set(dispatchId, controller);
     dispatchCount += 1;
-    params.onDispatch({
-      batchSize: batch.length,
-      queueDepth: queue.length,
-      inFlight: controllers.size,
-      effectiveBatchSize: params.effectiveBatchSize,
-      effectiveMaxInFlight: params.maxInFlight,
-    });
-
-    const requestOptions: ProviderEmbedRequestOptions | undefined = params.model
-      .supportsAbort
-      ? { signal: controller.signal }
-      : undefined;
-
     try {
+      params.onDispatch({
+        batchSize: batch.length,
+        queueDepth: queue.length,
+        inFlight: controllers.size,
+        effectiveBatchSize: params.effectiveBatchSize,
+        effectiveMaxInFlight: params.maxInFlight,
+      });
+
+      const requestOptions: ProviderEmbedRequestOptions | undefined = params
+        .model.supportsAbort
+        ? { signal: controller.signal }
+        : undefined;
       const vectors = await params.model.embedBatch(
         batch.map((item) => item.text),
         requestOptions,
@@ -215,7 +217,10 @@ export function createEmbeddingDispatcher(params: Params): EmbeddingDispatcher {
     ) {
       const batchSize = Math.min(params.effectiveBatchSize, queue.length);
       const batch = queue.splice(0, batchSize);
-      void runRequest(batch);
+      const launched = runRequest(batch);
+      void launched.catch((error) => {
+        fail(error);
+      });
     }
 
     maybeResolveIdle();

@@ -27,6 +27,8 @@ The user has also now chosen that this product-owned defaults layer should stay 
 
 That distinction matters most for Copilot. The user has chosen that Copilot auth and runtime state must stay under the existing `copilot/` home contract rather than moving into `copilot/chat/`. The new `copilot/chat/config.toml` file should therefore be treated as a repo-owned chat-defaults file only. It must not become Copilot's real runtime `configDir`, because doing that would risk separating chat defaults from the auth and state that the SDK and CLI already expect to live in the Copilot home.
 
+The Copilot auth-home contract also now needs one explicit fragility repair. Live runtime evidence has shown that Copilot-managed files under that home can be rewritten in a JSON-with-comments style and that the current auth bootstrap path is too brittle because it still assumes one strict JSON artifact and one stale settings location. This story therefore now includes the in-scope work to make Copilot authentication persistence resilient to Copilot-managed JSONC artifacts, move the plaintext-persistence source of truth onto the live settings artifact the runtime actually uses, and stop blocking device auth just because a Copilot-managed compatibility file is commented or tool-owned.
+
 The user has also now chosen that these provider folders should be seeded automatically rather than depending on a manually checked-in file for each provider. That means the local bootstrap path that already creates required repo-local folders for Codex and Copilot should be extended to create the LM Studio chat-defaults folder as well. The repo's gitignore and Docker build-context ignore rules should also keep the repo-local provider folders out of Git and out of image build inputs, including the new `lmstudio/` folder, so runtime defaults and local provider state do not create accidental source-control noise or get copied into Docker builds.
 
 The remaining LM Studio folder decision is also now fixed. In this story, the new `lmstudio/` folder is only an app-managed seeded chat-defaults folder. It is not a new LM Studio runtime-state home. That means this story can seed `lmstudio/chat/config.toml` and keep it out of Git without also taking on a larger contract around LM Studio-native state, LM Studio-native MCP files, or a new Docker-mounted provider home for LM Studio itself. If the product later wants LM Studio-native runtime files in a repo-local home, that should be treated as a follow-up story rather than being silently folded into this one.
@@ -100,6 +102,10 @@ Overall, when this story is complete:
 - The story rechecks `@lmstudio/sdk` at implementation time and only bumps it if a newer release exists than the currently pinned version.
 - Copilot auth and runtime state remain rooted in the existing `copilot/` home contract rather than being moved into `copilot/chat/`.
 - `copilot/chat/config.toml` is not used as Copilot's runtime `configDir`.
+- Copilot plaintext-auth persistence is bootstrapped through `copilot/settings.json` rather than depending on `copilot/config.json` as the primary writable settings source.
+- Any Copilot-managed JSON artifact that the server still reads for auth or runtime compatibility is parsed through a dedicated JSONC-capable parser instead of strict `JSON.parse` assumptions.
+- Copilot-managed comments or compatibility-only content in `copilot/config.json` do not by themselves block device-auth bootstrap or cause the route to fail before the actual auth flow starts.
+- The local bootstrap path seeds `copilot/settings.json` with `storeTokenPlaintext: true` when the file is missing instead of seeding `copilot/config.json` for that setting.
 - If the configured default provider is unavailable, the server falls back to the next available provider using that fallback provider's own provider-local default model.
 - If a provider-local chat config file is missing, unreadable, or invalid, the server treats that provider as misconfigured for default-model resolution and logs or reports that condition clearly enough for operators to understand why fallback happened.
 - If the user explicitly selected a provider for the current request and that provider's local config is broken, the request fails clearly instead of silently switching to another provider.
@@ -785,10 +791,67 @@ This task applies the provider-neutral contract to the real runtime adapters and
 
 ---
 
-### Task 5. Replace the chat page’s Codex-only flags architecture with a server-driven Agent Flags panel
+### Task 5. Move Copilot plaintext-persistence bootstrap to `settings.json` and make Copilot-managed JSON reads JSONC-safe
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task repairs the fragile Copilot authentication persistence seam that currently assumes `copilot/config.json` is a strict-JSON source of truth for plaintext token storage. The live runtime now shows a stronger contract: `config.json` is Copilot-managed and may contain JSONC comments, while `settings.json` already carries `storeTokenPlaintext`. The task moves the repository-owned plaintext-persistence bootstrap to `settings.json`, adds one explicit JSONC-capable parser for any remaining Copilot-managed JSON reads, and ensures the device-auth route no longer fails before login just because `config.json` contains tool-managed comments.
+
+#### Task Exit Criteria
+
+- `/copilot/device-auth` no longer fails when `copilot/config.json` contains Copilot-managed comments or compatibility-only content unrelated to the plaintext persistence setting.
+- The repository-owned plaintext-persistence bootstrap uses `copilot/settings.json` as the primary writable artifact and writes `storeTokenPlaintext: true` there instead of writing `store_token_plaintext` into `copilot/config.json`.
+- Any Copilot-managed JSON artifact that the server still reads for auth/runtime compatibility is parsed through `jsonc-parser` instead of strict `JSON.parse` assumptions, while canonical repository writes still emit plain JSON.
+- Local compose bootstrap and repository docs now seed and describe `copilot/settings.json` as the source of truth for plaintext token persistence.
+
+#### Documentation Locations
+
+- `https://www.npmjs.com/package/jsonc-parser` - use as the exact JSONC-capable parser dependency reference because it is the parser named by the JSONC specification and is intended for VS Code-style configuration files that permit comments.
+- `https://jsonc.org/` - use as the JSONC syntax and compatibility reference for the kinds of comments the repo must tolerate in Copilot-managed artifacts.
+- `https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli` - use as the Copilot CLI auth reference while keeping the repository-owned persistence bootstrap aligned to the supported login path rather than inventing a second auth contract.
+
+#### Subtasks
+
+1. [ ] Re-read the Story 51 and Story 56 Copilot auth-persistence notes, then inspect `server/src/config/copilotConfig.ts`, `server/src/routes/copilotDeviceAuth.ts`, `scripts/docker-compose-with-env.sh`, `README.md`, and the current proof homes in `server/src/test/unit/copilotConfig.test.ts`, `server/src/test/unit/copilotDeviceAuth.test.ts`, `server/src/test/integration/copilot.device-auth.test.ts`, and `server/src/test/unit/copilot-compose-contract.test.ts`. Purpose: confirm the current incorrect `config.json` source-of-truth assumption, the exact route preflight behavior, and the files that must move together with the contract change.
+2. [ ] Add `jsonc-parser` to `server/package.json` and update the lockfile so the server workspace owns one explicit JSONC-capable parser dependency instead of relying on ad hoc comment stripping or broad permissive JSON variants. Purpose: give the repository one precise parser that matches the JSONC contract used by the Copilot-managed files the runtime now writes.
+3. [ ] Add one shared helper in `server/src/config/copilotConfig.ts` that reads Copilot-managed JSON objects from disk through `jsonc-parser`, returns a deterministic “missing” result for `ENOENT`, rejects non-object or array payloads with one explicit malformed-artifact error, and can be reused by both `settings.json` and any remaining compatibility reads of `config.json`. Purpose: centralize the “Copilot-managed files may be JSONC” rule in one owner instead of scattering parser policy across routes or tests.
+4. [ ] Add explicit path helpers in `server/src/config/copilotConfig.ts` for the settings artifact, for example `getCopilotSettingsPathForHome(copilotHome)`, while preserving the existing chat-config and state-path helpers. Purpose: make `settings.json` a first-class runtime artifact with one canonical path owner instead of more hardcoded filenames inside auth bootstrap logic.
+5. [ ] Replace the current plaintext-storage bootstrap helper in `server/src/config/copilotConfig.ts` with a settings-first owner that reads `settings.json`, preserves unrelated settings keys, ensures `storeTokenPlaintext: true`, and writes the result atomically through temp-file-plus-rename. Purpose: move the repository-owned bootstrap onto the live artifact and key shape the Copilot runtime now actually uses.
+6. [ ] Keep compatibility reads narrow and explicit. If legacy migration support is still needed, consult `config.json` only as a fallback when `settings.json` is missing, parse it through the shared JSONC helper, recognize legacy `store_token_plaintext`, and then write the canonical final state only into `settings.json` without writing back to `config.json`. Purpose: support older repo-created auth homes without preserving indefinite dual ownership of a Copilot-managed file.
+7. [ ] Update `server/src/routes/copilotDeviceAuth.ts` so the route’s preflight no longer depends on `config.json` parse success for the happy path and blocks only on the actual repository-owned persistence artifact it now manages. Purpose: stop returning `copilot config persistence unavailable` before auth starts just because Copilot has written comments or compatibility metadata into `config.json`.
+8. [ ] Refine the route’s preflight diagnostics and failure mapping in `server/src/routes/copilotDeviceAuth.ts` and any related helper code so writeability/bootstrap failures remain clearly distinguishable from malformed settings artifacts where the code can honestly tell the difference. Purpose: keep the public auth contract stable while making server-side reasoning and future debugging more precise than the current catch-all persistence failure message.
+9. [ ] Update `scripts/docker-compose-with-env.sh` so the local compose bootstrap seeds `copilot/settings.json` with `storeTokenPlaintext: true` when the file is missing, and stop seeding `copilot/config.json` for this setting. Preserve the existing rule that live auth state should not be overwritten when the file already exists. Purpose: align local bootstrap behavior to the new runtime source of truth and remove the stale config artifact the route no longer owns.
+10. [ ] Update `README.md` and any Story 56/Story 51 repository-owned documentation that still says the local bootstrap seeds `copilot/config.json` for plaintext persistence. Replace those references with `copilot/settings.json`, explain that Copilot-managed JSON artifacts may contain comments, and note that the auth route now tolerates JSONC-compatible Copilot-managed files. Purpose: prevent future operators or contributors from reintroducing the stale settings-location assumption.
+11. [ ] Update `server/src/test/unit/copilotConfig.test.ts` so the proof home now covers: missing `settings.json`, preserving unrelated settings keys, writing `storeTokenPlaintext: true`, accepting commented JSONC in any Copilot-managed file still read by the helper, handling optional legacy fallback from `config.json`, and rejecting truly malformed or non-object content deterministically. Purpose: move the helper proof surface onto the real source-of-truth and the new JSONC compatibility rule.
+12. [ ] Update `server/src/test/unit/copilotDeviceAuth.test.ts` so the route proof now distinguishes missing CLI, settings bootstrap write failure, malformed settings artifact failure, and commented `config.json` that must not block auth. Purpose: prove the route no longer regresses into a generic persistence failure for the wrong reason.
+13. [ ] Update `server/src/test/integration/copilot.device-auth.test.ts` to exercise the real preflight path against a temp Copilot home where `config.json` contains Copilot-style comments and `settings.json` is missing or incomplete. Requirement: the route must create or honor `settings.json`, proceed past preflight, and avoid failing only because of the commented `config.json` artifact. Purpose: prove the route plus helper integration is honest on the exact failure mode seen in the live runtime.
+14. [ ] Update `server/src/test/unit/copilot-compose-contract.test.ts` so the compose bootstrap proof now asserts creation of `copilot/settings.json` with `storeTokenPlaintext: true` instead of creation of `copilot/config.json` for this setting. Purpose: keep the shell bootstrap contract aligned with the runtime auth bootstrap contract.
+15. [ ] Run `npm run lint` for this task’s surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+16. [ ] Run `npm run format:check` for this task’s surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root to prove the new `jsonc-parser` dependency, settings-first Copilot helpers, route changes, and updated proof owners compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root so the unit proof surface covers the new settings-first source of truth, JSONC-safe reads, route preflight distinctions, and updated compose bootstrap contract. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared server integration path remains honest after the Copilot auth-persistence contract changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run lint` for the final Task 5 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 6. Replace the chat page’s Codex-only flags architecture with a server-driven Agent Flags panel
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 5`
 - Task Status: `__to_do__`
 - Git Commits:
 
@@ -843,10 +906,10 @@ This task completes the user-facing part of Story 56 by removing the Codex-only 
 #### Testing
 
 1. [ ] Run `npm run build:summary:client` from the repository root to prove the client typecheck and build pass after the Agent Flags UI and payload changes. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:client` from the repository root to prove the Task 5 client proof owners in `client/src/test/chatSendPayload.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.resolvedDefaults.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, and the `client/src/test/chatPage.flags.*.test.tsx` suites. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:e2e` from the repository root as the repository-supported automated browser proof for the chat page. This wrapper owns the Task 5 browser-visible regression surface for provider selection, visible Agent Flags behavior, and next-send conversation transitions through the supported e2e stack; the separate normal human Docker stack smoke remains owned by Task 6. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 5 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+2. [ ] Run `npm run test:summary:client` from the repository root to prove the Task 6 client proof owners in `client/src/test/chatSendPayload.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.resolvedDefaults.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, and the `client/src/test/chatPage.flags.*.test.tsx` suites. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:e2e` from the repository root as the repository-supported automated browser proof for the chat page. This wrapper owns the Task 6 browser-visible regression surface for provider selection, visible Agent Flags behavior, and next-send conversation transitions through the supported e2e stack; the separate normal human Docker stack smoke remains owned by Task 7. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run lint` for the final Task 6 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 6 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -854,10 +917,10 @@ This task completes the user-facing part of Story 56 by removing the Codex-only 
 
 ---
 
-### Task 6. Run final Story 0000056 validation and close out the provider-neutral chat contract
+### Task 7. Run final Story 0000056 validation and close out the provider-neutral chat contract
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5`
+- Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6`
 - Task Status: `__to_do__`
 - Git Commits:
 
@@ -901,8 +964,8 @@ Optional guidance for the manual testing agent only.
 
 - Prefer the normal human stack first: run `npm run compose:build`, then `npm run compose:up`, and use the standard browser chat surface at `http://localhost:5001` with the server on `http://localhost:5010`, the server health endpoint at `http://localhost:5010/health`, and the shared chat MCP listener on port `5011`.
 - Use the normal env-file path through `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local` rather than inventing a Story 56-only runtime configuration path.
-- Direct task-level manual proof for this final task into `codeInfoTmp/manual-testing/0000056/06/` and do not commit it because `codeInfoTmp/` is already ignored. Recommended deterministic basenames are `proof-01-provider-default.png`, `proof-02-copilot-agent-flags.png`, `proof-03-lmstudio-agent-flags.png`, `proof-04-restored-conversation.png`, `support-console.txt`, and `support-network.json`.
-- If Playwright MCP screenshots help, capture them with a relative staging filename in the Playwright output directory first, then transfer them into `codeInfoTmp/manual-testing/0000056/06/`. Use `$CODEINFO_ROOT/playwright-output-local` only as the harness-side staging location when it is available.
+- Direct task-level manual proof for this final task into `codeInfoTmp/manual-testing/0000056/07/` and do not commit it because `codeInfoTmp/` is already ignored. Recommended deterministic basenames are `proof-01-provider-default.png`, `proof-02-copilot-agent-flags.png`, `proof-03-lmstudio-agent-flags.png`, `proof-04-restored-conversation.png`, `support-console.txt`, and `support-network.json`.
+- If Playwright MCP screenshots help, capture them with a relative staging filename in the Playwright output directory first, then transfer them into `codeInfoTmp/manual-testing/0000056/07/`. Use `$CODEINFO_ROOT/playwright-output-local` only as the harness-side staging location when it is available.
 - Check these visible scenarios on the running stack: default provider selection from `CODEINFO_CHAT_DEFAULT_PROVIDER`; provider-local default model selection from each provider’s `chat/config.toml`; Codex `webSearchMode`, `modelReasoningSummary`, `modelVerbosity`, and workspace-write-scoped `networkAccessEnabled`; Copilot `toolAccess` `On` and `Off`; LM Studio `temperature`, `maxTokens`, `contextOverflowPolicy`, and `toolAccess`; provider or model changes creating a new next-send conversation; Agent Flag changes staying in the current conversation; and restored conversations winning over a staged unsent provider or model change.
 - Review the server logs for the story markers already named in the plan’s `Log Or Proof Markers` section so manual validation can confirm config bootstrap, ordered provider contract, defaults resolution, Copilot readiness, and fallback behavior on the normal stack.
 - After story closeout, promote any curated durable final manual-proof bundle from the task-scoped scratch artifacts into `codeInfoStatus/manual-proof/0000056/`.

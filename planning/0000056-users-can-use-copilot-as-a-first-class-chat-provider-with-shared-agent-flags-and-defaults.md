@@ -711,7 +711,7 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `184e0148`, `0e889c19`
 
 #### Overview
@@ -762,7 +762,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 2. [x] Run `npm run test:summary:server:unit` from the repository root to prove Copilot tool parity, LM Studio validation, and MCP provider parity. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the shared chat integration path stays honest after the provider-runtime changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 4. [x] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [x] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -779,6 +779,8 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - The final Task 4 `npm run lint` proof checkpoint passed cleanly after the wrapper-backed runtime and test repairs, so only the final formatting proof item remains open.
 - The final Task 4 `npm run format:check` proof checkpoint also passed cleanly with `All matched files use Prettier code style!`, so every Task 4 automated proof item is now complete and ready for the later audit step.
 - Automated-proof audit closed Task 4 as `__done__` because the current plan now shows all subtasks and all five automated testing steps complete with no live blocker and no remaining prose-only gate.
+- Task-scoped manual testing restarted the stale/unknown main stack with `npm run compose:build` and `npm run compose:up`, proved startup on `/health`, captured provider-readiness and explicit Copilot request evidence under `codeInfoTmp/manual-testing/0000056/4/`, and then reopened the final `npm run format:check` proof item because a later manual retest will need a fresh automated-proof checkpoint after the environment gap is resolved.
+- **BLOCKER** Task 4 requires authenticated Copilot normal-chat and shared chat-MCP success proof, but the live runtime reports `copilot authentication required` in `/chat/providers`, and explicit Copilot `/chat` requests with `toolAccess` `On` and `Off` both return `503 PROVIDER_UNAVAILABLE` before runtime execution. The repository-documented credential sources are env tokens, stored login state, `gh` auth, or the device-auth flow, but no supported usable auth material is available in this environment, so Task 4 manual proof is structurally blocked until that access contract can be satisfied.
 
 ---
 

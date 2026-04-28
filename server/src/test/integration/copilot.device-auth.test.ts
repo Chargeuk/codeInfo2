@@ -7,7 +7,11 @@ import { describe, mock, test } from 'node:test';
 import express from 'express';
 import supertest from 'supertest';
 
-import { ensureCopilotAuthFileStore } from '../../config/copilotConfig.js';
+import {
+  ensureCopilotAuthFileStore,
+  ensureCopilotPlaintextTokenStorage,
+} from '../../config/copilotConfig.js';
+import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { query, resetStore } from '../../logStore.js';
 import { createCopilotDeviceAuthRouter } from '../../routes/copilotDeviceAuth.js';
 import {
@@ -31,6 +35,25 @@ import {
 } from '../support/mockCopilotDeviceAuth.js';
 
 const TASK9_LOG_MARKER = 'story.0000051.task09.device_auth_state_emitted';
+
+async function writeSeedArtifacts(seedHome: string) {
+  await fs.mkdir(path.join(seedHome, 'session-state'), { recursive: true });
+  await fs.writeFile(
+    path.join(seedHome, 'config.json'),
+    '{"store_token_plaintext": true}\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(seedHome, 'settings.json'),
+    '{"storeTokenPlaintext": true}\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(seedHome, 'session-state', 'session.json'),
+    '{"seeded": true}\n',
+    'utf8',
+  );
+}
 
 function buildApp(deps?: Parameters<typeof createCopilotDeviceAuthRouter>[0]) {
   const app = express();
@@ -335,6 +358,49 @@ describe('POST /copilot/device-auth integration behavior', () => {
       reason: 'copilot config persistence unavailable',
     });
     assert.equal(runCopilotDeviceAuth.mock.calls.length, 0);
+  });
+
+  test('main-stack-style seeded runtime homes proceed past preflight instead of failing unavailable-before-start', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-device-auth-seed-'),
+    );
+    const seedHome = path.join(tempRoot, 'seed-home');
+    const runtimeHome = path.join(tempRoot, 'runtime-home');
+    const harness = createMockCopilotDeviceAuthHarness(
+      createVerificationReadyScenario(),
+    );
+
+    try {
+      await writeSeedArtifacts(seedHome);
+      const seedResult = await importCopilotSeedIntoRuntimeHome({
+        runtimeHome,
+        seedHome,
+      });
+      assert.equal(seedResult.status, 'seed_applied');
+
+      const res = await supertest(
+        buildApp(
+          depsFromHarness(harness, {
+            getCopilotHome: () => runtimeHome,
+            getCopilotConfigDirForHome: (home: string) => home,
+            ensureCopilotAuthFileStore,
+            ensureCopilotPlaintextTokenStorage,
+            env: {
+              CODEINFO_COPILOT_HOME: runtimeHome,
+              CODEINFO_COPILOT_SEED_HOME: seedHome,
+            },
+          }),
+        ),
+      )
+        .post('/copilot/device-auth')
+        .send({});
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.provider, 'copilot');
+      assert.equal(res.body.state, 'verification_ready');
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
   });
 
   test('route honors CODEINFO_COPILOT_CLI_PATH when PATH discovery is unavailable', async () => {

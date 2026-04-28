@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
+import express from 'express';
 import request from 'supertest';
 
+import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
+import { createChatModelsRouter } from '../../routes/chatModels.js';
+import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import {
   queryTask16BootLogs,
   startNamedCopilotScenarioServer,
@@ -13,6 +20,38 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+
+async function writeSeedArtifacts(seedHome: string) {
+  await fs.mkdir(path.join(seedHome, 'session-state'), { recursive: true });
+  await fs.writeFile(
+    path.join(seedHome, 'config.json'),
+    '{"store_token_plaintext": true}\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(seedHome, 'settings.json'),
+    '{"storeTokenPlaintext": true}\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(seedHome, 'session-state', 'session.json'),
+    '{"bootstrapped": true}\n',
+    'utf8',
+  );
+}
+
+async function hasBootstrappedRuntime(runtimeHome: string) {
+  try {
+    await Promise.all([
+      fs.access(path.join(runtimeHome, 'config.json')),
+      fs.access(path.join(runtimeHome, 'settings.json')),
+      fs.access(path.join(runtimeHome, 'session-state')),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 test('named happy-path fake Copilot scenario boots the higher-level stack end to end', async () => {
   const server = await startNamedCopilotScenarioServer({
@@ -118,5 +157,98 @@ test('named auth-required fake Copilot scenario surfaces the negative path clean
     assert.equal(task16Logs.at(-1)?.context?.scenario, 'copilot-auth-required');
   } finally {
     await server.stop();
+  }
+});
+
+test('seed-imported runtime homes make Copilot visible on providers and models instead of surfacing auth-required by default', async () => {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-boot-path-'),
+  );
+  const seedHome = path.join(tempRoot, 'seed-home');
+  const runtimeHome = path.join(tempRoot, 'runtime-home');
+  const clientFactory = () =>
+    ({
+      system: {
+        listDownloadedModels: async () => [],
+      },
+    }) as never;
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    const seedResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+    });
+    assert.equal(seedResult.status, 'seed_applied');
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatProvidersRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => ({
+          start: async () => {},
+          stop: async () => [],
+          ping: async () => undefined,
+          getAuthStatus: async () => ({
+            isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+            authType: 'user',
+          }),
+          listModels: async () =>
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? [
+                  {
+                    id: 'copilot-gpt-5',
+                    name: 'Copilot GPT-5',
+                    supportedReasoningEfforts: ['medium'],
+                    defaultReasoningEffort: 'medium',
+                  },
+                ]
+              : [],
+        }),
+      }),
+    );
+    app.use(
+      '/chat',
+      createChatModelsRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => ({
+          start: async () => {},
+          stop: async () => [],
+          ping: async () => undefined,
+          getAuthStatus: async () => ({
+            isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+            authType: 'user',
+          }),
+          listModels: async () =>
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? [
+                  {
+                    id: 'copilot-gpt-5',
+                    name: 'Copilot GPT-5',
+                    supportedReasoningEfforts: ['medium'],
+                    defaultReasoningEffort: 'medium',
+                  },
+                ]
+              : [],
+        }),
+      }),
+    );
+
+    const providers = await request(app).get('/chat/providers');
+    assert.equal(providers.status, 200);
+    const copilotProvider = providers.body.providers.find(
+      (provider: { id?: string }) => provider.id === 'copilot',
+    );
+    assert.ok(copilotProvider);
+    assert.equal(copilotProvider.available, true);
+
+    const models = await request(app).get('/chat/models?provider=copilot');
+    assert.equal(models.status, 200);
+    assert.equal(models.body.provider, 'copilot');
+    assert.equal(models.body.available, true);
+    assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

@@ -103,6 +103,8 @@ test('compose contract keeps local Copilot state on the repo bind mount while ma
   for (const compose of [mainCompose, e2eCompose]) {
     const serverBlock = getServiceBlock(compose, 'server');
     assert.match(serverBlock, /copilot-data:\/app\/copilot/u);
+    assert.match(serverBlock, /\.\/copilot:\/seed\/copilot:ro/u);
+    assert.match(serverBlock, /CODEINFO_COPILOT_SEED_HOME=\/seed\/copilot/u);
     assert.doesNotMatch(serverBlock, /\.\/copilot:\/app\/copilot/u);
   }
 
@@ -112,6 +114,11 @@ test('compose contract keeps local Copilot state on the repo bind mount while ma
   const localServer = getServiceBlock(localCompose, 'server');
   assert.match(localServer, /\.\/copilot:\/app\/copilot/u);
   assert.doesNotMatch(localServer, /copilot-data:\/app\/copilot/u);
+  assert.doesNotMatch(localServer, /\.\/copilot:\/seed\/copilot:ro/u);
+  assert.doesNotMatch(
+    localServer,
+    /CODEINFO_COPILOT_SEED_HOME=\/seed\/copilot/u,
+  );
   assert.doesNotMatch(localCompose, /^  copilot-data:$/mu);
 });
 

@@ -28,6 +28,7 @@ services:
       - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
       - CODEINFO_COPILOT_HOME=/app/copilot
+      - CODEINFO_COPILOT_SEED_HOME=/seed/copilot
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
@@ -41,6 +42,7 @@ services:
       - CODEINFO_FAKE_COPILOT_SCENARIO=${CODEINFO_FAKE_COPILOT_SCENARIO:-}
     volumes:
       - copilot-data:/app/copilot
+      - ./copilot:/seed/copilot:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'

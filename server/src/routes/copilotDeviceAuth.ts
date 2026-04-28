@@ -79,6 +79,18 @@ function logCopilotAuthDiagnostics(
   baseLogger.info(context, tag);
 }
 
+function buildCopilotPreflightContext(params: {
+  env: NodeJS.ProcessEnv | undefined;
+  targetCopilotHome: string;
+  targetConfigDir: string;
+}) {
+  return {
+    runtimeHome: params.targetCopilotHome,
+    runtimeConfigDir: params.targetConfigDir,
+    seedHome: params.env?.CODEINFO_COPILOT_SEED_HOME,
+  };
+}
+
 function resolveCopilotCli(env: NodeJS.ProcessEnv = process.env): {
   available: boolean;
   reason?: string;
@@ -317,7 +329,16 @@ export function createCopilotDeviceAuthRouter(
         deps.ensureCopilotPlaintextTokenStorage ??
         ensureCopilotPlaintextTokenStorage
       )(targetCopilotHome);
-    } catch {
+    } catch (error) {
+      logCopilotAuthDiagnostics('story.0000056.task04.copilot_auth_preflight', {
+        stage: 'plaintext_storage',
+        error: error instanceof Error ? error.message : String(error),
+        ...buildCopilotPreflightContext({
+          env: deps.env,
+          targetCopilotHome,
+          targetConfigDir,
+        }),
+      });
       return res
         .status(200)
         .json(
@@ -335,7 +356,16 @@ export function createCopilotDeviceAuthRouter(
 
     try {
       await deps.ensureCopilotAuthFileStore(targetConfigDir);
-    } catch {
+    } catch (error) {
+      logCopilotAuthDiagnostics('story.0000056.task04.copilot_auth_preflight', {
+        stage: 'runtime_store',
+        error: error instanceof Error ? error.message : String(error),
+        ...buildCopilotPreflightContext({
+          env: deps.env,
+          targetCopilotHome,
+          targetConfigDir,
+        }),
+      });
       return res
         .status(200)
         .json(

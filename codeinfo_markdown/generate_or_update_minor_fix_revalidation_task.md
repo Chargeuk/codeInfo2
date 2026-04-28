@@ -63,7 +63,8 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Do not append a second final minor-fix revalidation task for the same story and same `review_cycle_id`.
 - If the helper reports duplicate current-cycle tasks, do not update either task yet. Repair the plan so only one task remains for that `review_cycle_id`, then rerun the helper.
 - If the helper reports a non-current-cycle historical task, do not reopen it for the current cycle.
-- If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe legacy task for `review_cycle_id` backfill.
+- If the helper selected a legacy no-cycle-id task for `review_cycle_id` backfill, that task must still be open with `Task Status: __to_do__` or `Task Status: __in_progress__`. Do not backfill a legacy no-cycle-id task that is already `__done__`.
+- If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe open legacy task for `review_cycle_id` backfill.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.
 - If the helper reports `needs_cycle_id_backfill`, backfill the current `review_cycle_id` into the selected task while updating it.
 - Preserve completed proof notes that remain true, but uncheck or rewrite any testing item whose proof is no longer honest after adding new resolved minor findings.

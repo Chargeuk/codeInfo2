@@ -179,6 +179,11 @@ def get_revalidation_task_status(
         for task, metadata in candidate_pairs
         if metadata.get("review_cycle_id") is None
     ]
+    open_legacy_candidates = [
+        (task, metadata)
+        for task, metadata in legacy_candidates
+        if task["status"] in {"__to_do__", "__in_progress__"}
+    ]
     explicit_cycle_candidates = [
         (task, metadata)
         for task, metadata in candidate_pairs
@@ -199,17 +204,17 @@ def get_revalidation_task_status(
         selected_pair = max(cycle_matches, key=lambda item: item[0]["number"])
     elif (
         review_cycle_id is not None
-        and len(legacy_candidates) == 1
+        and len(open_legacy_candidates) == 1
         and len(candidate_pairs) == 1
     ):
-        selected_pair = legacy_candidates[0]
+        selected_pair = open_legacy_candidates[0]
         needs_cycle_id_backfill = True
     elif cycle_id_error is not None:
         repair_needed = True
         repair_action = "rebuild_review_disposition_state"
         repair_reason = cycle_id_error
-        if len(candidate_pairs) == 1 and not explicit_cycle_candidates:
-            selected_pair = candidate_pairs[0]
+        if len(open_legacy_candidates) == 1 and not explicit_cycle_candidates:
+            selected_pair = open_legacy_candidates[0]
             needs_cycle_id_backfill = True
 
     selected_task = None if selected_pair is None else selected_pair[0]

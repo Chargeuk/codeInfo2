@@ -194,6 +194,55 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
         self.assertTrue(status["needs_cycle_id_backfill"])
         self.assertEqual(status["selected_task"]["number"], 4)
 
+    def test_in_progress_legacy_task_can_be_backfilled(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 4. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__in_progress__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            """,
+            review_state={"review_cycle_id": CYCLE_NEW},
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["match_found"])
+        self.assertFalse(status["cycle_match_found"])
+        self.assertTrue(status["should_reuse_existing_task"])
+        self.assertTrue(status["needs_cycle_id_backfill"])
+        self.assertEqual(status["selected_task"]["number"], 4)
+
+    def test_done_legacy_task_is_ignored_for_backfill(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 4. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__done__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            """,
+            review_state={"review_cycle_id": CYCLE_NEW},
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["match_found"])
+        self.assertFalse(status["cycle_match_found"])
+        self.assertFalse(status["should_reuse_existing_task"])
+        self.assertFalse(status["needs_cycle_id_backfill"])
+
     def test_duplicate_current_cycle_tasks_require_repair(self) -> None:
         repo, handoff = self.make_repo(
             """

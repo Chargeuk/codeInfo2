@@ -638,7 +638,7 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

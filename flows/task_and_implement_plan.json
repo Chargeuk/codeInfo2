@@ -194,21 +194,35 @@
                   "breakOn": "yes"
                 },
                 {
+                  "type": "llm",
+                  "label": "Repair Workflow State If Needed",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "repair_story_workflow_state.md"
+                },
+                {
                   "type": "break",
                   "label": "Exit task loop if story is complete",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `scope_valid: true` and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 }
               ]
+            },
+            {
+              "type": "llm",
+              "label": "Repair Workflow State If Needed",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "repair_story_workflow_state.md"
             },
             {
               "type": "break",
               "label": "Early exit check for completion",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `scope_valid: true` and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             },
             {
@@ -248,6 +262,13 @@
             },
             {
               "type": "llm",
+              "label": "Repair Workflow State If Needed",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "repair_story_workflow_state.md"
+            },
+            {
+              "type": "llm",
               "label": "Verify plan status",
               "agentType": "planning_agent",
               "identifier": "planner",
@@ -255,7 +276,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\" --include-tasks` and use that JSON output as the source of truth. Before answering completion, list each task's Task Status from `tasks`, explicitly state whether the final task is `__done__` or not using `final_task_status`, cite `plan_path`, and state whether `scope_valid` is true or false."
+                    "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\" --include-tasks` and use that JSON output as the source of truth. Before answering completion, list each task's Task Status from `tasks`, explicitly state whether the final task is `__done__` or not using `final_task_status`, cite `plan_path`, and state whether `scope_valid`, `repair_needed`, and `repair_action` are true, false, or null."
                   ]
                 }
               ]
@@ -265,7 +286,7 @@
               "label": "Check for completion",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `scope_valid: true` and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]
@@ -424,11 +445,18 @@
               ]
             },
             {
+              "type": "llm",
+              "label": "Repair Workflow State If Needed",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "repair_review_workflow_state.md"
+            },
+            {
               "type": "break",
               "label": "Exit Review Loop After Serious Review Work Was Tasked Up",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `should_exit_review_loop_to_main_loop: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `review_state_repair_needed: false`, and `should_exit_review_loop_to_main_loop: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             },
             {
@@ -436,7 +464,7 @@
               "label": "Exit Review Loop When No Further Minor Rerun Is Needed",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `should_finish_review_loop_cleanly: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `review_state_repair_needed: false`, and `should_finish_review_loop_cleanly: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]

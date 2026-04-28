@@ -251,6 +251,33 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('main implementation flows include story and review repair steps', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ] as const;
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      assert.ok(Array.isArray(parsed.steps), `${flowFile} should define steps`);
+
+      const markers = flattenSteps(parsed.steps ?? [])
+        .map((step) => step.markdownFile)
+        .filter((marker): marker is string => typeof marker === 'string');
+
+      assert.ok(
+        markers.includes('repair_story_workflow_state.md'),
+        `${flowFile} should include story-scope repair`,
+      );
+      assert.ok(
+        markers.includes('repair_review_workflow_state.md'),
+        `${flowFile} should include review-state repair`,
+      );
+    }
+  });
+
   test('loop-based review flows generate final minor revalidation before clean closeout', async () => {
     const flowFiles = [
       'flows/review_plan.json',

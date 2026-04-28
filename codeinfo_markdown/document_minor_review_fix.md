@@ -49,6 +49,7 @@ When `minor-review-fix-result.json` has `status: "fixed"`:
 10. Keep `review_created_tasks_added_or_updated` false in this step.
 11. Set `safe_to_exit_review_loop_without_tasking` false.
 12. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+13. Preserve `review_cycle_id` exactly as-is for this active review loop.
 
 When the result has `status: "reclassify_task_required"`:
 
@@ -69,6 +70,7 @@ When the result has `status: "blocked"`:
 6. Keep `review_created_tasks_added_or_updated` false in this step.
 7. Set `safe_to_exit_review_loop_without_tasking` false.
 8. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+9. Preserve `review_cycle_id` exactly as-is for this active review loop.
 
 When the result has `status: "skipped"`:
 
@@ -77,6 +79,7 @@ When the result has `status: "skipped"`:
 3. Recompute counts and booleans so `needs_minor_fix_path` reflects whether any unresolved minor findings still remain, and `needs_task_up_path` reflects any escalated work.
 4. Add a concise `classification_notes` entry explaining why the issue was cleaned up or escalated after the skipped outcome.
 5. Do not clear or overwrite `final_revalidation_owned_by_task_up_path` or `task_up_owned_final_revalidation_task_title` in this step.
+6. Preserve `review_cycle_id` exactly as-is for this active review loop.
 
 </state_update_rules>
 
@@ -140,6 +143,7 @@ When the result has `status: "skipped"`:
 - Confirm no numbered task was created for a resolved minor finding.
 - Confirm the state file is valid JSON after updating.
 - Confirm counts match the state arrays.
+- Confirm `review_cycle_id` was preserved for the same active review loop.
 - Confirm the plan has exactly one audit entry for the fixed finding.
 - Confirm no manual testing or automated proof was run in this documentation step.
 - Confirm tracked changes were committed if the plan changed.

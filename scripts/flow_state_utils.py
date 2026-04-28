@@ -11,6 +11,7 @@ from typing import Any
 
 
 STORY_NUMBER_RE = re.compile(r"^(\d+)-")
+BRANCH_STORY_NUMBER_RE = re.compile(r"^(\d+)(?:-|$)")
 
 
 class ScopeResolutionError(Exception):
@@ -44,6 +45,25 @@ def load_json_file(path: Path) -> dict[str, Any]:
 
 def story_number_from_plan_name(plan_name: str) -> str | None:
     match = STORY_NUMBER_RE.match(plan_name)
+    if not match:
+        return None
+    return match.group(1)
+
+
+def normalize_story_number_token(story_number: str | None) -> str | None:
+    if story_number is None:
+        return None
+    normalized = story_number.lstrip("0")
+    return normalized or "0"
+
+
+def branch_story_number(branch: str | None) -> str | None:
+    if branch is None:
+        return None
+    final_segment = branch.split("/")[-1].strip()
+    if not final_segment:
+        return None
+    match = BRANCH_STORY_NUMBER_RE.match(final_segment)
     if not match:
         return None
     return match.group(1)
@@ -163,9 +183,12 @@ def recent_commits(repo_path: str | Path, *, limit: int = 3) -> list[str]:
 
 
 def branch_matches_story(branch: str | None, story_number: str) -> bool:
-    if branch is None:
+    branch_number = branch_story_number(branch)
+    if branch_number is None:
         return False
-    return story_number in branch
+    return normalize_story_number_token(branch_number) == normalize_story_number_token(
+        story_number
+    )
 
 
 def read_head_version(repo_path: str | Path, rel_path: str) -> str | None:

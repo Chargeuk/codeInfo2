@@ -132,6 +132,31 @@ class StoryWorkflowStatusTests(unittest.TestCase):
 
         self.assertFalse(status["scope_valid"])
         self.assertEqual(status["scope_failure_reason"], "repository_branch_mismatch")
+        self.assertTrue(status["repair_needed"])
+        self.assertEqual(
+            status["repair_action"], "normalize_scope_then_refresh_handoff"
+        )
+
+    def test_reports_overlapping_story_number_as_scope_invalid(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__in_progress__`
+            """,
+            branch="feature/0000158-not-the-story",
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["scope_valid"])
+        self.assertEqual(status["scope_failure_reason"], "repository_branch_mismatch")
+        self.assertEqual(
+            status["current_repository"]["parsed_branch_story_number"], "0000158"
+        )
 
     def test_reports_additional_repository_scope_drift(self) -> None:
         repo, handoff = self.make_repo(
@@ -152,6 +177,67 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         self.assertFalse(status["scope_valid"])
         self.assertEqual(status["scope_failure_reason"], "repository_branch_mismatch")
         self.assertEqual(len(status["additional_repositories"]), 1)
+
+    def test_missing_review_state_requires_review_repair_only(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__in_progress__`
+            """
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["scope_valid"])
+        self.assertFalse(status["repair_needed"])
+        self.assertTrue(status["review_state_repair_needed"])
+        self.assertEqual(
+            status["review_state_repair_action"], "rebuild_review_disposition_state"
+        )
+
+    def test_malformed_handoff_requires_handoff_regeneration(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__in_progress__`
+            """
+        )
+        (repo / handoff).write_text("{ not json")
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["scope_valid"])
+        self.assertTrue(status["repair_needed"])
+        self.assertEqual(status["repair_action"], "regenerate_current_plan_handoff")
+        self.assertEqual(status["repair_reason"], "handoff_invalid")
+
+    def test_missing_plan_requires_handoff_refresh(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__in_progress__`
+            """
+        )
+        (repo / "planning" / "0000123-sample-story.md").unlink()
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["scope_valid"])
+        self.assertTrue(status["repair_needed"])
+        self.assertEqual(status["repair_action"], "refresh_current_plan_handoff")
+        self.assertEqual(status["repair_reason"], "plan_missing")
 
     def test_uses_review_state_to_drive_review_loop_flags(self) -> None:
         repo, handoff = self.make_repo(
@@ -186,6 +272,30 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         self.assertTrue(status["review_state_valid"])
         self.assertTrue(status["should_exit_review_loop_to_main_loop"])
         self.assertFalse(status["should_finish_review_loop_cleanly"])
+
+    def test_malformed_review_state_requires_rebuild(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__in_progress__`
+            """,
+            add_review_state=True,
+        )
+        (repo / "codeInfoStatus" / "flow-state" / "review-disposition-state.json").write_text(
+            "{ not json"
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["scope_valid"])
+        self.assertTrue(status["review_state_repair_needed"])
+        self.assertEqual(
+            status["review_state_repair_action"], "rebuild_review_disposition_state"
+        )
 
 
 if __name__ == "__main__":

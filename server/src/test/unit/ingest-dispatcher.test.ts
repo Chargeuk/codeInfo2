@@ -502,3 +502,61 @@ lambda mu nu xi omicron pi`;
   await producer;
   assert.equal(delayedCountSeen, true);
 });
+
+test('dispatcher onDispatch rejection becomes terminal without unhandled rejection', async () => {
+  const model: ProviderEmbeddingModel = {
+    modelKey: 'dispatch-hook-model',
+    effectiveBatchSize: 1,
+    supportsAbort: true,
+    async embedText() {
+      return [0.1];
+    },
+    async embedBatch() {
+      return [[0.1]];
+    },
+    async countTokens(text) {
+      return text.split(/\s+/).filter(Boolean).length;
+    },
+    async getContextLength() {
+      return 32;
+    },
+  };
+
+  const unhandledRejections: unknown[] = [];
+  const onUnhandledRejection = (reason: unknown) => {
+    unhandledRejections.push(reason);
+  };
+  process.on('unhandledRejection', onUnhandledRejection);
+
+  try {
+    const dispatcher = createEmbeddingDispatcher({
+      model,
+      effectiveBatchSize: 1,
+      maxInFlight: 1,
+      maxQueueSize: -1,
+      isCancelled: () => false,
+      onDispatch: () => {
+        throw new Error('dispatch hook exploded');
+      },
+      onCompleted: async () => {},
+      onLateResultIgnored: () => {},
+    });
+
+    await dispatcher.enqueue({
+      sequence: 0,
+      text: 'hello world',
+      meta: null,
+    });
+    dispatcher.completeProduction();
+
+    await assert.rejects(
+      async () => dispatcher.waitForIdle(),
+      /dispatch hook exploded/,
+    );
+    await waitForNextTurn();
+    await waitForNextTurn();
+    assert.deepEqual(unhandledRejections, []);
+  } finally {
+    process.off('unhandledRejection', onUnhandledRejection);
+  }
+});

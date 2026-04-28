@@ -647,7 +647,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
 
-      await supertest(baseUrl)
+      const firstRun = await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
@@ -734,6 +734,237 @@ test('continue resume starts the next iteration instead of replaying skipped ste
         };
       };
       assert.equal(flowFlags.flow?.pendingLoopControl, undefined);
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+  );
+});
+
+test('continue resume keeps its boundary marker until the next iteration makes progress', async () => {
+  let runPhase: 'stop' | 'finish' = 'stop';
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Outer loop step.')) {
+        return runPhase === 'stop' ? '__delay:1000::ok' : 'ok';
+      }
+      if (message.includes('Skip remaining loop steps?')) {
+        return JSON.stringify({ answer: 'no' });
+      }
+      if (message.includes('Exit outer loop?')) {
+        return JSON.stringify({ answer: 'yes' });
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-continue-resume-stop-conv';
+      const outerConversationId = 'flow-loop-continue-resume-stop-outer';
+      const continueConversationId = 'flow-loop-continue-resume-stop-continue';
+
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.2-codex',
+        title: 'Flow: loop-continue',
+        flowName: 'loop-continue',
+        source: 'REST',
+        flags: {
+          flow: {
+            executionId: 'resume-execution-continue-stop-1',
+            stepPath: [0, 1],
+            loopStack: [{ loopStepPath: [0], iteration: 1 }],
+            pendingLoopControl: {
+              kind: 'continue',
+              loopStepPath: [0],
+            },
+            agentConversations: {
+              'coding_agent:outer': outerConversationId,
+              'coding_agent:outer-continue': continueConversationId,
+            },
+            agentThreads: {},
+          },
+        },
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      memoryConversations.set(outerConversationId, {
+        _id: outerConversationId,
+        provider: 'codex',
+        model: 'gpt-5.2-codex',
+        title: 'Flow: loop-continue (outer)',
+        agentName: 'coding_agent',
+        source: 'REST',
+        flags: {
+          flowChild: {
+            executionId: 'resume-execution-continue-stop-1',
+          },
+        },
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      memoryConversations.set(continueConversationId, {
+        _id: continueConversationId,
+        provider: 'codex',
+        model: 'gpt-5.2-codex',
+        title: 'Flow: loop-continue (outer-continue)',
+        agentName: 'coding_agent',
+        source: 'REST',
+        flags: {
+          flowChild: {
+            executionId: 'resume-execution-continue-stop-1',
+          },
+        },
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      const firstRun = await supertest(baseUrl)
+        .post('/flows/loop-continue/run')
+        .send({ conversationId, resumeStepPath: [0, 1] })
+        .expect(202);
+
+      await delay(100);
+
+      sendJson(wsUrl, {
+        type: 'cancel_inflight',
+        conversationId,
+        inflightId: firstRun.body.inflightId as string,
+      });
+
+      const stopped = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return e.type === 'turn_final' && e.conversationId === conversationId;
+        },
+        timeoutMs: 8000,
+      });
+
+      assert.ok(stopped.status === 'stopped' || stopped.status === 'failed');
+      await waitForRuntimeCleanup(conversationId);
+
+      const stoppedConversation = memoryConversations.get(conversationId);
+      const stoppedFlags = (stoppedConversation?.flags ?? {}) as {
+        flow?: {
+          pendingLoopControl?: {
+            kind?: string;
+            loopStepPath?: number[];
+          };
+        };
+      };
+      assert.deepEqual(stoppedFlags.flow?.pendingLoopControl, {
+        kind: 'continue',
+        loopStepPath: [0],
+      });
+      const outerCountAfterStop = (memoryTurns.get(conversationId) ?? []).filter(
+        (turn) =>
+          turn.role === 'user' && turn.content.includes('Outer loop step.'),
+      ).length;
+
+      runPhase = 'finish';
+
+      await supertest(baseUrl)
+        .post('/flows/loop-continue/run')
+        .send({ conversationId, resumeStepPath: [0, 1] })
+        .expect(202);
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'ok'
+          );
+        },
+        timeoutMs: 5000,
+      });
+
+      assert.equal(final.status, 'ok');
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.filter(
+            (turn) =>
+              turn.role === 'user' && turn.content.includes('Outer loop step.'),
+          ).length === outerCountAfterStop + 1 &&
+          items.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Skip remaining loop steps?'),
+          ).length === 1 &&
+          items.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Reached post-continue step.'),
+          ).length === 1 &&
+          items.filter(
+            (turn) =>
+              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+          ).length === 1,
+        5000,
+      );
+
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' && turn.content.includes('Outer loop step.'),
+        ).length,
+        outerCountAfterStop + 1,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Skip remaining loop steps?'),
+        ).length,
+        1,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Reached post-continue step.'),
+        ).length,
+        1,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+        ).length,
+        1,
+      );
+
+      const completedConversation = memoryConversations.get(conversationId);
+      const completedFlags = (completedConversation?.flags ?? {}) as {
+        flow?: {
+          pendingLoopControl?: unknown;
+        };
+      };
+      assert.equal(completedFlags.flow?.pendingLoopControl, undefined);
       await cleanupConversationRuntime(
         conversationId,
         ...getLoopContinueAgentConversationIds(conversationId),

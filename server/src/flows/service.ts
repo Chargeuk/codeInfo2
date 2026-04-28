@@ -2486,6 +2486,7 @@ async function runFlowUnlocked(params: {
         loopStepPath: [...params.resumeState.pendingLoopControl.loopStepPath],
       }
     : null;
+  let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
     params.resumeState.loopStack.forEach((frame) => {
@@ -2511,6 +2512,18 @@ async function runFlowUnlocked(params: {
       pendingLoopControl,
       workingFolder: params.repositoryContext.workingRepositoryPath,
     });
+  const clearContinueBoundaryForActiveLoop = () => {
+    if (!continueBoundaryLoopKey) return;
+    const activeLoopFrame = loopStack[loopStack.length - 1];
+    if (!activeLoopFrame) return;
+    if (
+      getStepPathKey(activeLoopFrame.loopStepPath) !== continueBoundaryLoopKey
+    ) {
+      return;
+    }
+    pendingLoopControl = null;
+    continueBoundaryLoopKey = null;
+  };
 
   const finalizeFlowRuntime = () => {
     if (finalizedFlowRuntime) return;
@@ -3544,6 +3557,9 @@ async function runFlowUnlocked(params: {
     }
     loopStack.push(loopFrame);
     let resumeForLoop = shouldResumeAfterContinue ? null : resumePath;
+    if (shouldResumeAfterContinue) {
+      continueBoundaryLoopKey = getStepPathKey(nextPath);
+    }
     while (true) {
       const pendingCancelBeforeIteration = consumePendingConversationCancel({
         conversationId: params.conversationId,
@@ -3560,13 +3576,9 @@ async function runFlowUnlocked(params: {
         return 'stopped';
       }
       loopFrame.iteration += 1;
-      if (shouldResumeAfterContinue) {
-        pendingLoopControl = null;
-      }
       const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
       if (resumeForLoop) resumeForLoop = null;
       if (outcome === 'continue') {
-        pendingLoopControl = null;
         continue;
       }
       if (outcome === 'break') {
@@ -3602,6 +3614,7 @@ async function runFlowUnlocked(params: {
       }
     }
     lastCompletedStepPath = nextPath;
+    clearContinueBoundaryForActiveLoop();
     await persistRuntimeResumeState(lastCompletedStepPath);
     return 'ok';
   };
@@ -3677,6 +3690,7 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
         continue;
       }
@@ -3709,6 +3723,7 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
         if (shouldBreak) return 'break';
         continue;
@@ -3736,12 +3751,18 @@ async function runFlowUnlocked(params: {
           await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
         }
+        if (!shouldContinue) {
+          clearContinueBoundaryForActiveLoop();
+        }
         if (shouldContinue && loopStack.length > 0) {
           const activeLoopFrame = loopStack[loopStack.length - 1];
           pendingLoopControl = {
             kind: 'continue',
             loopStepPath: [...activeLoopFrame.loopStepPath],
           };
+          continueBoundaryLoopKey = getStepPathKey(
+            activeLoopFrame.loopStepPath,
+          );
         }
         lastCompletedStepPath = nextPath;
         await persistRuntimeResumeState(lastCompletedStepPath);
@@ -3783,6 +3804,7 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
         continue;
       }
@@ -3815,6 +3837,7 @@ async function runFlowUnlocked(params: {
           return status;
         }
         lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
         await persistRuntimeResumeState(lastCompletedStepPath);
         continue;
       }

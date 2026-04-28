@@ -18,12 +18,15 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - Treat `flows/**` as approved workflow-support paths. Do not raise findings solely because those paths changed without being named in the active plan, but continue to review them normally for workflow semantics, instruction safety, stale-handoff handling, commit/push behavior, plan-selection rules, and other agent-control correctness.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
 - Do not raise findings solely because those allowed support files changed without being named in the active plan.
+- Do not raise a finding solely because a non-support file changed outside the active plan when the evidence and direct diff inspection show that change is formatting-only spillover with no semantic effect.
+- Still review formatting-only spillover for hygiene, secrets, tracked-artifact mistakes, and misclassification. If the diff is mixed or appears to change behavior, configuration meaning, proof meaning, or workflow semantics, review it normally and do not treat it as formatting-only spillover.
 - For those allowed support files, default to spelling, grammar, and obvious wording review, but still raise findings for:
   - hard-coded secrets, tokens, credentials, or API keys;
   - tracked files that live under ignored paths;
   - checked-in local config that should remain template-only;
   - tracked temp, generated, or runtime artifact directories.
 - Do NOT raise findings about scope creep, unwanted changes, workflow semantics, path usage, plan-selection rules, or revert recommendations for allowed support files unless the issue is one of those explicit hygiene or secret cases.
+- When formatting-only spillover exists, you may note it briefly in residual-risk or rejected-risk notes for transparency, but do not convert it into a scope-creep, unwanted-change, or revert-oriented finding by itself.
 
 </critical_rules>
 

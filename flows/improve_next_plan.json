@@ -52,7 +52,7 @@
           "label": "Check for No Further Questions",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/questions_section_status.py\"`. Answer yes only if the JSON output reports `has_added_numbered_questions: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and re-open the exact relative `plan_path` from disk before answering. Did you add additional/new questions to the plan file during your latest edit (adding 'No Further Questions' does NOT count as adding questions)? You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "no"
         },
         {

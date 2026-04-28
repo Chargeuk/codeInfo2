@@ -310,6 +310,14 @@
               ]
             },
             {
+              "type": "break",
+              "label": "Check for completion",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, for example with `sed`, `cat`, or `rg`, before answering so you are not relying on memory. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last 3 git commits in the current repository and in every additional repository, and run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\"`. Answer yes only if the parser reports `all_tasks_done: true` and `story_complete: true` and every repository in scope is still on a branch whose story number matches the selected plan filename. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "breakOn": "yes"
+            },
+            {
               "type": "llm",
               "label": "Normalize inconsistent active task",
               "agentType": "planning_agent",

@@ -19,6 +19,7 @@ from flow_state_utils import (
     load_plan_scope,
     normalize_story_number_token,
     recent_commits,
+    review_cycle_id_is_valid,
     resolve_path,
 )
 
@@ -161,6 +162,19 @@ def load_review_state(
             "review_state_repair_reason": "review_state_plan_mismatch",
         }
 
+    review_cycle_id = payload.get("review_cycle_id")
+    if not review_cycle_id_is_valid(
+        review_cycle_id, story_number=current_story_number
+    ):
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": True,
+            "review_state_valid": False,
+            "review_state_error": "review disposition state lacked a valid review_cycle_id",
+            "review_state_repair_action": "rebuild_review_disposition_state",
+            "review_state_repair_reason": "review_cycle_id_invalid",
+        }
+
     review_created_tasks = bool(payload.get("review_created_tasks_added_or_updated"))
     needs_review_rerun = bool(payload.get("needs_review_rerun_before_close"))
     needs_final_minor = bool(payload.get("needs_final_minor_fix_revalidation_task"))
@@ -177,7 +191,7 @@ def load_review_state(
         "needs_review_rerun_before_close": needs_review_rerun,
         "needs_final_minor_fix_revalidation_task": needs_final_minor,
         "safe_to_exit_review_loop_without_tasking": safe_to_exit,
-        "review_cycle_id": payload.get("review_cycle_id"),
+        "review_cycle_id": review_cycle_id,
         "should_exit_review_loop_to_main_loop": review_created_tasks,
         "should_finish_review_loop_cleanly": (
             not needs_review_rerun and not review_created_tasks

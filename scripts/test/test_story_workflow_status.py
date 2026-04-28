@@ -326,6 +326,27 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         )
         self.assertFalse(status["review_state_valid"])
 
+    def test_invalid_review_cycle_id_requires_rebuild(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """,
+            add_review_state=True,
+            review_state={"review_cycle_id": "cycle-1"},
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["scope_valid"])
+        self.assertTrue(status["review_state_repair_needed"])
+        self.assertEqual(status["review_state_repair_reason"], "review_cycle_id_invalid")
+        self.assertFalse(status["review_state_valid"])
+
     def test_malformed_review_state_requires_rebuild(self) -> None:
         repo, handoff = self.make_repo(
             plan_content="""

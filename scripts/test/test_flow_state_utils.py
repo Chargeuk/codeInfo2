@@ -38,6 +38,30 @@ class FlowStateUtilsTests(unittest.TestCase):
         self.assertFalse(flow_state_utils.branch_matches_story("", "0000058"))
         self.assertFalse(flow_state_utils.branch_matches_story(None, "0000058"))
 
+    def test_review_cycle_id_is_valid_for_matching_story(self) -> None:
+        self.assertTrue(
+            flow_state_utils.review_cycle_id_is_valid(
+                "0000058-rc-20260428T161530Z-1eb771da",
+                story_number="0000058",
+            )
+        )
+
+    def test_review_cycle_id_rejects_wrong_shape(self) -> None:
+        self.assertFalse(
+            flow_state_utils.review_cycle_id_is_valid(
+                "cycle-1",
+                story_number="0000058",
+            )
+        )
+
+    def test_review_cycle_id_rejects_wrong_story_prefix(self) -> None:
+        self.assertFalse(
+            flow_state_utils.review_cycle_id_is_valid(
+                "0000158-rc-20260428T161530Z-1eb771da",
+                story_number="0000058",
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

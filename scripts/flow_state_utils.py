@@ -12,6 +12,9 @@ from typing import Any
 
 STORY_NUMBER_RE = re.compile(r"^(\d+)-")
 BRANCH_STORY_NUMBER_RE = re.compile(r"^(\d+)(?:-|$)")
+REVIEW_CYCLE_ID_RE = re.compile(
+    r"^(?P<story>\d+)-rc-\d{8}T\d{6}Z-[0-9a-f]{8}$"
+)
 
 
 class ScopeResolutionError(Exception):
@@ -187,6 +190,24 @@ def branch_matches_story(branch: str | None, story_number: str) -> bool:
     if branch_number is None:
         return False
     return normalize_story_number_token(branch_number) == normalize_story_number_token(
+        story_number
+    )
+
+
+def review_cycle_id_is_valid(
+    review_cycle_id: str | None, *, story_number: str | None = None
+) -> bool:
+    if not isinstance(review_cycle_id, str):
+        return False
+    candidate = review_cycle_id.strip()
+    if not candidate:
+        return False
+    match = REVIEW_CYCLE_ID_RE.fullmatch(candidate)
+    if match is None:
+        return False
+    if story_number is None:
+        return True
+    return normalize_story_number_token(match.group("story")) == normalize_story_number_token(
         story_number
     )
 

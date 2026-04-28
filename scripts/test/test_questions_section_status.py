@@ -82,6 +82,7 @@ class QuestionsSectionStatusTests(unittest.TestCase):
         self.assertTrue(status["has_no_further_questions_line"])
         self.assertFalse(status["has_real_questions"])
         self.assertFalse(status["has_added_numbered_questions"])
+        self.assertFalse(status["has_edited_existing_questions"])
 
     def test_reports_added_numbered_questions_vs_head(self) -> None:
         repo, handoff = self.make_repo(
@@ -103,6 +104,31 @@ class QuestionsSectionStatusTests(unittest.TestCase):
         self.assertTrue(status["has_real_questions"])
         self.assertTrue(status["has_added_numbered_questions"])
         self.assertEqual(status["added_numbered_questions"], ["Should this be clarified?"])
+        self.assertFalse(status["has_edited_existing_questions"])
+
+    def test_reworded_existing_question_is_not_treated_as_added(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ## Questions
+            1. Should this be clarified?
+            """,
+            """
+            ## Questions
+            1. Should this requirement be clarified?
+            """,
+        )
+
+        status = questions_section_status.get_questions_section_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["has_added_numbered_questions"])
+        self.assertTrue(status["has_edited_existing_questions"])
+        self.assertEqual(
+            status["edited_existing_questions"],
+            ["Should this requirement be clarified?"],
+        )
 
     def test_absolute_plan_path_still_compares_questions_against_head(self) -> None:
         repo, handoff = self.make_repo(
@@ -125,6 +151,7 @@ class QuestionsSectionStatusTests(unittest.TestCase):
         self.assertTrue(status["has_real_questions"])
         self.assertFalse(status["has_added_numbered_questions"])
         self.assertEqual(status["added_numbered_questions"], [])
+        self.assertFalse(status["has_edited_existing_questions"])
 
 
 if __name__ == "__main__":

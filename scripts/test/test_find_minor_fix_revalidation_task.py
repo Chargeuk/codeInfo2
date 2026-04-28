@@ -17,6 +17,11 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import find_minor_fix_revalidation_task
 
 
+CYCLE_ONE = "0000123-rc-20260428T161530Z-1eb771da"
+CYCLE_OLD = "0000123-rc-20260428T161530Z-aaaaaaaa"
+CYCLE_NEW = "0000123-rc-20260428T161530Z-bbbbbbbb"
+
+
 class FindMinorFixRevalidationTaskTests(unittest.TestCase):
     def make_repo(
         self,
@@ -62,9 +67,9 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-1`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-1eb771da`
             """,
-            review_state={"review_cycle_id": "cycle-1"},
+            review_state={"review_cycle_id": CYCLE_ONE},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -88,9 +93,9 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-1`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-1eb771da`
             """,
-            review_state={"review_cycle_id": "cycle-1"},
+            review_state={"review_cycle_id": CYCLE_ONE},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -111,7 +116,7 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-old`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-aaaaaaaa`
 
             ### Task 10. Re-Validate Story 123 After Inline Minor Review Fixes
 
@@ -120,9 +125,9 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-new`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-bbbbbbbb`
             """,
-            review_state={"review_cycle_id": "cycle-new"},
+            review_state={"review_cycle_id": CYCLE_NEW},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -132,7 +137,7 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
 
         self.assertTrue(status["match_found"])
         self.assertEqual(status["selected_task"]["number"], 10)
-        self.assertEqual(status["selected_task"]["review_cycle_id"], "cycle-new")
+        self.assertEqual(status["selected_task"]["review_cycle_id"], CYCLE_NEW)
 
     def test_flags_non_last_task_only_as_warning(self) -> None:
         repo, handoff = self.make_repo(
@@ -144,13 +149,13 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-1`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-1eb771da`
 
             ### Task 5. Follow-up Task
 
             - Task Status: `__to_do__`
             """,
-            review_state={"review_cycle_id": "cycle-1"},
+            review_state={"review_cycle_id": CYCLE_ONE},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -175,7 +180,7 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
 
             - Review Task Role: `final_minor_fix_revalidation`
             """,
-            review_state={"review_cycle_id": "cycle-new"},
+            review_state={"review_cycle_id": CYCLE_NEW},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -199,7 +204,7 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-1`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-1eb771da`
 
             ### Task 7. Re-Validate Story 123 After Inline Minor Review Fixes
 
@@ -208,9 +213,9 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-1`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-1eb771da`
             """,
-            review_state={"review_cycle_id": "cycle-1"},
+            review_state={"review_cycle_id": CYCLE_ONE},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -235,9 +240,9 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-old`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-aaaaaaaa`
             """,
-            review_state={"review_cycle_id": "cycle-new"},
+            review_state={"review_cycle_id": CYCLE_NEW},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -267,9 +272,9 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            - Review Cycle Id: `cycle-old`
+            - Review Cycle Id: `0000123-rc-20260428T161530Z-aaaaaaaa`
             """,
-            review_state={"review_cycle_id": "cycle-new"},
+            review_state={"review_cycle_id": CYCLE_NEW},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(
@@ -294,7 +299,7 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             """,
             review_state={
                 "story_number": "0000999",
-                "review_cycle_id": "cycle-old",
+                "review_cycle_id": CYCLE_OLD,
             },
         )
 
@@ -305,6 +310,28 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
 
         self.assertTrue(status["repair_needed"])
         self.assertEqual(status["repair_reason"], "review_state_story_mismatch")
+
+    def test_requests_repair_when_cycle_id_is_invalid(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 4. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__to_do__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            """,
+            review_state={"review_cycle_id": "cycle-1"},
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["repair_needed"])
+        self.assertEqual(status["repair_reason"], "review_cycle_id_invalid")
 
     def test_requests_repair_when_cycle_id_is_missing_but_legacy_task_exists(self) -> None:
         repo, handoff = self.make_repo(

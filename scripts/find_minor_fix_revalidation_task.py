@@ -15,6 +15,7 @@ from flow_state_utils import (
     load_json_file,
     load_plan_scope,
     normalize_story_number_token,
+    review_cycle_id_is_valid,
     resolve_path,
     story_number_from_plan_name,
 )
@@ -113,8 +114,8 @@ def load_review_cycle_id(
     if state_plan_path.resolve() != current_plan_path.resolve():
         return None, "review_state_plan_mismatch"
     cycle_id = payload.get("review_cycle_id")
-    if not isinstance(cycle_id, str) or not cycle_id.strip():
-        return None, "review_cycle_id_missing"
+    if not review_cycle_id_is_valid(cycle_id, story_number=current_story_number):
+        return None, "review_cycle_id_invalid"
     return cycle_id.strip(), None
 
 

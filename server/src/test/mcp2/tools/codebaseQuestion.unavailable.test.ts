@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import { resolveCodexCapabilities } from '../../../codex/capabilityResolver.js';
 import { query, resetStore } from '../../../logStore.js';
-import { ProviderUnavailableError } from '../../../mcp2/errors.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../../mcp2/tools/codebaseQuestion.js';
 
@@ -15,6 +17,28 @@ async function postJson(port: number, body: unknown) {
     body: JSON.stringify(body),
   });
   return response.json();
+}
+
+async function withTempCopilotHome(chatToml: string): Promise<{
+  copilotHome: string;
+  cleanup: () => Promise<void>;
+}> {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task4-copilot-unavailable-'),
+  );
+  const copilotHome = path.join(root, 'copilot');
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    chatToml,
+    'utf8',
+  );
+  return {
+    copilotHome,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
 }
 
 test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing', async () => {
@@ -71,26 +95,39 @@ test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing'
 });
 
 test('codebase_question surfaces provider-unavailable behavior honestly for copilot', async () => {
-  await assert.rejects(
-    () =>
-      runCodebaseQuestion(
-        { question: 'copilot unavailable?', provider: 'copilot' },
-        {
-          copilotReadinessResolver: async () => ({
-            available: false,
-            toolsAvailable: false,
-            reason: 'copilot connectivity unavailable',
-            blockingStage: 'connectivity',
-            models: [],
-            modelsRaw: [],
-            authSource: 'unauthenticated',
-          }),
-        },
-      ),
-    (error: unknown) => {
-      assert.ok(error instanceof ProviderUnavailableError);
-      assert.equal(error.message, 'CODE_INFO_LLM_UNAVAILABLE');
-      return true;
-    },
+  const originalHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempHome = await withTempCopilotHome(
+    ['model = "copilot-default-model"', 'tool_access = "off"', ''].join('\n'),
   );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+
+  try {
+    await assert.rejects(
+      () =>
+        runCodebaseQuestion(
+          { question: 'copilot unavailable?', provider: 'copilot' },
+          {
+            copilotReadinessResolver: async () => ({
+              available: false,
+              toolsAvailable: false,
+              reason: 'copilot connectivity unavailable',
+              blockingStage: 'connectivity',
+              models: [],
+              modelsRaw: [],
+              authSource: 'unauthenticated',
+            }),
+          },
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, 'ProviderUnavailableError');
+        assert.equal(error.message, 'CODE_INFO_LLM_UNAVAILABLE');
+        return true;
+      },
+    );
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
+    else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    await tempHome.cleanup();
+  }
 });

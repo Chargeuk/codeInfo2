@@ -232,6 +232,43 @@ async function postJson(port: number, body: unknown) {
   });
 }
 
+async function runCodebaseQuestion(
+  args: Record<string, unknown>,
+  deps?: Parameters<typeof setToolDeps>[0],
+) {
+  if (deps) {
+    setToolDeps({
+      clientFactory: makeLmStudioClientFactory(),
+      ...deps,
+    });
+  }
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: args,
+      },
+    });
+
+    assert.ok(response.result);
+    return response.result;
+  } finally {
+    resetToolDeps();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+}
+
 test('codebase_question returns answer-only payloads and preserves conversationId', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;

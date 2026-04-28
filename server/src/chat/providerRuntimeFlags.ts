@@ -74,7 +74,7 @@ const parseChoice = <T extends string>(
   return trimmed as T;
 };
 
-const parseOptionalConfigString = <T extends string>(
+export const parseOptionalConfigString = <T extends string>(
   value: unknown,
   choices: readonly T[],
 ): T | undefined => {
@@ -116,9 +116,18 @@ const parseOptionalPositiveInteger = (value: unknown): number | undefined => {
 const parseOptionalFiniteNumber = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 
-const loadProviderConfig = (provider: 'copilot' | 'lmstudio') => {
+export const loadProviderConfigForAgentFlags = (
+  provider: 'codex' | 'copilot' | 'lmstudio',
+) => {
   try {
-    const snapshot = loadProviderChatDefaultsSnapshotSync({ provider });
+    const snapshot = loadProviderChatDefaultsSnapshotSync({
+      provider,
+      ...(provider === 'lmstudio' &&
+      typeof process.env.CODEINFO_LMSTUDIO_HOME === 'string' &&
+      process.env.CODEINFO_LMSTUDIO_HOME.trim().length > 0
+        ? { lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME }
+        : {}),
+    });
     return snapshot.config ?? {};
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -132,7 +141,7 @@ export function resolveCopilotRuntimeAgentFlags(
   rawAgentFlags: unknown,
 ): CopilotRuntimeAgentFlags {
   const agentFlags = normalizeAgentFlagsInput('copilot', rawAgentFlags);
-  const config = loadProviderConfig('copilot');
+  const config = loadProviderConfigForAgentFlags('copilot');
   const configReasoningEffort =
     parseOptionalConfigString(
       config.reasoning_effort,
@@ -166,7 +175,7 @@ export function resolveLmStudioRuntimeAgentFlags(
   rawAgentFlags: unknown,
 ): LmStudioRuntimeAgentFlags {
   const agentFlags = normalizeAgentFlagsInput('lmstudio', rawAgentFlags);
-  const config = loadProviderConfig('lmstudio');
+  const config = loadProviderConfigForAgentFlags('lmstudio');
   const configTemperature =
     parseOptionalFiniteNumber(config.temperature) ??
     DEFAULT_LMSTUDIO_TEMPERATURE;

@@ -1,5 +1,4 @@
 import { defineTool, type Tool } from '@github/copilot-sdk';
-import { z } from 'zod';
 import {
   listIngestedRepositories,
   validateVectorSearch,
@@ -20,16 +19,19 @@ export function createCopilotTools(
       'List ingested repositories with container and host paths for citation and file access.',
     handler: async () => listIngestedRepositories(deps),
     skipPermission: true,
-  });
+  }) as Tool;
 
   const vectorSearchTool = defineTool('VectorSearch', {
     description:
       'Search ingested chunks optionally scoped to a repository. Returns chunk text and file paths for citations.',
-    parameters: z.object({
-      query: z.any(),
-      repository: z.any().optional(),
-      limit: z.any().optional(),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {},
+        repository: {},
+        limit: {},
+      },
+    },
     handler: async (params: {
       query?: unknown;
       repository?: unknown;
@@ -39,9 +41,9 @@ export function createCopilotTools(
       return vectorSearch(validated, deps);
     },
     skipPermission: true,
-  });
+  }) as Tool;
 
-  const tools = [listIngestedRepositoriesTool, vectorSearchTool];
+  const tools: Tool[] = [listIngestedRepositoriesTool, vectorSearchTool];
   return {
     tools,
     toolNames: tools.map((tool) => tool.name),

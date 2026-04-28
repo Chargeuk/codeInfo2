@@ -169,9 +169,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     model: string,
   ): Promise<void> {
     const { requestId, baseUrl, signal } = (flags ?? {}) as LmStudioRunFlags;
-    const runtimeFlags = resolveLmStudioRuntimeAgentFlags(
-      (flags as LmStudioRunFlags)?.agentFlags,
-    );
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
@@ -480,6 +477,9 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     };
 
     try {
+      const runtimeFlags = resolveLmStudioRuntimeAgentFlags(
+        (flags as LmStudioRunFlags)?.agentFlags,
+      );
       const client = this.clientFactory(wsBase);
       const modelClient = await client.llm.model(model);
 

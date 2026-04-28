@@ -6,6 +6,8 @@ import type {
 } from '@openai/codex-sdk';
 import { isSupportedAgentFlagKey } from '../chat/agentFlags.js';
 import {
+  loadProviderConfigForAgentFlags,
+  parseOptionalConfigString,
   ProviderRuntimeFlagError,
   resolveCopilotRuntimeAgentFlags,
   resolveLmStudioRuntimeAgentFlags,

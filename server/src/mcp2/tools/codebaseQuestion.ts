@@ -487,6 +487,12 @@ export async function runCodebaseQuestion(
     defaults: codexCapabilities.defaults,
   });
 
+  const explicitProviderSelected =
+    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0;
+  if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
+    throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
+  }
+
   if (runtimeSelection.unavailable) {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
   }

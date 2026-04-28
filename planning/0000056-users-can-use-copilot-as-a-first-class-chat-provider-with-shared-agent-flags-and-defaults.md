@@ -758,11 +758,11 @@ This task applies the provider-neutral contract to the real runtime adapters and
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root to prove the Copilot, LM Studio, and MCP runtime changes compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove Copilot tool parity, LM Studio validation, and MCP provider parity. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared chat integration path stays honest after the provider-runtime changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Run `npm run build:summary:server` from the repository root to prove the Copilot, LM Studio, and MCP runtime changes compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit` from the repository root to prove Copilot tool parity, LM Studio validation, and MCP provider parity. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the shared chat integration path stays honest after the provider-runtime changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [x] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -773,6 +773,11 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - Extended `codebase_question` to accept `provider: 'copilot'`, reuse shared provider-default resolution and readiness checks, and keep its public MCP input limited to `provider` and `model` while proof files now cover Copilot parity, LM Studio runtime validation, and explicit-provider failure behavior.
 - Ran `npm run lint`, used `npm run lint:fix` for the import-order cleanup it could repair automatically, then removed the remaining unused validator helpers by hand so the Task 4 runtime and proof surface is lint-clean before the later wrapper-based proof pass.
 - Ran `npm run format:check`, used `npm run format` when Prettier flagged the touched Task 4 runtime and proof-owner files, and reran `npm run format:check` until the repository reported `All matched files use Prettier code style!`.
+- `npm run build:summary:server` initially failed on Copilot tool-definition typing, dropped Codex config helper imports, and a missing MCP happy-test helper; I repaired those seams, reran the same wrapper, and it then passed cleanly.
+- `npm run test:summary:server:unit` took several honest reruns: first it exposed Copilot teardown-count assumptions, LM Studio runtime-flag errors escaping before adapter logging, missing LM Studio home override support, and MCP explicit-provider fallback drift; after those runtime and proof-owner repairs, the full wrapper passed cleanly with `1863` tests passed and `0` failed.
+- `npm run test:summary:server:cucumber` then passed cleanly with `117` scenarios green, so the shared chat integration surface stayed honest after the Task 4 runtime changes.
+- The final Task 4 `npm run lint` proof checkpoint passed cleanly after the wrapper-backed runtime and test repairs, so only the final formatting proof item remains open.
+- The final Task 4 `npm run format:check` proof checkpoint also passed cleanly with `All matched files use Prettier code style!`, so every Task 4 automated proof item is now complete and ready for the later audit step.
 
 ---
 

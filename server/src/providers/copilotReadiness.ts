@@ -1,3 +1,5 @@
+import type { ModelInfo } from '@github/copilot-sdk';
+
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
 import {
   getCopilotHome,
@@ -41,6 +43,7 @@ export type CopilotReadinessResult = {
   reason?: string;
   blockingStage: CopilotReadinessStage;
   models: string[];
+  modelsRaw: ModelInfo[];
   authSource: CopilotReadinessAuthSource;
 };
 
@@ -116,6 +119,7 @@ export async function resolveCopilotReadiness(
         reason: COPILOT_CONNECTIVITY_REASON,
         blockingStage: 'connectivity',
         models: [],
+        modelsRaw: [],
         authSource: envHasToken ? 'env-token' : 'unauthenticated',
       };
       baseLogger.info(
@@ -160,15 +164,15 @@ export async function resolveCopilotReadiness(
         reason: COPILOT_AUTH_REASON,
         blockingStage: 'authentication',
         models: [],
+        modelsRaw: [],
         authSource,
       };
       logReadiness(result);
       return result;
     }
 
-    const models = toCopilotModelKeys(
-      await runtime.listModels().catch(() => []),
-    );
+    const modelsRaw = await runtime.listModels().catch(() => []);
+    const models = toCopilotModelKeys(modelsRaw);
     if (models.length === 0) {
       const result: CopilotReadinessResult = {
         available: false,
@@ -176,6 +180,7 @@ export async function resolveCopilotReadiness(
         reason: COPILOT_MODELS_REASON,
         blockingStage: 'models',
         models,
+        modelsRaw,
         authSource,
       };
       logReadiness(result);
@@ -188,6 +193,7 @@ export async function resolveCopilotReadiness(
       reason: options.toolsAvailable ? undefined : options.toolsReason,
       blockingStage: options.toolsAvailable ? 'ready' : 'tools',
       models,
+      modelsRaw,
       authSource,
     };
     logReadiness(result);

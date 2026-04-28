@@ -1,7 +1,6 @@
 import {
   ORDERED_CHAT_PROVIDER_CONTRACT,
   ORDERED_CHAT_PROVIDER_IDS,
-  type ChatProviderInfo,
 } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
@@ -10,7 +9,6 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
-  ORDERED_CHAT_PROVIDERS,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
@@ -26,6 +24,15 @@ import {
   type CopilotReadinessRuntime,
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  buildCodexAgentFlags,
+  buildCodexCompatibilityDefaults,
+  buildCopilotAgentFlags,
+  buildLmStudioAgentFlags,
+  buildProviderInfo,
+  buildProvidersResponse,
+  toCompatibilityCodexWarnings,
+} from './chatDiscovery.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
@@ -121,38 +128,70 @@ export function createChatProvidersRouter({
       },
     });
 
-    const providerMap: Record<ChatDefaultProvider, ChatProviderInfo> = {
-      copilot: {
-        id: 'copilot',
-        label: 'GitHub Copilot',
+    const codexWarnings = [...capabilities.warnings];
+    if (
+      capabilities.defaults.webSearchEnabled &&
+      !(codex.available && mcp.available)
+    ) {
+      codexWarnings.push(
+        'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
+      );
+    }
+    const codexDefaults = buildCodexCompatibilityDefaults({
+      capabilities,
+      codexHome: process.env.CODEX_HOME,
+    });
+    const providerMap = {
+      copilot: buildProviderInfo({
+        provider: 'copilot',
         available: copilot.available,
         toolsAvailable: copilot.toolsAvailable,
         reason: copilot.reason,
-      },
-      lmstudio: {
-        id: 'lmstudio',
-        label: 'LM Studio',
+        warnings: copilot.reason ? [copilot.reason] : [],
+        agentFlags: buildCopilotAgentFlags({
+          models: copilot.modelsRaw,
+          copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        }),
+      }),
+      lmstudio: buildProviderInfo({
+        provider: 'lmstudio',
         available: lmstudioModels.length > 0,
         toolsAvailable: lmstudioModels.length > 0,
         reason: lmstudioReason,
-      },
-      codex: {
-        id: 'codex',
-        label: 'OpenAI Codex',
+        warnings: lmstudioReason ? [lmstudioReason] : [],
+        agentFlags: buildLmStudioAgentFlags({}),
+      }),
+      codex: buildProviderInfo({
+        provider: 'codex',
         available: codex.available,
         toolsAvailable: codex.available && mcp.available,
         reason: codex.reason ?? (mcp.available ? undefined : mcp.reason),
+        warnings: codexWarnings,
+        agentFlags: buildCodexAgentFlags({
+          capabilities,
+          codexHome: process.env.CODEX_HOME,
+        }),
+        compatibility: {
+          codexDefaults,
+          codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
+        },
+      }),
+    } satisfies Record<
+      ChatDefaultProvider,
+      ReturnType<typeof buildProviderInfo>
+    >;
+    const response = buildProvidersResponse({
+      providerMap,
+      selectedProvider: runtimeSelection.executionProvider,
+      selectedModel: runtimeSelection.executionModel,
+      fallbackApplied: runtimeSelection.fallbackApplied,
+      compatibility: {
+        codexDefaults,
+        codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
       },
-    };
-    const orderedIds: ChatDefaultProvider[] = [
-      runtimeSelection.executionProvider,
-      ...ORDERED_CHAT_PROVIDERS.filter(
-        (id) => id !== runtimeSelection.executionProvider,
-      ),
-    ];
-    const providers: ChatProviderInfo[] = orderedIds.map(
-      (id) => providerMap[id],
-    );
+      codexDefaults,
+      codexWarnings,
+    });
 
     append({
       level: 'info',
@@ -193,16 +232,6 @@ export function createChatProvidersRouter({
       },
       'chat providers resolved',
     );
-
-    const codexWarnings = [...capabilities.warnings];
-    if (
-      capabilities.defaults.webSearchEnabled &&
-      !(codex.available && mcp.available)
-    ) {
-      codexWarnings.push(
-        'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
-      );
-    }
     console.info(STORY_47_TASK_1_LOG_MARKER, {
       surface: '/chat/providers',
       requested_provider: runtimeSelection.requestedProvider,
@@ -226,14 +255,10 @@ export function createChatProvidersRouter({
       surface: '/chat/providers',
       provider: 'codex',
       warningCount: codexWarnings.length,
-      defaults: capabilities.defaults,
+      defaults: codexDefaults,
     });
 
-    res.json({
-      providers,
-      codexDefaults: capabilities.defaults,
-      codexWarnings,
-    });
+    res.json(response);
   });
 
   return router;

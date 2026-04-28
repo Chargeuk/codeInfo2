@@ -169,10 +169,45 @@ Then('the chat models body equals the mock models fixture', () => {
   const body = response.body as Record<string, unknown>;
   const normalized = {
     ...body,
+    providers: undefined,
     codexDefaults: body.codexDefaults ?? undefined,
     codexWarnings: body.codexWarnings ?? undefined,
   };
-  assert.deepStrictEqual(normalized, mockModelsResponse);
+  const expected = {
+    ...mockModelsResponse,
+    providers: undefined,
+  };
+  assert.deepStrictEqual(normalized, expected);
+});
+
+Then(
+  'the chat models response includes provider-neutral providers metadata',
+  () => {
+    assert(response?.body, 'expected response body');
+    const providers = (response.body as { providers?: unknown }).providers;
+    assert(Array.isArray(providers), 'expected providers array');
+    assert(providers.length > 0, 'expected provider metadata entries');
+    for (const provider of providers as Array<Record<string, unknown>>) {
+      assert.equal(typeof provider.id, 'string');
+      assert.equal(typeof provider.label, 'string');
+      assert.equal(typeof provider.available, 'boolean');
+      assert.equal(typeof provider.toolsAvailable, 'boolean');
+      assert.equal(typeof provider.defaultModel, 'string');
+      assert.equal(typeof provider.defaultModelSource, 'string');
+    }
+  },
+);
+
+Then('the LM Studio Agent Flags expose only the first-wave option keys', () => {
+  assert(response?.body, 'expected response body');
+  const flags = (
+    response.body as { agentFlags?: Array<Record<string, unknown>> }
+  ).agentFlags;
+  assert(Array.isArray(flags), 'expected agentFlags array');
+  assert.deepStrictEqual(
+    flags.map((entry) => entry.key),
+    ['temperature', 'maxTokens', 'contextOverflowPolicy', 'toolAccess'],
+  );
 });
 
 Then(

@@ -1,4 +1,8 @@
-import type { ChatModelInfo, ChatModelsResponse } from '../lmstudio.js';
+import type {
+  ChatAgentFlagDescriptor,
+  ChatModelInfo,
+  ChatModelsResponse,
+} from '../lmstudio.js';
 
 export const mockModels: ChatModelInfo[] = [
   {
@@ -15,6 +19,67 @@ export const mockCodexModels: ChatModelInfo[] = [
     type: 'codex',
     supportedReasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
     defaultReasoningEffort: 'high',
+    flagOverrides: [
+      {
+        key: 'modelReasoningEffort',
+        supportedValues: [
+          { value: 'minimal', label: 'Minimal' },
+          { value: 'low', label: 'Low' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'high', label: 'High' },
+          { value: 'xhigh', label: 'Extra High' },
+        ],
+        resolvedDefault: 'high',
+      },
+    ],
+  },
+];
+
+const lmstudioAgentFlags: ChatAgentFlagDescriptor[] = [
+  {
+    key: 'temperature',
+    label: 'Temperature',
+    controlType: 'number',
+    editable: true,
+    seedDefault: 0.2,
+    resolvedDefault: 0.2,
+    min: 0,
+    max: 2,
+  },
+  {
+    key: 'maxTokens',
+    label: 'Max Tokens',
+    controlType: 'number',
+    editable: true,
+    seedDefault: 4096,
+    resolvedDefault: 4096,
+    min: 1,
+    integer: true,
+  },
+  {
+    key: 'contextOverflowPolicy',
+    label: 'Context Overflow Policy',
+    controlType: 'select',
+    editable: true,
+    seedDefault: 'truncateMiddle',
+    resolvedDefault: 'truncateMiddle',
+    supportedValues: [
+      { value: 'stopAtLimit', label: 'Stop At Limit' },
+      { value: 'truncateMiddle', label: 'Truncate Middle' },
+      { value: 'rollingWindow', label: 'Rolling Window' },
+    ],
+  },
+  {
+    key: 'toolAccess',
+    label: 'Tool Access',
+    controlType: 'select',
+    editable: true,
+    seedDefault: 'on',
+    resolvedDefault: 'on',
+    supportedValues: [
+      { value: 'on', label: 'On' },
+      { value: 'off', label: 'Off' },
+    ],
   },
 ];
 
@@ -23,6 +88,79 @@ export const mockModelsResponse: ChatModelsResponse = {
   available: true,
   toolsAvailable: true,
   models: mockModels,
+  providers: [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+      defaultModel: 'model-1',
+      defaultModelSource: 'hardcoded',
+      warnings: [],
+      agentFlags: lmstudioAgentFlags,
+    },
+    {
+      id: 'codex',
+      label: 'OpenAI Codex',
+      available: false,
+      toolsAvailable: false,
+      reason: 'not detected',
+      defaultModel: 'gpt-5.3-codex-spark',
+      defaultModelSource: 'config',
+      warnings: [],
+      agentFlags: [],
+    },
+    {
+      id: 'copilot',
+      label: 'GitHub Copilot',
+      available: false,
+      toolsAvailable: false,
+      reason: 'copilot authentication required',
+      defaultModel: 'copilot-gpt-5',
+      defaultModelSource: 'hardcoded',
+      warnings: ['copilot authentication required'],
+      agentFlags: [
+        {
+          key: 'modelReasoningEffort',
+          label: 'Reasoning Effort',
+          controlType: 'select',
+          editable: true,
+          seedDefault: 'medium',
+          resolvedDefault: 'medium',
+          supportedValues: [
+            { value: 'low', label: 'Low' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'high', label: 'High' },
+          ],
+        },
+        {
+          key: 'toolAccess',
+          label: 'Tool Access',
+          controlType: 'select',
+          editable: true,
+          seedDefault: 'on',
+          resolvedDefault: 'on',
+          supportedValues: [
+            { value: 'on', label: 'On' },
+            { value: 'off', label: 'Off' },
+          ],
+        },
+      ],
+    },
+  ],
+  providerInfo: {
+    id: 'lmstudio',
+    label: 'LM Studio',
+    available: true,
+    toolsAvailable: true,
+    defaultModel: 'model-1',
+    defaultModelSource: 'hardcoded',
+    agentFlags: lmstudioAgentFlags,
+  },
+  agentFlags: lmstudioAgentFlags,
+  defaultModel: 'model-1',
+  defaultModelSource: 'hardcoded',
+  warnings: [],
   codexDefaults: undefined,
   codexWarnings: undefined,
 };
@@ -32,12 +170,109 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
   available: true,
   toolsAvailable: true,
   models: mockCodexModels,
+  providerInfo: {
+    id: 'codex',
+    label: 'OpenAI Codex',
+    available: true,
+    toolsAvailable: true,
+    defaultModel: 'gpt-5.2-codex',
+    defaultModelSource: 'config',
+    warnings: [],
+    agentFlags: [
+      {
+        key: 'modelReasoningEffort',
+        label: 'Reasoning Effort',
+        controlType: 'select',
+        editable: true,
+        seedDefault: 'high',
+        resolvedDefault: 'high',
+        supportedValues: [
+          { value: 'minimal', label: 'Minimal' },
+          { value: 'low', label: 'Low' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'high', label: 'High' },
+          { value: 'xhigh', label: 'Extra High' },
+        ],
+      },
+    ],
+  },
+  providers: [
+    {
+      id: 'codex',
+      label: 'OpenAI Codex',
+      available: true,
+      toolsAvailable: true,
+      defaultModel: 'gpt-5.2-codex',
+      defaultModelSource: 'config',
+      warnings: [],
+      agentFlags: [
+        {
+          key: 'modelReasoningEffort',
+          label: 'Reasoning Effort',
+          controlType: 'select',
+          editable: true,
+          seedDefault: 'high',
+          resolvedDefault: 'high',
+          supportedValues: [
+            { value: 'minimal', label: 'Minimal' },
+            { value: 'low', label: 'Low' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'high', label: 'High' },
+            { value: 'xhigh', label: 'Extra High' },
+          ],
+        },
+      ],
+      compatibility: {
+        codexDefaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'on-request',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: true,
+          webSearchMode: 'live',
+        },
+        codexWarnings: [],
+      },
+    },
+  ],
+  agentFlags: [
+    {
+      key: 'modelReasoningEffort',
+      label: 'Reasoning Effort',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'high',
+      resolvedDefault: 'high',
+      supportedValues: [
+        { value: 'minimal', label: 'Minimal' },
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+        { value: 'xhigh', label: 'Extra High' },
+      ],
+    },
+  ],
+  defaultModel: 'gpt-5.2-codex',
+  defaultModelSource: 'config',
+  warnings: [],
   codexDefaults: {
     sandboxMode: 'danger-full-access',
-    approvalPolicy: 'on-failure',
+    approvalPolicy: 'on-request',
     modelReasoningEffort: 'high',
     networkAccessEnabled: true,
     webSearchEnabled: true,
+    webSearchMode: 'live',
   },
   codexWarnings: [],
+  compatibility: {
+    codexDefaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-request',
+      modelReasoningEffort: 'high',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+      webSearchMode: 'live',
+    },
+    codexWarnings: [],
+  },
 };

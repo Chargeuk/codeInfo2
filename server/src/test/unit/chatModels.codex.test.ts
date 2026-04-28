@@ -309,6 +309,7 @@ test('chat models payload is derived from shared capability resolver fixture', a
       modelReasoningEffort: 'minimal',
       networkAccessEnabled: true,
       webSearchEnabled: true,
+      webSearchMode: 'live',
     },
     models: [
       {
@@ -348,8 +349,21 @@ test('chat models payload is derived from shared capability resolver fixture', a
         type: 'codex',
         supportedReasoningEfforts: ['minimal', 'high'],
         defaultReasoningEffort: 'minimal',
+        flagOverrides: [
+          {
+            key: 'modelReasoningEffort',
+            resolvedDefault: 'minimal',
+            supportedValues: [
+              { value: 'minimal', label: 'Minimal' },
+              { value: 'high', label: 'High' },
+            ],
+          },
+        ],
       },
     ]);
+    assert.equal(res.body.providerInfo.id, 'codex');
+    assert.equal(res.body.defaultModel, 'gpt-5.3-codex');
+    assert.equal(res.body.compatibility.codexDefaults.webSearchMode, 'live');
   } finally {
     await stopServer(server);
   }
@@ -456,6 +470,7 @@ test('chat models codexDefaults and warnings come from shared resolver precedenc
     assert.equal(res.body.codexDefaults.modelReasoningEffort, 'medium');
     assert.equal(res.body.codexDefaults.networkAccessEnabled, false);
     assert.equal(res.body.codexDefaults.webSearchEnabled, false);
+    assert.equal(res.body.codexDefaults.webSearchMode, 'disabled');
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
     await stopServer(server);
@@ -471,6 +486,7 @@ test('chat models parity fixture remains deterministic across resolver-backed de
       modelReasoningEffort: 'medium',
       networkAccessEnabled: false,
       webSearchEnabled: false,
+      webSearchMode: 'disabled',
     },
     models: [
       {
@@ -508,6 +524,63 @@ test('chat models parity fixture remains deterministic across resolver-backed de
       .expect(200);
     assert.deepEqual(res.body.codexDefaults, fixture.defaults);
     assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
+    assert.equal(
+      res.body.providerInfo.compatibility.codexDefaults.webSearchMode,
+      'disabled',
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models expose the Story 56 provider-neutral Agent Flags and workspace-write-scoped compatibility details', async () => {
+  await setCodexHome(
+    [
+      'model = "gpt-5.3-codex"',
+      'model_reasoning_effort = "high"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "workspace-write"',
+      'model_reasoning_summary = "detailed"',
+      'model_verbosity = "low"',
+      'web_search_mode = "cached"',
+      '',
+    ].join('\n'),
+  );
+  env.set('Codex_model_list', 'alpha');
+  env.set('Codex_network_access_enabled', 'false');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    const flags = res.body.agentFlags as Array<Record<string, unknown>>;
+    const network = flags.find((entry) => entry.key === 'networkAccessEnabled');
+    const summary = flags.find(
+      (entry) => entry.key === 'modelReasoningSummary',
+    );
+    const verbosity = flags.find((entry) => entry.key === 'modelVerbosity');
+    const webSearch = flags.find((entry) => entry.key === 'webSearchMode');
+
+    assert.equal(res.body.providerInfo.defaultModel, 'gpt-5.3-codex');
+    assert.equal(res.body.providerInfo.defaultModelSource, 'config');
+    assert.equal(res.body.codexDefaults.sandboxMode, 'workspace-write');
+    assert.equal(res.body.codexDefaults.networkAccessEnabled, false);
+    assert.equal(res.body.codexDefaults.webSearchMode, 'cached');
+    assert.ok(network);
+    assert.equal(network.resolvedDefault, false);
+    assert.ok(summary);
+    assert.equal(summary.resolvedDefault, 'detailed');
+    assert.ok(verbosity);
+    assert.equal(verbosity.resolvedDefault, 'low');
+    assert.ok(webSearch);
+    assert.equal(webSearch.resolvedDefault, 'cached');
   } finally {
     await stopServer(server);
   }
@@ -904,6 +977,7 @@ test('codex payload includes non-standard reasoning effort values from shared ca
       modelReasoningEffort: 'high',
       networkAccessEnabled: true,
       webSearchEnabled: true,
+      webSearchMode: 'live',
     },
     models: [
       {

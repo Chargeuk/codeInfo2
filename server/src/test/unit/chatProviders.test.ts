@@ -669,6 +669,7 @@ test('providers route exposes shared resolver-backed codex defaults and warnings
       modelReasoningEffort: 'medium',
       networkAccessEnabled: false,
       webSearchEnabled: false,
+      webSearchMode: 'disabled',
     },
     models: [
       {
@@ -709,6 +710,113 @@ test('providers route exposes shared resolver-backed codex defaults and warnings
       .expect(200);
     assert.deepEqual(res.body.codexDefaults, fixture.defaults);
     assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(res.body.selectedModel, 'fixture-model');
+    assert.equal(res.body.providers[0].defaultModel, 'gpt-5.3-codex');
+    assert.equal(res.body.providers[0].defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      res.body.providers[0].compatibility.codexDefaults,
+      fixture.defaults,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route exposes provider-local default-model ownership without using compatibility fields as the primary contract', async () => {
+  await setCodexHome('model = "config-model"\n');
+  await setCopilotHome(
+    ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'),
+  );
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('COPILOT_GITHUB_TOKEN', 'ghu_test_token_value');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'provider-default-ownership',
+    authStatus: {
+      isAuthenticated: true,
+      authType: 'gh-cli',
+      statusMessage: 'authenticated via gh',
+    },
+    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.selectedProvider, 'copilot');
+    assert.equal(res.body.providers[0].id, 'copilot');
+    assert.equal(res.body.providers[0].defaultModel, 'copilot-gpt-5');
+    assert.equal(res.body.providers[0].defaultModelSource, 'config');
+    assert.ok(Array.isArray(res.body.providers[0].agentFlags));
+    assert.equal(res.body.codexDefaults.sandboxMode, 'danger-full-access');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route keeps seed defaults separate from config-resolved defaults in Agent Flag descriptors', async () => {
+  await setCodexHome(
+    [
+      'model = "config-model"',
+      'model_reasoning_effort = "minimal"',
+      'approval_policy = "never"',
+      'sandbox_mode = "workspace-write"',
+      'web_search_mode = "cached"',
+      '',
+    ].join('\n'),
+  );
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+    const codexFlags = res.body.providers[0].agentFlags as Array<
+      Record<string, unknown>
+    >;
+    const approval = codexFlags.find((entry) => entry.key === 'approvalPolicy');
+    const reasoning = codexFlags.find(
+      (entry) => entry.key === 'modelReasoningEffort',
+    );
+    const webSearch = codexFlags.find((entry) => entry.key === 'webSearchMode');
+
+    assert.ok(approval);
+    assert.equal(approval.seedDefault, 'on-request');
+    assert.equal(approval.resolvedDefault, 'never');
+    assert.ok(reasoning);
+    assert.equal(reasoning.seedDefault, 'high');
+    assert.equal(reasoning.resolvedDefault, 'minimal');
+    assert.ok(webSearch);
+    assert.equal(webSearch.seedDefault, 'live');
+    assert.equal(webSearch.resolvedDefault, 'cached');
   } finally {
     await stopServer(server);
   }

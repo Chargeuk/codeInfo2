@@ -217,8 +217,26 @@ test('copilot models route maps only verified shared-contract fields and logs ig
         type: 'copilot',
         supportedReasoningEfforts: ['low', 'medium', 'high'],
         defaultReasoningEffort: 'medium',
+        flagOverrides: [
+          {
+            key: 'modelReasoningEffort',
+            resolvedDefault: 'medium',
+            supportedValues: [
+              { value: 'low', label: 'Low' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'high', label: 'High' },
+            ],
+          },
+        ],
       },
     ]);
+    assert.equal(res.body.providerInfo.id, 'copilot');
+    assert.equal(res.body.defaultModel, 'copilot-gpt-5');
+    assert.equal(res.body.defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      res.body.agentFlags.map((entry: { key: string }) => entry.key),
+      ['modelReasoningEffort', 'toolAccess'],
+    );
     assert.equal(
       'capabilities' in (res.body.models[0] as Record<string, unknown>),
       false,

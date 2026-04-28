@@ -140,6 +140,7 @@ export const resolveCodexCapabilities = async (
       modelReasoningEffort: codexDefaults.values.modelReasoningEffort,
       networkAccessEnabled,
       webSearchEnabled: codexDefaults.values.webSearch !== 'disabled',
+      webSearchMode: codexDefaults.values.webSearch,
     };
 
     const resolution: CodexCapabilityResolution = {
@@ -191,6 +192,7 @@ export const resolveCodexCapabilities = async (
       modelReasoningEffort: codexDefaults.values.modelReasoningEffort,
       networkAccessEnabled,
       webSearchEnabled: codexDefaults.values.webSearch !== 'disabled',
+      webSearchMode: codexDefaults.values.webSearch,
     };
 
     baseLogger.error(

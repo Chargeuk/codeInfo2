@@ -1,13 +1,11 @@
 import {
   ORDERED_CHAT_PROVIDER_IDS,
   isChatProviderId,
-  type ChatModelsResponse,
   type ChatModelInfo,
 } from '@codeinfo2/common';
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -26,6 +24,19 @@ import {
   type CopilotReadinessRuntime,
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  buildCodexAgentFlags,
+  buildCodexCompatibilityDefaults,
+  buildCodexModelFlagOverrides,
+  buildCopilotAgentFlags,
+  buildCopilotModelFlagOverrides,
+  buildLmStudioAgentFlags,
+  buildModelsResponse,
+  buildProviderInfo,
+  orderProviders,
+  toCompatibilityCodexWarnings,
+  toCompatibilityReasoningEfforts,
+} from './chatDiscovery.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
@@ -203,72 +214,221 @@ export function createChatModelsRouter({
         message: parsedProvider.error,
       });
     }
-    const provider = parsedProvider.provider;
+    const provider = parsedProvider.provider ?? 'lmstudio';
+    const detection = getCodexDetection();
+    const mcp = await getMcpStatus();
+    const capabilities = await codexCapabilityResolver({
+      consumer: 'chat_models',
+    });
+    const codexToolsAvailable = detection.available && mcp.available;
+    const codexRuntimeWarnings: string[] = [];
+    if (capabilities.defaults.webSearchEnabled && !codexToolsAvailable) {
+      codexRuntimeWarnings.push(
+        'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
+      );
+    }
+    const codexWarnings = [...capabilities.warnings, ...codexRuntimeWarnings];
+    const codexDefaults = buildCodexCompatibilityDefaults({
+      capabilities,
+      codexHome: process.env.CODEX_HOME,
+    });
+    const codexPreferredDefaults = await resolveCodexChatDefaults({
+      codexHome: process.env.CODEX_HOME,
+    });
+    const codexModels = prioritizeModel(
+      capabilities.models.map((capability) => ({
+        key: capability.model,
+        displayName: capability.model,
+        type: 'codex',
+        ...toCompatibilityReasoningEfforts(
+          buildCodexModelFlagOverrides(capability),
+        ),
+        flagOverrides: buildCodexModelFlagOverrides(capability),
+      })),
+      codexPreferredDefaults.values.model,
+    );
 
-    if (provider === 'codex') {
-      const detection = getCodexDetection();
-      const mcp = await getMcpStatus();
-      const capabilities = await codexCapabilityResolver({
-        consumer: 'chat_models',
+    baseLogger.info(
+      {
+        modelCount: capabilities.models.length,
+        fallbackUsed: capabilities.fallbackUsed,
+        warningsCount: capabilities.warnings.length,
+      },
+      '[codex-model-list] using env list',
+    );
+    if (codexWarnings.length > 0) {
+      baseLogger.warn(
+        { requestId, warningsCount: codexWarnings.length, codexWarnings },
+        'chat models codex warnings',
+      );
+    }
+
+    const readiness = await resolveCopilotReadiness({
+      createRuntime: copilotRuntimeFactory,
+      env: process.env,
+      toolsAvailable: mcp.available,
+      toolsReason: mcp.reason,
+    });
+    const copilotRawModels = readiness.modelsRaw as ModelInfo[];
+    const { mapped: mappedCopilotModels, ignoredUnsupportedFields } =
+      mapCopilotModels(copilotRawModels);
+    const preferredDefaults = resolveChatDefaults({});
+    const prioritizedCopilotModels = prioritizeModel(
+      mappedCopilotModels.map((model) => {
+        const rawModel = copilotRawModels.find(
+          (entry) => entry.id === model.key,
+        );
+        const flagOverrides = rawModel
+          ? buildCopilotModelFlagOverrides(rawModel)
+          : [];
+        return {
+          ...model,
+          ...toCompatibilityReasoningEfforts(flagOverrides),
+          flagOverrides,
+        };
+      }),
+      preferredDefaults.provider === 'copilot'
+        ? preferredDefaults.model
+        : undefined,
+    );
+    const copilotAvailable =
+      readiness.available && prioritizedCopilotModels.length > 0;
+    logCopilotModelMapping({
+      requestId,
+      mappedModelCount: prioritizedCopilotModels.length,
+      ignoredUnsupportedFields,
+      blockingStage: copilotAvailable ? readiness.blockingStage : 'models',
+    });
+
+    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+    const safeBase = scrubBaseUrl(baseUrl);
+    let lmstudioAvailable = false;
+    let lmstudioReason: string | undefined;
+    let lmstudioModels: ChatModelInfo[] = [];
+
+    if (!BASE_URL_REGEX.test(baseUrl)) {
+      lmstudioReason = 'lmstudio unavailable';
+    } else {
+      append({
+        level: 'info',
+        message: 'chat models fetch start',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: { baseUrl: safeBase },
       });
-      const toolsAvailable = detection.available && mcp.available;
-      const runtimeWarnings: string[] = [];
-
-      if (capabilities.defaults.webSearchEnabled && !toolsAvailable) {
-        runtimeWarnings.push(
-          'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
+      try {
+        const client = clientFactory(toWebSocketUrl(baseUrl));
+        const models = await client.system.listDownloadedModels();
+        lmstudioModels = prioritizeModel(
+          models.filter(isChatModel).map((model) => ({
+            key: model.modelKey,
+            displayName: model.displayName,
+            type: model.type,
+          })),
+          preferredDefaults.provider === 'lmstudio'
+            ? preferredDefaults.model
+            : undefined,
+        );
+        lmstudioAvailable = lmstudioModels.length > 0;
+        lmstudioReason = lmstudioAvailable ? undefined : 'lmstudio unavailable';
+        append({
+          level: 'info',
+          message: 'chat models fetch success',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: { baseUrl: safeBase, models: lmstudioModels.length },
+        });
+        baseLogger.info(
+          { requestId, baseUrl: safeBase, models: lmstudioModels.length },
+          'chat models fetch success',
+        );
+      } catch (err) {
+        const error = (err as Error).message ?? 'lmstudio unavailable';
+        lmstudioReason = 'lmstudio unavailable';
+        append({
+          level: 'error',
+          message: 'chat models fetch failed',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: { baseUrl: safeBase, error },
+        });
+        baseLogger.error(
+          { requestId, baseUrl: safeBase, error },
+          'chat models fetch failed',
         );
       }
+    }
 
-      const codexWarnings = [...capabilities.warnings, ...runtimeWarnings];
-      const preferredDefaults = await resolveCodexChatDefaults({
-        codexHome: process.env.CODEX_HOME,
-      });
-      const codexModels = prioritizeModel(
-        capabilities.models.map((capability) => {
-          return {
-            key: capability.model,
-            displayName: capability.model,
-            type: 'codex',
-            supportedReasoningEfforts: capability.supportedReasoningEfforts,
-            defaultReasoningEffort: capability.defaultReasoningEffort,
-          };
-        }),
-        preferredDefaults.values.model,
-      );
-
-      baseLogger.info(
-        {
-          modelCount: capabilities.models.length,
-          fallbackUsed: capabilities.fallbackUsed,
-          warningsCount: capabilities.warnings.length,
-        },
-        '[codex-model-list] using env list',
-      );
-
-      if (codexWarnings.length > 0) {
-        baseLogger.warn(
-          { requestId, warningsCount: codexWarnings.length, codexWarnings },
-          'chat models codex warnings',
-        );
-      }
-
-      const response: ChatModelsResponse = {
+    const providerMap = {
+      codex: buildProviderInfo({
         provider: 'codex',
         available: detection.available,
-        toolsAvailable,
+        toolsAvailable: codexToolsAvailable,
+        reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
+        warnings: codexWarnings,
+        agentFlags: buildCodexAgentFlags({
+          capabilities,
+          codexHome: process.env.CODEX_HOME,
+        }),
+        compatibility: {
+          codexDefaults,
+          codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
+        },
+      }),
+      copilot: buildProviderInfo({
+        provider: 'copilot',
+        available: copilotAvailable,
+        toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
+        reason: copilotAvailable
+          ? readiness.reason
+          : (readiness.reason ?? COPILOT_MODELS_REASON),
+        warnings:
+          copilotAvailable && readiness.reason
+            ? [readiness.reason]
+            : readiness.reason
+              ? [readiness.reason]
+              : [],
+        agentFlags: buildCopilotAgentFlags({
+          models: copilotRawModels,
+          copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        }),
+      }),
+      lmstudio: buildProviderInfo({
+        provider: 'lmstudio',
+        available: lmstudioAvailable,
+        toolsAvailable: lmstudioAvailable,
+        reason: lmstudioReason,
+        warnings: lmstudioReason ? [lmstudioReason] : [],
+        agentFlags: buildLmStudioAgentFlags({}),
+      }),
+    } as const;
+    const providers = orderProviders(providerMap, provider);
+
+    if (provider === 'codex') {
+      const response = buildModelsResponse({
+        provider: 'codex',
+        available: detection.available,
+        toolsAvailable: codexToolsAvailable,
         reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
         models: detection.available ? codexModels : [],
-        codexDefaults: capabilities.defaults,
+        providers,
+        providerInfo: providerMap.codex,
+        compatibility: providerMap.codex.compatibility,
+        codexDefaults,
         codexWarnings,
-      };
+      });
       console.info(STORY_47_TASK_1_LOG_MARKER, {
         surface: '/chat/models',
         requested_provider: 'codex',
-        requested_model: preferredDefaults.values.model,
-        resolved_model: preferredDefaults.values.model,
-        model_source: toChatResolutionSource(preferredDefaults.sources.model),
-        codex_model_source: preferredDefaults.sources.model,
+        requested_model: codexPreferredDefaults.values.model,
+        resolved_model: codexPreferredDefaults.values.model,
+        model_source: toChatResolutionSource(
+          codexPreferredDefaults.sources.model,
+        ),
+        codex_model_source: codexPreferredDefaults.sources.model,
         success: true,
         warning_count: codexWarnings.length,
       });
@@ -276,7 +436,7 @@ export function createChatModelsRouter({
         surface: '/chat/models',
         provider: 'codex',
         warningCount: codexWarnings.length,
-        defaults: capabilities.defaults,
+        defaults: codexDefaults,
       });
 
       if (detection.available) {
@@ -304,101 +464,43 @@ export function createChatModelsRouter({
     }
 
     if (provider === 'copilot') {
-      const mcp = await getMcpStatus();
-      const readiness = await resolveCopilotReadiness({
-        createRuntime: copilotRuntimeFactory,
-        env: process.env,
-        toolsAvailable: mcp.available,
-        toolsReason: mcp.reason,
+      const response = buildModelsResponse({
+        provider: 'copilot',
+        available: copilotAvailable,
+        toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
+        reason: copilotAvailable
+          ? readiness.reason
+          : (readiness.reason ?? COPILOT_MODELS_REASON),
+        models: copilotAvailable ? prioritizedCopilotModels : [],
+        providers,
+        providerInfo: providerMap.copilot,
       });
-
-      if (!readiness.available) {
-        logCopilotModelMapping({
-          requestId,
-          mappedModelCount: 0,
-          ignoredUnsupportedFields: false,
-          blockingStage: readiness.blockingStage,
-        });
-        const response: ChatModelsResponse = {
-          provider: 'copilot',
-          available: false,
-          toolsAvailable: false,
-          reason: readiness.reason,
-          models: [],
-        };
-        return res.json(response);
-      }
-
-      const preferredDefaults = resolveChatDefaults({});
-      const preferredModel =
-        preferredDefaults.provider === 'copilot'
-          ? preferredDefaults.model
-          : undefined;
-      const runtime = copilotRuntimeFactory?.() ?? new CopilotLifecycle();
-      let started = false;
-
-      try {
-        await runtime.start();
-        started = true;
-
-        const rawModels = await runtime.listModels();
-        const { mapped, ignoredUnsupportedFields } =
-          mapCopilotModels(rawModels);
-        const prioritized = prioritizeModel(mapped, preferredModel);
-        const available = prioritized.length > 0;
-
-        logCopilotModelMapping({
-          requestId,
-          mappedModelCount: prioritized.length,
-          ignoredUnsupportedFields,
-          blockingStage: available ? readiness.blockingStage : 'models',
-        });
-
-        const response: ChatModelsResponse = {
-          provider: 'copilot',
-          available,
-          toolsAvailable: available ? readiness.toolsAvailable : false,
-          reason: available ? readiness.reason : COPILOT_MODELS_REASON,
-          models: prioritized,
-        };
-        return res.json(response);
-      } catch {
-        logCopilotModelMapping({
-          requestId,
-          mappedModelCount: 0,
-          ignoredUnsupportedFields: false,
-          blockingStage: 'models',
-        });
-        const response: ChatModelsResponse = {
-          provider: 'copilot',
-          available: false,
-          toolsAvailable: false,
-          reason: COPILOT_MODELS_REASON,
-          models: [],
-        };
-        return res.json(response);
-      } finally {
-        if (started) {
-          await runtime.stop().catch(() => []);
-        }
-      }
+      return res.json(response);
     }
 
-    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
-    const safeBase = scrubBaseUrl(baseUrl);
-
-    if (!BASE_URL_REGEX.test(baseUrl)) {
+    if (!BASE_URL_REGEX.test(baseUrl) || !lmstudioAvailable) {
       append({
         level: 'error',
-        message: 'chat models invalid baseUrl',
+        message: !BASE_URL_REGEX.test(baseUrl)
+          ? 'chat models invalid baseUrl'
+          : 'chat models fetch failed',
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase },
+        context: {
+          baseUrl: safeBase,
+          error: lmstudioReason ?? 'lmstudio unavailable',
+        },
       });
       baseLogger.error(
-        { requestId, baseUrl: safeBase },
-        'chat models invalid baseUrl',
+        {
+          requestId,
+          baseUrl: safeBase,
+          error: lmstudioReason ?? 'lmstudio unavailable',
+        },
+        !BASE_URL_REGEX.test(baseUrl)
+          ? 'chat models invalid baseUrl'
+          : 'chat models fetch failed',
       );
       return res.status(503).json({
         error: 'lmstudio unavailable',
@@ -406,79 +508,24 @@ export function createChatModelsRouter({
         available: false,
         toolsAvailable: false,
         models: [],
+        providers,
+        providerInfo: providerMap.lmstudio,
+        agentFlags: providerMap.lmstudio.agentFlags,
+        defaultModel: providerMap.lmstudio.defaultModel,
+        defaultModelSource: providerMap.lmstudio.defaultModelSource,
+        warnings: providerMap.lmstudio.warnings,
       });
     }
 
-    append({
-      level: 'info',
-      message: 'chat models fetch start',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      requestId,
-      context: { baseUrl: safeBase },
+    const response = buildModelsResponse({
+      provider: 'lmstudio',
+      available: true,
+      toolsAvailable: true,
+      models: lmstudioModels,
+      providers,
+      providerInfo: providerMap.lmstudio,
     });
-
-    try {
-      const client = clientFactory(toWebSocketUrl(baseUrl));
-      const models = await client.system.listDownloadedModels();
-      const mapped = models.filter(isChatModel).map((model) => ({
-        key: model.modelKey,
-        displayName: model.displayName,
-        type: model.type,
-      }));
-      const preferredDefaults = resolveChatDefaults({});
-      const prioritized = prioritizeModel(
-        mapped,
-        preferredDefaults.provider === 'lmstudio'
-          ? preferredDefaults.model
-          : undefined,
-      );
-      const available = prioritized.length > 0;
-      const reason = available ? undefined : 'lmstudio unavailable';
-
-      const response: ChatModelsResponse = {
-        provider: 'lmstudio',
-        available,
-        toolsAvailable: available,
-        reason,
-        models: prioritized,
-      };
-
-      append({
-        level: 'info',
-        message: 'chat models fetch success',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: { baseUrl: safeBase, models: prioritized.length },
-      });
-      baseLogger.info(
-        { requestId, baseUrl: safeBase, models: prioritized.length },
-        'chat models fetch success',
-      );
-      res.json(response);
-    } catch (err) {
-      const error = (err as Error).message ?? 'lmstudio unavailable';
-      append({
-        level: 'error',
-        message: 'chat models fetch failed',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: { baseUrl: safeBase, error },
-      });
-      baseLogger.error(
-        { requestId, baseUrl: safeBase, error },
-        'chat models fetch failed',
-      );
-      res.status(503).json({
-        error: 'lmstudio unavailable',
-        provider: 'lmstudio',
-        available: false,
-        toolsAvailable: false,
-        models: [],
-      });
-    }
+    return res.json(response);
   });
 
   return router;

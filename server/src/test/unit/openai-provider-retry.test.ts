@@ -8,6 +8,8 @@ import {
   OPENAI_RETRY_MAX_DELAY_MS,
   OPENAI_RETRY_MAX_RETRIES,
   computeExponentialDelayMs,
+  parseRateLimitResetMs,
+  resolveOpenAiRateLimitWaitMs,
   resolveRetryAfterMs,
   runOpenAiWithRetry,
 } from '../../ingest/providers/index.js';
@@ -104,6 +106,50 @@ test('retry-after-ms takes precedence over retry-after', () => {
   assert.equal(resolveRetryAfterMs(headers), 1600);
 });
 
+test('reset duration parsing supports compound units', () => {
+  assert.equal(parseRateLimitResetMs('1493ms'), 1493);
+  assert.equal(parseRateLimitResetMs('2s'), 2000);
+  assert.equal(parseRateLimitResetMs('1m2s250ms'), 62_250);
+});
+
+test('rate-limit wait resolution takes the largest wait candidate', () => {
+  const resolved = resolveOpenAiRateLimitWaitMs({
+    headers: {
+      'retry-after-ms': '1200',
+      'x-ratelimit-remaining-tokens': '10',
+      'x-ratelimit-reset-tokens': '2s',
+      'x-ratelimit-remaining-requests': '0',
+      'x-ratelimit-reset-requests': '1s',
+    },
+    tokenEstimate: 100,
+    fallbackWaitMs: 375,
+  });
+
+  assert.equal(resolved.retryAfterMs, 1200);
+  assert.equal(resolved.providerWaitMs, 1200);
+  assert.equal(resolved.tokenBudgetWaitMs, 2250);
+  assert.equal(resolved.requestBudgetWaitMs, 1250);
+  assert.equal(resolved.chosenWaitMs, 2250);
+});
+
+test('rate-limit wait resolution ignores undefined or null-like values without throwing', () => {
+  const resolved = resolveOpenAiRateLimitWaitMs({
+    headers: {
+      'x-ratelimit-remaining-tokens': null as unknown as string,
+      'x-ratelimit-reset-tokens': undefined,
+      'x-ratelimit-remaining-requests': undefined,
+      'x-ratelimit-reset-requests': null as unknown as string,
+    },
+    tokenEstimate: 100,
+    fallbackWaitMs: 375,
+  });
+
+  assert.equal(resolved.providerWaitMs, 375);
+  assert.equal(resolved.tokenBudgetWaitMs, 0);
+  assert.equal(resolved.requestBudgetWaitMs, 0);
+  assert.equal(resolved.chosenWaitMs, 375);
+});
+
 test('invalid wait hints fall back without throwing', async () => {
   const sleeps: number[] = [];
   mock.method(Math, 'random', () => 0);
@@ -136,6 +182,39 @@ test('invalid wait hints fall back without throwing', async () => {
   assert.equal(callCount, 2);
   assert.equal(sleeps.length, 1);
   assert.equal(sleeps[0], 375);
+});
+
+test('token reset wait can extend beyond retry-after hint', async () => {
+  const sleeps: number[] = [];
+
+  let callCount = 0;
+  const result = await runOpenAiWithRetry({
+    model: 'text-embedding-3-small',
+    inputCount: 1,
+    tokenEstimate: 100,
+    sleep: async (ms) => {
+      sleeps.push(ms);
+    },
+    runStep: async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        throw {
+          status: 429,
+          message: 'rate limited',
+          headers: {
+            'retry-after-ms': '1200',
+            'x-ratelimit-remaining-tokens': '10',
+            'x-ratelimit-reset-tokens': '2s',
+          },
+        };
+      }
+      return 'ok';
+    },
+  });
+
+  assert.equal(result, 'ok');
+  assert.equal(callCount, 2);
+  assert.deepEqual(sleeps, [2250]);
 });
 
 test('retry exhaustion returns normalized terminal metadata without SDK object leak', async () => {
@@ -210,6 +289,13 @@ test('retryable OpenAI failures emit warn retry logs and terminal error on exhau
         entry.context?.provider === 'openai' &&
         entry.context?.retryable === true,
     );
+    const infoEntries = entries.filter(
+      (entry) =>
+        entry.level === 'info' &&
+        entry.context?.provider === 'openai' &&
+        entry.context?.stage === 'retry' &&
+        entry.context?.waitState === 'finished',
+    );
     const errorEntries = entries.filter(
       (entry) =>
         entry.level === 'error' &&
@@ -218,6 +304,7 @@ test('retryable OpenAI failures emit warn retry logs and terminal error on exhau
     );
 
     assert.equal(warnEntries.length, OPENAI_RETRY_DEFAULT_MAX_RETRIES);
+    assert.equal(infoEntries.length, OPENAI_RETRY_DEFAULT_MAX_RETRIES);
     assert.equal(errorEntries.length, 1);
   } finally {
     if (previous === undefined) {

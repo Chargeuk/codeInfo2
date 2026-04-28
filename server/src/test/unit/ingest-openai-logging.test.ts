@@ -49,6 +49,19 @@ test('OpenAI retry failures append warn logs with ingest context', async () => {
   assert.equal(retryWarn?.context?.code, 'OPENAI_RATE_LIMITED');
   assert.equal(retryWarn?.context?.retryable, true);
   assert.equal(retryWarn?.context?.waitMs, 1200);
+  assert.equal(retryWarn?.context?.providerWaitMs, 1200);
+  assert.equal(retryWarn?.context?.tokenBudgetWaitMs, 0);
+  assert.equal(retryWarn?.context?.requestBudgetWaitMs, 0);
+  assert.equal(retryWarn?.context?.waitState, 'scheduled');
+  const retryWaitFinished = entries.find(
+    (entry) =>
+      entry.level === 'info' &&
+      entry.context?.stage === 'retry' &&
+      entry.context?.provider === 'openai' &&
+      entry.context?.waitState === 'finished',
+  );
+  assert.ok(retryWaitFinished, 'expected retry wait finished log');
+  assert.equal(retryWaitFinished?.context?.waitMs, 1200);
   assert.equal(retryWarn?.context?.currentFile, 'src/a.ts');
 });
 

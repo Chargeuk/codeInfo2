@@ -155,6 +155,7 @@ export const mockModelsResponse: ChatModelsResponse = {
     toolsAvailable: true,
     defaultModel: 'model-1',
     defaultModelSource: 'hardcoded',
+    warnings: [],
     agentFlags: lmstudioAgentFlags,
   },
   agentFlags: lmstudioAgentFlags,

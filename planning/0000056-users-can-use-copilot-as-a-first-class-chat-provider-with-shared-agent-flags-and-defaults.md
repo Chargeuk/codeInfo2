@@ -609,10 +609,10 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 #### Testing
 
 1. [x] Run `npm run build:summary:server` from the repository root to prove the shared discovery contract compiles cleanly through the server and common workspaces. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the combined models-and-flags payload, provider ordering, Copilot model metadata mapping, and LM Studio option exposure. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared provider/model discovery path stays honest after the payload change. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+2. [x] Run `npm run test:summary:server:unit` from the repository root to prove the combined models-and-flags payload, provider ordering, Copilot model metadata mapping, and LM Studio option exposure. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the shared provider/model discovery path stays honest after the payload change. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [x] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -625,6 +625,10 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 - Ran `npm run lint`, used `npm run lint:fix` to clean import-order fallout from the new shared discovery helper, then removed the remaining unused symbols by hand so the Task 2 surface is lint-clean before the formal wrapper-based proof pass.
 - Ran `npm run format:check`, applied `npm run format` when Prettier flagged the new discovery-route and proof-owner files, and reran `format:check` to leave the full Task 2 surface formatting-clean for the later automated-proof step.
 - `npm run build:summary:server` passed with `agent_action: skip_log`, so the shared provider-neutral discovery contract now compiles cleanly through the Task 2 server/common workspace surface on the wrapper-first build path.
+- `npm run test:summary:server:unit` initially failed on one stale `chatProviders` parity expectation that still treated the first Codex capability model as the selected default; I aligned that proof to Task 2's provider-local default-model contract, reran the full wrapper, and it then passed with `1844` tests passed and `0` failed.
+- `npm run test:summary:server:cucumber` initially failed because the shared LM Studio fixture still omitted `providerInfo.warnings`, and a later `After` cleanup error cascaded from that failure; after aligning the fixture and rerunning the full wrapper, cucumber passed with `117` scenarios passed and `0` failed.
+- Final `npm run lint` passed cleanly for the Task 2 surface after the proof-owned test and fixture repairs.
+- Final `npm run format:check` flagged `server/src/test/integration/chat-codex-mcp.test.ts`; I ran the repo formatter, reran `format:check`, and the full repository then reported `All matched files use Prettier code style!`.
 
 ---
 

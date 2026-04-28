@@ -483,7 +483,7 @@ Overall, when this story is complete:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

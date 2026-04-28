@@ -1,0 +1,51 @@
+{
+  "description": "Loop with continue steps",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Outer loop",
+      "steps": [
+        {
+          "type": "llm",
+          "label": "Outer message",
+          "agentType": "coding_agent",
+          "identifier": "outer",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["Outer loop step."]
+            }
+          ]
+        },
+        {
+          "type": "continue",
+          "label": "Outer continue",
+          "agentType": "coding_agent",
+          "identifier": "outer-continue",
+          "question": "Skip remaining loop steps?",
+          "continueOn": "yes"
+        },
+        {
+          "type": "llm",
+          "label": "Post-continue message",
+          "agentType": "coding_agent",
+          "identifier": "post-continue",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["Reached post-continue step."]
+            }
+          ]
+        },
+        {
+          "type": "break",
+          "label": "Outer break",
+          "agentType": "coding_agent",
+          "identifier": "outer-break",
+          "question": "Exit outer loop?",
+          "breakOn": "yes"
+        }
+      ]
+    }
+  ]
+}

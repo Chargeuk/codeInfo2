@@ -104,13 +104,14 @@ import {
   parseFlowFile,
   type FlowFile,
   type FlowBreakStep,
+  type FlowContinueStep,
   type FlowCommandStep,
   type FlowLlmStep,
   type FlowReingestStep,
   type FlowStartLoopStep,
   type FlowStep,
 } from './flowSchema.js';
-import type { FlowResumeState } from './flowState.js';
+import type { FlowPendingLoopControl, FlowResumeState } from './flowState.js';
 import {
   normalizeSourceLabel,
   prepareMarkdownInstruction,
@@ -285,11 +286,26 @@ const parseFlowResumeState = (
   const agentConversations = normalizeStringMap(flow.agentConversations);
   const agentWorkingFolders = normalizeStringMap(flow.agentWorkingFolders);
   const agentThreads = normalizeStringMap(flow.agentThreads);
+  const pendingLoopControl = isRecord(flow.pendingLoopControl)
+    ? flow.pendingLoopControl.kind === 'continue'
+      ? {
+          kind: 'continue' as const,
+          loopStepPath: normalizeNumberArray(
+            flow.pendingLoopControl.loopStepPath,
+          ),
+        }
+      : null
+    : null;
 
   return {
     executionId: executionId ?? crypto.randomUUID(),
     stepPath,
     loopStack,
+    ...(pendingLoopControl
+      ? {
+          pendingLoopControl,
+        }
+      : {}),
     ...(typeof flow.workingFolder === 'string' && flow.workingFolder.trim()
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
@@ -853,7 +869,12 @@ const joinMessageContent = (content: string[]) => content.join('\n');
 type FlowTurnCommandMetadata = Extract<TurnCommandMetadata, { name: 'flow' }>;
 
 const buildFlowCommandMetadata = (params: {
-  step: FlowLlmStep | FlowBreakStep | FlowCommandStep | FlowReingestStep;
+  step:
+    | FlowLlmStep
+    | FlowBreakStep
+    | FlowContinueStep
+    | FlowCommandStep
+    | FlowReingestStep;
   stepIndex: number;
   totalSteps: number;
   loopDepth: number;
@@ -1713,7 +1734,7 @@ const emitStoppedFlowStep = async (params: {
   });
 };
 
-type FlowStepOutcome = TurnStatus | 'break';
+type FlowStepOutcome = TurnStatus | 'break' | 'continue';
 
 type LoopFrame = {
   loopStepPath: number[];
@@ -1725,6 +1746,7 @@ const buildFlowResumeState = (params: {
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
+  pendingLoopControl?: FlowPendingLoopControl | null;
   workingFolder?: string;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
@@ -1747,6 +1769,14 @@ const buildFlowResumeState = (params: {
       loopStepPath: [...frame.loopStepPath],
       iteration: frame.iteration,
     })),
+    ...(params.pendingLoopControl
+      ? {
+          pendingLoopControl: {
+            kind: params.pendingLoopControl.kind,
+            loopStepPath: [...params.pendingLoopControl.loopStepPath],
+          },
+        }
+      : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
@@ -1762,6 +1792,7 @@ const persistFlowResumeState = async (params: {
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
+  pendingLoopControl?: FlowPendingLoopControl | null;
   workingFolder?: string;
 }) => {
   const flowState = buildFlowResumeState({
@@ -1769,6 +1800,7 @@ const persistFlowResumeState = async (params: {
     runtimeState: params.runtimeState,
     stepPath: params.stepPath,
     loopStack: params.loopStack,
+    pendingLoopControl: params.pendingLoopControl,
     workingFolder: params.workingFolder,
   });
 
@@ -1829,17 +1861,23 @@ type BreakParseFailure = {
   reasonCode: BreakParseReasonCode;
 };
 
+type FlowDecisionKind = 'break' | 'continue';
+
 const MAX_BREAK_PARSE_SCAN_LENGTH = 20_000;
 const MAX_BREAK_PARSE_CANDIDATES = 100;
 
-const validateBreakPayload = (
+const getFlowDecisionLabel = (kind: FlowDecisionKind) =>
+  kind === 'break' ? 'Break' : 'Continue';
+
+const validateFlowDecisionPayload = (
+  kind: FlowDecisionKind,
   parsed: unknown,
 ): { ok: true; answer: 'yes' | 'no' } | { ok: false; reason: string } => {
+  const responseLabel = getFlowDecisionLabel(kind);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return {
       ok: false,
-      reason:
-        'Break response must be a JSON object with {"answer":"yes"|"no"}.',
+      reason: `${responseLabel} response must be a JSON object with {"answer":"yes"|"no"}.`,
     };
   }
 
@@ -1848,8 +1886,7 @@ const validateBreakPayload = (
   if (keys.length !== 1 || keys[0] !== 'answer') {
     return {
       ok: false,
-      reason:
-        'Break response must be exactly {"answer":"yes"} or {"answer":"no"}.',
+      reason: `${responseLabel} response must be exactly {"answer":"yes"} or {"answer":"no"}.`,
     };
   }
 
@@ -1857,18 +1894,20 @@ const validateBreakPayload = (
   if (answer !== 'yes' && answer !== 'no') {
     return {
       ok: false,
-      reason: 'Break response must include answer "yes" or "no".',
+      reason: `${responseLabel} response must include answer "yes" or "no".`,
     };
   }
 
   return { ok: true, answer };
 };
 
-const tryParseBreakCandidate = (
+const tryParseFlowDecisionCandidate = (
+  kind: FlowDecisionKind,
   candidate: string,
 ):
   | { ok: true; answer: 'yes' | 'no' }
   | { ok: false; errorKind: 'json' | 'schema'; message: string } => {
+  const responseLabel = getFlowDecisionLabel(kind);
   let parsed: unknown;
   try {
     parsed = JSON.parse(candidate);
@@ -1876,11 +1915,11 @@ const tryParseBreakCandidate = (
     return {
       ok: false,
       errorKind: 'json',
-      message: 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+      message: `${responseLabel} response must be valid JSON with {"answer":"yes"|"no"}.`,
     };
   }
 
-  const validated = validateBreakPayload(parsed);
+  const validated = validateFlowDecisionPayload(kind, parsed);
   if (!validated.ok) {
     return { ok: false, errorKind: 'schema', message: validated.reason };
   }
@@ -1947,14 +1986,16 @@ const extractBalancedObjectCandidates = (content: string): string[] => {
   return candidates;
 };
 
-export const parseBreakAnswer = (
+export const parseFlowDecisionAnswer = (
+  kind: FlowDecisionKind,
   content: string,
 ): BreakParseSuccess | BreakParseFailure => {
+  const responseLabel = getFlowDecisionLabel(kind);
   const attempts: BreakParseAttempt[] = [];
-  let lastSchemaMessage = 'Break response must include answer "yes" or "no".';
+  let lastSchemaMessage = `${responseLabel} response must include answer "yes" or "no".`;
 
   attempts.push({ strategy: 'strict', candidateCount: 1 });
-  const strict = tryParseBreakCandidate(content);
+  const strict = tryParseFlowDecisionCandidate(kind, content);
   if (strict.ok) {
     return {
       ok: true,
@@ -1974,7 +2015,7 @@ export const parseBreakAnswer = (
     candidateCount: fencedCandidates.length,
   });
   for (const candidate of fencedCandidates) {
-    const parsed = tryParseBreakCandidate(candidate);
+    const parsed = tryParseFlowDecisionCandidate(kind, candidate);
     if (parsed.ok) {
       return {
         ok: true,
@@ -1995,7 +2036,7 @@ export const parseBreakAnswer = (
     candidateCount: balancedCandidates.length,
   });
   for (const candidate of balancedCandidates) {
-    const parsed = tryParseBreakCandidate(candidate);
+    const parsed = tryParseFlowDecisionCandidate(kind, candidate);
     if (parsed.ok) {
       return {
         ok: true,
@@ -2016,19 +2057,31 @@ export const parseBreakAnswer = (
     ok: false,
     message: sawCandidates
       ? lastSchemaMessage
-      : 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+      : `${responseLabel} response must be valid JSON with {"answer":"yes"|"no"}.`,
     attempts,
     reasonCode: sawCandidates ? 'INVALID_SCHEMA' : 'NO_VALID_CANDIDATE',
   };
 };
 
+export const parseBreakAnswer = (content: string) =>
+  parseFlowDecisionAnswer('break', content);
+
+export const parseContinueAnswer = (content: string) =>
+  parseFlowDecisionAnswer('continue', content);
+
 const findFirstAgentStep = (
   steps: FlowStep[],
-): FlowLlmStep | FlowBreakStep | FlowCommandStep | undefined => {
+):
+  | FlowLlmStep
+  | FlowBreakStep
+  | FlowContinueStep
+  | FlowCommandStep
+  | undefined => {
   for (const step of steps) {
     if (
       step.type === 'llm' ||
       step.type === 'break' ||
+      step.type === 'continue' ||
       step.type === 'command'
     ) {
       return step;
@@ -2427,6 +2480,13 @@ async function runFlowUnlocked(params: {
   const resumeStepPath = params.resumeStepPath ?? null;
   let lastCompletedStepPath =
     resumeStepPath ?? params.resumeState?.stepPath ?? [];
+  let pendingLoopControl = params.resumeState?.pendingLoopControl
+    ? {
+        kind: params.resumeState.pendingLoopControl.kind,
+        loopStepPath: [...params.resumeState.pendingLoopControl.loopStepPath],
+      }
+    : null;
+  let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
     params.resumeState.loopStack.forEach((frame) => {
@@ -2441,6 +2501,28 @@ async function runFlowUnlocked(params: {
     params.releaseConversationLockFn ?? releaseConversationLock;
   const flowEnvOverrides: NodeJS.ProcessEnv = {
     CODEINFO_ROOT: params.repositoryContext.codeInfo2Root,
+  };
+  const persistRuntimeResumeState = async (stepPath: number[]) =>
+    persistFlowResumeState({
+      conversationId: params.conversationId,
+      executionId: params.executionId,
+      runtimeState,
+      stepPath,
+      loopStack,
+      pendingLoopControl,
+      workingFolder: params.repositoryContext.workingRepositoryPath,
+    });
+  const clearContinueBoundaryForActiveLoop = () => {
+    if (!continueBoundaryLoopKey) return;
+    const activeLoopFrame = loopStack[loopStack.length - 1];
+    if (!activeLoopFrame) return;
+    if (
+      getStepPathKey(activeLoopFrame.loopStepPath) !== continueBoundaryLoopKey
+    ) {
+      return;
+    }
+    pendingLoopControl = null;
+    continueBoundaryLoopKey = null;
   };
 
   const finalizeFlowRuntime = () => {
@@ -2608,14 +2690,7 @@ async function runFlowUnlocked(params: {
       source: params.source,
     });
     if (isNew) {
-      await persistFlowResumeState({
-        conversationId: params.conversationId,
-        executionId: params.executionId,
-        runtimeState,
-        stepPath: lastCompletedStepPath,
-        loopStack,
-        workingFolder: params.repositoryContext.workingRepositoryPath,
-      });
+      await persistRuntimeResumeState(lastCompletedStepPath);
     }
 
     let systemPrompt: string | undefined;
@@ -2687,14 +2762,7 @@ async function runFlowUnlocked(params: {
             conversationId: agentState.conversationId,
             threadId,
           });
-          void persistFlowResumeState({
-            conversationId: params.conversationId,
-            executionId: params.executionId,
-            runtimeState,
-            stepPath: lastCompletedStepPath,
-            loopStack,
-            workingFolder: params.repositoryContext.workingRepositoryPath,
-          });
+          void persistRuntimeResumeState(lastCompletedStepPath);
         },
       });
 
@@ -2957,6 +3025,98 @@ async function runFlowUnlocked(params: {
     return {
       status: 'ok',
       shouldBreak: breakAnswer === step.breakOn,
+    };
+  };
+
+  const runContinueStep = async (
+    step: FlowContinueStep,
+    command: TurnCommandMetadata,
+  ): Promise<{
+    status: TurnStatus;
+    shouldContinue: boolean;
+  }> => {
+    let continueAnswer: 'yes' | 'no' | undefined;
+    const instruction = [
+      'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
+      `Question: ${step.question}`,
+    ].join('\n');
+
+    const result = await runInstruction({
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instruction,
+      deferFinal: true,
+      command,
+      postProcess: (candidate) => {
+        const parsed = parseContinueAnswer(candidate.content);
+        parsed.attempts.forEach((attempt) => {
+          append({
+            level: 'info',
+            message: 'DEV-0000036:T4:continue_parse_strategy_attempted',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              strategy: attempt.strategy,
+              candidateCount: attempt.candidateCount,
+            },
+          });
+        });
+        append({
+          level: parsed.ok ? 'info' : 'warn',
+          message: 'DEV-0000036:T4:continue_parse_result',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            accepted: parsed.ok,
+            reasonCode: parsed.reasonCode,
+          },
+        });
+
+        if (!parsed.ok) {
+          return {
+            status: 'failed',
+            content: parsed.message,
+            finalOverride: {
+              status: 'failed',
+              error: {
+                code: 'INVALID_CONTINUE_RESPONSE',
+                message: parsed.message,
+              },
+            },
+          };
+        }
+
+        continueAnswer = parsed.answer;
+        return {
+          content: parsed.normalizedContent,
+        };
+      },
+    });
+
+    if (shouldStopAfter(result.status)) {
+      return { status: result.status, shouldContinue: false };
+    }
+
+    if (!continueAnswer) {
+      return { status: 'failed', shouldContinue: false };
+    }
+
+    append({
+      level: 'info',
+      message: 'flows.run.continue_decision',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        answer: continueAnswer,
+        continueOn: step.continueOn,
+        loopDepth: loopStack.length,
+      },
+    });
+
+    return {
+      status: 'ok',
+      shouldContinue: continueAnswer === step.continueOn,
     };
   };
 
@@ -3380,7 +3540,15 @@ async function runFlowUnlocked(params: {
       iteration: 0,
     };
     const savedIteration = resumeLoopIterations.get(getStepPathKey(nextPath));
-    if (
+    const shouldResumeAfterContinue =
+      pendingLoopControl?.kind === 'continue' &&
+      getStepPathKey(pendingLoopControl.loopStepPath) ===
+        getStepPathKey(nextPath) &&
+      typeof savedIteration === 'number' &&
+      savedIteration > 0;
+    if (shouldResumeAfterContinue) {
+      loopFrame.iteration = savedIteration;
+    } else if (
       resumePath &&
       typeof savedIteration === 'number' &&
       savedIteration > 0
@@ -3388,7 +3556,10 @@ async function runFlowUnlocked(params: {
       loopFrame.iteration = Math.max(savedIteration - 1, 0);
     }
     loopStack.push(loopFrame);
-    let resumeForLoop = resumePath;
+    let resumeForLoop = shouldResumeAfterContinue ? null : resumePath;
+    if (shouldResumeAfterContinue) {
+      continueBoundaryLoopKey = getStepPathKey(nextPath);
+    }
     while (true) {
       const pendingCancelBeforeIteration = consumePendingConversationCancel({
         conversationId: params.conversationId,
@@ -3407,6 +3578,9 @@ async function runFlowUnlocked(params: {
       loopFrame.iteration += 1;
       const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
       if (resumeForLoop) resumeForLoop = null;
+      if (outcome === 'continue') {
+        continue;
+      }
       if (outcome === 'break') {
         loopStack.pop();
         break;
@@ -3440,14 +3614,8 @@ async function runFlowUnlocked(params: {
       }
     }
     lastCompletedStepPath = nextPath;
-    await persistFlowResumeState({
-      conversationId: params.conversationId,
-      executionId: params.executionId,
-      runtimeState,
-      stepPath: lastCompletedStepPath,
-      loopStack,
-      workingFolder: params.repositoryContext.workingRepositoryPath,
-    });
+    clearContinueBoundaryForActiveLoop();
+    await persistRuntimeResumeState(lastCompletedStepPath);
     return 'ok';
   };
 
@@ -3518,25 +3686,12 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });
-          await persistFlowResumeState({
-            conversationId: params.conversationId,
-            executionId: params.executionId,
-            runtimeState,
-            stepPath: lastCompletedStepPath,
-            loopStack,
-            workingFolder: params.repositoryContext.workingRepositoryPath,
-          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
         }
         lastCompletedStepPath = nextPath;
-        await persistFlowResumeState({
-          conversationId: params.conversationId,
-          executionId: params.executionId,
-          runtimeState,
-          stepPath: lastCompletedStepPath,
-          loopStack,
-          workingFolder: params.repositoryContext.workingRepositoryPath,
-        });
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
         continue;
       }
 
@@ -3564,26 +3719,60 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });
-          await persistFlowResumeState({
-            conversationId: params.conversationId,
-            executionId: params.executionId,
-            runtimeState,
-            stepPath: lastCompletedStepPath,
-            loopStack,
-            workingFolder: params.repositoryContext.workingRepositoryPath,
-          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
         }
         lastCompletedStepPath = nextPath;
-        await persistFlowResumeState({
-          conversationId: params.conversationId,
-          executionId: params.executionId,
-          runtimeState,
-          stepPath: lastCompletedStepPath,
-          loopStack,
-          workingFolder: params.repositoryContext.workingRepositoryPath,
-        });
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
         if (shouldBreak) return 'break';
+        continue;
+      }
+
+      if (step.type === 'continue') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const { status, shouldContinue } = await runContinueStep(step, command);
+        if (shouldStopAfter(status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        if (!shouldContinue) {
+          clearContinueBoundaryForActiveLoop();
+        }
+        if (shouldContinue && loopStack.length === 0) {
+          throw toFlowRunError(
+            'CONTINUE_OUTSIDE_LOOP',
+            'A continue step was reached outside of a startLoop context.',
+          );
+        }
+        if (shouldContinue && loopStack.length > 0) {
+          const activeLoopFrame = loopStack[loopStack.length - 1];
+          pendingLoopControl = {
+            kind: 'continue',
+            loopStepPath: [...activeLoopFrame.loopStepPath],
+          };
+          continueBoundaryLoopKey = getStepPathKey(
+            activeLoopFrame.loopStepPath,
+          );
+        }
+        lastCompletedStepPath = nextPath;
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        if (shouldContinue) return 'continue';
         continue;
       }
 
@@ -3617,25 +3806,12 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });
-          await persistFlowResumeState({
-            conversationId: params.conversationId,
-            executionId: params.executionId,
-            runtimeState,
-            stepPath: lastCompletedStepPath,
-            loopStack,
-            workingFolder: params.repositoryContext.workingRepositoryPath,
-          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
         }
         lastCompletedStepPath = nextPath;
-        await persistFlowResumeState({
-          conversationId: params.conversationId,
-          executionId: params.executionId,
-          runtimeState,
-          stepPath: lastCompletedStepPath,
-          loopStack,
-          workingFolder: params.repositoryContext.workingRepositoryPath,
-        });
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
         continue;
       }
 
@@ -3663,25 +3839,12 @@ async function runFlowUnlocked(params: {
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });
-          await persistFlowResumeState({
-            conversationId: params.conversationId,
-            executionId: params.executionId,
-            runtimeState,
-            stepPath: lastCompletedStepPath,
-            loopStack,
-            workingFolder: params.repositoryContext.workingRepositoryPath,
-          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
         }
         lastCompletedStepPath = nextPath;
-        await persistFlowResumeState({
-          conversationId: params.conversationId,
-          executionId: params.executionId,
-          runtimeState,
-          stepPath: lastCompletedStepPath,
-          loopStack,
-          workingFolder: params.repositoryContext.workingRepositoryPath,
-        });
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
         continue;
       }
 
@@ -3863,6 +4026,12 @@ export async function startFlowRun(
             loopStepPath: [...frame.loopStepPath],
             iteration: frame.iteration,
           })),
+          pendingLoopControl: resumeState.pendingLoopControl
+            ? {
+                kind: resumeState.pendingLoopControl.kind,
+                loopStepPath: [...resumeState.pendingLoopControl.loopStepPath],
+              }
+            : null,
           workingFolder: effectiveWorkingFolder ?? resumeState.workingFolder,
         });
       }
@@ -3947,6 +4116,12 @@ export async function startFlowRun(
         loopStepPath: [...frame.loopStepPath],
         iteration: frame.iteration,
       })),
+      pendingLoopControl: resumeState?.pendingLoopControl
+        ? {
+            kind: resumeState.pendingLoopControl.kind,
+            loopStepPath: [...resumeState.pendingLoopControl.loopStepPath],
+          }
+        : null,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
     });
     params.working_folder = effectiveWorkingFolder;

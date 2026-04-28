@@ -781,8 +781,8 @@ This task applies the provider-neutral contract to the real runtime adapters and
 1. [ ] Run `npm run build:summary:server` from the repository root to prove the Copilot, LM Studio, and MCP runtime changes compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove Copilot tool parity, LM Studio validation, and MCP provider parity. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared chat integration path stays honest after the provider-runtime changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+4. [x] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -812,6 +812,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - Tightened Copilot device-auth preflight diagnostics to log runtime-home versus seed-home context without changing the shared public `unavailable_before_start` vocabulary, then updated README and the new unit/integration proof homes to reflect the revised main-stack startup contract.
 - `npm run lint` initially failed on one import-order warning in `server/src/test/integration/chat-copilot-fallback.test.ts`; reordered that proof-home import, reran the command, and cleared the Task 4 lint checkpoint without widening the reopened startup-scope changes.
 - `npm run format:check` initially reported Prettier drift in the new seed-bootstrap helper and proof homes; ran `npm run format`, reran `npm run format:check`, and restored a clean formatting checkpoint before leaving the later Task 4 wrapper-based proof step.
+- Implementation-only audit re-read Task 4 from disk, confirmed the reopened compose-seed subtasks already map to the latest repo changes in `docker-compose*.yml`, `server/entrypoint.sh`, `server/src/config/copilotSeedBootstrap.ts`, `server/src/routes/copilotDeviceAuth.ts`, `README.md`, and the named proof homes, and carried the already-run final `npm run lint` plus `npm run format:check` commands into Testing items 4 and 5. The wrapper-based proof items `build:summary:server`, `test:summary:server:unit`, and `test:summary:server:cucumber` remain the only incomplete work before Task 4 can leave `__in_progress__`.
 
 ---
 

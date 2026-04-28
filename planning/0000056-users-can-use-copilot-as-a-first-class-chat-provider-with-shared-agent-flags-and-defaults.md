@@ -557,6 +557,7 @@ This task replaces the remaining shared default-model contract with one provider
 - Ran the final Task 1 `npm run lint` checkpoint after the wrapper-backed repairs and it completed cleanly, so the remaining proof surface is down to the final formatting check.
 - Ran the final Task 1 `npm run format:check`, used `npm run format` to fix the one proof-time Prettier drift in `server/src/test/unit/runtimeConfig.test.ts`, and reran `npm run format:check` cleanly so every Task 1 automated proof item is now complete.
 - Automated-proof audit confirmed that all Task 1 subtasks and testing steps are complete with no live blocker remaining, so Task 1 is now closed as `__done__`.
+- Ran a task-scoped manual proof pass on the main compose runtime after treating the prior stack state as stale, using `npm run compose` to rebuild and start from a clean state, then `npm run compose:down` to return the stack to its prior stopped state; startup, `http://localhost:5010/health`, `http://localhost:5001`, `/chat/providers`, and `/chat/models` for Codex/Copilot/LM Studio all responded as expected, `server/.env` still omitted `CODEINFO_CHAT_DEFAULT_MODEL`, and the scratch proof was saved under `codeInfoTmp/manual-testing/0000056/1/` (`support-health.json`, `support-chat-providers.json`, `support-chat-models-*.json`, `support-client-home.html`, `support-summary.txt`). No screenshots were required because Task 1's owned proof surface stayed on startup and HTTP-visible defaults behavior; later browser-visible Agent Flags proof remains owned by the later UI tasks.
 
 ---
 

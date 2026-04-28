@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""Report combined story, repository-scope, and review-loop status."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+import plan_status
+from flow_state_utils import (
+    ScopeResolutionError,
+    branch_matches_story,
+    current_branch,
+    is_git_repository,
+    load_json_file,
+    load_plan_scope,
+    recent_commits,
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Report combined story completion, repository scope, and review-loop "
+            "status for the current implementation handoff."
+        )
+    )
+    parser.add_argument(
+        "--handoff",
+        default="codeInfoStatus/flow-state/current-plan.json",
+        help="Path to the current-plan handoff JSON file.",
+    )
+    parser.add_argument(
+        "--review-state",
+        default="codeInfoStatus/flow-state/review-disposition-state.json",
+        help="Path to the review disposition state JSON file.",
+    )
+    parser.add_argument(
+        "--include-tasks",
+        action="store_true",
+        help="Include per-task detail from plan_status.py in the JSON output.",
+    )
+    return parser.parse_args()
+
+
+def repository_status(
+    *, repo_path: Path, story_number: str, label: str, branched_from: str | None = None
+) -> dict[str, Any]:
+    exists = repo_path.exists()
+    readable = exists and repo_path.is_dir()
+    git_repo = readable and is_git_repository(repo_path)
+    branch = current_branch(repo_path) if git_repo else None
+    commits = recent_commits(repo_path) if git_repo else []
+    status = {
+        "label": label,
+        "path": str(repo_path),
+        "exists": exists,
+        "readable": readable,
+        "is_git_repository": git_repo,
+        "branch": branch,
+        "story_number_matches": branch_matches_story(branch, story_number),
+        "recent_commits": commits,
+    }
+    if branched_from is not None:
+        status["branched_from"] = branched_from
+    return status
+
+
+def load_review_state(review_state_path: Path) -> dict[str, Any]:
+    if not review_state_path.exists():
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": False,
+            "review_state_valid": False,
+            "review_state_error": None,
+        }
+    try:
+        payload = load_json_file(review_state_path)
+    except ScopeResolutionError as exc:
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": True,
+            "review_state_valid": False,
+            "review_state_error": str(exc),
+        }
+
+    review_created_tasks = bool(payload.get("review_created_tasks_added_or_updated"))
+    needs_review_rerun = bool(payload.get("needs_review_rerun_before_close"))
+    needs_final_minor = bool(payload.get("needs_final_minor_fix_revalidation_task"))
+    safe_to_exit = bool(payload.get("safe_to_exit_review_loop_without_tasking"))
+    return {
+        "review_state_path": str(review_state_path),
+        "review_state_present": True,
+        "review_state_valid": True,
+        "review_state_error": None,
+        "review_state_payload": payload,
+        "review_created_tasks_added_or_updated": review_created_tasks,
+        "needs_review_rerun_before_close": needs_review_rerun,
+        "needs_final_minor_fix_revalidation_task": needs_final_minor,
+        "safe_to_exit_review_loop_without_tasking": safe_to_exit,
+        "should_exit_review_loop_to_main_loop": review_created_tasks,
+        "should_finish_review_loop_cleanly": (
+            not needs_review_rerun and not review_created_tasks
+        ),
+    }
+
+
+def scope_failure_reason(repositories: list[dict[str, Any]]) -> str | None:
+    for repository in repositories:
+        if not repository["exists"]:
+            return "repository_missing"
+        if not repository["readable"]:
+            return "repository_unreadable"
+        if not repository["is_git_repository"]:
+            return "repository_not_git"
+        if not repository["story_number_matches"]:
+            return "repository_branch_mismatch"
+    return None
+
+
+def get_story_workflow_status(
+    *,
+    handoff: str = "codeInfoStatus/flow-state/current-plan.json",
+    review_state: str = "codeInfoStatus/flow-state/review-disposition-state.json",
+    include_tasks: bool = False,
+    repo_root: str | Path | None = None,
+) -> dict[str, Any]:
+    try:
+        scope = load_plan_scope(handoff=handoff, repo_root=repo_root)
+    except ScopeResolutionError as exc:
+        return {
+            "handoff_path": handoff,
+            "review_state_path": str(Path(review_state)),
+            "plan_path": None,
+            "story_number": None,
+            "scope_valid": False,
+            "scope_failure_reason": "handoff_invalid",
+            "scope_error": str(exc),
+            "repositories": [],
+            "all_tasks_done": False,
+            "story_complete": False,
+            "final_task_status": None,
+            "tasks": [] if include_tasks else None,
+            "review_state_present": False,
+            "review_state_valid": False,
+            "review_state_error": None,
+            "review_created_tasks_added_or_updated": False,
+            "needs_review_rerun_before_close": False,
+            "needs_final_minor_fix_revalidation_task": False,
+            "safe_to_exit_review_loop_without_tasking": False,
+            "should_exit_review_loop_to_main_loop": False,
+            "should_finish_review_loop_cleanly": False,
+        }
+
+    root = Path(scope["repo_root"])
+    current_repo_status = repository_status(
+        repo_path=root,
+        story_number=scope["story_number"],
+        label="current_repository",
+        branched_from=scope.get("branched_from"),
+    )
+    additional_statuses = [
+        repository_status(
+            repo_path=Path(entry["path"]),
+            story_number=scope["story_number"],
+            label=f"additional_repository_{index + 1}",
+            branched_from=entry.get("branched_from"),
+        )
+        for index, entry in enumerate(scope["additional_repositories"])
+    ]
+    repositories = [current_repo_status, *additional_statuses]
+
+    failure_reason = scope_failure_reason(repositories)
+    plan_exists = Path(scope["plan_path"]).exists()
+    if not plan_exists:
+        failure_reason = failure_reason or "plan_missing"
+
+    try:
+        plan = plan_status.get_plan_status(
+            plan=scope["plan_path"],
+            include_tasks=include_tasks,
+        )
+        plan_error = None
+    except SystemExit as exc:
+        plan = None
+        plan_error = str(exc)
+        failure_reason = failure_reason or "plan_status_error"
+
+    review_status = load_review_state(root / review_state)
+
+    return {
+        "handoff_path": scope["handoff_path"],
+        "review_state_path": review_status["review_state_path"],
+        "plan_path": scope["plan_path_raw"],
+        "story_number": scope["story_number"],
+        "scope_valid": failure_reason is None,
+        "scope_failure_reason": failure_reason,
+        "scope_error": plan_error,
+        "repositories": repositories,
+        "current_repository": current_repo_status,
+        "additional_repositories": additional_statuses,
+        "all_tasks_done": bool(plan and plan["all_tasks_done"]),
+        "story_complete": bool(plan and plan["story_complete"]),
+        "final_task_status": plan["final_task_status"] if plan else None,
+        "selected_task": plan["selected_task"] if plan else None,
+        "highest_in_progress_task": plan["highest_in_progress_task"] if plan else None,
+        "earliest_todo_task": plan["earliest_todo_task"] if plan else None,
+        "tasks": plan["tasks"] if plan and include_tasks else ([] if include_tasks else None),
+        "review_state_present": review_status["review_state_present"],
+        "review_state_valid": review_status["review_state_valid"],
+        "review_state_error": review_status["review_state_error"],
+        "review_created_tasks_added_or_updated": review_status.get(
+            "review_created_tasks_added_or_updated", False
+        ),
+        "needs_review_rerun_before_close": review_status.get(
+            "needs_review_rerun_before_close", False
+        ),
+        "needs_final_minor_fix_revalidation_task": review_status.get(
+            "needs_final_minor_fix_revalidation_task", False
+        ),
+        "safe_to_exit_review_loop_without_tasking": review_status.get(
+            "safe_to_exit_review_loop_without_tasking", False
+        ),
+        "should_exit_review_loop_to_main_loop": review_status.get(
+            "should_exit_review_loop_to_main_loop", False
+        ),
+        "should_finish_review_loop_cleanly": review_status.get(
+            "should_finish_review_loop_cleanly", False
+        ),
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    output = get_story_workflow_status(
+        handoff=args.handoff,
+        review_state=args.review_state,
+        include_tasks=args.include_tasks,
+    )
+    json.dump(output, fp=__import__("sys").stdout, indent=2)
+    __import__("sys").stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

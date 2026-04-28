@@ -10,6 +10,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
 - Re-open the exact canonical plan from disk before deciding whether to edit it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Run `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` before deciding whether an existing final minor-fix revalidation task should be reused or reopened.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - Do not create a final minor-fix revalidation task when no minor fixes were made in the review loop.
@@ -40,6 +41,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - If more than one repository is named in `Affected Repositories`, the task body must explicitly say that validation scope is driven by `Affected Repositories`, not by `Repository Name` alone.
 - The task must include an `Addresses Findings` section naming every `resolved_minor_findings` ID, summary, repository, and resolution commit from the state.
 - The task must include `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance` only if useful.
+- The task must include the exact line `- Review Task Role: \`final_minor_fix_revalidation\``in`Implementation Notes` so the helper script can recognize it on later passes.
 - `Subtasks` must describe implementation-free proof preparation only, such as re-reading the `## Minor Review Fixes` section and verifying resolved finding coverage. Keep `Subtasks` scoped to owner-side preparation only; do not use them to assign code changes or extra cross-repository implementation work. Do not put runnable commands in `Subtasks`.
 - `Testing` must contain automated wrapper-level proof only. Use repository guidance, `AGENTS.md`, `Affected Repositories`, and the resolved findings' changed files to choose the broadest relevant wrapper proof that is honest for final story confidence across every affected repository.
 - When more than one repository appears in `Affected Repositories`, group the testing steps by repository so each repository's wrappers and validation scope are obvious.
@@ -53,7 +55,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 <idempotency_rules>
 
-- Before appending a new task, scan the whole canonical plan for an existing unfinished or finished task whose title or body clearly marks it as the final revalidation task for inline minor review fixes.
+- Before appending a new task, use the JSON output from `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` as the source of truth for whether an existing unfinished or finished task already marks itself as the final revalidation task for inline minor review fixes.
 - If such a task exists, update that task's finding coverage, affected repositories, subtasks, and testing obligations instead of adding a new task.
 - Do not append a second final minor-fix revalidation task for the same story unless the existing task is explicitly for a different review cycle and already fully closed with a later review cycle documented after it.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.

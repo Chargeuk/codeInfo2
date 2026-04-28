@@ -21,12 +21,12 @@ This story makes Copilot feel like a full chat provider in the same product surf
 1. [codeInfo2] - Move shared chat defaults into provider-local chat config files.
 
 - Refresh the pinned Codex and Copilot packages and keep LM Studio aligned to the verified current version.
-- Seed and reread `codex/chat/config.toml`, `copilot/chat/config.toml`, and `lmstudio/chat/config.toml` without bringing back `CODEINFO_CHAT_DEFAULT_MODEL`.
+- Seed and reread `codex/chat/config.toml`, `copilot/chat/config.toml`, and `lmstudio/chat/config.toml` without bringing back `CODEINFO_CHAT_DEFAULT_MODEL`, while keeping Copilot runtime state rooted under `copilot/`.
 
 2. [codeInfo2] - Publish one combined provider, model, and Agent Flags discovery contract.
 
 - Replace the Codex-shaped discovery payload with one provider-neutral response family for providers, models, and option descriptors.
-- Keep fallback ordering, per-model capability narrowing, and provider-specific option honesty explicit in the shared contract.
+- Keep fallback ordering, per-model capability narrowing, provider-specific option honesty, and the distinction between seeded defaults and currently resolved defaults explicit in the shared contract.
 
 3. [codeInfo2] - Replace the normal chat request and persistence contract with provider-neutral `agentFlags`.
 

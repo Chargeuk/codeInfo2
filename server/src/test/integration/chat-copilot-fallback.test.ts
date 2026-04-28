@@ -26,7 +26,10 @@ test('copilot chat returns explicit-provider failure when the user selected an u
 
     assert.equal(response.status, 503);
     assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
-    assert.match(String(response.body.message), /copilot unavailable/i);
+    assert.match(
+      String(response.body.message),
+      /copilot connectivity unavailable/i,
+    );
     assert.equal(memoryConversations.get(conversationId), undefined);
   } finally {
     await server.stop();

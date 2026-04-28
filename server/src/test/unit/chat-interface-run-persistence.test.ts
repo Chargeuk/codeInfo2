@@ -660,6 +660,9 @@ describe('ChatInterface.run persistence', () => {
 
       assert.deepEqual(memoryConversations.get('chat-threadid-clear')?.flags, {
         agentFlags: {
+          contextOverflowPolicy: 'truncateMiddle',
+          maxTokens: 4096,
+          temperature: 0.2,
           toolAccess: 'off',
         },
       });

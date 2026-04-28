@@ -504,6 +504,8 @@ describe('assistant persistence via ChatInterface base', () => {
         memoryConversations.get('same-conversation-agent-flags')?.flags,
         {
           agentFlags: {
+            contextOverflowPolicy: 'truncateMiddle',
+            maxTokens: 4096,
             toolAccess: 'off',
             temperature: 0.7,
           },

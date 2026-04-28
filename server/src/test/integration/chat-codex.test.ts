@@ -433,7 +433,7 @@ test('codex chat accepts non-standard reasoning effort when provided by shared c
     .send(
       buildCodexBody({
         model: 'future-model',
-        modelReasoningEffort: 'turbo',
+        agentFlags: { modelReasoningEffort: 'turbo' },
         conversationId: 'future-model-conv',
       }),
     );
@@ -496,7 +496,7 @@ test('codex chat rejects reasoning effort not supported by shared capability res
     .send(
       buildCodexBody({
         model: 'strict-model',
-        modelReasoningEffort: 'high',
+        agentFlags: { modelReasoningEffort: 'high' },
         conversationId: 'strict-model-conv',
       }),
     );
@@ -1070,7 +1070,7 @@ test('codex chat rejects when detection is unavailable', async () => {
   assert.ok(String(resUnavailable.body.message).length > 0);
 });
 
-test('codex request falls back once to lmstudio when codex is unavailable', async () => {
+test('explicit codex request returns PROVIDER_UNAVAILABLE when codex is unavailable', async () => {
   const app = express();
   app.use(express.json());
   app.use(
@@ -1082,15 +1082,11 @@ test('codex request falls back once to lmstudio when codex is unavailable', asyn
   );
 
   const response = await request(app).post('/chat').send(buildCodexBody());
-  assert.equal(response.status, 202);
-  assert.equal(response.body.provider, 'lmstudio');
-  assert.equal(response.body.model, 'model-1');
-
-  const turns = await waitForAssistantTurn(response.body.conversationId);
-  assert.ok(turns.some((turn) => turn.role === 'assistant'));
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
-test('lmstudio request falls back once to codex when lmstudio is unavailable', async () => {
+test('explicit lmstudio request returns PROVIDER_UNAVAILABLE when lmstudio is unavailable', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -1113,8 +1109,8 @@ test('lmstudio request falls back once to codex when lmstudio is unavailable', a
   const response = await request(app)
     .post('/chat')
     .send(buildCodexBody({ provider: 'lmstudio', model: 'model-1' }));
-  assert.equal(response.status, 202);
-  assert.equal(response.body.provider, 'codex');
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
 test('lmstudio request returns PROVIDER_UNAVAILABLE when both providers are unavailable', async () => {

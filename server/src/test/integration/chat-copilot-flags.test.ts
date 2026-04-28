@@ -4,13 +4,9 @@ import test from 'node:test';
 import request from 'supertest';
 
 import { memoryConversations } from '../../chat/memoryPersistence.js';
-import { query } from '../../logStore.js';
-import {
-  startCopilotChatServer,
-  waitForAssistantTurn,
-} from './support/copilotChatHarness.js';
+import { startCopilotChatServer } from './support/copilotChatHarness.js';
 
-test('copilot chat ignores Codex-only flags and logs the documented warnings', async () => {
+test('copilot chat rejects stale Codex-only top-level flags after Task 3 validation tightening', async () => {
   const server = await startCopilotChatServer({
     scenario: { name: 'copilot-chat-flags' },
   });
@@ -30,28 +26,12 @@ test('copilot chat ignores Codex-only flags and logs the documented warnings', a
       webSearchEnabled: true,
     });
 
-    assert.equal(response.status, 202);
-    await waitForAssistantTurn(conversationId);
-
-    assert.equal(
-      memoryConversations.get(conversationId)?.flags?.threadId,
-      undefined,
+    assert.equal(response.status, 400);
+    assert.match(
+      String(response.body?.message ?? ''),
+      /legacy top-level chat flag "sandboxMode".*agentFlags\.sandboxMode/i,
     );
-
-    const warnings = query({ text: 'chat codex flag ignored' });
-    assert.equal(warnings.length >= 5, true);
-    assert.equal(
-      warnings.some((entry) =>
-        String(entry.context?.warning ?? '').includes('sandboxMode'),
-      ),
-      true,
-    );
-    assert.equal(
-      warnings.some((entry) =>
-        String(entry.context?.warning ?? '').includes('approvalPolicy'),
-      ),
-      true,
-    );
+    assert.equal(memoryConversations.get(conversationId), undefined);
   } finally {
     await server.stop();
   }

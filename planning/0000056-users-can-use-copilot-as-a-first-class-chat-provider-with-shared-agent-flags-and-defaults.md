@@ -682,11 +682,11 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root to prove the request-contract and persistence changes compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root to prove provider-neutral validation, persisted flag ownership, `threadId` cleanup, and lifecycle isolation. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the normal chat integration path still passes after the request-contract change. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Run `npm run build:summary:server` from the repository root to prove the request-contract and persistence changes compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit` from the repository root to prove provider-neutral validation, persisted flag ownership, `threadId` cleanup, and lifecycle isolation. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the normal chat integration path still passes after the request-contract change. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [x] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -697,6 +697,11 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 - Added Task 3 proof owners for contradictory validator input, stale hidden flags, LM Studio blank/numeric-domain failures, persisted `agentFlags`, same-conversation Agent Flag edits, non-Codex `threadId` cleanup, explicit-versus-default provider fallback, deterministic websocket cleanup wording, and provider-neutral reasoning-delta request descriptions.
 - Ran `npm run lint`, fixed the surfaced import-order warning with `npm run lint:fix`, and reran `npm run lint` cleanly so the Task 3 surface is ready for the later proof wrappers instead of carrying style-only fallout forward.
 - Ran `npm run format:check`, applied `npm run format` to the five drifted Task 3 files, and reran `npm run format:check` until Prettier reported `All matched files use Prettier code style!`.
+- `npm run build:summary:server` initially failed on a too-loose `ReadonlySet` cast in `server/src/chat/agentFlags.ts`; tightened the helper to an explicit provider-keyed map and reran the wrapper to a clean `status: passed`.
+- `npm run test:summary:server:unit` first failed on stale Task 3 proof expectations that still assumed top-level Codex flags, silent explicit-provider fallback, or non-defaulted LM Studio persistence; updated those proof homes to assert `agentFlags`, explicit-provider failure, and persisted resolved LM Studio defaults, then reran the full wrapper to `passed: 1850`, `failed: 0`.
+- `npm run test:summary:server:cucumber` first failed in the chat-stream feature because one scenario still expected explicit Codex selection to silently fall back; updated that feature to assert the Task 3 explicit-provider `503 PROVIDER_UNAVAILABLE` contract and reran the full wrapper to `passed: 117`, `failed: 0`.
+- Final `npm run lint` passed cleanly after the proof repairs, so the Task 3 surface no longer has lingering ESLint fallout from the request-contract test updates.
+- Final `npm run format:check` initially reported Prettier drift after the proof updates; ran `npm run format` on the repo-preferred path and reran `npm run format:check` until it reported `All matched files use Prettier code style!`.
 
 ---
 

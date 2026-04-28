@@ -20,12 +20,14 @@ export const PROVIDER_AGENT_FLAG_KEYS: Record<
   lmstudio: ['temperature', 'maxTokens', 'contextOverflowPolicy', 'toolAccess'],
 };
 
-const PROVIDER_AGENT_FLAG_KEY_SET = Object.fromEntries(
-  Object.entries(PROVIDER_AGENT_FLAG_KEYS).map(([provider, keys]) => [
-    provider,
-    new Set(keys),
-  ]),
-) as Record<ChatProviderId, ReadonlySet<ChatAgentFlagKey>>;
+const PROVIDER_AGENT_FLAG_KEY_SET: Record<
+  ChatProviderId,
+  ReadonlySet<ChatAgentFlagKey>
+> = {
+  codex: new Set(PROVIDER_AGENT_FLAG_KEYS.codex),
+  copilot: new Set(PROVIDER_AGENT_FLAG_KEYS.copilot),
+  lmstudio: new Set(PROVIDER_AGENT_FLAG_KEYS.lmstudio),
+};
 
 export function isSupportedAgentFlagKey(
   provider: ChatProviderId,

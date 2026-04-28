@@ -41,8 +41,14 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             )
         )
         if review_state is not None:
+            review_state_payload = {
+                "story_number": "0000123",
+                "plan_path": "planning/0000123-sample-story.md",
+                "review_cycle_id": "0000123-rc-20260428T161530Z-1eb771da",
+            }
+            review_state_payload.update(review_state)
             (handoff.parent / "review-disposition-state.json").write_text(
-                json.dumps(review_state)
+                json.dumps(review_state_payload)
             )
         return repo, str(handoff.relative_to(repo))
 
@@ -158,6 +164,112 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             status["plan_order_warning"], "selected_revalidation_task_is_not_last_task"
         )
 
+    def test_safe_single_legacy_task_can_be_backfilled(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 4. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__to_do__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            """,
+            review_state={"review_cycle_id": "cycle-new"},
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["match_found"])
+        self.assertFalse(status["cycle_match_found"])
+        self.assertTrue(status["should_reuse_existing_task"])
+        self.assertTrue(status["needs_cycle_id_backfill"])
+        self.assertEqual(status["selected_task"]["number"], 4)
+
+    def test_does_not_reuse_historical_cycle_task_for_new_cycle(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 7. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__done__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            - Review Cycle Id: `cycle-old`
+            """,
+            review_state={"review_cycle_id": "cycle-new"},
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["match_found"])
+        self.assertFalse(status["should_reuse_existing_task"])
+        self.assertFalse(status["needs_cycle_id_backfill"])
+
+    def test_does_not_backfill_legacy_task_when_historical_cycle_task_exists(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 4. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__to_do__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+
+            ### Task 7. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__done__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            - Review Cycle Id: `cycle-old`
+            """,
+            review_state={"review_cycle_id": "cycle-new"},
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertFalse(status["match_found"])
+        self.assertFalse(status["should_reuse_existing_task"])
+        self.assertFalse(status["needs_cycle_id_backfill"])
+
+    def test_requests_review_state_repair_when_state_scope_mismatches(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 4. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__to_do__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            """,
+            review_state={
+                "story_number": "0000999",
+                "review_cycle_id": "cycle-old",
+            },
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["repair_needed"])
+        self.assertEqual(status["repair_reason"], "review_state_story_mismatch")
+
     def test_requests_repair_when_cycle_id_is_missing_but_legacy_task_exists(self) -> None:
         repo, handoff = self.make_repo(
             """
@@ -168,7 +280,8 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
             #### Implementation Notes
 
             - Review Task Role: `final_minor_fix_revalidation`
-            """
+            """,
+            review_state={"review_cycle_id": ""},
         )
 
         status = find_minor_fix_revalidation_task.get_revalidation_task_status(

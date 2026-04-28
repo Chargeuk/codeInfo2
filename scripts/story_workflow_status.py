@@ -17,7 +17,9 @@ from flow_state_utils import (
     is_git_repository,
     load_json_file,
     load_plan_scope,
+    normalize_story_number_token,
     recent_commits,
+    resolve_path,
 )
 
 
@@ -70,7 +72,13 @@ def repository_status(
     return status
 
 
-def load_review_state(review_state_path: Path) -> dict[str, Any]:
+def load_review_state(
+    review_state_path: Path,
+    *,
+    repo_root: Path,
+    current_story_number: str,
+    current_plan_path: Path,
+) -> dict[str, Any]:
     if not review_state_path.exists():
         return {
             "review_state_path": str(review_state_path),
@@ -101,6 +109,56 @@ def load_review_state(review_state_path: Path) -> dict[str, Any]:
             "review_state_error": f"incompatible review disposition schema_version: {schema_version}",
             "review_state_repair_action": "rebuild_review_disposition_state",
             "review_state_repair_reason": "review_state_schema_mismatch",
+        }
+
+    state_story_number = payload.get("story_number")
+    if not isinstance(state_story_number, str) or not state_story_number.strip():
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": True,
+            "review_state_valid": False,
+            "review_state_error": "review disposition state lacked a usable story_number",
+            "review_state_repair_action": "rebuild_review_disposition_state",
+            "review_state_repair_reason": "review_state_story_missing",
+        }
+    if normalize_story_number_token(state_story_number) != normalize_story_number_token(
+        current_story_number
+    ):
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": True,
+            "review_state_valid": False,
+            "review_state_error": (
+                "review disposition state story_number did not match the current story "
+                f"({state_story_number!r} != {current_story_number!r})"
+            ),
+            "review_state_repair_action": "rebuild_review_disposition_state",
+            "review_state_repair_reason": "review_state_story_mismatch",
+        }
+
+    state_plan_path_raw = payload.get("plan_path")
+    if not isinstance(state_plan_path_raw, str) or not state_plan_path_raw.strip():
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": True,
+            "review_state_valid": False,
+            "review_state_error": "review disposition state lacked a usable plan_path",
+            "review_state_repair_action": "rebuild_review_disposition_state",
+            "review_state_repair_reason": "review_state_plan_missing",
+        }
+
+    state_plan_path = resolve_path(state_plan_path_raw, repo_root=repo_root)
+    if state_plan_path.resolve() != current_plan_path.resolve():
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": True,
+            "review_state_valid": False,
+            "review_state_error": (
+                "review disposition state plan_path did not match the current plan "
+                f"({state_plan_path_raw!r} != {str(current_plan_path)!r})"
+            ),
+            "review_state_repair_action": "rebuild_review_disposition_state",
+            "review_state_repair_reason": "review_state_plan_mismatch",
         }
 
     review_created_tasks = bool(payload.get("review_created_tasks_added_or_updated"))
@@ -240,7 +298,12 @@ def get_story_workflow_status(
         plan_error = str(exc)
         failure_reason = failure_reason or "plan_status_error"
 
-    review_status = load_review_state(root / review_state)
+    review_status = load_review_state(
+        root / review_state,
+        repo_root=root,
+        current_story_number=scope["story_number"],
+        current_plan_path=Path(scope["plan_path"]),
+    )
     repair_needed = failure_reason is not None
     repair_action = (
         scope_repair_action_for_reason(failure_reason) if failure_reason is not None else None

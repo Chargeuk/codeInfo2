@@ -43,7 +43,7 @@ This step exists to prevent stale review-loop memory from an earlier completed r
   - `codeInfoStatus/flow-state/review-disposition-state.json`
   - `codeInfoStatus/flow-state/minor-review-fix-result.json`
 - Report whether each file was removed or was already absent.
-- Report that the next classifier pass must build fresh state for the new active review loop from the current review handoff and artifacts, including a fresh `review_cycle_id`.
+- Report that the next classifier pass must build fresh state for the new active review loop from the current review handoff and artifacts, including a fresh `review_cycle_id` in the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 </output_contract>
 

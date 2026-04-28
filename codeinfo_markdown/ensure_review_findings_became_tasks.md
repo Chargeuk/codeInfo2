@@ -39,7 +39,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Treat `unresolved_minor_batchable_findings` as owned by the minor-fix path, not this task-up path. Do not create numbered tasks for them unless they have been reclassified into `unresolved_task_required_findings`.
 - Do not create a numbered review-fix task solely because a finding required a small local automated test update or one or two new focused tests in the owning repository.
 - If this step creates or updates the cycle's fresh final revalidation task, it becomes the one final review task for the whole current review cycle. Record that ownership in `review-disposition-state.json` so the inline-minor final-task path does not create a second final task later.
-- Preserve `review_cycle_id` from `review-disposition-state.json` and make the fresh final revalidation task record that same cycle id.
+- Preserve `review_cycle_id` from `review-disposition-state.json`, keep its `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>` format unchanged, and make the fresh final revalidation task record that same cycle id.
 - If the disposition state says `needs_task_up_path` is false, make no plan changes in this step and report that no unresolved task-required findings remain for task-up.
 - If the disposition state is missing, unreadable, malformed, or for a different story/plan, fall back to the existing findings-artifact behavior and record that fallback in the output.
 - If state counts disagree with state arrays, trust the arrays and record the mismatch before deciding task-up work.
@@ -108,7 +108,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Set `minor_fix_revalidation_cycle_closed` to false because that shared final revalidation task still needs to be completed later.
 - Set `review_created_tasks_added_or_updated` to true.
 - Set `safe_to_exit_review_loop_without_tasking` to false.
-- Preserve `review_cycle_id` exactly as-is for this active review loop.
+- Preserve `review_cycle_id` exactly as-is for this active review loop, keeping the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 - If this step makes no plan change because no task-up work remains, do not invent or clear final-task ownership state here.
 
 </state_update_rules>

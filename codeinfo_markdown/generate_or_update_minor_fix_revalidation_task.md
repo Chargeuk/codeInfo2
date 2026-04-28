@@ -12,6 +12,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Re-open the exact canonical plan from disk before deciding whether to edit it, using explicit shell reads such as `sed`, `cat`, or `rg`.
 - Run `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` before deciding whether an existing final minor-fix revalidation task should be reused or reopened.
 - Treat the helper's `review_cycle_id` match as the primary identity for the task. Use task order only as a sanity check, not as the identity rule.
+- Treat `review_cycle_id` as the stable machine identity for the current review loop, using the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - Do not create a final minor-fix revalidation task when no minor fixes were made in the review loop.
@@ -61,6 +62,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - If such a task exists, update that task's finding coverage, affected repositories, subtasks, and testing obligations instead of adding a new task.
 - Do not append a second final minor-fix revalidation task for the same story and same `review_cycle_id`.
 - If the helper reports a non-current-cycle historical task, do not reopen it for the current cycle.
+- If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe legacy task for `review_cycle_id` backfill.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.
 - If the helper reports `needs_cycle_id_backfill`, backfill the current `review_cycle_id` into the selected task while updating it.
 - Preserve completed proof notes that remain true, but uncheck or rewrite any testing item whose proof is no longer honest after adding new resolved minor findings.

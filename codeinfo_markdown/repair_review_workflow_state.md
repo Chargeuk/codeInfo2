@@ -18,7 +18,8 @@ Repair broken review-loop flow state for the current story so review exit routin
 2. When `repair_action` is `refresh_current_plan_handoff`, refresh `current-plan.json` in place from the canonical plan and current repository scope.
 3. When `repair_action` is `normalize_scope_then_refresh_handoff`, normalize story scope first and then refresh the handoff.
 4. After story scope is healthy, rebuild `codeInfoStatus/flow-state/review-disposition-state.json` from the current review handoff and review artifacts when `review_state_repair_needed` is true.
-5. When rebuilding review state, preserve the active story and canonical plan and mint or preserve the correct `review_cycle_id` for the active review loop.
+5. Treat `review_state_story_mismatch` or `review_state_plan_mismatch` as stale review state for a different scope. Rebuild the file instead of trusting or partially preserving it.
+6. When rebuilding review state, preserve the active story and canonical plan and mint or preserve the correct `review_cycle_id` for the active review loop using the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 
 </repair_rules>
 

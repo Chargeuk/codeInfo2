@@ -14,6 +14,8 @@ from flow_state_utils import (
     ScopeResolutionError,
     load_json_file,
     load_plan_scope,
+    normalize_story_number_token,
+    resolve_path,
     story_number_from_plan_name,
 )
 
@@ -84,13 +86,32 @@ def summarise_task(task: dict[str, Any] | None, *, metadata: dict[str, Any] | No
     }
 
 
-def load_review_cycle_id(review_state_path: Path) -> tuple[str | None, str | None]:
+def load_review_cycle_id(
+    review_state_path: Path,
+    *,
+    repo_root: Path,
+    current_story_number: str,
+    current_plan_path: Path,
+) -> tuple[str | None, str | None]:
     if not review_state_path.exists():
         return None, "review_state_missing"
     try:
         payload = load_json_file(review_state_path)
     except ScopeResolutionError:
         return None, "review_state_invalid"
+    state_story_number = payload.get("story_number")
+    if not isinstance(state_story_number, str) or not state_story_number.strip():
+        return None, "review_state_story_missing"
+    if normalize_story_number_token(state_story_number) != normalize_story_number_token(
+        current_story_number
+    ):
+        return None, "review_state_story_mismatch"
+    state_plan_path_raw = payload.get("plan_path")
+    if not isinstance(state_plan_path_raw, str) or not state_plan_path_raw.strip():
+        return None, "review_state_plan_missing"
+    state_plan_path = resolve_path(state_plan_path_raw, repo_root=repo_root)
+    if state_plan_path.resolve() != current_plan_path.resolve():
+        return None, "review_state_plan_mismatch"
     cycle_id = payload.get("review_cycle_id")
     if not isinstance(cycle_id, str) or not cycle_id.strip():
         return None, "review_cycle_id_missing"
@@ -134,7 +155,12 @@ def get_revalidation_task_status(
     tasks = plan_status.parse_plan(plan_path)
     story_number = story_number_from_plan_name(plan_path.name) or scope["story_number"]
     review_state_path = root / review_state
-    review_cycle_id, cycle_id_error = load_review_cycle_id(review_state_path)
+    review_cycle_id, cycle_id_error = load_review_cycle_id(
+        review_state_path,
+        repo_root=root,
+        current_story_number=story_number,
+        current_plan_path=plan_path,
+    )
 
     candidate_pairs = []
     for task in tasks:
@@ -152,6 +178,11 @@ def get_revalidation_task_status(
         for task, metadata in candidate_pairs
         if metadata.get("review_cycle_id") is None
     ]
+    explicit_cycle_candidates = [
+        (task, metadata)
+        for task, metadata in candidate_pairs
+        if metadata.get("review_cycle_id") is not None
+    ]
 
     repair_needed = False
     repair_action = None
@@ -161,20 +192,20 @@ def get_revalidation_task_status(
     selected_pair: tuple[dict[str, Any], dict[str, Any]] | None = None
     if cycle_matches:
         selected_pair = max(cycle_matches, key=lambda item: item[0]["number"])
-    elif review_cycle_id is not None and len(legacy_candidates) == 1:
+    elif (
+        review_cycle_id is not None
+        and len(legacy_candidates) == 1
+        and len(candidate_pairs) == 1
+    ):
         selected_pair = legacy_candidates[0]
         needs_cycle_id_backfill = True
     elif cycle_id_error is not None:
         repair_needed = True
         repair_action = "rebuild_review_disposition_state"
         repair_reason = cycle_id_error
-        if len(candidate_pairs) == 1:
+        if len(candidate_pairs) == 1 and not explicit_cycle_candidates:
             selected_pair = candidate_pairs[0]
             needs_cycle_id_backfill = True
-    elif len(legacy_candidates) > 1:
-        repair_needed = True
-        repair_action = "repair_revalidation_task_identity"
-        repair_reason = "ambiguous_legacy_revalidation_tasks"
 
     selected_task = None if selected_pair is None else selected_pair[0]
     selected_metadata = None if selected_pair is None else selected_pair[1]

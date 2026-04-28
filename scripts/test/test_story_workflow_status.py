@@ -81,8 +81,15 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         )
 
         if add_review_state:
+            review_state_payload = {
+                "story_number": "0000123",
+                "plan_path": "planning/0000123-sample-story.md",
+                "review_cycle_id": "0000123-rc-20260428T161530Z-1eb771da",
+            }
+            if review_state is not None:
+                review_state_payload.update(review_state)
             (flow_state / "review-disposition-state.json").write_text(
-                json.dumps(review_state or {}, indent=2)
+                json.dumps(review_state_payload, indent=2)
             )
 
         return repo, str(handoff_path.relative_to(repo))
@@ -272,6 +279,52 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         self.assertTrue(status["review_state_valid"])
         self.assertTrue(status["should_exit_review_loop_to_main_loop"])
         self.assertFalse(status["should_finish_review_loop_cleanly"])
+
+    def test_review_state_story_mismatch_requires_rebuild(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """,
+            add_review_state=True,
+            review_state={"story_number": "0000999"},
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["scope_valid"])
+        self.assertTrue(status["review_state_repair_needed"])
+        self.assertEqual(
+            status["review_state_repair_reason"], "review_state_story_mismatch"
+        )
+        self.assertFalse(status["review_state_valid"])
+
+    def test_review_state_plan_mismatch_requires_rebuild(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """,
+            add_review_state=True,
+            review_state={"plan_path": "planning/0000124-other-story.md"},
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["scope_valid"])
+        self.assertTrue(status["review_state_repair_needed"])
+        self.assertEqual(
+            status["review_state_repair_reason"], "review_state_plan_mismatch"
+        )
+        self.assertFalse(status["review_state_valid"])
 
     def test_malformed_review_state_requires_rebuild(self) -> None:
         repo, handoff = self.make_repo(

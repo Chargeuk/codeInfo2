@@ -62,6 +62,52 @@ test('copilot chat shares the stop path and settles the inflight run cleanly', a
       .filter((turn) => turn.role === 'assistant')
       .at(-1);
     assert.equal(assistantTurn?.status, 'stopped');
+    assert.equal(server.harness.getState().stopCount, 1);
+  } finally {
+    await closeWs(ws);
+    await server.stop();
+  }
+});
+
+test('copilot chat failure still tears the runtime down before leaving the run failed', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-failure-cleanup',
+      sendError: new Error('copilot send failed'),
+    },
+    withWs: true,
+  });
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+
+  try {
+    const conversationId = 'copilot-failure-conversation';
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+      conversationId,
+      message: 'Start and fail',
+    });
+
+    assert.equal(response.status, 202);
+    const inflightId = response.body.inflightId as string;
+
+    const finalEvent = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTurnFinalEvent => {
+        const candidate = event as Partial<WsTurnFinalEvent>;
+        return (
+          candidate.type === 'turn_final' &&
+          candidate.conversationId === conversationId &&
+          candidate.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(finalEvent.status, 'failed');
+    assert.equal(server.harness.getState().stopCount, 1);
   } finally {
     await closeWs(ws);
     await server.stop();

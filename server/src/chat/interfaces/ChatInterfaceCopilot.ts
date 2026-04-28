@@ -17,11 +17,16 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { CopilotLifecycle } from '../copilotLifecycle.js';
+import {
+  resolveCopilotRuntimeAgentFlags,
+  type CopilotRuntimeAgentFlags,
+} from '../providerRuntimeFlags.js';
 import { ChatInterface } from './ChatInterface.js';
 
 const TASK7_LOG_MARKER = 'story.0000051.task07.chat_turn_completed';
 
 type CopilotRunFlags = {
+  agentFlags?: Record<string, unknown>;
   systemPrompt?: string;
   workingDirectoryOverride?: string;
   history?: TurnSummary[];
@@ -48,7 +53,12 @@ type ChatInterfaceCopilotOptions = {
   toolsFactory?: (
     phase: SessionPhase,
     flags: CopilotRunFlags,
-  ) => Tool[] | undefined;
+  ) =>
+    | {
+        tools: Tool[];
+        toolNames: string[];
+      }
+    | undefined;
   permissionHandler?: PermissionHandler;
 };
 
@@ -124,6 +134,21 @@ export class ChatInterfaceCopilot extends ChatInterface {
     this.permissionHandler = options.permissionHandler ?? approveAll;
   }
 
+  private resolveSessionFlags(flags: CopilotRunFlags): {
+    runtimeFlags: CopilotRuntimeAgentFlags;
+    toolConfig?: ReturnType<
+      NonNullable<ChatInterfaceCopilotOptions['toolsFactory']>
+    >;
+  } {
+    return {
+      runtimeFlags: resolveCopilotRuntimeAgentFlags(flags.agentFlags),
+      toolConfig: this.toolsFactory(
+        flags.resumeConversation ? 'resume' : 'create',
+        flags,
+      ),
+    };
+  }
+
   buildCreateSessionConfig(
     conversationId: string,
     model: string,
@@ -131,13 +156,17 @@ export class ChatInterfaceCopilot extends ChatInterface {
     onEvent?: SessionEventHandler,
   ): SessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
+    const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
     return {
       sessionId: conversationId,
       model,
       configDir: this.lifecycle.configDir,
+      reasoningEffort: runtimeFlags.modelReasoningEffort,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
-      tools: this.toolsFactory('create', typedFlags),
+      tools: toolConfig?.tools,
+      availableTools:
+        runtimeFlags.toolAccess === 'off' ? [] : toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
       ...(typedFlags.systemPrompt
         ? {
@@ -159,12 +188,16 @@ export class ChatInterfaceCopilot extends ChatInterface {
     onEvent?: SessionEventHandler,
   ): ResumeSessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
+    const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
     return {
       model,
       configDir: this.lifecycle.configDir,
+      reasoningEffort: runtimeFlags.modelReasoningEffort,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),
-      tools: this.toolsFactory('resume', typedFlags),
+      tools: toolConfig?.tools,
+      availableTools:
+        runtimeFlags.toolAccess === 'off' ? [] : toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
       ...(typedFlags.systemPrompt
         ? {
@@ -219,6 +252,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
     let started = false;
     let session: CopilotSessionLike | undefined;
     const toolNameByCallId = new Map<string, string>();
+    let sawProviderThreadEvent = false;
 
     const logTerminal = (status: 'completed' | 'stopped' | 'failed') => {
       if (terminalLogged) return;
@@ -248,6 +282,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       switch (event.type) {
         case 'session.start':
         case 'session.resume':
+          sawProviderThreadEvent = true;
           this.emitEvent({ type: 'thread', threadId: conversationId });
           return;
         case 'assistant.message_delta':
@@ -359,10 +394,9 @@ export class ChatInterfaceCopilot extends ChatInterface {
               onEvent,
             );
 
-      session.registerPermissionHandler(this.permissionHandler);
-      session.registerHooks(this.hooksFactory(phase, typedFlags));
-      session.registerTools(this.toolsFactory(phase, typedFlags));
-      this.emitEvent({ type: 'thread', threadId: conversationId });
+      if (!sawProviderThreadEvent) {
+        this.emitEvent({ type: 'thread', threadId: conversationId });
+      }
 
       await session.sendAndWait({ prompt: message });
     } finally {

@@ -155,6 +155,28 @@ async function withTempCodexHome(params: {
   };
 }
 
+async function withTempCopilotHome(chatToml: string): Promise<{
+  copilotHome: string;
+  cleanup: () => Promise<void>;
+}> {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task8-copilot-'),
+  );
+  const copilotHome = path.join(root, 'copilot');
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    chatToml,
+    'utf8',
+  );
+  return {
+    copilotHome,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
+}
+
 class CapturingChat extends ChatInterface {
   lastFlags?: Record<string, unknown>;
 
@@ -313,6 +335,39 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
+  }
+});
+
+test('codebase_question reuses shared provider defaults when provider copilot is selected', async () => {
+  const originalHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempHome = await withTempCopilotHome(
+    ['model = "copilot-default-model"', 'tool_access = "off"', ''].join('\n'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+  const chat = new CapturingChat();
+
+  try {
+    const result = await runCodebaseQuestion(
+      { question: 'copilot defaults?', provider: 'copilot' },
+      {
+        chatFactory: () => chat,
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['copilot-default-model'],
+          modelsRaw: [],
+          authSource: 'env-token',
+        }),
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'copilot-default-model');
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
+    else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    await tempHome.cleanup();
   }
 });
 

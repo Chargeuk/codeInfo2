@@ -65,3 +65,51 @@ test('copilot resume failures stay explicit instead of silently creating a fresh
     await server.stop();
   }
 });
+
+test('copilot chat maps toolAccess On and Off through the real session config seam', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-tool-access',
+    },
+  });
+
+  try {
+    await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        conversationId: 'copilot-tool-access-on',
+        message: 'Tools on',
+        agentFlags: {
+          toolAccess: 'on',
+        },
+      });
+    await waitForAssistantTurn('copilot-tool-access-on');
+
+    assert.deepEqual(
+      server.harness.getState().lastCreateSessionConfig?.availableTools,
+      ['ListIngestedRepositories', 'VectorSearch'],
+    );
+
+    await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        conversationId: 'copilot-tool-access-off',
+        message: 'Tools off',
+        agentFlags: {
+          toolAccess: 'off',
+        },
+      });
+    await waitForAssistantTurn('copilot-tool-access-off');
+
+    assert.deepEqual(
+      server.harness.getState().lastCreateSessionConfig?.availableTools,
+      [],
+    );
+  } finally {
+    await server.stop();
+  }
+});

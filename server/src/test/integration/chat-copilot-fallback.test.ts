@@ -31,6 +31,7 @@ test('copilot chat returns explicit-provider failure when the user selected an u
       /copilot connectivity unavailable/i,
     );
     assert.equal(memoryConversations.get(conversationId), undefined);
+    assert.equal(server.harness.getState().lastCreateSessionConfig, undefined);
   } finally {
     await server.stop();
   }

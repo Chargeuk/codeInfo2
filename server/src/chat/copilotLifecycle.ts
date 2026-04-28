@@ -117,14 +117,27 @@ export class CopilotLifecycle {
   }
 
   async createSession(config: SessionConfig): Promise<CopilotSession> {
-    return this.client.createSession(this.withConfigDir(config));
+    return this.client.createSession(this.prepareCreateSessionConfig(config));
   }
 
   async resumeSession(
     sessionId: string,
     config: ResumeSessionConfig,
   ): Promise<CopilotSession> {
-    return this.client.resumeSession(sessionId, this.withConfigDir(config));
+    return this.client.resumeSession(
+      sessionId,
+      this.prepareResumeSessionConfig(config),
+    );
+  }
+
+  private prepareCreateSessionConfig(config: SessionConfig): SessionConfig {
+    return this.withConfigDir(config);
+  }
+
+  private prepareResumeSessionConfig(
+    config: ResumeSessionConfig,
+  ): ResumeSessionConfig {
+    return this.withConfigDir(config);
   }
 
   private withConfigDir<T extends { configDir?: string }>(config: T): T {

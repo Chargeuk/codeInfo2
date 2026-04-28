@@ -170,3 +170,78 @@ test('MCP codebase_question publishes WS transcript events while in progress', a
     process.env.MCP_FORCE_CODEX_AVAILABLE = originalForce;
   }
 });
+
+test('MCP codebase_question keeps Copilot provider parity on the streamed websocket path', async () => {
+  resetStore();
+
+  setToolDeps({
+    chatFactory: () => new StreamingChat(),
+    copilotReadinessResolver: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token',
+    }),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+
+  const conversationId = 'mcp-ws-copilot-conv-1';
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const toolCallPromise = postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'What is up with Copilot?',
+          conversationId,
+          provider: 'copilot',
+          model: 'copilot-gpt-5',
+        },
+      },
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is { type: string; status: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(final.status, 'ok');
+
+    const response = await toolCallPromise;
+    assert.ok((response as { result?: unknown }).result);
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
+    await new Promise<void>((resolve) => mcpServer.close(() => resolve()));
+    resetToolDeps();
+  }
+});

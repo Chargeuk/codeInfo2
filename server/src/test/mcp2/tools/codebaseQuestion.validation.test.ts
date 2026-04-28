@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
+import { validateParams } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 
 const makeLmStudioClientFactory = () => () =>
@@ -222,4 +223,32 @@ test('codebase_question validation rejects invalid provider values deterministic
       server.close(() => resolve());
     });
   }
+});
+
+test('codebase_question validation accepts provider copilot without widening the public input shape', () => {
+  assert.deepEqual(
+    validateParams({
+      question: 'copilot?',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    }),
+    {
+      question: 'copilot?',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+  );
+
+  assert.throws(
+    () =>
+      validateParams({
+        question: 'copilot?',
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        agentFlags: {
+          toolAccess: 'off',
+        },
+      }),
+    /Invalid params/u,
+  );
 });

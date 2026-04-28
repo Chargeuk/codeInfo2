@@ -6,6 +6,11 @@ import type {
 } from '@openai/codex-sdk';
 import { isSupportedAgentFlagKey } from '../chat/agentFlags.js';
 import {
+  ProviderRuntimeFlagError,
+  resolveCopilotRuntimeAgentFlags,
+  resolveLmStudioRuntimeAgentFlags,
+} from '../chat/providerRuntimeFlags.js';
+import {
   getCodexCapabilityForModel,
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -19,7 +24,6 @@ import {
   toCodexDefaultSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
-import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
 import { baseLogger } from '../logger.js';
 import { validateRequestedWorkingFolder } from '../workingFolders/state.js';
 
@@ -125,7 +129,6 @@ export const modelReasoningEfforts = [
   'high',
   'xhigh',
 ] as const satisfies readonly ModelReasoningEffort[];
-export const copilotReasoningEfforts = ['low', 'medium', 'high'] as const;
 export const codexReasoningSummaries = [
   'auto',
   'concise',
@@ -134,12 +137,6 @@ export const codexReasoningSummaries = [
 ] as const;
 export const codexVerbosityLevels = ['low', 'medium', 'high'] as const;
 export const codexWebSearchModes = ['disabled', 'cached', 'live'] as const;
-export const lmStudioContextOverflowPolicies = [
-  'stopAtLimit',
-  'truncateMiddle',
-  'rollingWindow',
-] as const;
-export const toolAccessModes = ['on', 'off'] as const;
 const LEGACY_TOP_LEVEL_FLAG_KEYS = [
   'sandboxMode',
   'networkAccessEnabled',
@@ -150,38 +147,12 @@ const LEGACY_TOP_LEVEL_FLAG_KEYS = [
 
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 const PROVIDER_VALIDATION_MESSAGE = `provider must be one of: ${ORDERED_CHAT_PROVIDER_IDS.join(', ')}`;
-const DEFAULT_COPILOT_REASONING_EFFORT = 'medium';
-const DEFAULT_COPILOT_TOOL_ACCESS = 'on';
-const DEFAULT_LMSTUDIO_TEMPERATURE = 0.2;
-const DEFAULT_LMSTUDIO_MAX_TOKENS = 4096;
-const DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY = 'truncateMiddle';
-const DEFAULT_LMSTUDIO_TOOL_ACCESS = 'on';
 const DEFAULT_CODEX_REASONING_SUMMARY = 'auto';
 const DEFAULT_CODEX_VERBOSITY = 'medium';
 
 const parseBoolean = (value: unknown, field: string): boolean => {
   if (typeof value !== 'boolean') {
     throw new ChatValidationError(`${field} must be a boolean`);
-  }
-  return value;
-};
-
-const parseFiniteNumber = (
-  value: unknown,
-  field: string,
-  options?: { min?: number; max?: number; integer?: boolean },
-): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new ChatValidationError(`${field} must be a number`);
-  }
-  if (options?.integer && !Number.isInteger(value)) {
-    throw new ChatValidationError(`${field} must be an integer`);
-  }
-  if (options?.min !== undefined && value < options.min) {
-    throw new ChatValidationError(`${field} must be at least ${options.min}`);
-  }
-  if (options?.max !== undefined && value > options.max) {
-    throw new ChatValidationError(`${field} must be at most ${options.max}`);
   }
   return value;
 };
@@ -204,24 +175,6 @@ const parseChoice = <T extends string>(
   }
   return trimmed as T;
 };
-
-const parseOptionalConfigString = <T extends string>(
-  value: unknown,
-  choices: readonly T[],
-): T | undefined => {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return choices.includes(trimmed as T) ? (trimmed as T) : undefined;
-};
-
-const parseOptionalPositiveInteger = (value: unknown): number | undefined => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
-  if (!Number.isInteger(value) || value <= 0) return undefined;
-  return value;
-};
-
-const parseOptionalFiniteNumber = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 
 const normalizeAgentFlagsObject = (
   rawAgentFlags: unknown,
@@ -256,112 +209,32 @@ const validateNoUnsupportedAgentFlags = (
   }
 };
 
-const loadProviderConfigForAgentFlags = (
-  provider: Provider,
-): Record<string, unknown> => {
-  try {
-    const snapshot = loadProviderChatDefaultsSnapshotSync({ provider });
-    return snapshot.config ?? {};
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new ChatValidationError(
-      `${provider}/chat/config.toml could not be loaded for agentFlags resolution (${message})`,
-    );
-  }
-};
-
 const resolveCopilotAgentFlags = (
   rawAgentFlags: Record<string, unknown>,
 ): Record<string, unknown> => {
   validateNoUnsupportedAgentFlags('copilot', rawAgentFlags);
-  const config = loadProviderConfigForAgentFlags('copilot');
-  const configReasoningEffort =
-    parseOptionalConfigString(
-      config.reasoning_effort,
-      copilotReasoningEfforts,
-    ) ?? DEFAULT_COPILOT_REASONING_EFFORT;
-  const configToolAccess =
-    parseOptionalConfigString(config.tool_access, toolAccessModes) ??
-    DEFAULT_COPILOT_TOOL_ACCESS;
-
-  const agentFlags: Record<string, unknown> = {
-    modelReasoningEffort:
-      rawAgentFlags.modelReasoningEffort !== undefined
-        ? parseChoice(
-            rawAgentFlags.modelReasoningEffort,
-            'agentFlags.modelReasoningEffort',
-            copilotReasoningEfforts,
-          )
-        : configReasoningEffort,
-    toolAccess:
-      rawAgentFlags.toolAccess !== undefined
-        ? parseChoice(
-            rawAgentFlags.toolAccess,
-            'agentFlags.toolAccess',
-            toolAccessModes,
-          )
-        : configToolAccess,
-  };
-
-  return agentFlags;
+  try {
+    return resolveCopilotRuntimeAgentFlags(rawAgentFlags);
+  } catch (error) {
+    if (error instanceof ProviderRuntimeFlagError) {
+      throw new ChatValidationError(error.message);
+    }
+    throw error;
+  }
 };
 
 const resolveLmStudioAgentFlags = (
   rawAgentFlags: Record<string, unknown>,
 ): Record<string, unknown> => {
   validateNoUnsupportedAgentFlags('lmstudio', rawAgentFlags);
-  const config = loadProviderConfigForAgentFlags('lmstudio');
-  const configTemperature =
-    parseOptionalFiniteNumber(config.temperature) ??
-    DEFAULT_LMSTUDIO_TEMPERATURE;
-  const configMaxTokens =
-    parseOptionalPositiveInteger(config.max_tokens) ??
-    DEFAULT_LMSTUDIO_MAX_TOKENS;
-  const configContextOverflowPolicy =
-    parseOptionalConfigString(
-      config.context_overflow_policy,
-      lmStudioContextOverflowPolicies,
-    ) ?? DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY;
-  const configToolAccess =
-    parseOptionalConfigString(config.tool_access, toolAccessModes) ??
-    DEFAULT_LMSTUDIO_TOOL_ACCESS;
-
-  return {
-    temperature:
-      rawAgentFlags.temperature !== undefined
-        ? parseFiniteNumber(
-            rawAgentFlags.temperature,
-            'agentFlags.temperature',
-            {
-              min: 0,
-              max: 2,
-            },
-          )
-        : configTemperature,
-    maxTokens:
-      rawAgentFlags.maxTokens !== undefined
-        ? parseFiniteNumber(rawAgentFlags.maxTokens, 'agentFlags.maxTokens', {
-            min: 1,
-            integer: true,
-          })
-        : configMaxTokens,
-    contextOverflowPolicy:
-      rawAgentFlags.contextOverflowPolicy !== undefined
-        ? parseChoice(
-            rawAgentFlags.contextOverflowPolicy,
-            'agentFlags.contextOverflowPolicy',
-            lmStudioContextOverflowPolicies,
-          )
-        : configContextOverflowPolicy,
-    toolAccess:
-      rawAgentFlags.toolAccess !== undefined
-        ? parseChoice(
-            rawAgentFlags.toolAccess,
-            'agentFlags.toolAccess',
-            toolAccessModes,
-          )
-        : configToolAccess,
-  };
+  try {
+    return resolveLmStudioRuntimeAgentFlags(rawAgentFlags);
+  } catch (error) {
+    if (error instanceof ProviderRuntimeFlagError) {
+      throw new ChatValidationError(error.message);
+    }
+    throw error;
+  }
 };
 
 const resolveCodexAgentFlags = async (params: {

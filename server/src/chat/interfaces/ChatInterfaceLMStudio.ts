@@ -14,6 +14,7 @@ import type {
 } from '../../mongo/turn.js';
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
 import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
+import { resolveLmStudioRuntimeAgentFlags } from '../providerRuntimeFlags.js';
 import {
   ChatInterface,
   type ChatCompleteEvent,
@@ -142,6 +143,7 @@ const getContentItems = (message: unknown): LMContentItem[] => {
 };
 
 type LmStudioRunFlags = {
+  agentFlags?: Record<string, unknown>;
   requestId?: string;
   baseUrl?: string;
   signal?: AbortSignal;
@@ -167,6 +169,9 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     model: string,
   ): Promise<void> {
     const { requestId, baseUrl, signal } = (flags ?? {}) as LmStudioRunFlags;
+    const runtimeFlags = resolveLmStudioRuntimeAgentFlags(
+      (flags as LmStudioRunFlags)?.agentFlags,
+    );
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
@@ -483,6 +488,9 @@ export class ChatInterfaceLMStudio extends ChatInterface {
           unknown
         > = {
         allowParallelToolExecution: false,
+        temperature: runtimeFlags.temperature,
+        maxTokens: runtimeFlags.maxTokens,
+        contextOverflowPolicy: runtimeFlags.contextOverflowPolicy,
         signal: controller.signal,
         onPredictionCompleted: (predictionResult) => {
           const mapped = mapLmStudioStats(
@@ -790,11 +798,13 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         },
       };
 
+      const enabledTools =
+        runtimeFlags.toolAccess === 'off'
+          ? []
+          : [...(lmStudioTools as readonly unknown[])];
       const prediction = modelClient.act(
         chat,
-        [...(lmStudioTools as readonly unknown[])] as Parameters<
-          typeof modelClient.act
-        >[1],
+        enabledTools as Parameters<typeof modelClient.act>[1],
         actOptions as LLMActionOpts,
       );
 
@@ -814,6 +824,29 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     } catch (err) {
       const messageText =
         (err as Error | undefined)?.message ?? 'lmstudio unavailable';
+      append({
+        level: 'error',
+        message: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          conversationId,
+          model,
+          baseUrl: safeBase,
+          error: messageText,
+        },
+      });
+      baseLogger.error(
+        {
+          requestId,
+          conversationId,
+          model,
+          baseUrl: safeBase,
+          err,
+        },
+        'story.0000056.task04.lmstudio_runtime_flags_invalid',
+      );
       const errorEvent: ChatErrorEvent = {
         type: 'error',
         message: messageText,

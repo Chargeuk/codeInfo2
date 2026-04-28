@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ChatInterfaceLMStudio } from '../../chat/interfaces/ChatInterfaceLMStudio.js';
 import {
   createLmStudioEmbeddingProvider,
   LmStudioEmbeddingError,
@@ -160,4 +161,52 @@ test('rejects whitespace-only LM Studio input with the same bad-request error', 
   });
   assert.equal(logs.length, 1);
   assert.equal(logs[0]?.context?.rawInputClassification, 'whitespace_only');
+});
+
+test('LM Studio chat runtime rejects unlimited and out-of-range numeric agent flag values while leaving a diagnosable log entry', async () => {
+  const runInvalidFlags = async (agentFlags: Record<string, unknown>) => {
+    resetStore();
+    const chat = new ChatInterfaceLMStudio(
+      () => {
+        throw new Error('client should not be created');
+      },
+      () => ({ tools: [] }),
+    );
+    const errors: string[] = [];
+    chat.on('error', (event) => errors.push(event.message));
+
+    await chat.execute(
+      'hello',
+      {
+        requestId: 'lmstudio-runtime-invalid',
+        baseUrl: 'http://127.0.0.1:1234',
+        agentFlags,
+      },
+      'lmstudio-runtime-invalid-conversation',
+      'lmstudio-model',
+    );
+
+    const logs = query({
+      text: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
+    });
+
+    return {
+      error: errors.at(-1) ?? '',
+      log: logs.at(-1),
+    };
+  };
+
+  const unlimited = await runInvalidFlags({ maxTokens: false });
+  assert.match(unlimited.error, /agentFlags\.maxTokens must be a number/u);
+  assert.match(
+    String(unlimited.log?.context?.error ?? ''),
+    /agentFlags\.maxTokens must be a number/u,
+  );
+
+  const outOfRange = await runInvalidFlags({ temperature: 3 });
+  assert.match(outOfRange.error, /agentFlags\.temperature must be at most 2/u);
+  assert.match(
+    String(outOfRange.log?.context?.error ?? ''),
+    /agentFlags\.temperature must be at most 2/u,
+  );
 });

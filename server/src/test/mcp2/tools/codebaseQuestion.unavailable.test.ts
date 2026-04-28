@@ -4,7 +4,9 @@ import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import { resolveCodexCapabilities } from '../../../codex/capabilityResolver.js';
 import { query, resetStore } from '../../../logStore.js';
+import { ProviderUnavailableError } from '../../../mcp2/errors.js';
 import { handleRpc } from '../../../mcp2/router.js';
+import { runCodebaseQuestion } from '../../../mcp2/tools/codebaseQuestion.js';
 
 async function postJson(port: number, body: unknown) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
@@ -66,4 +68,29 @@ test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing'
     }
     server.close();
   }
+});
+
+test('codebase_question surfaces provider-unavailable behavior honestly for copilot', async () => {
+  await assert.rejects(
+    () =>
+      runCodebaseQuestion(
+        { question: 'copilot unavailable?', provider: 'copilot' },
+        {
+          copilotReadinessResolver: async () => ({
+            available: false,
+            toolsAvailable: false,
+            reason: 'copilot connectivity unavailable',
+            blockingStage: 'connectivity',
+            models: [],
+            modelsRaw: [],
+            authSource: 'unauthenticated',
+          }),
+        },
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof ProviderUnavailableError);
+      assert.equal(error.message, 'CODE_INFO_LLM_UNAVAILABLE');
+      return true;
+    },
+  );
 });

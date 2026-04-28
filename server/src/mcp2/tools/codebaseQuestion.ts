@@ -48,6 +48,7 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
+import { resolveCopilotReadiness } from '../../providers/copilotReadiness.js';
 import { isCodexAvailable } from '../codexAvailability.js';
 import {
   ArchivedConversationError,
@@ -62,7 +63,7 @@ const paramsSchema = z
   .object({
     question: z.string().min(1),
     conversationId: z.string().min(1).optional(),
-    provider: z.enum(['codex', 'lmstudio']).optional(),
+    provider: z.enum(['codex', 'copilot', 'lmstudio']).optional(),
     model: z.string().min(1).optional(),
   })
   .strict();
@@ -143,6 +144,7 @@ export type CodebaseQuestionDeps = {
   };
   chatFactory?: typeof getChatInterface;
   chatRuntimeConfigResolver?: typeof resolveChatRuntimeConfig;
+  copilotReadinessResolver?: typeof resolveCopilotReadiness;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
@@ -364,14 +366,21 @@ export async function runCodebaseQuestion(
     }
   }
 
+  const copilotReadiness = await (
+    deps.copilotReadinessResolver ?? resolveCopilotReadiness
+  )({
+    toolsAvailable: true,
+    env: process.env,
+  });
+
   const runtimeSelection = resolveRuntimeProviderSelection({
     requestedProvider,
     requestedModel,
     codex: codexState,
     copilot: {
-      available: false,
-      models: [],
-      reason: 'copilot unavailable',
+      available: copilotReadiness.available,
+      models: copilotReadiness.models,
+      reason: copilotReadiness.reason,
     },
     lmstudio: {
       available: lmstudioModels.length > 0,
@@ -597,6 +606,13 @@ export async function runCodebaseQuestion(
           provider: executionProvider,
           baseUrl,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
+          ...(executionProvider === 'copilot'
+            ? {
+                resumeConversation:
+                  existingConversation?.provider === 'copilot' &&
+                  existingConversation.model === executionModel,
+              }
+            : {}),
           source: 'MCP',
         },
         resolvedConversationId,
@@ -663,14 +679,14 @@ export function codebaseQuestionDefinition() {
         },
         provider: {
           type: 'string',
-          enum: ['codex', 'lmstudio'],
+          enum: ['codex', 'copilot', 'lmstudio'],
           description:
             'Optional chat provider to use; defaults to codex when omitted.',
         },
         model: {
           type: 'string',
           description:
-            'Optional model id for the selected provider. For codex, defaults to gpt-5.3-codex. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.',
+            "Optional model id for the selected provider. For codex and Copilot, defaults come from that provider's chat/config.toml. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.",
         },
       },
     },

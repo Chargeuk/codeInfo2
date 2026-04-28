@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { getChatInterface } from '../../chat/factory.js';
 import type { ChatEvent } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../chat/interfaces/ChatInterfaceCopilot.js';
 import {
@@ -27,7 +28,9 @@ const collectEvents = (chat: ChatInterfaceCopilot) => {
 };
 
 const createChat = (harness: MockCopilotSdkHarness) =>
-  new ChatInterfaceCopilot(harness.createLifecycle());
+  getChatInterface('copilot', {
+    copilotLifecycle: harness.createLifecycle(),
+  }) as ChatInterfaceCopilot;
 
 test('ChatInterfaceCopilot create-session path maps streamed events into ChatInterface events', async () => {
   const harness = createMockCopilotSdkHarness({
@@ -108,9 +111,54 @@ test('ChatInterfaceCopilot create-session config allows permissions by default',
       { sessionId: 'copilot-conversation-3' } as never,
     );
   assert.deepEqual(result, { kind: 'approve-once' });
+  assert.deepEqual(
+    harness
+      .getState()
+      .lastCreateSessionConfig?.tools?.map((tool) => tool.name)
+      .sort(),
+    ['ListIngestedRepositories', 'VectorSearch'],
+  );
+  assert.deepEqual(harness.getState().lastCreateSessionConfig?.availableTools, [
+    'ListIngestedRepositories',
+    'VectorSearch',
+  ]);
 });
 
-test('ChatInterfaceCopilot resume path re-registers hooks and keeps permissions allowed', async () => {
+test('ChatInterfaceCopilot create-session maps provider-neutral flags onto real Copilot session fields before events stream', async () => {
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-create-runtime-flags',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+  const emitted = collectEvents(chat);
+
+  await chat.run(
+    'Use runtime flags',
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: false,
+      agentFlags: {
+        modelReasoningEffort: 'high',
+        toolAccess: 'off',
+      },
+    },
+    'copilot-conversation-4',
+    'copilot-gpt-5',
+  );
+
+  assert.equal(emitted[0]?.type, 'thread');
+  assert.equal(
+    harness.getState().lastCreateSessionConfig?.reasoningEffort,
+    'high',
+  );
+  assert.deepEqual(
+    harness.getState().lastCreateSessionConfig?.availableTools,
+    [],
+  );
+});
+
+test('ChatInterfaceCopilot resume path keeps permissions allowed through the resume session config', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-resume-permission',
     resumeSessionEvents: [createSessionIdleEvent()],
@@ -128,32 +176,46 @@ test('ChatInterfaceCopilot resume path re-registers hooks and keeps permissions 
     .getState()
     .lastResumeSession?.config.onPermissionRequest?.(
       {} as never,
-      { sessionId: 'copilot-conversation-4' } as never,
+      { sessionId: 'copilot-conversation-5' } as never,
     );
   assert.deepEqual(result, { kind: 'approve-once' });
-  assert.equal(harness.getState().resumeRegisterHooksCount > 0, true);
+  assert.deepEqual(
+    harness
+      .getState()
+      .lastResumeSession?.config.tools?.map((tool) => tool.name)
+      .sort(),
+    ['ListIngestedRepositories', 'VectorSearch'],
+  );
 });
 
-test('ChatInterfaceCopilot surfaces clear errors when resume-time hook re-registration fails', async () => {
+test('ChatInterfaceCopilot resume-session maps provider-neutral flags onto the real Copilot resume config', async () => {
   const harness = createMockCopilotSdkHarness({
-    name: 'copilot-resume-hook-failure',
-    resumeRegisterHooksError: new Error('resume hooks failed'),
+    name: 'copilot-resume-runtime-flags',
     resumeSessionEvents: [createSessionIdleEvent()],
   });
   const chat = createChat(harness);
 
-  await assert.rejects(
-    () =>
-      chat.run(
-        'Resume and fail',
-        {
-          provider: 'copilot',
-          skipPersistence: true,
-          resumeConversation: true,
-        },
-        'copilot-conversation-5',
-        'copilot-gpt-5',
-      ),
-    /resume hooks failed/u,
+  await chat.run(
+    'Resume and keep tools off',
+    {
+      provider: 'copilot',
+      skipPersistence: true,
+      resumeConversation: true,
+      agentFlags: {
+        modelReasoningEffort: 'low',
+        toolAccess: 'off',
+      },
+    },
+    'copilot-conversation-6',
+    'copilot-gpt-5',
+  );
+
+  assert.equal(
+    harness.getState().lastResumeSession?.config.reasoningEffort,
+    'low',
+  );
+  assert.deepEqual(
+    harness.getState().lastResumeSession?.config.availableTools,
+    [],
   );
 });

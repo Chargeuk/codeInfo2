@@ -703,6 +703,7 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 - Final `npm run lint` passed cleanly after the proof repairs, so the Task 3 surface no longer has lingering ESLint fallout from the request-contract test updates.
 - Final `npm run format:check` initially reported Prettier drift after the proof updates; ran `npm run format` on the repo-preferred path and reran `npm run format:check` until it reported `All matched files use Prettier code style!`.
 - Automated-proof audit closed Task 3 as `__done__` because the current plan now shows all subtasks and all five automated testing steps complete with no live blocker and no remaining prose-only gate.
+- Task-scoped manual proof restarted the stale/unknown main compose stack, proved startup plus clean shutdown, and saved REST/persistence evidence under `codeInfoTmp/manual-testing/0000056/3/` covering `/health`, `/chat/providers`, `/chat/models?provider=lmstudio`, explicit Copilot `503 PROVIDER_UNAVAILABLE`, strict provider-specific `agentFlags` rejection, and same-conversation LM Studio `agentFlags` persistence with no `threadId` field. An immediate resend first hit the documented `409 RUN_IN_PROGRESS` admission lock while the first LM Studio run was still active, then the settled-conversation rerun returned `202` and preserved the updated `agentFlags` in the same conversation, so no follow-up subtasks were needed. No screenshots were required because Task 3's owned proof surface is HTTP and persisted conversation state rather than a browser-visible UI.
 
 ---
 

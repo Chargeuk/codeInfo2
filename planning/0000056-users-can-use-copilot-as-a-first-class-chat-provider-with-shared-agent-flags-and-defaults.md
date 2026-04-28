@@ -196,7 +196,9 @@ Overall, when this story is complete:
 
 - No Additional Repositories
 
-### Questions
+## Questions
+
+- No Further Questions
 
 ## Decisions
 

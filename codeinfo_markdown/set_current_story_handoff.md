@@ -20,18 +20,19 @@ Set the active implementation story explicitly from a user-provided story/spec/p
 <path_resolution_rules>
 
 1. Ask the user for the target story/spec/plan path first if they have not already provided one clearly.
-2. If the user gives an absolute path:
+2. Before normalizing or rewriting `codeInfoStatus/flow-state/current-plan.json`, read the existing file first when it exists so any still-relevant `branched_from` values and in-scope additional repository entries can be preserved correctly.
+3. If the user gives an absolute path:
    - verify that it exists and is readable;
    - verify that it is inside the current repository root;
    - convert it to a repo-relative path before writing `current-plan.json`.
-3. If the user gives a relative path:
+4. If the user gives a relative path:
    - resolve it relative to the current repository root;
    - verify that it exists and is readable.
-4. If the user gives only a filename or an incomplete path:
+5. If the user gives only a filename or an incomplete path:
    - search the current repository for plausible matches using local shell tools;
    - if exactly one plausible implementation-plan match exists, use it;
    - if multiple plausible matches exist, stop and ask the user to clarify which one they want.
-5. Once resolved, re-open that exact file from disk before taking any branch or handoff action.
+6. Once resolved, re-open that exact file from disk before taking any branch or handoff action.
 
 </path_resolution_rules>
 

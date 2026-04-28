@@ -22,21 +22,20 @@ const ENV_KEYS = [
   'Codex_web_search_enabled',
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
   'CODEX_HOME',
-];
+] as const;
 
 const originalEnv = new Map<string, string | undefined>();
 const tempDirs: string[] = [];
 
 const setEnv = (values: Record<string, string | undefined>) => {
   ENV_KEYS.forEach((key) => {
-    if (Object.prototype.hasOwnProperty.call(values, key)) {
-      const value = values[key];
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
+    if (!Object.prototype.hasOwnProperty.call(values, key)) return;
+    const value = values[key];
+    if (value === undefined) {
+      delete process.env[key];
+      return;
     }
+    process.env[key] = value;
   });
 };
 
@@ -65,9 +64,9 @@ afterEach(async () => {
     const value = originalEnv.get(key);
     if (value === undefined) {
       delete process.env[key];
-    } else {
-      process.env[key] = value;
+      return;
     }
+    process.env[key] = value;
   });
   await Promise.all(
     tempDirs
@@ -76,7 +75,7 @@ afterEach(async () => {
   );
 });
 
-test('resolver defaults apply when Codex flags are omitted', async () => {
+test('resolver defaults apply when agentFlags are omitted', async () => {
   await setChatConfig(`
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
@@ -94,12 +93,14 @@ web_search_mode = "disabled"
     provider: 'codex',
   });
 
-  assert.deepEqual(result.codexFlags, {
+  assert.deepEqual(result.agentFlags, {
     sandboxMode: 'workspace-write',
     approvalPolicy: 'on-request',
     modelReasoningEffort: 'medium',
+    modelReasoningSummary: 'auto',
+    modelVerbosity: 'medium',
     networkAccessEnabled: false,
-    webSearchEnabled: false,
+    webSearchMode: 'disabled',
   });
   assert.equal(result.warnings.length, 0);
 });
@@ -186,7 +187,7 @@ test('chat validation marker keeps normalized model_source and separate raw code
   }
 });
 
-test('explicit Codex flags override resolver defaults', async () => {
+test('explicit agentFlags override resolver defaults', async () => {
   await setChatConfig(`
 sandbox_mode = "read-only"
 approval_policy = "never"
@@ -202,21 +203,26 @@ web_search_mode = "disabled"
     message: 'hello',
     conversationId: 'c2',
     provider: 'codex',
-    sandboxMode: 'workspace-write',
-    approvalPolicy: 'on-request',
-    modelReasoningEffort: 'high',
-    networkAccessEnabled: true,
-    webSearchEnabled: true,
+    agentFlags: {
+      sandboxMode: 'workspace-write',
+      approvalPolicy: 'on-request',
+      modelReasoningEffort: 'high',
+      modelReasoningSummary: 'detailed',
+      modelVerbosity: 'high',
+      networkAccessEnabled: true,
+      webSearchMode: 'live',
+    },
   });
 
-  assert.deepEqual(result.codexFlags, {
+  assert.deepEqual(result.agentFlags, {
     sandboxMode: 'workspace-write',
     approvalPolicy: 'on-request',
     modelReasoningEffort: 'high',
+    modelReasoningSummary: 'detailed',
+    modelVerbosity: 'high',
     networkAccessEnabled: true,
-    webSearchEnabled: true,
+    webSearchMode: 'live',
   });
-  assert.equal(result.warnings.length, 0);
 });
 
 test('accepts every SDK-native reasoning effort value for Codex requests', async () => {
@@ -226,26 +232,119 @@ test('accepts every SDK-native reasoning effort value for Codex requests', async
       message: 'hello',
       conversationId: `reasoning-${reasoningEffort}`,
       provider: 'codex',
-      modelReasoningEffort: reasoningEffort,
+      agentFlags: {
+        modelReasoningEffort: reasoningEffort,
+      },
     });
 
-    assert.equal(result.codexFlags.modelReasoningEffort, reasoningEffort);
+    assert.equal(result.agentFlags.modelReasoningEffort, reasoningEffort);
   }
 });
 
-test('rejects unsupported reasoning effort values with deterministic message', async () => {
+test('rejects legacy top-level chat flags instead of silently remapping them', async () => {
   await assert.rejects(
     async () =>
       await validateChatRequest({
         model: 'gpt-5.2-codex',
         message: 'hello',
-        conversationId: 'reasoning-invalid',
+        conversationId: 'legacy-top-level',
         provider: 'codex',
-        modelReasoningEffort: 'unsupported-effort',
+        sandboxMode: 'workspace-write',
       }),
-    new RegExp(
-      `modelReasoningEffort must be one of: ${modelReasoningEfforts.join(', ')}`,
-    ),
+    /legacy top-level chat flag "sandboxMode" is no longer supported/,
+  );
+});
+
+test('rejects contradictory provider-model-agentFlags combinations instead of coercing them', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'gpt-4o-mini',
+        message: 'hello',
+        conversationId: 'contradictory-provider-model-flags',
+        provider: 'copilot',
+        agentFlags: {
+          sandboxMode: 'workspace-write',
+        },
+      }),
+    /agentFlags\.sandboxMode is not supported for provider "copilot"/,
+  );
+});
+
+test('stale hidden provider-specific flags fail validation after a provider switch or restored mixed draft', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'stale-hidden-agent-flags',
+        provider: 'lmstudio',
+        agentFlags: {
+          modelVerbosity: 'high',
+          toolAccess: 'on',
+        },
+      }),
+    /agentFlags\.modelVerbosity is not supported for provider "lmstudio"/,
+  );
+});
+
+test('blank or whitespace-only LM Studio flag values fail validation instead of being trimmed into valid input', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-blank-values',
+        provider: 'lmstudio',
+        agentFlags: {
+          contextOverflowPolicy: '   ',
+        },
+      }),
+    /agentFlags\.contextOverflowPolicy must be one of: stopAtLimit, truncateMiddle, rollingWindow/,
+  );
+});
+
+test('out-of-range, non-numeric, or non-integer LM Studio flag values fail validation instead of being coerced', async () => {
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-temperature-out-of-range',
+        provider: 'lmstudio',
+        agentFlags: {
+          temperature: 3,
+        },
+      }),
+    /agentFlags\.temperature must be at most 2/,
+  );
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-max-tokens-non-numeric',
+        provider: 'lmstudio',
+        agentFlags: {
+          maxTokens: '4096',
+        },
+      }),
+    /agentFlags\.maxTokens must be a number/,
+  );
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-max-tokens-non-integer',
+        provider: 'lmstudio',
+        agentFlags: {
+          maxTokens: 1.5,
+        },
+      }),
+    /agentFlags\.maxTokens must be an integer/,
   );
 });
 
@@ -385,68 +484,7 @@ test('chat validation rejects missing-on-disk working_folder with shared message
   );
 });
 
-test('non-Codex validation ignores resolver defaults', async () => {
-  await setChatConfig(`
-sandbox_mode = "workspace-write"
-`);
-  setEnv({
-    Codex_network_access_enabled: 'false',
-  });
-
-  const result = await validateChatRequest({
-    model: 'model-1',
-    message: 'hello',
-    conversationId: 'c3',
-    provider: 'lmstudio',
-  });
-
-  assert.deepEqual(result.codexFlags, {});
-  assert.equal(result.warnings.length, 0);
-});
-
-test('non-Codex provider emits warnings for Codex-only flags', async () => {
-  const result = await validateChatRequest({
-    model: 'model-2',
-    message: 'hello',
-    conversationId: 'c4',
-    provider: 'lmstudio',
-    sandboxMode: 'read-only',
-    approvalPolicy: 'on-request',
-    modelReasoningEffort: 'medium',
-    networkAccessEnabled: false,
-    webSearchEnabled: true,
-  });
-
-  assert.equal(result.codexFlags.sandboxMode, undefined);
-  assert.equal(result.warnings.length, 5);
-  assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('sandboxMode is Codex-only'),
-    ),
-  );
-  assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('approvalPolicy is Codex-only'),
-    ),
-  );
-  assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('modelReasoningEffort is Codex-only'),
-    ),
-  );
-  assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('networkAccessEnabled is Codex-only'),
-    ),
-  );
-  assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('webSearchEnabled is Codex-only'),
-    ),
-  );
-});
-
-test('chat request validation accepts copilot as a legal provider', async () => {
+test('chat request validation accepts copilot as a legal provider with provider-neutral defaults', async () => {
   const result = await validateChatRequest({
     model: 'gpt-4o-mini',
     message: 'hello from copilot',
@@ -456,7 +494,10 @@ test('chat request validation accepts copilot as a legal provider', async () => 
 
   assert.equal(result.provider, 'copilot');
   assert.equal(result.model, 'gpt-4o-mini');
-  assert.deepEqual(result.codexFlags, {});
+  assert.deepEqual(result.agentFlags, {
+    modelReasoningEffort: 'medium',
+    toolAccess: 'on',
+  });
 });
 
 test('whitespace-only message is rejected with exact contract message', async () => {
@@ -490,13 +531,16 @@ test('message with surrounding whitespace is accepted and preserved', async () =
   assert.equal(result.message, '  hello with spaces  \n');
 });
 
-test('chat validation parity fixture mirrors resolver-backed defaults and warnings', async () => {
+test('chat validation parity fixture mirrors resolver-backed defaults and warnings with provider-neutral flags', async () => {
   await setChatConfig(`
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 model_reasoning_effort = "medium"
-web_search_request = false
+web_search_mode = "disabled"
 `);
+  setEnv({
+    Codex_network_access_enabled: 'false',
+  });
 
   const result = await validateChatRequest({
     model: 'gpt-5.2-codex',
@@ -505,8 +549,8 @@ web_search_request = false
     provider: 'codex',
   });
 
-  assert.equal(result.codexFlags.sandboxMode, 'workspace-write');
-  assert.equal(result.codexFlags.approvalPolicy, 'on-request');
-  assert.equal(result.codexFlags.modelReasoningEffort, 'medium');
-  assert.equal(result.codexFlags.webSearchEnabled, false);
+  assert.equal(result.agentFlags.sandboxMode, 'workspace-write');
+  assert.equal(result.agentFlags.approvalPolicy, 'on-request');
+  assert.equal(result.agentFlags.modelReasoningEffort, 'medium');
+  assert.equal(result.agentFlags.webSearchMode, 'disabled');
 });

@@ -87,7 +87,7 @@ test('Codex reasoning deltas handle multi-item resets without truncation', async
   );
 });
 
-test('passes every supported reasoning effort through thread options', async () => {
+test('passes every supported agentFlags reasoning effort through thread options', async () => {
   let lastOptions: CodexThreadOptions | undefined;
   const chat = new ChatInterfaceCodex(() => ({
     startThread: (opts?: CodexThreadOptions) => {
@@ -119,7 +119,7 @@ test('passes every supported reasoning effort through thread options', async () 
   }
 });
 
-test('chat validation uses shared capability resolver fixture for accepted effort values', async () => {
+test('chat validation uses the provider-neutral agentFlags contract for accepted effort values', async () => {
   const fixture: CodexCapabilityResolution = {
     defaults: {
       sandboxMode: 'danger-full-access',
@@ -155,17 +155,19 @@ test('chat validation uses shared capability resolver fixture for accepted effor
       message: 'hello',
       conversationId: 'future-accept',
       provider: 'codex',
-      modelReasoningEffort: 'turbo',
+      agentFlags: {
+        modelReasoningEffort: 'turbo',
+      },
     },
     {
       codexCapabilityResolver: async () => fixture,
     },
   );
 
-  assert.equal(result.codexFlags.modelReasoningEffort, 'turbo');
+  assert.equal(result.agentFlags.modelReasoningEffort, 'turbo');
 });
 
-test('chat validation rejects effort values outside shared capability resolver support', async () => {
+test('chat validation rejects provider-neutral agentFlags effort values outside shared capability resolver support', async () => {
   const fixture: CodexCapabilityResolution = {
     defaults: {
       sandboxMode: 'danger-full-access',
@@ -203,7 +205,9 @@ test('chat validation rejects effort values outside shared capability resolver s
           message: 'hello',
           conversationId: 'strict-reject',
           provider: 'codex',
-          modelReasoningEffort: 'high',
+          agentFlags: {
+            modelReasoningEffort: 'high',
+          },
         },
         {
           codexCapabilityResolver: async () => fixture,

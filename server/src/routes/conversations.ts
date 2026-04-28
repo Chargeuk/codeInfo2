@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { getActiveRunOwnership } from '../agents/runLock.js';
+import { sanitizeConversationFlagsForProvider } from '../chat/agentFlags.js';
 import {
   getInflight,
   mergeInflightTurns,
@@ -224,7 +225,11 @@ const listMemoryConversations = async (params: {
       source: conversation.source ?? 'REST',
       lastMessageAt: conversation.lastMessageAt,
       archived: conversation.archivedAt != null,
-      flags: conversation.flags ?? {},
+      flags: sanitizeConversationFlagsForProvider(
+        conversation.provider,
+        conversation.flags,
+        { preserveFlowState: true },
+      ),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
     }));
@@ -269,7 +274,11 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     archived: conversation.archivedAt != null,
     ...(conversation.agentName ? { agentName: conversation.agentName } : {}),
     ...(conversation.flowName ? { flowName: conversation.flowName } : {}),
-    flags: conversation.flags ?? {},
+    flags: sanitizeConversationFlagsForProvider(
+      conversation.provider,
+      conversation.flags,
+      { preserveFlowState: true },
+    ),
   });
 
   const toConversationEventSummary = (
@@ -304,7 +313,13 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     ...('flowName' in conversation && conversation.flowName
       ? { flowName: conversation.flowName }
       : {}),
-    flags: conversation.flags ?? {},
+    flags: sanitizeConversationFlagsForProvider(
+      ('provider' in conversation && typeof conversation.provider === 'string'
+        ? conversation.provider
+        : 'codex') as 'lmstudio' | 'codex' | 'copilot',
+      conversation.flags,
+      { preserveFlowState: true },
+    ),
   });
 
   const persistConversationWorkingFolder = async (params: {

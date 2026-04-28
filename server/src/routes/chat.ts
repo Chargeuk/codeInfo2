@@ -10,6 +10,7 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
+import { buildConversationFlags } from '../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
@@ -124,17 +125,6 @@ const isChatModel = (model: { type?: string; architecture?: string }) => {
   return kind !== 'embedding' && kind !== 'vector';
 };
 
-const sanitizeFlagsForProvider = (
-  provider: ChatDefaultProvider,
-  flags: Record<string, unknown> | undefined,
-) => {
-  const current = { ...(flags ?? {}) };
-  if (provider !== 'codex') {
-    delete current.threadId;
-  }
-  return current;
-};
-
 export function createChatRouter({
   clientFactory,
   codexFactory,
@@ -216,7 +206,7 @@ export function createChatRouter({
       threadId,
       inflightId: requestedInflightId,
       working_folder: requestedWorkingFolder,
-      codexFlags,
+      agentFlags,
       warnings,
       defaultsResolution,
     } = validatedBody;
@@ -325,7 +315,27 @@ export function createChatRouter({
 
     const executionProvider = runtimeSelection.executionProvider;
     const executionModel = runtimeSelection.executionModel;
-    const effectiveCodexFlags = executionProvider === 'codex' ? codexFlags : {};
+    const explicitProviderSelected =
+      defaultsResolution.providerSource === 'request';
+    if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
+      return res.status(503).json({
+        status: 'error',
+        code: 'PROVIDER_UNAVAILABLE',
+        message: runtimeSelection.requestedReason ?? 'provider unavailable',
+      });
+    }
+    const effectiveAgentFlags = { ...agentFlags };
+    const effectiveCodexFlags =
+      executionProvider === 'codex'
+        ? {
+            sandboxMode: effectiveAgentFlags.sandboxMode,
+            networkAccessEnabled: effectiveAgentFlags.networkAccessEnabled,
+            webSearchEnabled:
+              effectiveAgentFlags.webSearchMode === 'disabled' ? false : true,
+            approvalPolicy: effectiveAgentFlags.approvalPolicy,
+            modelReasoningEffort: effectiveAgentFlags.modelReasoningEffort,
+          }
+        : {};
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat',
       provider: executionProvider,
@@ -422,7 +432,8 @@ export function createChatRouter({
 
     let existingConversation = await loadExistingConversation();
     const shouldResumeCopilotSession =
-      existingConversation?.provider === 'copilot';
+      existingConversation?.provider === 'copilot' &&
+      existingConversation.model === executionModel;
     let effectiveWorkingFolder = requestedWorkingFolder;
     try {
       if (!effectiveWorkingFolder && existingConversation) {
@@ -458,19 +469,16 @@ export function createChatRouter({
     }
 
     const ensureConversation = async (): Promise<Conversation | null> => {
-      const buildConversationFlags = (
+      const buildRuntimeConversationFlags = (
         currentFlags: Record<string, unknown> | undefined,
       ) => {
-        const nextFlags =
-          executionProvider === 'codex'
-            ? { ...(currentFlags ?? {}), ...effectiveCodexFlags }
-            : sanitizeFlagsForProvider(executionProvider, currentFlags);
-        if (effectiveWorkingFolder) {
-          nextFlags.workingFolder = effectiveWorkingFolder;
-        } else {
-          delete nextFlags.workingFolder;
-        }
-        return nextFlags;
+        return buildConversationFlags({
+          provider: executionProvider,
+          currentFlags,
+          agentFlags: effectiveAgentFlags,
+          workingFolder: effectiveWorkingFolder,
+          preserveFlowState: false,
+        });
       };
 
       if (shouldUseMemoryPersistence()) {
@@ -487,7 +495,7 @@ export function createChatRouter({
             model: executionModel,
             title: message.trim().slice(0, 80) || 'Untitled conversation',
             source: 'REST',
-            flags: buildConversationFlags(undefined),
+            flags: buildRuntimeConversationFlags(undefined),
             lastMessageAt: now,
             archivedAt: null,
             createdAt: now,
@@ -501,7 +509,7 @@ export function createChatRouter({
           ...existing,
           provider: executionProvider,
           model: executionModel,
-          flags: buildConversationFlags(existing.flags),
+          flags: buildRuntimeConversationFlags(existing.flags),
           source: existing.source ?? 'REST',
           lastMessageAt: now,
           updatedAt: now,
@@ -524,7 +532,7 @@ export function createChatRouter({
           model: executionModel,
           title: message.trim().slice(0, 80) || 'Untitled conversation',
           source: 'REST',
-          flags: buildConversationFlags(undefined),
+          flags: buildRuntimeConversationFlags(undefined),
           lastMessageAt: now,
         });
         const created = (await ConversationModel.findById(conversationId)
@@ -537,7 +545,7 @@ export function createChatRouter({
         conversationId,
         provider: executionProvider,
         model: executionModel,
-        flags: buildConversationFlags(existing.flags),
+        flags: buildRuntimeConversationFlags(existing.flags),
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)
@@ -745,7 +753,11 @@ export function createChatRouter({
         if (executionProvider === 'codex') {
           const activeThreadId =
             threadId ??
-            (ensuredConversation.flags?.threadId as string | undefined) ??
+            (ensuredConversation.provider === 'codex' &&
+            ensuredConversation.model === executionModel
+              ? ((ensuredConversation.flags?.threadId as string | undefined) ??
+                null)
+              : null) ??
             null;
 
           await chat.run(
@@ -781,6 +793,7 @@ export function createChatRouter({
             requestId,
             baseUrl,
             inflightId,
+            agentFlags: effectiveAgentFlags,
             ...(effectiveWorkingFolder
               ? { runtime: { workingFolder: effectiveWorkingFolder } }
               : {}),

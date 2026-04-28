@@ -4,6 +4,14 @@ const { Schema, model, models } = mongoose;
 
 export type ConversationProvider = 'lmstudio' | 'codex' | 'copilot';
 export type ConversationSource = 'REST' | 'MCP';
+export type ConversationFlags = {
+  agentFlags?: Record<string, unknown>;
+  threadId?: string;
+  workingFolder?: string;
+  flow?: Record<string, unknown>;
+  flowChild?: Record<string, unknown>;
+  [key: string]: unknown;
+};
 
 export interface Conversation {
   _id: string; // conversation id (Codex thread id for Codex provider)
@@ -13,7 +21,7 @@ export interface Conversation {
   agentName?: string;
   flowName?: string;
   source: ConversationSource;
-  flags: Record<string, unknown>;
+  flags: ConversationFlags;
   createdAt: Date;
   updatedAt: Date;
   lastMessageAt: Date;

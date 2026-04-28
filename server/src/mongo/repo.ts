@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { sanitizeConversationFlagsForProvider } from '../chat/agentFlags.js';
 import type { FlowResumeState } from '../flows/flowState.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -126,7 +127,9 @@ export async function createConversation(
     agentName: input.agentName,
     flowName: input.flowName,
     source: input.source ?? 'REST',
-    flags: input.flags ?? {},
+    flags: sanitizeConversationFlagsForProvider(input.provider, input.flags, {
+      preserveFlowState: true,
+    }),
     lastMessageAt: input.lastMessageAt ?? new Date(),
   });
 
@@ -143,7 +146,13 @@ export async function updateConversationMeta(
   if (input.title !== undefined) update.title = input.title;
   if (input.provider !== undefined) update.provider = input.provider;
   if (input.model !== undefined) update.model = input.model;
-  if (input.flags !== undefined) update.flags = input.flags;
+  if (input.flags !== undefined) {
+    update.flags = sanitizeConversationFlagsForProvider(
+      input.provider ?? 'codex',
+      input.flags,
+      { preserveFlowState: true },
+    );
+  }
   if (input.lastMessageAt !== undefined)
     update.lastMessageAt = input.lastMessageAt;
 

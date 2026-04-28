@@ -405,6 +405,60 @@ describe('ChatInterface.run persistence', () => {
     }
   });
 
+  test('a successful chat run persists stable agentFlags keys on the owning conversation', async () => {
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    await withReadyState(0, 'test', async () => {
+      const res = await request(app)
+        .post('/chat')
+        .send({
+          provider: 'lmstudio',
+          model: 'lmstudio-test',
+          message: 'hello',
+          conversationId: 'chat-agent-flags-save',
+          agentFlags: {
+            temperature: 0.7,
+            maxTokens: 1234,
+            contextOverflowPolicy: 'rollingWindow',
+            toolAccess: 'off',
+          },
+        });
+
+      assert.equal(res.status, 202);
+    });
+
+    try {
+      assert.deepEqual(
+        memoryConversations.get('chat-agent-flags-save')?.flags?.agentFlags,
+        {
+          temperature: 0.7,
+          maxTokens: 1234,
+          contextOverflowPolicy: 'rollingWindow',
+          toolAccess: 'off',
+        },
+      );
+    } finally {
+      memoryConversations.delete('chat-agent-flags-save');
+      memoryTurns.delete('chat-agent-flags-save');
+    }
+  });
+
   test('an invalid saved chat working folder is cleared before the chat restore path uses it', async () => {
     let clearedConversationId: string | undefined;
     const restored = await restoreSavedWorkingFolder({
@@ -547,6 +601,71 @@ describe('ChatInterface.run persistence', () => {
     } finally {
       memoryConversations.delete('chat-working-folder-clear');
       memoryTurns.delete('chat-working-folder-clear');
+    }
+  });
+
+  test('non-Codex persistence paths clear stale Codex threadId state before the next execution context is saved', async () => {
+    memoryConversations.set('chat-threadid-clear', {
+      _id: 'chat-threadid-clear',
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      title: 'Thread cleanup conversation',
+      source: 'REST',
+      flags: {
+        threadId: 'codex-thread-1',
+        agentFlags: {
+          sandboxMode: 'workspace-write',
+        },
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        const res = await request(app)
+          .post('/chat')
+          .send({
+            provider: 'lmstudio',
+            model: 'lmstudio-test',
+            message: 'hello',
+            conversationId: 'chat-threadid-clear',
+            agentFlags: {
+              toolAccess: 'off',
+            },
+          });
+
+        assert.equal(res.status, 202);
+      });
+
+      assert.deepEqual(memoryConversations.get('chat-threadid-clear')?.flags, {
+        agentFlags: {
+          toolAccess: 'off',
+        },
+      });
+    } finally {
+      memoryConversations.delete('chat-threadid-clear');
+      memoryTurns.delete('chat-threadid-clear');
     }
   });
 

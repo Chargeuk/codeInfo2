@@ -1069,7 +1069,7 @@ test('unsubscribe_conversation does not cancel run; turns still persist', async 
   }
 });
 
-test('inflight registry entry removed after turn_final', async () => {
+test('stream teardown clears inflight runtime state exactly at the turn_final boundary', async () => {
   const server = await startServer({
     chatFactory: buildChatFactory({
       withAnalysis: true,

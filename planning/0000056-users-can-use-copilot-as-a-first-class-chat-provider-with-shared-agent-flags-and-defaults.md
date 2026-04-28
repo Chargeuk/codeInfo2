@@ -630,6 +630,7 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 - Final `npm run lint` passed cleanly for the Task 2 surface after the proof-owned test and fixture repairs.
 - Final `npm run format:check` flagged `server/src/test/integration/chat-codex-mcp.test.ts`; I ran the repo formatter, reran `format:check`, and the full repository then reported `All matched files use Prettier code style!`.
 - Automated-proof audit closed Task 2 as `__done__` because the current plan now shows all subtasks and all five automated testing steps complete with no live blocker and no remaining prose-only gate.
+- Task-scoped manual proof restarted the stale/unknown main compose stack with `npm run compose:build` plus `npm run compose:up`, confirmed clean startup and `npm run compose:down` shutdown, then captured `/health`, `/chat/providers`, and `/chat/models` evidence for Codex, Copilot, and LM Studio under `codeInfoTmp/manual-testing/0000056/2/`; the proof showed ordered provider fallback, provider-local defaults, dual-default Agent Flags, Codex capability narrowing, and the expected Copilot-auth-required disabled state, and no screenshots were required because Task 2's owned surface is the HTTP discovery contract rather than a browser-visible UI.
 
 ---
 

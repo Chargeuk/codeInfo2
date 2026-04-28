@@ -483,8 +483,8 @@ Overall, when this story is complete:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `29fcf217`, `229d9671`
 
 #### Overview
 
@@ -555,7 +555,8 @@ This task replaces the remaining shared default-model contract with one provider
 - Ran `npm run test:summary:server:unit`, used the reported unit log to update the old Codex pinned-version guard, provider-local default-model fixtures, Copilot permission expectations, and the bootstrap temp-file failure seam, then reran the full wrapper cleanly with all 1841 tests passing.
 - Ran `npm run test:summary:server:cucumber` after the unit-proof repairs and the wrapper passed cleanly with all 117 cucumber scenarios green, confirming the normal server integration path still holds after the provider-local defaults migration.
 - Ran the final Task 1 `npm run lint` checkpoint after the wrapper-backed repairs and it completed cleanly, so the remaining proof surface is down to the final formatting check.
-- Ran the final Task 1 `npm run format:check`, used `npm run format` to fix the one proof-time Prettier drift in `server/src/test/unit/runtimeConfig.test.ts`, and reran `npm run format:check` cleanly so every Task 1 automated proof item is now complete while the task stays `__in_progress__` for later audit.
+- Ran the final Task 1 `npm run format:check`, used `npm run format` to fix the one proof-time Prettier drift in `server/src/test/unit/runtimeConfig.test.ts`, and reran `npm run format:check` cleanly so every Task 1 automated proof item is now complete.
+- Automated-proof audit confirmed that all Task 1 subtasks and testing steps are complete with no live blocker remaining, so Task 1 is now closed as `__done__`.
 
 ---
 

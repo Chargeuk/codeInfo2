@@ -44,6 +44,7 @@ type ProbeRequestResult = {
   totalBackoffMs: number;
   vectorCount?: number;
   finalHeaders?: HeaderSnapshot;
+  lastErrorHeaders?: HeaderSnapshot;
   errorCode?: string;
   errorMessage?: string;
   upstreamStatus?: number;
@@ -273,6 +274,7 @@ async function runProviderRequest(
       finalHeaders:
         capture.successHeaders[capture.successHeaders.length - 1] ??
         capture.errorHeaders[capture.errorHeaders.length - 1],
+      lastErrorHeaders: capture.errorHeaders[capture.errorHeaders.length - 1],
     };
   } catch (error) {
     const mapped = mapOpenAiError(error);
@@ -290,6 +292,7 @@ async function runProviderRequest(
       finalHeaders:
         capture.errorHeaders[capture.errorHeaders.length - 1] ??
         capture.successHeaders[capture.successHeaders.length - 1],
+      lastErrorHeaders: capture.errorHeaders[capture.errorHeaders.length - 1],
       errorCode: mapped.code,
       errorMessage: mapped.message,
       upstreamStatus: mapped.upstreamStatus,
@@ -356,6 +359,12 @@ function logRequestResult(result: ProbeRequestResult) {
   }
   if (result.finalHeaders?.remainingTokens) {
     base.push(`remainingTokens=${result.finalHeaders.remainingTokens}`);
+  }
+  if (result.lastErrorHeaders?.retryAfterMs) {
+    base.push(`retryAfterMsHint=${result.lastErrorHeaders.retryAfterMs}`);
+  }
+  if (result.lastErrorHeaders?.retryAfter) {
+    base.push(`retryAfterHint=${result.lastErrorHeaders.retryAfter}`);
   }
 
   console.log(base.join(' '));

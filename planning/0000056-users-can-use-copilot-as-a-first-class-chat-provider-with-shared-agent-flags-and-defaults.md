@@ -638,8 +638,8 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `33adb1b9`, `9485e8c9`
 
 #### Overview
 
@@ -702,6 +702,7 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 - `npm run test:summary:server:cucumber` first failed in the chat-stream feature because one scenario still expected explicit Codex selection to silently fall back; updated that feature to assert the Task 3 explicit-provider `503 PROVIDER_UNAVAILABLE` contract and reran the full wrapper to `passed: 117`, `failed: 0`.
 - Final `npm run lint` passed cleanly after the proof repairs, so the Task 3 surface no longer has lingering ESLint fallout from the request-contract test updates.
 - Final `npm run format:check` initially reported Prettier drift after the proof updates; ran `npm run format` on the repo-preferred path and reran `npm run format:check` until it reported `All matched files use Prettier code style!`.
+- Automated-proof audit closed Task 3 as `__done__` because the current plan now shows all subtasks and all five automated testing steps complete with no live blocker and no remaining prose-only gate.
 
 ---
 

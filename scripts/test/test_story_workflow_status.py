@@ -347,6 +347,67 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         self.assertEqual(status["review_state_repair_reason"], "review_cycle_id_invalid")
         self.assertFalse(status["review_state_valid"])
 
+    def test_non_boolean_review_flags_require_rebuild(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """,
+            add_review_state=True,
+            review_state={
+                "review_created_tasks_added_or_updated": "false",
+                "needs_review_rerun_before_close": False,
+                "needs_final_minor_fix_revalidation_task": False,
+                "safe_to_exit_review_loop_without_tasking": False,
+            },
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["scope_valid"])
+        self.assertTrue(status["review_state_repair_needed"])
+        self.assertEqual(
+            status["review_state_repair_reason"], "review_state_flag_type_invalid"
+        )
+        self.assertFalse(status["review_state_valid"])
+
+    def test_missing_review_flags_require_rebuild(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """,
+            add_review_state=True,
+            review_state={
+                "review_created_tasks_added_or_updated": False,
+                "needs_review_rerun_before_close": False,
+                "needs_final_minor_fix_revalidation_task": False,
+                "safe_to_exit_review_loop_without_tasking": False,
+            },
+        )
+
+        review_state_path = repo / "codeInfoStatus" / "flow-state" / "review-disposition-state.json"
+        payload = json.loads(review_state_path.read_text())
+        del payload["safe_to_exit_review_loop_without_tasking"]
+        review_state_path.write_text(json.dumps(payload, indent=2))
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["scope_valid"])
+        self.assertTrue(status["review_state_repair_needed"])
+        self.assertEqual(
+            status["review_state_repair_reason"], "review_state_flag_type_invalid"
+        )
+        self.assertFalse(status["review_state_valid"])
+
     def test_malformed_review_state_requires_rebuild(self) -> None:
         repo, handoff = self.make_repo(
             plan_content="""

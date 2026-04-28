@@ -175,10 +175,42 @@ def load_review_state(
             "review_state_repair_reason": "review_cycle_id_invalid",
         }
 
-    review_created_tasks = bool(payload.get("review_created_tasks_added_or_updated"))
-    needs_review_rerun = bool(payload.get("needs_review_rerun_before_close"))
-    needs_final_minor = bool(payload.get("needs_final_minor_fix_revalidation_task"))
-    safe_to_exit = bool(payload.get("safe_to_exit_review_loop_without_tasking"))
+    boolean_fields = {
+        "review_created_tasks_added_or_updated": payload.get(
+            "review_created_tasks_added_or_updated"
+        ),
+        "needs_review_rerun_before_close": payload.get(
+            "needs_review_rerun_before_close"
+        ),
+        "needs_final_minor_fix_revalidation_task": payload.get(
+            "needs_final_minor_fix_revalidation_task"
+        ),
+        "safe_to_exit_review_loop_without_tasking": payload.get(
+            "safe_to_exit_review_loop_without_tasking"
+        ),
+    }
+    invalid_boolean_fields = [
+        field_name
+        for field_name, value in boolean_fields.items()
+        if not isinstance(value, bool)
+    ]
+    if invalid_boolean_fields:
+        return {
+            "review_state_path": str(review_state_path),
+            "review_state_present": True,
+            "review_state_valid": False,
+            "review_state_error": (
+                "review disposition state had non-boolean review flags: "
+                + ", ".join(invalid_boolean_fields)
+            ),
+            "review_state_repair_action": "rebuild_review_disposition_state",
+            "review_state_repair_reason": "review_state_flag_type_invalid",
+        }
+
+    review_created_tasks = boolean_fields["review_created_tasks_added_or_updated"]
+    needs_review_rerun = boolean_fields["needs_review_rerun_before_close"]
+    needs_final_minor = boolean_fields["needs_final_minor_fix_revalidation_task"]
+    safe_to_exit = boolean_fields["safe_to_exit_review_loop_without_tasking"]
     return {
         "review_state_path": str(review_state_path),
         "review_state_present": True,

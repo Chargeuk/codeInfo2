@@ -565,8 +565,8 @@ This task replaces the remaining shared default-model contract with one provider
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__in_progress__`
-- Git Commits:
+- Task Status: `__done__`
+- Git Commits: `01f725ae`, `eed54638`, `b2d92c03`
 
 #### Overview
 
@@ -629,6 +629,7 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 - `npm run test:summary:server:cucumber` initially failed because the shared LM Studio fixture still omitted `providerInfo.warnings`, and a later `After` cleanup error cascaded from that failure; after aligning the fixture and rerunning the full wrapper, cucumber passed with `117` scenarios passed and `0` failed.
 - Final `npm run lint` passed cleanly for the Task 2 surface after the proof-owned test and fixture repairs.
 - Final `npm run format:check` flagged `server/src/test/integration/chat-codex-mcp.test.ts`; I ran the repo formatter, reran `format:check`, and the full repository then reported `All matched files use Prettier code style!`.
+- Automated-proof audit closed Task 2 as `__done__` because the current plan now shows all subtasks and all five automated testing steps complete with no live blocker and no remaining prose-only gate.
 
 ---
 

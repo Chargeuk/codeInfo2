@@ -5,6 +5,7 @@ import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 
 import {
+  ChatDefaultsResolutionError,
   ORDERED_CHAT_PROVIDERS,
   resolveChatDefaults,
   resolveCodexChatDefaults,
@@ -14,7 +15,6 @@ import { ensureChatRuntimeConfigBootstrapped } from '../../config/runtimeConfig.
 
 const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
-  'CODEINFO_CHAT_DEFAULT_MODEL',
   'Codex_sandbox_mode',
   'Codex_approval_policy',
   'Codex_reasoning_effort',
@@ -45,7 +45,6 @@ afterEach(async () => {
 
 test('explicit values win', () => {
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
 
   const result = resolveChatDefaults({
     requestProvider: 'codex',
@@ -86,60 +85,91 @@ test('shared provider order is codex, copilot, lmstudio and fallback follows tha
   assert.equal(result.fallbackApplied, true);
 });
 
-test('env values apply when explicit values are missing', () => {
-  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
+const createProviderHome = async (
+  provider: 'codex' | 'copilot' | 'lmstudio',
+  chatConfigToml?: string,
+) => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), `codeinfo2-${provider}-defaults-`),
+  );
+  tempDirs.push(root);
+  const providerHome = path.join(root, provider);
+  if (chatConfigToml !== undefined) {
+    await fs.mkdir(path.join(providerHome, 'chat'), { recursive: true });
+    await fs.writeFile(
+      path.join(providerHome, 'chat', 'config.toml'),
+      chatConfigToml,
+      'utf8',
+    );
+  }
+  return providerHome;
+};
 
-  const result = resolveChatDefaults({});
+test('provider env selects the matching provider-local default model', async () => {
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  const lmstudioHome = await createProviderHome(
+    'lmstudio',
+    'model = "lm-one"\n',
+  );
+
+  const result = resolveChatDefaults({ lmstudioHome });
 
   assert.equal(result.provider, 'lmstudio');
-  assert.equal(result.model, 'env-model');
+  assert.equal(result.model, 'lm-one');
   assert.equal(result.providerSource, 'env');
-  assert.equal(result.modelSource, 'env');
+  assert.equal(result.modelSource, 'config');
 });
 
-test('hardcoded fallback applies when env is missing or invalid', () => {
+test('invalid provider env falls back to the first provider with a valid chat config', async () => {
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'invalid-provider';
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = '   ';
+  const codexHome = await createProviderHome('codex', 'model = "codex-one"\n');
 
-  const result = resolveChatDefaults({});
+  const result = resolveChatDefaults({ codexHome });
 
   assert.equal(result.provider, 'codex');
-  assert.equal(result.model, 'gpt-5.3-codex');
+  assert.equal(result.model, 'codex-one');
   assert.equal(result.providerSource, 'fallback');
-  assert.equal(result.modelSource, 'fallback');
+  assert.equal(result.modelSource, 'config');
 });
 
-test('partial env override resolves missing fields via fallback', () => {
+test('default-provider fallback skips a broken provider-local config', async () => {
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  const codexHome = await createProviderHome('codex', 'model = "codex-one"\n');
+  const lmstudioHome = await createProviderHome('lmstudio', '[broken');
 
-  const result = resolveChatDefaults({});
-
-  assert.equal(result.provider, 'lmstudio');
-  assert.equal(result.model, 'gpt-5.3-codex');
-  assert.equal(result.providerSource, 'env');
-  assert.equal(result.modelSource, 'fallback');
-});
-
-test('invalid and empty env values are ignored', () => {
-  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = '';
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = '';
-
-  const result = resolveChatDefaults({});
+  const result = resolveChatDefaults({ codexHome, lmstudioHome });
 
   assert.equal(result.provider, 'codex');
-  assert.equal(result.model, 'gpt-5.3-codex');
+  assert.equal(result.model, 'codex-one');
   assert.equal(result.providerSource, 'fallback');
-  assert.equal(result.modelSource, 'fallback');
+  assert.equal(result.modelSource, 'config');
+});
+
+test('invalid and empty provider env values are ignored without reviving shared env-model fallback', async () => {
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = '';
+  const codexHome = await createProviderHome('codex', 'model = "codex-one"\n');
+
+  const result = resolveChatDefaults({ codexHome });
+
+  assert.equal(result.provider, 'codex');
+  assert.equal(result.model, 'codex-one');
+  assert.equal(result.providerSource, 'fallback');
+  assert.equal(result.modelSource, 'config');
   assert.ok(
     result.warnings.some((warning) =>
       warning.includes('CODEINFO_CHAT_DEFAULT_PROVIDER is empty'),
     ),
   );
-  assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('CODEINFO_CHAT_DEFAULT_MODEL is empty'),
-    ),
+});
+
+test('explicit provider selection fails clearly when that provider chat config is broken', async () => {
+  const lmstudioHome = await createProviderHome('lmstudio', '[broken');
+
+  assert.throws(
+    () => resolveChatDefaults({ requestProvider: 'lmstudio', lmstudioHome }),
+    (error: unknown) =>
+      error instanceof ChatDefaultsResolutionError &&
+      error.provider === 'lmstudio',
   );
 });
 
@@ -166,13 +196,14 @@ test('resolver falls back deterministically and warns when codex chat config TOM
   const result = await resolveCodexChatDefaults({ codexHome });
 
   assert.equal(result.values.sandboxMode, 'danger-full-access');
-  assert.equal(result.values.approvalPolicy, 'on-failure');
+  assert.equal(result.values.approvalPolicy, 'on-request');
   assert.equal(result.values.modelReasoningEffort, 'high');
   assert.equal(result.values.model, 'gpt-5.3-codex');
   assert.equal(result.values.webSearch, 'live');
   assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('Unable to read codex/chat/config.toml'),
+    result.warnings.some(
+      (warning) =>
+        warning.includes('invalid') || warning.includes('could not be read'),
     ),
   );
 });
@@ -181,7 +212,6 @@ test('resolver rejects invalid field values from parsed config and falls back by
   process.env.Codex_sandbox_mode = 'workspace-write';
   process.env.Codex_approval_policy = 'never';
   process.env.Codex_reasoning_effort = 'medium';
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   process.env.Codex_web_search_enabled = 'false';
 
   const codexHome = await createCodexHome(`
@@ -197,7 +227,7 @@ web_search = "broken"
   assert.equal(result.values.sandboxMode, 'workspace-write');
   assert.equal(result.values.approvalPolicy, 'never');
   assert.equal(result.values.modelReasoningEffort, 'medium');
-  assert.equal(result.values.model, 'env-model');
+  assert.equal(result.values.model, 'gpt-5.3-codex');
   assert.equal(result.values.webSearch, 'disabled');
   assert.ok(
     result.warnings.some((warning) =>
@@ -292,7 +322,7 @@ test('approval_policy precedence is override > config > env > hardcoded', async 
   const withHardcoded = await resolveCodexChatDefaults({
     codexHome: noConfigHome,
   });
-  assert.equal(withHardcoded.values.approvalPolicy, 'on-failure');
+  assert.equal(withHardcoded.values.approvalPolicy, 'on-request');
   assert.equal(withHardcoded.sources.approvalPolicy, 'hardcoded');
 });
 
@@ -331,8 +361,7 @@ test('model_reasoning_effort precedence is override > config > env > hardcoded',
   assert.equal(withHardcoded.sources.modelReasoningEffort, 'hardcoded');
 });
 
-test('model precedence is override > config > env > hardcoded', async () => {
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
+test('model precedence is override > config > hardcoded', async () => {
   const codexHome = await createCodexHome('model = "config-model"\n');
 
   const withOverride = await resolveCodexChatDefaults({
@@ -347,18 +376,6 @@ test('model precedence is override > config > env > hardcoded', async () => {
   assert.equal(withConfig.sources.model, 'config');
 
   const noConfigHome = await createCodexHome();
-  const withEnv = await resolveCodexChatDefaults({ codexHome: noConfigHome });
-  assert.equal(withEnv.values.model, 'env-model');
-  assert.equal(withEnv.sources.model, 'env');
-  assert.ok(
-    withEnv.warnings.some(
-      (warning) =>
-        warning.includes('model') &&
-        warning.includes('CODEINFO_CHAT_DEFAULT_MODEL'),
-    ),
-  );
-
-  delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   const withHardcoded = await resolveCodexChatDefaults({
     codexHome: noConfigHome,
   });
@@ -367,18 +384,16 @@ test('model precedence is override > config > env > hardcoded', async () => {
 });
 
 test('missing codex chat config falls back without creating the file', async () => {
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   const codexHome = await createCodexHome();
   const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
   const result = await resolveCodexChatDefaults({ codexHome });
 
-  assert.equal(result.values.model, 'env-model');
+  assert.equal(result.values.model, 'gpt-5.3-codex');
   await assert.rejects(fs.access(chatConfigPath));
 });
 
 test('unreadable codex chat config warns and falls back without repair', async () => {
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   const codexHome = await createCodexHome('model = "config-model"\n');
   const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
@@ -387,18 +402,15 @@ test('unreadable codex chat config warns and falls back without repair', async (
 
   const result = await resolveCodexChatDefaults({ codexHome });
 
-  assert.equal(result.values.model, 'env-model');
+  assert.equal(result.values.model, 'gpt-5.3-codex');
   assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('Unable to read codex/chat/config.toml'),
-    ),
+    result.warnings.some((warning) => warning.includes('could not be read')),
   );
   const stat = await fs.stat(chatConfigPath);
   assert.ok(stat.isDirectory());
 });
 
 test('bootstrap leaves invalid existing chat config untouched while defaults still warn and fall back', async () => {
-  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'env-model';
   const codexHome = await createCodexHome('[broken');
   const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
 
@@ -410,10 +422,11 @@ test('bootstrap leaves invalid existing chat config untouched while defaults sti
 
   assert.equal(bootstrapResult.branch, 'existing_noop');
   assert.equal(chatContents, '[broken');
-  assert.equal(result.values.model, 'env-model');
+  assert.equal(result.values.model, 'gpt-5.3-codex');
   assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('Unable to read codex/chat/config.toml'),
+    result.warnings.some(
+      (warning) =>
+        warning.includes('invalid') || warning.includes('could not be read'),
     ),
   );
 });

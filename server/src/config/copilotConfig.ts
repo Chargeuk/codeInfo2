@@ -79,6 +79,10 @@ export function getCopilotStatePathForHome(
   return path.join(path.resolve(copilotHome), ...segments);
 }
 
+export function getCopilotChatConfigPathForHome(copilotHome: string): string {
+  return getCopilotStatePathForHome(copilotHome, 'chat', 'config.toml');
+}
+
 export function getCopilotHome(env: NodeJS.ProcessEnv = process.env): string {
   return resolveCopilotHome(undefined, env);
 }

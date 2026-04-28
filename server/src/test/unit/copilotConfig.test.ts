@@ -7,6 +7,7 @@ import {
   buildCopilotClientOptions,
   ensureCopilotAuthHomeCompatibility,
   ensureCopilotPlaintextTokenStorage,
+  getCopilotChatConfigPathForHome,
   getCopilotConfigDirForHome,
   getCopilotStatePathForHome,
   inspectCopilotAuthLocations,
@@ -18,11 +19,28 @@ test('resolves CODEINFO_COPILOT_HOME and derives the config path centrally', () 
     CODEINFO_COPILOT_HOME: './ignored',
   });
   const configDir = getCopilotConfigDirForHome(home);
+  const chatConfigPath = getCopilotChatConfigPathForHome(home);
   const authPath = getCopilotStatePathForHome(home, 'auth.json');
 
   assert.equal(home, path.resolve('./tmp/copilot-home'));
   assert.equal(configDir, home);
+  assert.equal(chatConfigPath, path.join(home, 'chat', 'config.toml'));
   assert.equal(authPath, path.join(home, 'auth.json'));
+});
+
+test('keeps the seeded Copilot chat defaults path separate from the runtime configDir', () => {
+  const home = resolveCopilotHome('./tmp/copilot-home', {
+    CODEINFO_COPILOT_HOME: './ignored',
+  });
+
+  assert.equal(
+    getCopilotConfigDirForHome(home),
+    path.resolve('./tmp/copilot-home'),
+  );
+  assert.equal(
+    getCopilotChatConfigPathForHome(home),
+    path.join(path.resolve('./tmp/copilot-home'), 'chat', 'config.toml'),
+  );
 });
 
 test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath together', () => {

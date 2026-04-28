@@ -23,7 +23,11 @@ import {
 } from '../../config/copilotConfig.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
+  ensureAllProviderChatConfigsBootstrapped,
   ensureChatRuntimeConfigBootstrapped,
+  ensureProviderChatConfigBootstrapped,
+  getProviderChatConfigPath,
+  loadProviderChatDefaultsSnapshotSync,
   loadRuntimeConfigSnapshot,
   mergeProjectsFromBaseIntoRuntime,
   mergeRuntimeConfigWithBaseConfig,
@@ -2509,6 +2513,159 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
     } finally {
       mock.restoreAll();
       await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('seeds provider-local chat defaults for codex, copilot, and lmstudio', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'provider-chat-'));
+    const codexHome = path.join(tempRoot, 'codex');
+    const copilotHome = path.join(tempRoot, 'copilot');
+    const lmstudioHome = path.join(tempRoot, 'lmstudio');
+
+    try {
+      const snapshots = await ensureAllProviderChatConfigsBootstrapped({
+        codexHome,
+        copilotHome,
+        lmstudioHome,
+      });
+
+      assert.equal(snapshots.length, 3);
+      const codexConfig = await fs.readFile(
+        getProviderChatConfigPath({ provider: 'codex', codexHome })
+          .chatConfigPath,
+        'utf8',
+      );
+      const copilotConfig = await fs.readFile(
+        getProviderChatConfigPath({
+          provider: 'copilot',
+          copilotHome,
+        }).chatConfigPath,
+        'utf8',
+      );
+      const lmstudioConfig = await fs.readFile(
+        getProviderChatConfigPath({
+          provider: 'lmstudio',
+          lmstudioHome,
+        }).chatConfigPath,
+        'utf8',
+      );
+
+      assert.match(codexConfig, /model = "gpt-5\.3-codex"/u);
+      assert.match(copilotConfig, /model = "copilot-gpt-5"/u);
+      assert.match(lmstudioConfig, /model = "model-1"/u);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('provider chat-default readers reread the on-disk file on each call', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'provider-reread-'),
+    );
+    const lmstudioHome = path.join(tempRoot, 'lmstudio');
+    const { chatConfigPath } = getProviderChatConfigPath({
+      provider: 'lmstudio',
+      lmstudioHome,
+    });
+
+    try {
+      await ensureProviderChatConfigBootstrapped({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+      await fs.writeFile(chatConfigPath, 'model = "first-model"\n', 'utf8');
+      const first = loadProviderChatDefaultsSnapshotSync({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+      await fs.writeFile(chatConfigPath, 'model = "second-model"\n', 'utf8');
+      const second = loadProviderChatDefaultsSnapshotSync({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+
+      assert.equal(first.config?.model, 'first-model');
+      assert.equal(second.config?.model, 'second-model');
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('bootstraps the lmstudio/chat directory through the shared provider-home path', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'lmstudio-home-'));
+    const lmstudioHome = path.join(tempRoot, 'lmstudio');
+
+    try {
+      await ensureProviderChatConfigBootstrapped({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+      const stat = await fs.stat(path.join(lmstudioHome, 'chat'));
+      assert.ok(stat.isDirectory());
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores abandoned provider chat-config temp artifacts when reading the canonical file', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'provider-temp-'));
+    const lmstudioHome = path.join(tempRoot, 'lmstudio');
+    const { chatConfigPath } = getProviderChatConfigPath({
+      provider: 'lmstudio',
+      lmstudioHome,
+    });
+
+    try {
+      await ensureProviderChatConfigBootstrapped({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+      await fs.writeFile(chatConfigPath, 'model = "stable-model"\n', 'utf8');
+      await fs.writeFile(`${chatConfigPath}.orphan.tmp`, '[broken', 'utf8');
+
+      const snapshot = loadProviderChatDefaultsSnapshotSync({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+
+      assert.equal(snapshot.config?.model, 'stable-model');
+      await fs.access(`${chatConfigPath}.orphan.tmp`);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves the previous good provider chat config in place when a temp-write cleanup runs', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'provider-atomic-'),
+    );
+    const copilotHome = path.join(tempRoot, 'copilot');
+    const { chatConfigPath } = getProviderChatConfigPath({
+      provider: 'copilot',
+      copilotHome,
+    });
+
+    try {
+      await ensureProviderChatConfigBootstrapped({
+        provider: 'copilot',
+        copilotHome,
+      });
+      await fs.writeFile(chatConfigPath, 'model = "kept-model"\n', 'utf8');
+      await fs.writeFile(
+        `${chatConfigPath}.partial.tmp`,
+        'model = "next',
+        'utf8',
+      );
+
+      const snapshot = loadProviderChatDefaultsSnapshotSync({
+        provider: 'copilot',
+        copilotHome,
+      });
+
+      assert.equal(snapshot.config?.model, 'kept-model');
+      await fs.access(`${chatConfigPath}.partial.tmp`);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
 });

@@ -1,7 +1,9 @@
-import { constants as fsConstants } from 'node:fs';
+import fsSync, { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+import { type ChatProviderId } from '@codeinfo2/common';
 import toml from 'toml';
 
 import { discoverAgents } from '../agents/discovery.js';
@@ -12,6 +14,7 @@ import {
   getCodexConfigPathForHome,
   resolveCodexHome,
 } from './codexConfig.js';
+import { resolveCopilotHome } from './copilotConfig.js';
 import { resolveRequiredCodeinfoPlaceholderValue } from './mcpEndpoints.js';
 
 const T03_SUCCESS_LOG =
@@ -99,6 +102,12 @@ export type RuntimeConfigSnapshot = {
   chatConfig?: RuntimeTomlConfig;
   agentConfig?: RuntimeTomlConfig;
 };
+export type ProviderChatDefaultsSnapshot = {
+  provider: ChatProviderId;
+  providerHome: string;
+  chatConfigPath: string;
+  config?: RuntimeTomlConfig;
+};
 
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
 const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
@@ -115,14 +124,78 @@ const REQUIRED_MCP_PLACEHOLDER_KEYS = new Set([
   'CODEINFO_AGENTS_MCP_PORT',
   'CODEINFO_PLAYWRIGHT_MCP_URL',
 ]);
-const CHAT_CONFIG_TEMPLATE = [
-  'model = "gpt-5.3-codex"',
-  'model_reasoning_effort = "high"',
-  'approval_policy = "on-failure"',
-  'sandbox_mode = "danger-full-access"',
-  'web_search = "live"',
-  '',
-].join('\n');
+const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
+  codex: [
+    'model = "gpt-5.3-codex"',
+    'model_reasoning_effort = "high"',
+    'approval_policy = "on-request"',
+    'sandbox_mode = "danger-full-access"',
+    'network_access_enabled = true',
+    'web_search_mode = "live"',
+    'web_search = "live"',
+    '',
+  ].join('\n'),
+  copilot: [
+    'model = "copilot-gpt-5"',
+    'reasoning_effort = "medium"',
+    'tool_access = "on"',
+    '',
+  ].join('\n'),
+  lmstudio: [
+    'model = "model-1"',
+    'temperature = 0.2',
+    'max_tokens = 4096',
+    'context_overflow_policy = "truncateMiddle"',
+    'tool_access = "on"',
+    '',
+  ].join('\n'),
+};
+
+const providerChatConfigDirRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../..',
+);
+
+export function resolveLmStudioChatDefaultsHome(): string {
+  return path.join(providerChatConfigDirRoot, 'lmstudio');
+}
+
+export function getProviderChatConfigPath(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): { providerHome: string; chatConfigPath: string } {
+  if (params.provider === 'codex') {
+    const providerHome = resolveCodexHome(params.codexHome);
+    return {
+      providerHome,
+      chatConfigPath: getCodexChatConfigPathForHome(providerHome),
+    };
+  }
+
+  if (params.provider === 'copilot') {
+    const providerHome = resolveCopilotHome(params.copilotHome);
+    return {
+      providerHome,
+      chatConfigPath: path.join(providerHome, 'chat', 'config.toml'),
+    };
+  }
+
+  const providerHome = path.resolve(
+    params.lmstudioHome ?? resolveLmStudioChatDefaultsHome(),
+  );
+  return {
+    providerHome,
+    chatConfigPath: path.join(providerHome, 'chat', 'config.toml'),
+  };
+}
+
+function buildChatConfigTempPath(chatConfigPath: string): string {
+  return `${chatConfigPath}.${process.pid}.${Date.now()}.${Math.random()
+    .toString(16)
+    .slice(2)}.tmp`;
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -930,15 +1003,44 @@ function logTask3Bootstrap(params: {
 }
 
 async function cleanupPartialChatConfig(chatConfigPath: string) {
-  const exists = await fs
-    .stat(chatConfigPath)
-    .then((stat) => stat.isFile())
-    .catch((error) => {
-      if ((error as { code?: string }).code === 'ENOENT') return false;
-      return false;
-    });
-  if (!exists) return;
-  await fs.unlink(chatConfigPath).catch(() => undefined);
+  await fs.rm(chatConfigPath, { force: true }).catch(() => undefined);
+}
+
+function readProviderChatConfigSync(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): ProviderChatDefaultsSnapshot {
+  const { providerHome, chatConfigPath } = getProviderChatConfigPath(params);
+  try {
+    const raw = fsSync.readFileSync(chatConfigPath, 'utf8');
+    return {
+      provider: params.provider,
+      providerHome,
+      chatConfigPath,
+      config: parseTomlOrThrow(raw, chatConfigPath),
+    };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') {
+      return {
+        provider: params.provider,
+        providerHome,
+        chatConfigPath,
+      };
+    }
+    throw error;
+  }
+}
+
+export function loadProviderChatDefaultsSnapshotSync(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): ProviderChatDefaultsSnapshot {
+  return readProviderChatConfigSync(params);
 }
 
 export async function resolveMergedAndValidatedRuntimeConfig(params: {
@@ -1040,9 +1142,38 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
   generatedTemplate: boolean;
   branch: ChatBootstrapBranch;
 }> {
-  const codexHome = resolveCodexHome(params?.codexHome);
-  const baseConfigPath = getCodexConfigPathForHome(codexHome);
-  const chatConfigPath = getCodexChatConfigPathForHome(codexHome);
+  const result = await ensureProviderChatConfigBootstrapped({
+    provider: 'codex',
+    codexHome: params?.codexHome,
+  });
+
+  return {
+    codexHome: result.providerHome,
+    baseConfigPath: getCodexConfigPathForHome(result.providerHome),
+    chatConfigPath: result.chatConfigPath,
+    copied: false,
+    generatedTemplate: result.generatedTemplate,
+    branch: result.branch,
+  };
+}
+
+export async function ensureProviderChatConfigBootstrapped(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): Promise<{
+  provider: ChatProviderId;
+  providerHome: string;
+  chatConfigPath: string;
+  generatedTemplate: boolean;
+  branch: ChatBootstrapBranch;
+}> {
+  const { providerHome, chatConfigPath } = getProviderChatConfigPath(params);
+  const baseConfigPath =
+    params.provider === 'codex'
+      ? getCodexConfigPathForHome(providerHome)
+      : chatConfigPath;
 
   const chatExists = await fs.stat(chatConfigPath).then(
     () => true,
@@ -1053,7 +1184,7 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
         error instanceof Error ? error.message : 'Failed to stat chat config';
       logTask9Bootstrap({
         branch: 'chat_stat_failed',
-        codexHome,
+        codexHome: providerHome,
         baseConfigPath,
         chatConfigPath,
         copied: false,
@@ -1068,7 +1199,7 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
   if (chatExists) {
     logTask9Bootstrap({
       branch: 'existing_noop',
-      codexHome,
+      codexHome: providerHome,
       baseConfigPath,
       chatConfigPath,
       copied: false,
@@ -1080,10 +1211,9 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       success: true,
     });
     return {
-      codexHome,
-      baseConfigPath,
+      provider: params.provider,
+      providerHome,
       chatConfigPath,
-      copied: false,
       generatedTemplate: false,
       branch: 'existing_noop',
     };
@@ -1099,7 +1229,7 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
           : 'Failed to create chat config directory';
       logTask9Bootstrap({
         branch: 'chat_dir_create_failed',
-        codexHome,
+        codexHome: providerHome,
         baseConfigPath,
         chatConfigPath,
         copied: false,
@@ -1110,16 +1240,16 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       throw error;
     });
 
-  const tempPath = `${chatConfigPath}.tmp`;
+  const tempPath = buildChatConfigTempPath(chatConfigPath);
   try {
-    await fs.writeFile(tempPath, CHAT_CONFIG_TEMPLATE, {
+    await fs.writeFile(tempPath, CHAT_CONFIG_TEMPLATES[params.provider], {
       encoding: 'utf8',
       flag: 'wx',
     });
     await fs.rename(tempPath, chatConfigPath);
     logTask9Bootstrap({
       branch: 'generated_template',
-      codexHome,
+      codexHome: providerHome,
       baseConfigPath,
       chatConfigPath,
       copied: false,
@@ -1131,20 +1261,18 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       success: true,
     });
     return {
-      codexHome,
-      baseConfigPath,
+      provider: params.provider,
+      providerHome,
       chatConfigPath,
-      copied: false,
       generatedTemplate: true,
       branch: 'generated_template',
     };
   } catch (error) {
-    await fs.unlink(tempPath).catch(() => undefined);
-    await cleanupPartialChatConfig(chatConfigPath);
+    await cleanupPartialChatConfig(tempPath);
     if ((error as { code?: string }).code === 'EEXIST') {
       logTask9Bootstrap({
         branch: 'existing_noop',
-        codexHome,
+        codexHome: providerHome,
         baseConfigPath,
         chatConfigPath,
         copied: false,
@@ -1156,10 +1284,9 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
         success: true,
       });
       return {
-        codexHome,
-        baseConfigPath,
+        provider: params.provider,
+        providerHome,
         chatConfigPath,
-        copied: false,
         generatedTemplate: false,
         branch: 'existing_noop',
       };
@@ -1169,7 +1296,7 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
       error instanceof Error ? error.message : 'Failed to write chat template';
     logTask9Bootstrap({
       branch: 'template_write_failed',
-      codexHome,
+      codexHome: providerHome,
       baseConfigPath,
       chatConfigPath,
       copied: false,
@@ -1187,6 +1314,34 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
     });
     throw error;
   }
+}
+
+export async function ensureAllProviderChatConfigsBootstrapped(params?: {
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): Promise<ProviderChatDefaultsSnapshot[]> {
+  const providers: ChatProviderId[] = ['codex', 'copilot', 'lmstudio'];
+  const results = await Promise.all(
+    providers.map(async (provider) => {
+      const seeded = await ensureProviderChatConfigBootstrapped({
+        provider,
+        codexHome: params?.codexHome,
+        copilotHome: params?.copilotHome,
+        lmstudioHome: params?.lmstudioHome,
+      });
+      return readProviderChatConfigSync({
+        provider,
+        codexHome:
+          provider === 'codex' ? seeded.providerHome : params?.codexHome,
+        copilotHome:
+          provider === 'copilot' ? seeded.providerHome : params?.copilotHome,
+        lmstudioHome:
+          provider === 'lmstudio' ? seeded.providerHome : params?.lmstudioHome,
+      });
+    }),
+  );
+  return results;
 }
 
 type ProjectTrustTable = Record<string, { trust_level?: unknown }>;

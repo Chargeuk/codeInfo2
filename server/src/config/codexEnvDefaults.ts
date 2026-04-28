@@ -31,7 +31,7 @@ export type CodexDefaults = SharedCodexDefaults;
 
 const DEFAULT_CODEX_DEFAULTS: CodexDefaults = {
   sandboxMode: 'danger-full-access',
-  approvalPolicy: 'on-failure',
+  approvalPolicy: 'on-request',
   modelReasoningEffort: 'high',
   networkAccessEnabled: true,
   webSearchEnabled: true,

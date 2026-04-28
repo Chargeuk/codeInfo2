@@ -14,6 +14,10 @@ import {
 import { buildCopilotClientOptions } from './config/copilotConfig.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { resolveCodeinfoMcpEndpointContract } from './config/mcpEndpoints.js';
+import {
+  ensureAllProviderChatConfigsBootstrapped,
+  resolveLmStudioChatDefaultsHome,
+} from './config/runtimeConfig.js';
 import { resolveServerPort } from './config/serverPort.js';
 import {
   ensureStartupEnvLoaded,
@@ -85,6 +89,18 @@ const copilotRuntimeConfig = buildCopilotClientOptions({
 });
 const fakeCopilotRuntimeSeam = createFakeCopilotRuntimeSeamFromEnv(process.env);
 ensureCodexConfigSeeded();
+void ensureAllProviderChatConfigsBootstrapped({
+  codexHome: process.env.CODEINFO_CODEX_HOME,
+  copilotHome: process.env.CODEINFO_COPILOT_HOME,
+  lmstudioHome: resolveLmStudioChatDefaultsHome(),
+}).catch((error) => {
+  baseLogger.warn(
+    {
+      error: error instanceof Error ? error.message : String(error),
+    },
+    'provider chat-config bootstrap failed during startup',
+  );
+});
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
 const codexSdkGuardAccepted = validateAndLogCodexSdkUpgrade(
   installedCodexSdkVersion,

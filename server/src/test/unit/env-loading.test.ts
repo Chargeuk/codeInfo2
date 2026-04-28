@@ -86,7 +86,6 @@ test('optional renamed CODEINFO env keys stay absent and defaults can still reso
   });
 
   assert.equal(targetEnv.CODEINFO_LOG_LEVEL, undefined);
-  assert.equal(targetEnv.CODEINFO_CHAT_DEFAULT_MODEL, undefined);
   assert.deepEqual(result.loadedFiles, ['server/.env']);
   assert.equal(result.overrideApplied, false);
   assert.equal(resolveOpenAiEmbeddingCapabilityState(targetEnv).enabled, false);
@@ -95,7 +94,7 @@ test('optional renamed CODEINFO env keys stay absent and defaults can still reso
     'absent',
   );
   assert.equal(
-    resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_DEFAULT_MODEL')
+    resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_DEFAULT_PROVIDER')
       ?.defined,
     false,
   );
@@ -275,6 +274,7 @@ test('runtime pre-seeded renamed CODEINFO values override file defaults', () => 
   const serverRoot = createServerRoot();
   const targetEnv: Record<string, string | undefined> = {
     CODEINFO_OPENAI_EMBEDDING_KEY: 'from-runtime',
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'copilot',
   };
 
   writeEnvFile(
@@ -282,25 +282,22 @@ test('runtime pre-seeded renamed CODEINFO values override file defaults', () => 
     '.env',
     [
       'CODEINFO_OPENAI_EMBEDDING_KEY=from-env',
-      'CODEINFO_CHAT_DEFAULT_MODEL=from-env',
+      'CODEINFO_CHAT_DEFAULT_PROVIDER=codex',
       '',
     ].join('\n'),
   );
   writeEnvFile(
     serverRoot,
     '.env.local',
-    ['CODEINFO_CHAT_DEFAULT_MODEL=from-env-local', ''].join('\n'),
+    ['CODEINFO_CHAT_DEFAULT_PROVIDER=lmstudio', ''].join('\n'),
   );
 
   const result = loadStartupEnv({ serverRoot, targetEnv });
 
   assert.equal(targetEnv.CODEINFO_OPENAI_EMBEDDING_KEY, 'from-runtime');
-  assert.equal(targetEnv.CODEINFO_CHAT_DEFAULT_MODEL, 'from-env-local');
+  assert.equal(targetEnv.CODEINFO_CHAT_DEFAULT_PROVIDER, 'copilot');
   assert.equal(result.valueSources.CODEINFO_OPENAI_EMBEDDING_KEY, 'preseeded');
-  assert.equal(
-    result.valueSources.CODEINFO_CHAT_DEFAULT_MODEL,
-    'server/.env.local',
-  );
+  assert.equal(result.valueSources.CODEINFO_CHAT_DEFAULT_PROVIDER, 'preseeded');
 });
 
 test('required renamed CODEINFO key errors still fire when the key is missing', () => {

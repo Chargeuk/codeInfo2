@@ -73,7 +73,7 @@ test('missing env values fall back without warnings', () => {
 
   assert.deepEqual(defaults, {
     sandboxMode: 'danger-full-access',
-    approvalPolicy: 'on-failure',
+    approvalPolicy: 'on-request',
     modelReasoningEffort: 'high',
     networkAccessEnabled: true,
     webSearchEnabled: true,
@@ -92,7 +92,7 @@ test('invalid enum values and empty strings warn + fall back', () => {
   const { defaults, warnings } = getCodexEnvDefaults();
 
   assert.equal(defaults.sandboxMode, 'danger-full-access');
-  assert.equal(defaults.approvalPolicy, 'on-failure');
+  assert.equal(defaults.approvalPolicy, 'on-request');
   assert.equal(defaults.modelReasoningEffort, 'high');
   assert.ok(
     warnings.some((warning) =>

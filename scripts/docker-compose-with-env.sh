@@ -243,6 +243,8 @@ ensure_repo_bind_mount_dirs_for_profile() {
       "${repo_root}/copilot" \
       "${repo_root}/codex" \
       "${repo_root}/codex/chat" \
+      "${repo_root}/lmstudio" \
+      "${repo_root}/lmstudio/chat" \
       "${repo_root}/codex_agents" \
       "${repo_root}/flows" \
       "${repo_root}/flows-sandbox" \

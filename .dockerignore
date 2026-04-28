@@ -20,6 +20,7 @@ logs
 # Never send local runtime homes or credentials in build context.
 codex/**
 copilot/**
+lmstudio/**
 server/copilot/**
 codex_agents/**/sessions/**
 codex/**/auth.json

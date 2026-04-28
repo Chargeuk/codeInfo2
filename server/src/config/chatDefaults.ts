@@ -3,7 +3,10 @@ import {
   ORDERED_CHAT_PROVIDER_IDS,
   type ChatProviderId,
 } from '@codeinfo2/common';
-import { loadRuntimeConfigSnapshot } from './runtimeConfig.js';
+import {
+  getProviderChatConfigPath,
+  loadProviderChatDefaultsSnapshotSync,
+} from './runtimeConfig.js';
 
 export type ChatDefaultProvider = ChatProviderId;
 export type CodexWebSearchMode = 'live' | 'cached' | 'disabled';
@@ -18,6 +21,22 @@ export type ChatDefaultsResolution = {
   modelSource: ResolutionSource;
   warnings: string[];
 };
+
+export class ChatDefaultsResolutionError extends Error {
+  readonly provider: ChatDefaultProvider;
+  readonly configPath: string;
+
+  constructor(params: {
+    provider: ChatDefaultProvider;
+    configPath: string;
+    message: string;
+  }) {
+    super(params.message);
+    this.name = 'ChatDefaultsResolutionError';
+    this.provider = params.provider;
+    this.configPath = params.configPath;
+  }
+}
 
 export type RuntimeProviderState = {
   available: boolean;
@@ -72,7 +91,7 @@ export const STORY_47_TASK_1_LOG_MARKER =
   'DEV_0000047_T01_CODEX_DEFAULTS_APPLIED';
 const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ORDERED_CHAT_PROVIDERS;
 const FALLBACK_CODEX_SANDBOX_MODE = 'danger-full-access' as const;
-const FALLBACK_CODEX_APPROVAL_POLICY = 'on-failure' as const;
+const FALLBACK_CODEX_APPROVAL_POLICY = 'on-request' as const;
 const FALLBACK_CODEX_REASONING = 'high' as const;
 const FALLBACK_CODEX_MODEL = FALLBACK_MODEL;
 const FALLBACK_CODEX_WEB_SEARCH = 'live' as const;
@@ -145,32 +164,77 @@ const warningForLegacyEnvFallback = (field: string, envName: string) =>
 const warningForInvalidChatConfig = (field: string) =>
   `codex/chat/config.toml has invalid value for "${field}", falling back to env/hardcoded defaults.`;
 
-const warningForUnreadableChatConfig = (reason: string) =>
-  `Unable to read codex/chat/config.toml (${reason}); falling back to legacy env/hardcoded defaults.`;
-
 const hasOwn = (value: object, key: string) =>
   Object.prototype.hasOwnProperty.call(value, key);
 
-const readChatConfigSafely = async (params?: {
+const warningForMissingProviderConfig = (
+  provider: ChatDefaultProvider,
+  configPath: string,
+) =>
+  `${provider}/chat/config.toml is missing at ${configPath}; provider defaults are unavailable.`;
+
+const warningForUnreadableProviderConfig = (
+  provider: ChatDefaultProvider,
+  reason: string,
+) =>
+  `${provider}/chat/config.toml could not be read (${reason}); provider defaults are unavailable.`;
+
+const warningForInvalidProviderConfig = (
+  provider: ChatDefaultProvider,
+  reason: string,
+) =>
+  `${provider}/chat/config.toml is invalid (${reason}); provider defaults are unavailable.`;
+
+const warningForLegacyCodexApproval = (value: string) =>
+  `codex/chat/config.toml uses legacy approval_policy "${value}"; normalized to "on-request".`;
+
+const warningForLegacyCodexWebSearch = (field: string) =>
+  `codex/chat/config.toml uses legacy ${field}; normalized to web_search_mode.`;
+
+const readProviderConfigSafely = (params: {
+  provider: ChatDefaultProvider;
   codexHome?: string;
-}): Promise<{ config?: Record<string, unknown>; warnings: string[] }> => {
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): {
+  config?: Record<string, unknown>;
+  configPath: string;
+  warnings: string[];
+} => {
   const warnings: string[] = [];
+  const { chatConfigPath } = getProviderChatConfigPath({
+    provider: params.provider,
+    codexHome: params.codexHome,
+    copilotHome: params.copilotHome,
+    lmstudioHome: params.lmstudioHome,
+  });
   try {
-    const snapshot = await loadRuntimeConfigSnapshot({
-      codexHome: params?.codexHome,
-      bootstrapChatConfig: false,
+    const snapshot = loadProviderChatDefaultsSnapshotSync({
+      provider: params.provider,
+      codexHome: params.codexHome,
+      copilotHome: params.copilotHome,
+      lmstudioHome: params.lmstudioHome,
     });
-    if (snapshot.chatConfig && typeof snapshot.chatConfig === 'object') {
+    if (snapshot.config && typeof snapshot.config === 'object') {
       return {
-        config: snapshot.chatConfig as Record<string, unknown>,
+        config: snapshot.config as Record<string, unknown>,
+        configPath: snapshot.chatConfigPath,
         warnings,
       };
     }
-    return { warnings };
+    warnings.push(
+      warningForMissingProviderConfig(params.provider, snapshot.chatConfigPath),
+    );
+    return { configPath: snapshot.chatConfigPath, warnings };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    warnings.push(warningForUnreadableChatConfig(reason));
-    return { warnings };
+    const message =
+      reason.includes('RUNTIME_CONFIG_INVALID:') ||
+      reason.includes('Invalid TOML')
+        ? warningForInvalidProviderConfig(params.provider, reason)
+        : warningForUnreadableProviderConfig(params.provider, reason);
+    warnings.push(message);
+    return { configPath: chatConfigPath, warnings };
   }
 };
 
@@ -203,7 +267,8 @@ export const resolveCodexChatDefaults = async (params?: {
   overrides?: CodexChatDefaultOverrides;
 }): Promise<ResolvedCodexChatDefaults> => {
   const warnings: string[] = [];
-  const { config, warnings: configWarnings } = await readChatConfigSafely({
+  const { config, warnings: configWarnings } = readProviderConfigSafely({
+    provider: 'codex',
     codexHome: params?.codexHome,
   });
   warnings.push(...configWarnings);
@@ -219,9 +284,13 @@ export const resolveCodexChatDefaults = async (params?: {
     warnings.push(warningForInvalidChatConfig('sandbox_mode'));
   }
 
-  const configApprovalPolicy = parseStringSetting<
+  let configApprovalPolicy = parseStringSetting<
     'untrusted' | 'on-request' | 'on-failure' | 'never'
   >(config?.approval_policy, APPROVAL_POLICIES);
+  if (configApprovalPolicy === 'on-failure') {
+    warnings.push(warningForLegacyCodexApproval('on-failure'));
+    configApprovalPolicy = 'on-request';
+  }
   if (
     config &&
     hasOwn(config, 'approval_policy') &&
@@ -246,9 +315,19 @@ export const resolveCodexChatDefaults = async (params?: {
     warnings.push(warningForInvalidChatConfig('model'));
   }
 
+  const configWebSearchMode = parseModeBoolean(config?.web_search_mode);
+  if (
+    config &&
+    hasOwn(config, 'web_search_mode') &&
+    configWebSearchMode === undefined
+  ) {
+    warnings.push(warningForInvalidChatConfig('web_search_mode'));
+  }
   const configWebSearch = parseModeBoolean(config?.web_search);
   if (config && hasOwn(config, 'web_search') && configWebSearch === undefined) {
     warnings.push(warningForInvalidChatConfig('web_search'));
+  } else if (config && hasOwn(config, 'web_search')) {
+    warnings.push(warningForLegacyCodexWebSearch('web_search'));
   }
   const configWebSearchAlias = parseModeBoolean(config?.web_search_request);
   if (
@@ -257,8 +336,11 @@ export const resolveCodexChatDefaults = async (params?: {
     configWebSearchAlias === undefined
   ) {
     warnings.push(warningForInvalidChatConfig('web_search_request'));
+  } else if (config && hasOwn(config, 'web_search_request')) {
+    warnings.push(warningForLegacyCodexWebSearch('web_search_request'));
   }
-  const effectiveConfigWebSearch = configWebSearch ?? configWebSearchAlias;
+  const effectiveConfigWebSearch =
+    configWebSearchMode ?? configWebSearch ?? configWebSearchAlias;
 
   const overrideWebSearch =
     params?.overrides?.webSearch ??
@@ -301,7 +383,7 @@ export const resolveCodexChatDefaults = async (params?: {
     field: 'model',
     overrideValue: parseModelValue(params?.overrides?.model),
     configValue: configModel,
-    envValue: parseModelValue(process.env.CODEINFO_CHAT_DEFAULT_MODEL),
+    envValue: undefined,
     envName: 'CODEINFO_CHAT_DEFAULT_MODEL',
     hardcoded: FALLBACK_CODEX_MODEL,
     warnings,
@@ -453,50 +535,133 @@ const parseEnvProvider = (
   return trimmed as ChatDefaultProvider;
 };
 
-const parseEnvModel = (
-  value: string | undefined,
+const parseProviderChatModel = (
+  provider: ChatDefaultProvider,
+  config: Record<string, unknown> | undefined,
   warnings: string[],
 ): string | undefined => {
-  if (value === undefined) return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) {
+  const model = parseModelValue(config?.model);
+  if (!config) return undefined;
+  if (hasOwn(config, 'model') && model === undefined) {
     warnings.push(
-      'CODEINFO_CHAT_DEFAULT_MODEL is empty; using fallback model defaults.',
+      `${provider}/chat/config.toml has invalid value for "model"; provider defaults are unavailable.`,
     );
-    return undefined;
   }
-  return trimmed;
+  return model;
+};
+
+const resolveProviderDefaultModel = (params: {
+  provider: ChatDefaultProvider;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): { model: string; warnings: string[] } => {
+  const { config, warnings, configPath } = readProviderConfigSafely({
+    provider: params.provider,
+    codexHome: params.codexHome,
+    copilotHome: params.copilotHome,
+    lmstudioHome: params.lmstudioHome,
+  });
+  const model = parseProviderChatModel(params.provider, config, warnings);
+  if (model) {
+    return { model, warnings };
+  }
+  throw new ChatDefaultsResolutionError({
+    provider: params.provider,
+    configPath,
+    message: `${params.provider}/chat/config.toml could not provide a valid default model.`,
+  });
 };
 
 export const resolveChatDefaults = ({
   requestProvider,
   requestModel,
+  codexHome,
+  copilotHome,
+  lmstudioHome,
 }: {
   requestProvider?: ChatDefaultProvider;
   requestModel?: string;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
 }): ChatDefaultsResolution => {
   const warnings: string[] = [];
   const envProvider = parseEnvProvider(
     process.env.CODEINFO_CHAT_DEFAULT_PROVIDER,
     warnings,
   );
-  const envModel = parseEnvModel(
-    process.env.CODEINFO_CHAT_DEFAULT_MODEL,
-    warnings,
-  );
+  const requestedProvider = requestProvider ?? envProvider ?? FALLBACK_PROVIDER;
 
-  const provider = requestProvider ?? envProvider ?? FALLBACK_PROVIDER;
-  const model = requestModel ?? envModel ?? FALLBACK_MODEL;
+  if (requestModel) {
+    return {
+      provider: requestedProvider,
+      model: requestModel,
+      providerSource: requestProvider
+        ? 'request'
+        : envProvider
+          ? 'env'
+          : 'fallback',
+      modelSource: 'request',
+      warnings,
+    };
+  }
+
+  const providerOrder: ChatDefaultProvider[] = [
+    requestedProvider,
+    ...ORDERED_CHAT_PROVIDERS.filter(
+      (provider) => provider !== requestedProvider,
+    ),
+  ];
+
+  const explicitProviderSelected = requestProvider !== undefined;
+  let lastError: ChatDefaultsResolutionError | undefined;
+  for (const provider of providerOrder) {
+    try {
+      const resolvedModel = resolveProviderDefaultModel({
+        provider,
+        codexHome,
+        copilotHome,
+        lmstudioHome,
+      });
+      return {
+        provider,
+        model: resolvedModel.model,
+        providerSource:
+          provider === requestProvider
+            ? 'request'
+            : provider === envProvider
+              ? 'env'
+              : 'fallback',
+        modelSource: 'config',
+        warnings: [...warnings, ...resolvedModel.warnings],
+      };
+    } catch (error) {
+      if (error instanceof ChatDefaultsResolutionError) {
+        lastError = error;
+        if (explicitProviderSelected) {
+          throw error;
+        }
+        warnings.push(error.message);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
 
   return {
-    provider,
-    model,
+    provider: requestedProvider,
+    model: FALLBACK_MODEL,
     providerSource: requestProvider
       ? 'request'
       : envProvider
         ? 'env'
         : 'fallback',
-    modelSource: requestModel ? 'request' : envModel ? 'env' : 'fallback',
+    modelSource: 'fallback',
     warnings,
   };
 };

@@ -10,6 +10,9 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
 - Re-open the exact canonical plan from disk before deciding whether to edit it, using explicit shell reads such as `sed`, `cat`, or `rg`.
+- Run `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` before deciding whether an existing final minor-fix revalidation task should be reused or reopened.
+- Treat the helper's `review_cycle_id` match as the primary identity for the task. Use task order only as a sanity check, not as the identity rule.
+- Treat `review_cycle_id` as the stable machine identity for the current review loop, using the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - Do not create a final minor-fix revalidation task when no minor fixes were made in the review loop.
@@ -40,6 +43,8 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - If more than one repository is named in `Affected Repositories`, the task body must explicitly say that validation scope is driven by `Affected Repositories`, not by `Repository Name` alone.
 - The task must include an `Addresses Findings` section naming every `resolved_minor_findings` ID, summary, repository, and resolution commit from the state.
 - The task must include `Subtasks`, `Testing`, `Implementation Notes`, and optional `Manual Testing Guidance` only if useful.
+- The task must include the exact line `- Review Task Role: \`final_minor_fix_revalidation\``in`Implementation Notes` so the helper script can recognize it on later passes.
+- The task must include the exact line `- Review Cycle Id: \`<review_cycle_id>\``in`Implementation Notes` so the helper script can bind the task to the active review cycle.
 - `Subtasks` must describe implementation-free proof preparation only, such as re-reading the `## Minor Review Fixes` section and verifying resolved finding coverage. Keep `Subtasks` scoped to owner-side preparation only; do not use them to assign code changes or extra cross-repository implementation work. Do not put runnable commands in `Subtasks`.
 - `Testing` must contain automated wrapper-level proof only. Use repository guidance, `AGENTS.md`, `Affected Repositories`, and the resolved findings' changed files to choose the broadest relevant wrapper proof that is honest for final story confidence across every affected repository.
 - When more than one repository appears in `Affected Repositories`, group the testing steps by repository so each repository's wrappers and validation scope are obvious.
@@ -53,10 +58,15 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 <idempotency_rules>
 
-- Before appending a new task, scan the whole canonical plan for an existing unfinished or finished task whose title or body clearly marks it as the final revalidation task for inline minor review fixes.
+- Before appending a new task, use the JSON output from `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` as the source of truth for whether an existing unfinished or finished task already marks itself as the final revalidation task for inline minor review fixes in the current `review_cycle_id`.
 - If such a task exists, update that task's finding coverage, affected repositories, subtasks, and testing obligations instead of adding a new task.
-- Do not append a second final minor-fix revalidation task for the same story unless the existing task is explicitly for a different review cycle and already fully closed with a later review cycle documented after it.
+- Do not append a second final minor-fix revalidation task for the same story and same `review_cycle_id`.
+- If the helper reports duplicate current-cycle tasks, do not update either task yet. Repair the plan so only one task remains for that `review_cycle_id`, then rerun the helper.
+- If the helper reports a non-current-cycle historical task, do not reopen it for the current cycle.
+- If the helper selected a legacy no-cycle-id task for `review_cycle_id` backfill, that task must still be open with `Task Status: __to_do__` or `Task Status: __in_progress__`. Do not backfill a legacy no-cycle-id task that is already `__done__`.
+- If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe open legacy task for `review_cycle_id` backfill.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.
+- If the helper reports `needs_cycle_id_backfill`, backfill the current `review_cycle_id` into the selected task while updating it.
 - Preserve completed proof notes that remain true, but uncheck or rewrite any testing item whose proof is no longer honest after adding new resolved minor findings.
 - Do not renumber existing tasks unless the plan already has a numbering collision that makes the new or updated task ambiguous.
 
@@ -73,6 +83,7 @@ After adding or updating the final minor-fix revalidation task:
 - Set `needs_review_rerun_before_close` to false.
 - Set `safe_to_exit_review_loop_without_tasking` to false.
 - Add a concise `classification_notes` entry naming the task heading that was added or updated.
+- Preserve `review_cycle_id` exactly as-is for this active review loop.
 - Recompute counts from the state arrays if any state bucket changed.
 
 When no task is needed and no unresolved work remains:
@@ -89,6 +100,7 @@ When no task is needed and no unresolved work remains:
 
 - If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
 - If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the review disposition state must be regenerated.
+- If `review-disposition-state.json` lacks a usable `review_cycle_id`, repair that state before deciding whether to reuse or create the task.
 - If the canonical plan is missing or branch story scope has drifted, stop and say the current-plan handoff is stale and must be regenerated.
 - If state says final revalidation is needed but `resolved_minor_findings` is empty, do not create a task. Record a state note and report the contradiction.
 - If unresolved task-required, minor-batchable, or incomplete-review items remain, do not create the final minor-fix revalidation task. Leave routing to the task-up or minor-fix path.
@@ -115,12 +127,14 @@ When no task is needed and no unresolved work remains:
 - Confirm this step did not create or update a special inline-minor final revalidation task when the task-up path already owned final revalidation for the same cycle.
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
 - Confirm this step did not imply the review cycle was complete merely because the final revalidation task was created.
+- Confirm the selected or created task carries the same `review_cycle_id` as `review-disposition-state.json`.
 - Confirm the task has an `Affected Repositories` section that covers every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
 - Confirm `Subtasks` stayed owner-scoped and implementation-free even when `Testing` spans multiple repositories.
 - Confirm `Testing` is grouped clearly enough that every affected repository's wrapper and proof scope is easy to identify.
 - Confirm runnable commands live only in `Testing`.
 - Confirm no manual-testing work was added to `Subtasks` or `Testing`.
+- Confirm a non-last selected task was treated only as a layout warning rather than as proof of wrong identity when the `review_cycle_id` matched.
 - Confirm the state file is valid JSON after updating.
 - Confirm tracked changes were committed if the plan changed.
 

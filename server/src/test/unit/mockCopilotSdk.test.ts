@@ -40,7 +40,7 @@ test('mock Copilot SDK harness replays scripted assistant and tool events determ
   const session = await lifecycle.createSession({
     sessionId: 'session-1',
     model: 'copilot-gpt-5',
-    onPermissionRequest: async () => ({ kind: 'approved' }),
+    onPermissionRequest: async () => ({ kind: 'approve-once' }),
   });
 
   const seen: string[] = [];
@@ -75,7 +75,7 @@ test('mock Copilot SDK harness surfaces scripted startup and session failures ex
       lifecycle.createSession({
         sessionId: 'session-1',
         model: 'copilot-gpt-5',
-        onPermissionRequest: async () => ({ kind: 'approved' }),
+        onPermissionRequest: async () => ({ kind: 'approve-once' }),
       }),
     /copilot fake session failed/u,
   );

@@ -127,7 +127,12 @@ class MockThread {
       yield {
         type: 'turn.completed',
         thread_id: threadId,
-        usage: { input_tokens: 5, cached_input_tokens: 0, output_tokens: 3 },
+        usage: {
+          input_tokens: 5,
+          cached_input_tokens: 0,
+          output_tokens: 3,
+          reasoning_output_tokens: 0,
+        },
       } as ThreadEvent;
     }
 

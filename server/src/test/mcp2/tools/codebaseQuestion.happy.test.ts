@@ -222,10 +222,11 @@ test('codebase_question returns answer-only payloads and preserves conversationI
   });
   const tempHome = await withTempCodexHome({
     chatToml: [
+      'model = "gpt-5.3-codex-spark"',
       'sandbox_mode = "workspace-write"',
       'approval_policy = "on-request"',
       'model_reasoning_effort = "minimal"',
-      'web_search = "disabled"',
+      'web_search_mode = "disabled"',
       '',
     ].join('\n'),
   });

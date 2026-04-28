@@ -107,7 +107,7 @@ test('ChatInterfaceCopilot create-session config allows permissions by default',
       {} as never,
       { sessionId: 'copilot-conversation-3' } as never,
     );
-  assert.deepEqual(result, { kind: 'approved' });
+  assert.deepEqual(result, { kind: 'approve-once' });
 });
 
 test('ChatInterfaceCopilot resume path re-registers hooks and keeps permissions allowed', async () => {
@@ -130,7 +130,7 @@ test('ChatInterfaceCopilot resume path re-registers hooks and keeps permissions 
       {} as never,
       { sessionId: 'copilot-conversation-4' } as never,
     );
-  assert.deepEqual(result, { kind: 'approved' });
+  assert.deepEqual(result, { kind: 'approve-once' });
   assert.equal(harness.getState().resumeRegisterHooksCount > 0, true);
 });
 

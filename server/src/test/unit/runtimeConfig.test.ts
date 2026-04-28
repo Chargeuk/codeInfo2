@@ -295,7 +295,7 @@ describe('runtimeConfig bootstrap', () => {
       assert.equal(result.branch, 'generated_template');
       assert.match(content, /model = "gpt-5.3-codex"/u);
       assert.match(content, /model_reasoning_effort = "high"/u);
-      assert.match(content, /approval_policy = "on-failure"/u);
+      assert.match(content, /approval_policy = "on-request"/u);
       assert.match(content, /sandbox_mode = "danger-full-access"/u);
       assert.match(content, /web_search = "live"/u);
     } finally {
@@ -492,7 +492,10 @@ describe('runtimeConfig bootstrap', () => {
         'writeFile',
         async (...args: Parameters<typeof fs.writeFile>) => {
           const filePath = String(args[0]);
-          if (filePath.endsWith(`${path.sep}chat${path.sep}config.toml.tmp`)) {
+          if (
+            filePath.includes(`${path.sep}chat${path.sep}config.toml.`) &&
+            filePath.endsWith('.tmp')
+          ) {
             const error = new Error('read-only filesystem') as
               | Error
               | NodeJS.ErrnoException;

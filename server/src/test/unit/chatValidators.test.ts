@@ -21,7 +21,6 @@ const ENV_KEYS = [
   'Codex_network_access_enabled',
   'Codex_web_search_enabled',
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
-  'CODEINFO_CHAT_DEFAULT_MODEL',
   'CODEX_HOME',
 ];
 
@@ -82,7 +81,7 @@ test('resolver defaults apply when Codex flags are omitted', async () => {
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 model_reasoning_effort = "medium"
-web_search = "disabled"
+web_search_mode = "disabled"
 `);
   setEnv({
     Codex_network_access_enabled: 'false',
@@ -105,11 +104,10 @@ web_search = "disabled"
   assert.equal(result.warnings.length, 0);
 });
 
-test('chat request resolves provider and model from shared env defaults', async () => {
-  await setChatConfig('');
+test('chat request resolves provider and model from provider-local defaults after env provider selection', async () => {
+  await setChatConfig('model = "gpt-5.3-codex"\n');
   setEnv({
     CODEINFO_CHAT_DEFAULT_PROVIDER: 'codex',
-    CODEINFO_CHAT_DEFAULT_MODEL: 'gpt-5.3-codex',
   });
 
   const result = await validateChatRequest({
@@ -120,14 +118,13 @@ test('chat request resolves provider and model from shared env defaults', async 
   assert.equal(result.provider, 'codex');
   assert.equal(result.model, 'gpt-5.3-codex');
   assert.equal(result.defaultsResolution.providerSource, 'env');
-  assert.equal(result.defaultsResolution.modelSource, 'env');
+  assert.equal(result.defaultsResolution.modelSource, 'config');
 });
 
 test('invalid shared env defaults fallback without leaking invalid state', async () => {
   await setChatConfig('');
   setEnv({
     CODEINFO_CHAT_DEFAULT_PROVIDER: 'not-a-provider',
-    CODEINFO_CHAT_DEFAULT_MODEL: '',
   });
 
   const result = await validateChatRequest({
@@ -142,11 +139,6 @@ test('invalid shared env defaults fallback without leaking invalid state', async
   assert.ok(
     result.warnings.some((warning) =>
       warning.includes('CODEINFO_CHAT_DEFAULT_PROVIDER must be one of'),
-    ),
-  );
-  assert.ok(
-    result.warnings.some((warning) =>
-      warning.includes('CODEINFO_CHAT_DEFAULT_MODEL is empty'),
     ),
   );
 });
@@ -199,7 +191,7 @@ test('explicit Codex flags override resolver defaults', async () => {
 sandbox_mode = "read-only"
 approval_policy = "never"
 model_reasoning_effort = "low"
-web_search = "disabled"
+web_search_mode = "disabled"
 `);
   setEnv({
     Codex_network_access_enabled: 'false',
@@ -211,7 +203,7 @@ web_search = "disabled"
     conversationId: 'c2',
     provider: 'codex',
     sandboxMode: 'workspace-write',
-    approvalPolicy: 'on-failure',
+    approvalPolicy: 'on-request',
     modelReasoningEffort: 'high',
     networkAccessEnabled: true,
     webSearchEnabled: true,
@@ -219,7 +211,7 @@ web_search = "disabled"
 
   assert.deepEqual(result.codexFlags, {
     sandboxMode: 'workspace-write',
-    approvalPolicy: 'on-failure',
+    approvalPolicy: 'on-request',
     modelReasoningEffort: 'high',
     networkAccessEnabled: true,
     webSearchEnabled: true,

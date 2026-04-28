@@ -142,6 +142,23 @@ async function setCodexHome(chatToml?: string) {
   env.set('CODEX_HOME', codexHome);
 }
 
+async function setCopilotHome(chatToml?: string) {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-providers-copilot-'),
+  );
+  tempDirs.push(root);
+  const copilotHome = path.join(root, 'copilot');
+  if (chatToml !== undefined) {
+    await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+    await fs.writeFile(
+      path.join(copilotHome, 'chat', 'config.toml'),
+      chatToml,
+      'utf8',
+    );
+  }
+  env.set('CODEINFO_COPILOT_HOME', copilotHome);
+}
+
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
@@ -287,8 +304,8 @@ test('providers route surfaces unauthenticated Copilot with a stable blocking re
 
 test('providers route treats Copilot env-token authentication as ready without device auth', async () => {
   await setCodexHome('model = "config-model"\n');
+  await setCopilotHome('model = "copilot-gpt-5"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
-  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'copilot-gpt-5');
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   env.set('COPILOT_GITHUB_TOKEN', 'ghu_test_token_value');
   setCodexDetection({
@@ -330,6 +347,7 @@ test('providers route treats Copilot env-token authentication as ready without d
 
 test('providers route treats Copilot gh fallback authentication as ready', async () => {
   await setCodexHome('model = "config-model"\n');
+  await setCopilotHome('model = "copilot-gpt-5"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
   env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'copilot-gpt-5');
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');

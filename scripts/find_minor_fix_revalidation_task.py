@@ -190,7 +190,11 @@ def get_revalidation_task_status(
     needs_cycle_id_backfill = False
 
     selected_pair: tuple[dict[str, Any], dict[str, Any]] | None = None
-    if cycle_matches:
+    if len(cycle_matches) > 1:
+        repair_needed = True
+        repair_action = "repair_revalidation_task_identity"
+        repair_reason = "duplicate_current_cycle_revalidation_tasks"
+    elif cycle_matches:
         selected_pair = max(cycle_matches, key=lambda item: item[0]["number"])
     elif (
         review_cycle_id is not None

@@ -79,8 +79,10 @@ def get_questions_section_status(
         }
 
     plan_path = Path(scope["plan_path"])
+    repo_root = Path(scope["repo_root"])
     current = extract_questions_section(plan_path.read_text())
-    head_text = read_head_version(Path(scope["repo_root"]), scope["plan_path_raw"])
+    plan_path_for_git = str(plan_path.relative_to(repo_root))
+    head_text = read_head_version(repo_root, plan_path_for_git)
     head = extract_questions_section(head_text) if head_text is not None else None
     baseline_questions = set(head["numbered_questions"]) if head is not None else set()
     added_numbered_questions = [

@@ -189,6 +189,42 @@ class FindMinorFixRevalidationTaskTests(unittest.TestCase):
         self.assertTrue(status["needs_cycle_id_backfill"])
         self.assertEqual(status["selected_task"]["number"], 4)
 
+    def test_duplicate_current_cycle_tasks_require_repair(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Task 4. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__to_do__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            - Review Cycle Id: `cycle-1`
+
+            ### Task 7. Re-Validate Story 123 After Inline Minor Review Fixes
+
+            - Task Status: `__done__`
+
+            #### Implementation Notes
+
+            - Review Task Role: `final_minor_fix_revalidation`
+            - Review Cycle Id: `cycle-1`
+            """,
+            review_state={"review_cycle_id": "cycle-1"},
+        )
+
+        status = find_minor_fix_revalidation_task.get_revalidation_task_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["repair_needed"])
+        self.assertEqual(
+            status["repair_reason"], "duplicate_current_cycle_revalidation_tasks"
+        )
+        self.assertFalse(status["match_found"])
+        self.assertEqual(len(status["candidate_tasks"]), 2)
+
     def test_does_not_reuse_historical_cycle_task_for_new_cycle(self) -> None:
         repo, handoff = self.make_repo(
             """

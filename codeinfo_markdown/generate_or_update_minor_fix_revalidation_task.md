@@ -61,6 +61,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Before appending a new task, use the JSON output from `python3 "$CODEINFO_ROOT/scripts/find_minor_fix_revalidation_task.py"` as the source of truth for whether an existing unfinished or finished task already marks itself as the final revalidation task for inline minor review fixes in the current `review_cycle_id`.
 - If such a task exists, update that task's finding coverage, affected repositories, subtasks, and testing obligations instead of adding a new task.
 - Do not append a second final minor-fix revalidation task for the same story and same `review_cycle_id`.
+- If the helper reports duplicate current-cycle tasks, do not update either task yet. Repair the plan so only one task remains for that `review_cycle_id`, then rerun the helper.
 - If the helper reports a non-current-cycle historical task, do not reopen it for the current cycle.
 - If the helper does not find an exact current-cycle match, create a fresh current-cycle task unless it explicitly selected one safe legacy task for `review_cycle_id` backfill.
 - If the existing task is `__done__` but new resolved minor findings must be added to it, reopen it to `__to_do__` before adding unchecked work.

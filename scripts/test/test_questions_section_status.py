@@ -28,7 +28,9 @@ def git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 class QuestionsSectionStatusTests(unittest.TestCase):
-    def make_repo(self, head_text: str, current_text: str) -> tuple[Path, str]:
+    def make_repo(
+        self, head_text: str, current_text: str, *, use_absolute_plan_path: bool = False
+    ) -> tuple[Path, str]:
         tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(tmpdir.cleanup)
         repo = Path(tmpdir.name)
@@ -44,7 +46,11 @@ class QuestionsSectionStatusTests(unittest.TestCase):
         handoff.write_text(
             json.dumps(
                 {
-                    "plan_path": "planning/0000123-sample-story.md",
+                    "plan_path": (
+                        str(plan_path)
+                        if use_absolute_plan_path
+                        else "planning/0000123-sample-story.md"
+                    ),
                     "additional_repositories": [],
                 }
             )
@@ -97,6 +103,28 @@ class QuestionsSectionStatusTests(unittest.TestCase):
         self.assertTrue(status["has_real_questions"])
         self.assertTrue(status["has_added_numbered_questions"])
         self.assertEqual(status["added_numbered_questions"], ["Should this be clarified?"])
+
+    def test_absolute_plan_path_still_compares_questions_against_head(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ## Questions
+            1. Existing question?
+            """,
+            """
+            ## Questions
+            1. Existing question?
+            """,
+            use_absolute_plan_path=True,
+        )
+
+        status = questions_section_status.get_questions_section_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["has_real_questions"])
+        self.assertFalse(status["has_added_numbered_questions"])
+        self.assertEqual(status["added_numbered_questions"], [])
 
 
 if __name__ == "__main__":

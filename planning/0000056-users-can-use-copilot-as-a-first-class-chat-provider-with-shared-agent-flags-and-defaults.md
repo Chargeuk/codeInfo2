@@ -888,6 +888,7 @@ This task repairs the shared repo-wide lint baseline that is currently blocking 
 - Updated the Story 56 execution notes here so the generated-fixture lint failures remain classified as a shared root-config seam now repaired in Task 5, not as lingering Task 4 product-code fallout; the later automated-proof step now only needs to rerun Task 5's root `lint` and `format:check` gates honestly.
 - The first automated-proof rerun initially failed because `@eslint/compat` had only been recorded in `package.json` and `package-lock.json`; after running `npm install` to materialize the dependency in `node_modules`, repo-root `npm run lint` passed cleanly and no longer descended into the generated fixture trees that originally blocked Task 4.
 - Repo-root `npm run format:check` then passed cleanly with `All matched files use Prettier code style!`, so both Task 5 automated proof checkpoints are now green and the task is ready for the later audit step.
+- Manual testing was assessed as not applicable in a task-scoped pass because Task 5 only changes the repo-wide ESLint ignore baseline, dependency manifest/lockfile state, and planning notes; its own exit criteria do not introduce a runnable, browser-visible, network-visible, or other externally observable proof surface beyond the already-complete automated lint and format gates, so no additional subtasks were needed and Task 5 remains `__done__`.
 
 ---
 

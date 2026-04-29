@@ -1096,13 +1096,13 @@ This final task validates Story 56 end to end across the server, client, and MCP
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 56 `Description`, `Acceptance Criteria`, `Out Of Scope`, `Log Or Proof Markers`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then trace every in-scope behavior to a concrete implementation file and a concrete proof-owning file before changing the final documentation set.
-2. [ ] Update `README.md` so it explains the final provider-local defaults contract, the removal of `CODEINFO_CHAT_DEFAULT_MODEL`, the meaning of `CODEINFO_CHAT_DEFAULT_PROVIDER`, the automatic seeding of provider-local `chat/config.toml` files, and the rule that each provider’s own `chat/config.toml` chooses that provider’s default model and supported default Agent Flags.
-3. [ ] Update `design.md` so the architecture narrative reflects the shared provider-local defaults layer, the combined provider-model-Agent-Flags discovery contract, the normal-chat `agentFlags` request shape, the provider-first fallback rules, the Copilot and LM Studio runtime mapping decisions, and Copilot parity on `codebase_question`.
-4. [ ] Update `projectStructure.md` so it documents any new or renamed Story 56 files, especially the shared provider-default helpers, any new option-descriptor types, any new runtime validation helpers, the new `AgentFlagsPanel`, and any new proof-owning files created by the story.
-5. [ ] Create `codeInfoStatus/pr-summaries/0000056-pr-summary.md` as the durable reviewer-facing close-out artifact for this story after the final behavior is validated. Keep it derived from the finished story rather than duplicating unchecked task state.
-6. [ ] Run `npm run lint` for the final Story 56 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-7. [ ] Run `npm run format:check` for the final Story 56 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Re-read the full Story 56 `Description`, `Acceptance Criteria`, `Out Of Scope`, `Log Or Proof Markers`, `Message Contracts And Storage Shapes`, `Test Harnesses`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then trace every in-scope behavior to a concrete implementation file and a concrete proof-owning file before changing the final documentation set.
+2. [x] Update `README.md` so it explains the final provider-local defaults contract, the removal of `CODEINFO_CHAT_DEFAULT_MODEL`, the meaning of `CODEINFO_CHAT_DEFAULT_PROVIDER`, the automatic seeding of provider-local `chat/config.toml` files, and the rule that each provider’s own `chat/config.toml` chooses that provider’s default model and supported default Agent Flags.
+3. [x] Update `design.md` so the architecture narrative reflects the shared provider-local defaults layer, the combined provider-model-Agent-Flags discovery contract, the normal-chat `agentFlags` request shape, the provider-first fallback rules, the Copilot and LM Studio runtime mapping decisions, and Copilot parity on `codebase_question`.
+4. [x] Update `projectStructure.md` so it documents any new or renamed Story 56 files, especially the shared provider-default helpers, any new option-descriptor types, any new runtime validation helpers, the new `AgentFlagsPanel`, and any new proof-owning files created by the story.
+5. [x] Create `codeInfoStatus/pr-summaries/0000056-pr-summary.md` as the durable reviewer-facing close-out artifact for this story after the final behavior is validated. Keep it derived from the finished story rather than duplicating unchecked task state.
+6. [x] Run `npm run lint` for the final Story 56 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+7. [x] Run `npm run format:check` for the final Story 56 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Testing
 
@@ -1129,4 +1129,10 @@ Optional guidance for the manual testing agent only.
 
 #### Implementation notes
 
-- Starts empty.
+- Re-read the full Story 56 contract and traced the final in-scope seams before touching docs: provider-local defaults now live through `server/src/config/chatDefaults.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, and `server/src/routes/chat.ts`; provider-neutral Agent Flags land in `client/src/components/chat/AgentFlagsPanel.tsx`, `client/src/pages/ChatPage.tsx`, and `client/src/hooks/useChatStream.ts`; proof ownership now spans the Task 7 client suites plus the Task 8 wrapper gates.
+- Updated `README.md` to replace the old Codex-first defaults narrative with the final provider-local defaults and provider-neutral Agent Flags contract, including `CODEINFO_CHAT_DEFAULT_PROVIDER`, provider-local `chat/config.toml` ownership, fallback behavior, and the nested `agentFlags` request shape.
+- Updated `design.md` so the core architecture section now describes the provider-first defaults resolver, the combined discovery payload, the provider-neutral Agent Flags panel, and Copilot parity on `codebase_question` instead of the older Story 47 Codex-only defaults flow.
+- Added a new Story 56 structural ledger to `projectStructure.md` covering the new provider-default helpers, Copilot bootstrap/runtime seams, `AgentFlagsPanel`, the new proof owners, and the durable reviewer summary location.
+- Created `codeInfoStatus/pr-summaries/0000056-pr-summary.md` as the reviewer-facing closeout artifact with the final scope audit, traceability mapping, validation summary, and highest-risk compatibility notes for Story 56.
+- Ran the Task 8 subtask-owned `npm run lint` checkpoint from the repository root after the documentation and summary updates; it passed cleanly with no further fixes needed, so the final story-closeout surface is ready for the last formatting subtask before the later automated-proof step.
+- Ran the Task 8 subtask-owned `npm run format:check` checkpoint from the repository root after the final doc and summary edits; Prettier reported `All matched files use Prettier code style!`, so every Task 8 Subtask is now complete and only the later wrapper-based `Testing` section remains.

@@ -5,6 +5,72 @@
 Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
 The migrated story ledgers below now reference that durable location consistently.
 
+## Story 0000056 structural change ledger
+
+Added files:
+
+- `client/src/components/chat/AgentFlagsPanel.tsx`
+- `client/src/test/chatPage.resolvedDefaults.test.tsx`
+- `client/src/test/support/ensureAgentFlagsPanelExpanded.ts`
+- `codeInfoStatus/pr-summaries/0000056-pr-summary.md`
+- `server/src/chat/copilotModelSupport.ts`
+- `server/src/chat/copilotTools.ts`
+- `server/src/config/copilotSeedBootstrap.ts`
+- `server/src/routes/chatDiscovery.ts`
+- `server/src/test/unit/copilotSeedBootstrap.test.ts`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- No production file moved, but the test-support surface now prefers `client/src/test/support/ensureAgentFlagsPanelExpanded.ts` and keeps `ensureCodexFlagsPanelExpanded.ts` only as a compatibility helper during the migration.
+
+Modified files (implementation traceability):
+
+- `README.md`
+- `design.md`
+- `projectStructure.md`
+- `planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md`
+- `common/src/lmstudio.ts`
+- `client/src/hooks/useChatModel.ts`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/chatSendPayload.test.tsx`
+- `client/src/test/chatPage.provider.test.tsx`
+- `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- `client/src/test/chatPage.models.test.tsx`
+- `client/src/test/chatPage.newConversation.test.tsx`
+- the `client/src/test/chatPage.flags.*.test.tsx` suites
+- `server/src/config/chatDefaults.ts`
+- `server/src/config/copilotConfig.ts`
+- `server/src/routes/chat.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/providers/copilotReadiness.ts`
+- `server/src/routes/copilotDeviceAuth.ts`
+- `server/src/chat/copilotLifecycle.ts`
+- `server/src/test/unit/config.chatDefaults.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatModels.copilot.test.ts`
+- `server/src/test/unit/chat-interface-copilot.test.ts`
+- `server/src/test/integration/chat-copilot-fallback.test.ts`
+- `server/src/test/integration/chat-copilot-flags.test.ts`
+- `server/src/test/integration/chat-copilot-resume.test.ts`
+- `server/src/test/integration/chat-copilot-stop.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+
+Story notes:
+
+- Story 56 replaces the old Codex-only chat-flags architecture with a provider-neutral Agent Flags contract. The browser chat page now renders `AgentFlagsPanel`, keeps visible state in one `agentFlagsDraft`, submits nested `agentFlags`, and clears hidden incompatible values immediately on provider/model changes.
+- Default chat model selection is now provider-local and config-backed. `CODEINFO_CHAT_DEFAULT_PROVIDER` remains the single top-level selector, while `codex/chat/config.toml`, `copilot/chat/config.toml`, and `lmstudio/chat/config.toml` now supply provider-local default models plus supported default Agent Flag values.
+- `server/src/routes/chatDiscovery.ts` is the new combined discovery seam that feeds `/chat/providers`, `/chat/models`, and the client with provider-level Agent Flag descriptors plus model-specific narrowing, keeping the provider/model/flags contract in one response family.
+- Story 56 also closes Copilot parity gaps outside the page-only UI rewrite: Copilot default-model resolution now uses `copilot/chat/config.toml`, Copilot auth persistence bootstrap tolerates Copilot-managed JSONC artifacts, repository-managed Copilot tools now participate in the shared chat runtime, and MCP `codebase_question` now shares the same provider-selection and defaults contract.
+- Proof ownership for Story 56 now spans direct server defaults/readiness/model suites, MCP `codebase_question` tests, the rewritten Task 7 client suites, and the browser path, with the durable reviewer closeout stored in `codeInfoStatus/pr-summaries/0000056-pr-summary.md`.
+
 ## Story 0000053 structural change ledger
 
 Added files:

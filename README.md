@@ -185,20 +185,29 @@ Corporate certificate directory requirements:
 - Shared auth now uses the `Choose Authentication` dialog for both Codex and Copilot. `POST /copilot/device-auth` uses the same provider-auth state vocabulary as Codex and returns device-flow verification details early so the browser step can finish outside the container.
 - Checked-in env files never hard-code Copilot credentials. Runtime auth precedence still honors `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, and authenticated `gh` fallback before device auth is required.
 
-## REST Codex defaults behavior
+## Chat defaults and Agent Flags behavior
 
-- REST chat capability surfaces now use one shared Codex-default resolver path.
-- Covered fields are `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
-- Resolution precedence is deterministic per field:
-  - request override -> `codex/chat/config.toml` -> legacy env fallback -> hardcoded safe fallback.
-- The `model` from `codex/chat/config.toml` is treated as the Codex chat default model and is unioned into the available Codex model list when `Codex_model_list` does not already contain it.
-- The shared Codex-aware read path is used by `/chat/models`, `/chat/providers`, `/chat` request validation, and MCP `codebase_question`, and those callers reread `codex/chat/config.toml` on each request instead of caching a snapshot.
-- `web_search` handling is canonical-first:
-  - canonical `web_search` wins over alias keys;
-  - alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
-- `/chat/models?provider=codex` and `/chat/providers` return resolver-backed `codexDefaults` and `codexWarnings`.
-- `/chat` request validation applies the same resolver-backed defaults when Codex flags are omitted.
-- The existing React 19 + MUI chat selector path stays unchanged: the client keeps consuming `/chat/providers` and `/chat/models`, and the controlled `TextField select` + `MenuItem` inputs rerender from server-fed state without a Story 47 payload change.
+- `CODEINFO_CHAT_DEFAULT_PROVIDER` remains the single top-level chat default selector. The server resolves the default provider in shared order `codex`, then `copilot`, then `lmstudio`, and only falls automatically when the selected default provider is unavailable or misconfigured.
+- `CODEINFO_CHAT_DEFAULT_MODEL` is no longer part of the normal operator contract. The default model now comes from the selected provider's repo-local `chat/config.toml` file:
+  - `codex/chat/config.toml`
+  - `copilot/chat/config.toml`
+  - `lmstudio/chat/config.toml`
+- Those provider-local files are product-owned chat-default contracts, not a claim that every provider natively reads the same file itself. The server reads one normalized TOML shape, translates it into provider runtime settings, and rereads the files on each relevant request instead of caching a startup snapshot.
+- Startup bootstrap seeds the provider-local chat config folders automatically. The repo keeps those local provider folders out of git and out of Docker build context, including the LM Studio defaults folder.
+- The provider-local config is now the source of truth for:
+  - the default model for that provider
+  - the provider's supported default Agent Flag values
+  - fallback behavior when the default provider is unavailable
+- Automatic fallback is provider-first and config-backed. When the default provider cannot supply a valid model, the server tries the next available provider and uses that fallback provider's own `chat/config.toml` model instead of reviving a hidden shared model env path.
+- Explicit user choice stays trustworthy. If the user explicitly selects Codex, Copilot, or LM Studio and that provider's local config is broken, the request fails clearly instead of silently switching to another provider.
+- Discovery now exposes one combined provider-model-Agent-Flags contract. `/chat/providers` and `/chat/models` return provider availability, runtime model data, provider-neutral Agent Flag descriptors, and provider/model-specific capability narrowing in one server-fed shape.
+- The browser chat page renders a provider-neutral `Agent Flags` panel from that descriptor contract. The page shows only the controls supported by the selected provider and model, seeds visible values from the resolved defaults in the provider-local config, and sends later edits back on normal chat requests as nested `agentFlags`.
+- The normal chat request contract keeps the existing transport fields (`provider`, `model`, `message`, `conversationId`, optional `inflightId`, `threadId`, and `working_folder`) and now carries provider-specific runtime options under one provider-neutral `agentFlags` object.
+- Provider-specific first-pass Agent Flags are intentionally different:
+  - Codex: sandbox mode, approval policy, reasoning effort, reasoning summary, verbosity, network access, and `webSearchMode`
+  - Copilot: reasoning effort plus a simple `toolAccess` `On`/`Off` control
+  - LM Studio: provider-native generation/tool options such as temperature, max tokens, context overflow policy, and tool access
+- MCP `codebase_question` now shares the same provider-selection and defaults contract as the normal chat path, including Copilot parity on provider selection and model/default resolution, while still keeping Agent Flags out of the MCP request shape itself.
 
 ## Story 47 Verification Markers
 

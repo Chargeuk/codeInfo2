@@ -1,25 +1,26 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T23:31:06Z",
+  "generated_at_utc": "2026-04-29T23:37:43Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
-  "finding_id": "7",
+  "finding_id": "12",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Copilot seed bootstrap now fails clearly when the configured seed home exists but is not a directory, instead of pretending runtime initialization already succeeded.",
+  "summary": "Sidebar conversation selection now stays locked during the stop-lock startup race instead of retargeting the next send.",
   "changed_files": [
-    "server/src/config/copilotSeedBootstrap.ts",
-    "server/src/test/unit/copilotSeedBootstrap.test.ts"
+    "client/src/components/chat/ConversationList.tsx",
+    "client/src/pages/ChatPage.tsx",
+    "client/src/test/chatPage.stop.test.tsx"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts",
+      "command": "npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx",
       "result": "passed",
-      "notes": "Focused Copilot seed bootstrap proof passed 7 tests with 0 failures."
+      "notes": "Focused client stop-state proof passed 8 tests with 0 failures."
     }
   ],
-  "commit_sha": "d504c032dc98ebf9ac4b81f0c01526c627bd9909",
+  "commit_sha": "ee357745e5322f52a56f733bd1048e32019049ab",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

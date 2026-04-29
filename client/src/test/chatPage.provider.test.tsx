@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -497,7 +498,7 @@ describe('Chat provider selection (WS transport)', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('restores Codex-only banners and flags after switching back from Copilot', async () => {
+  it('renders provider-driven Agent Flags and refreshes them when switching between Codex and Copilot', async () => {
     const user = userEvent.setup();
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
@@ -555,6 +556,33 @@ describe('Chat provider selection (WS transport)', () => {
               provider: 'copilot',
               available: true,
               toolsAvailable: true,
+              agentFlags: [
+                {
+                  key: 'modelReasoningEffort',
+                  label: 'Reasoning Effort',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'medium',
+                  resolvedDefault: 'medium',
+                  supportedValues: [
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' },
+                  ],
+                },
+                {
+                  key: 'toolAccess',
+                  label: 'Tool Access',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'on',
+                  resolvedDefault: 'on',
+                  supportedValues: [
+                    { value: 'on', label: 'On' },
+                    { value: 'off', label: 'Off' },
+                  ],
+                },
+              ],
               models: [
                 {
                   key: 'copilot-chat',
@@ -609,6 +637,10 @@ describe('Chat provider selection (WS transport)', () => {
     });
     expect(screen.getByTestId('agent-flags-panel')).toBeInTheDocument();
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
+    expect(
+      screen.getByRole('combobox', { name: /sandbox mode/i }),
+    ).toBeInTheDocument();
 
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
@@ -625,10 +657,19 @@ describe('Chat provider selection (WS transport)', () => {
         }),
       ).not.toBeInTheDocument(),
     );
-    expect(screen.queryByTestId('agent-flags-panel')).not.toBeInTheDocument();
     expect(
       screen.queryByTestId('codex-warnings-banner'),
     ).not.toBeInTheDocument();
+    expect(screen.getByTestId('agent-flags-panel')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('combobox', { name: /sandbox mode/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: /reasoning effort/i }),
+    ).toHaveTextContent(/medium/i);
+    expect(
+      screen.getByRole('combobox', { name: /tool access/i }),
+    ).toHaveTextContent(/on/i);
 
     await user.click(screen.getByRole('combobox', { name: /provider/i }));
     await user.click(
@@ -642,6 +683,157 @@ describe('Chat provider selection (WS transport)', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('agent-flags-panel')).toBeInTheDocument();
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
+    expect(
+      screen.getByRole('combobox', { name: /sandbox mode/i }),
+    ).toHaveTextContent(/workspace write/i);
+  });
+
+  it('clears hidden Codex draft values immediately when switching to Copilot', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models') && href.includes('provider=copilot')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'copilot',
+            available: true,
+            toolsAvailable: true,
+            agentFlags: [
+              {
+                key: 'toolAccess',
+                label: 'Tool Access',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'on',
+                resolvedDefault: 'on',
+                supportedValues: [
+                  { value: 'on', label: 'On' },
+                  { value: 'off', label: 'Off' },
+                ],
+              },
+            ],
+            models: [
+              {
+                key: 'copilot-chat',
+                displayName: 'Copilot Chat',
+                type: 'chat',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
+            models: [
+              {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+                supportedReasoningEfforts: ['high'],
+                defaultReasoningEffort: 'high',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await ensureAgentFlagsPanelExpanded(user);
+    const sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    await user.click(sandboxSelect);
+    await user.click(
+      await screen.findByRole('option', { name: /danger full access/i }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('sandbox-mode-select')).toHaveTextContent(
+        /danger full access/i,
+      ),
+    );
+
+    await user.click(screen.getByRole('combobox', { name: /provider/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
+    );
+
+    expect(
+      screen.queryByRole('combobox', { name: /sandbox mode/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: /tool access/i }),
+    ).toHaveTextContent(/on/i);
+
+    await user.click(screen.getByRole('combobox', { name: /provider/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /^OpenAI Codex$/i }),
+    );
+
+    await ensureAgentFlagsPanelExpanded(user);
+    expect(
+      screen.getByRole('combobox', { name: /sandbox mode/i }),
+    ).toHaveTextContent(/workspace write/i);
   });
 
   it('keeps Provider/Model selects visible when models are empty', async () => {

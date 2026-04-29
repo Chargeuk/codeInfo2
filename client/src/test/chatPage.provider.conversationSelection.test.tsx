@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -372,5 +373,232 @@ describe('Chat page sidebar conversation selection', () => {
     expect(screen.getByTestId('chat-input')).toBeEnabled();
     expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+  });
+
+  it('restores the selected conversation over an unsent provider draft without merging hidden draft flags', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      async (url: RequestInfo | URL, opts?: RequestInit) => {
+        const href = typeof url === 'string' ? url : url.toString();
+
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ status: 'ok', mongoConnected: true }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'copilot',
+                  label: 'GitHub Copilot',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (
+          href.includes('/chat/models') &&
+          href.includes('provider=copilot')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'copilot',
+              available: true,
+              toolsAvailable: true,
+              agentFlags: [
+                {
+                  key: 'toolAccess',
+                  label: 'Tool Access',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'on',
+                  resolvedDefault: 'on',
+                  supportedValues: [
+                    { value: 'on', label: 'On' },
+                    { value: 'off', label: 'Off' },
+                  ],
+                },
+              ],
+              models: [
+                {
+                  key: 'copilot-chat',
+                  displayName: 'Copilot Chat',
+                  type: 'chat',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/chat/models') && href.includes('provider=codex')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              codexDefaults: {
+                sandboxMode: 'workspace-write',
+                approvalPolicy: 'on-failure',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: true,
+              },
+              codexWarnings: [],
+              models: [
+                {
+                  key: 'gpt-5.1-codex-max',
+                  displayName: 'gpt-5.1-codex-max',
+                  type: 'codex',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/conversations/') && href.includes('/turns')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: codexConversationId,
+                  role: 'user',
+                  content: 'hello codex',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-12-09T12:00:00.000Z',
+                },
+                {
+                  conversationId: codexConversationId,
+                  role: 'assistant',
+                  content: 'codex reply',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-12-09T12:00:01.000Z',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: codexConversationId,
+                  title: 'Codex conversation',
+                  provider: 'codex',
+                  model: 'gpt-5.1-codex-max',
+                  lastMessageAt: '2025-12-09T12:00:02.000Z',
+                  archived: false,
+                },
+              ],
+              nextCursor: undefined,
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/chat') && opts?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              conversationId: 'draft-conversation',
+              inflightId: 'i1',
+              provider: 'copilot',
+              model: 'copilot-chat',
+            }),
+          }) as unknown as Response;
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        }) as unknown as Response;
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const conversationRow = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(conversationRow);
+    });
+
+    expect(await screen.findByText('codex reply')).toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
+    expect(
+      screen.getByRole('combobox', { name: /sandbox mode/i }),
+    ).toBeInTheDocument();
+
+    await selectProvider(user, /^GitHub Copilot$/i);
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /GitHub Copilot/i,
+      ),
+    );
+    expect(screen.queryByText('codex reply')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: /tool access/i }),
+    ).toHaveTextContent(/on/i);
+    await user.click(screen.getByRole('combobox', { name: /tool access/i }));
+    await user.click(await screen.findByRole('option', { name: /^Off$/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('tool-access-select')).toHaveTextContent(
+        /off/i,
+      ),
+    );
+
+    await act(async () => {
+      await user.click(screen.getByTestId('conversation-row'));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    expect(await screen.findByText('codex reply')).toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
+    expect(
+      screen.getByRole('combobox', { name: /sandbox mode/i }),
+    ).toHaveTextContent(/workspace write/i);
+    expect(
+      screen.queryByRole('combobox', { name: /tool access/i }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -149,6 +149,5 @@ describe('Codex sandbox flag defaults', () => {
     await waitFor(() =>
       expect(sandboxSelect).toHaveTextContent(/workspace write/i),
     );
-
   });
 });

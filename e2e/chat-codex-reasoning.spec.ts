@@ -4,6 +4,51 @@ import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
+const codexProviderInfo = {
+  id: 'codex',
+  label: 'OpenAI Codex',
+  available: true,
+  toolsAvailable: true,
+  agentFlags: [
+    {
+      key: 'sandboxMode',
+      label: 'Sandbox Mode',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'workspace-write',
+      resolvedDefault: 'workspace-write',
+      supportedValues: [
+        { value: 'workspace-write', label: 'Workspace write' },
+        { value: 'read-only', label: 'Read-only' },
+      ],
+    },
+    {
+      key: 'approvalPolicy',
+      label: 'Approval Policy',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'on-request',
+      resolvedDefault: 'on-request',
+      supportedValues: [
+        { value: 'never', label: 'Never (auto-approve)' },
+        { value: 'on-request', label: 'On request' },
+      ],
+    },
+    {
+      key: 'modelReasoningEffort',
+      label: 'Reasoning Effort',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'high',
+      resolvedDefault: 'high',
+      supportedValues: [
+        { value: 'high', label: 'High' },
+        { value: 'xhigh', label: 'Extra high' },
+      ],
+    },
+  ],
+};
+
 test('renders Codex thought process when analysis frames stream', async ({
   page,
 }) => {
@@ -49,8 +94,19 @@ test('renders Codex thought process when analysis frames stream', async ({
               key: 'gpt-5.1-codex-max',
               displayName: 'gpt-5.1-codex-max',
               type: 'codex',
+              supportedReasoningEfforts: ['high', 'xhigh'],
+              defaultReasoningEffort: 'high',
             },
           ],
+          providerInfo: codexProviderInfo,
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: false,
+            webSearchEnabled: false,
+          },
+          codexWarnings: [],
         }),
       });
     }
@@ -123,11 +179,11 @@ test('renders Codex thought process when analysis frames stream', async ({
   await page.getByLabel('Model').click();
   await page.getByRole('option', { name: 'gpt-5.1-codex-max' }).click();
 
-  const codexFlagsToggle = page
-    .getByTestId('codex-flags-panel')
-    .getByRole('button', { name: /Codex flags/i });
-  if ((await codexFlagsToggle.getAttribute('aria-expanded')) === 'true') {
-    await codexFlagsToggle.click();
+  const agentFlagsToggle = page
+    .getByTestId('agent-flags-panel')
+    .getByRole('button', { name: /Agent Flags/i });
+  if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+    await agentFlagsToggle.click();
   }
 
   const input = page.getByTestId('chat-input');

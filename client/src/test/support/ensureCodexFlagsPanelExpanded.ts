@@ -18,9 +18,12 @@ export async function ensureCodexFlagsPanelExpanded(
     await user.click(summaryButton);
   }
 
-  await waitFor(() => {
-    if (getSummaryButton().getAttribute('aria-expanded') !== 'true') {
-      throw new Error('Expected Agent Flags panel to be expanded');
-    }
-  }, { timeout: 5000 });
+  await waitFor(
+    () => {
+      if (getSummaryButton().getAttribute('aria-expanded') !== 'true') {
+        throw new Error('Expected Agent Flags panel to be expanded');
+      }
+    },
+    { timeout: 5000 },
+  );
 }

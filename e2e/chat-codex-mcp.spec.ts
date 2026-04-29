@@ -4,6 +4,56 @@ import { installMockChatWs } from './support/mockChatWs';
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 
+const codexProviderInfo = {
+  id: 'codex',
+  label: 'OpenAI Codex',
+  available: true,
+  toolsAvailable: true,
+  agentFlags: [
+    {
+      key: 'sandboxMode',
+      label: 'Sandbox Mode',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'workspace-write',
+      resolvedDefault: 'workspace-write',
+      supportedValues: [
+        { value: 'workspace-write', label: 'Workspace write' },
+        { value: 'read-only', label: 'Read-only' },
+      ],
+    },
+    {
+      key: 'approvalPolicy',
+      label: 'Approval Policy',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'on-request',
+      resolvedDefault: 'on-request',
+      supportedValues: [
+        { value: 'never', label: 'Never (auto-approve)' },
+        { value: 'on-request', label: 'On request' },
+      ],
+    },
+    {
+      key: 'modelReasoningEffort',
+      label: 'Reasoning Effort',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'high',
+      resolvedDefault: 'high',
+      supportedValues: [{ value: 'high', label: 'High' }],
+    },
+    {
+      key: 'networkAccessEnabled',
+      label: 'Network Access',
+      controlType: 'boolean',
+      editable: true,
+      seedDefault: true,
+      resolvedDefault: true,
+    },
+  ],
+};
+
 // Minimal repo + vector payload used in tool-result
 const repos = [
   {
@@ -93,9 +143,24 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
                 key: 'gpt-5.1-codex-max',
                 displayName: 'gpt-5.1-codex-max',
                 type: 'codex',
+                supportedReasoningEfforts: ['high'],
+                defaultReasoningEffort: 'high',
               },
             ]
           : [{ key: 'mock-lm', displayName: 'Mock LM', type: 'gguf' }],
+        ...(isCodex
+          ? {
+              providerInfo: codexProviderInfo,
+              codexDefaults: {
+                sandboxMode: 'workspace-write',
+                approvalPolicy: 'on-failure',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: false,
+              },
+              codexWarnings: [],
+            }
+          : {}),
       }),
     });
   });
@@ -204,11 +269,11 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
 
   await expect(providerSelect).toHaveText(/OpenAI Codex/i);
 
-  const codexFlagsToggle = page
-    .getByTestId('codex-flags-panel')
-    .getByRole('button', { name: /Codex flags/i });
-  if ((await codexFlagsToggle.getAttribute('aria-expanded')) === 'true') {
-    await codexFlagsToggle.click();
+  const agentFlagsToggle = page
+    .getByTestId('agent-flags-panel')
+    .getByRole('button', { name: /Agent Flags/i });
+  if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+    await agentFlagsToggle.click();
   }
 
   await input.fill('List ingested repos');

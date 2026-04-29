@@ -806,9 +806,7 @@ describe('Chat page models list', () => {
       expect(narrowedReasoningSelect).toHaveTextContent(/minimal/i),
     );
     await user.click(narrowedReasoningSelect);
-    await waitFor(() =>
-      expect(screen.getAllByRole('option')).toHaveLength(1),
-    );
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1));
     await user.click(await screen.findByRole('option', { name: /minimal/i }));
     expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
 

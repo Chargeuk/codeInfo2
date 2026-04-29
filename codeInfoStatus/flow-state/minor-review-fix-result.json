@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T22:16:38Z",
+  "generated_at_utc": "2026-04-29T22:24:54Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
-  "finding_id": "1",
+  "finding_id": "2",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "/chat/models now resolves LM Studio defaults from CODEINFO_LMSTUDIO_HOME so the configured provider-local default model is prioritized correctly.",
+  "summary": "Stop-lock mode now freezes model changes and the New conversation reset alongside the existing provider lock for selected conversations.",
   "changed_files": [
-    "server/src/routes/chatModels.ts",
-    "server/src/test/unit/chatModels.codex.test.ts"
+    "client/src/pages/ChatPage.tsx",
+    "client/src/test/chatPage.stop.test.tsx"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts",
+      "command": "npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx",
       "result": "passed",
-      "notes": "Focused route proof passed 28 tests with 0 failures."
+      "notes": "Focused stop-state proof passed 8 tests with 0 failures after targeting the selected-conversation stop-race seam."
     }
   ],
-  "commit_sha": "5febcc1c2058d7f0eb65523709d20e197ed4dc30",
+  "commit_sha": "3603fa26efcad82a79cf7f2279c6de2ea8f67cc6",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

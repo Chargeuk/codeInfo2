@@ -560,10 +560,29 @@ export function useChatModel() {
                   normalizedDefault = normalizedSupported[0];
                 }
 
+                const legacyReasoningOverride =
+                  normalizedSupported.length > 0
+                    ? [
+                        {
+                          key: 'modelReasoningEffort' as const,
+                          supportedValues: normalizedSupported.map((value) => ({
+                            value,
+                            label:
+                              value.charAt(0).toUpperCase() + value.slice(1),
+                          })),
+                          resolvedDefault: normalizedDefault,
+                        },
+                      ]
+                    : [];
+
                 return {
                   ...model,
                   supportedReasoningEfforts: normalizedSupported,
                   defaultReasoningEffort: normalizedDefault,
+                  flagOverrides:
+                    model.flagOverrides && model.flagOverrides.length > 0
+                      ? model.flagOverrides
+                      : legacyReasoningOverride,
                 };
               })
             : rawModels;

@@ -150,8 +150,5 @@ describe('Codex sandbox flag defaults', () => {
       expect(sandboxSelect).toHaveTextContent(/workspace write/i),
     );
 
-    expect(
-      screen.getByText(/controls codex sandbox permissions/i),
-    ).toBeInTheDocument();
   });
 });

@@ -572,9 +572,11 @@ describe('Chat page sidebar conversation selection', () => {
       ),
     );
     expect(screen.queryByText('codex reply')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('combobox', { name: /tool access/i }),
-    ).toHaveTextContent(/on/i);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /tool access/i }),
+      ).toHaveTextContent(/on/i),
+    );
     await user.click(screen.getByRole('combobox', { name: /tool access/i }));
     await user.click(await screen.findByRole('option', { name: /^Off$/i }));
     await waitFor(() =>

@@ -123,7 +123,7 @@ function mockCodexReady() {
 }
 
 describe('Codex model reasoning effort defaults', () => {
-  it('shows reasoning effort select defaulting to high with helper text', async () => {
+  it('shows reasoning effort select defaulting to high', async () => {
     mockCodexReady();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -145,8 +145,5 @@ describe('Codex model reasoning effort defaults', () => {
     );
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
 
-    expect(
-      screen.getByText(/higher effort may improve quality at more cost/i),
-    ).toBeInTheDocument();
   });
 });

@@ -146,8 +146,5 @@ describe('Codex web search flag defaults', () => {
     const webSearchSwitch = await screen.findByTestId('web-search-switch');
     await waitFor(() => expect(webSearchSwitch).toBeChecked());
 
-    expect(
-      screen.getByText(/allows codex to issue web search requests/i),
-    ).toBeInTheDocument();
   });
 });

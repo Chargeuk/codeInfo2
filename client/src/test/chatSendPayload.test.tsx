@@ -209,7 +209,7 @@ test('chat send payload includes working_folder when selected', async () => {
   expect((chatBody as ChatBody).working_folder).toBe('/repo/selected');
 });
 
-test('chat send payload sends provider-neutral agentFlags for Copilot without legacy top-level Codex fields', async () => {
+test('chat send payload keeps the Copilot request provider-neutral without legacy top-level Codex fields', async () => {
   type ChatBody = {
     conversationId?: string;
     message?: string;
@@ -362,10 +362,7 @@ test('chat send payload sends provider-neutral agentFlags for Copilot without le
 
   expect(submittedBody.provider).toBe('copilot');
   expect(submittedBody.model).toBe('copilot-chat');
-  expect(submittedBody.agentFlags).toEqual({
-    modelReasoningEffort: 'medium',
-    toolAccess: 'on',
-  });
+  expect(submittedBody).not.toHaveProperty('agentFlags');
   expect(submittedBody).not.toHaveProperty('sandboxMode');
   expect(submittedBody).not.toHaveProperty('approvalPolicy');
   expect(submittedBody).not.toHaveProperty('modelReasoningEffort');
@@ -548,16 +545,18 @@ test('chat send payload omits hidden incompatible Codex values after switching t
     throw new Error('Expected Copilot chat request body to be captured');
   }
 
-  expect(chatBody.provider).toBe('copilot');
-  expect(chatBody.model).toBe('copilot-chat');
-  expect(chatBody.agentFlags).toEqual({
-    modelReasoningEffort: 'medium',
+  const submittedBody = chatBody as ChatBody;
+
+  expect(submittedBody.provider).toBe('copilot');
+  expect(submittedBody.model).toBe('copilot-chat');
+  expect(submittedBody.agentFlags).toEqual({
     toolAccess: 'on',
   });
-  expect(chatBody.agentFlags).not.toHaveProperty('sandboxMode');
-  expect(chatBody).not.toHaveProperty('sandboxMode');
-  expect(chatBody).not.toHaveProperty('approvalPolicy');
-  expect(chatBody).not.toHaveProperty('modelReasoningEffort');
-  expect(chatBody).not.toHaveProperty('networkAccessEnabled');
-  expect(chatBody).not.toHaveProperty('webSearchEnabled');
+  expect(submittedBody.agentFlags).not.toHaveProperty('sandboxMode');
+  expect(submittedBody.agentFlags).not.toHaveProperty('modelReasoningEffort');
+  expect(submittedBody).not.toHaveProperty('sandboxMode');
+  expect(submittedBody).not.toHaveProperty('approvalPolicy');
+  expect(submittedBody).not.toHaveProperty('modelReasoningEffort');
+  expect(submittedBody).not.toHaveProperty('networkAccessEnabled');
+  expect(submittedBody).not.toHaveProperty('webSearchEnabled');
 });

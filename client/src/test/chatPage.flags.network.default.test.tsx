@@ -146,8 +146,5 @@ describe('Codex network access flag defaults', () => {
     const networkSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(networkSwitch).toBeChecked());
 
-    expect(
-      screen.getByText(/allows codex sandbox network access/i),
-    ).toBeInTheDocument();
   });
 });

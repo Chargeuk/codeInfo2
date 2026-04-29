@@ -63,3 +63,61 @@ test('returns validation_error when body is invalid', async () => {
     .expect(400);
   assert.equal(res.body.error, 'validation_error');
 });
+
+test('rejects malformed persisted agentFlags before createConversation can sanitize them into success', async () => {
+  let createCalls = 0;
+
+  const res = await request(
+    appWith({
+      createConversation: async () => {
+        createCalls += 1;
+        throw new Error('createConversation should not be called');
+      },
+    }),
+  )
+    .post('/conversations')
+    .send({
+      provider: 'lmstudio',
+      model: 'llama',
+      flags: {
+        agentFlags: 'not-an-object',
+      },
+    })
+    .expect(400);
+
+  assert.equal(res.body.error, 'validation_error');
+  assert.deepEqual(res.body.details.flags._errors, [
+    'flags.agentFlags must be an object',
+  ]);
+  assert.equal(createCalls, 0);
+});
+
+test('rejects provider-incompatible persisted flags instead of silently dropping them', async () => {
+  let createCalls = 0;
+
+  const res = await request(
+    appWith({
+      createConversation: async () => {
+        createCalls += 1;
+        throw new Error('createConversation should not be called');
+      },
+    }),
+  )
+    .post('/conversations')
+    .send({
+      provider: 'lmstudio',
+      model: 'llama',
+      flags: {
+        agentFlags: {
+          sandboxMode: 'read-only',
+        },
+      },
+    })
+    .expect(400);
+
+  assert.equal(res.body.error, 'validation_error');
+  assert.deepEqual(res.body.details.flags._errors, [
+    'flags.agentFlags.sandboxMode is not supported for provider "lmstudio"',
+  ]);
+  assert.equal(createCalls, 0);
+});

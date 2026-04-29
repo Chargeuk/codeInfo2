@@ -2,7 +2,15 @@ import crypto from 'node:crypto';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { getActiveRunOwnership } from '../agents/runLock.js';
-import { sanitizeConversationFlagsForProvider } from '../chat/agentFlags.js';
+import {
+  isSupportedAgentFlagKey,
+  sanitizeConversationFlagsForProvider,
+} from '../chat/agentFlags.js';
+import {
+  ProviderRuntimeFlagError,
+  resolveCopilotRuntimeAgentFlags,
+  resolveLmStudioRuntimeAgentFlags,
+} from '../chat/providerRuntimeFlags.js';
 import {
   getInflight,
   mergeInflightTurns,
@@ -64,6 +72,106 @@ const createConversationSchema = z
     source: z.enum(['REST', 'MCP']).optional(),
   })
   .strict();
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const ALLOWED_CONVERSATION_FLAG_KEYS = new Set([
+  'agentFlags',
+  'flow',
+  'flowChild',
+  'threadId',
+  'workingFolder',
+]);
+
+class ConversationFlagsValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConversationFlagsValidationError';
+  }
+}
+
+const validateConversationFlagsForProvider = (
+  provider: 'lmstudio' | 'codex' | 'copilot',
+  flags: unknown,
+) => {
+  if (flags === undefined) return;
+  if (!isPlainObject(flags)) {
+    throw new ConversationFlagsValidationError('flags must be an object');
+  }
+
+  for (const key of Object.keys(flags)) {
+    if (!ALLOWED_CONVERSATION_FLAG_KEYS.has(key)) {
+      throw new ConversationFlagsValidationError(
+        `flags.${key} is not supported`,
+      );
+    }
+  }
+
+  if (
+    flags.workingFolder !== undefined &&
+    (typeof flags.workingFolder !== 'string' ||
+      flags.workingFolder.trim().length === 0)
+  ) {
+    throw new ConversationFlagsValidationError(
+      'flags.workingFolder must be a non-empty string',
+    );
+  }
+
+  if (flags.flow !== undefined && !isPlainObject(flags.flow)) {
+    throw new ConversationFlagsValidationError('flags.flow must be an object');
+  }
+
+  if (flags.flowChild !== undefined && !isPlainObject(flags.flowChild)) {
+    throw new ConversationFlagsValidationError(
+      'flags.flowChild must be an object',
+    );
+  }
+
+  if (flags.threadId !== undefined) {
+    if (provider !== 'codex') {
+      throw new ConversationFlagsValidationError(
+        `flags.threadId is not supported for provider "${provider}"`,
+      );
+    }
+    if (
+      typeof flags.threadId !== 'string' ||
+      flags.threadId.trim().length === 0
+    ) {
+      throw new ConversationFlagsValidationError(
+        'flags.threadId must be a non-empty string',
+      );
+    }
+  }
+
+  if (flags.agentFlags === undefined) return;
+  if (!isPlainObject(flags.agentFlags)) {
+    throw new ConversationFlagsValidationError('flags.agentFlags must be an object');
+  }
+
+  for (const key of Object.keys(flags.agentFlags)) {
+    if (!isSupportedAgentFlagKey(provider, key)) {
+      throw new ConversationFlagsValidationError(
+        `flags.agentFlags.${key} is not supported for provider "${provider}"`,
+      );
+    }
+  }
+
+  try {
+    if (provider === 'copilot') {
+      resolveCopilotRuntimeAgentFlags(flags.agentFlags, {
+        modelSupportsReasoningEffort: true,
+      });
+    } else if (provider === 'lmstudio') {
+      resolveLmStudioRuntimeAgentFlags(flags.agentFlags);
+    }
+  } catch (error) {
+    if (error instanceof ProviderRuntimeFlagError) {
+      throw new ConversationFlagsValidationError(error.message);
+    }
+    throw error;
+  }
+};
 
 const archiveActionParamsSchema = z
   .object({
@@ -537,6 +645,21 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     }
 
     const { provider, model, title, flags, source } = parsed.data;
+    try {
+      validateConversationFlagsForProvider(provider, flags);
+    } catch (error) {
+      if (error instanceof ConversationFlagsValidationError) {
+        return res.status(400).json({
+          error: 'validation_error',
+          details: {
+            flags: {
+              _errors: [error.message],
+            },
+          },
+        });
+      }
+      throw error;
+    }
     const conversationId = crypto.randomUUID();
 
     try {

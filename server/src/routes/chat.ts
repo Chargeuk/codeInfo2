@@ -575,7 +575,7 @@ export function createChatRouter({
     warnings.forEach((warning) => {
       append({
         level: 'warn',
-        message: 'chat codex flag ignored',
+        message: 'chat validation warning',
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
@@ -583,7 +583,7 @@ export function createChatRouter({
       });
       baseLogger.warn(
         { requestId, provider: executionProvider, warning },
-        'chat flag ignored',
+        'chat validation warning',
       );
     });
 

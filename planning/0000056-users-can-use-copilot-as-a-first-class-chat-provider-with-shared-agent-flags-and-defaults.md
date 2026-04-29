@@ -944,11 +944,11 @@ This task repairs the fragile Copilot authentication persistence seam that curre
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root to prove the new `jsonc-parser` dependency, settings-first Copilot helpers, route changes, and updated proof owners compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root so the unit proof surface covers the new settings-first source of truth, JSONC-safe reads, route preflight distinctions, and updated compose bootstrap contract. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared server integration path remains honest after the Copilot auth-persistence contract changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 6 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 6 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Run `npm run build:summary:server` from the repository root to prove the new `jsonc-parser` dependency, settings-first Copilot helpers, route changes, and updated proof owners compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit` from the repository root so the unit proof surface covers the new settings-first source of truth, JSONC-safe reads, route preflight distinctions, and updated compose bootstrap contract. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the shared server integration path remains honest after the Copilot auth-persistence contract changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [x] Run `npm run lint` for the final Task 6 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 6 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -960,6 +960,13 @@ This task repairs the fragile Copilot authentication persistence seam that curre
 - Subtasks 11-14 complete: rewrote the direct unit/integration proof homes around missing settings, commented JSONC compatibility, legacy fallback migration, malformed settings failure mapping, and the compose-wrapper `settings.json` bootstrap contract.
 - Subtask 15 complete: repo-root `npm run lint` passed cleanly after the Task 6 helper, route, bootstrap, README, and proof-home updates, so the reopened shared ESLint baseline now stays green on this settings-first surface.
 - Subtask 16 complete: `npm run format:check` first reported Prettier drift in the new Copilot config helper and route-proof files, so ran `npm run format` and reran `npm run format:check` until the repo returned `All matched files use Prettier code style!`.
+- Testing step 1 complete: `npm run build:summary:server` passed cleanly with `agent_action: skip_log`, so the settings-first Copilot helper, route, and updated proof-owner surface compile on the wrapper-first server build path.
+- Mid-proof repair: the first `npm run test:summary:server:unit` run exposed one real Task 6 bug where legacy commented `config.json` fallback could suppress the canonical `settings.json` write when the legacy flag was already `true`, plus a too-narrow malformed-settings route matcher in the unit double path; tightened both seams before rerunning the full wrapper.
+- Mid-proof repair follow-up: the first unit-wrapper rerun then failed at TypeScript build because the new malformed-settings branch still treated the caught `error` as `unknown`; narrowed the response path explicitly before rerunning the full wrapper again.
+- Testing step 2 complete: after the helper migration fix and the TypeScript narrowing fix, `npm run test:summary:server:unit` reran cleanly with `1891` tests passed and `0` failed, so the direct Task 6 unit and integration proof owners now hold under the wrapper-first suite.
+- Testing step 3 complete: the first full cucumber wrapper run hit one timeout-only failure in an unrelated ingest-delta cleanup scenario, the targeted scenario rerun passed cleanly, and the required full `npm run test:summary:server:cucumber` rerun then finished green with `117` passed and `0` failed, so the shared server integration path is honest again after the Task 6 changes.
+- Testing step 4 complete: the final repo-root `npm run lint` rerun passed cleanly after the wrapper-backed proof repairs, so the finished Task 6 surface still holds on the normal shared ESLint path.
+- Testing step 5 complete: the final repo-root `npm run format:check` rerun finished with `All matched files use Prettier code style!`, so the audited Task 6 surface is back to a clean formatting checkpoint.
 
 ---
 

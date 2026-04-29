@@ -80,6 +80,15 @@ function logCopilotAuthDiagnostics(
   baseLogger.info(context, tag);
 }
 
+function isMalformedSettingsArtifactError(error: unknown): boolean {
+  return (
+    (error instanceof CopilotManagedJsonArtifactError &&
+      error.artifactName === 'settings.json') ||
+    (error instanceof Error &&
+      error.message === 'copilot settings.json is malformed')
+  );
+}
+
 function buildCopilotPreflightContext(params: {
   env: NodeJS.ProcessEnv | undefined;
   targetCopilotHome: string;
@@ -344,9 +353,8 @@ export function createCopilotDeviceAuthRouter(
         .status(200)
         .json(
           createCopilotUnavailableBeforeStartResponse(
-            error instanceof CopilotManagedJsonArtifactError &&
-              error.artifactName === 'settings.json'
-              ? error.message
+            isMalformedSettingsArtifactError(error)
+              ? (error as Error).message
               : 'copilot config persistence unavailable',
           ),
         );

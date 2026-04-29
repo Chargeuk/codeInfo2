@@ -238,6 +238,7 @@ export async function ensureCopilotPlaintextTokenStorage(
 
   let currentSettings: Record<string, unknown> = {};
   const settingsResult = await readCopilotManagedJsonObject(settingsPath);
+  const settingsFileExists = settingsResult.status === 'present';
   if (settingsResult.status === 'present') {
     currentSettings = settingsResult.value;
   } else {
@@ -264,7 +265,7 @@ export async function ensureCopilotPlaintextTokenStorage(
     }
   }
 
-  if (currentSettings.storeTokenPlaintext === true) {
+  if (settingsFileExists && currentSettings.storeTokenPlaintext === true) {
     return {
       changed: false,
       settingsPath,

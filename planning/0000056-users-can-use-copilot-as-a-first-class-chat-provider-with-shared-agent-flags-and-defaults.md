@@ -975,7 +975,7 @@ This task repairs the fragile Copilot authentication persistence seam that curre
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 6`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1069,6 +1069,7 @@ This task completes the user-facing part of Story 56 by removing the Codex-only 
 - `npm run test:summary:e2e` initially failed in the two Codex browser proofs because their `/chat/models` mocks still exposed a pre-Task-7 payload with no `providerInfo.agentFlags`, so the provider-neutral Agent Flags panel never mounted. After updating `e2e/chat-codex-mcp.spec.ts` and `e2e/chat-codex-reasoning.spec.ts` to use the renamed panel selectors and mock the live Codex descriptor/default contract, the targeted rerun passed 49/49 and the full e2e wrapper rerun also passed 49/49.
 - `npm run lint` then reported four `prefer-const` issues in `chatPage.flags.reasoning.payload.test.tsx` plus one import-order warning in `chatPage.reasoning.test.tsx`. After tightening those reasoning-test locals and import order, the rerun passed cleanly with no warnings.
 - `npm run format:check` next surfaced formatting drift in the older default-flag proof files plus the compatibility helper `ensureCodexFlagsPanelExpanded.ts`. After running Prettier on those Task 7-owned files and rerunning the full root check, `format:check` finished clean with `All matched files use Prettier code style!`.
+- Automated-proof audit confirmed Task 7 now has every subtask and every listed Testing gate checked on disk, with no live blocker remaining, so the task is ready to close and Task 8 can take over the final story validation pass.
 
 ---
 

@@ -106,6 +106,10 @@ export type ChatAgentFlagDescriptor = {
   integer?: boolean;
 };
 
+export type ChatAgentFlags = Partial<
+  Record<ChatAgentFlagKey, ChatAgentFlagValue>
+>;
+
 export type ChatProviderDefaultsSource =
   | 'request'
   | 'env'

@@ -4,7 +4,9 @@ import {
   isChatProviderId,
 } from '@codeinfo2/common';
 import type {
+  ChatAgentFlagDescriptor,
   ChatModelInfo,
+  ChatModelFlagOverride,
   ChatModelsResponse,
   CodexDefaults,
   ChatProviderInfo,
@@ -188,6 +190,118 @@ function parseModelsResponse(payload: unknown): ChatModelsResponse {
   return payload as ChatModelsResponse;
 }
 
+function mergeAgentFlagDescriptors(
+  base: ChatAgentFlagDescriptor[] | undefined,
+  overrides: ChatModelFlagOverride[] | undefined,
+): ChatAgentFlagDescriptor[] {
+  if (!base || base.length === 0) {
+    return [];
+  }
+
+  const overrideMap = new Map(
+    (overrides ?? []).map((entry) => [entry.key, entry] as const),
+  );
+
+  return base.map((descriptor) => {
+    const override = overrideMap.get(descriptor.key);
+    if (!override) {
+      return { ...descriptor };
+    }
+
+    return {
+      ...descriptor,
+      ...(override.resolvedDefault !== undefined
+        ? { resolvedDefault: override.resolvedDefault }
+        : {}),
+      ...(override.supportedValues !== undefined
+        ? { supportedValues: override.supportedValues }
+        : {}),
+      ...(override.min !== undefined ? { min: override.min } : {}),
+      ...(override.max !== undefined ? { max: override.max } : {}),
+      ...(override.integer !== undefined ? { integer: override.integer } : {}),
+    };
+  });
+}
+
+function buildLegacyCodexAgentFlags(params: {
+  defaults: CodexDefaults;
+  models: ChatModelInfo[];
+}): ChatAgentFlagDescriptor[] {
+  const reasoningValues = normalizeReasoningCapabilityStrings(
+    params.models.flatMap((model) => model.supportedReasoningEfforts ?? []),
+  );
+
+  return [
+    {
+      key: 'sandboxMode',
+      label: 'Sandbox Mode',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'danger-full-access',
+      resolvedDefault: params.defaults.sandboxMode,
+      supportedValues: [
+        { value: 'workspace-write', label: 'Workspace write' },
+        { value: 'read-only', label: 'Read-only' },
+        { value: 'danger-full-access', label: 'Danger full access' },
+      ],
+    },
+    {
+      key: 'approvalPolicy',
+      label: 'Approval Policy',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'on-failure',
+      resolvedDefault:
+        params.defaults.approvalPolicy === 'on-failure'
+          ? 'on-request'
+          : params.defaults.approvalPolicy,
+      supportedValues: [
+        { value: 'never', label: 'Never (auto-approve)' },
+        { value: 'on-request', label: 'On request' },
+        { value: 'untrusted', label: 'Untrusted' },
+      ],
+    },
+    {
+      key: 'modelReasoningEffort',
+      label: 'Reasoning Effort',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'high',
+      resolvedDefault: params.defaults.modelReasoningEffort,
+      supportedValues:
+        reasoningValues.length > 0
+          ? reasoningValues.map((value) => ({
+              value,
+              label: value.charAt(0).toUpperCase() + value.slice(1),
+            }))
+          : [{ value: params.defaults.modelReasoningEffort, label: 'High' }],
+    },
+    {
+      key: 'networkAccessEnabled',
+      label: 'Network Access',
+      controlType: 'boolean',
+      editable: true,
+      seedDefault: true,
+      resolvedDefault: params.defaults.networkAccessEnabled,
+    },
+    {
+      key: 'webSearchMode',
+      label: 'Web Search',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'live',
+      resolvedDefault:
+        params.defaults.webSearchMode ??
+        (params.defaults.webSearchEnabled ? 'live' : 'disabled'),
+      supportedValues: [
+        { value: 'disabled', label: 'Disabled' },
+        { value: 'cached', label: 'Cached' },
+        { value: 'live', label: 'Live' },
+      ],
+    },
+  ];
+}
+
 function normalizeProviders(list: ChatProviderInfo[]): ChatProviderInfo[] {
   const provided = new Map<ChatProviderId, ChatProviderInfo>();
 
@@ -230,6 +344,9 @@ export function useChatModel() {
   const [available, setAvailable] = useState<boolean>(true);
   const [toolsAvailable, setToolsAvailable] = useState<boolean>(true);
   const [providerReason, setProviderReason] = useState<string | undefined>();
+  const [providerInfo, setProviderInfo] = useState<
+    ChatProviderInfo | undefined
+  >(undefined);
   const [codexDefaults, setCodexDefaults] = useState<
     CodexDefaults | undefined
   >();
@@ -460,11 +577,21 @@ export function useChatModel() {
         setAvailable(Boolean(data.available));
         setToolsAvailable(Boolean(data.toolsAvailable));
         setProviderReason(data.reason);
+        const resolvedProviderInfo =
+          data.providerInfo ??
+          data.providers?.find((entry) => entry.id === effectiveProvider);
+        setProviderInfo(resolvedProviderInfo);
         setCodexDefaults(
-          effectiveProvider === 'codex' ? data.codexDefaults : undefined,
+          effectiveProvider === 'codex'
+            ? (data.codexDefaults ??
+                resolvedProviderInfo?.compatibility?.codexDefaults)
+            : undefined,
         );
         setCodexWarnings(
-          effectiveProvider === 'codex' ? data.codexWarnings : undefined,
+          effectiveProvider === 'codex'
+            ? (data.codexWarnings ??
+                resolvedProviderInfo?.compatibility?.codexWarnings)
+            : undefined,
         );
         setModels(models);
         setSelected(
@@ -483,6 +610,7 @@ export function useChatModel() {
         setAvailable(false);
         setToolsAvailable(false);
         setProviderReason(message);
+        setProviderInfo(undefined);
         setCodexDefaults(undefined);
         setCodexWarnings(undefined);
         setModels([]);
@@ -556,15 +684,41 @@ export function useChatModel() {
     };
   }, [models, providerState, selected]);
 
+  const selectedModel = useMemo(
+    () => models.find((model) => model.key === selected),
+    [models, selected],
+  );
+
+  const agentFlags = useMemo(() => {
+    const baseFlags =
+      providerInfo?.agentFlags ??
+      (providerState === 'codex' && codexDefaults
+        ? buildLegacyCodexAgentFlags({
+            defaults: codexDefaults,
+            models,
+          })
+        : undefined);
+
+    return mergeAgentFlagDescriptors(baseFlags, selectedModel?.flagOverrides);
+  }, [
+    codexDefaults,
+    models,
+    providerInfo?.agentFlags,
+    providerState,
+    selectedModel?.flagOverrides,
+  ]);
+
   return {
     providers,
     provider: providerState,
     setProvider,
     providerStatus,
+    providerInfo,
     providerErrorMessage,
     providerReason,
     available,
     toolsAvailable,
+    agentFlags,
     codexDefaults,
     codexWarnings,
     models,

@@ -208,17 +208,13 @@ test('chat send payload includes working_folder when selected', async () => {
   expect((chatBody as ChatBody).working_folder).toBe('/repo/selected');
 });
 
-test('chat send payload omits Codex-only flags when Copilot is selected', async () => {
+test('chat send payload keeps provider-neutral agentFlags isolated from Codex-only top-level fields', async () => {
   type ChatBody = {
     conversationId?: string;
     message?: string;
     provider?: string;
     model?: string;
-    sandboxMode?: string;
-    approvalPolicy?: string;
-    modelReasoningEffort?: string;
-    networkAccessEnabled?: boolean;
-    webSearchEnabled?: boolean;
+    agentFlags?: Record<string, unknown>;
   };
   const user = userEvent.setup();
   let chatBody: ChatBody | null = null;
@@ -262,6 +258,33 @@ test('chat send payload omits Codex-only flags when Copilot is selected', async 
             provider: 'copilot',
             available: true,
             toolsAvailable: true,
+            agentFlags: [
+              {
+                key: 'modelReasoningEffort',
+                label: 'Reasoning Effort',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'medium',
+                resolvedDefault: 'medium',
+                supportedValues: [
+                  { value: 'low', label: 'Low' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'high', label: 'High' },
+                ],
+              },
+              {
+                key: 'toolAccess',
+                label: 'Tool Access',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'on',
+                resolvedDefault: 'on',
+                supportedValues: [
+                  { value: 'on', label: 'On' },
+                  { value: 'off', label: 'Off' },
+                ],
+              },
+            ],
             models: [
               {
                 key: 'copilot-chat',
@@ -338,6 +361,10 @@ test('chat send payload omits Codex-only flags when Copilot is selected', async 
 
   expect(submittedBody.provider).toBe('copilot');
   expect(submittedBody.model).toBe('copilot-chat');
+  expect(submittedBody.agentFlags).toEqual({
+    modelReasoningEffort: 'medium',
+    toolAccess: 'on',
+  });
   expect(submittedBody).not.toHaveProperty('sandboxMode');
   expect(submittedBody).not.toHaveProperty('approvalPolicy');
   expect(submittedBody).not.toHaveProperty('modelReasoningEffort');

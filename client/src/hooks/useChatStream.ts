@@ -1,44 +1,17 @@
-import { type CodexDefaults, type LogLevel } from '@codeinfo2/common';
+import type {
+  ChatAgentFlagKey,
+  ChatAgentFlagValue,
+  LogLevel,
+} from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
-import { normalizeReasoningCapabilityStrings } from '../utils/reasoningCapabilities';
 import type {
   ChatWsCancelAckEvent,
   ChatWsToolEvent,
   ChatWsTranscriptEvent,
 } from './useChatWs';
 import type { InflightSnapshot } from './useConversationTurns';
-
-export type SandboxMode =
-  | 'read-only'
-  | 'workspace-write'
-  | 'danger-full-access';
-
-export type ApprovalPolicy =
-  | 'never'
-  | 'on-request'
-  | 'on-failure'
-  | 'untrusted';
-
-export type ModelReasoningEffort = string;
-
-export type CodexFlagState = {
-  sandboxMode?: SandboxMode;
-  approvalPolicy?: ApprovalPolicy;
-  networkAccessEnabled?: boolean;
-  webSearchEnabled?: boolean;
-  modelReasoningEffort?: ModelReasoningEffort;
-};
-
-// Fallbacks used only when codexDefaults are unavailable; keep in sync with server defaults.
-const DEFAULT_CODEX_FLAGS: Required<CodexFlagState> = {
-  sandboxMode: 'danger-full-access',
-  approvalPolicy: 'on-failure',
-  modelReasoningEffort: 'high',
-  networkAccessEnabled: true,
-  webSearchEnabled: true,
-};
 
 export type ToolCitation = {
   repo: string;
@@ -111,13 +84,9 @@ type Status = 'idle' | 'sending' | 'stopping';
 const API_BASE = getApiBaseUrl();
 
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
-const DEV_0000037_T02_PREFIX = '[DEV-0000037][T02]';
-const DEV_0000037_T17_PREFIX = '[DEV-0000037][T17]';
-
-type SelectedModelReasoningCapabilities = {
-  supportedReasoningEfforts: string[];
-  defaultReasoningEffort: string;
-};
+export type ChatAgentFlagDraft = Partial<
+  Record<ChatAgentFlagKey, ChatAgentFlagValue>
+>;
 
 const parseTimestamp = (value?: string) => {
   if (!value) return null;
@@ -256,9 +225,7 @@ function normalizeToolCallId(raw: unknown): string {
 export function useChatStream(
   model?: string,
   provider?: string,
-  codexFlags?: CodexFlagState,
-  codexDefaults?: CodexDefaults,
-  selectedModelCapabilities?: SelectedModelReasoningCapabilities,
+  agentFlags?: ChatAgentFlagDraft,
 ) {
   const log = useRef(createLogger('client')).current;
   const flowLog = useRef(createLogger('client-flows')).current;
@@ -1212,157 +1179,22 @@ export function useChatStream(
       scheduleThinkingTimer();
 
       try {
-        const omittedFlags: string[] = [];
         const baseCodexPayload = threadIdRef.current
           ? { threadId: threadIdRef.current }
           : {};
         const codexPayload: Record<string, unknown> =
           provider === 'codex' ? { ...baseCodexPayload } : {};
-
-        if (provider === 'codex') {
-          const selectedReasoningEffort =
-            typeof codexFlags?.modelReasoningEffort === 'string'
-              ? codexFlags.modelReasoningEffort
-              : undefined;
-          const supportedReasoningEfforts = normalizeReasoningCapabilityStrings(
-            selectedModelCapabilities?.supportedReasoningEfforts,
-          );
-          const defaultReasoningEffort =
-            (typeof selectedModelCapabilities?.defaultReasoningEffort ===
-              'string' &&
-            selectedModelCapabilities.defaultReasoningEffort.trim().length > 0
-              ? selectedModelCapabilities.defaultReasoningEffort.trim()
-              : undefined) ?? codexDefaults?.modelReasoningEffort;
-          const resolvedReasoningEffortCandidate =
-            supportedReasoningEfforts.length > 0
-              ? supportedReasoningEfforts.includes(
-                  selectedReasoningEffort ?? '',
-                )
-                ? selectedReasoningEffort
-                : supportedReasoningEfforts.includes(
-                      defaultReasoningEffort ?? '',
-                    )
-                  ? defaultReasoningEffort
-                  : supportedReasoningEfforts[0]
-              : undefined;
-          const resolvedReasoningEffort =
-            resolvedReasoningEffortCandidate &&
-            supportedReasoningEfforts.includes(resolvedReasoningEffortCandidate)
-              ? resolvedReasoningEffortCandidate
-              : undefined;
-
-          if (supportedReasoningEfforts.length === 0) {
-            console.error(
-              `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=error reason=no_supported_reasoning_efforts`,
-            );
-          }
-
-          const fallbackFlags: Required<CodexFlagState> = {
-            sandboxMode:
-              codexFlags?.sandboxMode ?? DEFAULT_CODEX_FLAGS.sandboxMode,
-            approvalPolicy:
-              codexFlags?.approvalPolicy ?? DEFAULT_CODEX_FLAGS.approvalPolicy,
-            modelReasoningEffort:
-              resolvedReasoningEffort ??
-              DEFAULT_CODEX_FLAGS.modelReasoningEffort,
-            networkAccessEnabled:
-              codexFlags?.networkAccessEnabled ??
-              DEFAULT_CODEX_FLAGS.networkAccessEnabled,
-            webSearchEnabled:
-              codexFlags?.webSearchEnabled ??
-              DEFAULT_CODEX_FLAGS.webSearchEnabled,
-          };
-
-          if (!codexDefaults) {
-            codexPayload.sandboxMode = fallbackFlags.sandboxMode;
-            codexPayload.approvalPolicy = fallbackFlags.approvalPolicy;
-            if (resolvedReasoningEffort) {
-              codexPayload.modelReasoningEffort = resolvedReasoningEffort;
-              console.info(
-                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
-              );
-              console.info(
-                `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
-              );
-            } else {
-              omittedFlags.push('modelReasoningEffort');
+        const normalizedAgentFlags = Object.fromEntries(
+          Object.entries(agentFlags ?? {}).flatMap(([key, value]) => {
+            if (value === undefined || value === null) {
+              return [];
             }
-            codexPayload.networkAccessEnabled =
-              fallbackFlags.networkAccessEnabled;
-            codexPayload.webSearchEnabled = fallbackFlags.webSearchEnabled;
-            console.info(
-              '[codex-payload] defaults missing, sending fallbacks',
-              {
-                fallbackFlags,
-              },
-            );
-          } else {
-            const sandboxMode = codexFlags?.sandboxMode;
-            if (sandboxMode && sandboxMode !== codexDefaults.sandboxMode) {
-              codexPayload.sandboxMode = sandboxMode;
-            } else {
-              omittedFlags.push('sandboxMode');
+            if (typeof value === 'string' && value.trim().length === 0) {
+              return [];
             }
-
-            const approvalPolicy = codexFlags?.approvalPolicy;
-            if (
-              approvalPolicy &&
-              approvalPolicy !== codexDefaults.approvalPolicy
-            ) {
-              codexPayload.approvalPolicy = approvalPolicy;
-            } else {
-              omittedFlags.push('approvalPolicy');
-            }
-
-            const modelReasoningEffort = resolvedReasoningEffort;
-            if (
-              modelReasoningEffort &&
-              modelReasoningEffort !== codexDefaults.modelReasoningEffort
-            ) {
-              codexPayload.modelReasoningEffort = modelReasoningEffort;
-              console.info(
-                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
-              );
-              console.info(
-                `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
-              );
-            } else {
-              omittedFlags.push('modelReasoningEffort');
-              if (modelReasoningEffort) {
-                console.info(
-                  `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
-                );
-                console.info(
-                  `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
-                );
-              }
-            }
-
-            const networkAccessEnabled = codexFlags?.networkAccessEnabled;
-            if (
-              typeof networkAccessEnabled === 'boolean' &&
-              networkAccessEnabled !== codexDefaults.networkAccessEnabled
-            ) {
-              codexPayload.networkAccessEnabled = networkAccessEnabled;
-            } else {
-              omittedFlags.push('networkAccessEnabled');
-            }
-
-            const webSearchEnabled = codexFlags?.webSearchEnabled;
-            if (
-              typeof webSearchEnabled === 'boolean' &&
-              webSearchEnabled !== codexDefaults.webSearchEnabled
-            ) {
-              codexPayload.webSearchEnabled = webSearchEnabled;
-            } else {
-              omittedFlags.push('webSearchEnabled');
-            }
-          }
-        }
-
-        if (provider === 'codex' && omittedFlags.length > 0) {
-          console.info('[codex-payload] omitted flags', { omittedFlags });
-        }
+            return [[key, value]];
+          }),
+        );
 
         const res = await fetch(new URL('/chat', API_BASE).toString(), {
           method: 'POST',
@@ -1375,6 +1207,9 @@ export function useChatStream(
             message: text,
             ...(options?.workingFolder?.trim()
               ? { working_folder: options.workingFolder.trim() }
+              : {}),
+            ...(Object.keys(normalizedAgentFlags).length > 0
+              ? { agentFlags: normalizedAgentFlags }
               : {}),
             ...codexPayload,
           }),
@@ -1445,9 +1280,7 @@ export function useChatStream(
       }
     },
     [
-      codexDefaults,
-      codexFlags,
-      selectedModelCapabilities,
+      agentFlags,
       ensureAssistantMessage,
       handleErrorBubble,
       logWithChannel,

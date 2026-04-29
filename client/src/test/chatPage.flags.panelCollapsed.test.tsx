@@ -127,7 +127,7 @@ async function selectProvider(optionName: RegExp) {
   await userEvent.click(option);
 }
 
-describe('Codex flags panel collapsed defaults', () => {
+describe('Agent Flags panel collapsed defaults', () => {
   it('is collapsed by default and expands on click', async () => {
     mockCodexReady();
 
@@ -137,7 +137,7 @@ describe('Codex flags panel collapsed defaults', () => {
     await selectProvider(/openai codex/i);
 
     const summaryButton = await screen.findByRole('button', {
-      name: /codex flags/i,
+      name: /agent flags/i,
     });
     expect(summaryButton).toHaveAttribute('aria-expanded', 'false');
 
@@ -167,7 +167,7 @@ describe('Codex flags panel collapsed defaults', () => {
     await selectProvider(/openai codex/i);
 
     const summaryButton = await screen.findByRole('button', {
-      name: /codex flags/i,
+      name: /agent flags/i,
     });
     await userEvent.click(summaryButton);
     await waitFor(() =>
@@ -178,7 +178,7 @@ describe('Codex flags panel collapsed defaults', () => {
     await selectProvider(/openai codex/i);
 
     const newSummaryButton = await screen.findByRole('button', {
-      name: /codex flags/i,
+      name: /agent flags/i,
     });
     expect(newSummaryButton).toHaveAttribute('aria-expanded', 'false');
     expect(

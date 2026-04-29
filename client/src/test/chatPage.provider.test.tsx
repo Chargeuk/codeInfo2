@@ -607,7 +607,7 @@ describe('Chat provider selection (WS transport)', () => {
     await screen.findByRole('button', {
       name: /re-authenticate \(device auth\)/i,
     });
-    expect(screen.getByTestId('codex-flags-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-flags-panel')).toBeInTheDocument();
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
 
     const providerSelect = await screen.findByRole('combobox', {
@@ -625,7 +625,7 @@ describe('Chat provider selection (WS transport)', () => {
         }),
       ).not.toBeInTheDocument(),
     );
-    expect(screen.queryByTestId('codex-flags-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('agent-flags-panel')).not.toBeInTheDocument();
     expect(
       screen.queryByTestId('codex-warnings-banner'),
     ).not.toBeInTheDocument();
@@ -640,7 +640,7 @@ describe('Chat provider selection (WS transport)', () => {
         name: /re-authenticate \(device auth\)/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId('codex-flags-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-flags-panel')).toBeInTheDocument();
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
   });
 

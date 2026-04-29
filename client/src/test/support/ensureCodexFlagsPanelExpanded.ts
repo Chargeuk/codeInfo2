@@ -5,7 +5,7 @@ export async function ensureCodexFlagsPanelExpanded(
   user: TestUserEvent = createTestUser(),
 ) {
   const summaryButton = await screen.findByRole('button', {
-    name: /codex flags/i,
+    name: /agent flags/i,
   });
 
   if (summaryButton.getAttribute('aria-expanded') !== 'true') {
@@ -14,7 +14,7 @@ export async function ensureCodexFlagsPanelExpanded(
 
   await waitFor(() => {
     if (summaryButton.getAttribute('aria-expanded') !== 'true') {
-      throw new Error('Expected Codex flags panel to be expanded');
+      throw new Error('Expected Agent Flags panel to be expanded');
     }
   });
 }

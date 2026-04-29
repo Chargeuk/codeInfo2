@@ -717,7 +717,7 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3, Task 5`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits: `184e0148`, `0e889c19`, `e781ba4a`, `9f42fe24`
 
 #### Overview

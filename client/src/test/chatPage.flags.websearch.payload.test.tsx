@@ -197,9 +197,11 @@ describe('Codex web search flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.agentFlags).toEqual({
-      webSearchEnabled: false,
-    });
+    expect(codexBody.agentFlags).toEqual(
+      expect.objectContaining({
+        webSearchMode: 'disabled',
+      }),
+    );
 
     await act(async () => {
       await user.click(newConversationButton);

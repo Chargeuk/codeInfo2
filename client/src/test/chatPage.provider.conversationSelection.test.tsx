@@ -571,7 +571,13 @@ describe('Chat page sidebar conversation selection', () => {
         /GitHub Copilot/i,
       ),
     );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /Copilot Chat/i,
+      ),
+    );
     expect(screen.queryByText('codex reply')).not.toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
     await waitFor(() =>
       expect(
         screen.getByRole('combobox', { name: /tool access/i }),

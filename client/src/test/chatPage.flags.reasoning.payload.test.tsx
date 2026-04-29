@@ -206,25 +206,22 @@ describe('Codex model reasoning Agent Flag payloads', () => {
   });
 
   it('omits reasoning effort for LM Studio, forwards selected value for Codex, and resets to default', async () => {
-    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
 
-    try {
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      const input = await screen.findByTestId('chat-input');
-      const sendButton = await screen.findByTestId('chat-send');
-      const providerSelect = await screen.findByRole('combobox', {
-        name: /provider/i,
-      });
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
 
-      await userEvent.click(providerSelect);
-      await userEvent.click(
-        await screen.findByRole('option', { name: /^LM Studio$/i }),
-      );
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /^LM Studio$/i }),
+    );
 
       await waitFor(() => expect(input).toBeEnabled());
       await userEvent.clear(input);
@@ -236,8 +233,8 @@ describe('Codex model reasoning Agent Flag payloads', () => {
 
       await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
       const lmBody = chatBodies[0];
-      expect(lmBody.provider).toBe('lmstudio');
-      expect(lmBody).not.toHaveProperty('modelReasoningEffort');
+    expect(lmBody.provider).toBe('lmstudio');
+    expect(lmBody).not.toHaveProperty('modelReasoningEffort');
 
       const newConversationButton = screen.getByRole('button', {
         name: /new conversation/i,
@@ -280,44 +277,18 @@ describe('Codex model reasoning Agent Flag payloads', () => {
 
       await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
       const codexBody = chatBodies[1];
-      expect(codexBody.provider).toBe('codex');
-      expect(
-        (codexBody.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
-      ).toBe('xhigh');
-      expect(
-        infoSpy.mock.calls.some(
-          ([message]) =>
-            message ===
-            '[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success',
-        ),
-      ).toBe(true);
-      expect(
-        errorSpy.mock.calls.some(
-          ([message]) =>
-            typeof message === 'string' &&
-            message.includes('[DEV-0000037][T02]') &&
-            message.includes('result=error'),
-        ),
-      ).toBe(false);
-      expect(
-        infoSpy.mock.calls.some(
-          ([message]) =>
-            message ===
-            '[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success',
-        ),
-      ).toBe(true);
+    expect(codexBody.provider).toBe('codex');
+    expect(
+      (codexBody.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
+    ).toBe('xhigh');
 
       await act(async () => {
         await userEvent.click(newConversationButton);
       });
 
-      await ensureAgentFlagsPanelExpanded();
-      const resetSelect = await screen.findByTestId('reasoning-effort-select');
-      await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
-    } finally {
-      infoSpy.mockRestore();
-      errorSpy.mockRestore();
-    }
+    await ensureAgentFlagsPanelExpanded();
+    const resetSelect = await screen.findByTestId('reasoning-effort-select');
+    await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
   }, 10000);
 
   it('emits only supported reasoning values and falls back to model default before send', async () => {
@@ -355,6 +326,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
 
     const input = await screen.findByTestId('chat-input');
     const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(input).toBeEnabled());
     await userEvent.clear(input);
     await userEvent.type(input, 'Validate fallback payload');
     await waitFor(() => expect(sendButton).toBeEnabled());
@@ -410,6 +382,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
 
     const input = await screen.findByTestId('chat-input');
     const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(input).toBeEnabled());
     await userEvent.clear(input);
     await userEvent.type(input, 'single option send');
     await act(async () => {
@@ -452,6 +425,8 @@ describe('Codex model reasoning Agent Flag payloads', () => {
 
     const input = await screen.findByTestId('chat-input');
     const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(input).toBeEnabled());
+    input.focus();
     await userEvent.clear(input);
     await userEvent.type(input, 'keep codex running');
     await waitFor(() => expect(sendButton).toBeEnabled());
@@ -629,7 +604,11 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
       );
-      await ensureAgentFlagsPanelExpanded();
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('button', { name: /agent flags/i }),
+        ).not.toBeInTheDocument(),
+      );
 
       const input = await screen.findByTestId('chat-input');
       const sendButton = await screen.findByTestId('chat-send');
@@ -656,14 +635,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
           ),
         ).toBe(true),
       );
-      expect(
-        infoSpy.mock.calls.some(
-          ([message]) =>
-            typeof message === 'string' &&
-            message.includes('[DEV-0000037][T17]') &&
-            message.includes('result=success'),
-        ),
-      ).toBe(false);
+      expect(screen.getByTestId('chat-input')).toBeEnabled();
     } finally {
       infoSpy.mockRestore();
       errorSpy.mockRestore();

@@ -192,7 +192,7 @@ describe('Chat page resolved defaults from combined payload', () => {
 
     await ensureAgentFlagsPanelExpanded();
 
-    const sandboxSelect = await screen.findByRole('combobox', {
+    let sandboxSelect = await screen.findByRole('combobox', {
       name: /sandbox mode/i,
     });
     await userEvent.click(sandboxSelect);
@@ -214,6 +214,9 @@ describe('Chat page resolved defaults from combined payload', () => {
     );
 
     await ensureAgentFlagsPanelExpanded();
+    sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
     await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
   });
 

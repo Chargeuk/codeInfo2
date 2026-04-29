@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -138,9 +138,9 @@ describe('Codex sandbox flag defaults', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
-    const sandboxPanel = await screen.findByTestId('codex-flags-panel');
+    const sandboxPanel = await screen.findByTestId('agent-flags-panel');
     expect(sandboxPanel).toBeInTheDocument();
 
     const sandboxSelect = await screen.findByRole('combobox', {

@@ -736,7 +736,9 @@ describe('Chat page models list', () => {
     expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
 
     const input = await screen.findByTestId('chat-input');
+    await waitFor(() => expect(input).toBeEnabled());
     await user.type(input, 'Use the narrowed draft');
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
     await act(async () => {
       await user.click(screen.getByTestId('chat-send'));
     });

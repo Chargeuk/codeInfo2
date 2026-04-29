@@ -635,7 +635,7 @@ describe('Chat provider selection (WS transport)', () => {
     await screen.findByRole('button', {
       name: /re-authenticate \(device auth\)/i,
     });
-    expect(await screen.findByTestId('agent-flags-panel')).toBeInTheDocument();
+    await screen.findByRole('button', { name: /agent flags/i });
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
     await ensureAgentFlagsPanelExpanded(user);
     expect(
@@ -649,6 +649,16 @@ describe('Chat provider selection (WS transport)', () => {
     await user.click(
       await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
     );
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /GitHub Copilot/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /Copilot Chat/i,
+      ),
+    );
 
     await waitFor(() =>
       expect(
@@ -660,20 +670,36 @@ describe('Chat provider selection (WS transport)', () => {
     expect(
       screen.queryByTestId('codex-warnings-banner'),
     ).not.toBeInTheDocument();
-    expect(await screen.findByTestId('agent-flags-panel')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('combobox', { name: /sandbox mode/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('combobox', { name: /reasoning effort/i }),
-    ).toHaveTextContent(/medium/i);
-    expect(
-      screen.getByRole('combobox', { name: /tool access/i }),
-    ).toHaveTextContent(/on/i);
+    await ensureAgentFlagsPanelExpanded(user);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('combobox', { name: /sandbox mode/i }),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /reasoning effort/i }),
+      ).toHaveTextContent(/medium/i),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /tool access/i }),
+      ).toHaveTextContent(/on/i),
+    );
 
     await user.click(screen.getByRole('combobox', { name: /provider/i }));
     await user.click(
       await screen.findByRole('option', { name: /^OpenAI Codex$/i }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5.1-codex-max/i,
+      ),
     );
 
     expect(
@@ -681,7 +707,7 @@ describe('Chat provider selection (WS transport)', () => {
         name: /re-authenticate \(device auth\)/i,
       }),
     ).toBeInTheDocument();
-    expect(await screen.findByTestId('agent-flags-panel')).toBeInTheDocument();
+    await screen.findByRole('button', { name: /agent flags/i });
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
     await ensureAgentFlagsPanelExpanded(user);
     expect(

@@ -155,7 +155,7 @@ function mockProvidersWithBodies(
 }
 
 describe('Codex sandbox flag payloads', () => {
-  it('omits unchanged Codex flags so server defaults apply', async () => {
+  it('keeps the nested provider-neutral agentFlags payload aligned to the current Codex defaults contract', async () => {
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
 
@@ -184,7 +184,15 @@ describe('Codex sandbox flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
     const codexBody = chatBodies[0];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody).not.toHaveProperty('agentFlags');
+    expect(codexBody.agentFlags).toEqual(
+      expect.objectContaining({
+        sandboxMode: 'workspace-write',
+        approvalPolicy: 'on-request',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchMode: 'live',
+      }),
+    );
   });
 
   it('omits sandbox flag for LM Studio and includes chosen value for Codex', async () => {
@@ -280,12 +288,11 @@ describe('Codex sandbox flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
-
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    expect(sandboxSelect).toHaveAttribute('aria-disabled', 'true');
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /agent flags/i }),
+      ).not.toBeInTheDocument(),
+    );
 
     const input = await screen.findByTestId('chat-input');
     const sendButton = await screen.findByTestId('chat-send');

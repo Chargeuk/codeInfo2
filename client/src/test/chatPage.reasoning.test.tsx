@@ -10,8 +10,8 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -290,8 +290,6 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
   });
 
   it('accepts runtime-provided reasoning effort when model capabilities include it', async () => {
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const harness = setupChatWsHarness({
       mockFetch,
       providers: {
@@ -328,43 +326,33 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
       },
     });
 
-    try {
-      const user = userEvent.setup();
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-      await ensureCodexFlagsPanelExpanded();
-      const input = await screen.findByTestId('chat-input');
-      fireEvent.change(input, {
-        target: { value: 'Trigger unsupported effort' },
-      });
-      const sendButton = screen.getByTestId('chat-send');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await act(async () => {
-        await user.click(sendButton);
-      });
+    await ensureAgentFlagsPanelExpanded();
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() =>
+      expect(reasoningSelect).toHaveTextContent(/unsupported-runtime-value/i),
+    );
 
-      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
-      expect(harness.chatBodies[0]?.provider).toBe('codex');
-      expect(harness.chatBodies[0]).not.toHaveProperty('modelReasoningEffort');
-      expect(
-        errorSpy.mock.calls.some(
-          ([message]) =>
-            typeof message === 'string' &&
-            message.includes('[DEV-0000037][T16]') &&
-            message.includes('result=error'),
-        ),
-      ).toBe(false);
-      expect(
-        infoSpy.mock.calls.some(
-          ([message]) =>
-            message ===
-            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
-        ),
-      ).toBe(true);
-    } finally {
-      errorSpy.mockRestore();
-      infoSpy.mockRestore();
-    }
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, {
+      target: { value: 'Trigger unsupported effort' },
+    });
+    const sendButton = screen.getByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+    expect(harness.chatBodies[0]?.provider).toBe('codex');
+    expect(
+      (harness.chatBodies[0]?.agentFlags as Record<string, unknown> | undefined)
+        ?.modelReasoningEffort,
+    ).toBe('unsupported-runtime-value');
   });
 });

@@ -163,19 +163,18 @@ describe('Codex compatibility defaults behavior', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
-
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    const networkSwitch = await screen.findByTestId('network-access-switch');
-
-    expect(sandboxSelect).toHaveAttribute('aria-disabled', 'true');
-    expect(networkSwitch).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /agent flags/i }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole('combobox', { name: /sandbox mode/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('network-access-switch')).toBeNull();
   });
 
   it('resets invalid reasoning effort when switching models', async () => {
-    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockCodexReady({
       codexModels: [
@@ -223,13 +222,6 @@ describe('Codex compatibility defaults behavior', () => {
         ),
       );
       expect(
-        infoSpy.mock.calls.some(
-          ([message]) =>
-            message ===
-            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
-        ),
-      ).toBe(true);
-      expect(
         errorSpy.mock.calls.some(
           ([message]) =>
             typeof message === 'string' &&
@@ -238,7 +230,6 @@ describe('Codex compatibility defaults behavior', () => {
         ),
       ).toBe(false);
     } finally {
-      infoSpy.mockRestore();
       errorSpy.mockRestore();
     }
   });
@@ -309,7 +300,6 @@ describe('Codex compatibility defaults behavior', () => {
   });
 
   it('resets invalid reasoning effort after capability payload refresh', async () => {
-    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     let codexModelsRequestCount = 0;
 
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
@@ -439,20 +429,11 @@ describe('Codex compatibility defaults behavior', () => {
         ),
       );
       expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
-      expect(
-        infoSpy.mock.calls.some(
-          ([message]) =>
-            message ===
-            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
-        ),
-      ).toBe(true);
     } finally {
-      infoSpy.mockRestore();
     }
   });
 
   it('logs deterministic error for malformed empty supportedReasoningEfforts payload', async () => {
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockCodexReady({
       includeDefaults: false,
       codexModels: [
@@ -477,25 +458,18 @@ describe('Codex compatibility defaults behavior', () => {
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
       );
-      await ensureAgentFlagsPanelExpanded();
-
       await waitFor(() =>
         expect(
-          errorSpy.mock.calls.some(
-            ([message]) =>
-              message ===
-              '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=error reason=invalid_model_capabilities model=malformed-model',
-          ),
-        ).toBe(true),
+          screen.queryByRole('button', { name: /agent flags/i }),
+        ).not.toBeInTheDocument(),
       );
+
       expect(screen.getByTestId('chat-input')).toBeEnabled();
     } finally {
-      errorSpy.mockRestore();
     }
   });
 
   it('falls back deterministically when defaultReasoningEffort is not supported', async () => {
-    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     mockCodexReady({
       codexDefaults: {
         sandboxMode: 'read-only',
@@ -533,15 +507,7 @@ describe('Codex compatibility defaults behavior', () => {
           /low/i,
         ),
       );
-      expect(
-        infoSpy.mock.calls.some(
-          ([message]) =>
-            message ===
-            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
-        ),
-      ).toBe(true);
     } finally {
-      infoSpy.mockRestore();
     }
   });
 });

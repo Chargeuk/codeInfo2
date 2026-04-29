@@ -525,10 +525,23 @@ test('chat send payload omits hidden incompatible Codex values after switching t
   await user.click(
     await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
   );
+  await waitFor(() =>
+    expect(screen.getByTestId('provider-select')).toHaveTextContent(
+      /GitHub Copilot/i,
+    ),
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('model-select')).toHaveTextContent(
+      /Copilot Chat/i,
+    ),
+  );
 
-  expect(
-    screen.queryByRole('combobox', { name: /sandbox mode/i }),
-  ).not.toBeInTheDocument();
+  await ensureAgentFlagsPanelExpanded(user);
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('combobox', { name: /sandbox mode/i }),
+    ).not.toBeInTheDocument(),
+  );
   await waitFor(() =>
     expect(screen.getByTestId('tool-access-select')).toHaveTextContent(/on/i),
   );

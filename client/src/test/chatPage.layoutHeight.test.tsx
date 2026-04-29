@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import SharedTranscript from '../components/chat/SharedTranscript';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -207,6 +208,14 @@ describe('Chat transcript viewport height fill', () => {
             provider: 'codex',
             available: true,
             toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
             models: [
               {
                 key: 'c1',
@@ -229,7 +238,7 @@ describe('Chat transcript viewport height fill', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByTestId('codex-flags-panel');
+    await ensureAgentFlagsPanelExpanded();
     await screen.findByTestId('chat-transcript');
 
     setViewportHeight(480);

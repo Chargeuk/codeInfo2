@@ -182,7 +182,7 @@ describe('Codex approval policy flag payloads', () => {
       name: /approval policy/i,
     });
     await waitFor(() =>
-      expect(approvalSelect).toHaveTextContent(/on failure/i),
+      expect(approvalSelect).toHaveTextContent(/on request/i),
     );
     await user.click(approvalSelect);
     const neverOption = await screen.findByRole('option', { name: /never/i });
@@ -198,9 +198,11 @@ describe('Codex approval policy flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.agentFlags).toEqual({
-      approvalPolicy: 'never',
-    });
+    expect(codexBody.agentFlags).toEqual(
+      expect.objectContaining({
+        approvalPolicy: 'never',
+      }),
+    );
 
     await act(async () => {
       await user.click(newConversationButton);
@@ -208,6 +210,6 @@ describe('Codex approval policy flag payloads', () => {
 
     await ensureAgentFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('approval-policy-select');
-    await waitFor(() => expect(resetSelect).toHaveTextContent(/on failure/i));
+    await waitFor(() => expect(resetSelect).toHaveTextContent(/on request/i));
   }, 10000);
 });

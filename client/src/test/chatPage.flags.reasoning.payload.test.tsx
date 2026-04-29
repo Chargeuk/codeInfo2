@@ -66,6 +66,93 @@ function mockProvidersWithBodies(
       defaultReasoningEffort: 'minimal',
     },
   ];
+  const supportedReasoningValues = Array.from(
+    new Set(
+      codexModels.flatMap((model) =>
+        Array.isArray(model.supportedReasoningEfforts)
+          ? model.supportedReasoningEfforts
+          : [],
+      ),
+    ),
+  );
+  const codexProviderInfo = codexDefaults
+    ? {
+        id: 'codex',
+        label: 'OpenAI Codex',
+        available: true,
+        toolsAvailable: true,
+        agentFlags: [
+          {
+            key: 'sandboxMode',
+            label: 'Sandbox Mode',
+            controlType: 'select',
+            editable: true,
+            seedDefault: 'workspace-write',
+            resolvedDefault: String(codexDefaults.sandboxMode ?? 'workspace-write'),
+            supportedValues: [
+              { value: 'workspace-write', label: 'Workspace write' },
+              { value: 'read-only', label: 'Read-only' },
+              { value: 'danger-full-access', label: 'Danger full access' },
+            ],
+          },
+          {
+            key: 'approvalPolicy',
+            label: 'Approval Policy',
+            controlType: 'select',
+            editable: true,
+            seedDefault: 'on-request',
+            resolvedDefault:
+              codexDefaults.approvalPolicy === 'on-failure'
+                ? 'on-request'
+                : String(codexDefaults.approvalPolicy ?? 'on-request'),
+            supportedValues: [
+              { value: 'never', label: 'Never (auto-approve)' },
+              { value: 'on-request', label: 'On request' },
+              { value: 'untrusted', label: 'Untrusted' },
+            ],
+          },
+          {
+            key: 'modelReasoningEffort',
+            label: 'Reasoning Effort',
+            controlType: 'select',
+            editable: true,
+            seedDefault: 'high',
+            resolvedDefault: String(
+              codexDefaults.modelReasoningEffort ?? 'high',
+            ),
+            supportedValues:
+              supportedReasoningValues.length > 0
+                ? supportedReasoningValues.map((value) => ({
+                    value,
+                    label: value.charAt(0).toUpperCase() + value.slice(1),
+                  }))
+                : [],
+          },
+          {
+            key: 'networkAccessEnabled',
+            label: 'Network Access',
+            controlType: 'boolean',
+            editable: true,
+            seedDefault: true,
+            resolvedDefault: Boolean(codexDefaults.networkAccessEnabled),
+          },
+          {
+            key: 'webSearchMode',
+            label: 'Web Search',
+            controlType: 'select',
+            editable: true,
+            seedDefault: 'live',
+            resolvedDefault:
+              codexDefaults.webSearchEnabled === false ? 'disabled' : 'live',
+            supportedValues: [
+              { value: 'disabled', label: 'Disabled' },
+              { value: 'cached', label: 'Cached' },
+              { value: 'live', label: 'Live' },
+            ],
+          },
+        ],
+      }
+    : undefined;
   mockFetch.mockImplementation(
     async (url: RequestInfo | URL, opts?: RequestInit) => {
       const href = typeof url === 'string' ? url : url.toString();
@@ -113,6 +200,7 @@ function mockProvidersWithBodies(
             provider: 'codex',
             available: true,
             toolsAvailable: true,
+            ...(codexProviderInfo ? { providerInfo: codexProviderInfo } : {}),
             ...(codexDefaults ? { codexDefaults, codexWarnings: [] } : {}),
             models: codexModels,
           }),

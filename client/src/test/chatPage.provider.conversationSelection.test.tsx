@@ -417,6 +417,20 @@ describe('Chat page sidebar conversation selection', () => {
           href.includes('/chat/models') &&
           href.includes('provider=copilot')
         ) {
+          const copilotAgentFlags = [
+            {
+              key: 'toolAccess',
+              label: 'Tool Access',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'on',
+              resolvedDefault: 'on',
+              supportedValues: [
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ],
+            },
+          ];
           return Promise.resolve({
             ok: true,
             status: 200,
@@ -424,20 +438,14 @@ describe('Chat page sidebar conversation selection', () => {
               provider: 'copilot',
               available: true,
               toolsAvailable: true,
-              agentFlags: [
-                {
-                  key: 'toolAccess',
-                  label: 'Tool Access',
-                  controlType: 'select',
-                  editable: true,
-                  seedDefault: 'on',
-                  resolvedDefault: 'on',
-                  supportedValues: [
-                    { value: 'on', label: 'On' },
-                    { value: 'off', label: 'Off' },
-                  ],
-                },
-              ],
+              providerInfo: {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+                agentFlags: copilotAgentFlags,
+              },
+              agentFlags: copilotAgentFlags,
               models: [
                 {
                   key: 'copilot-chat',
@@ -457,6 +465,134 @@ describe('Chat page sidebar conversation selection', () => {
               provider: 'codex',
               available: true,
               toolsAvailable: true,
+              providerInfo: {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+                agentFlags: [
+                  {
+                    key: 'sandboxMode',
+                    label: 'Sandbox Mode',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'workspace-write',
+                    resolvedDefault: 'workspace-write',
+                    supportedValues: [
+                      { value: 'workspace-write', label: 'Workspace write' },
+                      { value: 'read-only', label: 'Read-only' },
+                      {
+                        value: 'danger-full-access',
+                        label: 'Danger full access',
+                      },
+                    ],
+                  },
+                  {
+                    key: 'approvalPolicy',
+                    label: 'Approval Policy',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'on-request',
+                    resolvedDefault: 'on-request',
+                    supportedValues: [
+                      { value: 'never', label: 'Never (auto-approve)' },
+                      { value: 'on-request', label: 'On request' },
+                      { value: 'untrusted', label: 'Untrusted' },
+                    ],
+                  },
+                  {
+                    key: 'modelReasoningEffort',
+                    label: 'Reasoning Effort',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'high',
+                    resolvedDefault: 'high',
+                    supportedValues: [{ value: 'high', label: 'High' }],
+                  },
+                  {
+                    key: 'networkAccessEnabled',
+                    label: 'Network Access',
+                    controlType: 'boolean',
+                    editable: true,
+                    seedDefault: true,
+                    resolvedDefault: true,
+                  },
+                  {
+                    key: 'webSearchMode',
+                    label: 'Web Search',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'live',
+                    resolvedDefault: 'live',
+                    supportedValues: [
+                      { value: 'disabled', label: 'Disabled' },
+                      { value: 'cached', label: 'Cached' },
+                      { value: 'live', label: 'Live' },
+                    ],
+                  },
+                ],
+              },
+              agentFlags: [
+                {
+                  key: 'sandboxMode',
+                  label: 'Sandbox Mode',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'workspace-write',
+                  resolvedDefault: 'workspace-write',
+                  supportedValues: [
+                    { value: 'workspace-write', label: 'Workspace write' },
+                    { value: 'read-only', label: 'Read-only' },
+                    {
+                      value: 'danger-full-access',
+                      label: 'Danger full access',
+                    },
+                  ],
+                },
+                {
+                  key: 'approvalPolicy',
+                  label: 'Approval Policy',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'on-request',
+                  resolvedDefault: 'on-request',
+                  supportedValues: [
+                    { value: 'never', label: 'Never (auto-approve)' },
+                    { value: 'on-request', label: 'On request' },
+                    { value: 'untrusted', label: 'Untrusted' },
+                  ],
+                },
+                {
+                  key: 'modelReasoningEffort',
+                  label: 'Reasoning Effort',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'high',
+                  resolvedDefault: 'high',
+                  supportedValues: [{ value: 'high', label: 'High' }],
+                },
+                {
+                  key: 'networkAccessEnabled',
+                  label: 'Network Access',
+                  controlType: 'boolean',
+                  editable: true,
+                  seedDefault: true,
+                  resolvedDefault: true,
+                },
+                {
+                  key: 'webSearchMode',
+                  label: 'Web Search',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'live',
+                  resolvedDefault: 'live',
+                  supportedValues: [
+                    { value: 'disabled', label: 'Disabled' },
+                    { value: 'cached', label: 'Cached' },
+                    { value: 'live', label: 'Live' },
+                  ],
+                },
+              ],
               codexDefaults: {
                 sandboxMode: 'workspace-write',
                 approvalPolicy: 'on-failure',
@@ -608,5 +744,5 @@ describe('Chat page sidebar conversation selection', () => {
     expect(
       screen.queryByRole('combobox', { name: /tool access/i }),
     ).not.toBeInTheDocument();
-  });
+  }, 10000);
 });

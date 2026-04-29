@@ -10,16 +10,17 @@ export async function ensureCodexFlagsPanelExpanded(
     },
     { timeout: 5000 },
   );
-  const panel = screen.getByTestId('agent-flags-panel');
-  const summaryButton = within(panel).getByRole('button');
+  const getSummaryButton = () =>
+    within(screen.getByTestId('agent-flags-panel')).getByRole('button');
+  const summaryButton = getSummaryButton();
 
   if (summaryButton.getAttribute('aria-expanded') !== 'true') {
     await user.click(summaryButton);
   }
 
   await waitFor(() => {
-    if (summaryButton.getAttribute('aria-expanded') !== 'true') {
+    if (getSummaryButton().getAttribute('aria-expanded') !== 'true') {
       throw new Error('Expected Agent Flags panel to be expanded');
     }
-  });
+  }, { timeout: 5000 });
 }

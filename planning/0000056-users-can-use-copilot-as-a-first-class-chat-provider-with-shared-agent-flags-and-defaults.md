@@ -489,7 +489,7 @@ Overall, when this story is complete:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `29fcf217`, `229d9671`
 
 #### Overview
@@ -717,7 +717,7 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `184e0148`, `0e889c19`, `e781ba4a`, `9f42fe24`
 
 #### Overview
@@ -775,6 +775,10 @@ This task applies the provider-neutral contract to the real runtime adapters and
 35. [x] Test type: server integration. Location: `server/src/test/integration/chat-copilot-fallback.test.ts`. Requirement: explicit Copilot REST chat requests must stop failing with `503 PROVIDER_UNAVAILABLE` when the only missing piece was the empty main-stack runtime home and the startup seed import supplied valid auth-bearing state. Implementation owners: the new seed-import bootstrap path and `server/src/routes/chat.ts`. Purpose: prove the main user-visible Task 4 happy path is restored through the real REST seam after startup bootstrap.
 36. [x] Run `npm run lint` for this task’s surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
 37. [x] Run `npm run format:check` for this task’s surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+38. [ ] Update `server/src/config/copilotSeedBootstrap.ts` and `server/entrypoint.sh` so seed-imported Copilot auth artifacts, especially `session-state/`, are normalized for the dropped runtime identity from `CODEINFO_RUNTIME_UID`, `CODEINFO_RUNTIME_GID`, and any supplementary groups instead of remaining root-owned after startup bootstrap. Purpose: keep the main and e2e seed-import path honest when the container copies auth state as root and then executes `node dist/index.js` as the non-root runtime user.
+39. [ ] Update `server/src/test/unit/copilotSeedBootstrap.test.ts` to prove the bootstrap helper no longer leaves imported Copilot auth files or directories unreadable to the eventual runtime identity after root-owned copy work. Purpose: give the ownership-normalization seam a direct proof home instead of relying on copy-only happy-path assertions.
+40. [ ] Update `server/src/test/integration/copilot.device-auth.test.ts`, `server/src/test/integration/copilot.boot-path.test.ts`, and `server/src/test/integration/chat-copilot-fallback.test.ts` so a main-stack-style root-start bootstrap followed by non-root runtime access no longer reports `unavailable_before_start`, `copilot authentication required`, or explicit Copilot `503 PROVIDER_UNAVAILABLE` when the seed home already contains valid auth-bearing artifacts. Purpose: keep the exact manual-proof regression covered at the real route and readiness seams.
+41. [ ] Update `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` so `codebase_question` with `provider: 'copilot'` still reaches the streamed MCP path after the same root-owned seed import is normalized for the dropped runtime user. Purpose: catch the MCP parity regression the latest Task 4 manual proof reproduced on the shared chat-MCP surface.
 
 #### Testing
 
@@ -782,7 +786,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 2. [x] Run `npm run test:summary:server:unit` from the repository root to prove Copilot tool parity, LM Studio validation, and MCP provider parity. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the shared chat integration path stays honest after the provider-runtime changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 4. [x] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [x] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -817,6 +821,10 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - `npm run test:summary:server:unit` initially failed on one MCP unavailable-path proof that had become stale after provider-fallback parity work: an unpinned `codebase_question` request could now fall through from missing Codex to available Copilot. Tightened that proof to request `provider: 'codex'` explicitly, verified the targeted wrapper rerun passed, and then reran the full unit wrapper successfully with `1871` tests passed and `0` failed.
 - `npm run test:summary:server:cucumber` first failed only in the `chat_stream.steps.ts` teardown because the temporary Codex home could still be touched during cleanup and `fs.rm(..., recursive: true, force: true)` raced with `ENOTEMPTY`. Added a tiny retry wrapper for that teardown path, reran the full cucumber wrapper, and it then passed cleanly with all `117` scenarios green.
 - Automated-proof audit re-read Task 4 from disk, confirmed all 37 subtasks and all 5 automated testing items are now checked with no live blocker remaining, and closed the task as `__done__`. Older prose notes about later manual retest remain historical context only and are not an honest remaining gate because manual testing is a separate optional follow-up, not a blocker for Task 4 completion.
+- Task-scoped manual testing restarted only the main compose stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, then captured fresh Task 4 proof under `codeInfoTmp/manual-testing/0000056/4/`, including `proof-01-chat-page.png`, `/chat/providers`, `/chat/models?provider=copilot`, `/copilot/device-auth`, explicit Copilot `/chat`, shared `/mcp` `codebase_question`, and the current server log.
+- That manual proof reproduced the Task 4 regression after a fresh documented restart: `/chat/providers` still reported Copilot unavailable with `copilot authentication required`, `/copilot/device-auth` still returned `unavailable_before_start` with `copilot config persistence unavailable`, explicit Copilot `/chat` still returned `503 PROVIDER_UNAVAILABLE`, and shared `/mcp` `codebase_question` with `provider: 'copilot'` still returned `CODE_INFO_LLM_UNAVAILABLE`.
+- Bounded diagnosis re-read `server/src/config/copilotSeedBootstrap.ts`, `server/entrypoint.sh`, and `server/src/routes/copilotDeviceAuth.ts`, then inspected the live runtime home inside `codeinfo2-server-1`; the seed bootstrap still left `/app/copilot/session-state` as `root:root 700` while the server later dropped to the non-root `node` runtime user, so the reopened follow-up subtasks now target ownership normalization and stronger non-root startup proofs instead of treating this as a missing-auth environment issue.
+- Manual testing found concrete follow-up implementation and proof work, so Task 4 is reopened as `__in_progress__`, the new startup-ownership subtasks above now track the real fix, and the final `npm run format:check` item is reopened so automated proof must rerun before a later Task 4 manual retest.
 
 ---
 

@@ -635,9 +635,8 @@ describe('Chat provider selection (WS transport)', () => {
     await screen.findByRole('button', {
       name: /re-authenticate \(device auth\)/i,
     });
-    await screen.findByRole('button', { name: /agent flags/i });
-    expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
     await ensureAgentFlagsPanelExpanded(user);
+    expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
     expect(
       screen.getByRole('combobox', { name: /sandbox mode/i }),
     ).toBeInTheDocument();
@@ -682,9 +681,7 @@ describe('Chat provider selection (WS transport)', () => {
       ).toHaveTextContent(/medium/i),
     );
     await waitFor(() =>
-      expect(
-        screen.getByRole('combobox', { name: /tool access/i }),
-      ).toHaveTextContent(/on/i),
+      expect(screen.getByTestId('tool-access-select')).toHaveTextContent(/on/i),
     );
 
     await user.click(screen.getByRole('combobox', { name: /provider/i }));
@@ -707,9 +704,8 @@ describe('Chat provider selection (WS transport)', () => {
         name: /re-authenticate \(device auth\)/i,
       }),
     ).toBeInTheDocument();
-    await screen.findByRole('button', { name: /agent flags/i });
-    expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
     await ensureAgentFlagsPanelExpanded(user);
+    expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
     expect(
       screen.getByRole('combobox', { name: /sandbox mode/i }),
     ).toHaveTextContent(/workspace write/i);
@@ -847,9 +843,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(
       screen.queryByRole('combobox', { name: /sandbox mode/i }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('combobox', { name: /tool access/i }),
-    ).toHaveTextContent(/on/i);
+    expect(screen.getByTestId('tool-access-select')).toHaveTextContent(/on/i);
 
     await user.click(screen.getByRole('combobox', { name: /provider/i }));
     await user.click(

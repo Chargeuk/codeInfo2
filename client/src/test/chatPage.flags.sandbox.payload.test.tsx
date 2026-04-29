@@ -307,11 +307,6 @@ describe('Codex sandbox flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
     const codexBody = chatBodies[0];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.agentFlags).toEqual({
-      sandboxMode: 'danger-full-access',
-      approvalPolicy: 'on-failure',
-      networkAccessEnabled: true,
-      webSearchEnabled: true,
-    });
+    expect(codexBody).not.toHaveProperty('agentFlags');
   });
 });

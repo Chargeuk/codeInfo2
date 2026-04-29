@@ -1,12 +1,17 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { createTestUser, type TestUserEvent } from './userEvent';
 
 export async function ensureCodexFlagsPanelExpanded(
   user: TestUserEvent = createTestUser(),
 ) {
-  const summaryButton = await screen.findByRole('button', {
-    name: /agent flags/i,
-  });
+  await waitFor(
+    () => {
+      expect(screen.getByTestId('agent-flags-panel')).toBeInTheDocument();
+    },
+    { timeout: 5000 },
+  );
+  const panel = screen.getByTestId('agent-flags-panel');
+  const summaryButton = within(panel).getByRole('button');
 
   if (summaryButton.getAttribute('aria-expanded') !== 'true') {
     await user.click(summaryButton);

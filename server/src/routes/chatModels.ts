@@ -12,6 +12,8 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  ChatDefaultsResolutionError,
+  resolveChatDefaults,
   resolveCodexChatDefaults,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
@@ -232,6 +234,20 @@ export function createChatModelsRouter({
       capabilities,
       codexHome: process.env.CODEX_HOME,
     });
+    let requestedDefaults: ReturnType<typeof resolveChatDefaults> | undefined =
+      undefined;
+    try {
+      requestedDefaults = resolveChatDefaults({
+        requestProvider: provider,
+        codexHome: process.env.CODEX_HOME,
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        lmstudioHome: process.env.LMSTUDIO_HOME,
+      });
+    } catch (error) {
+      if (!(error instanceof ChatDefaultsResolutionError)) {
+        throw error;
+      }
+    }
     const codexPreferredDefaults = await resolveCodexChatDefaults({
       codexHome: process.env.CODEX_HOME,
     });
@@ -327,8 +343,8 @@ export function createChatModelsRouter({
             displayName: model.displayName,
             type: model.type,
           })),
-          preferredDefaults.provider === 'lmstudio'
-            ? preferredDefaults.model
+          requestedDefaults?.provider === 'lmstudio'
+            ? requestedDefaults.model
             : undefined,
         );
         lmstudioAvailable = lmstudioModels.length > 0;

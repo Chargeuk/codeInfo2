@@ -33,6 +33,28 @@ async function writeSeedArtifacts(seedHome: string) {
   );
 }
 
+function currentRuntimeEnv(): NodeJS.ProcessEnv {
+  const uid = process.getuid?.();
+  const gid = process.getgid?.();
+  if (uid === undefined || gid === undefined) {
+    throw new Error('current runtime identity unavailable on this platform');
+  }
+  return {
+    CODEINFO_RUNTIME_UID: String(uid),
+    CODEINFO_RUNTIME_GID: String(gid),
+  };
+}
+
+async function lockDownRuntimeArtifacts(runtimeHome: string) {
+  await fs.chmod(path.join(runtimeHome, 'config.json'), 0o000);
+  await fs.chmod(path.join(runtimeHome, 'settings.json'), 0o000);
+  await fs.chmod(
+    path.join(runtimeHome, 'session-state', 'session.json'),
+    0o000,
+  );
+  await fs.chmod(path.join(runtimeHome, 'session-state'), 0o000);
+}
+
 async function hasBootstrappedRuntime(runtimeHome: string) {
   try {
     await Promise.all([
@@ -124,8 +146,19 @@ test('explicit Copilot chat requests stop failing when startup seed import suppl
     const seedResult = await importCopilotSeedIntoRuntimeHome({
       runtimeHome,
       seedHome,
+      env: currentRuntimeEnv(),
     });
     assert.equal(seedResult.status, 'seed_applied');
+    await lockDownRuntimeArtifacts(runtimeHome);
+    const normalizationResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+      env: currentRuntimeEnv(),
+    });
+    assert.equal(
+      normalizationResult.status,
+      'seed_skipped_runtime_already_initialized',
+    );
 
     memoryConversations.clear();
     setCodexDetection({

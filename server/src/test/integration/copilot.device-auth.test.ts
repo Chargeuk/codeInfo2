@@ -55,6 +55,29 @@ async function writeSeedArtifacts(seedHome: string) {
   );
 }
 
+function currentRuntimeEnv(baseEnv: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const uid = process.getuid?.();
+  const gid = process.getgid?.();
+  if (uid === undefined || gid === undefined) {
+    throw new Error('current runtime identity unavailable on this platform');
+  }
+  return {
+    ...baseEnv,
+    CODEINFO_RUNTIME_UID: String(uid),
+    CODEINFO_RUNTIME_GID: String(gid),
+  };
+}
+
+async function lockDownRuntimeArtifacts(runtimeHome: string) {
+  await fs.chmod(path.join(runtimeHome, 'config.json'), 0o000);
+  await fs.chmod(path.join(runtimeHome, 'settings.json'), 0o000);
+  await fs.chmod(
+    path.join(runtimeHome, 'session-state', 'session.json'),
+    0o000,
+  );
+  await fs.chmod(path.join(runtimeHome, 'session-state'), 0o000);
+}
+
 function buildApp(deps?: Parameters<typeof createCopilotDeviceAuthRouter>[0]) {
   const app = express();
   app.use('/copilot', createCopilotDeviceAuthRouter(deps));
@@ -375,8 +398,19 @@ describe('POST /copilot/device-auth integration behavior', () => {
       const seedResult = await importCopilotSeedIntoRuntimeHome({
         runtimeHome,
         seedHome,
+        env: currentRuntimeEnv(),
       });
       assert.equal(seedResult.status, 'seed_applied');
+      await lockDownRuntimeArtifacts(runtimeHome);
+      const normalizationResult = await importCopilotSeedIntoRuntimeHome({
+        runtimeHome,
+        seedHome,
+        env: currentRuntimeEnv(),
+      });
+      assert.equal(
+        normalizationResult.status,
+        'seed_skipped_runtime_already_initialized',
+      );
 
       const res = await supertest(
         buildApp(
@@ -385,10 +419,10 @@ describe('POST /copilot/device-auth integration behavior', () => {
             getCopilotConfigDirForHome: (home: string) => home,
             ensureCopilotAuthFileStore,
             ensureCopilotPlaintextTokenStorage,
-            env: {
+            env: currentRuntimeEnv({
               CODEINFO_COPILOT_HOME: runtimeHome,
               CODEINFO_COPILOT_SEED_HOME: seedHome,
-            },
+            }),
           }),
         ),
       )

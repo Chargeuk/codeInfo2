@@ -35,6 +35,11 @@ type CopilotSeedArtifactDescriptor = {
   kind: 'file' | 'directory';
 };
 
+type RuntimeOwnership = {
+  uid: number;
+  gid: number;
+};
+
 const COPILOT_SEED_ARTIFACTS: CopilotSeedArtifactDescriptor[] = [
   {
     artifact: 'config.json',
@@ -52,6 +57,9 @@ const COPILOT_SEED_ARTIFACTS: CopilotSeedArtifactDescriptor[] = [
     kind: 'directory',
   },
 ];
+
+const COPILOT_RUNTIME_FILE_MODE = 0o600;
+const COPILOT_RUNTIME_DIRECTORY_MODE = 0o700;
 
 function trimToUndefined(value: string | undefined): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -73,6 +81,72 @@ async function cleanupPath(targetPath: string): Promise<void> {
     force: true,
     recursive: true,
   });
+}
+
+function parseNumericId(value: string | undefined): number | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!/^\d+$/u.test(trimmed)) return undefined;
+  return Number.parseInt(trimmed, 10);
+}
+
+function resolveRuntimeOwnership(
+  env: NodeJS.ProcessEnv | undefined,
+): RuntimeOwnership | undefined {
+  const uid = parseNumericId(env?.CODEINFO_RUNTIME_UID);
+  const gid = parseNumericId(env?.CODEINFO_RUNTIME_GID);
+  if (uid === undefined || gid === undefined) {
+    return undefined;
+  }
+  return { uid, gid };
+}
+
+async function normalizeArtifactAccess(params: {
+  targetPath: string;
+  kind: 'file' | 'directory';
+  runtimeOwnership?: RuntimeOwnership;
+}): Promise<void> {
+  const stats = await fs.promises.lstat(params.targetPath);
+
+  if (
+    params.runtimeOwnership &&
+    (stats.uid !== params.runtimeOwnership.uid ||
+      stats.gid !== params.runtimeOwnership.gid)
+  ) {
+    await fs.promises.chown(
+      params.targetPath,
+      params.runtimeOwnership.uid,
+      params.runtimeOwnership.gid,
+    );
+  }
+
+  if (params.kind === 'directory') {
+    await fs.promises.chmod(params.targetPath, COPILOT_RUNTIME_DIRECTORY_MODE);
+    const entries = await fs.promises.readdir(params.targetPath, {
+      withFileTypes: true,
+    });
+    for (const entry of entries) {
+      const childPath = path.join(params.targetPath, entry.name);
+      if (entry.isDirectory()) {
+        await normalizeArtifactAccess({
+          targetPath: childPath,
+          kind: 'directory',
+          runtimeOwnership: params.runtimeOwnership,
+        });
+        continue;
+      }
+      if (entry.isFile()) {
+        await normalizeArtifactAccess({
+          targetPath: childPath,
+          kind: 'file',
+          runtimeOwnership: params.runtimeOwnership,
+        });
+      }
+    }
+    return;
+  }
+
+  await fs.promises.chmod(params.targetPath, COPILOT_RUNTIME_FILE_MODE);
 }
 
 async function copyArtifactAtomically(params: {
@@ -109,6 +183,7 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
     trimToUndefined(params.seedHome) ??
     trimToUndefined(params.env?.CODEINFO_COPILOT_SEED_HOME);
   const seedHome = seedHomeInput ? path.resolve(seedHomeInput) : undefined;
+  const runtimeOwnership = resolveRuntimeOwnership(params.env);
 
   try {
     await fs.promises.mkdir(runtimeHome, { recursive: true });
@@ -142,6 +217,11 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
       const targetPath = path.join(runtimeHome, descriptor.relativePath);
 
       if (await pathExists(targetPath)) {
+        await normalizeArtifactAccess({
+          targetPath,
+          kind: descriptor.kind,
+          runtimeOwnership,
+        });
         skippedArtifacts.push({
           artifact: descriptor.artifact,
           action: 'skipped_existing_runtime',
@@ -165,6 +245,11 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
         sourcePath,
         targetPath,
         kind: descriptor.kind,
+      });
+      await normalizeArtifactAccess({
+        targetPath,
+        kind: descriptor.kind,
+        runtimeOwnership,
       });
       copiedArtifacts.push(descriptor.artifact);
     }

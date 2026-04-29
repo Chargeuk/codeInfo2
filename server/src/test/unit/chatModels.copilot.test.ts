@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test, { afterEach, beforeEach, mock } from 'node:test';
 
 import type { ModelInfo } from '@github/copilot-sdk';
@@ -172,6 +175,10 @@ test('chat models route rejects malformed provider query values deterministicall
 });
 
 test('copilot models route maps only verified shared-contract fields and logs ignored extras', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-copilot-home-'),
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
   const markerPayloads: Array<Record<string, unknown>> = [];
   mock.method(baseLogger, 'info', (first: unknown, second: unknown) => {
     if (second === TASK6_LOG_MARKER && first && typeof first === 'object') {
@@ -253,5 +260,6 @@ test('copilot models route maps only verified shared-contract fields and logs ig
     assert.equal(marker.ignoredUnsupportedFields, true);
   } finally {
     await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });

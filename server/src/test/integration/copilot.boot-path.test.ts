@@ -4,9 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import type { ModelInfo } from '@github/copilot-sdk';
 import express from 'express';
 import request from 'supertest';
-import type { ModelInfo } from '@github/copilot-sdk';
 
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
@@ -39,6 +39,28 @@ async function writeSeedArtifacts(seedHome: string) {
     '{"bootstrapped": true}\n',
     'utf8',
   );
+}
+
+function currentRuntimeEnv(): NodeJS.ProcessEnv {
+  const uid = process.getuid?.();
+  const gid = process.getgid?.();
+  if (uid === undefined || gid === undefined) {
+    throw new Error('current runtime identity unavailable on this platform');
+  }
+  return {
+    CODEINFO_RUNTIME_UID: String(uid),
+    CODEINFO_RUNTIME_GID: String(gid),
+  };
+}
+
+async function lockDownRuntimeArtifacts(runtimeHome: string) {
+  await fs.chmod(path.join(runtimeHome, 'config.json'), 0o000);
+  await fs.chmod(path.join(runtimeHome, 'settings.json'), 0o000);
+  await fs.chmod(
+    path.join(runtimeHome, 'session-state', 'session.json'),
+    0o000,
+  );
+  await fs.chmod(path.join(runtimeHome, 'session-state'), 0o000);
 }
 
 async function hasBootstrappedRuntime(runtimeHome: string) {
@@ -202,8 +224,19 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
     const seedResult = await importCopilotSeedIntoRuntimeHome({
       runtimeHome,
       seedHome,
+      env: currentRuntimeEnv(),
     });
     assert.equal(seedResult.status, 'seed_applied');
+    await lockDownRuntimeArtifacts(runtimeHome);
+    const normalizationResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+      env: currentRuntimeEnv(),
+    });
+    assert.equal(
+      normalizationResult.status,
+      'seed_skipped_runtime_already_initialized',
+    );
 
     const app = express();
     app.use(
@@ -219,7 +252,9 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
             authType: 'user',
           }),
           listModels: async () =>
-            (await hasBootstrappedRuntime(runtimeHome)) ? createReadyModels() : [],
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? createReadyModels()
+              : [],
         }),
       }),
     );
@@ -236,7 +271,9 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
             authType: 'user',
           }),
           listModels: async () =>
-            (await hasBootstrappedRuntime(runtimeHome)) ? createReadyModels() : [],
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? createReadyModels()
+              : [],
         }),
       }),
     );

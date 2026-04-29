@@ -35,6 +35,28 @@ async function writeSeedArtifacts(seedHome: string) {
   );
 }
 
+function currentRuntimeEnv(): NodeJS.ProcessEnv {
+  const uid = process.getuid?.();
+  const gid = process.getgid?.();
+  if (uid === undefined || gid === undefined) {
+    throw new Error('current runtime identity unavailable on this platform');
+  }
+  return {
+    CODEINFO_RUNTIME_UID: String(uid),
+    CODEINFO_RUNTIME_GID: String(gid),
+  };
+}
+
+async function lockDownRuntimeArtifacts(runtimeHome: string) {
+  await fs.chmod(path.join(runtimeHome, 'config.json'), 0o000);
+  await fs.chmod(path.join(runtimeHome, 'settings.json'), 0o000);
+  await fs.chmod(
+    path.join(runtimeHome, 'session-state', 'session.json'),
+    0o000,
+  );
+  await fs.chmod(path.join(runtimeHome, 'session-state'), 0o000);
+}
+
 test('copies config.json, settings.json, and session-state into an empty runtime home', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
   const seedHome = path.join(tempRoot, 'seed');
@@ -105,6 +127,53 @@ test('skips copying when runtime auth-bearing artifacts already exist and never 
     assert.equal(
       await fs.readFile(path.join(runtimeHome, 'settings.json'), 'utf8'),
       '{"runtimeSettings":"wins"}\n',
+    );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('re-normalizes existing runtime artifacts for the runtime identity without overwriting them', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    const firstResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+      env: currentRuntimeEnv(),
+    });
+    assert.equal(firstResult.status, 'seed_applied');
+
+    await lockDownRuntimeArtifacts(runtimeHome);
+
+    const secondResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+      env: currentRuntimeEnv(),
+    });
+
+    assert.equal(
+      secondResult.status,
+      'seed_skipped_runtime_already_initialized',
+    );
+    assert.deepEqual(secondResult.copiedArtifacts, []);
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'config.json'), 'utf8'),
+      '{"store_token_plaintext":true}\n',
+    );
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'settings.json'), 'utf8'),
+      '{"storeTokenPlaintext":true}\n',
+    );
+    assert.equal(
+      await fs.readFile(
+        path.join(runtimeHome, 'session-state', 'session.json'),
+        'utf8',
+      ),
+      '{"session":"ok"}\n',
     );
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });

@@ -104,10 +104,12 @@ When `remote_fetch_status` is `fetch_failed`, the handoff may include `remote_fe
 10. Keep formatting-only spillover files in review scope for hygiene and security checks, but do not treat them as suspicious or scope creep solely because the active plan did not name them.
 11. Record any formatting-only spillover files explicitly in the evidence summary so later review steps can interpret them consistently.
 12. Run a repository-wide hygiene sweep across the tracked diff for every repository in scope. Explicitly compare changed files against `.gitignore` and call out:
-   - ignored-but-tracked files;
-   - tracked temp/runtime/generated artifacts;
-   - local config checked into the branch;
-   - hard-coded secrets or credential-like values.
+
+- ignored-but-tracked files;
+- tracked temp/runtime/generated artifacts;
+- local config checked into the branch;
+- hard-coded secrets or credential-like values.
+
 13. Treat the hygiene sweep as first-class evidence even when the affected files are support files or formatting-only spillover.
 14. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
 15. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.

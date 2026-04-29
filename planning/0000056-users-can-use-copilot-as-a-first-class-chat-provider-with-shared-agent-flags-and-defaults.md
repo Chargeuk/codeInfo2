@@ -717,8 +717,8 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__in_progress__`
-- Git Commits: `184e0148`, `0e889c19`
+- Task Status: `__done__`
+- Git Commits: `184e0148`, `0e889c19`, `e781ba4a`, `9f42fe24`
 
 #### Overview
 
@@ -816,6 +816,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - `npm run build:summary:server` first failed on the reopened seed-bootstrap proof homes because two new Copilot test doubles no longer matched the stricter lifecycle and readiness interfaces. After repairing those mocks to return lifecycle-compatible methods, valid ping payloads, and full `ModelInfo` shapes, the wrapper rerun passed cleanly with `agent_action: skip_log`.
 - `npm run test:summary:server:unit` initially failed on one MCP unavailable-path proof that had become stale after provider-fallback parity work: an unpinned `codebase_question` request could now fall through from missing Codex to available Copilot. Tightened that proof to request `provider: 'codex'` explicitly, verified the targeted wrapper rerun passed, and then reran the full unit wrapper successfully with `1871` tests passed and `0` failed.
 - `npm run test:summary:server:cucumber` first failed only in the `chat_stream.steps.ts` teardown because the temporary Codex home could still be touched during cleanup and `fs.rm(..., recursive: true, force: true)` raced with `ENOTEMPTY`. Added a tiny retry wrapper for that teardown path, reran the full cucumber wrapper, and it then passed cleanly with all `117` scenarios green.
+- Automated-proof audit re-read Task 4 from disk, confirmed all 37 subtasks and all 5 automated testing items are now checked with no live blocker remaining, and closed the task as `__done__`. Older prose notes about later manual retest remain historical context only and are not an honest remaining gate because manual testing is a separate optional follow-up, not a blocker for Task 4 completion.
 
 ---
 

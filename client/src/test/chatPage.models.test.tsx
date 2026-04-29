@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -458,7 +458,7 @@ describe('Chat page models list', () => {
     expect(requestedProviders).toContain('copilot');
   });
 
-  it('renders capability-driven reasoning options for Codex defaults', async () => {
+  it('keeps model-specific Agent Flag narrowing aligned to the combined payload when the model changes', async () => {
     mockFetch.mockImplementation(
       asFetchImplementation(async (url: RequestInfo | URL) => {
         const target = typeof url === 'string' ? url : url.toString();
@@ -495,9 +495,18 @@ describe('Chat page models list', () => {
             codexWarnings: [],
             models: [
               {
+                key: 'gpt-5.1-codex-max',
+                displayName: 'gpt-5.1-codex-max',
+                type: 'codex',
+                supportedReasoningEfforts: ['minimal', 'high', 'xhigh'],
+                defaultReasoningEffort: 'minimal',
+              },
+              {
                 key: 'gpt-5.2-codex',
                 displayName: 'gpt-5.2-codex',
                 type: 'codex',
+                supportedReasoningEfforts: ['minimal'],
+                defaultReasoningEffort: 'minimal',
               },
             ],
           });
@@ -511,7 +520,7 @@ describe('Chat page models list', () => {
     });
     render(<RouterProvider router={router} />);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
     });
@@ -519,6 +528,22 @@ describe('Chat page models list', () => {
     await act(async () => {
       await userEvent.click(reasoningSelect);
     });
+    expect(
+      await screen.findByRole('option', { name: /minimal/i }),
+    ).toBeVisible();
+    expect(await screen.findByRole('option', { name: /xhigh/i })).toBeVisible();
+    await act(async () => {
+      await userEvent.click(screen.getByRole('option', { name: /xhigh/i }));
+    });
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await userEvent.click(modelSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /gpt-5.2-codex/i }),
+    );
+
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+    await userEvent.click(reasoningSelect);
     expect(
       await screen.findByRole('option', { name: /minimal/i }),
     ).toBeVisible();
@@ -580,7 +605,7 @@ describe('Chat page models list', () => {
     });
     render(<RouterProvider router={router} />);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
     });
@@ -679,4 +704,73 @@ describe('Chat page models list', () => {
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
   }, 10000);
+
+  it('clears stale hidden reasoning draft values when the selected model changes', async () => {
+    const { chatBodies } = mockCodexModelNextSendApi();
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const user = userEvent.setup();
+    await ensureAgentFlagsPanelExpanded(user);
+
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await user.click(reasoningSelect);
+    await user.click(await screen.findByRole('option', { name: /xhigh/i }));
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/xhigh/i));
+
+    const modelSelect = await screen.findByRole('combobox', {
+      name: /model/i,
+    });
+    await user.click(modelSelect);
+    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+    await user.click(reasoningSelect);
+    expect(
+      await screen.findByRole('option', { name: /minimal/i }),
+    ).toBeVisible();
+    expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
+
+    const input = await screen.findByTestId('chat-input');
+    await user.type(input, 'Use the narrowed draft');
+    await act(async () => {
+      await user.click(screen.getByTestId('chat-send'));
+    });
+
+    await waitFor(() => expect(chatBodies).toHaveLength(1));
+    expect(chatBodies[0]?.model).toBe('gpt-5.2');
+    expect(
+      (chatBodies[0]?.agentFlags as Record<string, unknown>)
+        ?.modelReasoningEffort,
+    ).toBe('minimal');
+  });
+
+  it('refreshes the displayed resolved default from the combined payload when the model changes', async () => {
+    mockCodexModelNextSendApi();
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const user = userEvent.setup();
+    await ensureAgentFlagsPanelExpanded(user);
+
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
+
+    const modelSelect = await screen.findByRole('combobox', {
+      name: /model/i,
+    });
+    await user.click(modelSelect);
+    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+  });
 });

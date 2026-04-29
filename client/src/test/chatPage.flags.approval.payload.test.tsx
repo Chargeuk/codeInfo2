@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -169,7 +169,7 @@ describe('Codex approval policy flag payloads', () => {
     });
     await user.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
@@ -198,13 +198,15 @@ describe('Codex approval policy flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.approvalPolicy).toBe('never');
+    expect(codexBody.agentFlags).toEqual({
+      approvalPolicy: 'never',
+    });
 
     await act(async () => {
       await user.click(newConversationButton);
     });
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('approval-policy-select');
     await waitFor(() => expect(resetSelect).toHaveTextContent(/on failure/i));
   }, 10000);

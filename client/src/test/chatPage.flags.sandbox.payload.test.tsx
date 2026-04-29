@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -184,11 +184,7 @@ describe('Codex sandbox flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
     const codexBody = chatBodies[0];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody).not.toHaveProperty('sandboxMode');
-    expect(codexBody).not.toHaveProperty('approvalPolicy');
-    expect(codexBody).not.toHaveProperty('modelReasoningEffort');
-    expect(codexBody).not.toHaveProperty('networkAccessEnabled');
-    expect(codexBody).not.toHaveProperty('webSearchEnabled');
+    expect(codexBody).not.toHaveProperty('agentFlags');
   });
 
   it('omits sandbox flag for LM Studio and includes chosen value for Codex', async () => {
@@ -235,7 +231,7 @@ describe('Codex sandbox flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const sandboxSelect = await screen.findByRole('combobox', {
       name: /sandbox mode/i,
@@ -263,7 +259,9 @@ describe('Codex sandbox flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.sandboxMode).toBe('danger-full-access');
+    expect((codexBody.agentFlags as Record<string, unknown>)?.sandboxMode).toBe(
+      'danger-full-access',
+    );
   });
 
   it('sends fallback Codex flags and omits unsupported reasoning when defaults are missing', async () => {
@@ -282,7 +280,7 @@ describe('Codex sandbox flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const sandboxSelect = await screen.findByRole('combobox', {
       name: /sandbox mode/i,
@@ -302,10 +300,11 @@ describe('Codex sandbox flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
     const codexBody = chatBodies[0];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.sandboxMode).toBe('danger-full-access');
-    expect(codexBody.approvalPolicy).toBe('on-failure');
-    expect(codexBody).not.toHaveProperty('modelReasoningEffort');
-    expect(codexBody.networkAccessEnabled).toBe(true);
-    expect(codexBody.webSearchEnabled).toBe(true);
+    expect(codexBody.agentFlags).toEqual({
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-failure',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    });
   });
 });

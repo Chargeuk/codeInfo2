@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -147,182 +147,7 @@ function mockCodexReady(options?: {
   });
 }
 
-describe('Codex defaults from server', () => {
-  it('initializes Codex flags from codexDefaults', async () => {
-    mockCodexReady();
-
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
-
-    await ensureCodexFlagsPanelExpanded();
-
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    const approvalSelect = await screen.findByRole('combobox', {
-      name: /approval policy/i,
-    });
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    const networkSwitch = await screen.findByTestId('network-access-switch');
-    const webSearchSwitch = await screen.findByTestId('web-search-switch');
-
-    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
-    await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/medium/i));
-    expect(networkSwitch).not.toBeChecked();
-    expect(webSearchSwitch).not.toBeChecked();
-  });
-
-  it('re-applies defaults when switching providers', async () => {
-    mockCodexReady();
-
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
-
-    await ensureCodexFlagsPanelExpanded();
-
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    await userEvent.click(sandboxSelect);
-    const dangerOption = await screen.findByRole('option', {
-      name: /danger full access/i,
-    });
-    await userEvent.click(dangerOption);
-    await waitFor(() =>
-      expect(sandboxSelect).toHaveTextContent(/danger full access/i),
-    );
-
-    await userEvent.click(providerSelect);
-    const lmOption = await screen.findByRole('option', {
-      name: /^LM Studio$/i,
-    });
-    await userEvent.click(lmOption);
-
-    await userEvent.click(providerSelect);
-    const codexReturn = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexReturn);
-
-    await ensureCodexFlagsPanelExpanded();
-
-    const sandboxSelectAfterSwitch = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    await waitFor(() =>
-      expect(sandboxSelectAfterSwitch).toHaveTextContent(/read-only/i),
-    );
-  });
-
-  it('re-applies defaults when starting a new conversation', async () => {
-    mockCodexReady();
-
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
-
-    await ensureCodexFlagsPanelExpanded();
-
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    await userEvent.click(sandboxSelect);
-    const dangerOption = await screen.findByRole('option', {
-      name: /danger full access/i,
-    });
-    await userEvent.click(dangerOption);
-    await waitFor(() =>
-      expect(sandboxSelect).toHaveTextContent(/danger full access/i),
-    );
-
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
-
-    await ensureCodexFlagsPanelExpanded();
-
-    const sandboxSelectAfterReset = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    await waitFor(() =>
-      expect(sandboxSelectAfterReset).toHaveTextContent(/read-only/i),
-    );
-  });
-
-  it('applies Codex defaults when switching providers during an active run', async () => {
-    mockCodexReady();
-
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const input = await screen.findByTestId('chat-input');
-    await userEvent.type(input, 'keep lmstudio running');
-    await act(async () => {
-      await userEvent.click(screen.getByTestId('chat-send'));
-    });
-
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
-
-    await ensureCodexFlagsPanelExpanded();
-
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    const approvalSelect = await screen.findByRole('combobox', {
-      name: /approval policy/i,
-    });
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    const networkSwitch = await screen.findByTestId('network-access-switch');
-    const webSearchSwitch = await screen.findByTestId('web-search-switch');
-
-    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
-    await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/medium/i));
-    expect(networkSwitch).not.toBeChecked();
-    expect(webSearchSwitch).not.toBeChecked();
-  });
-
+describe('Codex compatibility defaults behavior', () => {
   it('disables Codex flags when defaults are missing', async () => {
     mockCodexReady({ includeDefaults: false });
 
@@ -338,7 +163,7 @@ describe('Codex defaults from server', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const sandboxSelect = await screen.findByRole('combobox', {
       name: /sandbox mode/i,
@@ -382,7 +207,7 @@ describe('Codex defaults from server', () => {
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
       );
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
       const modelSelect = await screen.findByRole('combobox', {
         name: /model/i,
@@ -449,7 +274,7 @@ describe('Codex defaults from server', () => {
       await screen.findByRole('option', { name: /openai codex/i }),
     );
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const input = await screen.findByTestId('chat-input');
     await userEvent.type(input, 'keep the first model running');
@@ -596,7 +421,7 @@ describe('Codex defaults from server', () => {
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
       );
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
       await userEvent.click(providerSelect);
       await userEvent.click(
@@ -607,7 +432,7 @@ describe('Codex defaults from server', () => {
         await screen.findByRole('option', { name: /openai codex/i }),
       );
 
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
       await waitFor(() =>
         expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
           /minimal/i,
@@ -652,7 +477,7 @@ describe('Codex defaults from server', () => {
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
       );
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
       await waitFor(() =>
         expect(
@@ -702,7 +527,7 @@ describe('Codex defaults from server', () => {
         await screen.findByRole('option', { name: /openai codex/i }),
       );
 
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
       await waitFor(() =>
         expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
           /low/i,

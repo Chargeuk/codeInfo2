@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -161,7 +161,7 @@ function mockProvidersWithBodies(
   );
 }
 
-describe('Codex model reasoning effort flag payloads', () => {
+describe('Codex model reasoning Agent Flag payloads', () => {
   it('renders dynamic reasoning options exactly from selected model capabilities', async () => {
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
@@ -178,7 +178,7 @@ describe('Codex model reasoning effort flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
     });
@@ -252,7 +252,7 @@ describe('Codex model reasoning effort flag payloads', () => {
       });
       await userEvent.click(codexOption);
 
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
       const modelSelect = await screen.findByRole('combobox', {
         name: /model/i,
@@ -281,7 +281,9 @@ describe('Codex model reasoning effort flag payloads', () => {
       await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
       const codexBody = chatBodies[1];
       expect(codexBody.provider).toBe('codex');
-      expect(codexBody.modelReasoningEffort).toBe('xhigh');
+      expect(
+        (codexBody.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
+      ).toBe('xhigh');
       expect(
         infoSpy.mock.calls.some(
           ([message]) =>
@@ -309,7 +311,7 @@ describe('Codex model reasoning effort flag payloads', () => {
         await userEvent.click(newConversationButton);
       });
 
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
       const resetSelect = await screen.findByTestId('reasoning-effort-select');
       await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
     } finally {
@@ -334,7 +336,7 @@ describe('Codex model reasoning effort flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
@@ -364,7 +366,9 @@ describe('Codex model reasoning effort flag payloads', () => {
     const payload = chatBodies.at(-1) ?? {};
     expect(payload.provider).toBe('codex');
     expect(payload.model).toBe('gpt-5.2');
-    expect(payload.modelReasoningEffort).toBe('minimal');
+    expect(
+      (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
+    ).toBe('minimal');
   }, 10000);
 
   it('keeps single-option capability models valid for UI and payload', async () => {
@@ -392,7 +396,7 @@ describe('Codex model reasoning effort flag payloads', () => {
       await screen.findByRole('option', { name: /openai codex/i }),
     );
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
     });
@@ -413,10 +417,16 @@ describe('Codex model reasoning effort flag payloads', () => {
     });
 
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    expect((chatBodies.at(-1) ?? {}).modelReasoningEffort).toBe('minimal');
+    expect(
+      (
+        (chatBodies.at(-1) ?? {}).agentFlags as
+          | Record<string, unknown>
+          | undefined
+      )?.modelReasoningEffort,
+    ).toBe('minimal');
   });
 
-  it('applies capability-driven reasoning to the next-send model after an active run is hidden', async () => {
+  it('keeps same-conversation Agent Flag edits on the current conversation when only reasoning changes', async () => {
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
 
@@ -431,7 +441,7 @@ describe('Codex model reasoning effort flag payloads', () => {
       await screen.findByRole('option', { name: /openai codex/i }),
     );
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
@@ -449,31 +459,88 @@ describe('Codex model reasoning effort flag payloads', () => {
       await userEvent.click(sendButton);
     });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    expect((chatBodies.at(-1) ?? {}).model).toBe('gpt-5.1-codex-max');
-
-    await userEvent.click(modelSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /gpt-5.2/i }),
-    );
-
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
     });
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
+    await userEvent.click(reasoningSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /xhigh/i }),
+    );
 
     await userEvent.clear(input);
-    await userEvent.type(input, 'use the next-send model');
+    await userEvent.type(input, 'keep the same conversation');
     await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
       await userEvent.click(sendButton);
     });
 
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+    const firstPayload = chatBodies[0] ?? {};
+    const secondPayload = chatBodies[1] ?? {};
+    expect(secondPayload.provider).toBe('codex');
+    expect(secondPayload.model).toBe('gpt-5.1-codex-max');
+    expect(secondPayload.conversationId).toBe(firstPayload.conversationId);
+    expect(
+      (secondPayload.agentFlags as Record<string, unknown>)
+        ?.modelReasoningEffort,
+    ).toBe('xhigh');
+  }, 10000);
+
+  it('clears hidden reasoning values from both the control and submitted draft when the selected model narrows support', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockProvidersWithBodies(chatBodies);
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /openai codex/i }),
+    );
+
+    await ensureAgentFlagsPanelExpanded();
+
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await userEvent.click(reasoningSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /xhigh/i }),
+    );
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/xhigh/i));
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await userEvent.click(modelSelect);
+    await userEvent.click(
+      await screen.findByRole('option', { name: /gpt-5.2/i }),
+    );
+
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+    await userEvent.click(reasoningSelect);
+    expect(
+      await screen.findByRole('option', { name: /minimal/i }),
+    ).toBeVisible();
+    expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'submit narrowed reasoning');
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
     const payload = chatBodies.at(-1) ?? {};
     expect(payload.model).toBe('gpt-5.2');
-    expect(payload.modelReasoningEffort).toBe('minimal');
-  }, 10000);
+    expect(
+      (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
+    ).toBe('minimal');
+  });
 
   it('sends non-standard runtime reasoning values when model capabilities allow them', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -507,7 +574,7 @@ describe('Codex model reasoning effort flag payloads', () => {
       await screen.findByRole('option', { name: /openai codex/i }),
     );
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
     });
@@ -525,7 +592,13 @@ describe('Codex model reasoning effort flag payloads', () => {
     });
 
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    expect((chatBodies.at(-1) ?? {}).modelReasoningEffort).toBe('turbo-max');
+    expect(
+      (
+        (chatBodies.at(-1) ?? {}).agentFlags as
+          | Record<string, unknown>
+          | undefined
+      )?.modelReasoningEffort,
+    ).toBe('turbo-max');
   }, 10000);
 
   it('logs deterministic T17 error and omits invalid reasoning payload when capabilities are empty', async () => {
@@ -556,7 +629,7 @@ describe('Codex model reasoning effort flag payloads', () => {
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
       );
-      await ensureCodexFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
       const input = await screen.findByTestId('chat-input');
       const sendButton = await screen.findByTestId('chat-send');
@@ -569,7 +642,10 @@ describe('Codex model reasoning effort flag payloads', () => {
       await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
       const payload = chatBodies.at(-1) ?? {};
       expect(payload.provider).toBe('codex');
-      expect(payload).not.toHaveProperty('modelReasoningEffort');
+      expect(
+        (payload.agentFlags as Record<string, unknown> | undefined)
+          ?.modelReasoningEffort,
+      ).toBeUndefined();
       await waitFor(() =>
         expect(
           errorSpy.mock.calls.some(

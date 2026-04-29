@@ -539,7 +539,7 @@ This task replaces the remaining shared default-model contract with one provider
 
 #### Testing
 
-1. [x] Run `npm run compose:build:summary` from the repository root to prove the Task 1 Docker build context still works after the `.dockerignore`, bootstrap, and provider-folder changes. This is the task-owned container proof for `server/.env`, `.dockerignore`, `scripts/docker-compose-with-env.sh`, and provider-local config bootstrap; shared normal-stack startup smoke remains owned by Task 6. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
+1. [x] Run `npm run compose:build:summary` from the repository root to prove the Task 1 Docker build context still works after the `.dockerignore`, bootstrap, and provider-folder changes. This is the task-owned container proof for `server/.env`, `.dockerignore`, `scripts/docker-compose-with-env.sh`, and provider-local config bootstrap; shared normal-stack startup smoke remains owned by Task 8. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
 2. [x] Run `npm run build:summary:server` from the repository root to prove the shared server config and dependency-refresh changes compile cleanly. This build is expected to cover the Task 1 implementation owners in `server/src/config/runtimeConfig.ts`, `server/src/config/chatDefaults.ts`, and `server/src/config/startupEnv.ts`. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
 3. [x] Run `npm run test:summary:server:unit` from the repository root to prove the Task 1 unit proof owners in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/env-loading.test.ts`, and `server/src/test/unit/codexEnvDefaults.test.ts`. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 4. [x] Run `npm run test:summary:server:cucumber` from the repository root so the normal server integration path stays honest after the defaults-foundation change. This wrapper is expected to catch regressions in startup/default-resolution behavior that escape the named Task 1 unit proof owners; unrelated stack-wide failures should be treated as shared-baseline follow-up rather than hidden Task 1 acceptance criteria. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
@@ -716,8 +716,8 @@ This task removes the last Codex-only naming from the normal `/chat` request pat
 ### Task 4. Wire provider-neutral flags into Copilot, LM Studio, and MCP execution
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 3`
-- Task Status: `__in_progress__`
+- Task Dependencies: `Task 3, Task 5`
+- Task Status: `__to_do__`
 - Git Commits: `184e0148`, `0e889c19`, `e781ba4a`, `9f42fe24`
 
 #### Overview
@@ -831,7 +831,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - Manual testing found concrete follow-up implementation and proof work, so Task 4 is reopened as `__in_progress__`, the new startup-ownership subtasks above now track the real fix, and the final `npm run format:check` item is reopened so automated proof must rerun before a later Task 4 manual retest.
 - Updated `server/src/config/copilotSeedBootstrap.ts` so startup now normalizes copied-or-existing Copilot auth artifacts to the configured runtime uid/gid and resets auth-bearing files/directories to deterministic `600`/`700` modes before the entrypoint drops to `node`; the new unit/integration proof owners now cover the already-copied runtime-home case, `npm run build:summary:server`, `npm run test:summary:server:unit`, and `npm run test:summary:server:cucumber` reran cleanly, and `npm run format:check` passed again after formatting the touched files plus one unrelated markdown file that Prettier flagged at the repository root.
 - Live manual retest confirmed the original ownership bug is repaired: after a fresh `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, `/app/copilot/session-state` and its nested entries are now `node:node` in the running `codeinfo2-server-1` container instead of `root:root`, so the reopened ownership-normalization subtask is complete and the old root-owned bootstrap seam is no longer the active blocker.
-- The same live retest still stops before authenticated Copilot proof, but now at the already-planned Task 5 seam instead of the old ownership seam: `/app/copilot/config.json` is Copilot-managed JSONC with comments, while `ensureCopilotPlaintextTokenStorage` in `server/src/config/copilotConfig.ts` still strict-parses `config.json` as JSON and `/copilot/device-auth` still returns `unavailable_before_start` with `copilot config persistence unavailable`. So the route- and MCP-success proof subtasks remain open here, and the honest next repair belongs to the Task 5 JSONC/settings bootstrap work rather than more Task 4 ownership changes.
+- The same live retest still stops before authenticated Copilot proof, but now at the already-planned Task 6 seam instead of the old ownership seam: `/app/copilot/config.json` is Copilot-managed JSONC with comments, while `ensureCopilotPlaintextTokenStorage` in `server/src/config/copilotConfig.ts` still strict-parses `config.json` as JSON and `/copilot/device-auth` still returns `unavailable_before_start` with `copilot config persistence unavailable`. So the route- and MCP-success proof subtasks remain open here, and the honest next repair belongs to the Task 6 JSONC/settings bootstrap work rather than more Task 4 ownership changes.
 - Fresh-volume manual proof showed the main-stack seed-import path is now honest: resetting only `codeinfo2_copilot-data` let `/app/copilot` reseed from the working local `./copilot` state, `/chat/providers` and `/chat/models?provider=copilot` both surfaced authenticated Copilot, explicit REST chat with `provider: 'copilot'` and `model: 'gpt-5-mini'` succeeded, and shared MCP `codebase_question` with `provider: 'copilot'` and `model: 'gpt-5-mini'` also succeeded.
 - The same fresh-volume proof exposed the remaining real Task 4 defect, so the stale auth/bootstrap follow-up subtasks were replaced and the automated checkpoints were reopened: the surfaced Copilot provider still advertises `defaultModel: 'copilot-gpt-5'`, that default is not an honest runnable live model under the current surfaced capability contract, and explicit REST chat with `model: 'copilot-gpt-5'` fails because the runtime still forwards `reasoningEffort` to a model that does not support it.
 - Added one shared Copilot model-support helper, threaded it through `/chat/providers`, `/chat/models`, REST chat, MCP `codebase_question`, and `ChatInterfaceCopilot`, so stale implicit Copilot defaults now normalize to a live runnable model and Copilot only forwards `reasoningEffort` when the selected model actually advertises support.
@@ -839,11 +839,53 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - Ran the reopened Task 4 `npm run lint` checkpoint from the repository root and fixed the Task 4-specific import-order and unused-import fallout, but the command still fails on pre-existing repo-wide ESLint errors under `codex/.tmp/**` and related non-Task-4 plugin fixture files, so the final lint subtask remains honestly open until that baseline is cleaned or excluded.
 - Ran `npm run format:check`, used `npm run format` when Prettier flagged the two touched Task 4 proof files, and reran `npm run format:check` until it returned `All matched files use Prettier code style!`.
 - **BLOCKING ANSWER** This Task 4 lint blocker is a shared wrapper or baseline seam, not a remaining Task 4 product-code defect. Repo evidence shows the root lint gate in [package.json](package.json) runs `eslint . --ext .ts,.tsx --max-warnings=0`, the root [eslint.config.js](eslint.config.js) only ignores `dist`, `coverage`, and `test-results`, and [`.gitignore`](.gitignore) intentionally ignores the whole `codex/` tree, including `codex/.tmp/plugins/**`, which `git check-ignore` confirms. External ESLint guidance from the official flat-config ignore docs and migration guide, plus DeepWiki's `eslint/eslint` summary, shows that flat config does not automatically honor `.gitignore`, dot-prefixed directories are not ignored by default, `globalIgnores()` is the supported way to exclude generated temp trees, and `includeIgnoreFile()` from `@eslint/compat` is the supported way to import `.gitignore` patterns. The proven fix is therefore to repair the shared root lint baseline so repo-wide `npm run lint` respects the repo's intentionally ignored generated trees, preferably by importing `.gitignore` into the root flat config with `includeIgnoreFile()` rather than continuing to lint `codex/.tmp/**`; a narrower explicit `globalIgnores(["codex/.tmp/**"])` entry would also work technically but would duplicate ignore ownership and risk drift. This fits the current repo because Task 4-local lint fallout was already fixed, while the remaining failures come from generated plugin-fixture paths outside the task surface. Rejected alternatives are repeated broad reruns, editing files under `codex/.tmp/**`, or treating Task 4 as still blocked on its own implementation, because those all mis-own a repo-wide ESLint baseline mismatch instead of the actual root cause.
-- **BLOCKER** Subtask 44 (`npm run lint`) is currently blocked by unrelated existing repository lint failures outside the Task 4 surface, primarily under `codex/.tmp/plugins/**` and other generated plugin-fixture paths. I fixed the Task 4-local lint findings first, but the repo-wide command still exits non-zero before Task 4 can honestly claim a clean lint checkpoint. The task itself should stay `__in_progress__`; if the repo wants this subtask to close without cleaning those external fixture trees, the plan or eslint scope will need to be narrowed explicitly before work continues.
+- Planner repair re-owned the remaining repo-wide lint baseline seam into Task 5, because the blocker answer proved the next real work is shared flat-config ignore ownership rather than more Task 4 product implementation. Task 4 now returns to `__to_do__` until that prerequisite lands, after which its existing lint and wrapper proof items can close honestly.
+- **RESOLVED ISSUE** Subtask 44's old live blocker was not a remaining Task 4 code defect. The root `npm run lint` failure came from generated plugin-fixture trees under `codex/.tmp/**` that the repo already intends to ignore, so the blocker is now preserved as historical evidence while Task 5 takes active ownership of the shared ESLint-baseline repair.
 
 ---
 
-### Task 5. Move Copilot plaintext-persistence bootstrap to `settings.json` and make Copilot-managed JSON reads JSONC-safe
+### Task 5. Repair the shared ESLint flat-config baseline so repo-wide lint respects ignored generated fixture trees
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 3`
+- Task Status: `__in_progress__`
+- Git Commits:
+
+#### Overview
+
+This task repairs the shared repo-wide lint baseline that is currently blocking Story 56 completion. The remaining failure is not in Task 4's product code; it is in the root ESLint flat-config ownership, where `npm run lint` still traverses generated plugin-fixture trees under `codex/.tmp/**` even though the repository already treats them as ignored generated artifacts.
+
+#### Task Exit Criteria
+
+- Repo-wide `npm run lint` no longer reports failures from intentionally ignored generated fixture trees such as `codex/.tmp/**`.
+- The root lint baseline has one clear ignore owner that matches the repository's intended generated-artifact contract without weakening lint coverage for real checked-in TypeScript or TSX source.
+- Task 4 can return to its existing lint and wrapper proof gates without needing another broad baseline diagnosis.
+
+#### Documentation Locations
+
+- `https://eslint.org/docs/latest/use/configure/ignore` - use for the official flat-config ignore contract, including `globalIgnores()` and dot-directory behavior.
+- `https://eslint.org/docs/latest/use/configure/migration-guide` - use for the official flat-config migration guidance, especially `ignores` semantics and `includeIgnoreFile()` from `@eslint/compat`.
+
+#### Subtasks
+
+1. [ ] Re-read the current Task 4 `**BLOCKING ANSWER**`, then inspect `package.json`, `eslint.config.js`, `.gitignore`, and any workspace ESLint configs that still participate in the repo-wide lint gate. Purpose: confirm which generated trees the repo already intends to ignore and which checked-in source trees must remain linted.
+2. [ ] Repair the root ESLint flat-config ignore owner so repo-wide `npm run lint` respects intentionally ignored generated trees. Prefer importing `.gitignore` with `includeIgnoreFile()` from `@eslint/compat` when that keeps one ignore source of truth cleaner than duplicating globs directly in `eslint.config.js`. Purpose: fix the shared baseline seam at its real owner instead of retrying Task 4 product work.
+3. [ ] If the chosen fix requires `@eslint/compat`, add it to the root dev dependencies and refresh the lockfile. If the chosen fix instead uses explicit `globalIgnores()`, document the exact generated-tree coverage in `eslint.config.js` so future drift is visible. Purpose: keep the ignore contract explicit and reviewable.
+4. [ ] Preserve lint coverage for real checked-in TS and TSX source, including any repo-owned Codex or Copilot surfaces that remain intentionally unignored. Purpose: ensure the baseline repair removes only generated-artifact noise and does not silently narrow lint coverage for actual product code.
+5. [ ] Update any Story 56 note or repo-owned lint documentation that would otherwise keep claiming the generated fixture failures belong to Task 4 product work. Purpose: make the repaired execution handoff explicit for the next implementation loop.
+
+#### Testing
+
+1. [ ] Run `npm run lint` from the repository root to prove the repaired lint baseline no longer surfaces failures from intentionally ignored generated fixture trees while still linting the checked-in story surfaces.
+2. [ ] Run `npm run format:check` from the repository root to prove the touched lint-config, dependency, and planning files stay formatted.
+
+#### Implementation notes
+
+- Starts empty.
+
+---
+
+### Task 6. Move Copilot plaintext-persistence bootstrap to `settings.json` and make Copilot-managed JSON reads JSONC-safe
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4`
@@ -891,8 +933,8 @@ This task repairs the fragile Copilot authentication persistence seam that curre
 1. [ ] Run `npm run build:summary:server` from the repository root to prove the new `jsonc-parser` dependency, settings-first Copilot helpers, route changes, and updated proof owners compile cleanly. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:server:unit` from the repository root so the unit proof surface covers the new settings-first source of truth, JSONC-safe reads, route preflight distinctions, and updated compose bootstrap contract. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
 3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the shared server integration path remains honest after the Copilot auth-persistence contract changes. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 5 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+4. [ ] Run `npm run lint` for the final Task 6 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 6 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -900,10 +942,10 @@ This task repairs the fragile Copilot authentication persistence seam that curre
 
 ---
 
-### Task 6. Replace the chat page’s Codex-only flags architecture with a server-driven Agent Flags panel
+### Task 7. Replace the chat page’s Codex-only flags architecture with a server-driven Agent Flags panel
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 5`
+- Task Dependencies: `Task 6`
 - Task Status: `__to_do__`
 - Git Commits:
 
@@ -958,10 +1000,10 @@ This task completes the user-facing part of Story 56 by removing the Codex-only 
 #### Testing
 
 1. [ ] Run `npm run build:summary:client` from the repository root to prove the client typecheck and build pass after the Agent Flags UI and payload changes. If the wrapper ends with `agent_action: inspect_log`, inspect the reported log path, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:client` from the repository root to prove the Task 6 client proof owners in `client/src/test/chatSendPayload.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.resolvedDefaults.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, and the `client/src/test/chatPage.flags.*.test.tsx` suites. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:e2e` from the repository root as the repository-supported automated browser proof for the chat page. This wrapper owns the Task 6 browser-visible regression surface for provider selection, visible Agent Flags behavior, and next-send conversation transitions through the supported e2e stack; the separate normal human Docker stack smoke remains owned by Task 7. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
-4. [ ] Run `npm run lint` for the final Task 6 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 6 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+2. [ ] Run `npm run test:summary:client` from the repository root to prove the Task 7 client proof owners in `client/src/test/chatSendPayload.test.tsx`, `client/src/test/chatPage.provider.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.resolvedDefaults.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, and the `client/src/test/chatPage.flags.*.test.tsx` suites. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:e2e` from the repository root as the repository-supported automated browser proof for the chat page. This wrapper owns the Task 7 browser-visible regression surface for provider selection, visible Agent Flags behavior, and next-send conversation transitions through the supported e2e stack; the separate normal human Docker stack smoke remains owned by Task 8. If the wrapper ends with `agent_action: inspect_log` or reports failures, inspect the reported log path, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run lint` for the final Task 7 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 7 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -969,10 +1011,10 @@ This task completes the user-facing part of Story 56 by removing the Codex-only 
 
 ---
 
-### Task 7. Run final Story 0000056 validation and close out the provider-neutral chat contract
+### Task 8. Run final Story 0000056 validation and close out the provider-neutral chat contract
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6`
+- Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7`
 - Task Status: `__to_do__`
 - Git Commits:
 
@@ -1016,8 +1058,8 @@ Optional guidance for the manual testing agent only.
 
 - Prefer the normal human stack first: run `npm run compose:build`, then `npm run compose:up`, and use the standard browser chat surface at `http://localhost:5001` with the server on `http://localhost:5010`, the server health endpoint at `http://localhost:5010/health`, and the shared chat MCP listener on port `5011`.
 - Use the normal env-file path through `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local` rather than inventing a Story 56-only runtime configuration path.
-- Direct task-level manual proof for this final task into `codeInfoTmp/manual-testing/0000056/07/` and do not commit it because `codeInfoTmp/` is already ignored. Recommended deterministic basenames are `proof-01-provider-default.png`, `proof-02-copilot-agent-flags.png`, `proof-03-lmstudio-agent-flags.png`, `proof-04-restored-conversation.png`, `support-console.txt`, and `support-network.json`.
-- If Playwright MCP screenshots help, capture them with a relative staging filename in the Playwright output directory first, then transfer them into `codeInfoTmp/manual-testing/0000056/07/`. Use `$CODEINFO_ROOT/playwright-output-local` only as the harness-side staging location when it is available.
+- Direct task-level manual proof for this final task into `codeInfoTmp/manual-testing/0000056/08/` and do not commit it because `codeInfoTmp/` is already ignored. Recommended deterministic basenames are `proof-01-provider-default.png`, `proof-02-copilot-agent-flags.png`, `proof-03-lmstudio-agent-flags.png`, `proof-04-restored-conversation.png`, `support-console.txt`, and `support-network.json`.
+- If Playwright MCP screenshots help, capture them with a relative staging filename in the Playwright output directory first, then transfer them into `codeInfoTmp/manual-testing/0000056/08/`. Use `$CODEINFO_ROOT/playwright-output-local` only as the harness-side staging location when it is available.
 - Check these visible scenarios on the running stack: default provider selection from `CODEINFO_CHAT_DEFAULT_PROVIDER`; provider-local default model selection from each provider’s `chat/config.toml`; Codex `webSearchMode`, `modelReasoningSummary`, `modelVerbosity`, and workspace-write-scoped `networkAccessEnabled`; Copilot `toolAccess` `On` and `Off`; LM Studio `temperature`, `maxTokens`, `contextOverflowPolicy`, and `toolAccess`; provider or model changes creating a new next-send conversation; Agent Flag changes staying in the current conversation; and restored conversations winning over a staged unsent provider or model change.
 - Review the server logs for the story markers already named in the plan’s `Log Or Proof Markers` section so manual validation can confirm config bootstrap, ordered provider contract, defaults resolution, Copilot readiness, and fallback behavior on the normal stack.
 - After story closeout, promote any curated durable final manual-proof bundle from the task-scoped scratch artifacts into `codeInfoStatus/manual-proof/0000056/`.

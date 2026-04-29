@@ -1,26 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T22:28:45Z",
+  "generated_at_utc": "2026-04-29T23:27:08Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
-  "finding_id": "4",
+  "finding_id": "5",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "The Bats shell-harness fixture binaries now keep their executable bit so PATH-based fixture invocation still works.",
+  "summary": "POST /conversations now rejects malformed or provider-incompatible persisted flags before repo sanitization can normalize them into success.",
   "changed_files": [
-    "scripts/test/bats/fixtures/bin/docker-fixture",
-    "scripts/test/bats/fixtures/bin/fixture-fail",
-    "scripts/test/bats/fixtures/bin/fixture-success"
+    "server/src/routes/conversations.ts",
+    "server/src/test/integration/conversations.create.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:shell -- --file scripts/test/bats/shell-harness.bats",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/conversations.create.test.ts",
       "result": "passed",
-      "notes": "Focused shell harness proof passed 2 tests with 0 failures."
+      "notes": "Focused create-route proof passed 4 tests with 0 failures."
     }
   ],
-  "commit_sha": "b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80",
+  "commit_sha": "483900b9ce1533adb265523cf621bb731573f08a",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

@@ -967,6 +967,7 @@ This task repairs the fragile Copilot authentication persistence seam that curre
 - Testing step 3 complete: the first full cucumber wrapper run hit one timeout-only failure in an unrelated ingest-delta cleanup scenario, the targeted scenario rerun passed cleanly, and the required full `npm run test:summary:server:cucumber` rerun then finished green with `117` passed and `0` failed, so the shared server integration path is honest again after the Task 6 changes.
 - Testing step 4 complete: the final repo-root `npm run lint` rerun passed cleanly after the wrapper-backed proof repairs, so the finished Task 6 surface still holds on the normal shared ESLint path.
 - Testing step 5 complete: the final repo-root `npm run format:check` rerun finished with `All matched files use Prettier code style!`, so the audited Task 6 surface is back to a clean formatting checkpoint.
+- Manual testing complete: this pass stayed task-scoped, restarted the previously stopped main compose stack with `npm run compose:build` plus `npm run compose:up`, proved `http://localhost:5010/health`, confirmed the live repo-root `copilot/config.json` still contains JSONC comments while `copilot/settings.json` owns `storeTokenPlaintext`, verified `POST /copilot/device-auth` returned `{"provider":"copilot","state":"already_authenticated"}` instead of a preflight persistence failure, captured scratch proof under `codeInfoTmp/manual-testing/0000056/6/`, and then shut the main stack back down with `npm run compose:down` without needing new subtasks.
 
 ---
 

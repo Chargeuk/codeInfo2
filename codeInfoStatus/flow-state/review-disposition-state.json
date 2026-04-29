@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-04-29T23:20:00Z",
+  "story_number": "0000056",
+  "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
+  "review_cycle_id": "0000056-rc-20260429T221156Z-0bdaac8a",
+  "review_handoff_path": "codeInfoTmp/reviews/0000056-current-review.json",
+  "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
+  "evidence_file": "codeInfoTmp/reviews/0000056-20260429T204701Z-484b4dd4-evidence.md",
+  "findings_file": "codeInfoTmp/reviews/0000056-20260429T204701Z-484b4dd4-findings.md",
+  "saturation_file": "codeInfoTmp/reviews/0000056-20260429T204701Z-484b4dd4-findings-saturation.md",
+  "challenge_file": "codeInfoTmp/reviews/0000056-20260429T204701Z-484b4dd4-blind-spot-challenge.md",
+  "repositories": [
+    {
+      "name": "current_repository",
+      "path": "/home/d_a_s/code/codeInfo2",
+      "branch": "feature/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults",
+      "head": "484b4dd42126f12d3613547e7df61948878c5554",
+      "comparison_base_ref": "origin/main",
+      "comparison_base_commit": "8535c59c7f4264f4f8df01bb1f4e290fd7882983",
+      "comparison_head_ref": "HEAD",
+      "comparison_rule": "local_head_vs_resolved_base",
+      "resolved_base_source": "remote",
+      "remote_fetch_status": "success",
+      "local_fallback_reason": null
+    }
+  ],
+  "unresolved_task_required_findings": [
+    {
+      "id": "3",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "Copilot tool-off still registers tools while the proof only asserts empty metadata.",
+      "reason": "This seam is still ambiguous at the real execution boundary and may require redefining the session-registration contract rather than applying one clearly safe inline fix."
+    },
+    {
+      "id": "8",
+      "severity": "must_fix",
+      "repository": "current_repository",
+      "summary": "LM Studio temperature and maxTokens domains drift across discovery, validation, config defaults, and runtime execution.",
+      "reason": "The repair spans multiple mirrored contract surfaces and changes an outward-facing flag domain, so it should be task-owned rather than treated as a small inline fix."
+    },
+    {
+      "id": "10",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "Ordinary conversation writes can inject flow-owned metadata that later crosses into trusted resume state.",
+      "reason": "This crosses an authority-sensitive persisted-state boundary and is not safe to treat as a low-risk inline cleanup."
+    },
+    {
+      "id": "11",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "Copilot startup seeding has a time-of-check/time-of-use overwrite window for live runtime artifacts.",
+      "reason": "The race-sensitive startup replay contract is not clearly low-risk, and the safe repair path is not certain enough to classify as minor."
+    }
+  ],
+  "unresolved_minor_batchable_findings": [
+    {
+      "id": "5",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "POST /conversations normalizes malformed flags into success before validation can reject them.",
+      "reason": "This is a bounded same-repository validation-order repair on one public route plus focused tests, restoring the already intended reject-on-malformed-input behavior."
+    },
+    {
+      "id": "6",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "An already-aborted LM Studio run still performs deferred setup work before it can short-circuit.",
+      "reason": "The defect is localized to one execution seam and can be checked with focused provider-abort proof in the owning repository."
+    },
+    {
+      "id": "7",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "Copilot seed bootstrap treats a non-directory seed path as harmlessly missing and hides startup misconfiguration.",
+      "reason": "This is a small same-repository startup-path classification fix in one helper plus focused tests."
+    },
+    {
+      "id": "9",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "Default-resolution warnings are still logged under the stale label 'chat flag ignored'.",
+      "reason": "The misleading label appears bounded to one caller seam, and the intended warning categories are already established elsewhere in the same repository."
+    },
+    {
+      "id": "12",
+      "severity": "should_fix",
+      "repository": "current_repository",
+      "summary": "Sidebar conversation selection remains another unlocked reset/retarget affordance during stop-lock mode.",
+      "reason": "This is another small client-side parity fix in the same stop-lock seam with a clear owner and focused proof path."
+    }
+  ],
+  "resolved_minor_findings": [
+    {
+      "id": "1",
+      "repository": "current_repository",
+      "summary": "/chat/models now resolves LM Studio defaults from CODEINFO_LMSTUDIO_HOME so the configured provider-local default model is prioritized correctly.",
+      "resolution_commit": "5febcc1c2058d7f0eb65523709d20e197ed4dc30",
+      "proof": "npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts -> passed (Focused route proof passed 28 tests with 0 failures.)"
+    },
+    {
+      "id": "2",
+      "repository": "current_repository",
+      "summary": "Stop-lock mode now freezes model changes and the New conversation reset alongside the existing provider lock for selected conversations.",
+      "resolution_commit": "3603fa260d3545a83f786e2670c4892b3031c496",
+      "proof": "npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx -> passed (Focused stop-state proof passed 8 tests with 0 failures after targeting the selected-conversation stop-race seam.)"
+    },
+    {
+      "id": "4",
+      "repository": "current_repository",
+      "summary": "The Bats shell-harness fixture binaries now keep their executable bit so PATH-based fixture invocation still works.",
+      "resolution_commit": "b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80",
+      "proof": "npm run test:summary:shell -- --file scripts/test/bats/shell-harness.bats -> passed (Focused shell harness proof passed 2 tests with 0 failures.)"
+    }
+  ],
+  "rejected_or_non_actionable_findings": [
+    {
+      "id": "13",
+      "summary": "The Copilot boot-path test still uses timer-based polling instead of a stronger completion boundary.",
+      "reason": "This was reviewed as an optional simplification and is not worth fixing in the current story now that the story already completed."
+    },
+    {
+      "id": "14",
+      "summary": "The Copilot seed bootstrap unit-test title overclaims what its assertions actually prove.",
+      "reason": "This is proof-wording cleanup only and remains non-blocking optional simplification."
+    },
+    {
+      "id": "15",
+      "summary": "The chat models Cucumber step wording overclaims whole-body equality after response normalization.",
+      "reason": "This is a concrete proof-wording simplification, but it is still optional and non-blocking for the current story."
+    }
+  ],
+  "incomplete_review_blockers": [],
+  "counts": {
+    "unresolved_task_required": 4,
+    "unresolved_minor_batchable": 5,
+    "resolved_minor": 3,
+    "rejected_or_non_actionable": 3,
+    "incomplete_review_blockers": 0
+  },
+  "has_unresolved_task_required_findings": true,
+  "has_unresolved_minor_batchable_findings": true,
+  "only_minor_batchable_findings": false,
+  "needs_minor_fix_path": true,
+  "needs_task_up_path": true,
+  "minor_fixes_made_in_review_loop": true,
+  "minor_fix_commit_shas": [
+    "5febcc1c2058d7f0eb65523709d20e197ed4dc30",
+    "3603fa260d3545a83f786e2670c4892b3031c496",
+    "b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80"
+  ],
+  "minor_fix_revalidation_cycle_closed": false,
+  "final_revalidation_owned_by_task_up_path": false,
+  "task_up_owned_final_revalidation_task_title": null,
+  "needs_review_rerun_before_close": false,
+  "needs_final_minor_fix_revalidation_task": false,
+  "review_created_tasks_added_or_updated": false,
+  "safe_to_exit_review_loop_without_tasking": false,
+  "classification_notes": [
+    "Fresh review-loop state was created after reset_review_cycle_state.md left no prior review-disposition-state.json to carry forward.",
+    "All 15 endorsed findings from the canonical findings artifact were classified exactly once; optional_simplification findings 13-15 were treated as rejected_or_non_actionable because they are non-blocking proof cleanups.",
+    "Findings 3, 8, 10, and 11 were classified conservatively as task-required because their execution, contract, authority, or replay semantics were not clearly safe for inline minor fixing.",
+    "Minor finding 1 was resolved inline on commit 5febcc1c2058d7f0eb65523709d20e197ed4dc30; the active plan and findings artifact were updated, and the review loop still routes to task-up because unresolved task-required findings remain.",
+    "Minor findings 2 and 4 were manually reconciled after their earlier result artifacts recorded malformed full SHAs; the active review state now points at the real fix commits 3603fa260d3545a83f786e2670c4892b3031c496 and b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80, and the plan plus findings artifact now record both inline resolutions."
+  ]
+}

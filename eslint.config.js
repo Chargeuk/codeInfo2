@@ -1,15 +1,18 @@
-import tseslint from 'typescript-eslint';
+import { includeIgnoreFile } from '@eslint/compat';
+import { defineConfig } from 'eslint/config';
 import pluginImport from 'eslint-plugin-import';
 import reactHooks from 'eslint-plugin-react-hooks';
+import { fileURLToPath } from 'node:url';
+import tseslint from 'typescript-eslint';
 
-export default [
+const gitignorePath = fileURLToPath(new URL('.gitignore', import.meta.url));
+
+export default defineConfig([
+  includeIgnoreFile(gitignorePath, 'Repository .gitignore patterns'),
   {
     linterOptions: {
       reportUnusedDisableDirectives: false,
     },
-  },
-  {
-    ignores: ['**/dist/**', '**/coverage/**', '**/test-results/**'],
   },
   ...tseslint.configs.recommended,
   {
@@ -30,4 +33,4 @@ export default [
       'react-hooks/set-state-in-effect': 'off',
     },
   },
-];
+]);

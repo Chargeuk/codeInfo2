@@ -868,11 +868,11 @@ This task repairs the shared repo-wide lint baseline that is currently blocking 
 
 #### Subtasks
 
-1. [ ] Re-read the current Task 4 `**BLOCKING ANSWER**`, then inspect `package.json`, `eslint.config.js`, `.gitignore`, and any workspace ESLint configs that still participate in the repo-wide lint gate. Purpose: confirm which generated trees the repo already intends to ignore and which checked-in source trees must remain linted.
-2. [ ] Repair the root ESLint flat-config ignore owner so repo-wide `npm run lint` respects intentionally ignored generated trees. Prefer importing `.gitignore` with `includeIgnoreFile()` from `@eslint/compat` when that keeps one ignore source of truth cleaner than duplicating globs directly in `eslint.config.js`. Purpose: fix the shared baseline seam at its real owner instead of retrying Task 4 product work.
-3. [ ] If the chosen fix requires `@eslint/compat`, add it to the root dev dependencies and refresh the lockfile. If the chosen fix instead uses explicit `globalIgnores()`, document the exact generated-tree coverage in `eslint.config.js` so future drift is visible. Purpose: keep the ignore contract explicit and reviewable.
-4. [ ] Preserve lint coverage for real checked-in TS and TSX source, including any repo-owned Codex or Copilot surfaces that remain intentionally unignored. Purpose: ensure the baseline repair removes only generated-artifact noise and does not silently narrow lint coverage for actual product code.
-5. [ ] Update any Story 56 note or repo-owned lint documentation that would otherwise keep claiming the generated fixture failures belong to Task 4 product work. Purpose: make the repaired execution handoff explicit for the next implementation loop.
+1. [x] Re-read the current Task 4 `**BLOCKING ANSWER**`, then inspect `package.json`, `eslint.config.js`, `.gitignore`, and any workspace ESLint configs that still participate in the repo-wide lint gate. Purpose: confirm which generated trees the repo already intends to ignore and which checked-in source trees must remain linted.
+2. [x] Repair the root ESLint flat-config ignore owner so repo-wide `npm run lint` respects intentionally ignored generated trees. Prefer importing `.gitignore` with `includeIgnoreFile()` from `@eslint/compat` when that keeps one ignore source of truth cleaner than duplicating globs directly in `eslint.config.js`. Purpose: fix the shared baseline seam at its real owner instead of retrying Task 4 product work.
+3. [x] If the chosen fix requires `@eslint/compat`, add it to the root dev dependencies and refresh the lockfile. If the chosen fix instead uses explicit `globalIgnores()`, document the exact generated-tree coverage in `eslint.config.js` so future drift is visible. Purpose: keep the ignore contract explicit and reviewable.
+4. [x] Preserve lint coverage for real checked-in TS and TSX source, including any repo-owned Codex or Copilot surfaces that remain intentionally unignored. Purpose: ensure the baseline repair removes only generated-artifact noise and does not silently narrow lint coverage for actual product code.
+5. [x] Update any Story 56 note or repo-owned lint documentation that would otherwise keep claiming the generated fixture failures belong to Task 4 product work. Purpose: make the repaired execution handoff explicit for the next implementation loop.
 
 #### Testing
 
@@ -881,7 +881,11 @@ This task repairs the shared repo-wide lint baseline that is currently blocking 
 
 #### Implementation notes
 
-- Starts empty.
+- Re-read Task 4's blocking answer plus the root and client ESLint config owners, confirmed the repo-wide lint command comes from the root `eslint . --ext .ts,.tsx --max-warnings=0` script, and verified `.gitignore` already owns the generated `codex/`, `copilot/`, and `lmstudio/` artifact trees that flat config was still traversing.
+- Repaired the root flat-config owner by importing the repository `.gitignore` through `includeIgnoreFile()` in `eslint.config.js`, which keeps generated-tree ignores in one source of truth instead of duplicating `codex/.tmp/**`-style globs directly in the ESLint config.
+- Added `@eslint/compat` to the root dev dependencies and refreshed `package-lock.json` so the new ignore import path is explicit, installable, and reviewable in the repo root rather than relying on transitive tooling.
+- Preserved lint coverage for real checked-in TypeScript and TSX source by keeping the repo's existing `.gitignore` unignore carve-outs intact for `server/src/codex/**`, the checked-in Copilot fakes, and `client/src/components/codex/**`, so the Task 5 repair narrows only generated-artifact noise.
+- Updated the Story 56 execution notes here so the generated-fixture lint failures remain classified as a shared root-config seam now repaired in Task 5, not as lingering Task 4 product-code fallout; the later automated-proof step now only needs to rerun Task 5's root `lint` and `format:check` gates honestly.
 
 ---
 

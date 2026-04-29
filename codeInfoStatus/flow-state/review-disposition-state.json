@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T23:40:00Z",
+  "generated_at_utc": "2026-04-29T23:46:00Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_cycle_id": "0000056-rc-20260429T221156Z-0bdaac8a",
@@ -69,13 +69,6 @@
       "repository": "current_repository",
       "summary": "Default-resolution warnings are still logged under the stale label 'chat flag ignored'.",
       "reason": "The misleading label appears bounded to one caller seam, and the intended warning categories are already established elsewhere in the same repository."
-    },
-    {
-      "id": "12",
-      "severity": "should_fix",
-      "repository": "current_repository",
-      "summary": "Sidebar conversation selection remains another unlocked reset/retarget affordance during stop-lock mode.",
-      "reason": "This is another small client-side parity fix in the same stop-lock seam with a clear owner and focused proof path."
     }
   ],
   "resolved_minor_findings": [
@@ -113,6 +106,13 @@
       "summary": "Copilot seed bootstrap now fails clearly when the configured seed home exists but is not a directory, instead of pretending runtime initialization already succeeded.",
       "resolution_commit": "d504c032dc98ebf9ac4b81f0c01526c627bd9909",
       "proof": "npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts -> passed (Focused Copilot seed bootstrap proof passed 7 tests with 0 failures.)"
+    },
+    {
+      "id": "12",
+      "repository": "current_repository",
+      "summary": "Sidebar conversation selection now stays locked during the stop-lock startup race instead of retargeting the next send.",
+      "resolution_commit": "ee357745e5322f52a56f733bd1048e32019049ab",
+      "proof": "npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx -> passed (Focused client stop-state proof passed 8 tests with 0 failures.)"
     }
   ],
   "rejected_or_non_actionable_findings": [
@@ -135,8 +135,8 @@
   "incomplete_review_blockers": [],
   "counts": {
     "unresolved_task_required": 4,
-    "unresolved_minor_batchable": 3,
-    "resolved_minor": 5,
+    "unresolved_minor_batchable": 2,
+    "resolved_minor": 6,
     "rejected_or_non_actionable": 3,
     "incomplete_review_blockers": 0
   },
@@ -151,7 +151,8 @@
     "3603fa260d3545a83f786e2670c4892b3031c496",
     "b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80",
     "483900b9ce1533adb265523cf621bb731573f08a",
-    "d504c032dc98ebf9ac4b81f0c01526c627bd9909"
+    "d504c032dc98ebf9ac4b81f0c01526c627bd9909",
+    "ee357745e5322f52a56f733bd1048e32019049ab"
   ],
   "minor_fix_revalidation_cycle_closed": false,
   "final_revalidation_owned_by_task_up_path": false,
@@ -167,6 +168,7 @@
     "Minor finding 1 was resolved inline on commit 5febcc1c2058d7f0eb65523709d20e197ed4dc30; the active plan and findings artifact were updated, and the review loop still routes to task-up because unresolved task-required findings remain.",
     "Minor findings 2 and 4 were manually reconciled after their earlier result artifacts recorded malformed full SHAs; the active review state now points at the real fix commits 3603fa260d3545a83f786e2670c4892b3031c496 and b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80, and the plan plus findings artifact now record both inline resolutions.",
     "Minor finding 5 was resolved inline on commit 483900b9ce1533adb265523cf621bb731573f08a; the active plan and findings artifact now record the route-validation repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
-    "Minor finding 7 was resolved inline on commit d504c032dc98ebf9ac4b81f0c01526c627bd9909; the active plan and findings artifact now record the Copilot seed-home classification repair, and the review loop still routes to task-up because unresolved task-required findings remain."
+    "Minor finding 7 was resolved inline on commit d504c032dc98ebf9ac4b81f0c01526c627bd9909; the active plan and findings artifact now record the Copilot seed-home classification repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
+    "Minor finding 12 was resolved inline on commit ee357745e5322f52a56f733bd1048e32019049ab; the active plan and findings artifact now record the sidebar stop-lock repair, and the review loop still routes to task-up because unresolved task-required findings remain."
   ]
 }

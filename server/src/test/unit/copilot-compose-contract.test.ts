@@ -158,13 +158,13 @@ test('compose build summary runtime asset marker includes /app/copilot', () => {
   assert.match(composeBuildSummary, /['"]\/app\/copilot['"]/u);
 });
 
-test('compose wrapper bootstraps the repo-root Copilot home for local runs without overwriting existing state', () => {
+test('compose wrapper bootstraps the repo-root Copilot home for local runs through settings.json without overwriting existing state', () => {
   const composeWrapper = readRepoFile('scripts/docker-compose-with-env.sh');
 
   assert.match(composeWrapper, /"\$\{repo_root\}\/copilot"/u);
   assert.match(
     composeWrapper,
-    /printf '\{\\n  "store_token_plaintext": true\\n\}\\n' > "\$\{copilot_config_path\}"/u,
+    /printf '\{\\n  "storeTokenPlaintext": true\\n\}\\n' > "\$\{copilot_settings_path\}"/u,
   );
-  assert.match(composeWrapper, /\[ ! -e "\$\{copilot_config_path\}" \]/u);
+  assert.match(composeWrapper, /\[ ! -e "\$\{copilot_settings_path\}" \]/u);
 });

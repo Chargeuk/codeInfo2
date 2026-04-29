@@ -168,7 +168,7 @@ function depsFromHarness(
     }),
     ensureCopilotPlaintextTokenStorage: async () => ({
       changed: false,
-      configPath: '/tmp/copilot-home/config.json',
+      settingsPath: '/tmp/copilot-home/settings.json',
     }),
     ensureCopilotAuthHomeCompatibility: async () => ({
       action: 'none',
@@ -315,7 +315,7 @@ describe('POST /copilot/device-auth integration behavior', () => {
     assert.equal(runCopilotDeviceAuth.mock.calls.length, 2);
   });
 
-  test('keychain-unavailable fallback still works through writable CODEINFO_COPILOT_HOME config storage', async () => {
+  test('keychain-unavailable fallback still works through writable CODEINFO_COPILOT_HOME settings storage', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-device-auth-'),
     );
@@ -330,15 +330,15 @@ describe('POST /copilot/device-auth integration behavior', () => {
           getCopilotConfigDirForHome: (home: string) => home,
           ensureCopilotAuthFileStore,
           ensureCopilotPlaintextTokenStorage: async (home: string) => {
-            const configPath = path.join(home, 'config.json');
+            const settingsPath = path.join(home, 'settings.json');
             await fs.writeFile(
-              configPath,
-              JSON.stringify({ store_token_plaintext: true }, null, 2),
+              settingsPath,
+              JSON.stringify({ storeTokenPlaintext: true }, null, 2),
               'utf8',
             );
             return {
               changed: true,
-              configPath,
+              settingsPath,
             };
           },
         }),
@@ -347,13 +347,59 @@ describe('POST /copilot/device-auth integration behavior', () => {
       const res = await supertest(app).post('/copilot/device-auth').send({});
       assert.equal(res.status, 200);
       assert.equal(res.body.state, 'verification_ready');
-      await fs.access(path.join(tempRoot, 'config.json'));
+      await fs.access(path.join(tempRoot, 'settings.json'));
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
 
-  test('plaintext token storage bootstrap failures surface the shared unavailable-before-start contract', async () => {
+  test('commented config.json does not block preflight when settings.json is missing', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-device-auth-jsonc-'),
+    );
+    const harness = createMockCopilotDeviceAuthHarness(
+      createVerificationReadyScenario(),
+    );
+    const runCopilotDeviceAuth = mock.fn(async () =>
+      toDeviceAuthResult(await harness.startDeviceAuth()),
+    );
+
+    try {
+      await fs.writeFile(
+        path.join(tempRoot, 'config.json'),
+        '{\n  // Copilot-managed compatibility metadata\n  "store_token_plaintext": true,\n}\n',
+        'utf8',
+      );
+
+      const res = await supertest(
+        buildApp(
+          depsFromHarness(harness, {
+            getCopilotHome: () => tempRoot,
+            getCopilotConfigDirForHome: (home: string) => home,
+            ensureCopilotAuthFileStore,
+            ensureCopilotPlaintextTokenStorage,
+            runCopilotDeviceAuth,
+          }),
+        ),
+      )
+        .post('/copilot/device-auth')
+        .send({});
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.state, 'verification_ready');
+      assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
+      assert.deepEqual(
+        JSON.parse(
+          await fs.readFile(path.join(tempRoot, 'settings.json'), 'utf8'),
+        ),
+        { storeTokenPlaintext: true },
+      );
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('settings bootstrap failures surface the shared unavailable-before-start contract', async () => {
     const harness = createMockCopilotDeviceAuthHarness(
       createVerificationReadyScenario(),
     );
@@ -365,7 +411,7 @@ describe('POST /copilot/device-auth integration behavior', () => {
       buildApp(
         depsFromHarness(harness, {
           ensureCopilotPlaintextTokenStorage: async () => {
-            throw new Error('EACCES: config.json');
+            throw new Error('EACCES: settings.json');
           },
           runCopilotDeviceAuth,
         }),

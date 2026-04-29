@@ -14,6 +14,7 @@ import {
   type CopilotLifecycleOptions,
 } from '../chat/copilotLifecycle.js';
 import {
+  CopilotManagedJsonArtifactError,
   ensureCopilotAuthHomeCompatibility,
   ensureCopilotAuthFileStore,
   ensureCopilotPlaintextTokenStorage,
@@ -321,7 +322,7 @@ export function createCopilotDeviceAuthRouter(
     let plaintextStorage:
       | {
           changed: boolean;
-          configPath: string;
+          settingsPath: string;
         }
       | undefined;
     try {
@@ -343,14 +344,17 @@ export function createCopilotDeviceAuthRouter(
         .status(200)
         .json(
           createCopilotUnavailableBeforeStartResponse(
-            'copilot config persistence unavailable',
+            error instanceof CopilotManagedJsonArtifactError &&
+              error.artifactName === 'settings.json'
+              ? error.message
+              : 'copilot config persistence unavailable',
           ),
         );
     }
 
     logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_storage_mode', {
       changed: plaintextStorage.changed,
-      configPath: plaintextStorage.configPath,
+      settingsPath: plaintextStorage.settingsPath,
       storageMode: 'plaintext',
     });
 

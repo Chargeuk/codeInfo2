@@ -207,6 +207,80 @@ describe('Chat page stop control', () => {
     expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument();
   });
 
+  it('locks model changes and new-conversation resets when the selected conversation is stopping without an inflight id yet', async () => {
+    let resolveChatStart: ((value: Response) => void) | null = null;
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation one',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: {
+        items: [],
+        nextCursor: null,
+      },
+      chatFetch: () =>
+        new Promise<Response>((resolve) => {
+          resolveChatStart = resolve;
+        }),
+    });
+    const user = userEvent.setup();
+
+    renderChatPage();
+
+    const row = await screen.findByText('Conversation one');
+    await act(async () => {
+      await user.click(row);
+    });
+
+    await startChatTurn(user, 'Hello');
+    await waitFor(() => expect(resolveChatStart).not.toBeNull());
+    await act(async () => {
+      await user.click(await screen.findByTestId('chat-stop'));
+    });
+
+    expect(screen.getByLabelText('Provider')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByLabelText('Model')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(
+      screen.getByRole('button', { name: /new conversation/i }),
+    ).toBeDisabled();
+
+    await act(async () => {
+      resolveChatStart?.(
+        new Response(
+          JSON.stringify({
+            status: 'started',
+            conversationId: 'c1',
+            inflightId: 'i1',
+            provider: 'lmstudio',
+            model: 'm1',
+          }),
+          {
+            status: 202,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    });
+
+    expect(harness.chatBodies).toHaveLength(1);
+  });
+
   it('sends cancel_inflight with conversationId and no inflightId during the startup race', async () => {
     let resolveChatStart: ((value: Response) => void) | null = null;
     const harness = setupChatWsHarness({

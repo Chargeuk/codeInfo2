@@ -561,6 +561,7 @@ export default function ChatPage() {
   const providerLocked = Boolean(
     selectedConversation && isStopping && !inflightSnapshot?.inflightId,
   );
+  const nextSendContextLocked = providerLocked;
   const showStop = isSending || isStopping;
   const chatWorkingFolderLocked =
     isSending ||
@@ -895,6 +896,12 @@ export default function ChatPage() {
     nextProvider?: string;
   }) => {
     const resetReason = options?.reason ?? 'new-conversation';
+    if (
+      nextSendContextLocked &&
+      (resetReason === 'new-conversation' || resetReason === 'model-change')
+    ) {
+      return;
+    }
     const olderConversationRemainedInflight = Boolean(
       activeConversationId &&
         (inflightSnapshot?.inflightId ||
@@ -944,6 +951,10 @@ export default function ChatPage() {
   const handleModelChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (nextSendContextLocked) {
+      return;
+    }
+
     const nextModel = event.target.value;
     if (!nextModel || nextModel === selected) {
       return;
@@ -1509,7 +1520,8 @@ export default function ChatPage() {
                             isLoading ||
                             isError ||
                             isEmpty ||
-                            !providerAvailable
+                            !providerAvailable ||
+                            nextSendContextLocked
                           }
                           sx={{ minWidth: 260, flex: 1 }}
                           SelectProps={{ displayEmpty: true }}
@@ -1542,7 +1554,7 @@ export default function ChatPage() {
                               color="secondary"
                               size="small"
                               onClick={() => handleNewConversation()}
-                              disabled={isLoading}
+                              disabled={isLoading || nextSendContextLocked}
                               fullWidth
                             >
                               New conversation

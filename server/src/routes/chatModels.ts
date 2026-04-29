@@ -241,7 +241,7 @@ export function createChatModelsRouter({
         requestProvider: provider,
         codexHome: process.env.CODEX_HOME,
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        lmstudioHome: process.env.LMSTUDIO_HOME,
+        lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
       });
     } catch (error) {
       if (!(error instanceof ChatDefaultsResolutionError)) {

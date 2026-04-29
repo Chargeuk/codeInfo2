@@ -808,6 +808,52 @@ test('non-codex provider omits codex defaults fields', async () => {
   }
 });
 
+test('lmstudio models prioritize the configured default model from CODEINFO_LMSTUDIO_HOME', async () => {
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    'model = "model-b"\n',
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([
+        {
+          modelKey: 'model-a',
+          displayName: 'Model A',
+          type: 'llm',
+        },
+        {
+          modelKey: 'model-b',
+          displayName: 'Model B',
+          type: 'llm',
+        },
+      ]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.deepEqual(modelKeys, ['model-b', 'model-a']);
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({

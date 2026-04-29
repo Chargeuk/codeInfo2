@@ -1195,9 +1195,10 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `3`, then inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/copilotTools.ts`, `server/src/test/unit/chat-interface-copilot.test.ts`, and `server/src/test/integration/chat-copilot-resume.test.ts` to pin down which session fields truly govern disabled tool execution at the SDK seam.
-2. [ ] Update the normal and resume Copilot session builders so `toolAccess: 'off'` leaves one coherent disabled-tools contract instead of mixing hidden metadata with still-registered execution inputs.
-3. [ ] Repair or extend the focused unit and integration proof owners so they explicitly prove the disabled-tools execution seam rather than only the `availableTools` metadata surface.
+1. [ ] Re-read the review evidence for Finding `3`, then inspect the create-session and resume-session builders in `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, the shared tool bundle returned from `server/src/chat/copilotTools.ts`, and the current fake-SDK capture seams in `server/src/test/unit/chat-interface-copilot.test.ts` plus `server/src/test/integration/chat-copilot-resume.test.ts`. Write down which field or combination of fields is the real Copilot tool-registration seam for this repository before changing any code.
+2. [ ] Update the shared Copilot session-construction path so `toolAccess: 'off'` removes tool execution capability at that real registration seam for both fresh and resumed sessions, instead of leaving a state where metadata says “off” but a registered tool surface could still run.
+3. [ ] Keep the `toolAccess: 'on'` contract explicit while repairing the `off` path so the same helper continues to expose the normal repository-managed tool bundle when tools are enabled, rather than replacing the current On/Off behavior with an overly broad “no tools anywhere” fallback.
+4. [ ] Repair or extend the focused proof owners so they capture the actual tool-registration inputs passed into the Copilot SDK seam for both create and resume flows, and fail if `toolAccess: 'off'` still leaves tool execution wired in even when `availableTools` is empty.
 
 #### Testing
 
@@ -1235,9 +1236,10 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `8`, then inspect `server/src/routes/chatDiscovery.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` to map every place that currently widens or bypasses the intended LM Studio domain.
-2. [ ] Implement one bounded LM Studio option-domain contract for `temperature` and `maxTokens` across discovery metadata, provider-local defaults parsing, request-time validation, and runtime execution.
-3. [ ] Repair or extend the focused proof owners so they prove the restored bounded contract for both request-time validation and provider-local default resolution instead of the widened behavior.
+1. [ ] Re-read the review evidence for Finding `8`, then inspect `server/src/routes/chatDiscovery.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` to list every place that currently computes a resolved LM Studio default or accepts a user-supplied `temperature` / `maxTokens` value.
+2. [ ] Choose one outward-facing bounded LM Studio domain that matches the story text, then implement that same bound in the shared parser or validator seam that discovery metadata, request validation, provider-local defaults loading, and runtime execution all reuse.
+3. [ ] Normalize provider-local LM Studio defaults through that same shared seam so `lmstudio/chat/config.toml` cannot surface a resolved default that the request validator or runtime path would later reject, and so discovery no longer advertises widened `temperature` / `maxTokens` values.
+4. [ ] Repair or extend the focused proof owners so they cover all three mirrored contract surfaces separately: request-time validation, runtime execution, and provider-local default discovery. Remove any existing assertions that currently lock in the widened `temperature <= 2` behavior or otherwise over-credit the old drifted contract.
 
 #### Testing
 
@@ -1276,14 +1278,16 @@ This review-created task restores the authority boundary between ordinary conver
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `10`, then inspect `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, and `client/src/components/chat/ConversationList.tsx` to pin down the exact server-owned boundary that should exist for `flags.flow` and `flags.flowChild`.
-2. [ ] Update the ordinary conversation write path so flow-owned metadata is rejected, stripped, or otherwise prevented from crossing into persisted state outside the intended flow-owned seam.
-3. [ ] Repair or extend the focused proof owners so they prove the restored authority boundary at the persisted-state seam rather than relying on provenance by convention.
+1. [ ] Re-read the review evidence for Finding `10`, then inspect `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, and `client/src/components/chat/ConversationList.tsx` to separate the ordinary REST-owned flag keys from the flow-engine-owned `flags.flow` and `flags.flowChild` keys.
+2. [ ] Update the ordinary conversation create and update paths so general REST callers cannot persist `flags.flow` or `flags.flowChild` through the same sanitizer used for normal chat flags. Keep the flow engine’s own nested `$set` writers in `server/src/mongo/repo.ts` as the only supported path that can create or mutate those persisted flow-owned structures.
+3. [ ] Re-check the flow resume and sidebar label readers after the write-path repair so they still accept server-owned flow metadata written by the intended flow seam, but no longer trust ordinary conversation input to establish that state.
+4. [ ] Repair or extend the focused proof owners so one proof file catches rejected or stripped flow-owned metadata on ordinary conversation writes and another proof file confirms the legitimate flow-owned persistence path still works after the boundary is restored.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.create.test.ts` from the repository root to prove ordinary conversation writes no longer accept flow-owned metadata.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-route-warning-label.test.ts` from the repository root only if the repaired authority boundary changes shared warning or validation helpers that also affect route diagnostics.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.flags.test.ts` from the repository root to prove the intended flow-owned persistence writers still own `flags.flow` and `flags.flowChild` after the boundary repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-route-warning-label.test.ts` from the repository root only if the repaired authority boundary changes shared warning or validation helpers that also affect route diagnostics.
 
 #### Implementation notes
 
@@ -1316,9 +1320,10 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `11`, then inspect `server/src/config/copilotSeedBootstrap.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, and `server/src/test/integration/copilot.boot-path.test.ts` to map where the preflight “already initialized” decision currently diverges from the later write path.
-2. [ ] Update the Copilot seed-import helper so a concurrent or mid-run runtime initialization cannot be overwritten by the later copy/rename sequence after the helper has already observed live runtime state.
-3. [ ] Repair or extend the focused unit and integration proof owners so they prove the replay-safe path honestly enough for the final revalidation task to rely on the result.
+1. [ ] Re-read the review evidence for Finding `11`, then inspect `server/src/config/copilotSeedBootstrap.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, and `server/src/test/integration/copilot.boot-path.test.ts` to map the exact sequence from “runtime already initialized” preflight classification through temp-copy staging and final rename into the runtime home.
+2. [ ] Update the Copilot seed-import helper so the write path re-checks or otherwise preserves the same live-runtime ownership condition it used during preflight, instead of allowing a stale seed artifact to win later just because the initial read saw the target missing.
+3. [ ] Keep the current non-destructive seed-import contract intact for the already-covered happy paths while repairing the replay window, so an empty runtime still bootstraps correctly and an already initialized runtime still skips without widening the helper into a destructive “always trust runtime” rewrite.
+4. [ ] Repair or extend the focused proof owners so they distinguish three cases explicitly: empty runtime bootstraps successfully, already initialized runtime skips cleanly, and a mid-sequence runtime initialization does not get overwritten by the delayed seed-import write path.
 
 #### Testing
 
@@ -1358,8 +1363,10 @@ This final review-created task owns the whole current review cycle’s post-repa
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000056-20260429T204701Z-484b4dd4`, the inline-resolved `Minor Review Fixes` block, and `codeInfoStatus/pr-summaries/0000056-pr-summary.md`, then update the final reviewer-facing summary only after the post-repair regression pass proves the whole cycle clean.
-2. [ ] Refresh this plan’s `Implementation notes` and the reviewer-facing summary so they record one final post-repair outcome for review cycle `0000056-rc-20260429T221156Z-0bdaac8a` instead of splitting serious-review and inline-minor closeout ownership across separate tasks.
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000056-20260429T204701Z-484b4dd4`, the inline-resolved `Minor Review Fixes` block, and `codeInfoStatus/pr-summaries/0000056-pr-summary.md` before starting the final proof pass so the full review-created scope, the inline-resolved minor scope, and the expected reviewer-facing closeout are all visible in one place.
+2. [ ] During the final regression pass, keep one running checklist of which wrapper or focused proof step revalidates each serious finding (`3`, `8`, `10`, `11`) and which broad wrapper or runtime step revalidates the already-resolved inline minor findings (`1`, `2`, `4`, `5`, `6`, `7`, `9`, `12`) so the final summary can name honest coverage instead of generic “all tests passed” wording.
+3. [ ] Update `codeInfoStatus/pr-summaries/0000056-pr-summary.md` only after the required wrapper-first proof finishes cleanly, and make the closeout note name this review pass id, this review cycle id, the repaired serious findings, and the already-resolved inline minor findings that were revalidated by the same final pass.
+4. [ ] Refresh this plan’s `Implementation notes` for Tasks `9` through `13` after the regression pass so the story records one final post-repair outcome for review cycle `0000056-rc-20260429T221156Z-0bdaac8a` instead of splitting serious-review and inline-minor closeout ownership across separate tasks.
 
 #### Testing
 

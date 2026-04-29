@@ -169,6 +169,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     model: string,
   ): Promise<void> {
     const { requestId, baseUrl, signal } = (flags ?? {}) as LmStudioRunFlags;
+    signal?.throwIfAborted();
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;

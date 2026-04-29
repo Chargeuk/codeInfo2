@@ -151,3 +151,45 @@ test('LM Studio chat runtime rejects non-numeric and non-integer numeric agent f
   assert.equal(nonInteger.clientFactoryCalls, 0);
   assert.match(nonInteger.error, /agentFlags\.maxTokens must be an integer/u);
 });
+
+test('LM Studio chat runtime short-circuits already-aborted runs before loading history or opening a client', async () => {
+  let loadHistoryCalls = 0;
+  let clientFactoryCalls = 0;
+
+  class TrackingLmStudioChat extends ChatInterfaceLMStudio {
+    protected override async loadHistory() {
+      loadHistoryCalls += 1;
+      return [];
+    }
+  }
+
+  const chat = new TrackingLmStudioChat(
+    () => {
+      clientFactoryCalls += 1;
+      throw new Error('client should not be created');
+    },
+    () => ({ tools: [] }),
+  );
+  const controller = new AbortController();
+  controller.abort();
+
+  await assert.rejects(
+    () =>
+      chat.execute(
+        'hello',
+        {
+          signal: controller.signal,
+          baseUrl: 'http://127.0.0.1:1234',
+        },
+        'lmstudio-chat-preaborted',
+        'lmstudio-model',
+      ),
+    (error: unknown) => {
+      assert.equal((error as Error | undefined)?.name, 'AbortError');
+      return true;
+    },
+  );
+
+  assert.equal(loadHistoryCalls, 0);
+  assert.equal(clientFactoryCalls, 0);
+});

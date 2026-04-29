@@ -53,6 +53,7 @@ type Props = {
   filterState: ConversationFilterState;
   mongoConnected?: boolean | null;
   disabled?: boolean;
+  selectionDisabled?: boolean;
   variant?: 'chat' | 'agents';
   onSelect: (conversationId: string) => void;
   onFilterChange: (state: ConversationFilterState) => void;
@@ -119,6 +120,7 @@ export function ConversationList({
   filterState,
   mongoConnected,
   disabled,
+  selectionDisabled = false,
   variant = 'chat',
   onSelect,
   onFilterChange,
@@ -598,7 +600,7 @@ export function ConversationList({
                     <ListItemButton
                       selected={selected}
                       onClick={() => onSelect(conversation.conversationId)}
-                      disabled={disabled}
+                      disabled={Boolean(disabled || selectionDisabled)}
                       data-testid="conversation-row"
                       style={{ paddingLeft: 12, paddingRight: 12 }}
                       sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}

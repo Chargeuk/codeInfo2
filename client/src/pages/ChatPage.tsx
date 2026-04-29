@@ -1026,6 +1026,7 @@ export default function ChatPage() {
   };
 
   const handleSelectConversation = (conversation: string) => {
+    if (nextSendContextLocked) return;
     if (conversation === activeConversationId) return;
     const previousConversationId = activeConversationId;
     console.info('[chat-history] handleSelect', {
@@ -1380,6 +1381,7 @@ export default function ChatPage() {
                   filterState={filterState}
                   mongoConnected={mongoConnected}
                   disabled={persistenceUnavailable || persistenceLoading}
+                  selectionDisabled={nextSendContextLocked}
                   onSelect={handleSelectConversation}
                   onFilterChange={setFilterState}
                   onArchive={handleArchive}

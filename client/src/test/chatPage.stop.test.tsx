@@ -221,6 +221,14 @@ describe('Chat page stop control', () => {
             lastMessageAt: '2025-01-01T00:00:00.000Z',
             archived: false,
           },
+          {
+            conversationId: 'c2',
+            title: 'Conversation two',
+            provider: 'codex',
+            model: 'gpt-5-codex',
+            lastMessageAt: '2025-01-02T00:00:00.000Z',
+            archived: false,
+          },
         ],
         nextCursor: null,
       },
@@ -259,6 +267,12 @@ describe('Chat page stop control', () => {
     expect(
       screen.getByRole('button', { name: /new conversation/i }),
     ).toBeDisabled();
+    const conversationRows = screen.getAllByTestId('conversation-row');
+    expect(conversationRows[0]).toHaveAttribute('aria-disabled', 'true');
+    expect(conversationRows[1]).toHaveAttribute('aria-disabled', 'true');
+
+    expect(screen.getByText('Conversation one')).toBeInTheDocument();
+    expect(screen.getByLabelText('Provider')).toHaveTextContent('LM Studio');
 
     await act(async () => {
       resolveChatStart?.(
@@ -442,7 +456,7 @@ describe('Chat page stop control', () => {
     expect(harness.chatBodies).toHaveLength(0);
   });
 
-  it('recovers cleanly if the active conversation changes while stopping is still pending', async () => {
+  it('recovers cleanly when stop-lock ignores sidebar retarget attempts during pending cancellation', async () => {
     const harness = setupChatWsHarness({
       mockFetch,
       conversations: {
@@ -510,14 +524,10 @@ describe('Chat page stop control', () => {
     if (!secondConversation) {
       throw new Error('Missing Conversation two row');
     }
-    await act(async () => {
-      await user.click(secondConversation);
-    });
+    expect(secondConversation).toHaveAttribute('aria-disabled', 'true');
 
-    await waitFor(() =>
-      expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument(),
-    );
-    expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-stop')).toBeDisabled();
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Stopping');
 
     harness.emitCancelAck({
       conversationId: 'c1',
@@ -525,6 +535,10 @@ describe('Chat page stop control', () => {
       result: 'noop',
     });
 
+    await waitFor(() =>
+      expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument(),
     );

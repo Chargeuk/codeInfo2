@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T23:46:00Z",
+  "generated_at_utc": "2026-04-29T23:52:00Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_cycle_id": "0000056-rc-20260429T221156Z-0bdaac8a",
@@ -57,13 +57,6 @@
   ],
   "unresolved_minor_batchable_findings": [
     {
-      "id": "6",
-      "severity": "should_fix",
-      "repository": "current_repository",
-      "summary": "An already-aborted LM Studio run still performs deferred setup work before it can short-circuit.",
-      "reason": "The defect is localized to one execution seam and can be checked with focused provider-abort proof in the owning repository."
-    },
-    {
       "id": "9",
       "severity": "should_fix",
       "repository": "current_repository",
@@ -113,6 +106,13 @@
       "summary": "Sidebar conversation selection now stays locked during the stop-lock startup race instead of retargeting the next send.",
       "resolution_commit": "ee357745e5322f52a56f733bd1048e32019049ab",
       "proof": "npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx -> passed (Focused client stop-state proof passed 8 tests with 0 failures.)"
+    },
+    {
+      "id": "6",
+      "repository": "current_repository",
+      "summary": "Already-aborted LM Studio chat runs now short-circuit before loading history or opening the provider client.",
+      "resolution_commit": "5dc898d85954bc00cb2a4104eb551e790cf56135",
+      "proof": "npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts -> passed (Focused LM Studio dispatch proof passed 5 tests with 0 failures.)"
     }
   ],
   "rejected_or_non_actionable_findings": [
@@ -135,8 +135,8 @@
   "incomplete_review_blockers": [],
   "counts": {
     "unresolved_task_required": 4,
-    "unresolved_minor_batchable": 2,
-    "resolved_minor": 6,
+    "unresolved_minor_batchable": 1,
+    "resolved_minor": 7,
     "rejected_or_non_actionable": 3,
     "incomplete_review_blockers": 0
   },
@@ -152,7 +152,8 @@
     "b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80",
     "483900b9ce1533adb265523cf621bb731573f08a",
     "d504c032dc98ebf9ac4b81f0c01526c627bd9909",
-    "ee357745e5322f52a56f733bd1048e32019049ab"
+    "ee357745e5322f52a56f733bd1048e32019049ab",
+    "5dc898d85954bc00cb2a4104eb551e790cf56135"
   ],
   "minor_fix_revalidation_cycle_closed": false,
   "final_revalidation_owned_by_task_up_path": false,
@@ -169,6 +170,7 @@
     "Minor findings 2 and 4 were manually reconciled after their earlier result artifacts recorded malformed full SHAs; the active review state now points at the real fix commits 3603fa260d3545a83f786e2670c4892b3031c496 and b5f3f26db4dc0fdd2c834a7348de0cc5e27c1c80, and the plan plus findings artifact now record both inline resolutions.",
     "Minor finding 5 was resolved inline on commit 483900b9ce1533adb265523cf621bb731573f08a; the active plan and findings artifact now record the route-validation repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
     "Minor finding 7 was resolved inline on commit d504c032dc98ebf9ac4b81f0c01526c627bd9909; the active plan and findings artifact now record the Copilot seed-home classification repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
-    "Minor finding 12 was resolved inline on commit ee357745e5322f52a56f733bd1048e32019049ab; the active plan and findings artifact now record the sidebar stop-lock repair, and the review loop still routes to task-up because unresolved task-required findings remain."
+    "Minor finding 12 was resolved inline on commit ee357745e5322f52a56f733bd1048e32019049ab; the active plan and findings artifact now record the sidebar stop-lock repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
+    "Minor finding 6 was resolved inline on commit 5dc898d85954bc00cb2a4104eb551e790cf56135; the active plan and findings artifact now record the LM Studio abort short-circuit repair, and the review loop still routes to task-up because unresolved task-required findings remain."
   ]
 }

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-04-29T22:16:38Z",
+  "story_number": "0000056",
+  "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
+  "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
+  "finding_id": "1",
+  "repository": "current_repository",
+  "status": "fixed",
+  "summary": "/chat/models now resolves LM Studio defaults from CODEINFO_LMSTUDIO_HOME so the configured provider-local default model is prioritized correctly.",
+  "changed_files": [
+    "server/src/routes/chatModels.ts",
+    "server/src/test/unit/chatModels.codex.test.ts"
+  ],
+  "targeted_proof": [
+    {
+      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts",
+      "result": "passed",
+      "notes": "Focused route proof passed 28 tests with 0 failures."
+    }
+  ],
+  "commit_sha": "5febcc1c2058d7f0eb65523709d20e197ed4dc30",
+  "reclassification_reason": null,
+  "blocker": null,
+  "blocker_scope": null
+}

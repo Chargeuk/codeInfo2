@@ -1,25 +1,26 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T22:24:54Z",
+  "generated_at_utc": "2026-04-29T22:28:45Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
-  "finding_id": "2",
+  "finding_id": "4",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Stop-lock mode now freezes model changes and the New conversation reset alongside the existing provider lock for selected conversations.",
+  "summary": "The Bats shell-harness fixture binaries now keep their executable bit so PATH-based fixture invocation still works.",
   "changed_files": [
-    "client/src/pages/ChatPage.tsx",
-    "client/src/test/chatPage.stop.test.tsx"
+    "scripts/test/bats/fixtures/bin/docker-fixture",
+    "scripts/test/bats/fixtures/bin/fixture-fail",
+    "scripts/test/bats/fixtures/bin/fixture-success"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx",
+      "command": "npm run test:summary:shell -- --file scripts/test/bats/shell-harness.bats",
       "result": "passed",
-      "notes": "Focused stop-state proof passed 8 tests with 0 failures after targeting the selected-conversation stop-race seam."
+      "notes": "Focused shell harness proof passed 2 tests with 0 failures."
     }
   ],
-  "commit_sha": "3603fa26efcad82a79cf7f2279c6de2ea8f67cc6",
+  "commit_sha": "b5f3f26d4ce7ffc25ca27bb78347cc053be87741",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

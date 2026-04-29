@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T23:52:00Z",
+  "generated_at_utc": "2026-04-29T23:58:00Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_cycle_id": "0000056-rc-20260429T221156Z-0bdaac8a",
@@ -56,13 +56,6 @@
     }
   ],
   "unresolved_minor_batchable_findings": [
-    {
-      "id": "9",
-      "severity": "should_fix",
-      "repository": "current_repository",
-      "summary": "Default-resolution warnings are still logged under the stale label 'chat flag ignored'.",
-      "reason": "The misleading label appears bounded to one caller seam, and the intended warning categories are already established elsewhere in the same repository."
-    }
   ],
   "resolved_minor_findings": [
     {
@@ -113,6 +106,13 @@
       "summary": "Already-aborted LM Studio chat runs now short-circuit before loading history or opening the provider client.",
       "resolution_commit": "5dc898d85954bc00cb2a4104eb551e790cf56135",
       "proof": "npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts -> passed (Focused LM Studio dispatch proof passed 5 tests with 0 failures.)"
+    },
+    {
+      "id": "9",
+      "repository": "current_repository",
+      "summary": "Route-level defaults and capability warnings now use a provider-neutral validation label instead of the stale 'chat flag ignored' wording.",
+      "resolution_commit": "450c0475c712147582175cc4df123c5d2a2213c9",
+      "proof": "npm run test:summary:server:unit -- --file server/src/test/unit/chat-route-warning-label.test.ts -> passed (Focused route warning-label proof passed 1 test with 0 failures.)"
     }
   ],
   "rejected_or_non_actionable_findings": [
@@ -135,15 +135,15 @@
   "incomplete_review_blockers": [],
   "counts": {
     "unresolved_task_required": 4,
-    "unresolved_minor_batchable": 1,
-    "resolved_minor": 7,
+    "unresolved_minor_batchable": 0,
+    "resolved_minor": 8,
     "rejected_or_non_actionable": 3,
     "incomplete_review_blockers": 0
   },
   "has_unresolved_task_required_findings": true,
-  "has_unresolved_minor_batchable_findings": true,
+  "has_unresolved_minor_batchable_findings": false,
   "only_minor_batchable_findings": false,
-  "needs_minor_fix_path": true,
+  "needs_minor_fix_path": false,
   "needs_task_up_path": true,
   "minor_fixes_made_in_review_loop": true,
   "minor_fix_commit_shas": [
@@ -153,7 +153,8 @@
     "483900b9ce1533adb265523cf621bb731573f08a",
     "d504c032dc98ebf9ac4b81f0c01526c627bd9909",
     "ee357745e5322f52a56f733bd1048e32019049ab",
-    "5dc898d85954bc00cb2a4104eb551e790cf56135"
+    "5dc898d85954bc00cb2a4104eb551e790cf56135",
+    "450c0475c712147582175cc4df123c5d2a2213c9"
   ],
   "minor_fix_revalidation_cycle_closed": false,
   "final_revalidation_owned_by_task_up_path": false,
@@ -171,6 +172,7 @@
     "Minor finding 5 was resolved inline on commit 483900b9ce1533adb265523cf621bb731573f08a; the active plan and findings artifact now record the route-validation repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
     "Minor finding 7 was resolved inline on commit d504c032dc98ebf9ac4b81f0c01526c627bd9909; the active plan and findings artifact now record the Copilot seed-home classification repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
     "Minor finding 12 was resolved inline on commit ee357745e5322f52a56f733bd1048e32019049ab; the active plan and findings artifact now record the sidebar stop-lock repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
-    "Minor finding 6 was resolved inline on commit 5dc898d85954bc00cb2a4104eb551e790cf56135; the active plan and findings artifact now record the LM Studio abort short-circuit repair, and the review loop still routes to task-up because unresolved task-required findings remain."
+    "Minor finding 6 was resolved inline on commit 5dc898d85954bc00cb2a4104eb551e790cf56135; the active plan and findings artifact now record the LM Studio abort short-circuit repair, and the review loop still routes to task-up because unresolved task-required findings remain.",
+    "Minor finding 9 was resolved inline on commit 450c0475c712147582175cc4df123c5d2a2213c9; the active plan and findings artifact now record the provider-neutral warning-label repair, and the review loop now routes only to task-up because no unresolved minor findings remain."
   ]
 }

@@ -1078,7 +1078,7 @@ This task completes the user-facing part of Story 56 by removing the Codex-only 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1144,3 +1144,4 @@ Optional guidance for the manual testing agent only.
 - Testing step 6 complete: `npm run compose:up` brought the normal human stack up cleanly, `curl -f http://localhost:5010/health` returned the expected JSON health payload, `curl -f http://localhost:5001` returned the client HTML shell, and `npm run compose:down` then tore the stack back down cleanly.
 - Testing step 7 complete: the final repo-root `npm run lint` checkpoint passed cleanly after the broader Story 56 proof runs, so the full story surface still holds on the shared ESLint gate.
 - Testing step 8 complete: the final repo-root `npm run format:check` checkpoint finished with `All matched files use Prettier code style!`, so every listed Task 8 automated proof gate is now complete on disk.
+- Automated-proof audit confirmed every Task 8 subtask and Testing gate is checked on disk with no live blocker, so the story closeout task now honestly transitions to `__done__` and is ready for the later manual-testing phase.

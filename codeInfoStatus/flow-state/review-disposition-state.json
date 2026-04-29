@@ -157,11 +157,11 @@
     "450c0475c712147582175cc4df123c5d2a2213c9"
   ],
   "minor_fix_revalidation_cycle_closed": false,
-  "final_revalidation_owned_by_task_up_path": false,
-  "task_up_owned_final_revalidation_task_title": null,
+  "final_revalidation_owned_by_task_up_path": true,
+  "task_up_owned_final_revalidation_task_title": "Revalidate review pass 0000056-20260429T204701Z-484b4dd4 after review-task repairs",
   "needs_review_rerun_before_close": false,
   "needs_final_minor_fix_revalidation_task": false,
-  "review_created_tasks_added_or_updated": false,
+  "review_created_tasks_added_or_updated": true,
   "safe_to_exit_review_loop_without_tasking": false,
   "classification_notes": [
     "Fresh review-loop state was created after reset_review_cycle_state.md left no prior review-disposition-state.json to carry forward.",

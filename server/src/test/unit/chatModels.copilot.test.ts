@@ -263,3 +263,59 @@ test('copilot models route maps only verified shared-contract fields and logs ig
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });
+
+test('copilot models route normalizes stale configured defaults to a live runnable model and avoids fake reasoning defaults on unsupported models', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-copilot-normalized-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'),
+    'utf8',
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'gpt-5-mini',
+        name: 'GPT-5 Mini',
+      } as ModelInfo,
+      {
+        id: 'gpt-5',
+        name: 'GPT-5',
+        supportedReasoningEfforts: ['low', 'medium', 'high'],
+        defaultReasoningEffort: 'medium',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.defaultModel, 'gpt-5-mini');
+    assert.equal(res.body.providerInfo.defaultModel, 'gpt-5-mini');
+    assert.equal(res.body.models[0]?.key, 'gpt-5-mini');
+    assert.equal(
+      'supportedReasoningEfforts' in
+        (res.body.models[0] as Record<string, unknown>),
+      false,
+    );
+    assert.equal(
+      'defaultReasoningEffort' in
+        (res.body.models[0] as Record<string, unknown>),
+      false,
+    );
+    assert.deepEqual(res.body.models[0]?.flagOverrides, []);
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /normalized to "gpt-5-mini"/u,
+    );
+  } finally {
+    await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});

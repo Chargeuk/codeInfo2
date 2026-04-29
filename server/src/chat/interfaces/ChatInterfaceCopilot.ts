@@ -1,6 +1,7 @@
 import {
   approveAll,
   type CopilotSession,
+  type ModelInfo,
   type PermissionHandler,
   type ResumeSessionConfig,
   type SessionConfig,
@@ -17,6 +18,7 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { CopilotLifecycle } from '../copilotLifecycle.js';
+import { copilotModelSupportsReasoningEffort } from '../copilotModelSupport.js';
 import {
   resolveCopilotRuntimeAgentFlags,
   type CopilotRuntimeAgentFlags,
@@ -31,6 +33,7 @@ type CopilotRunFlags = {
   workingDirectoryOverride?: string;
   history?: TurnSummary[];
   resumeConversation?: boolean;
+  copilotModels?: ModelInfo[];
 };
 
 type CopilotSessionLike = Pick<
@@ -157,17 +160,22 @@ export class ChatInterfaceCopilot extends ChatInterface {
   ): SessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
     const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
+    const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
+      ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
+      : true;
     return {
       sessionId: conversationId,
       model,
       configDir: this.lifecycle.configDir,
-      reasoningEffort: runtimeFlags.modelReasoningEffort,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
       tools: toolConfig?.tools,
       availableTools:
         runtimeFlags.toolAccess === 'off' ? [] : toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
+      ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
+        ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
+        : {}),
       ...(typedFlags.systemPrompt
         ? {
             systemMessage: {
@@ -189,16 +197,21 @@ export class ChatInterfaceCopilot extends ChatInterface {
   ): ResumeSessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
     const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
+    const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
+      ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
+      : true;
     return {
       model,
       configDir: this.lifecycle.configDir,
-      reasoningEffort: runtimeFlags.modelReasoningEffort,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),
       tools: toolConfig?.tools,
       availableTools:
         runtimeFlags.toolAccess === 'off' ? [] : toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
+      ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
+        ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
+        : {}),
       ...(typedFlags.systemPrompt
         ? {
             systemMessage: {

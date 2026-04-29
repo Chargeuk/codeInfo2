@@ -5,12 +5,15 @@ import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import type { ModelInfo } from '@github/copilot-sdk';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
+import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
+import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
 
 type ThreadEvent = {
   type: string;
@@ -401,6 +404,63 @@ test('codebase_question reuses shared provider defaults when provider copilot is
 
     const payload = JSON.parse(result.content[0].text);
     assert.equal(payload.modelId, 'copilot-default-model');
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
+    else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question normalizes implicit Copilot defaults and omits reasoning for models that do not support it', async () => {
+  const originalHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempHome = await withTempCopilotHome(
+    ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+  const harness = createMockCopilotSdkHarness({
+    name: 'mcp-copilot-normalized-default',
+    models: [
+      {
+        id: 'gpt-5-mini',
+        name: 'GPT-5 Mini',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const result = await runCodebaseQuestion(
+      { question: 'copilot normalized default?', provider: 'copilot' },
+      {
+        chatFactory: (provider) => {
+          assert.equal(provider, 'copilot');
+          return new ChatInterfaceCopilot(harness.createLifecycle());
+        },
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['gpt-5-mini'],
+          modelsRaw: [
+            {
+              id: 'gpt-5-mini',
+              name: 'GPT-5 Mini',
+            } as ModelInfo,
+          ],
+          authSource: 'env-token',
+        }),
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'gpt-5-mini');
+    assert.equal(
+      harness.getState().lastCreateSessionConfig?.model,
+      'gpt-5-mini',
+    );
+    assert.equal(
+      harness.getState().lastCreateSessionConfig?.reasoningEffort,
+      undefined,
+    );
   } finally {
     if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
     else process.env.CODEINFO_COPILOT_HOME = originalHome;

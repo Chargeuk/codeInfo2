@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 
+import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { Router, json } from 'express';
@@ -13,6 +14,7 @@ import {
 import { buildConversationFlags } from '../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
+import { normalizeImplicitCopilotRequestedModel } from '../chat/copilotModelSupport.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
   abortInflight,
@@ -297,9 +299,17 @@ export function createChatRouter({
       toolsAvailable: mcp.available,
       toolsReason: mcp.reason,
     });
+    const normalizedRequestedModel =
+      requestedProvider === 'copilot'
+        ? normalizeImplicitCopilotRequestedModel({
+            models: copilotReadiness.modelsRaw as ModelInfo[],
+            requestedModel,
+            requestedModelSource: defaultsResolution.modelSource,
+          })
+        : requestedModel;
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider,
-      requestedModel,
+      requestedModel: normalizedRequestedModel,
       codex: codexState,
       copilot: {
         available: copilotReadiness.available,
@@ -801,7 +811,10 @@ export function createChatRouter({
             signal: getInflight(conversationId)?.abortController.signal,
             history: historyForRun,
             ...(executionProvider === 'copilot'
-              ? { resumeConversation: shouldResumeCopilotSession }
+              ? {
+                  copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
+                  resumeConversation: shouldResumeCopilotSession,
+                }
               : {}),
             source: 'REST',
           },

@@ -5,6 +5,10 @@ import {
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import {
+  normalizeImplicitCopilotRequestedModel,
+  resolveCopilotDefaultModel,
+} from '../chat/copilotModelSupport.js';
+import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
@@ -107,7 +111,17 @@ export function createChatProvidersRouter({
     const requestedModel =
       requestedDefaults.provider === 'codex'
         ? (codexRequestedDefaults?.values.model ?? requestedDefaults.model)
-        : requestedDefaults.model;
+        : requestedDefaults.provider === 'copilot'
+          ? normalizeImplicitCopilotRequestedModel({
+              models: copilot.modelsRaw,
+              requestedModel: requestedDefaults.model,
+              requestedModelSource: requestedDefaults.modelSource,
+            })
+          : requestedDefaults.model;
+    const copilotModelMetadata = resolveCopilotDefaultModel({
+      models: copilot.modelsRaw,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    });
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
       requestedModel,
@@ -149,6 +163,11 @@ export function createChatProvidersRouter({
         reason: copilot.reason,
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings: copilot.reason ? [copilot.reason] : [],
+        modelMetadata: {
+          defaultModel: copilotModelMetadata.defaultModel,
+          defaultModelSource: copilotModelMetadata.defaultModelSource,
+          warnings: copilotModelMetadata.warnings,
+        },
         agentFlags: buildCopilotAgentFlags({
           models: copilot.modelsRaw,
           copilotHome: process.env.CODEINFO_COPILOT_HOME,

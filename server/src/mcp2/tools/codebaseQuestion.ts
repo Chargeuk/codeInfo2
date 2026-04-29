@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 
+import type { ModelInfo } from '@github/copilot-sdk';
 import { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
+import { normalizeImplicitCopilotRequestedModel } from '../../chat/copilotModelSupport.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
@@ -372,10 +374,18 @@ export async function runCodebaseQuestion(
     toolsAvailable: true,
     env: process.env,
   });
+  const normalizedRequestedModel =
+    requestedProvider === 'copilot'
+      ? normalizeImplicitCopilotRequestedModel({
+          models: copilotReadiness.modelsRaw as ModelInfo[],
+          requestedModel,
+          requestedModelSource: resolvedDefaults.modelSource,
+        })
+      : requestedModel;
 
   const runtimeSelection = resolveRuntimeProviderSelection({
     requestedProvider,
-    requestedModel,
+    requestedModel: normalizedRequestedModel,
     codex: codexState,
     copilot: {
       available: copilotReadiness.available,
@@ -614,6 +624,7 @@ export async function runCodebaseQuestion(
           signal: getInflight(resolvedConversationId)?.abortController.signal,
           ...(executionProvider === 'copilot'
             ? {
+                copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
                 resumeConversation:
                   existingConversation?.provider === 'copilot' &&
                   existingConversation.model === executionModel,

@@ -23,7 +23,7 @@ export class ProviderRuntimeFlagError extends Error {
 }
 
 export type CopilotRuntimeAgentFlags = {
-  modelReasoningEffort: (typeof COPILOT_REASONING_EFFORTS)[number];
+  modelReasoningEffort?: (typeof COPILOT_REASONING_EFFORTS)[number];
   toolAccess: (typeof TOOL_ACCESS_MODES)[number];
 };
 
@@ -139,6 +139,9 @@ export const loadProviderConfigForAgentFlags = (
 
 export function resolveCopilotRuntimeAgentFlags(
   rawAgentFlags: unknown,
+  options?: {
+    modelSupportsReasoningEffort?: boolean;
+  },
 ): CopilotRuntimeAgentFlags {
   const agentFlags = normalizeAgentFlagsInput('copilot', rawAgentFlags);
   const config = loadProviderConfigForAgentFlags('copilot');
@@ -153,13 +156,15 @@ export function resolveCopilotRuntimeAgentFlags(
 
   return {
     modelReasoningEffort:
-      agentFlags.modelReasoningEffort !== undefined
-        ? parseChoice(
-            agentFlags.modelReasoningEffort,
-            'agentFlags.modelReasoningEffort',
-            COPILOT_REASONING_EFFORTS,
-          )
-        : configReasoningEffort,
+      options?.modelSupportsReasoningEffort === false
+        ? undefined
+        : agentFlags.modelReasoningEffort !== undefined
+          ? parseChoice(
+              agentFlags.modelReasoningEffort,
+              'agentFlags.modelReasoningEffort',
+              COPILOT_REASONING_EFFORTS,
+            )
+          : configReasoningEffort,
     toolAccess:
       agentFlags.toolAccess !== undefined
         ? parseChoice(

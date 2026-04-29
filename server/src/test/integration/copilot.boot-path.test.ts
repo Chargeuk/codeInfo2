@@ -9,12 +9,14 @@ import express from 'express';
 import request from 'supertest';
 
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
+import { createChatRouter } from '../../routes/chat.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import {
   queryTask16BootLogs,
   startNamedCopilotScenarioServer,
 } from '../support/copilotBootPath.js';
+import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
   closeWs,
   connectWs,
@@ -37,6 +39,15 @@ async function writeSeedArtifacts(seedHome: string) {
   await fs.writeFile(
     path.join(seedHome, 'session-state', 'session.json'),
     '{"bootstrapped": true}\n',
+    'utf8',
+  );
+}
+
+async function writeCopilotChatConfig(seedHome: string, contents: string) {
+  await fs.mkdir(path.join(seedHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(seedHome, 'chat', 'config.toml'),
+    contents,
     'utf8',
   );
 }
@@ -292,6 +303,116 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
     assert.equal(models.body.available, true);
     assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
   } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('seeded runtime boot normalizes the surfaced Copilot default model and lets chat start without forwarding unsupported reasoning', async () => {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-boot-normalized-default-'),
+  );
+  const seedHome = path.join(tempRoot, 'seed-home');
+  const runtimeHome = path.join(tempRoot, 'runtime-home');
+  const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const clientFactory = () =>
+    ({
+      system: {
+        listDownloadedModels: async () => [],
+      },
+    }) as never;
+  const sdkHarness = createMockCopilotSdkHarness({
+    name: 'copilot-normalized-default-model',
+    models: [
+      {
+        id: 'gpt-5-mini',
+        name: 'GPT-5 Mini',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await writeCopilotChatConfig(
+      seedHome,
+      ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'),
+    );
+    process.env.CODEINFO_COPILOT_HOME = seedHome;
+
+    const seedResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+      env: currentRuntimeEnv(),
+    });
+    assert.equal(seedResult.status, 'seed_applied');
+
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/chat',
+      createChatProvidersRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => sdkHarness.createLifecycle(),
+      }),
+    );
+    app.use(
+      '/chat',
+      createChatModelsRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => sdkHarness.createLifecycle(),
+      }),
+    );
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory,
+        copilotLifecycleFactory: () => sdkHarness.createLifecycle(),
+      }),
+    );
+
+    const providers = await request(app).get('/chat/providers').expect(200);
+    const copilotProvider = providers.body.providers.find(
+      (provider: { id?: string }) => provider.id === 'copilot',
+    );
+    assert.ok(copilotProvider);
+    assert.equal(copilotProvider.defaultModel, 'gpt-5-mini');
+
+    const models = await request(app)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+    assert.equal(models.body.defaultModel, 'gpt-5-mini');
+    assert.equal(models.body.models[0]?.key, 'gpt-5-mini');
+
+    const chat = await request(app).post('/chat').send({
+      provider: 'copilot',
+      conversationId: 'boot-normalized-default',
+      message: 'Hello from the normalized default path',
+    });
+
+    assert.equal(chat.status, 202);
+    assert.equal(chat.body.provider, 'copilot');
+    assert.equal(chat.body.model, 'gpt-5-mini');
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (sdkHarness.getState().lastCreateSessionConfig) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    assert.equal(
+      sdkHarness.getState().lastCreateSessionConfig?.model,
+      'gpt-5-mini',
+    );
+    assert.equal(
+      sdkHarness.getState().lastCreateSessionConfig?.reasoningEffort,
+      undefined,
+    );
+  } finally {
+    if (originalCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = originalCopilotHome;
+    }
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

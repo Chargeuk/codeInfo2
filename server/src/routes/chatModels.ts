@@ -6,12 +6,12 @@ import {
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
+import { resolveCopilotDefaultModel } from '../chat/copilotModelSupport.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
-  resolveChatDefaults,
   resolveCodexChatDefaults,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
@@ -270,9 +270,12 @@ export function createChatModelsRouter({
       toolsReason: mcp.reason,
     });
     const copilotRawModels = readiness.modelsRaw as ModelInfo[];
+    const copilotModelMetadata = resolveCopilotDefaultModel({
+      models: copilotRawModels,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    });
     const { mapped: mappedCopilotModels, ignoredUnsupportedFields } =
       mapCopilotModels(copilotRawModels);
-    const preferredDefaults = resolveChatDefaults({});
     const prioritizedCopilotModels = prioritizeModel(
       mappedCopilotModels.map((model) => {
         const rawModel = copilotRawModels.find(
@@ -287,9 +290,7 @@ export function createChatModelsRouter({
           flagOverrides,
         };
       }),
-      preferredDefaults.provider === 'copilot'
-        ? preferredDefaults.model
-        : undefined,
+      copilotModelMetadata.defaultModel,
     );
     const copilotAvailable =
       readiness.available && prioritizedCopilotModels.length > 0;
@@ -393,6 +394,11 @@ export function createChatModelsRouter({
             : readiness.reason
               ? [readiness.reason]
               : [],
+        modelMetadata: {
+          defaultModel: copilotModelMetadata.defaultModel,
+          defaultModelSource: copilotModelMetadata.defaultModelSource,
+          warnings: copilotModelMetadata.warnings,
+        },
         agentFlags: buildCopilotAgentFlags({
           models: copilotRawModels,
           copilotHome: process.env.CODEINFO_COPILOT_HOME,

@@ -138,6 +138,7 @@ type BuildProviderInfoParams = ProviderHomeParams & {
   warnings?: string[];
   agentFlags?: ChatAgentFlagDescriptor[];
   compatibility?: ChatProviderInfo['compatibility'];
+  modelMetadata?: ProviderConfigModel;
 };
 
 export function buildCodexCompatibilityDefaults(params: {
@@ -307,7 +308,8 @@ function buildProviderModelMetadata(
 export function buildProviderInfo(
   params: BuildProviderInfoParams,
 ): ChatProviderInfo {
-  const modelMetadata = buildProviderModelMetadata(params.provider, params);
+  const modelMetadata =
+    params.modelMetadata ?? buildProviderModelMetadata(params.provider, params);
   const warnings = [...modelMetadata.warnings, ...(params.warnings ?? [])];
 
   return {

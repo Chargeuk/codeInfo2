@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T23:27:08Z",
+  "generated_at_utc": "2026-04-29T23:31:06Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
-  "finding_id": "5",
+  "finding_id": "7",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "POST /conversations now rejects malformed or provider-incompatible persisted flags before repo sanitization can normalize them into success.",
+  "summary": "Copilot seed bootstrap now fails clearly when the configured seed home exists but is not a directory, instead of pretending runtime initialization already succeeded.",
   "changed_files": [
-    "server/src/routes/conversations.ts",
-    "server/src/test/integration/conversations.create.test.ts"
+    "server/src/config/copilotSeedBootstrap.ts",
+    "server/src/test/unit/copilotSeedBootstrap.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/conversations.create.test.ts",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts",
       "result": "passed",
-      "notes": "Focused create-route proof passed 4 tests with 0 failures."
+      "notes": "Focused Copilot seed bootstrap proof passed 7 tests with 0 failures."
     }
   ],
-  "commit_sha": "483900b9ce1533adb265523cf621bb731573f08a",
+  "commit_sha": "d504c032dc98ebf9ac4b81f0c01526c627bd9909",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

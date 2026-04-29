@@ -876,8 +876,8 @@ This task repairs the shared repo-wide lint baseline that is currently blocking 
 
 #### Testing
 
-1. [ ] Run `npm run lint` from the repository root to prove the repaired lint baseline no longer surfaces failures from intentionally ignored generated fixture trees while still linting the checked-in story surfaces.
-2. [ ] Run `npm run format:check` from the repository root to prove the touched lint-config, dependency, and planning files stay formatted.
+1. [x] Run `npm run lint` from the repository root to prove the repaired lint baseline no longer surfaces failures from intentionally ignored generated fixture trees while still linting the checked-in story surfaces.
+2. [x] Run `npm run format:check` from the repository root to prove the touched lint-config, dependency, and planning files stay formatted.
 
 #### Implementation notes
 
@@ -886,6 +886,8 @@ This task repairs the shared repo-wide lint baseline that is currently blocking 
 - Added `@eslint/compat` to the root dev dependencies and refreshed `package-lock.json` so the new ignore import path is explicit, installable, and reviewable in the repo root rather than relying on transitive tooling.
 - Preserved lint coverage for real checked-in TypeScript and TSX source by keeping the repo's existing `.gitignore` unignore carve-outs intact for `server/src/codex/**`, the checked-in Copilot fakes, and `client/src/components/codex/**`, so the Task 5 repair narrows only generated-artifact noise.
 - Updated the Story 56 execution notes here so the generated-fixture lint failures remain classified as a shared root-config seam now repaired in Task 5, not as lingering Task 4 product-code fallout; the later automated-proof step now only needs to rerun Task 5's root `lint` and `format:check` gates honestly.
+- The first automated-proof rerun initially failed because `@eslint/compat` had only been recorded in `package.json` and `package-lock.json`; after running `npm install` to materialize the dependency in `node_modules`, repo-root `npm run lint` passed cleanly and no longer descended into the generated fixture trees that originally blocked Task 4.
+- Repo-root `npm run format:check` then passed cleanly with `All matched files use Prettier code style!`, so both Task 5 automated proof checkpoints are now green and the task is ready for the later audit step.
 
 ---
 

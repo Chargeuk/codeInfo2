@@ -76,6 +76,17 @@ async function pathExists(targetPath: string): Promise<boolean> {
   }
 }
 
+async function readPathType(
+  targetPath: string,
+): Promise<'missing' | 'directory' | 'other'> {
+  try {
+    const stats = await fs.promises.stat(targetPath);
+    return stats.isDirectory() ? 'directory' : 'other';
+  } catch {
+    return 'missing';
+  }
+}
+
 async function cleanupPath(targetPath: string): Promise<void> {
   await fs.promises.rm(targetPath, {
     force: true,
@@ -198,13 +209,35 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
     };
   }
 
-  if (!seedHome || !(await pathExists(seedHome))) {
+  if (!seedHome) {
     return {
       status: 'seed_missing',
       runtimeHome,
       seedHome,
       copiedArtifacts: [],
       skippedArtifacts: [],
+    };
+  }
+
+  const seedHomeType = await readPathType(seedHome);
+  if (seedHomeType === 'missing') {
+    return {
+      status: 'seed_missing',
+      runtimeHome,
+      seedHome,
+      copiedArtifacts: [],
+      skippedArtifacts: [],
+    };
+  }
+
+  if (seedHomeType !== 'directory') {
+    return {
+      status: 'seed_copy_failed',
+      runtimeHome,
+      seedHome,
+      copiedArtifacts: [],
+      skippedArtifacts: [],
+      error: `copilot seed home is not a directory: ${seedHome}`,
     };
   }
 

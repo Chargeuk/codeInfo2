@@ -197,6 +197,26 @@ test('reports seed_missing when the seed home is absent', async () => {
   }
 });
 
+test('returns seed_copy_failed when the configured seed home is a file instead of a directory', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHomeFile = path.join(tempRoot, 'seed-file');
+
+  try {
+    await fs.writeFile(seedHomeFile, 'not-a-directory', 'utf8');
+
+    const result = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome: path.join(tempRoot, 'runtime'),
+      seedHome: seedHomeFile,
+    });
+
+    assert.equal(result.status, 'seed_copy_failed');
+    assert.equal(result.seedHome, seedHomeFile);
+    assert.match(result.error ?? '', /not a directory/u);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('returns seed_copy_failed when the runtime home cannot be created', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
   const seedHome = path.join(tempRoot, 'seed');

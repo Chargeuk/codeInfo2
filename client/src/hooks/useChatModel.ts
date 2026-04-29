@@ -560,6 +560,16 @@ export function useChatModel() {
                   normalizedDefault = normalizedSupported[0];
                 }
 
+                if (normalizedSupported.length === 0 && !normalizedDefault) {
+                  console.error(
+                    '[DEV-0000037][T17] event=codex_reasoning_capabilities_invalid result=error',
+                    {
+                      provider: effectiveProvider,
+                      modelKey: model.key,
+                    },
+                  );
+                }
+
                 const legacyReasoningOverride =
                   normalizedSupported.length > 0
                     ? [

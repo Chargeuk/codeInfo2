@@ -799,11 +799,17 @@ describe('Chat page models list', () => {
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
-    await user.click(reasoningSelect);
-    expect(
-      await screen.findByRole('option', { name: /minimal/i }),
-    ).toBeVisible();
+    const narrowedReasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() =>
+      expect(narrowedReasoningSelect).toHaveTextContent(/minimal/i),
+    );
+    await user.click(narrowedReasoningSelect);
+    await waitFor(() =>
+      expect(screen.getAllByRole('option')).toHaveLength(1),
+    );
+    await user.click(await screen.findByRole('option', { name: /minimal/i }));
     expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
 
     const input = await screen.findByTestId('chat-input');

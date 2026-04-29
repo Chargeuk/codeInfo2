@@ -17,6 +17,34 @@ beforeEach(() => {
   ).__wsMock?.reset();
 });
 
+function emitTurnFinal(inflightId: string, conversationId: string) {
+  const chatTest = (
+    window as unknown as {
+      __chatTest?: {
+        handleWsEvent?: (event: {
+          type: 'turn_final';
+          conversationId: string;
+          seq: number;
+          inflightId: string;
+          status: 'ok';
+        }) => void;
+      };
+    }
+  ).__chatTest;
+
+  if (typeof chatTest?.handleWsEvent !== 'function') {
+    throw new Error('Missing __chatTest.handleWsEvent test bridge');
+  }
+
+  chatTest.handleWsEvent({
+    type: 'turn_final',
+    conversationId,
+    seq: Date.now(),
+    inflightId,
+    status: 'ok',
+  });
+}
+
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
 const { default: HomePage } = await import('../pages/HomePage');
@@ -301,7 +329,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     render(<RouterProvider router={router} />);
 
     const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
+    let sendButton = await screen.findByTestId('chat-send');
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
@@ -413,7 +441,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
 
     const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
+    let sendButton = await screen.findByTestId('chat-send');
     await waitFor(() => expect(input).toBeEnabled());
     await userEvent.clear(input);
     await userEvent.type(input, 'Validate fallback payload');
@@ -469,7 +497,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     await userEvent.click(options[0]);
 
     const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
+    let sendButton = await screen.findByTestId('chat-send');
     await waitFor(() => expect(input).toBeEnabled());
     await userEvent.clear(input);
     await userEvent.type(input, 'single option send');
@@ -512,7 +540,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     );
 
     const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
+    let sendButton = await screen.findByTestId('chat-send');
     await waitFor(() => expect(input).toBeEnabled());
     input.focus();
     await userEvent.clear(input);
@@ -521,6 +549,14 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     await act(async () => {
       await userEvent.click(sendButton);
     });
+
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+    const firstPayload = chatBodies[0] ?? {};
+    emitTurnFinal(
+      String(firstPayload.inflightId ?? 'i1'),
+      String(firstPayload.conversationId ?? 'conversation-1'),
+    );
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
 
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
@@ -533,13 +569,12 @@ describe('Codex model reasoning Agent Flag payloads', () => {
 
     await userEvent.clear(input);
     await userEvent.type(input, 'keep the same conversation');
-    await waitFor(() => expect(sendButton).toBeEnabled());
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
     await act(async () => {
-      await userEvent.click(sendButton);
+      await userEvent.click(screen.getByTestId('chat-send'));
     });
 
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-    const firstPayload = chatBodies[0] ?? {};
     const secondPayload = chatBodies[1] ?? {};
     expect(secondPayload.provider).toBe('codex');
     expect(secondPayload.model).toBe('gpt-5.1-codex-max');
@@ -582,15 +617,25 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       await screen.findByRole('option', { name: /gpt-5.2/i }),
     );
 
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
-    await userEvent.click(reasoningSelect);
-    expect(
+    const narrowedReasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() =>
+      expect(narrowedReasoningSelect).toHaveTextContent(/minimal/i),
+    );
+    await userEvent.click(narrowedReasoningSelect);
+    await waitFor(() =>
+      expect(screen.getAllByRole('option')).toHaveLength(1),
+    );
+    await userEvent.click(
       await screen.findByRole('option', { name: /minimal/i }),
-    ).toBeVisible();
+    );
     expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
 
     const input = await screen.findByTestId('chat-input');
     const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(input).toBeEnabled());
+    input.focus();
     await userEvent.clear(input);
     await userEvent.type(input, 'submit narrowed reasoning');
     await act(async () => {

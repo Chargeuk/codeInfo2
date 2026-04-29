@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import express from 'express';
 import request from 'supertest';
+import type { ModelInfo } from '@github/copilot-sdk';
 
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
@@ -52,6 +53,29 @@ async function hasBootstrappedRuntime(runtimeHome: string) {
     return false;
   }
 }
+
+const createReadyPingResponse = () => ({
+  message: 'ready',
+  timestamp: Date.now(),
+});
+
+const createReadyModels = (): ModelInfo[] => [
+  {
+    id: 'copilot-gpt-5',
+    name: 'Copilot GPT-5',
+    capabilities: {
+      supports: {
+        vision: false,
+        reasoningEffort: true,
+      },
+      limits: {
+        max_context_window_tokens: 200000,
+      },
+    },
+    supportedReasoningEfforts: ['medium'],
+    defaultReasoningEffort: 'medium',
+  },
+];
 
 test('named happy-path fake Copilot scenario boots the higher-level stack end to end', async () => {
   const server = await startNamedCopilotScenarioServer({
@@ -189,22 +213,13 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
         copilotRuntimeFactory: () => ({
           start: async () => {},
           stop: async () => [],
-          ping: async () => undefined,
+          ping: async () => createReadyPingResponse(),
           getAuthStatus: async () => ({
             isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
             authType: 'user',
           }),
           listModels: async () =>
-            (await hasBootstrappedRuntime(runtimeHome))
-              ? [
-                  {
-                    id: 'copilot-gpt-5',
-                    name: 'Copilot GPT-5',
-                    supportedReasoningEfforts: ['medium'],
-                    defaultReasoningEffort: 'medium',
-                  },
-                ]
-              : [],
+            (await hasBootstrappedRuntime(runtimeHome)) ? createReadyModels() : [],
         }),
       }),
     );
@@ -215,22 +230,13 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
         copilotRuntimeFactory: () => ({
           start: async () => {},
           stop: async () => [],
-          ping: async () => undefined,
+          ping: async () => createReadyPingResponse(),
           getAuthStatus: async () => ({
             isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
             authType: 'user',
           }),
           listModels: async () =>
-            (await hasBootstrappedRuntime(runtimeHome))
-              ? [
-                  {
-                    id: 'copilot-gpt-5',
-                    name: 'Copilot GPT-5',
-                    supportedReasoningEfforts: ['medium'],
-                    defaultReasoningEffort: 'medium',
-                  },
-                ]
-              : [],
+            (await hasBootstrappedRuntime(runtimeHome)) ? createReadyModels() : [],
         }),
       }),
     );

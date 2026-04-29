@@ -151,22 +151,22 @@ test('explicit Copilot chat requests stop failing when startup seed import suppl
           }) as never,
         copilotLifecycleFactory: () => {
           const lifecycle = harness.createLifecycle();
-          return {
-            ...lifecycle,
-            start: async () => {
-              if (!(await hasBootstrappedRuntime(runtimeHome))) {
-                throw new Error('copilot unavailable');
-              }
-              await lifecycle.start();
-            },
-            getAuthStatus: async () =>
-              (await hasBootstrappedRuntime(runtimeHome))
-                ? lifecycle.getAuthStatus()
-                : {
-                    isAuthenticated: false,
-                    authType: 'user',
-                  },
+          const start = lifecycle.start.bind(lifecycle);
+          const getAuthStatus = lifecycle.getAuthStatus.bind(lifecycle);
+          lifecycle.start = async () => {
+            if (!(await hasBootstrappedRuntime(runtimeHome))) {
+              throw new Error('copilot unavailable');
+            }
+            await start();
           };
+          lifecycle.getAuthStatus = async () =>
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? getAuthStatus()
+              : {
+                  isAuthenticated: false,
+                  authType: 'user',
+                };
+          return lifecycle;
         },
       }),
     );

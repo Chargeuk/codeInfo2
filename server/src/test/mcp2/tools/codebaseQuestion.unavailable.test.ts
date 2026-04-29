@@ -57,7 +57,10 @@ test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing'
       jsonrpc: '2.0',
       id: 5,
       method: 'tools/call',
-      params: { name: 'codebase_question', arguments: { question: 'Hello?' } },
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'Hello?', provider: 'codex' },
+      },
     };
 
     const body = await postJson(port, payload);

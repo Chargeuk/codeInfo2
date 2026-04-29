@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { setupChatWsHarness } from './support/mockChatWs';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -16,34 +17,6 @@ beforeEach(() => {
     globalThis as unknown as { __wsMock?: { reset: () => void } }
   ).__wsMock?.reset();
 });
-
-function emitTurnFinal(inflightId: string, conversationId: string) {
-  const chatTest = (
-    window as unknown as {
-      __chatTest?: {
-        handleWsEvent?: (event: {
-          type: 'turn_final';
-          conversationId: string;
-          seq: number;
-          inflightId: string;
-          status: 'ok';
-        }) => void;
-      };
-    }
-  ).__chatTest;
-
-  if (typeof chatTest?.handleWsEvent !== 'function') {
-    throw new Error('Missing __chatTest.handleWsEvent test bridge');
-  }
-
-  chatTest.handleWsEvent({
-    type: 'turn_final',
-    conversationId,
-    seq: Date.now(),
-    inflightId,
-    status: 'ok',
-  });
-}
 
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
@@ -516,19 +489,114 @@ describe('Codex model reasoning Agent Flag payloads', () => {
   });
 
   it('keeps same-conversation Agent Flag edits on the current conversation when only reasoning changes', async () => {
-    const chatBodies: Record<string, unknown>[] = [];
-    mockProvidersWithBodies(chatBodies);
+    const harness = setupChatWsHarness({
+      mockFetch,
+      providers: {
+        providers: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      },
+      models: {
+        provider: 'codex',
+        available: true,
+        toolsAvailable: true,
+        providerInfo: {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+          agentFlags: [
+            {
+              key: 'sandboxMode',
+              label: 'Sandbox Mode',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'workspace-write',
+              resolvedDefault: 'workspace-write',
+              supportedValues: [
+                { value: 'workspace-write', label: 'Workspace write' },
+                { value: 'read-only', label: 'Read-only' },
+                {
+                  value: 'danger-full-access',
+                  label: 'Danger full access',
+                },
+              ],
+            },
+            {
+              key: 'approvalPolicy',
+              label: 'Approval Policy',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'on-request',
+              resolvedDefault: 'on-request',
+              supportedValues: [
+                { value: 'never', label: 'Never (auto-approve)' },
+                { value: 'on-request', label: 'On request' },
+                { value: 'untrusted', label: 'Untrusted' },
+              ],
+            },
+            {
+              key: 'modelReasoningEffort',
+              label: 'Reasoning Effort',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'high',
+              resolvedDefault: 'high',
+              supportedValues: [
+                { value: 'high', label: 'High' },
+                { value: 'xhigh', label: 'Xhigh' },
+              ],
+            },
+            {
+              key: 'networkAccessEnabled',
+              label: 'Network Access',
+              controlType: 'boolean',
+              editable: true,
+              seedDefault: true,
+              resolvedDefault: true,
+            },
+            {
+              key: 'webSearchMode',
+              label: 'Web Search',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'live',
+              resolvedDefault: 'live',
+              supportedValues: [
+                { value: 'disabled', label: 'Disabled' },
+                { value: 'cached', label: 'Cached' },
+                { value: 'live', label: 'Live' },
+              ],
+            },
+          ],
+        },
+        codexDefaults: {
+          sandboxMode: 'workspace-write',
+          approvalPolicy: 'on-failure',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: true,
+        },
+        codexWarnings: [],
+        models: [
+          {
+            key: 'gpt-5.1-codex-max',
+            displayName: 'gpt-5.1-codex-max',
+            type: 'codex',
+            supportedReasoningEfforts: ['high', 'xhigh'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+      },
+    });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
-
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /openai codex/i }),
-    );
 
     await ensureAgentFlagsPanelExpanded();
 
@@ -550,12 +618,21 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       await userEvent.click(sendButton);
     });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    const firstPayload = chatBodies[0] ?? {};
-    emitTurnFinal(
-      String(firstPayload.inflightId ?? 'i1'),
-      String(firstPayload.conversationId ?? 'conversation-1'),
-    );
+    await waitFor(() => expect(harness.chatBodies.length).toBeGreaterThanOrEqual(1));
+    const firstPayload = harness.chatBodies[0] ?? {};
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
     await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
 
     const reasoningSelect = await screen.findByRole('combobox', {
@@ -574,8 +651,8 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       await userEvent.click(screen.getByTestId('chat-send'));
     });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-    const secondPayload = chatBodies[1] ?? {};
+    await waitFor(() => expect(harness.chatBodies.length).toBeGreaterThanOrEqual(2));
+    const secondPayload = harness.chatBodies[1] ?? {};
     expect(secondPayload.provider).toBe('codex');
     expect(secondPayload.model).toBe('gpt-5.1-codex-max');
     expect(secondPayload.conversationId).toBe(firstPayload.conversationId);

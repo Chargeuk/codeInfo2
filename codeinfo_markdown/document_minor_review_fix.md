@@ -32,10 +32,10 @@ When `minor-review-fix-result.json` has `status: "fixed"`:
    - finding ID;
    - repository;
    - summary;
-   - `resolution_commit`;
+   - `resolution_commit` as the exact full 40-character git commit SHA;
    - proof summary.
 3. Set `minor_fixes_made_in_review_loop` to true.
-4. Append the commit SHA to `minor_fix_commit_shas` if it is not already present.
+4. Append the exact full 40-character commit SHA to `minor_fix_commit_shas` if it is not already present.
 5. Recompute all `counts` from the arrays.
 6. Recompute booleans:
    - `has_unresolved_task_required_findings`
@@ -94,7 +94,7 @@ When the result has `status: "skipped"`:
   - repository;
   - short summary;
   - changed files;
-  - commit SHA;
+  - exact full 40-character git commit SHA;
   - targeted proof summary or `not run` with reason;
   - disposition text: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Keep the bullet compact enough for audit, not a full implementation narrative.
@@ -107,7 +107,7 @@ When the result has `status: "skipped"`:
 
 - If the findings artifact from `review-disposition-state.json` exists and is writable, append or update a `Resolved Minor Findings` section.
 - Do not remove or rewrite the original findings list.
-- The artifact note must include finding ID, commit SHA, proof summary, and the fact that the active plan also records the inline resolution.
+- The artifact note must include finding ID, the exact full 40-character git commit SHA, proof summary, and the fact that the active plan also records the inline resolution.
 - If the findings artifact is unavailable or ignored scratch state cannot be updated safely, continue after recording that fact in `classification_notes`.
 
 </review_artifact_rules>
@@ -118,6 +118,7 @@ When the result has `status: "skipped"`:
 - If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the review disposition state must be regenerated.
 - If `minor-review-fix-result.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the minor-fix result must be regenerated.
 - If the result says `fixed` but has no `finding_id` or no `commit_sha`, do not mark anything resolved. Add or preserve an incomplete-review blocker in state and report the contradiction.
+- If the result `commit_sha` is not a full 40-character git commit SHA, do not mark the finding resolved. Add a state note or blocker explaining that the fix commit format is invalid.
 - If the result commit cannot be found in the target repository, do not mark the finding resolved. Add a state note or blocker explaining that the fix commit is missing.
 - If the canonical plan already has a `## Minor Review Fixes` entry for the finding ID, update that entry rather than adding a duplicate.
 - If updating the findings artifact fails because it is missing or ignored scratch state is unavailable, continue after recording the issue in `classification_notes`; the plan and state remain the required durable documentation.
@@ -131,7 +132,7 @@ When the result has `status: "skipped"`:
 - Update the canonical plan with a durable minor-fix audit note when a finding was fixed.
 - Update the findings artifact with a resolved-minor note when safely possible.
 - Commit tracked plan changes when they were made.
-- Report the finding ID, state transition, plan documentation status, artifact documentation status, and commit SHA for any documentation commit.
+- Report the finding ID, state transition, plan documentation status, artifact documentation status, and the exact full 40-character commit SHA for any documentation commit.
 
 </output_contract>
 
@@ -144,6 +145,7 @@ When the result has `status: "skipped"`:
 - Confirm the state file is valid JSON after updating.
 - Confirm counts match the state arrays.
 - Confirm `review_cycle_id` was preserved for the same active review loop.
+- Confirm every stored fixed-result `commit_sha`, `resolution_commit`, and `minor_fix_commit_shas` value handled in this step is an exact full 40-character git commit SHA.
 - Confirm the plan has exactly one audit entry for the fixed finding.
 - Confirm no manual testing or automated proof was run in this documentation step.
 - Confirm tracked changes were committed if the plan changed.

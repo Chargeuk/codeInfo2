@@ -96,18 +96,23 @@ When `remote_fetch_status` is `fetch_failed`, the handoff may include `remote_fe
    - allowed spelling/grammar-only support files;
    - allowed support files with hygiene/security review required;
    - approved workflow configuration under `flows/**`;
+   - formatting-only spillover outside planned work;
    - suspicious or out-of-scope files.
 7. Do not place allowed support files in the suspicious or out-of-scope bucket solely because they are absent from the active plan.
-8. Run a repository-wide hygiene sweep across the tracked diff for every repository in scope. Explicitly compare changed files against `.gitignore` and call out:
+8. Before classifying a changed file outside the allowed support-file set as suspicious or out of scope, inspect its diff directly. If the change is formatting-only spillover with no semantic effect, classify it into the formatting-only spillover bucket instead.
+9. Treat formatting-only spillover narrowly. It applies only when the diff changes layout or formatter-owned style without changing identifiers, literals, comments with behavioral meaning, commands, config values, selectors, control flow, assertions, import order with possible execution effect, or any other semantic content. If there is any doubt whether the change is semantic, do not use the formatting-only spillover bucket.
+10. Keep formatting-only spillover files in review scope for hygiene and security checks, but do not treat them as suspicious or scope creep solely because the active plan did not name them.
+11. Record any formatting-only spillover files explicitly in the evidence summary so later review steps can interpret them consistently.
+12. Run a repository-wide hygiene sweep across the tracked diff for every repository in scope. Explicitly compare changed files against `.gitignore` and call out:
    - ignored-but-tracked files;
    - tracked temp/runtime/generated artifacts;
    - local config checked into the branch;
    - hard-coded secrets or credential-like values.
-9. Treat the hygiene sweep as first-class evidence even when the affected files are support files.
-10. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
-11. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
-12. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
-13. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, optional fetch-failed-only sanitized remote fetch errors, optional fetch-failed-only exit codes, local fallback reasons, comparison base refs, pinned comparison base commit IDs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
+13. Treat the hygiene sweep as first-class evidence even when the affected files are support files or formatting-only spillover.
+14. For multi-repository stories, add a dedicated cross-repository evidence section and compatibility comparison using the later proof-and-risk rules in this command sequence.
+15. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
+16. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
+17. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, optional fetch-failed-only sanitized remote fetch errors, optional fetch-failed-only exit codes, local fallback reasons, comparison base refs, pinned comparison base commit IDs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
 
 </step_order>
 

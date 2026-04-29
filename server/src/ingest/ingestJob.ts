@@ -214,6 +214,7 @@ type QueueRuntimeOps = {
 };
 
 type RunScheduler = (task: () => void) => void;
+type FinalizeQueueRequestForRunFn = (runId: string) => Promise<boolean>;
 
 const jobs = new Map<string, IngestJobStatus>();
 let deps: Deps | null = null;
@@ -251,6 +252,8 @@ let runProcessor:
 let queueCleanupRetryDelayOverrideMs: number | null = null;
 let queueRequestTerminalStatusTtlOverrideMs: number | null = null;
 let queueRequestTerminalStatusNowForTestMs: number | null = null;
+let finalizeQueueRequestForRunForTest: FinalizeQueueRequestForRunFn | null =
+  null;
 const defaultRunScheduler: RunScheduler = (task) => {
   setImmediate(task);
 };
@@ -415,6 +418,173 @@ function logWarning(message: string, context: Record<string, unknown>) {
 
 function getRunProcessor() {
   return runProcessor ?? processRun;
+}
+
+function normalizeDetachedTaskErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return String(error ?? 'Unknown detached ingest task failure');
+}
+
+function buildDetachedTaskNormalizedError(
+  task: string,
+  message: string,
+): IngestNormalizedError {
+  return {
+    error: 'DETACHED_INGEST_TASK_REJECTED',
+    message: `${task} failed: ${message}`,
+    retryable: false,
+    provider: 'ingest',
+  };
+}
+
+function invokeFinalizeQueueRequestForRun(runId: string) {
+  return (finalizeQueueRequestForRunForTest ?? finalizeQueueRequestForRun)(
+    runId,
+  );
+}
+
+async function settleDetachedRunFailure(
+  runId: string,
+  task: string,
+  error: unknown,
+) {
+  const errorMessage = normalizeDetachedTaskErrorMessage(error);
+  const normalized = buildDetachedTaskNormalizedError(task, errorMessage);
+  const requestId = queueRequestIdsByRunId.get(runId) ?? null;
+
+  try {
+    const status = jobs.get(runId);
+    if (status && !terminalStates.has(status.state)) {
+      setStatusAndPublish(runId, {
+        ...status,
+        runId,
+        state: 'error',
+        message: 'Failed',
+        lastError: normalized.message,
+        error: normalized,
+        currentFile: status.currentFile,
+        fileIndex: status.fileIndex,
+        fileTotal: status.fileTotal,
+        percent: status.percent,
+        etaMs: status.etaMs,
+      });
+    }
+  } catch (statusError) {
+    logWarning('detached ingest failure status update failed', {
+      runId,
+      requestId,
+      task,
+      error: normalizeDetachedTaskErrorMessage(statusError),
+    });
+  }
+
+  try {
+    await persistQueueTerminalBarrier(runId);
+  } catch (barrierError) {
+    logWarning('detached ingest failure terminal barrier persistence failed', {
+      runId,
+      requestId,
+      task,
+      error: normalizeDetachedTaskErrorMessage(barrierError),
+    });
+  }
+
+  let queueCleanupCompleted = false;
+  try {
+    queueCleanupCompleted =
+      jobs.get(runId)?.state === 'cleanup-blocked'
+        ? false
+        : await invokeFinalizeQueueRequestForRun(runId);
+  } catch (cleanupError) {
+    logWarning('detached ingest failure queue cleanup failed', {
+      runId,
+      requestId,
+      task,
+      error: normalizeDetachedTaskErrorMessage(cleanupError),
+    });
+  }
+
+  if (queueCleanupCompleted) {
+    releaseRunOwnership(runId);
+  }
+  ingestLock.release(runId);
+  if (queueCleanupCompleted) {
+    scheduleQueueAdvance();
+  }
+}
+
+function launchDetachedIngestTask(
+  context: {
+    task: string;
+    runId?: string | null;
+    requestId?: string | null;
+  },
+  task: () => Promise<unknown>,
+) {
+  let launched: Promise<unknown>;
+  try {
+    launched = task();
+  } catch (error) {
+    const requestId =
+      context.requestId ??
+      (context.runId
+        ? (queueRequestIdsByRunId.get(context.runId) ?? null)
+        : null);
+    logWarning('detached ingest task rejected', {
+      task: context.task,
+      runId: context.runId ?? undefined,
+      requestId: requestId ?? undefined,
+      error: normalizeDetachedTaskErrorMessage(error),
+    });
+    if (!context.runId) {
+      return;
+    }
+    const recovery = settleDetachedRunFailure(
+      context.runId,
+      context.task,
+      error,
+    );
+    void recovery.catch((recoveryError) => {
+      logWarning('detached ingest rejection recovery failed', {
+        task: context.task,
+        runId: context.runId ?? undefined,
+        requestId: requestId ?? undefined,
+        error: normalizeDetachedTaskErrorMessage(recoveryError),
+      });
+    });
+    return;
+  }
+  void launched.catch((error) => {
+    const requestId =
+      context.requestId ??
+      (context.runId
+        ? (queueRequestIdsByRunId.get(context.runId) ?? null)
+        : null);
+    logWarning('detached ingest task rejected', {
+      task: context.task,
+      runId: context.runId ?? undefined,
+      requestId: requestId ?? undefined,
+      error: normalizeDetachedTaskErrorMessage(error),
+    });
+    if (!context.runId) {
+      return;
+    }
+    const recovery = settleDetachedRunFailure(
+      context.runId,
+      context.task,
+      error,
+    );
+    void recovery.catch((recoveryError) => {
+      logWarning('detached ingest rejection recovery failed', {
+        task: context.task,
+        runId: context.runId ?? undefined,
+        requestId: requestId ?? undefined,
+        error: normalizeDetachedTaskErrorMessage(recoveryError),
+      });
+    });
+  });
 }
 
 function getQueueCleanupRetryDelayMs(requestId: string) {
@@ -612,7 +782,14 @@ function releaseRunOwnership(runId: string) {
 }
 
 function scheduleQueueAdvance() {
-  void pumpIngestQueue();
+  launchDetachedIngestTask(
+    {
+      task: 'pumpIngestQueue',
+    },
+    async () => {
+      await pumpIngestQueue();
+    },
+  );
 }
 
 async function scheduleQueueCleanupRetry(params: {
@@ -626,7 +803,16 @@ async function scheduleQueueCleanupRetry(params: {
   const delayMs = getQueueCleanupRetryDelayMs(params.requestId);
   const handle = globalThis.setTimeout(() => {
     queueCleanupRetryTimers.delete(params.requestId);
-    void finalizeQueueRequestForRun(params.runId);
+    launchDetachedIngestTask(
+      {
+        task: 'finalizeQueueRequestForRun.retry',
+        runId: params.runId,
+        requestId: params.requestId,
+      },
+      async () => {
+        await invokeFinalizeQueueRequestForRun(params.runId);
+      },
+    );
   }, delayMs);
   handle.unref?.();
   queueCleanupRetryTimers.set(params.requestId, handle);
@@ -2782,7 +2968,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     const queueCleanupCompleted =
       jobs.get(runId)?.state === 'cleanup-blocked'
         ? false
-        : await finalizeQueueRequestForRun(runId);
+        : await invokeFinalizeQueueRequestForRun(runId);
     if (queueCleanupCompleted) {
       releaseRunOwnership(runId);
     }
@@ -2814,10 +3000,19 @@ function startManagedRun(params: {
     queueRequestIdsByRunId.set(params.runId, params.queueRequestId);
   }
   runScheduler(() => {
-    void getRunProcessor()(params.runId, {
-      ...params.input,
-      operation: params.input.operation ?? 'start',
-    });
+    launchDetachedIngestTask(
+      {
+        task: 'processRun',
+        runId: params.runId,
+        requestId: params.queueRequestId ?? null,
+      },
+      async () => {
+        await getRunProcessor()(params.runId, {
+          ...params.input,
+          operation: params.input.operation ?? 'start',
+        });
+      },
+    );
   });
 }
 
@@ -3429,6 +3624,17 @@ export function __setQueueRuntimeOpsForTest(
     : defaultQueueRuntimeOps;
 }
 
+export function __setFinalizeQueueRequestForRunForTest(
+  override: FinalizeQueueRequestForRunFn | null,
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__setFinalizeQueueRequestForRunForTest is only available in test mode',
+    );
+  }
+  finalizeQueueRequestForRunForTest = override;
+}
+
 export function __setQueueRequestIdForRunForTest(
   runId: string,
   requestId: string | null,
@@ -3463,6 +3669,27 @@ export async function __persistQueueTerminalBarrierForTest(runId: string) {
   await persistQueueTerminalBarrier(runId);
 }
 
+export function __scheduleQueueAdvanceForTest() {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__scheduleQueueAdvanceForTest is only available in test mode',
+    );
+  }
+  scheduleQueueAdvance();
+}
+
+export async function __scheduleQueueCleanupRetryForTest(params: {
+  requestId: string;
+  runId: string;
+}) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__scheduleQueueCleanupRetryForTest is only available in test mode',
+    );
+  }
+  await scheduleQueueCleanupRetry(params);
+}
+
 export function __resetIngestJobsForTest() {
   if (process.env.NODE_ENV !== 'test') return;
   jobs.clear();
@@ -3492,6 +3719,7 @@ export function __resetIngestJobsForTest() {
   queueRequestTerminalStatusTtlOverrideMs = null;
   queueRequestTerminalStatusNowForTestMs = null;
   queueRuntimeOps = defaultQueueRuntimeOps;
+  finalizeQueueRequestForRunForTest = null;
 }
 
 export function __getIngestEventListenerCountForTest(

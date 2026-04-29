@@ -60,7 +60,7 @@
           "label": "Check for No Further Questions",
           "agentType": "research_agent",
           "identifier": "researcher",
-          "question": "Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, ensuring that you re-read it since another agent will have edited it and what you think the plan contains is definitely out of date. Does the plan contain the line 'No Further Questions' within the '## Questions' section of the plan file? You MUST re-read the plan before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/questions_section_status.py\"`. Answer yes only if the JSON output reports `has_no_further_questions_line: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
         },
         {

@@ -16,6 +16,9 @@ Run the high-level findings-pass review order before the dense adversarial and s
   - documentation drift;
   - scope creep;
   - whether the code is more verbose or complex than needed and could be made more succinct without sacrificing quality.
+- Before raising scope-creep or unwanted-change concerns for changed files outside the allowed support-file set, first determine whether the diff is formatting-only spillover with no semantic effect.
+- If the change is formatting-only spillover, do not raise a scope-creep or revert-oriented finding from that change alone.
+- Raise a finding normally when the diff includes semantic changes, when formatting-only spillover is mixed with semantic edits in the same file, or when the claimed spillover appears unsafe, misleading, or broader than a formatter-owned rewrite.
 - For multi-repository stories, you MUST also perform an explicit cross-repository integration pass after the per-repository review.
 - That cross-repository pass must inspect:
   - shared APIs;
@@ -29,5 +32,6 @@ Run the high-level findings-pass review order before the dense adversarial and s
 - Perform the plan-based review against the planned work and the branch diff for every repository in scope.
 - After the plan-based review, perform a second pass that is not limited by the acceptance criteria and look for generic engineering defects in the changed code even if the canonical plan did not mention them.
 - This second pass applies to the non-support-file changes only.
+- The second pass does not need to treat proven formatting-only spillover as a separate defect surface unless misclassification or hygiene risk is present.
 
 </review_rules>

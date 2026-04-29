@@ -194,21 +194,35 @@
                   "breakOn": "yes"
                 },
                 {
+                  "type": "llm",
+                  "label": "Repair Workflow State If Needed",
+                  "agentType": "planning_agent",
+                  "identifier": "planner",
+                  "markdownFile": "repair_story_workflow_state.md"
+                },
+                {
                   "type": "break",
                   "label": "Exit task loop if story is complete",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, for example with `sed`, `cat`, or `rg`, before answering so you are not relying on memory. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last 3 git commits in the current repository and in every additional repository, and run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\"`. Answer yes only if the parser reports `all_tasks_done: true` and `story_complete: true` and every repository in scope is still on a branch whose story number matches the selected plan filename. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 }
               ]
+            },
+            {
+              "type": "llm",
+              "label": "Repair Workflow State If Needed",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "repair_story_workflow_state.md"
             },
             {
               "type": "break",
               "label": "Early exit check for completion",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, for example with `sed`, `cat`, or `rg`, before answering so you are not relying on memory. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last 3 git commits in the current repository and in every additional repository, and run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\"`. Answer yes only if the parser reports `all_tasks_done: true` and `story_complete: true` and every repository in scope is still on a branch whose story number matches the selected plan filename. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             },
             {
@@ -248,6 +262,13 @@
             },
             {
               "type": "llm",
+              "label": "Repair Workflow State If Needed",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "repair_story_workflow_state.md"
+            },
+            {
+              "type": "llm",
               "label": "Verify plan status",
               "agentType": "planning_agent",
               "identifier": "planner",
@@ -255,7 +276,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`. Verify that every repository in scope is still on a branch whose story number matches the selected plan filename or report drift if it does not. Then run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --include-tasks` and use that JSON output as the source of truth for task state. Before answering completion, list each task's Task Status from the parser output, explicitly state whether the final task is __done__ or not using `final_task_status`, cite the relative `plan_path`, and state whether repository branch scope still matches the selected story."
+                    "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\" --include-tasks` and use that JSON output as the source of truth. Before answering completion, list each task's Task Status from `tasks`, explicitly state whether the final task is `__done__` or not using `final_task_status`, cite `plan_path`, and state whether `scope_valid`, `repair_needed`, and `repair_action` are true, false, or null."
                   ]
                 }
               ]
@@ -265,7 +286,7 @@
               "label": "Check for completion",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, for example with `sed`, `cat`, or `rg`, before answering so you are not relying on memory. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last 3 git commits in the current repository and in every additional repository, and run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\"`. Answer yes only if the parser reports `all_tasks_done: true` and `story_complete: true` and every repository in scope is still on a branch whose story number matches the selected plan filename. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]
@@ -424,11 +445,18 @@
               ]
             },
             {
+              "type": "llm",
+              "label": "Repair Workflow State If Needed",
+              "agentType": "planning_agent",
+              "identifier": "planner",
+              "markdownFile": "repair_review_workflow_state.md"
+            },
+            {
               "type": "break",
               "label": "Exit Review Loop After Serious Review Work Was Tasked Up",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Then read `codeInfoStatus/flow-state/current-plan.json` from disk, for example with `cat codeInfoStatus/flow-state/current-plan.json`, determine `plan_path`, and reopen that exact plan from disk using `sed`, `cat`, or `rg` before answering. Answer only from those freshly re-read files. Answer yes iff the current review loop added or updated numbered review-fix tasks for unresolved task-required findings or incomplete-review blockers, meaning the flow should leave the review loop and return to the main implementation loop. Answer no otherwise, including when no numbered task was added or when only a post-loop final minor-fix revalidation task may still need to be considered. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `review_state_repair_needed: false`, and `should_exit_review_loop_to_main_loop: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             },
             {
@@ -436,7 +464,7 @@
               "label": "Exit Review Loop When No Further Minor Rerun Is Needed",
               "agentType": "planning_agent",
               "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer no iff `needs_review_rerun_before_close` is true and no serious review task-up work was added, because the review must run again against the new HEAD before the loop can finish. Answer yes iff `needs_review_rerun_before_close` is false, meaning the review loop may now finish cleanly and let downstream flow steps decide whether a post-loop final minor-fix revalidation task is needed. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `review_state_repair_needed: false`, and `should_finish_review_loop_cleanly: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
             }
           ]
@@ -467,7 +495,7 @@
           "label": "Check for completion",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "question": "Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow. Re-open the exact relative `plan_path` from disk, for example with `sed`, `cat`, or `rg`, before answering so you are not relying on memory. Verify that the selected plan file exists in the current repository and that the story number in the current repository branch name matches the story number in the selected plan filename. If either of those checks fails, stop and say the current-plan handoff is stale and must be regenerated. Then verify that every additional repository still exists, is readable, and is still on a branch whose story number matches the selected plan filename. If an additional repository path is missing, invalid, or unreadable, stop and say the current-plan handoff is stale and must be regenerated. If an additional repository no longer has a branch whose story number matches the selected plan filename, stop and say repository branch scope has drifted and must be repaired before continuing. Then check the last 3 git commits in the current repository and in every additional repository, and run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\"`. Answer yes only if the parser reports `all_tasks_done: true` and `story_complete: true`. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `scope_valid: true` and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
           "breakOn": "yes"
         }
       ]

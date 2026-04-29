@@ -21,6 +21,7 @@ const expectedPlanningAgentCommands = [
   'improve_plan.json',
   'improve_plan2.json',
   'qa.json',
+  'set_current_story.json',
   'task_up_review_tasks.json',
 ].sort();
 

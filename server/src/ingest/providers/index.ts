@@ -41,6 +41,8 @@ export {
 } from './ingestFailureClassifier.js';
 export {
   computeExponentialDelayMs,
+  parseRateLimitResetMs,
+  resolveOpenAiRateLimitWaitMs,
   resolveRetryAfterMs,
   runOpenAiWithRetry,
 } from './openaiRetry.js';

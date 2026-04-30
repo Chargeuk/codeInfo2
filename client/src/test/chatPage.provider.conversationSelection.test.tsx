@@ -81,6 +81,16 @@ function mockApi() {
             provider: 'lmstudio',
             available: true,
             toolsAvailable: true,
+            defaultModel: 'model-1',
+            defaultModelSource: 'config',
+            providerInfo: {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+              defaultModel: 'model-1',
+              defaultModelSource: 'config',
+            },
             models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
           }),
         }) as unknown as Response;
@@ -746,7 +756,7 @@ describe('Chat page sidebar conversation selection', () => {
     ).not.toBeInTheDocument();
   }, 10000);
 
-  it('reloads LM Studio models and replaces a persisted Codex model label when the next-send provider changes', async () => {
+  it('reloads LM Studio models and replaces a persisted Codex model label when the next-send provider changes after a stale LM Studio default response', async () => {
     const user = userEvent.setup();
     mockApi();
 

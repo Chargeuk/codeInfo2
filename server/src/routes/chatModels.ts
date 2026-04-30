@@ -322,6 +322,13 @@ export function createChatModelsRouter({
     let lmstudioAvailable = false;
     let lmstudioReason: string | undefined;
     let lmstudioModels: ChatModelInfo[] = [];
+    let lmstudioModelMetadata:
+      | {
+          defaultModel: string;
+          defaultModelSource: 'config' | 'hardcoded';
+          warnings: string[];
+        }
+      | undefined;
 
     if (!BASE_URL_REGEX.test(baseUrl)) {
       lmstudioReason = 'lmstudio unavailable';
@@ -347,6 +354,18 @@ export function createChatModelsRouter({
             ? requestedDefaults.model
             : undefined,
         );
+        lmstudioModelMetadata =
+          lmstudioModels.length > 0
+            ? {
+                defaultModel: lmstudioModels[0].key,
+                defaultModelSource:
+                  requestedDefaults?.provider === 'lmstudio' &&
+                  requestedDefaults.model === lmstudioModels[0].key
+                    ? 'config'
+                    : 'hardcoded',
+                warnings: [],
+              }
+            : undefined;
         lmstudioAvailable = lmstudioModels.length > 0;
         lmstudioReason = lmstudioAvailable ? undefined : 'lmstudio unavailable';
         append({
@@ -427,6 +446,7 @@ export function createChatModelsRouter({
         reason: lmstudioReason,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: lmstudioReason ? [lmstudioReason] : [],
+        modelMetadata: lmstudioModelMetadata,
         agentFlags: buildLmStudioAgentFlags({}),
       }),
     } as const;

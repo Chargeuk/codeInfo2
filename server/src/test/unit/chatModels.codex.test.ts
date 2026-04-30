@@ -854,6 +854,55 @@ test('lmstudio models prioritize the configured default model from CODEINFO_LMST
   }
 });
 
+test('lmstudio discovery normalizes a stale configured default to a live model entry', async () => {
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-stale-default-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    'model = "model-1"\n',
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([
+        {
+          modelKey: 'model-a',
+          displayName: 'Model A',
+          type: 'llm',
+        },
+        {
+          modelKey: 'model-b',
+          displayName: 'Model B',
+          type: 'llm',
+        },
+      ]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.deepEqual(modelKeys, ['model-a', 'model-b']);
+    assert.equal(res.body.defaultModel, 'model-a');
+    assert.equal(res.body.providerInfo.defaultModel, 'model-a');
+    assert.notEqual(res.body.defaultModel, 'model-1');
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('lmstudio discovery surfaces only bounded resolved defaults from provider-local config', async () => {
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
   const root = await fs.mkdtemp(

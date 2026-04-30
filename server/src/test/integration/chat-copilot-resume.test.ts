@@ -7,6 +7,7 @@ import { getMemoryTurns } from '../../chat/memoryPersistence.js';
 import {
   startCopilotChatServer,
   waitForAssistantTurn,
+  waitForAssistantTurnCount,
 } from './support/copilotChatHarness.js';
 
 test('copilot resume failures stay explicit instead of silently creating a fresh session', async () => {
@@ -40,21 +41,11 @@ test('copilot resume failures stay explicit instead of silently creating a fresh
       })
       .expect(202);
 
-    const deadline = Date.now() + 4000;
-    let failedTurn = '';
-    while (Date.now() < deadline) {
-      const assistantTurns = getMemoryTurns(conversationId).filter(
-        (turn) => turn.role === 'assistant',
-      );
-      const match = assistantTurns.find((turn) =>
+    const assistantTurns = await waitForAssistantTurnCount(conversationId, 2);
+    const failedTurn =
+      assistantTurns.find((turn) =>
         turn.content.includes('Copilot session resume failed'),
-      );
-      if (match) {
-        failedTurn = match.content;
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
+      )?.content ?? '';
 
     assert.match(failedTurn, /Copilot session resume failed/u);
     assert.equal(

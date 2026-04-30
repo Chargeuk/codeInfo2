@@ -157,3 +157,22 @@ export async function waitForAssistantTurn(
   }
   throw new Error(`Timed out waiting for assistant turn: ${conversationId}`);
 }
+
+export async function waitForAssistantTurnCount(
+  conversationId: string,
+  expectedCount: number,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const turns = getMemoryTurns(conversationId);
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    if (assistantTurns.length >= expectedCount) {
+      return assistantTurns;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(
+    `Timed out waiting for ${expectedCount} assistant turns: ${conversationId}`,
+  );
+}

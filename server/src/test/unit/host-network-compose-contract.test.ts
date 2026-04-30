@@ -82,7 +82,10 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
   );
   assert.match(mainServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
-  assert.match(mainServer, /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u);
+  assert.match(
+    mainServer,
+    /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
+  );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
   assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
@@ -120,16 +123,16 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
   );
   assert.match(localServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
-  assert.match(localServer, /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u);
+  assert.match(
+    localServer,
+    /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
+  );
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(
     localServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:5510\/health'\]/u,
   );
-  assert.match(
-    localServer,
-    /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data/u,
-  );
+  assert.match(localServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data/u);
   assert.match(
     localServer,
     /\/var\/run\/docker\.sock:\/var\/run\/docker\.sock/u,

@@ -31,6 +31,7 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
 
 let originalEnv: string | undefined;
 const originalReady = mongoose.connection.readyState;
+const originalLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
 
 class MockCodexThread {
   async runStreamed(): Promise<{ events: AsyncGenerator<unknown> }> {
@@ -91,6 +92,7 @@ beforeEach(() => {
     configurable: true,
   });
   process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://127.0.0.1:1234';
 });
 
 afterEach(() => {
@@ -102,6 +104,11 @@ afterEach(() => {
     delete process.env.NODE_ENV;
   } else {
     process.env.NODE_ENV = originalEnv;
+  }
+  if (originalLmStudioBaseUrl === undefined) {
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  } else {
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmStudioBaseUrl;
   }
   memoryTurns.clear();
   memoryConversations.clear();

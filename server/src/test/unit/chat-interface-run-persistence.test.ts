@@ -24,6 +24,8 @@ import {
   setWorkingFolderStatForTests,
 } from '../../workingFolders/state.js';
 
+const originalLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
   description: null,
@@ -119,11 +121,13 @@ const withReadyState = async (
 ) => {
   const originalEnv = process.env.NODE_ENV;
   const originalReady = mongoose.connection.readyState;
+  const previousLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   Object.defineProperty(mongoose.connection, 'readyState', {
     value: readyState,
     configurable: true,
   });
   process.env.NODE_ENV = nodeEnv;
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://127.0.0.1:1234';
   try {
     await fn();
   } finally {
@@ -132,6 +136,11 @@ const withReadyState = async (
       configurable: true,
     });
     process.env.NODE_ENV = originalEnv;
+    if (previousLmStudioBaseUrl === undefined) {
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    } else {
+      process.env.CODEINFO_LMSTUDIO_BASE_URL = previousLmStudioBaseUrl;
+    }
   }
 };
 
@@ -140,6 +149,11 @@ describe('ChatInterface.run persistence', () => {
     setWorkingFolderStatForTests(undefined);
     memoryConversations.clear();
     memoryTurns.clear();
+    if (originalLmStudioBaseUrl === undefined) {
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    } else {
+      process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmStudioBaseUrl;
+    }
   });
 
   test('persists user turn then executes when Mongo is available', async () => {

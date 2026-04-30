@@ -127,8 +127,11 @@ test('machine-local runtime endpoints no longer claim tracked ownership through 
   writeEnvFile(
     serverRoot,
     '.env',
-    ['CODEINFO_CHAT_DEFAULT_PROVIDER=codex', 'CODEINFO_LOG_LEVEL=info', '']
-      .join('\n'),
+    [
+      'CODEINFO_CHAT_DEFAULT_PROVIDER=codex',
+      'CODEINFO_LOG_LEVEL=info',
+      '',
+    ].join('\n'),
   );
 
   const result = loadStartupEnv({ serverRoot, targetEnv });

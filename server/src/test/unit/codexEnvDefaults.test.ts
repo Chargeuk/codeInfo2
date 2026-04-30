@@ -154,8 +154,6 @@ test('empty Codex_model_list still falls back to the parser-owned model defaults
   assert.equal(fallbackUsed, true);
   assert.ok(models.length > 0);
   assert.ok(
-    warnings.some((warning) =>
-      warning.includes('Codex_model_list is empty'),
-    ),
+    warnings.some((warning) => warning.includes('Codex_model_list is empty')),
   );
 });

@@ -489,7 +489,7 @@ Overall, when this story is complete:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `29fcf217`, `229d9671`
 
 #### Overview
@@ -571,7 +571,7 @@ This task replaces the remaining shared default-model contract with one provider
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `01f725ae`, `eed54638`, `b2d92c03`
 
 #### Overview
@@ -1642,6 +1642,9 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 2. [x] If Task 15 changes `server/.env`, `server/src/config/startupEnv.ts`, or `server/src/test/unit/env-loading.test.ts`, refresh that proof surface before the broad reruns so it still proves the repaired tracked env contract, the kept tracked defaults, and the preseeded/local/tracked precedence chain without relying on stale titles or stale assertions.
 3. [x] If Task 15 changes `server/src/config/codexEnvDefaults.ts` or `server/src/test/unit/codexEnvDefaults.test.ts`, refresh that proof surface before the broad reruns so it still proves the final `Codex_*` env-driven-versus-hardcoded contract, including any invalid or blank-input behavior that remains part of the repaired default contract.
 4. [x] If Task 15 changes `docker-compose.yml`, `docker-compose.local.yml`, or `server/src/test/unit/host-network-compose-contract.test.ts`, refresh that proof surface before the broad reruns so it still proves the normal main/local compose entrypoints load the repaired env contract in the documented order and keep any required preseeded runtime overrides explicit.
+5. [ ] Update `server/src/routes/chatModels.ts` and, if the fresh-runtime seed contract still depends on it, `server/src/config/runtimeConfig.ts` so an LM Studio config default that is absent from the live downloaded-model list no longer returns `defaultModel: model-1` and leaves the main-stack `/chat` model selector blank after a next-send provider switch.
+6. [ ] Extend `server/src/test/unit/chatModels.codex.test.ts` to prove `/chat/models?provider=lmstudio` normalizes a stale configured default model key to a live downloaded-model entry and keeps `defaultModel` plus `providerInfo.defaultModel` aligned with the returned LM Studio model list.
+7. [ ] Extend `client/src/test/chatPage.provider.conversationSelection.test.tsx` to prove switching the next-send provider from a Codex-backed conversation to LM Studio replaces the persisted Codex model label with a live LM Studio model label even when the server reports a stale configured LM Studio default.
 
 #### Testing
 
@@ -1657,7 +1660,7 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 10. [x] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported end-to-end browser surface still holds for the repaired review-created block and the inline minor fixes from this same cycle.
 11. [x] Run `npm run lint` from the repository root to prove the repaired head still passes the shared ESLint gate before review closeout.
 12. [x] Run `npm run format:check` from the repository root to prove the repaired head still passes the shared formatting gate before review closeout.
-13. [x] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
+13. [ ] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
 
 #### Manual Testing Guidance
 
@@ -1667,6 +1670,7 @@ Optional guidance for the manual testing agent only.
 - Keep the main-stack mount namespace and seed source explicit during any runtime retest: the server stays on image-baked `/app/codex`, `/app/copilot`, and `/app/lmstudio`, keeps the read-only seed mount `./copilot:/seed/copilot:ro`, keeps the read-only host-ingest bind `${CODEINFO_HOST_INGEST_DIR:-/tmp}:${CODEINFO_CODEX_WORKDIR}:ro`, and should not be judged against local-only bind mounts from `docker-compose.local.yml`.
 - Treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks before optional browser-visible proof, with runtime-sensitive follow-up limited to provider discovery and `/chat/models` on the same main-stack ports rather than an alternate review-only port set.
 - If browser-visible confirmation adds confidence, capture Playwright screenshots first with relative staging filenames under the Playwright output directory, then transfer the retained artifacts into `codeInfoTmp/manual-testing/0000056/16/` so the repository keeps one review-cycle proof home without implying that Playwright writes directly into tracked files.
+- On later retest, load `http://localhost:5001/chat`, switch the next-send provider from an OpenAI Codex-backed conversation to LM Studio, and confirm `data-testid="model-select"` resolves to a live LM Studio model label instead of a blank value when the downloaded-model list does not contain the configured default key.
 
 #### Implementation notes
 
@@ -1688,3 +1692,4 @@ Optional guidance for the manual testing agent only.
 - Testing step 11 complete: `npm run lint` exited cleanly after the Task 16 proof repair and the follow-on formatting normalization for the refreshed server-unit proof owners, so the repaired head still passes the shared ESLint gate before closeout.
 - Testing step 12 complete: the first `npm run format:check` run reported Prettier drift in `server/src/test/unit/codexEnvDefaults.test.ts`, `server/src/test/unit/env-loading.test.ts`, and `server/src/test/unit/host-network-compose-contract.test.ts` after the Task 15/16 proof-owner refresh. After formatting those three files directly, the rerun passed with `All matched files use Prettier code style!`.
 - Testing step 13 complete: `npm run compose:up` started the supported main stack cleanly, `curl -f http://localhost:5010/health` returned `{"status":"ok",...,"mongoConnected":true}`, `curl -f http://localhost:5001` returned the built client HTML shell, and `npm run compose:down` shut the stack back down cleanly, so the supported runtime handoff still holds on the repaired head.
+- Manual testing ran as a full-story proof pass on a freshly restarted main stack from `npm run compose:build` and `npm run compose:up`, then returned the stack to its prior stopped state with `npm run compose:down`. Health, paired-frontend readiness, `/chat/providers`, `/chat/models?provider=copilot`, and `/chat/models?provider=lmstudio` all responded, and browser artifacts were saved under `codeInfoTmp/manual-testing/0000056/16/`; however, `/chat/models?provider=lmstudio` still reported `defaultModel: model-1` from config while the live LM Studio model keys were different, and switching the next-send provider from a Codex-backed `/chat` conversation to LM Studio left `data-testid="model-select"` blank in `proof-03-lmstudio-selected.png`. Added focused server and client follow-up subtasks and reopened Testing step 13 so automated proof reruns before the next manual retest.

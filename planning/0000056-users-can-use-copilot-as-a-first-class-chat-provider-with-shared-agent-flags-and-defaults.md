@@ -1243,9 +1243,10 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the request-time LM Studio domain contract after the repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the runtime-side LM Studio option handling remains aligned with the same outward-facing contract.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-lmstudio-wrapper.test.ts` from the repository root to prove the restored LM Studio defaults/domain contract still holds on the repository-supported integration seam.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` from the repository root to prove the bounded LM Studio defaults contract is still reachable through the normal discovery entrypoint that surfaces resolved models and defaults.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the request-time LM Studio domain contract after the repair.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the runtime-side LM Studio option handling remains aligned with the same outward-facing contract.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-lmstudio-wrapper.test.ts` from the repository root to prove the restored LM Studio defaults/domain contract still holds on the repository-supported integration seam.
 
 #### Implementation notes
 
@@ -1287,7 +1288,8 @@ This review-created task restores the authority boundary between ordinary conver
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.create.test.ts` from the repository root to prove ordinary conversation writes no longer accept flow-owned metadata.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.flags.test.ts` from the repository root to prove the intended flow-owned persistence writers still own `flags.flow` and `flags.flowChild` after the boundary repair.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-route-warning-label.test.ts` from the repository root only if the repaired authority boundary changes shared warning or validation helpers that also affect route diagnostics.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.test.ts` from the repository root to prove the restored boundary still allows the legitimate flow-resume consumer path to read server-owned persisted flow state after the write-path repair.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-route-warning-label.test.ts` from the repository root only if the repaired authority boundary changes shared warning or validation helpers that also affect route diagnostics.
 
 #### Implementation notes
 
@@ -1365,8 +1367,9 @@ This final review-created task owns the whole current review cycle’s post-repa
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000056-20260429T204701Z-484b4dd4`, the inline-resolved `Minor Review Fixes` block, and `codeInfoStatus/pr-summaries/0000056-pr-summary.md` before starting the final proof pass so the full review-created scope, the inline-resolved minor scope, and the expected reviewer-facing closeout are all visible in one place.
 2. [ ] During the final regression pass, keep one running checklist of which wrapper or focused proof step revalidates each serious finding (`3`, `8`, `10`, `11`) and which broad wrapper or runtime step revalidates the already-resolved inline minor findings (`1`, `2`, `4`, `5`, `6`, `7`, `9`, `12`) so the final summary can name honest coverage instead of generic “all tests passed” wording.
-3. [ ] Update `codeInfoStatus/pr-summaries/0000056-pr-summary.md` only after the required wrapper-first proof finishes cleanly, and make the closeout note name this review pass id, this review cycle id, the repaired serious findings, and the already-resolved inline minor findings that were revalidated by the same final pass.
-4. [ ] Refresh this plan’s `Implementation notes` for Tasks `9` through `13` after the regression pass so the story records one final post-repair outcome for review cycle `0000056-rc-20260429T221156Z-0bdaac8a` instead of splitting serious-review and inline-minor closeout ownership across separate tasks.
+3. [ ] Before relying on any broad wrapper, Compose, or browser-visible result as task-owned evidence, separate shared baseline failures from review-created regressions: if `compose:build`, `compose:up`, `/health`, `http://localhost:5001`, or the seeded Copilot runtime contract fails before a review-specific assertion runs, record that as a baseline or runtime-handoff blocker instead of retrying downstream proof blindly.
+4. [ ] Update `codeInfoStatus/pr-summaries/0000056-pr-summary.md` only after the required wrapper-first proof finishes cleanly, and make the closeout note name this review pass id, this review cycle id, the repaired serious findings, and the already-resolved inline minor findings that were revalidated by the same final pass.
+5. [ ] Refresh this plan’s `Implementation notes` for Tasks `9` through `13` after the regression pass so the story records one final post-repair outcome for review cycle `0000056-rc-20260429T221156Z-0bdaac8a` instead of splitting serious-review and inline-minor closeout ownership across separate tasks.
 
 #### Testing
 
@@ -1385,7 +1388,10 @@ This final review-created task owns the whole current review cycle’s post-repa
 
 Optional guidance for the manual testing agent only.
 
-- Reuse the final normal human stack path from Task 8 after the review-created repairs land, and capture any final review-cycle-visible proof under `codeInfoTmp/manual-testing/0000056/review-pass-0000056-20260429T204701Z-484b4dd4/` if browser-visible confirmation adds confidence.
+- Reuse the supported normal human stack from Task 8 after the review-created repairs land: `npm run compose:build`, then `npm run compose:up`, using the standard env-file path through `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`.
+- Treat `http://localhost:5010/health` and `http://localhost:5001` as the baseline readiness checks before any browser-visible review proof, and use the standard server/client ports rather than a review-only runtime path.
+- For any Copilot-runtime-sensitive recheck, keep the existing main-stack mount namespace unchanged: the seed source stays `./copilot:/seed/copilot:ro`, the writable runtime home stays the `copilot-data` volume at `/app/copilot`, and a red state there is a runtime-handoff issue rather than evidence that a review-created code repair failed.
+- Capture any final review-cycle-visible proof under `codeInfoTmp/manual-testing/0000056/review-pass-0000056-20260429T204701Z-484b4dd4/` if browser-visible confirmation adds confidence.
 
 #### Implementation notes
 

@@ -1367,6 +1367,10 @@ This final review-created task owns the whole current review cycle’s post-repa
 - Final revalidation owner for review-created findings `3`, `8`, `10`, and `11`
 - Final revalidation owner for inline-resolved minor findings `1`, `2`, `4`, `5`, `6`, `7`, `9`, and `12` from review cycle `0000056-rc-20260429T221156Z-0bdaac8a`
 
+#### Affected Repositories
+
+- `Current Repository`
+
 #### Documentation Locations
 
 - `codeInfoStatus/pr-summaries/0000056-pr-summary.md` - refresh the reviewer-facing closeout summary after the final review-created validation pass completes.
@@ -1379,9 +1383,9 @@ This final review-created task owns the whole current review cycle’s post-repa
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root to prove the final server workspace build still passes after the review-created repairs.
-2. [ ] Run `npm run build:summary:client` from the repository root to prove the final client workspace build still passes after the review-created repairs.
-3. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared Docker build path still holds after the full review-created repair block.
+1. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared Docker build path still holds after the full review-created repair block.
+2. [ ] Run `npm run build:summary:server` from the repository root to prove the final server workspace build still passes after the review-created repairs.
+3. [ ] Run `npm run build:summary:client` from the repository root to prove the final client workspace build still passes after the review-created repairs.
 4. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the repaired server seams plus the focused inline-minor server proofs together on the repository-supported wrapper path.
 5. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the affected route and defaults behavior still holds on the repository-supported feature surface after the review-created repairs.
 6. [ ] Run `npm run test:summary:client` from the repository root to prove the repaired client seams plus the inline-resolved stop-lock proofs together on the repository-supported wrapper path.

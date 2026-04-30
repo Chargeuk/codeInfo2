@@ -145,6 +145,30 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
 
         self.assertFalse(status["story_guidance"]["present"])
 
+    def test_ignores_story_guidance_heading_after_double_hash_tasks_section(self) -> None:
+        plan_path = self.write_plan(
+            """
+            # Story 0000123 - Sample
+
+            ## Tasks
+
+            ## Story Manual Testing Guidance
+
+            - Not story guidance because it is below ## Tasks
+
+            ### Task 1. First
+
+            #### Manual Testing Guidance
+
+            - Task-scoped proof only
+            """
+        )
+
+        status = manual_testing_guidance_status.build_status(Path(plan_path), 1)
+
+        self.assertFalse(status["story_guidance"]["present"])
+        self.assertEqual(status["task_guidance"]["items"], ["Task-scoped proof only"])
+
     def test_supports_story_and_task_guidance_together(self) -> None:
         plan_path = self.write_plan(
             """

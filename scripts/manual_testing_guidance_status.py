@@ -16,7 +16,6 @@ from flow_state_utils import ScopeResolutionError, load_plan_scope, story_number
 TASK_HEADING_RE = re.compile(r"^### Task (\d+)\.\s*(.*)$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 ITEM_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s+(.*\S)\s*$")
-TASKS_HEADING_RE = re.compile(r"^#\s+Tasks\s*$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,7 +68,8 @@ def heading_info(line: str) -> tuple[int, str] | None:
 
 def find_tasks_start(lines: list[str]) -> int:
     for idx, line in enumerate(lines):
-        if TASKS_HEADING_RE.match(line):
+        info = heading_info(line)
+        if info is not None and info[1].lower() == "tasks":
             return idx
     return len(lines)
 

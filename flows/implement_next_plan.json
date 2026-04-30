@@ -20,7 +20,7 @@
       "label": "Manual Tester Use Next Plan",
       "agentType": "manual_testing_agent",
       "identifier": "manual_tester",
-      "markdownFile": "use_current_plan_handoff.md"
+      "markdownFile": "manual_tester_use_current_plan_handoff.md"
     },
     {
       "type": "startLoop",

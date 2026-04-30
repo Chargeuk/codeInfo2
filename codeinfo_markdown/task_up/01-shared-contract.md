@@ -38,9 +38,11 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 <section_ownership_contract>
 
 - Use this section contract everywhere in this workflow:
+  - `Story Manual Testing Guidance`, when present as a story-level section above `# Tasks`, contains optional story-scoped guidance for later manual testing or story QA. It must stay checkbox-free and non-blocking.
   - `Subtasks` contain only implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
   - `Testing` contains only automated proof execution steps that the coding agent can run with repository-supported wrappers, commands, or harnesses.
   - `Manual Testing Guidance` contains optional, non-blocking guidance for the manual testing agent. It must not contain checkboxes, pass/fail gating language, or any requirement that blocks task completion.
+  - Task-level `Manual Testing Guidance` may refine or override story-level `Story Manual Testing Guidance` for that one task when needed, but it must not contradict fresher repository truth.
 
 </section_ownership_contract>
 

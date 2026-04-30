@@ -31,6 +31,16 @@ This is the baseline task structure to follow once the story sections above are 
 - The current repository is always implicit. If it is also listed here, treat that as redundant and remove or ignore it when the plan is updated.
 - If no extra repositories are needed, write exactly `- No Additional Repositories`.
 
+## Story Manual Testing Guidance
+
+Use this optional section when story-level manual-proof defaults or expectations should be stated before tasking.
+
+- Keep it optional, non-blocking, and checkbox-free.
+- Use it for story-scoped manual-testing guidance that may apply across multiple tasks or the final story validation pass, such as shared startup order, shared proof surfaces, shared access notes, or shared artifact expectations.
+- Do not use this section to create completion gates for implementation tasks.
+- When tasks are generated, ensure the relevant story QA or final story validation tasks explicitly cover any applicable guidance from this section.
+- Task-level `Manual Testing Guidance` may later refine or override this section for one specific task when needed.
+
 ## Feasibility Proof Pass
 
 Use this section when the story needs explicit prerequisite or capability analysis before the tasks begin.
@@ -219,6 +229,7 @@ Optional guidance for the manual testing agent only.
 #### Overview
 
 The final task must validate the full story rather than only isolated task-level behavior. It should prove the Acceptance Criteria, important Description requirements, and relevant regression surfaces using the repository's wrapper-first workflow and any final runtime checks that the story actually needs.
+When the story includes `## Story Manual Testing Guidance`, the final task must ensure its later manual-proof scope covers the applicable story-level guidance honestly.
 
 #### Task Exit Criteria
 

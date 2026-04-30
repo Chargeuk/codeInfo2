@@ -519,19 +519,14 @@ test('seeded runtime boot normalizes the surfaced Copilot default model and lets
     assert.equal(chat.body.provider, 'copilot');
     assert.equal(chat.body.model, 'gpt-5-mini');
 
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      if (sdkHarness.getState().lastCreateSessionConfig) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+    const createdSessionConfig = await sdkHarness.waitForCreateSessionConfig();
 
     assert.equal(
-      sdkHarness.getState().lastCreateSessionConfig?.model,
+      createdSessionConfig.model,
       'gpt-5-mini',
     );
     assert.equal(
-      sdkHarness.getState().lastCreateSessionConfig?.reasoningEffort,
+      createdSessionConfig.reasoningEffort,
       undefined,
     );
   } finally {

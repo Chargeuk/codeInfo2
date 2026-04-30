@@ -334,6 +334,7 @@ export type MockCopilotSdkHarness = {
   createClientFactory(): CopilotRuntimeFactory;
   createLifecycle(): CopilotLifecycle;
   getState(): Readonly<MockCopilotHarnessState>;
+  waitForCreateSessionConfig(timeoutMs?: number): Promise<SessionConfig>;
 };
 
 /**
@@ -359,6 +360,7 @@ export function createMockCopilotSdkHarness(
     resumeRegisterToolsCount: 0,
     selectedScenario: scenario.name,
   };
+  const createSessionWaiters = new Set<(config: SessionConfig) => void>();
 
   append({
     level: 'info',
@@ -372,6 +374,10 @@ export function createMockCopilotSdkHarness(
 
   const createSession = async (config: SessionConfig) => {
     state.lastCreateSessionConfig = config;
+    for (const resolve of createSessionWaiters) {
+      resolve(config);
+    }
+    createSessionWaiters.clear();
     if (scenario.createSessionError) throw scenario.createSessionError;
     return new MockCopilotSession(
       config.sessionId ?? 'mock-create-session',
@@ -430,5 +436,24 @@ export function createMockCopilotSdkHarness(
         clientFactory: clientFactory,
       }),
     getState: () => state,
+    waitForCreateSessionConfig(timeoutMs = 2000) {
+      if (state.lastCreateSessionConfig) {
+        return Promise.resolve(state.lastCreateSessionConfig);
+      }
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          createSessionWaiters.delete(handleResolve);
+          reject(new Error('Timed out waiting for createSession config'));
+        }, timeoutMs);
+
+        const handleResolve = (config: SessionConfig) => {
+          clearTimeout(timeout);
+          createSessionWaiters.delete(handleResolve);
+          resolve(config);
+        };
+
+        createSessionWaiters.add(handleResolve);
+      });
+    },
   };
 }

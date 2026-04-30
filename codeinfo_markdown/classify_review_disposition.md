@@ -151,7 +151,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "id": "<finding id>",
       "repository": "<repository owner>",
       "summary": "<short summary>",
-      "resolution_commit": "<commit or null>",
+      "resolution_commit": "<exact full 40-character git commit SHA or null>",
       "proof": "<proof summary or null>"
     }
   ],
@@ -203,6 +203,7 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `only_minor_batchable_findings` is true only when there is at least one unresolved minor-batchable finding and no unresolved task-required finding or incomplete-review blocker.
 - `needs_minor_fix_path` is true whenever unresolved minor-batchable findings remain, even when task-required findings or incomplete-review blockers already exist from earlier minor-fix attempts in the same review cycle.
 - `needs_task_up_path` is true when unresolved task-required findings or incomplete-review blockers exist.
+- Any populated `resolution_commit` or `minor_fix_commit_shas` value must be an exact full 40-character git commit SHA, not a short SHA and not a guessed expansion.
 - `reset_review_cycle_state.md` runs before every fresh `Review Findings Disposition Loop`, so any previous state that still exists here should be treated as same-active-loop carry-forward only.
 - `review_cycle_id` must use the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 - `review_cycle_id` must stay stable for one active review loop. Preserve it only when the previous state clearly belongs to the same still-active review loop for the same story and same canonical `plan_path`. Otherwise mint a fresh cycle id when writing new classifier state.

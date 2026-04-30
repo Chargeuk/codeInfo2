@@ -53,6 +53,12 @@ python3 "$CODEINFO_ROOT/scripts/plan_status.py" --plan planning/0000055-users-ca
 python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks
 ```
 
+Use the parser output as the source of truth when it returns usable output.
+
+Manual fallback is allowed only when the canonical parser cannot be used operationally because the script is missing, unreadable, the Python interpreter is unavailable, the command exits before producing usable JSON, or the output is empty or malformed.
+
+Do not use manual fallback when the parser returned valid output, even if that output is a negative result such as no selected task or zero live blockers.
+
 ## Decision Rules
 
 Use the parser output, not narrative judgment.
@@ -60,7 +66,10 @@ Use the parser output, not narrative judgment.
 - If the selected task reports one or more `live_blockers`, the blocker answer is `yes`.
 - If the selected task reports zero `live_blockers`, the blocker answer is `no`.
 - If no task matches the requested selector, answer according to the calling prompt's fallback rule.
-- If the parser fails, do not answer the blocker question until the failure is resolved.
+- If the parser cannot be used under the manual-fallback rule above, manually re-create only the same selector or explicit task-number choice requested by the calling prompt from the reopened plan on disk.
+- In that permitted manual fallback, treat a blocker as present only when the selected task section contains a markdown list item whose line begins exactly `- **BLOCKER**`.
+- During manual fallback, ignore inline prose mentions of `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, ignore `**RESOLVED ISSUE**`, and ignore blocker text outside the selected task section.
+- If the parser fails and the selected task still cannot be identified safely from the reopened plan, stop and report that blocker status could not be determined from the failed parser path.
 
 ## Output Requirements For Prompt Authors
 

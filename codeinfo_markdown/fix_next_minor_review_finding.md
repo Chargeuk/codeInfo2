@@ -18,6 +18,8 @@ This step performs the code/config/docs/test edit for one minor finding only. It
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.
 - Do not run broad final validation in this step. Run only bounded local automated proof that is directly needed for the selected minor fix. This may include a small test update or one or two new focused tests in the owning repository.
 - If tracked files are changed, commit them before finishing this step.
+- When `status` is `fixed`, `commit_sha` MUST be the exact full 40-character git commit SHA for the newly created fix commit. Do not write a guessed expansion of a short SHA, and do not copy a short SHA into this field.
+- Resolve that exact SHA from git after the fix commit is created, for example with `git rev-parse HEAD` or `git rev-parse <new-short-sha>`.
 - Do not push.
 
 </critical_rules>
@@ -79,7 +81,7 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
       "notes": "<brief notes>"
     }
   ],
-  "commit_sha": "<commit sha or null>",
+  "commit_sha": "<exact full 40-character git commit SHA or null>",
   "reclassification_reason": "<reason or null>",
   "blocker": "<blocker reason or null>",
   "blocker_scope": "<finding_only|global|null>"
@@ -98,6 +100,7 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 - If the selected finding no longer satisfies every minor-batchable rule after source inspection, write a `reclassify_task_required` result and stop.
 - If targeted proof fails and the repair is not clearly minor after one bounded inspection, write a `blocked` or `reclassify_task_required` result rather than broadening the fix. Use `blocker_scope: "finding_only"` when the failure is local to the selected finding, and `blocker_scope: "global"` when the failure means later inline attempts are unsafe too.
 - If no tracked files changed after the attempted fix, write a `skipped` result explaining why no commit was made.
+- If `status` is `fixed` and the exact `commit_sha` written to `minor-review-fix-result.json` cannot be re-verified as a commit object with git, stop and rewrite the result before finishing this step.
 
 </failure_modes>
 
@@ -106,7 +109,17 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 - Fix at most one minor finding.
 - Write `minor-review-fix-result.json` for every terminal outcome, including skipped or blocked outcomes.
 - Commit tracked changes when `status` is `fixed`.
-- Report the selected finding, status, commit SHA when present, and targeted proof run.
+- Report the selected finding, status, exact full 40-character commit SHA when present, and targeted proof run.
+
+Example fixed-result commit capture flow:
+
+```bash
+git commit -m "DEV-[56] - fix review finding X" ...
+full_commit_sha="$(git rev-parse HEAD)"
+git cat-file -t "$full_commit_sha"
+```
+
+Then write that exact `full_commit_sha` value into `minor-review-fix-result.json`.
 
 </output_contract>
 
@@ -120,5 +133,7 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 - Confirm no broad final validation was run.
 - Confirm `minor-review-fix-result.json` exists and is valid JSON.
 - Confirm tracked changes were committed if `status` is `fixed`.
+- Confirm the stored `commit_sha` is the exact full 40-character value returned by git for the fix commit when `status` is `fixed`.
+- Confirm `git cat-file -t "$commit_sha"` returns `commit` when `status` is `fixed`.
 
 </verification_loop>

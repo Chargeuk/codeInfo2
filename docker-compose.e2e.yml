@@ -25,7 +25,7 @@ services:
       - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.e2e.yml
       - CODEINFO_RUNTIME_SERVER_PORTS=6010,6011,6012
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=
-      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
@@ -44,6 +44,8 @@ services:
     volumes:
       - copilot-data:/app/copilot
       - ./copilot:/seed/copilot:ro
+      - ./scripts:/app/scripts:ro
+      - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'

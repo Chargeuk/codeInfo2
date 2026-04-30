@@ -854,6 +854,62 @@ test('lmstudio models prioritize the configured default model from CODEINFO_LMST
   }
 });
 
+test('lmstudio discovery surfaces only bounded resolved defaults from provider-local config', async () => {
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-bounded-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    [
+      'model = "model-a"',
+      'temperature = 4',
+      'max_tokens = 0',
+      'context_overflow_policy = "rollingWindow"',
+      'tool_access = "off"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([
+        {
+          modelKey: 'model-a',
+          displayName: 'Model A',
+          type: 'llm',
+        },
+      ]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    const agentFlags = res.body.agentFlags as Array<Record<string, unknown>>;
+    const temperature = agentFlags.find((entry) => entry.key === 'temperature');
+    const maxTokens = agentFlags.find((entry) => entry.key === 'maxTokens');
+    const contextOverflowPolicy = agentFlags.find(
+      (entry) => entry.key === 'contextOverflowPolicy',
+    );
+    const toolAccess = agentFlags.find((entry) => entry.key === 'toolAccess');
+
+    assert.equal(temperature?.resolvedDefault, 0.2);
+    assert.equal(maxTokens?.resolvedDefault, 4096);
+    assert.equal(contextOverflowPolicy?.resolvedDefault, 'rollingWindow');
+    assert.equal(toolAccess?.resolvedDefault, 'off');
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({

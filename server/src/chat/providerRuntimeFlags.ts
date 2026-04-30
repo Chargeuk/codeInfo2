@@ -10,10 +10,13 @@ const LMSTUDIO_CONTEXT_OVERFLOW_POLICIES = [
 
 const DEFAULT_COPILOT_REASONING_EFFORT = 'medium';
 const DEFAULT_COPILOT_TOOL_ACCESS = 'on';
-const DEFAULT_LMSTUDIO_TEMPERATURE = 0.2;
-const DEFAULT_LMSTUDIO_MAX_TOKENS = 4096;
-const DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY = 'truncateMiddle';
-const DEFAULT_LMSTUDIO_TOOL_ACCESS = 'on';
+export const DEFAULT_LMSTUDIO_TEMPERATURE = 0.2;
+export const DEFAULT_LMSTUDIO_MAX_TOKENS = 4096;
+export const DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY = 'truncateMiddle';
+export const DEFAULT_LMSTUDIO_TOOL_ACCESS = 'on';
+export const LMSTUDIO_TEMPERATURE_MIN = 0;
+export const LMSTUDIO_TEMPERATURE_MAX = 2;
+export const LMSTUDIO_MAX_TOKENS_MIN = 1;
 
 export class ProviderRuntimeFlagError extends Error {
   constructor(message: string) {
@@ -118,15 +121,24 @@ const parseOptionalFiniteNumber = (value: unknown): number | undefined =>
 
 export const loadProviderConfigForAgentFlags = (
   provider: 'codex' | 'copilot' | 'lmstudio',
+  options?: {
+    codexHome?: string;
+    copilotHome?: string;
+    lmstudioHome?: string;
+  },
 ) => {
   try {
     const snapshot = loadProviderChatDefaultsSnapshotSync({
       provider,
-      ...(provider === 'lmstudio' &&
-      typeof process.env.CODEINFO_LMSTUDIO_HOME === 'string' &&
-      process.env.CODEINFO_LMSTUDIO_HOME.trim().length > 0
-        ? { lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME }
-        : {}),
+      ...(options?.codexHome ? { codexHome: options.codexHome } : {}),
+      ...(options?.copilotHome ? { copilotHome: options.copilotHome } : {}),
+      ...(options?.lmstudioHome
+        ? { lmstudioHome: options.lmstudioHome }
+        : provider === 'lmstudio' &&
+            typeof process.env.CODEINFO_LMSTUDIO_HOME === 'string' &&
+            process.env.CODEINFO_LMSTUDIO_HOME.trim().length > 0
+          ? { lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME }
+          : {}),
     });
     return snapshot.config ?? {};
   } catch (error) {
@@ -136,6 +148,49 @@ export const loadProviderConfigForAgentFlags = (
     );
   }
 };
+
+const parseOptionalLmStudioTemperature = (value: unknown): number | undefined => {
+  const normalized = parseOptionalFiniteNumber(value);
+  if (normalized === undefined) return undefined;
+  if (
+    normalized < LMSTUDIO_TEMPERATURE_MIN ||
+    normalized > LMSTUDIO_TEMPERATURE_MAX
+  ) {
+    return undefined;
+  }
+  return normalized;
+};
+
+const parseOptionalLmStudioMaxTokens = (value: unknown): number | undefined => {
+  const normalized = parseOptionalPositiveInteger(value);
+  if (normalized === undefined) return undefined;
+  if (normalized < LMSTUDIO_MAX_TOKENS_MIN) return undefined;
+  return normalized;
+};
+
+export function resolveLmStudioConfigAgentFlags(options?: {
+  lmstudioHome?: string;
+}): LmStudioRuntimeAgentFlags {
+  const config = loadProviderConfigForAgentFlags('lmstudio', {
+    lmstudioHome: options?.lmstudioHome,
+  });
+  return {
+    temperature:
+      parseOptionalLmStudioTemperature(config.temperature) ??
+      DEFAULT_LMSTUDIO_TEMPERATURE,
+    maxTokens:
+      parseOptionalLmStudioMaxTokens(config.max_tokens) ??
+      DEFAULT_LMSTUDIO_MAX_TOKENS,
+    contextOverflowPolicy:
+      parseOptionalConfigString(
+        config.context_overflow_policy,
+        LMSTUDIO_CONTEXT_OVERFLOW_POLICIES,
+      ) ?? DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
+    toolAccess:
+      parseOptionalConfigString(config.tool_access, TOOL_ACCESS_MODES) ??
+      DEFAULT_LMSTUDIO_TOOL_ACCESS,
+  };
+}
 
 export function resolveCopilotRuntimeAgentFlags(
   rawAgentFlags: unknown,
@@ -180,37 +235,23 @@ export function resolveLmStudioRuntimeAgentFlags(
   rawAgentFlags: unknown,
 ): LmStudioRuntimeAgentFlags {
   const agentFlags = normalizeAgentFlagsInput('lmstudio', rawAgentFlags);
-  const config = loadProviderConfigForAgentFlags('lmstudio');
-  const configTemperature =
-    parseOptionalFiniteNumber(config.temperature) ??
-    DEFAULT_LMSTUDIO_TEMPERATURE;
-  const configMaxTokens =
-    parseOptionalPositiveInteger(config.max_tokens) ??
-    DEFAULT_LMSTUDIO_MAX_TOKENS;
-  const configContextOverflowPolicy =
-    parseOptionalConfigString(
-      config.context_overflow_policy,
-      LMSTUDIO_CONTEXT_OVERFLOW_POLICIES,
-    ) ?? DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY;
-  const configToolAccess =
-    parseOptionalConfigString(config.tool_access, TOOL_ACCESS_MODES) ??
-    DEFAULT_LMSTUDIO_TOOL_ACCESS;
+  const configDefaults = resolveLmStudioConfigAgentFlags();
 
   return {
     temperature:
       agentFlags.temperature !== undefined
         ? parseFiniteNumber(agentFlags.temperature, 'agentFlags.temperature', {
-            min: 0,
-            max: 2,
+            min: LMSTUDIO_TEMPERATURE_MIN,
+            max: LMSTUDIO_TEMPERATURE_MAX,
           })
-        : configTemperature,
+        : configDefaults.temperature,
     maxTokens:
       agentFlags.maxTokens !== undefined
         ? parseFiniteNumber(agentFlags.maxTokens, 'agentFlags.maxTokens', {
-            min: 1,
+            min: LMSTUDIO_MAX_TOKENS_MIN,
             integer: true,
           })
-        : configMaxTokens,
+        : configDefaults.maxTokens,
     contextOverflowPolicy:
       agentFlags.contextOverflowPolicy !== undefined
         ? parseChoice(
@@ -218,7 +259,7 @@ export function resolveLmStudioRuntimeAgentFlags(
             'agentFlags.contextOverflowPolicy',
             LMSTUDIO_CONTEXT_OVERFLOW_POLICIES,
           )
-        : configContextOverflowPolicy,
+        : configDefaults.contextOverflowPolicy,
     toolAccess:
       agentFlags.toolAccess !== undefined
         ? parseChoice(
@@ -226,6 +267,6 @@ export function resolveLmStudioRuntimeAgentFlags(
             'agentFlags.toolAccess',
             TOOL_ACCESS_MODES,
           )
-        : configToolAccess,
+        : configDefaults.toolAccess,
   };
 }

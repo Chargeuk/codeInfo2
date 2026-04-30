@@ -302,6 +302,20 @@ test('blank or whitespace-only LM Studio flag values fail validation instead of 
       }),
     /agentFlags\.contextOverflowPolicy must be one of: stopAtLimit, truncateMiddle, rollingWindow/,
   );
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-blank-tool-access',
+        provider: 'lmstudio',
+        agentFlags: {
+          toolAccess: '',
+        },
+      }),
+    /agentFlags\.toolAccess must be one of: on, off/,
+  );
 });
 
 test('out-of-range, non-numeric, or non-integer LM Studio flag values fail validation instead of being coerced', async () => {
@@ -345,6 +359,20 @@ test('out-of-range, non-numeric, or non-integer LM Studio flag values fail valid
         },
       }),
     /agentFlags\.maxTokens must be an integer/,
+  );
+
+  await assert.rejects(
+    async () =>
+      await validateChatRequest({
+        model: 'model-1',
+        message: 'hello',
+        conversationId: 'lmstudio-max-tokens-out-of-range',
+        provider: 'lmstudio',
+        agentFlags: {
+          maxTokens: 0,
+        },
+      }),
+    /agentFlags\.maxTokens must be at least 1/,
   );
 });
 

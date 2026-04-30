@@ -16,6 +16,13 @@ import type {
   CodexCapabilityResolution,
   CodexModelCapability,
 } from '../codex/capabilityResolver.js';
+import {
+  DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
+  DEFAULT_LMSTUDIO_MAX_TOKENS,
+  DEFAULT_LMSTUDIO_TEMPERATURE,
+  DEFAULT_LMSTUDIO_TOOL_ACCESS,
+  resolveLmStudioConfigAgentFlags,
+} from '../chat/providerRuntimeFlags.js';
 import { ORDERED_CHAT_PROVIDERS } from '../config/chatDefaults.js';
 import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
 
@@ -33,20 +40,6 @@ const normalizeString = (value: unknown): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-const normalizeNumber = (value: unknown): number | undefined => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  return undefined;
-};
-
-const normalizePositiveInteger = (value: unknown): number | undefined => {
-  const normalized = normalizeNumber(value);
-  if (normalized === undefined) return undefined;
-  if (!Number.isInteger(normalized) || normalized <= 0) return undefined;
-  return normalized;
-};
-
 const aggregateModelChoices = (
   values: string[],
   labels?: Partial<Record<string, string>>,
@@ -57,10 +50,6 @@ const aggregateModelChoices = (
 
 const DEFAULT_COPILOT_REASONING_EFFORT = 'medium';
 const DEFAULT_COPILOT_TOOL_ACCESS = 'on';
-const DEFAULT_LMSTUDIO_TEMPERATURE = 0.2;
-const DEFAULT_LMSTUDIO_MAX_TOKENS = 4096;
-const DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW = 'truncateMiddle';
-const DEFAULT_LMSTUDIO_TOOL_ACCESS = 'on';
 const DEFAULT_CODEX_REASONING_SUMMARY = 'auto';
 const DEFAULT_CODEX_VERBOSITY = 'medium';
 
@@ -506,20 +495,9 @@ export function buildCopilotModelFlagOverrides(
 export function buildLmStudioAgentFlags(params: {
   lmstudioHome?: string;
 }): ChatAgentFlagDescriptor[] {
-  const snapshot = loadProviderChatDefaultsSnapshotSync({
-    provider: 'lmstudio',
+  const configDefaults = resolveLmStudioConfigAgentFlags({
     lmstudioHome: params.lmstudioHome,
   });
-  const config = snapshot.config ?? {};
-  const temperature =
-    normalizeNumber(config.temperature) ?? DEFAULT_LMSTUDIO_TEMPERATURE;
-  const maxTokens =
-    normalizePositiveInteger(config.max_tokens) ?? DEFAULT_LMSTUDIO_MAX_TOKENS;
-  const contextOverflowPolicy =
-    normalizeString(config.context_overflow_policy) ??
-    DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW;
-  const toolAccess =
-    normalizeString(config.tool_access) ?? DEFAULT_LMSTUDIO_TOOL_ACCESS;
 
   return [
     {
@@ -528,7 +506,7 @@ export function buildLmStudioAgentFlags(params: {
       controlType: 'number',
       editable: true,
       seedDefault: DEFAULT_LMSTUDIO_TEMPERATURE,
-      resolvedDefault: temperature,
+      resolvedDefault: configDefaults.temperature,
       min: 0,
       max: 2,
     },
@@ -538,7 +516,7 @@ export function buildLmStudioAgentFlags(params: {
       controlType: 'number',
       editable: true,
       seedDefault: DEFAULT_LMSTUDIO_MAX_TOKENS,
-      resolvedDefault: maxTokens,
+      resolvedDefault: configDefaults.maxTokens,
       min: 1,
       integer: true,
     },
@@ -547,8 +525,8 @@ export function buildLmStudioAgentFlags(params: {
       label: 'Context Overflow Policy',
       controlType: 'select',
       editable: true,
-      seedDefault: DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW,
-      resolvedDefault: contextOverflowPolicy,
+      seedDefault: DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
+      resolvedDefault: configDefaults.contextOverflowPolicy,
       supportedValues: [...LMSTUDIO_CONTEXT_OVERFLOW_CHOICES],
     },
     {
@@ -557,7 +535,7 @@ export function buildLmStudioAgentFlags(params: {
       controlType: 'select',
       editable: true,
       seedDefault: DEFAULT_LMSTUDIO_TOOL_ACCESS,
-      resolvedDefault: toolAccess,
+      resolvedDefault: configDefaults.toolAccess,
       supportedValues: [...COPILOT_TOOL_ACCESS_CHOICES],
     },
   ];

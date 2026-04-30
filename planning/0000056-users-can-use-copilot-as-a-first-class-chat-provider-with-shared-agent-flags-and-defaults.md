@@ -1243,12 +1243,12 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `2`, then inspect `server/src/routes/chatDiscovery.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/config/chatDefaults.ts`, and `server/src/routes/chatModels.ts` to map every LM Studio surface that currently computes or accepts `temperature` / `maxTokens`.
-2. [ ] Implement one shared bounded LM Studio domain across `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` so request validation, provider-local defaults, discovery metadata, and runtime execution all agree.
-3. [ ] Repair or split `server/src/test/unit/chatModels.codex.test.ts` so the LM Studio discovery proof explicitly claims that the normal discovery entrypoint surfaces only bounded resolved defaults and does not advertise widened `temperature` / `maxTokens` values from provider-local config; do not hide that invariant behind a Codex-only test title if the existing case wording no longer matches.
-4. [ ] Repair `server/src/test/unit/chatValidators.test.ts` so it proves request-time invalid, blank, whitespace-only, and out-of-range LM Studio flag inputs are rejected against the same bounded contract.
-5. [ ] Repair `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` so it proves runtime-side LM Studio execution still enforces the same bounded numeric contract instead of accepting widened or stale default values.
-6. [ ] Repair or add an exact LM Studio bounded-domain case in `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` so the repository-supported integration seam explicitly proves the bounded defaults and runtime contract together; do not rely on adjacent tool-policy or context-overflow assertions to stand in for that combined invariant.
+1. [x] Re-read the review evidence for Finding `2`, then inspect `server/src/routes/chatDiscovery.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/config/chatDefaults.ts`, and `server/src/routes/chatModels.ts` to map every LM Studio surface that currently computes or accepts `temperature` / `maxTokens`.
+2. [x] Implement one shared bounded LM Studio domain across `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` so request validation, provider-local defaults, discovery metadata, and runtime execution all agree.
+3. [x] Repair or split `server/src/test/unit/chatModels.codex.test.ts` so the LM Studio discovery proof explicitly claims that the normal discovery entrypoint surfaces only bounded resolved defaults and does not advertise widened `temperature` / `maxTokens` values from provider-local config; do not hide that invariant behind a Codex-only test title if the existing case wording no longer matches.
+4. [x] Repair `server/src/test/unit/chatValidators.test.ts` so it proves request-time invalid, blank, whitespace-only, and out-of-range LM Studio flag inputs are rejected against the same bounded contract.
+5. [x] Repair `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` so it proves runtime-side LM Studio execution still enforces the same bounded numeric contract instead of accepting widened or stale default values.
+6. [x] Repair or add an exact LM Studio bounded-domain case in `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` so the repository-supported integration seam explicitly proves the bounded defaults and runtime contract together; do not rely on adjacent tool-policy or context-overflow assertions to stand in for that combined invariant.
 
 #### Testing
 
@@ -1259,7 +1259,12 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 #### Implementation notes
 
-- None yet.
+- Re-read the Finding 2 review evidence and inspected the LM Studio discovery, validation, runtime, and defaults seams. The current drift is concentrated between `buildLmStudioAgentFlags(...)` and `resolveLmStudioRuntimeAgentFlags(...)`: discovery and request validation already advertise `temperature` `0..2` plus positive-integer `maxTokens`, but config-backed defaults still flow through broader numeric parsing before execution.
+- Subtask 2 complete: promoted the bounded LM Studio config-default parsing into `resolveLmStudioConfigAgentFlags(...)` inside `providerRuntimeFlags.ts` and rewired `buildLmStudioAgentFlags(...)` to consume that shared owner, so discovery and runtime now resolve `temperature`, `maxTokens`, `contextOverflowPolicy`, and `toolAccess` from the same bounded provider-local defaults contract. `chatDefaults.ts` remained inspection-only here because it does not directly parse the LM Studio numeric flags; the bounded provider-local config owner still lives under the shared runtime-flags seam it already routes through.
+- Subtask 3 complete: added a dedicated LM Studio discovery proof in `server/src/test/unit/chatModels.codex.test.ts` that explicitly claims bounded resolved defaults from the normal `/chat/models` entrypoint even when `lmstudio/chat/config.toml` widens `temperature` or `max_tokens`.
+- Subtask 4 complete: expanded `server/src/test/unit/chatValidators.test.ts` so the request-time LM Studio contract now explicitly rejects blank `toolAccess` input and out-of-range `maxTokens: 0` in addition to the existing whitespace, non-numeric, non-integer, and out-of-range coverage.
+- Subtask 5 complete: added a runtime-side LM Studio proof in `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` that captures execution options and proves widened provider-local defaults fall back to the bounded `temperature` and `maxTokens` contract before the LM Studio client acts.
+- Subtask 6 complete: added a repository-supported MCP integration case in `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` that proves widened provider-local LM Studio defaults still resolve to bounded runtime execution values instead of relying on the adjacent tool-policy or context-overflow assertions alone.
 
 ### Task 11. Re-establish a server-owned boundary for persisted flow metadata on conversations
 

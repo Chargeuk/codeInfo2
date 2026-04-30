@@ -241,3 +241,97 @@ test('MCP LM Studio keeps the tool-enabled versus tool-disabled split and only a
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('MCP LM Studio uses the same bounded defaults contract when provider-local config widens temperature or maxTokens', async () => {
+  const captured: Array<{
+    temperature?: unknown;
+    maxTokens?: unknown;
+    contextOverflowPolicy?: unknown;
+  }> = [];
+
+  const clientFactory = () =>
+    ({
+      system: {
+        listDownloadedModels: async () => [
+          {
+            modelKey: 'mock-model',
+            displayName: 'mock-model',
+            type: 'gguf',
+          },
+        ],
+      },
+      llm: {
+        model: () => ({
+          act: async (
+            _chat: unknown,
+            _tools: ReadonlyArray<unknown>,
+            opts: Record<string, unknown>,
+          ) => {
+            captured.push({
+              temperature: opts.temperature,
+              maxTokens: opts.maxTokens,
+              contextOverflowPolicy: opts.contextOverflowPolicy,
+            });
+          },
+        }),
+      },
+    }) as unknown as LMStudioClient;
+
+  const originalHome = process.env.CODEINFO_LMSTUDIO_HOME;
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task10-mcp-lmstudio-'),
+  );
+  try {
+    process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://127.0.0.1:1234';
+    process.env.CODEINFO_LMSTUDIO_HOME = path.join(tempRoot, 'lmstudio');
+    await fs.mkdir(path.join(process.env.CODEINFO_LMSTUDIO_HOME, 'chat'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(process.env.CODEINFO_LMSTUDIO_HOME, 'chat', 'config.toml'),
+      [
+        'model = "mock-model"',
+        'temperature = 4',
+        'max_tokens = 0',
+        'context_overflow_policy = "rollingWindow"',
+        'tool_access = "off"',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    await runCodebaseQuestion(
+      {
+        question: 'Bounded defaults',
+        provider: 'lmstudio',
+        model: 'mock-model',
+      },
+      {
+        clientFactory,
+        toolFactory: fakeToolFactory(),
+      },
+    );
+
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0]?.temperature, 0.2);
+    assert.equal(captured[0]?.maxTokens, 4096);
+    assert.equal(captured[0]?.contextOverflowPolicy, 'rollingWindow');
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_LMSTUDIO_HOME;
+    else process.env.CODEINFO_LMSTUDIO_HOME = originalHome;
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalLmBaseUrl === undefined) {
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    } else {
+      process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
+    }
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

@@ -294,7 +294,13 @@ test('startFlowRun ignores stale parent flow metadata on an ordinary conversatio
           source: 'REST',
           chatFactory: () => new MinimalChat(),
         }),
-      /resumeStepPath requires saved flow state/u,
+      (error: unknown) => {
+        assert.deepEqual(error, {
+          code: 'INVALID_REQUEST',
+          reason: 'resumeStepPath requires saved flow state',
+        });
+        return true;
+      },
     );
   } finally {
     memoryConversations.delete(conversationId);

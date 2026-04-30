@@ -98,6 +98,18 @@ const validateConversationFlagsForProvider = (
     throw new ConversationFlagsValidationError('flags must be an object');
   }
 
+  if (flags.flow !== undefined) {
+    throw new ConversationFlagsValidationError(
+      'flags.flow is server-owned and cannot be set via conversations API',
+    );
+  }
+
+  if (flags.flowChild !== undefined) {
+    throw new ConversationFlagsValidationError(
+      'flags.flowChild is server-owned and cannot be set via conversations API',
+    );
+  }
+
   for (const key of Object.keys(flags)) {
     if (!ALLOWED_CONVERSATION_FLAG_KEYS.has(key)) {
       throw new ConversationFlagsValidationError(
@@ -113,18 +125,6 @@ const validateConversationFlagsForProvider = (
   ) {
     throw new ConversationFlagsValidationError(
       'flags.workingFolder must be a non-empty string',
-    );
-  }
-
-  if (flags.flow !== undefined) {
-    throw new ConversationFlagsValidationError(
-      'flags.flow is server-owned and cannot be set via conversations API',
-    );
-  }
-
-  if (flags.flowChild !== undefined) {
-    throw new ConversationFlagsValidationError(
-      'flags.flowChild is server-owned and cannot be set via conversations API',
     );
   }
 

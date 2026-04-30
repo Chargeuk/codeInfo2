@@ -126,6 +126,7 @@ describe('ConversationList control gating', () => {
               model: 'gpt-5',
               lastMessageAt: '2025-01-02T00:00:00Z',
               archived: false,
+              flowName: 'daily',
               flags: { flow: { executionId: 'parent01-12345678' } },
             },
             {

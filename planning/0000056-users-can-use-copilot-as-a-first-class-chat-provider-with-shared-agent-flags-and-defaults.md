@@ -1207,6 +1207,7 @@ This review-created task repairs the remaining tracked `server/.env` contract pr
 - The tracked `server/.env` keeps only repo-portable defaults, with no developer-home-relative path, conflicting duplicate assignment, or machine-local service endpoint left behind as a checked-in default.
 - The repository keeps one explicit tracked-versus-local layering contract across `server/.env`, `server/.env.local`, `server/.env.e2e`, startup env loading, and the main/local compose server env-file readers instead of mixing product defaults with workstation-specific overrides in one tracked file.
 - Focused proof homes state the final contract directly enough that later review can see which values remain tracked, which values are expected to move to `server/.env.local`, and whether any `Codex_*` defaults are intentionally environment-driven rather than hardcoded fallbacks.
+- The repaired contract proves the highest-risk ordering invariant for this seam explicitly: process-preseeded runtime overrides keep winning over file-loaded values, `server/.env.local` keeps winning over tracked `server/.env` for local-only overrides, and the normal main/local compose server entrypoints still reach that same precedence contract instead of only a targeted temp-root test path.
 
 #### Addresses Findings
 
@@ -1221,6 +1222,7 @@ This review-created task repairs the remaining tracked `server/.env` contract pr
 - `docker-compose.yml`
 - `docker-compose.local.yml`
 - `server/src/config/startupEnv.ts`
+- `server/src/config/codexEnvDefaults.ts`
 - `server/src/test/unit/env-loading.test.ts`
 - `server/src/test/unit/codexEnvDefaults.test.ts`
 - `server/src/test/unit/host-network-compose-contract.test.ts`
@@ -1229,8 +1231,8 @@ This review-created task repairs the remaining tracked `server/.env` contract pr
 
 1. [ ] Re-read review pass `0000056-20260430T202655Z-3d97be0d`, then inspect `server/.env`, `server/.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `server/src/config/startupEnv.ts`, and the README env-file rules to classify each currently tracked server env input into one explicit bucket before editing: repo-owned portable default, compose-owned runtime override, e2e-only contract, or machine-local override that must move to `server/.env.local`. Call out `CODEINFO_LMSTUDIO_BASE_URL`, `CODEINFO_CHROMA_URL`, `CODEINFO_MONGO_URI`, the duplicated `CODEINFO_LOG_LEVEL`, `CODEINFO_CODEX_WORKDIR`, and the tracked `Codex_*` defaults specifically so the implementation does not silently leave the reviewed seam ambiguous.
 2. [ ] Repair `server/.env` so it keeps only repo-portable defaults, removes the duplicate `CODEINFO_LOG_LEVEL` assignment, and stops carrying developer-home-relative or machine-local host values as checked-in defaults. If a value remains tracked because it is the intended product default contract, keep it exactly once and add adjacent file-local wording or comments that make that ownership explicit instead of relying on an undocumented convention.
-3. [ ] Align the surrounding tracked env surfaces with the repaired split: update `server/src/config/startupEnv.ts` only if the allowed tracked names or source-order reporting must change, keep `docker-compose.yml` and `docker-compose.local.yml` consistent with the final env-file layering contract, and refresh `README.md` or `server/.env.e2e` only where the repaired contract would otherwise still point readers at the old mixed tracked/local setup.
-4. [ ] Extend the focused proof owners for this seam so later review can see the contract directly in tests: `server/src/test/unit/env-loading.test.ts` must prove which values stay sourced from `server/.env`, which values are expected to come from `server/.env.local`, and that local overrides still win when both files define the same key; update `server/src/test/unit/codexEnvDefaults.test.ts` only if the final contract changes which `Codex_*` defaults remain environment-driven; keep `server/src/test/unit/host-network-compose-contract.test.ts` aligned only if the compose-facing server env wiring changes.
+3. [ ] Align the surrounding tracked env surfaces with the repaired split by naming both producer and consumer ownership explicitly: update `server/src/config/startupEnv.ts` only if the allowed tracked names or source-order reporting must change, update `server/src/config/codexEnvDefaults.ts` only if the final contract changes which `Codex_*` values remain environment-driven versus hardcoded defaults, keep `docker-compose.yml` and `docker-compose.local.yml` consistent with the final env-file layering contract, and refresh `README.md` or `server/.env.e2e` only where the repaired contract would otherwise still point readers at the old mixed tracked/local setup.
+4. [ ] Extend the focused proof owners for this seam so later review can see the contract directly in tests: `server/src/test/unit/env-loading.test.ts` must prove the exact precedence chain `preseeded process env -> server/.env.local -> server/.env`, including that the moved machine-local keys no longer claim tracked ownership; update `server/src/test/unit/codexEnvDefaults.test.ts` only if the final contract changes which `Codex_*` defaults remain environment-driven; keep `server/src/test/unit/host-network-compose-contract.test.ts` aligned only if the compose-facing server env wiring changes, and make that proof claim the normal main/local compose server entrypoints still load `server/.env` plus `server/.env.local` in the documented order with any required preseeded `environment:` overrides called out explicitly.
 
 #### Testing
 
@@ -1259,6 +1261,7 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 - The full relevant current-repository regression surfaces for review pass `0000056-20260430T202655Z-3d97be0d` pass on the repaired head.
 - The same final revalidation pass explicitly covers the already inline-resolved minor fixes from review cycle `0000056-rc-20260430T200028Z-b202f879`, including prior-pass findings `2`, `3`, and `4` plus current-pass finding `2`, so no second final minor-fix revalidation task is needed later.
 - The reviewer-facing closeout summary for Story `0000056` names which focused proof home closed current-pass finding `1` and which broad wrapper surfaces revalidated the inline-resolved minor fixes from this same review cycle.
+- Any failure on broad compose, build, full-suite, lint, format, or runtime-handoff surfaces is classified honestly during closeout: finding `1` closes only on the focused env-contract proof owners, while wrapper or stack failures that happen earlier are treated as shared baseline, harness, or runtime blockers rather than as proof that the finding itself passed or failed.
 
 #### Addresses Findings
 
@@ -1297,9 +1300,10 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 
 Optional guidance for the manual testing agent only.
 
-- Reuse the normal compose env-file path through `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`; do not invent a review-only runtime config file for this final pass.
+- Reuse the supported main stack, not `compose:local`: the runtime should come from `docker-compose.yml` with `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`, then follow the normal `npm run compose:build` and `npm run compose:up` path before any browser-visible recheck.
+- Keep the main-stack mount namespace and seed source explicit during any runtime retest: the server stays on image-baked `/app/codex`, `/app/copilot`, and `/app/lmstudio`, keeps the read-only seed mount `./copilot:/seed/copilot:ro`, keeps the read-only host-ingest bind `${CODEINFO_HOST_INGEST_DIR:-/tmp}:${CODEINFO_CODEX_WORKDIR}:ro`, and should not be judged against local-only bind mounts from `docker-compose.local.yml`.
+- Treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks before optional browser-visible proof, with runtime-sensitive follow-up limited to provider discovery and `/chat/models` on the same main-stack ports rather than an alternate review-only port set.
 - If browser-visible confirmation adds confidence, capture Playwright screenshots first with relative staging filenames under the Playwright output directory, then transfer the retained artifacts into `codeInfoTmp/manual-testing/0000056/16/` so the repository keeps one review-cycle proof home without implying that Playwright writes directly into tracked files.
-- Treat provider discovery, `/chat/models`, and ordinary startup readiness as the optional runtime-visible checks for whether the repaired tracked env contract still behaves like a portable default contract rather than a machine-local override bundle.
 
 #### Implementation notes
 

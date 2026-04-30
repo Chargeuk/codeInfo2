@@ -22,18 +22,29 @@ Read `codeInfoStatus/flow-state/current-task.json` after `current-plan.json`.
 Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 Treat the current repository as always in scope even if it is not listed in `additional_repositories`.
 Resolve the same bound task that the loop is preparing to manual-test from `current-task.json` when possible.
+After resolving the bound task number when possible, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>`.
+If the bound task number cannot be resolved, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` without `--task-number`.
+Use that JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan.
 
 </input_scope>
 
-<bound_task_guidance_rules>
+<story_and_task_guidance_rules>
 
-- If the bound task can be resolved and it has a `Manual Testing Guidance` section, read that section before finishing this runtime-research pass.
-- Use the bound task's `Manual Testing Guidance` as task-specific input for startup order, prerequisite services, target proof surfaces, credential-source pointers, and expected manual-proof artifact destinations.
-- Treat task guidance as a task-scoped overlay on top of repository evidence, not as permission to invent unsupported startup paths or variants.
-- If the bound task's `Manual Testing Guidance` conflicts with `AGENTS.md`, `README.md`, `codeinfo_markdown/repository_information.md`, or fresher repository evidence, prefer the repository evidence and record the conflict honestly in the runtime research output instead of silently following or ignoring the task guidance.
-- If the bound task has no `Manual Testing Guidance`, or it is incomplete for the current proof surface, continue with the best supported repository evidence rather than guessing.
+- If the guidance-status script reports story-level `Story Manual Testing Guidance`, read and summarize it before finishing this runtime-research pass.
+- If the guidance-status script reports a bound task `Manual Testing Guidance` section, read and summarize it before finishing this runtime-research pass.
+- Treat story-level guidance as optional story-scoped defaults for later manual proof, such as shared startup order, shared proof surfaces, shared access notes, or shared artifact expectations.
+- Treat task-level guidance as a task-scoped overlay that may refine or override story-level guidance for the selected task.
+- Apply guidance in this precedence order:
+  1. repository truth and safety from `AGENTS.md`, `README.md`, `codeinfo_markdown/repository_information.md`, and fresher repository evidence;
+  2. task-level `Manual Testing Guidance`;
+  3. story-level `Story Manual Testing Guidance`;
+  4. no invention beyond those sources.
+- If story-level guidance is absent, continue normally and record that it was not present rather than treating that as a blocker.
+- If task-level guidance is absent, continue with the best supported repository evidence plus any story-level guidance rather than guessing.
+- If task-level guidance overrides story-level guidance for the same decision area, record the override honestly in the runtime research output instead of silently merging contradictory directions.
+- If either story-level or task-level guidance conflicts with fresher repository evidence, prefer the repository evidence and record the conflict honestly in the runtime research output instead of silently following or ignoring the guidance.
 
-</bound_task_guidance_rules>
+</story_and_task_guidance_rules>
 
 <source_priority>
 
@@ -137,9 +148,12 @@ For every recorded startup path, identify:
 - where that access comes from, such as env vars, env files, README guidance, helper scripts, or seed data
 - do not inline the actual credential or access values; record only the source
 - whether the path is for the edited repository itself or for a connected or paired proof surface
+- whether story-level `Story Manual Testing Guidance` was consulted
+- what startup, access, proof-surface, or artifact-destination directions came from that story-level guidance
 - whether bound-task `Manual Testing Guidance` was consulted
 - what startup, access, proof-surface, or artifact-destination directions came from that bound task guidance
-- whether any part of the bound task guidance was ignored because it conflicted with fresher repository evidence
+- whether any task-level direction overrode story-level guidance for the same decision area
+- whether any part of the story-level or task-level guidance was ignored because it conflicted with fresher repository evidence
 
 If the best supported proof surface for a task would actually live in a connected repository, record that linked proof surface explicitly.
 When browser proof may use Playwright MCP, also record the artifact-transfer path:
@@ -186,6 +200,29 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
 ```json
 {
   "plan_path": "<relative plan path from current-plan.json>",
+  "story_guidance": {
+    "present": true,
+    "section_name": "Story Manual Testing Guidance",
+    "summary": ["Use the normal compose stack for shared manual proof."],
+    "notes": "Optional story-scoped defaults for later manual proof."
+  },
+  "task_guidance": {
+    "task_number": 7,
+    "present": true,
+    "section_name": "Manual Testing Guidance",
+    "summary": ["Capture the paired frontend queue row after submit."],
+    "notes": "Task-scoped guidance may refine or override story guidance."
+  },
+  "guidance_resolution": {
+    "precedence": "repository_truth > task_guidance > story_guidance > no_invention",
+    "task_overrides_story": [
+      {
+        "area": "proof_surface",
+        "story_direction": "generic frontend smoke",
+        "task_direction": "paired frontend queue-row proof"
+      }
+    ]
+  },
   "repositories": [
     {
       "path": "/abs/path/to/repo",
@@ -216,6 +253,10 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
           },
           "prerequisites": ["docker running"],
           "notes": "Use the paired frontend for browser proof.",
+          "story_guidance": {
+            "consulted": true,
+            "notes": "Story guidance preferred the normal compose-backed manual-proof path."
+          },
           "task_guidance": {
             "consulted": true,
             "artifact_destination": "codeInfoTmp/manual-testing/0000059/7/",
@@ -264,8 +305,10 @@ Before finishing:
 - confirm no actual credential values were written into the runtime research file
 - confirm any required access information was recorded only as a source pointer
 - confirm undiscoverable credential sources were recorded as unknown rather than guessed
+- confirm story-level `Story Manual Testing Guidance` was consulted when present
 - confirm bound-task `Manual Testing Guidance` was consulted when present
-- confirm any task-guidance conflict with fresher repository evidence was recorded honestly rather than silently followed or ignored
+- confirm any task-overrides-story decision was recorded honestly rather than silently merged
+- confirm any story-guidance or task-guidance conflict with fresher repository evidence was recorded honestly rather than silently followed or ignored
 - confirm Playwright MCP artifact handling distinguishes the harness root from the target repository root
 - confirm browser-proof artifacts have a supported transfer path from `/tmp/playwright-output` or its harness bind into the target repository destination
 
@@ -280,7 +323,9 @@ Return a concise summary that includes:
 3. which surfaces require local fallback
 4. which surfaces are `not_yet_available`
 5. whether any connected or paired proof surfaces must be used later
-6. whether bound-task `Manual Testing Guidance` added any startup, access, or artifact-destination constraints
+6. whether story-level guidance was present and what defaults it added, if any
+7. whether bound-task `Manual Testing Guidance` added any startup, access, or artifact-destination constraints
+8. whether task-level guidance overrode any story-level direction
 
 Do not perform manual testing in this step.
 Do not start or stop systems in this step.

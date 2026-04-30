@@ -1,26 +1,23 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-04-29T23:48:42Z",
+  "generated_at_utc": "2026-04-30T01:00:08Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
-  "review_pass_id": "0000056-20260429T204701Z-484b4dd4",
-  "finding_id": "9",
+  "review_pass_id": "0000056-20260430T002543Z-86b67f53",
+  "finding_id": "5",
   "repository": "current_repository",
-  "status": "fixed",
-  "summary": "Route-level defaults and capability warnings now use a provider-neutral validation label instead of the stale 'chat flag ignored' wording.",
-  "changed_files": [
-    "server/src/routes/chat.ts",
-    "server/src/test/unit/chat-route-warning-label.test.ts"
-  ],
+  "status": "blocked",
+  "summary": "Tracked-artifact hygiene finding overlaps a live uncommitted review-disposition-state change inside the same codeInfoStatus/codeInfoTmp family.",
+  "changed_files": [],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/chat-route-warning-label.test.ts",
-      "result": "passed",
-      "notes": "Focused route warning-label proof passed 1 test with 0 failures."
+      "command": null,
+      "result": "not_run",
+      "notes": "Skipped targeted proof because the selected hygiene seam overlaps a live uncommitted review-disposition-state change and is unsafe to isolate inline."
     }
   ],
-  "commit_sha": "450c0475c712147582175cc4df123c5d2a2213c9",
+  "commit_sha": null,
   "reclassification_reason": null,
-  "blocker": null,
-  "blocker_scope": null
+  "blocker": "Selected finding 5 explicitly covers tracked ignored workflow artifacts under codeInfoStatus/flow-state and codeInfoTmp/reviews, but the worktree already has an uncommitted modification to codeInfoStatus/flow-state/review-disposition-state.json in that same family. Per the minor-fix safety rules, I cannot safely isolate a tracked-artifact cleanup without risking overlap with live review state.",
+  "blocker_scope": "global"
 }

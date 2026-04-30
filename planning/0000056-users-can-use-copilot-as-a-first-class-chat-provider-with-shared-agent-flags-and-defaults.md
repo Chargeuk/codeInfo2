@@ -1317,6 +1317,7 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 
 - Copilot seed import no longer overwrites or replays stale artifacts after the helper has already observed a live runtime state.
 - The proof owners cover the replay-safe path honestly enough that the implementation no longer relies on a best-effort preflight followed by an unconditional later rename.
+- Any helper-owned staged or temporary seed artifacts are cleaned by the bootstrap path on skip or failure, so later runtime readers never see a partial mixed seed/runtime state.
 
 #### Addresses Findings
 
@@ -1330,9 +1331,9 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 #### Subtasks
 
 1. [ ] Re-read the review evidence for Finding `11`, then inspect `server/src/config/copilotSeedBootstrap.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, and `server/src/test/integration/copilot.boot-path.test.ts` to pin down the exact preflight-to-rename sequence that currently leaves the overwrite window open.
-2. [ ] Repair `server/src/config/copilotSeedBootstrap.ts` so the helper preserves the same live-runtime ownership condition through the actual write path, without breaking the existing empty-runtime bootstrap or already-initialized skip behavior.
-3. [ ] Repair or split `server/src/test/unit/copilotSeedBootstrap.test.ts` so it proves the helper distinguishes the three required cases explicitly: empty runtime bootstraps, initialized runtime skips, and a mid-sequence runtime initialization is not overwritten by the delayed seed-import write path; the planned proof must assert the exact combined replay-safety scenario at a deterministic boundary instead of only observing the earlier preflight or the later final state.
-4. [ ] Repair or add a dedicated replay-safe startup case in `server/src/test/integration/copilot.boot-path.test.ts` so the repository-supported boot path explicitly claims the same no-overwrite behavior through the default startup seam instead of relying on provider-visibility or default-model assertions that only prove adjacent success behavior.
+2. [ ] Repair `server/src/config/copilotSeedBootstrap.ts` so the helper preserves the same live-runtime ownership condition through the actual write path, keeps any staged or temporary seed artifacts under bootstrap-helper cleanup ownership, and never leaves partially seeded runtime files visible to later readers on skip or failure, without breaking the existing empty-runtime bootstrap or already-initialized skip behavior.
+3. [ ] Repair or split `server/src/test/unit/copilotSeedBootstrap.test.ts` so it proves the helper distinguishes the three required cases explicitly: empty runtime bootstraps, initialized runtime skips, and a mid-sequence runtime initialization is not overwritten by the delayed seed-import write path; the planned proof must also cover helper-owned staged/temp artifact cleanup on skip or failure and assert the exact combined replay-safety scenario at a deterministic boundary instead of only observing the earlier preflight or the later final state.
+4. [ ] Repair or add a dedicated replay-safe startup case in `server/src/test/integration/copilot.boot-path.test.ts` so the repository-supported boot path explicitly claims the same no-overwrite behavior through the default startup seam, including that later provider discovery sees either the clean seeded runtime or the preserved pre-existing runtime rather than a partial mixed state, instead of relying on provider-visibility or default-model assertions that only prove adjacent success behavior.
 
 #### Testing
 

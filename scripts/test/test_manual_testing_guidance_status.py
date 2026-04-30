@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import tempfile
 import textwrap
 import unittest
@@ -24,6 +26,11 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
         plan_path.write_text(textwrap.dedent(content).lstrip())
         return str(plan_path)
 
+    def make_temp_repo(self) -> Path:
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        return Path(tmpdir.name)
+
     def test_extracts_canonical_story_guidance_before_tasks(self) -> None:
         plan_path = self.write_plan(
             """
@@ -38,7 +45,9 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), None)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), None
+        )
 
         self.assertTrue(status["story_guidance"]["present"])
         self.assertEqual(
@@ -63,7 +72,9 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), None)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), None
+        )
 
         self.assertFalse(status["story_guidance"]["present"])
 
@@ -80,7 +91,9 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), None)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), None
+        )
 
         self.assertFalse(status["story_guidance"]["present"])
         self.assertEqual(status["story_guidance"]["items"], [])
@@ -106,7 +119,9 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), 2)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), 2
+        )
 
         self.assertTrue(status["task_guidance"]["present"])
         self.assertEqual(status["task_guidance"]["task_number"], 2)
@@ -123,7 +138,9 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), 1)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), 1
+        )
 
         self.assertFalse(status["task_guidance"]["present"])
         self.assertEqual(status["task_guidance"]["task_number"], 1)
@@ -141,7 +158,9 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), None)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), None
+        )
 
         self.assertFalse(status["story_guidance"]["present"])
 
@@ -164,7 +183,9 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), 1)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), 1
+        )
 
         self.assertFalse(status["story_guidance"]["present"])
         self.assertEqual(status["task_guidance"]["items"], ["Task-scoped proof only"])
@@ -188,10 +209,55 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
             """
         )
 
-        status = manual_testing_guidance_status.build_status(Path(plan_path), 3)
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), 3
+        )
 
         self.assertEqual(status["story_guidance"]["items"], ["Shared startup"])
         self.assertEqual(status["task_guidance"]["items"], ["Task-specific override"])
+
+    def test_returns_structured_absent_task_guidance_when_task_number_missing(self) -> None:
+        plan_path = self.write_plan(
+            """
+            ### Task 1. First
+
+            #### Manual Testing Guidance
+
+            - Task 1 proof
+            """
+        )
+
+        status = manual_testing_guidance_status.build_status(
+            plan_path, Path(plan_path), 99
+        )
+
+        self.assertFalse(status["task_guidance"]["present"])
+        self.assertEqual(status["task_guidance"]["task_number"], 99)
+        self.assertEqual(status["task_guidance"]["lookup_error"], "task_not_found")
+
+    def test_preserves_raw_handoff_plan_path_and_exposes_resolved_path(self) -> None:
+        repo_root = self.make_temp_repo()
+        planning_dir = repo_root / "planning"
+        handoff_dir = repo_root / "codeInfoStatus" / "flow-state"
+        planning_dir.mkdir(parents=True)
+        handoff_dir.mkdir(parents=True)
+        plan_rel_path = "planning/0000123-sample-plan.md"
+        plan_path = repo_root / plan_rel_path
+        plan_path.write_text("# Story 0000123 - Sample\n")
+        handoff_path = handoff_dir / "current-plan.json"
+        handoff_path.write_text(json.dumps({"plan_path": plan_rel_path}))
+
+        original_cwd = Path.cwd()
+        os.chdir(repo_root)
+        self.addCleanup(os.chdir, original_cwd)
+
+        raw_path, resolved_path = manual_testing_guidance_status.resolve_plan_path(
+            None, str(handoff_path.relative_to(repo_root))
+        )
+        status = manual_testing_guidance_status.build_status(raw_path, resolved_path, None)
+
+        self.assertEqual(status["plan_path"], plan_rel_path)
+        self.assertEqual(status["resolved_plan_path"], str(plan_path.resolve()))
 
 
 if __name__ == "__main__":

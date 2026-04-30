@@ -42,14 +42,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_plan_path(plan: str | None, handoff: str) -> Path:
+def resolve_plan_path(plan: str | None, handoff: str) -> tuple[str, Path]:
     if plan:
-        return Path(plan)
+        return plan, Path(plan)
     try:
         scope = load_plan_scope(handoff=handoff)
     except ScopeResolutionError as exc:
         raise SystemExit(str(exc)) from exc
-    return Path(scope["plan_path"])
+    return scope["plan_path_raw"], Path(scope["plan_path"])
 
 
 def load_lines(plan_path: Path) -> list[str]:
@@ -93,7 +93,9 @@ def collect_items(section_lines: list[str]) -> list[str]:
     return items
 
 
-def empty_guidance(*, task_number: int | None = None) -> dict[str, Any]:
+def empty_guidance(
+    *, task_number: int | None = None, lookup_error: str | None = None
+) -> dict[str, Any]:
     return {
         "task_number": task_number,
         "present": False,
@@ -103,6 +105,7 @@ def empty_guidance(*, task_number: int | None = None) -> dict[str, Any]:
         "end_line": None,
         "markdown": "",
         "items": [],
+        "lookup_error": lookup_error,
     }
 
 
@@ -126,6 +129,7 @@ def build_guidance(
         "end_line": end_idx,
         "markdown": markdown,
         "items": collect_items(body_lines),
+        "lookup_error": None,
     }
 
 
@@ -149,7 +153,7 @@ def find_story_guidance(lines: list[str]) -> dict[str, Any]:
     return empty_guidance()
 
 
-def find_task_bounds(lines: list[str], task_number: int) -> tuple[int, int]:
+def find_task_bounds(lines: list[str], task_number: int) -> tuple[int, int] | None:
     task_start: int | None = None
     for idx, line in enumerate(lines):
         match = TASK_HEADING_RE.match(line)
@@ -163,7 +167,7 @@ def find_task_bounds(lines: list[str], task_number: int) -> tuple[int, int]:
             return task_start, idx
 
     if task_start is None:
-        raise SystemExit(f"task not found in plan: {task_number}")
+        return None
     return task_start, len(lines)
 
 
@@ -171,7 +175,10 @@ def find_task_guidance(lines: list[str], task_number: int | None) -> dict[str, A
     if task_number is None:
         return empty_guidance()
 
-    task_start, task_end = find_task_bounds(lines, task_number)
+    task_bounds = find_task_bounds(lines, task_number)
+    if task_bounds is None:
+        return empty_guidance(task_number=task_number, lookup_error="task_not_found")
+    task_start, task_end = task_bounds
     for idx in range(task_start + 1, task_end):
         info = heading_info(lines[idx])
         if info is None:
@@ -191,14 +198,15 @@ def find_task_guidance(lines: list[str], task_number: int | None) -> dict[str, A
     return empty_guidance(task_number=task_number)
 
 
-def build_status(plan_path: Path, task_number: int | None) -> dict[str, Any]:
-    resolved_plan = plan_path.resolve()
+def build_status(plan_path_raw: str, resolved_plan: Path, task_number: int | None) -> dict[str, Any]:
+    resolved_plan = resolved_plan.resolve()
     lines = load_lines(resolved_plan)
     story_number = story_number_from_plan_name(resolved_plan.name)
     story_guidance = find_story_guidance(lines)
     task_guidance = find_task_guidance(lines, task_number)
     return {
-        "plan_path": str(resolved_plan),
+        "plan_path": plan_path_raw,
+        "resolved_plan_path": str(resolved_plan),
         "story_number": int(story_number) if story_number is not None else None,
         "requested_task_number": task_number,
         "story_guidance": story_guidance,
@@ -208,7 +216,8 @@ def build_status(plan_path: Path, task_number: int | None) -> dict[str, Any]:
 
 def main() -> int:
     args = parse_args()
-    status = build_status(resolve_plan_path(args.plan, args.handoff), args.task_number)
+    plan_path_raw, resolved_plan = resolve_plan_path(args.plan, args.handoff)
+    status = build_status(plan_path_raw, resolved_plan, args.task_number)
     json.dump(status, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0

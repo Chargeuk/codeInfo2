@@ -50,14 +50,14 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
         )
         self.assertFalse(status["task_guidance"]["present"])
 
-    def test_extracts_legacy_story_alias_before_tasks(self) -> None:
+    def test_does_not_treat_manual_testing_guidance_alias_as_story_section(self) -> None:
         plan_path = self.write_plan(
             """
             # Story 0000123 - Sample
 
             ## Manual Testing Guidance
 
-            - Legacy story guidance
+            - This should not count as story guidance
 
             # Tasks
             """
@@ -65,9 +65,7 @@ class ManualTestingGuidanceStatusTests(unittest.TestCase):
 
         status = manual_testing_guidance_status.build_status(Path(plan_path), None)
 
-        self.assertTrue(status["story_guidance"]["present"])
-        self.assertEqual(status["story_guidance"]["source_kind"], "story_legacy_alias")
-        self.assertEqual(status["story_guidance"]["items"], ["Legacy story guidance"])
+        self.assertFalse(status["story_guidance"]["present"])
 
     def test_returns_absent_story_guidance_when_missing(self) -> None:
         plan_path = self.write_plan(

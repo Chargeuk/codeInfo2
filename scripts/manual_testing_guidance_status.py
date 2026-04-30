@@ -131,36 +131,22 @@ def build_guidance(
 
 def find_story_guidance(lines: list[str]) -> dict[str, Any]:
     story_limit = find_tasks_start(lines)
-    canonical_match: dict[str, Any] | None = None
-    legacy_match: dict[str, Any] | None = None
 
     for idx in range(story_limit):
         info = heading_info(lines[idx])
         if info is None:
             continue
         level, name = info
-        lowered = name.lower()
-        if lowered == "story manual testing guidance":
+        if name.lower() == "story manual testing guidance":
             end_idx = section_end(lines, idx, level, story_limit)
-            canonical_match = build_guidance(
+            return build_guidance(
                 lines=lines,
                 start_idx=idx,
                 end_idx=end_idx,
                 section_name=name,
                 source_kind="story",
             )
-            break
-        if lowered == "manual testing guidance" and legacy_match is None:
-            end_idx = section_end(lines, idx, level, story_limit)
-            legacy_match = build_guidance(
-                lines=lines,
-                start_idx=idx,
-                end_idx=end_idx,
-                section_name=name,
-                source_kind="story_legacy_alias",
-            )
-
-    return canonical_match or legacy_match or empty_guidance()
+    return empty_guidance()
 
 
 def find_task_bounds(lines: list[str], task_number: int) -> tuple[int, int]:

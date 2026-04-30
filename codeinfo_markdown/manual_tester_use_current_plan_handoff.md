@@ -43,7 +43,7 @@ When validation succeeds, return a concise response that includes:
 2. The participating repositories when there is more than one.
 3. A short overview of the story.
 4. Whether story-level manual-testing guidance is present.
-5. If story-level guidance is present, whether it uses the canonical heading or the legacy alias and a short summary of its defaults.
+5. If story-level guidance is present, a short summary of its defaults.
 6. What is still remaining to be done.
 
 </output_contract>

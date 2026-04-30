@@ -101,7 +101,7 @@ test('copies config.json, settings.json, and session-state into an empty runtime
   }
 });
 
-test('skips copying when runtime auth-bearing artifacts already exist and never overwrites them', async () => {
+test('skips copying when runtime auth-bearing artifacts already exist before import begins', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
   const seedHome = path.join(tempRoot, 'seed');
   const runtimeHome = path.join(tempRoot, 'runtime');

@@ -143,12 +143,14 @@ export class ChatInterfaceCopilot extends ChatInterface {
       NonNullable<ChatInterfaceCopilotOptions['toolsFactory']>
     >;
   } {
+    const phase: SessionPhase = flags.resumeConversation ? 'resume' : 'create';
+    const runtimeFlags = resolveCopilotRuntimeAgentFlags(flags.agentFlags);
     return {
-      runtimeFlags: resolveCopilotRuntimeAgentFlags(flags.agentFlags),
-      toolConfig: this.toolsFactory(
-        flags.resumeConversation ? 'resume' : 'create',
-        flags,
-      ),
+      runtimeFlags,
+      toolConfig:
+        runtimeFlags.toolAccess === 'off'
+          ? undefined
+          : this.toolsFactory(phase, flags),
     };
   }
 
@@ -170,8 +172,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
       tools: toolConfig?.tools,
-      availableTools:
-        runtimeFlags.toolAccess === 'off' ? [] : toolConfig?.toolNames,
+      availableTools: toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
@@ -206,8 +207,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),
       tools: toolConfig?.tools,
-      availableTools:
-        runtimeFlags.toolAccess === 'off' ? [] : toolConfig?.toolNames,
+      availableTools: toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }

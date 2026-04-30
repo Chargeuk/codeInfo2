@@ -124,7 +124,7 @@ test('ChatInterfaceCopilot create-session config allows permissions by default',
   ]);
 });
 
-test('ChatInterfaceCopilot create-session maps provider-neutral flags onto real Copilot session fields before events stream', async () => {
+test('ChatInterfaceCopilot create-session omits SDK tool-registration inputs when toolAccess is off', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-create-runtime-flags',
     createSessionEvents: [createSessionIdleEvent()],
@@ -152,9 +152,10 @@ test('ChatInterfaceCopilot create-session maps provider-neutral flags onto real 
     harness.getState().lastCreateSessionConfig?.reasoningEffort,
     'high',
   );
-  assert.deepEqual(
+  assert.equal(harness.getState().lastCreateSessionConfig?.tools, undefined);
+  assert.equal(
     harness.getState().lastCreateSessionConfig?.availableTools,
-    [],
+    undefined,
   );
 });
 
@@ -188,7 +189,7 @@ test('ChatInterfaceCopilot resume path keeps permissions allowed through the res
   );
 });
 
-test('ChatInterfaceCopilot resume-session maps provider-neutral flags onto the real Copilot resume config', async () => {
+test('ChatInterfaceCopilot resume-session omits SDK tool-registration inputs when toolAccess is off', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-resume-runtime-flags',
     resumeSessionEvents: [createSessionIdleEvent()],
@@ -214,8 +215,9 @@ test('ChatInterfaceCopilot resume-session maps provider-neutral flags onto the r
     harness.getState().lastResumeSession?.config.reasoningEffort,
     'low',
   );
-  assert.deepEqual(
+  assert.equal(harness.getState().lastResumeSession?.config.tools, undefined);
+  assert.equal(
     harness.getState().lastResumeSession?.config.availableTools,
-    [],
+    undefined,
   );
 });

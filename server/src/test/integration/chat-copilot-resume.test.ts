@@ -66,7 +66,7 @@ test('copilot resume failures stay explicit instead of silently creating a fresh
   }
 });
 
-test('copilot chat maps toolAccess On and Off through the real session config seam', async () => {
+test('copilot resume-session path preserves the On and Off tool-registration contract', async () => {
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-tool-access',
@@ -88,7 +88,41 @@ test('copilot chat maps toolAccess On and Off through the real session config se
     await waitForAssistantTurn('copilot-tool-access-on');
 
     assert.deepEqual(
+      server.harness.getState().lastCreateSessionConfig?.tools?.map(
+        (tool) => tool.name,
+      ),
+      ['ListIngestedRepositories', 'VectorSearch'],
+    );
+    assert.deepEqual(
       server.harness.getState().lastCreateSessionConfig?.availableTools,
+      ['ListIngestedRepositories', 'VectorSearch'],
+    );
+
+    await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        conversationId: 'copilot-tool-access-on',
+        message: 'Tools still on',
+        agentFlags: {
+          toolAccess: 'on',
+        },
+      });
+    await waitForAssistantTurn('copilot-tool-access-on');
+
+    assert.equal(
+      server.harness.getState().lastResumeSession?.sessionId,
+      'copilot-tool-access-on',
+    );
+    assert.deepEqual(
+      server.harness.getState().lastResumeSession?.config.tools?.map(
+        (tool) => tool.name,
+      ),
+      ['ListIngestedRepositories', 'VectorSearch'],
+    );
+    assert.deepEqual(
+      server.harness.getState().lastResumeSession?.config.availableTools,
       ['ListIngestedRepositories', 'VectorSearch'],
     );
 
@@ -105,9 +139,39 @@ test('copilot chat maps toolAccess On and Off through the real session config se
       });
     await waitForAssistantTurn('copilot-tool-access-off');
 
-    assert.deepEqual(
+    assert.equal(
+      server.harness.getState().lastCreateSessionConfig?.tools,
+      undefined,
+    );
+    assert.equal(
       server.harness.getState().lastCreateSessionConfig?.availableTools,
-      [],
+      undefined,
+    );
+
+    await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        conversationId: 'copilot-tool-access-off',
+        message: 'Tools still off',
+        agentFlags: {
+          toolAccess: 'off',
+        },
+      });
+    await waitForAssistantTurn('copilot-tool-access-off');
+
+    assert.equal(
+      server.harness.getState().lastResumeSession?.sessionId,
+      'copilot-tool-access-off',
+    );
+    assert.equal(
+      server.harness.getState().lastResumeSession?.config.tools,
+      undefined,
+    );
+    assert.equal(
+      server.harness.getState().lastResumeSession?.config.availableTools,
+      undefined,
     );
   } finally {
     await server.stop();

@@ -1196,10 +1196,10 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `1`, then inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/copilotTools.ts`, `server/src/test/unit/chat-interface-copilot.test.ts`, and `server/src/test/integration/chat-copilot-resume.test.ts` to pin down the real Copilot tool-registration seam for both create and resume flows.
-2. [ ] Repair the shared Copilot session-construction path in `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and any required helper seam in `server/src/chat/copilotTools.ts` so `toolAccess: 'off'` removes tool execution capability at that real registration seam, while `toolAccess: 'on'` still exposes the normal repository-managed tool bundle.
-3. [ ] Repair `server/src/test/unit/chat-interface-copilot.test.ts` so it proves the fresh create-session path passes no SDK-facing tool-registration inputs when `toolAccess: 'off'`, while preserving the expected repository-managed tool bundle when `toolAccess: 'on'`; if the existing permission-focused case titles would become misleading, rename or split them so the kept assertions explicitly claim the tool-registration invariant instead of adjacent session-config behavior.
-4. [ ] Repair `server/src/test/integration/chat-copilot-resume.test.ts` so it proves the resumed-session path preserves that same On/Off contract at the real session-construction seam instead of only asserting empty metadata.
+1. [x] Re-read the review evidence for Finding `1`, then inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/copilotTools.ts`, `server/src/test/unit/chat-interface-copilot.test.ts`, and `server/src/test/integration/chat-copilot-resume.test.ts` to pin down the real Copilot tool-registration seam for both create and resume flows.
+2. [x] Repair the shared Copilot session-construction path in `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and any required helper seam in `server/src/chat/copilotTools.ts` so `toolAccess: 'off'` removes tool execution capability at that real registration seam, while `toolAccess: 'on'` still exposes the normal repository-managed tool bundle.
+3. [x] Repair `server/src/test/unit/chat-interface-copilot.test.ts` so it proves the fresh create-session path passes no SDK-facing tool-registration inputs when `toolAccess: 'off'`, while preserving the expected repository-managed tool bundle when `toolAccess: 'on'`; if the existing permission-focused case titles would become misleading, rename or split them so the kept assertions explicitly claim the tool-registration invariant instead of adjacent session-config behavior.
+4. [x] Repair `server/src/test/integration/chat-copilot-resume.test.ts` so it proves the resumed-session path preserves that same On/Off contract at the real session-construction seam instead of only asserting empty metadata.
 
 #### Testing
 
@@ -1208,7 +1208,10 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 #### Implementation notes
 
-- None yet.
+- Re-read the Finding 1 review evidence and inspected the create/resume builders plus the named proof owners. The live contradiction is exactly at the session-config seam: both builders still populate `tools` while only clearing `availableTools` for `toolAccess: 'off'`, and the current proofs only assert that metadata half.
+- Updated `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so the create and resume builders now omit the repository-managed Copilot tool bundle entirely when `toolAccess` resolves to `off`, instead of still forwarding `tools` while pretending the session is tool-free through metadata alone.
+- Reworked `server/src/test/unit/chat-interface-copilot.test.ts` so the off-path cases now assert that fresh create and resume configs omit both `tools` and `availableTools`, while the existing on-path permission-oriented coverage still proves the normal bundle survives when tool access stays enabled.
+- Reworked `server/src/test/integration/chat-copilot-resume.test.ts` so the named integration proof now exercises real follow-up turns on the same conversation and asserts the resumed-session config preserves the same On/Off tool-registration contract instead of only checking empty metadata on the create path.
 
 ### Task 10. Restore one bounded LM Studio option-domain contract across discovery, validation, defaults, and runtime execution
 

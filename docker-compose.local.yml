@@ -57,6 +57,8 @@ services:
       - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
+      - ./scripts:/app/scripts:ro
+      - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ./copilot:/app/copilot
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents

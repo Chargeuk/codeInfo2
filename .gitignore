@@ -27,6 +27,8 @@ lmstudio/
 !server/src/copilot/fake/mockCopilotDeviceAuth.ts
 !server/src/copilot/fake/mockCopilotSdk.ts
 !server/src/copilot/fake/runtimeSeam.ts
+!server/src/lmstudio/
+!server/src/lmstudio/**
 !client/src/components/codex/
 !client/src/components/codex/**
 codex_agents/**/auth.json

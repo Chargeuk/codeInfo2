@@ -46,7 +46,7 @@ test('root compose inventory for Task 11 remains scoped to the checked-in files'
   ]);
 });
 
-test('main stays image-baked while local host-network compose exposes the live dev overlay mounts', () => {
+test('main keeps product/runtime overlays image-baked while mounting read-only harness workflow assets, and local still exposes the live dev overlay mounts', () => {
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
 
@@ -113,7 +113,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
 });
 
-test('e2e server host-network contract removes checked-in runtime-tree mounts', () => {
+test('e2e server host-network contract removes mutable checked-in runtime-tree mounts while keeping read-only harness workflow asset mounts', () => {
   const e2eCompose = readRepoFile('docker-compose.e2e.yml');
   const e2eServer = getServiceBlock(e2eCompose, 'server');
 

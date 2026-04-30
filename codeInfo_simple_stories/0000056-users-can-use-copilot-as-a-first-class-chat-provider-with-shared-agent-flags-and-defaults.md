@@ -11,11 +11,11 @@ Users can use Copilot as a first-class chat provider with shared Agent Flags and
 5. Chat users can use Copilot with the product-managed tool layer in the normal chat page and through the shared `codebase_question` MCP path.
 6. Saved conversations, resumed flows, and provider-specific payloads do not leak stale or unsupported state back into later requests or sidebar labels.
 7. Existing Codex and LM Studio chat behaviour continues to work while defaults, validation, discovery, and proofs become provider-neutral.
-8. Support and engineering users can bootstrap, validate, and explain the final contract through the repository's standard wrappers, runtime smoke path, and reviewer summary.
+8. Support and engineering users can bootstrap, validate, and explain the final contract through the repository's standard wrappers, runtime smoke path, reviewer summary, and reliable review-loop workflow state.
 
 # Description
 
-This story makes Copilot feel like a full chat provider in the same product surfaces where Codex already feels strong, while also cleaning up the shared chat architecture so it no longer depends on Codex-only defaults, payloads, and UI controls. When this work is complete, each provider owns its own repo-local defaults, the browser renders one honest Agent Flags experience for the selected provider and model, Copilot works through the normal tool-aware chat seams, and the story closes with stronger validation around stale state, replay safety, and reviewer-facing proof.
+This story makes Copilot feel like a full chat provider in the same product surfaces where Codex already feels strong, while also cleaning up the shared chat architecture so it no longer depends on Codex-only defaults, payloads, and UI controls. When this work is complete, each provider owns its own repo-local defaults, the browser renders one honest Agent Flags experience for the selected provider and model, Copilot works through the normal tool-aware chat seams, and the story closes with stronger validation around stale state, replay safety, tracked review-loop artifacts, and reviewer-facing proof.
 
 # Tasks
 
@@ -79,7 +79,12 @@ This story makes Copilot feel like a full chat provider in the same product surf
 - Repair the Copilot seed bootstrap path so a mid-run runtime initialization cannot be overwritten by stale seed artifacts.
 - Keep staged-temp cleanup explicit so later runtime readers never see a partial mixed seed/runtime state.
 
-13. [codeInfo2] - Revalidate review pass `0000056-20260429T204701Z-484b4dd4` after review-task repairs.
+13. [codeInfo2] - Remove tracked ignored review-loop artifacts from durable repository state.
 
-- Revalidate the serious review-created findings and the inline minor fixes together through one final wrapper-first proof pass.
+- Stop tracked scratch-state artifacts under `codeInfoStatus` and `codeInfoTmp` from behaving like long-term workflow inputs.
+- Keep workflow readers and review-routing surfaces resolving the active story through durable handoff and summary files after cleanup.
+
+14. [codeInfo2] - Revalidate review pass `0000056-20260430T002543Z-86b67f53` after review-task repairs.
+
+- Revalidate the five current review-created findings through focused proof owners plus one broad wrapper-first regression pass.
 - Refresh the PR summary and closeout notes so reviewers can see which focused proof owners and broad wrapper surfaces closed each finding.

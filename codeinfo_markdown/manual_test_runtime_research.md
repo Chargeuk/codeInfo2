@@ -19,8 +19,9 @@ Treat it as a live local runtime-research artifact rather than durable tracked r
 
 Read `codeInfoStatus/flow-state/current-plan.json` first.
 Read `codeInfoStatus/flow-state/current-task.json` after `current-plan.json`.
-Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
+Use the stored `plan_path` and `additional_repositories` as the starting repository scope for this flow.
 Treat the current repository as always in scope even if it is not listed in `additional_repositories`.
+When honest manual proof requires another repository, you may inspect and research that supporting repository even if it was not declared in `additional_repositories`.
 Resolve the same bound task that the loop is preparing to manual-test from `current-task.json` when possible.
 After resolving the bound task number when possible, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>`.
 If the bound task number cannot be resolved, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` without `--task-number`.
@@ -46,9 +47,19 @@ Use that JSON output as the source of truth for whether story-level and task-lev
 
 </story_and_task_guidance_rules>
 
+<supporting_repository_rules>
+
+- Manual-proof scope is broader than implementation scope.
+- If story-level or task-level manual-testing guidance names a paired frontend, companion backend, shared worker, or other supporting repository, treat that as a strong lead for runtime research.
+- If repository evidence shows the real proof surface lives in another local repository, you may inspect and research that repository even when it is outside the story's declared working repositories.
+- Do not treat the need for a supporting repository as a blocker by itself.
+- Only stop when the required supporting repository cannot be located, cannot be read, or has no honest supported startup path.
+
+</supporting_repository_rules>
+
 <source_priority>
 
-For each repository in scope, gather runtime evidence in this order:
+For each repository in scope, including any supporting repositories discovered during this research pass, gather runtime evidence in this order:
 
 1. `AGENTS.md`
 2. `README.md`
@@ -200,6 +211,19 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
 ```json
 {
   "plan_path": "<relative plan path from current-plan.json>",
+  "proof_scope": {
+    "declared_story_repositories": [
+      "/abs/path/to/current-repo"
+    ],
+    "declared_additional_repositories": [],
+    "supporting_repositories": [
+      {
+        "path": "/abs/path/to/paired-frontend",
+        "reason": "Browser proof for this backend task lives here.",
+        "source": "manual-testing guidance and repository evidence"
+      }
+    ]
+  },
   "story_guidance": {
     "present": true,
     "section_name": "Story Manual Testing Guidance",
@@ -326,6 +350,7 @@ Return a concise summary that includes:
 6. whether story-level guidance was present and what defaults it added, if any
 7. whether bound-task `Manual Testing Guidance` added any startup, access, or artifact-destination constraints
 8. whether task-level guidance overrode any story-level direction
+9. which supporting repositories outside the declared story repository list were researched for manual proof, if any
 
 Do not perform manual testing in this step.
 Do not start or stop systems in this step.

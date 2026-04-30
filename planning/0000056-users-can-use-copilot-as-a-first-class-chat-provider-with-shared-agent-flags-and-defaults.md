@@ -1270,6 +1270,10 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 - Finding `1`: tracked `server/.env` contract versus machine-local overrides
 - Inline-resolved minor findings from review cycle `0000056-rc-20260430T200028Z-b202f879`: prior-pass findings `2`, `3`, and `4`, plus current-pass finding `2`
 
+#### Affected Repositories
+
+- `Current Repository`
+
 #### Documentation Locations
 
 - `codeInfoStatus/pr-summaries/0000056-pr-summary.md`

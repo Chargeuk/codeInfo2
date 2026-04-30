@@ -1197,7 +1197,8 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 1. [ ] Re-read the review evidence for Finding `3`, then inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/copilotTools.ts`, `server/src/test/unit/chat-interface-copilot.test.ts`, and `server/src/test/integration/chat-copilot-resume.test.ts` to pin down the real Copilot tool-registration seam for both create and resume flows.
 2. [ ] Repair the shared Copilot session-construction path in `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and any required helper seam in `server/src/chat/copilotTools.ts` so `toolAccess: 'off'` removes tool execution capability at that real registration seam, while `toolAccess: 'on'` still exposes the normal repository-managed tool bundle.
-3. [ ] Repair the focused proof owners in `server/src/test/unit/chat-interface-copilot.test.ts` and `server/src/test/integration/chat-copilot-resume.test.ts` so they capture the actual SDK-facing tool-registration inputs and fail if `toolAccess: 'off'` still leaves tool execution wired in even when metadata is empty.
+3. [ ] Repair `server/src/test/unit/chat-interface-copilot.test.ts` so it proves the fresh create-session path passes no SDK-facing tool-registration inputs when `toolAccess: 'off'`, while preserving the expected repository-managed tool bundle when `toolAccess: 'on'`.
+4. [ ] Repair `server/src/test/integration/chat-copilot-resume.test.ts` so it proves the resumed-session path preserves that same On/Off contract at the real session-construction seam instead of only asserting empty metadata.
 
 #### Testing
 
@@ -1237,7 +1238,10 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 1. [ ] Re-read the review evidence for Finding `8`, then inspect `server/src/routes/chatDiscovery.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` to map every LM Studio surface that currently computes or accepts `temperature` / `maxTokens`.
 2. [ ] Implement one shared bounded LM Studio domain across `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` so request validation, provider-local defaults, discovery metadata, and runtime execution all agree.
-3. [ ] Repair the focused proof owners in `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, and `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` so they cover the bounded default-entrypoint, request-time, and runtime contracts without locking in the widened behavior.
+3. [ ] Repair `server/src/test/unit/chatModels.codex.test.ts` so it proves the normal discovery entrypoint surfaces only bounded LM Studio resolved defaults and does not advertise widened `temperature` / `maxTokens` values from provider-local config.
+4. [ ] Repair `server/src/test/unit/chatValidators.test.ts` so it proves request-time invalid, blank, whitespace-only, and out-of-range LM Studio flag inputs are rejected against the same bounded contract.
+5. [ ] Repair `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` so it proves runtime-side LM Studio execution still enforces the same bounded numeric contract instead of accepting widened or stale default values.
+6. [ ] Repair `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` so it proves the repository-supported integration seam still carries the bounded LM Studio defaults and runtime contract after the shared-domain repair.
 
 #### Testing
 
@@ -1279,7 +1283,10 @@ This review-created task restores the authority boundary between ordinary conver
 
 1. [ ] Re-read the review evidence for Finding `10`, then inspect `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, and `client/src/components/chat/ConversationList.tsx` to separate ordinary REST-owned flags from flow-engine-owned `flags.flow` and `flags.flowChild`, including the persisted-state consumers that rely on those fields later.
 2. [ ] Repair the ordinary conversation write path in `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, and `server/src/chat/agentFlags.ts` so REST callers cannot persist `flags.flow` or `flags.flowChild`, while the flow engine’s nested `$set` writers remain the only supported path that can create or mutate those server-owned structures.
-3. [ ] Repair the focused proof owners in `server/src/test/integration/conversations.create.test.ts`, `server/src/test/unit/flows.flags.test.ts`, and `server/src/test/integration/flows.run.resume.test.ts` so one proof surface catches the blocked REST input and another proves the legitimate flow-owned persistence and resume path still works after the boundary repair.
+3. [ ] Repair `server/src/test/integration/conversations.create.test.ts` so it proves ordinary conversation creation and update requests cannot smuggle `flags.flow` or `flags.flowChild` through the REST-owned write path.
+4. [ ] Repair `server/src/test/unit/flows.flags.test.ts` so it proves the flow engine’s nested `$set` writers remain the legitimate owner of persisted `flags.flow` and `flags.flowChild` after the boundary repair.
+5. [ ] Repair `server/src/test/integration/flows.run.resume.test.ts` so it proves the restored boundary still allows the real flow-resume consumer path to read server-owned persisted flow state after the REST-owned write path is tightened.
+6. [ ] If the boundary repair touches shared warning or validation helpers, repair `server/src/test/unit/chat-route-warning-label.test.ts` so route diagnostics still label the surviving warning categories honestly.
 
 #### Testing
 
@@ -1321,7 +1328,8 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 
 1. [ ] Re-read the review evidence for Finding `11`, then inspect `server/src/config/copilotSeedBootstrap.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, and `server/src/test/integration/copilot.boot-path.test.ts` to pin down the exact preflight-to-rename sequence that currently leaves the overwrite window open.
 2. [ ] Repair `server/src/config/copilotSeedBootstrap.ts` so the helper preserves the same live-runtime ownership condition through the actual write path, without breaking the existing empty-runtime bootstrap or already-initialized skip behavior.
-3. [ ] Repair the focused proof owners in `server/src/test/unit/copilotSeedBootstrap.test.ts` and `server/src/test/integration/copilot.boot-path.test.ts` so they distinguish the three required cases explicitly: empty runtime bootstraps, initialized runtime skips, and a mid-sequence runtime initialization is not overwritten by the delayed seed-import write path.
+3. [ ] Repair `server/src/test/unit/copilotSeedBootstrap.test.ts` so it proves the helper distinguishes the three required cases explicitly: empty runtime bootstraps, initialized runtime skips, and a mid-sequence runtime initialization is not overwritten by the delayed seed-import write path.
+4. [ ] Repair `server/src/test/integration/copilot.boot-path.test.ts` so the repository-supported boot path proves the same replay-safe behavior through the default startup seam instead of only through a helper-level assertion.
 
 #### Testing
 

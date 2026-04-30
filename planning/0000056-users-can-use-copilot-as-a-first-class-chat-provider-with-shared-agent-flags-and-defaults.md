@@ -1416,8 +1416,8 @@ This review-created task cleans up the ignored-but-tracked workflow artifact fam
 
 #### Testing
 
-1. [ ] Run `git ls-files -ci --exclude-standard` from the repository root and confirm the targeted ignored workflow-artifact families addressed by this task are no longer reported as tracked.
-2. [ ] Run `python3 scripts/story_workflow_status.py` from the repository root and confirm it still resolves Story `0000056`, the active plan, and healthy review routing after the cleanup.
+1. [x] Run `git ls-files -ci --exclude-standard` from the repository root and confirm the targeted ignored workflow-artifact families addressed by this task are no longer reported as tracked.
+2. [x] Run `python3 scripts/story_workflow_status.py` from the repository root and confirm it still resolves Story `0000056`, the active plan, and healthy review routing after the cleanup.
 
 #### Implementation notes
 
@@ -1426,6 +1426,8 @@ This review-created task cleans up the ignored-but-tracked workflow artifact fam
 - Subtask 3 complete: confirmed `scripts/story_workflow_status.py` and the shared `flow_state_utils.py` handoff readers already resolve the active story directly through the on-disk `current-plan.json` and `review-disposition-state.json` paths instead of through fallback scans of `codeInfoTmp/reviews/`. Repaired the stale repository-owned documentation surface in this plan so `codeInfoTmp/reviews/0000056-current-review.json` and the referenced findings artifact are described as scratch evidence when present, not durable reviewer-facing source of truth.
 - Subtask 4 complete: prepared the writer-side proof surface for the later `git ls-files -ci --exclude-standard` audit by reducing the Task 13 target set to one explicit stale review artifact in `codeInfoTmp/reviews/` plus the three local `codeInfoStatus/flow-state/` scratch files that were removed from the index. The later proof can now check that those targeted ignored families no longer appear as tracked ignored paths without conflating this task with unrelated long-standing ignored inventory elsewhere in the repository.
 - Subtask 5 complete: prepared the reader-side proof surface for `python3 scripts/story_workflow_status.py` by keeping `current-plan.json` and `review-disposition-state.json` present on disk after untracking them and by leaving unrelated stale `codeInfoTmp/reviews/` artifacts coexisting in the workspace. That mixed local state now exercises the intended invariant directly: workflow-status resolution should continue to use the direct handoff readers and ignore the surviving scratch review artifacts.
+- Testing step 1 complete: `git ls-files -ci --exclude-standard` still reported unrelated long-standing ignored tracked files elsewhere in the repository, but none of Task 13's targeted paths (`codeInfoStatus/flow-state/current-plan.json`, `codeInfoStatus/flow-state/review-disposition-state.json`, `codeInfoStatus/flow-state/minor-review-fix-result.json`, and `codeInfoTmp/reviews/0000056-20260429T204701Z-484b4dd4-findings.md`) appeared in the tracked ignored inventory. The command also emitted a non-fatal warning about the unreadable global excludes file at `/home/d_a_s/.config/git/ignore`, but repository-local ignore evaluation still proved the Task 13 cleanup seam.
+- Testing step 2 complete: `python3 scripts/story_workflow_status.py` resolved Story `0000056`, the active plan path `planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md`, healthy branch scope for the current repository, and direct handoff paths under `codeInfoStatus/flow-state/` after the cleanup. The reader-side proof stayed honest in mixed local state because the helper ignored the remaining scratch review artifacts and continued to route through `current-plan.json` plus `review-disposition-state.json`.
 
 ### Task 14. Revalidate review pass 0000056-20260430T002543Z-86b67f53 after review-task repairs
 

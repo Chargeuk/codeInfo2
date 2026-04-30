@@ -43,6 +43,7 @@ services:
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8200
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_COPILOT_HOME=/app/copilot
+      - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875

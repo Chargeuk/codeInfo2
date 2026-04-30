@@ -28,6 +28,7 @@ services:
       - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
       - CODEINFO_COPILOT_HOME=/app/copilot
+      - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_COPILOT_SEED_HOME=/seed/copilot
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875

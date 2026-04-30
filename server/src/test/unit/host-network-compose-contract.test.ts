@@ -47,8 +47,15 @@ test('root compose inventory for Task 11 remains scoped to the checked-in files'
 });
 
 test('main stays image-baked while local host-network compose exposes the live dev overlay mounts', () => {
+  const dockerfile = readRepoFile('server/Dockerfile');
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
+
+  assert.match(
+    dockerfile,
+    /RUN mkdir -p \/app\/codex \/app\/copilot \/app\/lmstudio && chmod 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
+  );
+  assert.match(dockerfile, /ENV CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
 
   const mainServer = getServiceBlock(mainCompose, 'server');
   assert.match(mainServer, /network_mode: host/u);
@@ -61,6 +68,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     mainServer,
     /CODEINFO_PLAYWRIGHT_MCP_URL=http:\/\/host\.docker\.internal:8932\/mcp/u,
   );
+  assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0/u);
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
@@ -82,6 +90,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/flows:\/app\/flows/u);
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
+  assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(
     localServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:5510\/health'\]/u,
@@ -115,6 +124,7 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.doesNotMatch(e2eServer, /\.\/codex:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex_agents:/u);
   assert.match(e2eServer, /CODEINFO_SERVER_PORT=6010/u);
+  assert.match(e2eServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(
     e2eServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,

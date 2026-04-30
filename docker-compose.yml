@@ -28,6 +28,7 @@ services:
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_COPILOT_HOME=/app/copilot
+      - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_COPILOT_SEED_HOME=/seed/copilot
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - FLOWS_DIR=/app/flows-sandbox

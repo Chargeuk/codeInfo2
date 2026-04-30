@@ -37,6 +37,7 @@ certs/task6-valid/*.key
 
 server/tmp-flows-*/
 codeInfoTmp/
+codeInfoStatus/flow-state/current-plan.json
 codeInfoStatus/flow-state/current-task.json
 codeInfoStatus/flow-state/minor-review-fix-result.json
 codeInfoStatus/flow-state/review-disposition-state.json

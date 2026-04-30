@@ -88,9 +88,9 @@ test('copilot resume-session path preserves the On and Off tool-registration con
     await waitForAssistantTurn('copilot-tool-access-on');
 
     assert.deepEqual(
-      server.harness.getState().lastCreateSessionConfig?.tools?.map(
-        (tool) => tool.name,
-      ),
+      server.harness
+        .getState()
+        .lastCreateSessionConfig?.tools?.map((tool) => tool.name),
       ['ListIngestedRepositories', 'VectorSearch'],
     );
     assert.deepEqual(
@@ -116,9 +116,9 @@ test('copilot resume-session path preserves the On and Off tool-registration con
       'copilot-tool-access-on',
     );
     assert.deepEqual(
-      server.harness.getState().lastResumeSession?.config.tools?.map(
-        (tool) => tool.name,
-      ),
+      server.harness
+        .getState()
+        .lastResumeSession?.config.tools?.map((tool) => tool.name),
       ['ListIngestedRepositories', 'VectorSearch'],
     );
     assert.deepEqual(

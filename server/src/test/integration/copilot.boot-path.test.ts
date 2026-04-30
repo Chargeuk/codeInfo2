@@ -367,10 +367,7 @@ test('boot-path seeding preserves a runtime that initializes after preflight ins
       seedHome,
       env: currentRuntimeEnv(),
     });
-    assert.equal(
-      seedResult.status,
-      'seed_skipped_runtime_already_initialized',
-    );
+    assert.equal(seedResult.status, 'seed_skipped_runtime_already_initialized');
     assert.deepEqual(seedResult.copiedArtifacts, []);
     assert.equal(
       await fs.readFile(path.join(runtimeHome, 'config.json'), 'utf8'),

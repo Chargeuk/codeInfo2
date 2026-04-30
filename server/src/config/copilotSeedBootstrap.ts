@@ -209,7 +209,9 @@ async function stageArtifactCopy(params: {
   await fs.promises.mkdir(stageParent, { recursive: true });
 
   if (params.kind === 'directory') {
-    await fs.promises.cp(params.sourcePath, params.stagedPath, { recursive: true });
+    await fs.promises.cp(params.sourcePath, params.stagedPath, {
+      recursive: true,
+    });
     return;
   }
 
@@ -226,7 +228,10 @@ async function publishStagedArtifact(params: {
       await fs.promises.rename(params.stagedPath, params.targetPath);
       return 'copied';
     } catch (error) {
-      if (isAlreadyInitializedRenameError(error) || (await pathExists(params.targetPath))) {
+      if (
+        isAlreadyInitializedRenameError(error) ||
+        (await pathExists(params.targetPath))
+      ) {
         return 'skipped_existing_runtime';
       }
       throw error;
@@ -350,7 +355,10 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
 
   try {
     stageRoot = await fs.promises.mkdtemp(
-      path.join(path.dirname(runtimeHome), `.copilot-seed-stage-${process.pid}-`),
+      path.join(
+        path.dirname(runtimeHome),
+        `.copilot-seed-stage-${process.pid}-`,
+      ),
     );
     const runtimeInitializedArtifacts =
       await collectRuntimeInitializedArtifacts(runtimeHome);
@@ -427,7 +435,8 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
         });
         for (const remainingArtifact of stagedArtifacts) {
           if (remainingArtifact.artifact === stagedArtifact.artifact) continue;
-          if (remainingArtifact.targetPath === stagedArtifact.targetPath) continue;
+          if (remainingArtifact.targetPath === stagedArtifact.targetPath)
+            continue;
           if (await pathExists(remainingArtifact.targetPath)) continue;
           skippedArtifacts.push({
             artifact: remainingArtifact.artifact,

@@ -149,7 +149,9 @@ export const loadProviderConfigForAgentFlags = (
   }
 };
 
-const parseOptionalLmStudioTemperature = (value: unknown): number | undefined => {
+const parseOptionalLmStudioTemperature = (
+  value: unknown,
+): number | undefined => {
   const normalized = parseOptionalFiniteNumber(value);
   if (normalized === undefined) return undefined;
   if (

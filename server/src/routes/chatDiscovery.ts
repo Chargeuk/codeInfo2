@@ -12,10 +12,6 @@ import type {
   CodexModelReasoningEffort,
 } from '@codeinfo2/common';
 import type { ModelInfo } from '@github/copilot-sdk';
-import type {
-  CodexCapabilityResolution,
-  CodexModelCapability,
-} from '../codex/capabilityResolver.js';
 import {
   DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
   DEFAULT_LMSTUDIO_MAX_TOKENS,
@@ -23,6 +19,10 @@ import {
   DEFAULT_LMSTUDIO_TOOL_ACCESS,
   resolveLmStudioConfigAgentFlags,
 } from '../chat/providerRuntimeFlags.js';
+import type {
+  CodexCapabilityResolution,
+  CodexModelCapability,
+} from '../codex/capabilityResolver.js';
 import { ORDERED_CHAT_PROVIDERS } from '../config/chatDefaults.js';
 import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
 

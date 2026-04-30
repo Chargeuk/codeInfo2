@@ -1475,13 +1475,13 @@ This final review-created task owns the whole current review cycle’s post-repa
 3. [x] Run `npm run compose:build:summary` from the repository root to prove the shared Docker build path still holds after the full review-created repair block.
 4. [x] Run `npm run build:summary:server` from the repository root to prove the final server workspace build still passes after the review-created repairs.
 5. [x] Run `npm run build:summary:client` from the repository root to prove the final client workspace build still passes after the review-created repairs.
-6. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the repaired server seams together on the repository-supported wrapper path.
-7. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the affected route and defaults behavior still holds on the repository-supported feature surface after the review-created repairs.
-8. [ ] Run `npm run test:summary:client` from the repository root to prove the repaired client seams together on the repository-supported wrapper path.
-9. [ ] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported automated browser regression surface still holds after the whole review-created repair block.
-10. [ ] Run `npm run compose:up`, verify `http://localhost:5010/health` and `http://localhost:5001` with `curl -f`, then run `npm run compose:down` so the normal supported runtime path is revalidated after the review-created repairs.
-11. [ ] Run `npm run lint` from the repository root to prove the final review-created repair block still passes the shared ESLint gate.
-12. [ ] Run `npm run format:check` from the repository root to prove the final review-created repair block still passes the shared formatting gate.
+6. [x] Run `npm run test:summary:server:unit` from the repository root to prove the repaired server seams together on the repository-supported wrapper path.
+7. [x] Run `npm run test:summary:server:cucumber` from the repository root to prove the affected route and defaults behavior still holds on the repository-supported feature surface after the review-created repairs.
+8. [x] Run `npm run test:summary:client` from the repository root to prove the repaired client seams together on the repository-supported wrapper path.
+9. [x] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported automated browser regression surface still holds after the whole review-created repair block.
+10. [x] Run `npm run compose:up`, verify `http://localhost:5010/health` and `http://localhost:5001` with `curl -f`, then run `npm run compose:down` so the normal supported runtime path is revalidated after the review-created repairs.
+11. [x] Run `npm run lint` from the repository root to prove the final review-created repair block still passes the shared ESLint gate.
+12. [x] Run `npm run format:check` from the repository root to prove the final review-created repair block still passes the shared formatting gate.
 
 #### Manual Testing Guidance
 
@@ -1502,3 +1502,10 @@ Optional guidance for the manual testing agent only.
 - Testing step 3 complete: `npm run compose:build:summary` finished with `agent_action: skip_log`, `items passed: 2`, and `items failed: 0`, so the shared Docker build baseline still held after the full repair block. No log inspection was needed because the wrapper reported a clean success.
 - Testing step 4 complete: `npm run build:summary:server` finished cleanly with `agent_action: skip_log` and `warning_count: 0`, so the final server workspace build still passed after the review-created repairs.
 - Testing step 5 complete: `npm run build:summary:client` finished cleanly with `agent_action: skip_log` and `warning_count: 0`, so the final client workspace build still passed after the review-created repairs.
+- Testing step 6 complete: `npm run test:summary:server:unit` finished with `agent_action: skip_log`, `tests run: 1906`, `passed: 1906`, and `failed: 0`, so the repaired server seams still held together on the repository-supported full server-unit wrapper path.
+- Testing step 7 complete: `npm run test:summary:server:cucumber` finished with `agent_action: skip_log`, `tests run: 117`, `passed: 117`, and `failed: 0`, so the affected route and defaults behavior still held on the repository-supported cucumber feature surface after the review-created repairs.
+- Testing step 8 complete: `npm run test:summary:client` finished with `agent_action: skip_log`, `tests run: 721`, `passed: 721`, and `failed: 0`, so the repaired client seams still held together on the repository-supported full client wrapper path.
+- Testing step 9 complete: `npm run test:summary:e2e` finished with `agent_action: skip_log`, `tests run: 49`, `passed: 49`, and `failed: 0`, so the repository-supported automated browser regression surface still held after the whole review-created repair block.
+- Testing step 10 complete: `npm run compose:up` started the supported stack cleanly, `curl -f http://localhost:5010/health` returned the expected JSON health payload with `status: ok`, `curl -f http://localhost:5001` returned the client HTML shell, and `npm run compose:down` then tore the supported stack back down cleanly. That keeps the final runtime-handoff proof separate from the automated browser wrapper while still revalidating the normal supported ports.
+- Testing step 11 complete: `npm run lint` first failed on one shared ESLint warning in `server/src/routes/chatDiscovery.ts` (`import/order` wanted `../chat/providerRuntimeFlags.js` ahead of the later type import), so that import block was reordered and the full lint gate reran cleanly afterward.
+- Testing step 12 complete: `npm run format:check` first failed on five task-owned repair files, so Prettier was applied to `server/src/chat/providerRuntimeFlags.ts`, `server/src/config/copilotSeedBootstrap.ts`, `server/src/flows/service.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`, and `server/src/test/integration/copilot.boot-path.test.ts`; the shared formatting gate then reran cleanly with `All matched files use Prettier code style!`.

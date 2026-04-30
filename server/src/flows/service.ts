@@ -4008,8 +4008,9 @@ export async function startFlowRun(
       | undefined;
     const trustedPersistedFlowState =
       existingConversation?.flowName === flowName ? existingFlags : undefined;
-    const persistedResumeExecutionId =
-      getFlowExecutionId(trustedPersistedFlowState);
+    const persistedResumeExecutionId = getFlowExecutionId(
+      trustedPersistedFlowState,
+    );
     resumeState = parseFlowResumeState(trustedPersistedFlowState);
     if (resumeStepPath) {
       if (!resumeState) {

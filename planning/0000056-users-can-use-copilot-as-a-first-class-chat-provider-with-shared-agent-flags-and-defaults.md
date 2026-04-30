@@ -1275,7 +1275,7 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

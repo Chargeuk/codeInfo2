@@ -1160,13 +1160,14 @@ Optional guidance for the manual testing agent only.
 
 ## Code Review Findings
 
-### Review Pass `0000056-20260429T204701Z-484b4dd4`
+### Review Pass `0000056-20260430T002543Z-86b67f53`
 
 - Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active routing, plus `codeInfoTmp/reviews/0000056-current-review.json` and the referenced findings artifact for durable evidence.
-- Review comparison context: local `HEAD` vs resolved remote base `origin/main` at commit `8535c59c7f4264f4f8df01bb1f4e290fd7882983`, with `remote_fetch_status: success` and no local-fallback base inference needed for this pass.
-- Active review cycle: `0000056-rc-20260429T221156Z-0bdaac8a`.
-- Inline-resolved minor findings already handled in this same cycle and covered again by the final revalidation task below: `1`, `2`, `4`, `5`, `6`, `7`, `9`, and `12`.
-- Remaining unresolved task-required findings that must be encoded into executable plan state before the story can close: `3`, `8`, `10`, and `11`.
+- Review comparison context: local `HEAD` `86b67f53f1e6c4500f135c82c12a3817802d2525` vs resolved remote base `origin/main` at commit `8535c59c7f4264f4f8df01bb1f4e290fd7882983`, with `remote_fetch_status: success` and no local-fallback base inference needed for this pass.
+- Active review cycle: `0000056-rc-20260430T005807Z-5b91b96f`.
+- No inline-resolved minor findings were recorded in this active review cycle before task-up routing began.
+- No unresolved minor-batchable findings remain in active routing because blocked finding `5` was escalated out of the minor bucket for this pass.
+- Remaining unresolved task-required findings that must be encoded into executable plan state before the story can close: `1`, `2`, `3`, `4`, and `5`.
 
 ### Task 9. Harden the Copilot tool-off contract at the real session-registration seam
 
@@ -1186,8 +1187,8 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 #### Addresses Findings
 
-- Review pass `0000056-20260429T204701Z-484b4dd4`
-- Finding `3`: Copilot tool-off still registers tools while the proof only asserts empty metadata.
+- Review pass `0000056-20260430T002543Z-86b67f53`
+- Finding `1`: Copilot tool-off still registers repository-managed tools at the create and resume session seam.
 
 #### Documentation Locations
 
@@ -1195,7 +1196,7 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `3`, then inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/copilotTools.ts`, `server/src/test/unit/chat-interface-copilot.test.ts`, and `server/src/test/integration/chat-copilot-resume.test.ts` to pin down the real Copilot tool-registration seam for both create and resume flows.
+1. [ ] Re-read the review evidence for Finding `1`, then inspect `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/copilotTools.ts`, `server/src/test/unit/chat-interface-copilot.test.ts`, and `server/src/test/integration/chat-copilot-resume.test.ts` to pin down the real Copilot tool-registration seam for both create and resume flows.
 2. [ ] Repair the shared Copilot session-construction path in `server/src/chat/interfaces/ChatInterfaceCopilot.ts` and any required helper seam in `server/src/chat/copilotTools.ts` so `toolAccess: 'off'` removes tool execution capability at that real registration seam, while `toolAccess: 'on'` still exposes the normal repository-managed tool bundle.
 3. [ ] Repair `server/src/test/unit/chat-interface-copilot.test.ts` so it proves the fresh create-session path passes no SDK-facing tool-registration inputs when `toolAccess: 'off'`, while preserving the expected repository-managed tool bundle when `toolAccess: 'on'`; if the existing permission-focused case titles would become misleading, rename or split them so the kept assertions explicitly claim the tool-registration invariant instead of adjacent session-config behavior.
 4. [ ] Repair `server/src/test/integration/chat-copilot-resume.test.ts` so it proves the resumed-session path preserves that same On/Off contract at the real session-construction seam instead of only asserting empty metadata.
@@ -1227,8 +1228,8 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 #### Addresses Findings
 
-- Review pass `0000056-20260429T204701Z-484b4dd4`
-- Finding `8`: LM Studio temperature and maxTokens domains drift across discovery, validation, config defaults, and runtime execution.
+- Review pass `0000056-20260430T002543Z-86b67f53`
+- Finding `2`: LM Studio config-backed defaults can bypass the bounded temperature and maxTokens domains advertised and validated publicly.
 
 #### Documentation Locations
 
@@ -1236,7 +1237,7 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `8`, then inspect `server/src/routes/chatDiscovery.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` to map every LM Studio surface that currently computes or accepts `temperature` / `maxTokens`.
+1. [ ] Re-read the review evidence for Finding `2`, then inspect `server/src/routes/chatDiscovery.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/config/chatDefaults.ts`, and `server/src/routes/chatModels.ts` to map every LM Studio surface that currently computes or accepts `temperature` / `maxTokens`.
 2. [ ] Implement one shared bounded LM Studio domain across `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/config/chatDefaults.ts` so request validation, provider-local defaults, discovery metadata, and runtime execution all agree.
 3. [ ] Repair or split `server/src/test/unit/chatModels.codex.test.ts` so the LM Studio discovery proof explicitly claims that the normal discovery entrypoint surfaces only bounded resolved defaults and does not advertise widened `temperature` / `maxTokens` values from provider-local config; do not hide that invariant behind a Codex-only test title if the existing case wording no longer matches.
 4. [ ] Repair `server/src/test/unit/chatValidators.test.ts` so it proves request-time invalid, blank, whitespace-only, and out-of-range LM Studio flag inputs are rejected against the same bounded contract.
@@ -1273,8 +1274,8 @@ This review-created task restores the authority boundary between ordinary conver
 
 #### Addresses Findings
 
-- Review pass `0000056-20260429T204701Z-484b4dd4`
-- Finding `10`: Ordinary conversation writes can inject flow-owned metadata that later crosses into trusted resume state.
+- Review pass `0000056-20260430T002543Z-86b67f53`
+- Finding `3`: Ordinary conversation writes can persist flow-owned metadata that later drives resume identity and sidebar display state.
 
 #### Documentation Locations
 
@@ -1282,7 +1283,7 @@ This review-created task restores the authority boundary between ordinary conver
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `10`, then inspect `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, and `client/src/components/chat/ConversationList.tsx` to separate ordinary REST-owned flags from flow-engine-owned `flags.flow` and `flags.flowChild`, including the persisted-state consumers that rely on those fields later.
+1. [ ] Re-read the review evidence for Finding `3`, then inspect `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, and `client/src/components/chat/ConversationList.tsx` to separate ordinary REST-owned flags from flow-engine-owned `flags.flow` and `flags.flowChild`, including the persisted-state consumers that rely on those fields later.
 2. [ ] Repair the ordinary conversation write path in `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, and `server/src/chat/agentFlags.ts` so REST callers cannot persist `flags.flow` or `flags.flowChild`, any contradictory client-held flow metadata is excluded from submission instead of being merged into persisted state, and the flow engine’s nested `$set` writers remain the only supported path that can create or mutate those server-owned structures.
 3. [ ] Repair `server/src/test/integration/conversations.create.test.ts` so it proves ordinary conversation creation and update requests cannot smuggle `flags.flow` or `flags.flowChild` through the REST-owned write path.
 4. [ ] Repair `server/src/test/unit/flows.flags.test.ts` so it proves the flow engine’s nested `$set` writers remain the legitimate owner of persisted `flags.flow` and `flags.flowChild` after the boundary repair.
@@ -1321,8 +1322,8 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 
 #### Addresses Findings
 
-- Review pass `0000056-20260429T204701Z-484b4dd4`
-- Finding `11`: Copilot startup seeding has a time-of-check/time-of-use overwrite window for live runtime artifacts.
+- Review pass `0000056-20260430T002543Z-86b67f53`
+- Finding `4`: Copilot startup seeding can still overwrite fresher runtime artifacts after an earlier existence check.
 
 #### Documentation Locations
 
@@ -1330,7 +1331,7 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `11`, then inspect `server/src/config/copilotSeedBootstrap.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, and `server/src/test/integration/copilot.boot-path.test.ts` to pin down the exact preflight-to-rename sequence that currently leaves the overwrite window open.
+1. [ ] Re-read the review evidence for Finding `4`, then inspect `server/src/config/copilotSeedBootstrap.ts`, `server/src/config/copilotConfig.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, and `server/src/test/integration/copilot.boot-path.test.ts` to pin down the exact preflight-to-rename sequence that currently leaves the overwrite window open.
 2. [ ] Repair `server/src/config/copilotSeedBootstrap.ts` so the helper preserves the same live-runtime ownership condition through the actual write path, keeps any staged or temporary seed artifacts under bootstrap-helper cleanup ownership, and never leaves partially seeded runtime files visible to later readers on skip or failure, without breaking the existing empty-runtime bootstrap or already-initialized skip behavior.
 3. [ ] Repair or split `server/src/test/unit/copilotSeedBootstrap.test.ts` so it proves the helper distinguishes the three required cases explicitly: empty runtime bootstraps, initialized runtime skips, and a mid-sequence runtime initialization is not overwritten by the delayed seed-import write path; the planned proof must also cover helper-owned staged/temp artifact cleanup on skip or failure and assert the exact combined replay-safety scenario at a deterministic boundary instead of only observing the earlier preflight or the later final state.
 4. [ ] Repair or add a dedicated replay-safe startup case in `server/src/test/integration/copilot.boot-path.test.ts` so the repository-supported boot path explicitly claims the same no-overwrite behavior through the default startup seam, including that later provider discovery sees either the clean seeded runtime or the preserved pre-existing runtime rather than a partial mixed state, instead of relying on provider-visibility or default-model assertions that only prove adjacent success behavior.
@@ -1344,28 +1345,69 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 
 - None yet.
 
-### Task 13. Revalidate review pass 0000056-20260429T204701Z-484b4dd4 after review-task repairs
+### Task 13. Remove tracked ignored review-loop artifacts from durable repository state
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 9, Task 10, Task 11, Task 12`
+- Task Dependencies: `Task 8`
 - Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview
 
-This final review-created task owns the whole current review cycle’s post-repair validation. It revalidates the unresolved task-required findings from review pass `0000056-20260429T204701Z-484b4dd4` and also revalidates the inline-resolved minor findings from review cycle `0000056-rc-20260429T221156Z-0bdaac8a` so the story has one honest closeout owner for the full review-created block.
+This review-created task cleans up the ignored-but-tracked workflow artifact families that the current review pass flagged as durable-state drift. The repair must stop scratch review-loop state under `codeInfoStatus/flow-state/` and prior-pass artifacts under `codeInfoTmp/reviews/` from behaving like committed long-term inputs unless a file is intentionally promoted into a durable reviewer-facing home.
 
 #### Task Exit Criteria
 
-- Review-created findings `3`, `8`, `10`, and `11` are revalidated on the repository-supported regression surfaces after their repair tasks complete.
-- Inline-resolved minor findings `1`, `2`, `4`, `5`, `6`, `7`, `9`, and `12` are revalidated as part of the same final pass, so the review cycle does not require a second final revalidation owner.
-- The final regression summary, reviewer-facing artifacts, and this plan all reflect one clean post-repair story state for review cycle `0000056-rc-20260429T221156Z-0bdaac8a`.
+- The targeted ignored workflow-artifact families addressed by this finding are no longer tracked as durable repository state.
+- Any workflow surface that still needs to stay versioned lives in an intentional durable location rather than under an ignored scratch-state family.
+- Story workflow helpers and docs no longer rely on tracked scratch-state artifacts to resolve the active story or review outcome.
 
 #### Addresses Findings
 
-- Review pass `0000056-20260429T204701Z-484b4dd4`
-- Final revalidation owner for review-created findings `3`, `8`, `10`, and `11`
-- Final revalidation owner for inline-resolved minor findings `1`, `2`, `4`, `5`, `6`, `7`, `9`, and `12` from review cycle `0000056-rc-20260429T221156Z-0bdaac8a`
+- Review pass `0000056-20260430T002543Z-86b67f53`
+- Finding `5`: Ignored-path workflow artifacts remain tracked under `codeInfoStatus` and `codeInfoTmp` scratch-state families.
+
+#### Documentation Locations
+
+- No additional external documentation is required for this review-created repair; use the repository-owned workflow files, ignore rules, and helper surfaces named below.
+
+#### Subtasks
+
+1. [ ] Re-read the review evidence for Finding `5`, then inspect `.gitignore`, `codeInfoStatus/flow-state/`, `codeInfoTmp/reviews/`, and the current `git ls-files -ci --exclude-standard` inventory to separate truly scratch review-loop artifacts from intentionally durable workflow-owned files.
+2. [ ] Repair repository tracking so the targeted scratch-state families under `codeInfoStatus/flow-state/` and prior-pass `codeInfoTmp/reviews/` artifacts stop being tracked, while any file that must remain durable is either kept in or moved to an intentional durable home such as the canonical plan, `codeInfoStatus/pr-summaries/`, or another explicitly versioned location.
+3. [ ] Repair any repository-owned workflow helper or documentation surface that still assumes those ignored scratch-state artifacts remain tracked, so later automation resolves the active story and review outcome through the durable handoff, plan, and summary surfaces instead of through tracked scratch-state files.
+
+#### Testing
+
+1. [ ] Run `git ls-files -ci --exclude-standard` from the repository root and confirm the targeted ignored review-loop artifact families addressed by this task are no longer reported as tracked.
+2. [ ] Run `python3 scripts/story_workflow_status.py` from the repository root to prove the repaired durable workflow surfaces still let the repository resolve the active story and review routing after the cleanup.
+
+#### Implementation notes
+
+- None yet.
+
+### Task 14. Revalidate review pass 0000056-20260430T002543Z-86b67f53 after review-task repairs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 9, Task 10, Task 11, Task 12, Task 13`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This final review-created task owns the whole current review cycle’s post-repair validation for review pass `0000056-20260430T002543Z-86b67f53`. It revalidates the five unresolved task-required findings encoded in the active review state and proves the repaired story still holds on the repository-supported broad regression surfaces after those repair tasks complete.
+
+#### Task Exit Criteria
+
+- Review-created findings `1`, `2`, `3`, `4`, and `5` are revalidated on their focused proof owners and on the repository-supported broad regression surfaces after their repair tasks complete.
+- No second final-revalidation owner is required for this active review cycle because no inline-resolved minor findings were recorded before task-up began.
+- The final regression summary, reviewer-facing artifacts, and this plan all reflect one clean post-repair story state for review cycle `0000056-rc-20260430T005807Z-5b91b96f`.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260430T002543Z-86b67f53`
+- Final revalidation owner for review-created findings `1`, `2`, `3`, `4`, and `5`
+- No inline-resolved minor findings were recorded in review cycle `0000056-rc-20260430T005807Z-5b91b96f` before task-up routing started.
 
 #### Affected Repositories
 
@@ -1377,22 +1419,24 @@ This final review-created task owns the whole current review cycle’s post-repa
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000056-20260429T204701Z-484b4dd4`, the inline-resolved `Minor Review Fixes` block, and `codeInfoStatus/pr-summaries/0000056-pr-summary.md`, then prepare one compact coverage checklist that maps each serious finding (`3`, `8`, `10`, `11`) and each already-resolved inline minor finding (`1`, `2`, `4`, `5`, `6`, `7`, `9`, `12`) to its focused proof owner (`server/src/test/unit/chat-interface-copilot.test.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`, `server/src/test/integration/conversations.create.test.ts`, `server/src/test/unit/flows.flags.test.ts`, `server/src/test/integration/flows.run.resume.test.ts`, `server/src/test/unit/chat-route-warning-label.test.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, `server/src/test/integration/copilot.boot-path.test.ts`) plus the broad wrapper surface that must still pass for final closeout.
-2. [ ] Before treating broad wrapper, Compose, or browser-visible output as task-owned evidence, map the final server build, final client build, compose-build, full server-unit, full server-cucumber, full client, full e2e, and compose-up readiness surfaces named in `Testing` as the shared baseline and runtime-handoff owners; if any of those surfaces fail before a review-specific assertion runs, treat that path as a baseline blocker instead of retrying downstream proof blindly.
-3. [ ] Prepare `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and the `Implementation notes` sections for Tasks `9` through `13` so they can record which focused proof owner and which wrapper surface closed each serious finding and each inline minor finding for review pass `0000056-20260429T204701Z-484b4dd4` and review cycle `0000056-rc-20260429T221156Z-0bdaac8a` once the `Testing` section runs cleanly.
+1. [ ] Re-read the `Code Review Findings` block for review pass `0000056-20260430T002543Z-86b67f53`, the current active review state, and `codeInfoStatus/pr-summaries/0000056-pr-summary.md`, then prepare one compact coverage checklist that maps finding `1` to `server/src/test/unit/chat-interface-copilot.test.ts` plus `server/src/test/integration/chat-copilot-resume.test.ts`, finding `2` to `server/src/test/unit/chatModels.codex.test.ts` plus `server/src/test/unit/chatValidators.test.ts` plus `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` plus `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`, finding `3` to `server/src/test/integration/conversations.create.test.ts` plus `server/src/test/unit/flows.flags.test.ts` plus `server/src/test/integration/flows.run.resume.test.ts` plus `client/src/test/chatSidebar.test.tsx`, finding `4` to `server/src/test/unit/copilotSeedBootstrap.test.ts` plus `server/src/test/integration/copilot.boot-path.test.ts`, and finding `5` to `git ls-files -ci --exclude-standard` plus `python3 scripts/story_workflow_status.py`, together with the broad wrapper surface that must still pass for closeout.
+2. [ ] Before treating broad wrapper, Compose, or browser-visible output as task-owned evidence, map the final compose-build, server build, client build, full server-unit, full server-cucumber, full client, full e2e, and compose-up readiness surfaces named in `Testing` as the shared baseline and runtime-handoff owners; if any of those surfaces fail before a review-specific assertion runs, treat that path as a baseline blocker instead of retrying downstream proof blindly.
+3. [ ] Prepare `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and the `Implementation notes` sections for Tasks `9` through `14` so they can record which focused proof owner and which wrapper surface closed each review-created finding for review pass `0000056-20260430T002543Z-86b67f53` and review cycle `0000056-rc-20260430T005807Z-5b91b96f` once the `Testing` section runs cleanly.
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared Docker build path still holds after the full review-created repair block.
-2. [ ] Run `npm run build:summary:server` from the repository root to prove the final server workspace build still passes after the review-created repairs.
-3. [ ] Run `npm run build:summary:client` from the repository root to prove the final client workspace build still passes after the review-created repairs.
-4. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the repaired server seams plus the focused inline-minor server proofs together on the repository-supported wrapper path.
-5. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the affected route and defaults behavior still holds on the repository-supported feature surface after the review-created repairs.
-6. [ ] Run `npm run test:summary:client` from the repository root to prove the repaired client seams plus the inline-resolved stop-lock proofs together on the repository-supported wrapper path.
-7. [ ] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported automated browser regression surface still holds after the whole review-created repair block.
-8. [ ] Run `npm run compose:up`, verify `http://localhost:5010/health` and `http://localhost:5001` with `curl -f`, then run `npm run compose:down` so the normal supported runtime path is revalidated after the review-created repairs.
-9. [ ] Run `npm run lint` from the repository root to prove the final review-created repair block still passes the shared ESLint gate.
-10. [ ] Run `npm run format:check` from the repository root to prove the final review-created repair block still passes the shared formatting gate.
+1. [ ] Run `git ls-files -ci --exclude-standard` from the repository root to prove finding `5` no longer leaves the targeted ignored review-loop artifact families tracked after the repair block lands.
+2. [ ] Run `python3 scripts/story_workflow_status.py` from the repository root to prove the repaired durable workflow surfaces still resolve the active story and review-routing state after the tracked-artifact cleanup.
+3. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared Docker build path still holds after the full review-created repair block.
+4. [ ] Run `npm run build:summary:server` from the repository root to prove the final server workspace build still passes after the review-created repairs.
+5. [ ] Run `npm run build:summary:client` from the repository root to prove the final client workspace build still passes after the review-created repairs.
+6. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the repaired server seams together on the repository-supported wrapper path.
+7. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the affected route and defaults behavior still holds on the repository-supported feature surface after the review-created repairs.
+8. [ ] Run `npm run test:summary:client` from the repository root to prove the repaired client seams together on the repository-supported wrapper path.
+9. [ ] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported automated browser regression surface still holds after the whole review-created repair block.
+10. [ ] Run `npm run compose:up`, verify `http://localhost:5010/health` and `http://localhost:5001` with `curl -f`, then run `npm run compose:down` so the normal supported runtime path is revalidated after the review-created repairs.
+11. [ ] Run `npm run lint` from the repository root to prove the final review-created repair block still passes the shared ESLint gate.
+12. [ ] Run `npm run format:check` from the repository root to prove the final review-created repair block still passes the shared formatting gate.
 
 #### Manual Testing Guidance
 
@@ -1401,7 +1445,7 @@ Optional guidance for the manual testing agent only.
 - Reuse the supported normal human stack from Task 8 after the review-created repairs land: `npm run compose:build`, then `npm run compose:up`, using the standard env-file path through `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`.
 - Treat `http://localhost:5010/health` and `http://localhost:5001` as the baseline readiness checks before any browser-visible review proof, and use the standard server/client ports rather than a review-only runtime path.
 - For any Copilot-runtime-sensitive recheck, keep the existing main-stack mount namespace unchanged: the seed source stays `./copilot:/seed/copilot:ro`, the writable runtime home stays the `copilot-data` volume at `/app/copilot`, and a red state there is a runtime-handoff issue rather than evidence that a review-created code repair failed.
-- Capture any final review-cycle-visible proof under `codeInfoTmp/manual-testing/0000056/review-pass-0000056-20260429T204701Z-484b4dd4/` if browser-visible confirmation adds confidence.
+- Capture any final review-cycle-visible proof under `codeInfoTmp/manual-testing/0000056/review-pass-0000056-20260430T002543Z-86b67f53/` if browser-visible confirmation adds confidence.
 
 #### Implementation notes
 

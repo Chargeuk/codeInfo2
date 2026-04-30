@@ -745,4 +745,56 @@ describe('Chat page sidebar conversation selection', () => {
       screen.queryByRole('combobox', { name: /tool access/i }),
     ).not.toBeInTheDocument();
   }, 10000);
+
+  it('reloads LM Studio models and replaces a persisted Codex model label when the next-send provider changes', async () => {
+    const user = userEvent.setup();
+    mockApi();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const codexRowTitle = await screen.findByText('Codex conversation');
+    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
+    if (!codexRow) {
+      throw new Error('Codex conversation row not found');
+    }
+
+    await act(async () => {
+      await user.click(codexRow);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5\.1-codex-max/i,
+      ),
+    );
+
+    await selectProvider(user, /^LM Studio$/i);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /LM Studio/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some(([url]) =>
+          String(url).includes('/chat/models?provider=lmstudio'),
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /LM Model/i,
+      ),
+    );
+    expect(screen.getByTestId('model-select')).not.toHaveTextContent(
+      /gpt-5\.1-codex-max/i,
+    );
+  });
 });

@@ -327,6 +327,9 @@ export function useChatModel() {
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
   const providerRef = useRef<ChatProviderId | undefined>(undefined);
+  const hydratedModelsProviderRef = useRef<ChatProviderId | undefined>(
+    undefined,
+  );
 
   const [providers, setProviders] = useState<ChatProviderInfo[]>([]);
   const [providerState, setProviderState] = useState<
@@ -606,6 +609,7 @@ export function useChatModel() {
         setAvailable(Boolean(data.available));
         setToolsAvailable(Boolean(data.toolsAvailable));
         setProviderReason(data.reason);
+        hydratedModelsProviderRef.current = effectiveProvider;
         const resolvedProviderInfo =
           data.providerInfo ??
           data.providers?.find((entry) => entry.id === effectiveProvider);
@@ -639,6 +643,7 @@ export function useChatModel() {
         setAvailable(false);
         setToolsAvailable(false);
         setProviderReason(message);
+        hydratedModelsProviderRef.current = undefined;
         setProviderInfo(undefined);
         setCodexDefaults(undefined);
         setCodexWarnings(undefined);
@@ -669,6 +674,23 @@ export function useChatModel() {
     const selectedProvider = providerState
       ? providers.find((entry) => entry.id === providerState)
       : undefined;
+
+    if (
+      providerState &&
+      hydratedModelsProviderRef.current &&
+      hydratedModelsProviderRef.current !== providerState
+    ) {
+      hydratedModelsProviderRef.current = undefined;
+      setModels([]);
+      setSelected(undefined, { source: 'model-fallback' });
+      setProviderInfo(undefined);
+      setCodexDefaults(undefined);
+      setCodexWarnings(undefined);
+      setProviderReason(selectedProvider?.reason);
+      setAvailable(Boolean(selectedProvider?.available));
+      setToolsAvailable(Boolean(selectedProvider?.toolsAvailable));
+    }
+
     if (
       providerState &&
       !legacyBootstrapRef.current &&

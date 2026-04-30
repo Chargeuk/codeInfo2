@@ -936,6 +936,10 @@ export default function ChatPage() {
     const previousProvider = provider ?? null;
     const currentConversationId = activeConversationId ?? null;
     handleNewConversation({ reason: 'provider-change', nextProvider });
+    setSelected(undefined, {
+      nextSendOnly: true,
+      source: 'model-fallback',
+    });
     setProvider(nextProvider, {
       nextSendOnly: true,
       source: 'provider-change',

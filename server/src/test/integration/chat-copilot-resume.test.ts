@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import request from 'supertest';
 
-import { getMemoryTurns } from '../../chat/memoryPersistence.js';
 import {
   startCopilotChatServer,
   waitForAssistantTurn,

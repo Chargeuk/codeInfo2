@@ -521,14 +521,8 @@ test('seeded runtime boot normalizes the surfaced Copilot default model and lets
 
     const createdSessionConfig = await sdkHarness.waitForCreateSessionConfig();
 
-    assert.equal(
-      createdSessionConfig.model,
-      'gpt-5-mini',
-    );
-    assert.equal(
-      createdSessionConfig.reasoningEffort,
-      undefined,
-    );
+    assert.equal(createdSessionConfig.model, 'gpt-5-mini');
+    assert.equal(createdSessionConfig.reasoningEffort, undefined);
   } finally {
     if (originalCopilotHome === undefined) {
       delete process.env.CODEINFO_COPILOT_HOME;

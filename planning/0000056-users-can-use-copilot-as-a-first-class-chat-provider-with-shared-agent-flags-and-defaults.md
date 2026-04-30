@@ -1220,7 +1220,7 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 4`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

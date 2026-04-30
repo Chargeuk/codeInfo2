@@ -4,7 +4,8 @@ Repair broken review-loop flow state for the current story so review exit routin
 
 <critical_rules>
 
-- Run `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` first and use its JSON output as the source of truth for what needs repair when it returns usable output.
+- Run `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` before making any repair decision, and use its JSON output as the source of truth for what needs repair when it returns usable output.
+- Only if manual fallback is required may you inspect `codeInfoStatus/flow-state/current-plan.json` or `codeInfoStatus/flow-state/review-disposition-state.json` directly to determine repair state.
 - Perform a manual fallback only if `story_workflow_status.py` is missing, unreadable, cannot be invoked because Python is unavailable, exits before producing usable JSON, or returns empty or malformed output.
 - Do not use manual fallback to override valid script output, including a valid `repair_needed: false` or `review_state_repair_needed: false` result.
 - Repair story scope first when `repair_needed` is true.

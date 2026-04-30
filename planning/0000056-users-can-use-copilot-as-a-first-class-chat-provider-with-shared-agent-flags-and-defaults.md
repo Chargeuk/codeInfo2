@@ -1360,7 +1360,7 @@ This review-created task cleans up the ignored-but-tracked workflow artifact fam
 
 - The targeted ignored workflow-artifact families addressed by this finding are no longer tracked as durable repository state.
 - Any workflow surface that still needs to stay versioned lives in an intentional durable location rather than under an ignored scratch-state family.
-- Story workflow helpers and docs no longer rely on tracked scratch-state artifacts to resolve the active story or review outcome.
+- Story workflow helpers and docs no longer rely on tracked scratch-state artifacts to resolve the active story or review outcome, including the current-story handoff and review-routing surfaces.
 
 #### Addresses Findings
 
@@ -1373,14 +1373,14 @@ This review-created task cleans up the ignored-but-tracked workflow artifact fam
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `5`, then inspect `.gitignore`, `codeInfoStatus/flow-state/`, `codeInfoTmp/reviews/`, and the current `git ls-files -ci --exclude-standard` inventory to separate truly scratch review-loop artifacts from intentionally durable workflow-owned files.
-2. [ ] Repair repository tracking so the targeted scratch-state families under `codeInfoStatus/flow-state/` and prior-pass `codeInfoTmp/reviews/` artifacts stop being tracked, while any file that must remain durable is either kept in or moved to an intentional durable home such as the canonical plan, `codeInfoStatus/pr-summaries/`, or another explicitly versioned location.
-3. [ ] Repair any repository-owned workflow helper or documentation surface that still assumes those ignored scratch-state artifacts remain tracked, so later automation resolves the active story and review outcome through the durable handoff, plan, and summary surfaces instead of through tracked scratch-state files.
+1. [ ] Re-read the review evidence for Finding `5`, then inspect `.gitignore`, `codeInfoStatus/flow-state/`, `codeInfoTmp/reviews/`, `scripts/story_workflow_status.py`, and the current `git ls-files -ci --exclude-standard` inventory to separate truly scratch review-loop artifacts from intentionally durable workflow-owned files.
+2. [ ] Repair repository tracking for the concrete ignored families implicated by this finding so prior-pass artifacts under `codeInfoTmp/reviews/` and any scratch-only review-loop state under `codeInfoStatus/flow-state/` stop being tracked, while any file that must remain durable is kept in or moved to an intentional durable home such as the canonical plan, `codeInfoStatus/pr-summaries/`, or another explicitly versioned location.
+3. [ ] Repair `scripts/story_workflow_status.py` and any repository-owned workflow helper or documentation surface that still assumes those ignored scratch-state artifacts remain tracked, so later automation resolves the active story and review outcome through the durable handoff, plan, and summary surfaces instead of through tracked scratch-state files.
 
 #### Testing
 
-1. [ ] Run `git ls-files -ci --exclude-standard` from the repository root and confirm the targeted ignored review-loop artifact families addressed by this task are no longer reported as tracked.
-2. [ ] Run `python3 scripts/story_workflow_status.py` from the repository root to prove the repaired durable workflow surfaces still let the repository resolve the active story and review routing after the cleanup.
+1. [ ] Run `git ls-files -ci --exclude-standard` from the repository root and confirm the targeted ignored workflow-artifact families addressed by this task are no longer reported as tracked.
+2. [ ] Run `python3 scripts/story_workflow_status.py` from the repository root and confirm it still resolves Story `0000056`, the active plan, and healthy review routing after the cleanup.
 
 #### Implementation notes
 
@@ -1402,6 +1402,7 @@ This final review-created task owns the whole current review cycle’s post-repa
 - Review-created findings `1`, `2`, `3`, `4`, and `5` are revalidated on their focused proof owners and on the repository-supported broad regression surfaces after their repair tasks complete.
 - No second final-revalidation owner is required for this active review cycle because no inline-resolved minor findings were recorded before task-up began.
 - The final regression summary, reviewer-facing artifacts, and this plan all reflect one clean post-repair story state for review cycle `0000056-rc-20260430T005807Z-5b91b96f`.
+- The repaired workflow-routing surface for finding `5` still resolves the active story cleanly after tracked-artifact cleanup, rather than passing broad wrappers while review handoff state remains ambiguous.
 
 #### Addresses Findings
 
@@ -1421,12 +1422,12 @@ This final review-created task owns the whole current review cycle’s post-repa
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000056-20260430T002543Z-86b67f53`, the current active review state, and `codeInfoStatus/pr-summaries/0000056-pr-summary.md`, then prepare one compact coverage checklist that maps finding `1` to `server/src/test/unit/chat-interface-copilot.test.ts` plus `server/src/test/integration/chat-copilot-resume.test.ts`, finding `2` to `server/src/test/unit/chatModels.codex.test.ts` plus `server/src/test/unit/chatValidators.test.ts` plus `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` plus `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`, finding `3` to `server/src/test/integration/conversations.create.test.ts` plus `server/src/test/unit/flows.flags.test.ts` plus `server/src/test/integration/flows.run.resume.test.ts` plus `client/src/test/chatSidebar.test.tsx`, finding `4` to `server/src/test/unit/copilotSeedBootstrap.test.ts` plus `server/src/test/integration/copilot.boot-path.test.ts`, and finding `5` to `git ls-files -ci --exclude-standard` plus `python3 scripts/story_workflow_status.py`, together with the broad wrapper surface that must still pass for closeout.
 2. [ ] Before treating broad wrapper, Compose, or browser-visible output as task-owned evidence, map the final compose-build, server build, client build, full server-unit, full server-cucumber, full client, full e2e, and compose-up readiness surfaces named in `Testing` as the shared baseline and runtime-handoff owners; if any of those surfaces fail before a review-specific assertion runs, treat that path as a baseline blocker instead of retrying downstream proof blindly.
-3. [ ] Prepare `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and the `Implementation notes` sections for Tasks `9` through `14` so they can record which focused proof owner and which wrapper surface closed each review-created finding for review pass `0000056-20260430T002543Z-86b67f53` and review cycle `0000056-rc-20260430T005807Z-5b91b96f` once the `Testing` section runs cleanly.
+3. [ ] Prepare `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and the `Implementation notes` sections for Tasks `9` through `14` so they can record which focused proof owner and which wrapper surface closed each review-created finding for review pass `0000056-20260430T002543Z-86b67f53` and review cycle `0000056-rc-20260430T005807Z-5b91b96f`, including whether finding `5` was closed by tracked-artifact inventory cleanup, durable-path relocation, helper repair, or some combination of those steps.
 
 #### Testing
 
 1. [ ] Run `git ls-files -ci --exclude-standard` from the repository root to prove finding `5` no longer leaves the targeted ignored review-loop artifact families tracked after the repair block lands.
-2. [ ] Run `python3 scripts/story_workflow_status.py` from the repository root to prove the repaired durable workflow surfaces still resolve the active story and review-routing state after the tracked-artifact cleanup.
+2. [ ] Run `python3 scripts/story_workflow_status.py` from the repository root and confirm it reports Story `0000056`, the active plan, `repair_needed: false`, and `review_state_repair_needed: false` after the tracked-artifact cleanup.
 3. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared Docker build path still holds after the full review-created repair block.
 4. [ ] Run `npm run build:summary:server` from the repository root to prove the final server workspace build still passes after the review-created repairs.
 5. [ ] Run `npm run build:summary:client` from the repository root to prove the final client workspace build still passes after the review-created repairs.

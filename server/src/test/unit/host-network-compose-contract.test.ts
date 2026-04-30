@@ -57,11 +57,16 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(mainServer, /\.\/codex:/u);
   assert.doesNotMatch(mainServer, /\.\/codex_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/flows-sandbox:/u);
+  assert.match(mainServer, /\.\/scripts:\/app\/scripts:ro/u);
+  assert.match(
+    mainServer,
+    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
+  );
   assert.match(
     mainServer,
     /CODEINFO_PLAYWRIGHT_MCP_URL=http:\/\/host\.docker\.internal:8932\/mcp/u,
   );
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
@@ -79,6 +84,11 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(localServer, /\n\s+networks:/u);
   assert.match(localServer, /\.\/codex:\/app\/codex/u);
   assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
+  assert.match(localServer, /\.\/scripts:\/app\/scripts:ro/u);
+  assert.match(
+    localServer,
+    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
+  );
   assert.match(localServer, /\.\/flows:\/app\/flows/u);
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
@@ -90,7 +100,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     localServer,
     /\/var\/run\/docker\.sock:\/var\/run\/docker\.sock/u,
   );
-  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
+  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
 
   const localPlaywright = getServiceBlock(localCompose, 'playwright-mcp');
   assert.match(localPlaywright, /network_mode: host/u);
@@ -114,10 +124,15 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.doesNotMatch(e2eServer, /\.\/e2e\/fixtures\/repo:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex_agents:/u);
+  assert.match(e2eServer, /\.\/scripts:\/app\/scripts:ro/u);
+  assert.match(
+    e2eServer,
+    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
+  );
   assert.match(e2eServer, /CODEINFO_SERVER_PORT=6010/u);
   assert.match(
     e2eServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,
   );
-  assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0/u);
+  assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
 });

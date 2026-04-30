@@ -22,7 +22,7 @@ services:
       - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.yml
       - CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8932
-      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=0
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2
       # Override to use host.docker.internal for ChromaDB
       - CODEINFO_LOG_FILE_PATH=/app/logs/server.log
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
@@ -43,6 +43,8 @@ services:
     volumes:
       - ./logs:/app/logs
       - copilot-data:/app/copilot
+      - ./scripts:/app/scripts:ro
+      - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ${CODEINFO_HOST_INGEST_DIR:-/tmp}:${CODEINFO_CODEX_WORKDIR}:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'

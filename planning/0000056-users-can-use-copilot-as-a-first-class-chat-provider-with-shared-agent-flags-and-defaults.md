@@ -1366,8 +1366,8 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the focused seed-import helper contract after the repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the same replay-safe behavior still holds on the repository-supported boot path.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the focused seed-import helper contract after the repair.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the same replay-safe behavior still holds on the repository-supported boot path.
 
 #### Implementation notes
 
@@ -1375,6 +1375,8 @@ This review-created task repairs the remaining time-of-check/time-of-use overwri
 - Subtask 2 complete: rewrote `importCopilotSeedIntoRuntimeHome(...)` to treat any existing runtime artifact as runtime ownership, stage seed artifacts under helper-owned temporary state, publish files with no-overwrite semantics, and roll back only helper-owned writes if a runtime artifact appears mid-sequence or a later publish fails. The helper now keeps the existing empty-runtime bootstrap and initialized-runtime skip behavior while cleaning staged state on every exit path.
 - Subtask 3 complete: expanded `server/src/test/unit/copilotSeedBootstrap.test.ts` with deterministic hook-driven proof for the replay-safe mid-sequence runtime initialization case and for helper-owned staged-artifact cleanup on publish failure. The unit proof now claims the three required helper outcomes explicitly instead of inferring replay safety from only the earlier preflight or only the final happy-path state.
 - Subtask 4 complete: added a dedicated replay-safe startup case in `server/src/test/integration/copilot.boot-path.test.ts` that drives the same helper seam through the repository-supported boot-path visibility surface. The integration proof now asserts that a runtime initializing after preflight stays visible to provider/model discovery and that helper-owned stage directories are cleaned instead of leaving a mixed seed/runtime state behind.
+- Testing 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` now passes. The first rerun exposed that hard-linking the staged seed file into place let an in-place runtime rewrite mutate the staged comparison copy too, so file publish now goes through a hidden temp copy plus exclusive link and the replay-safe rollback guard compares against an immutable staged seed artifact instead.
+- Testing 2 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` now passes, including the dedicated replay-safe startup case. The supported boot-path visibility surface now proves later provider/model discovery sees the preserved runtime after a post-preflight initialization instead of surfacing a mixed seed/runtime state.
 
 ### Task 13. Remove tracked ignored review-loop artifacts from durable repository state
 

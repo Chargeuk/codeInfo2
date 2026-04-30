@@ -233,14 +233,20 @@ async function publishStagedArtifact(params: {
     }
   }
 
+  const publishTempPath = `${params.targetPath}.codeinfo-publish.${process.pid}.${Date.now()}.${Math.random()
+    .toString(16)
+    .slice(2)}.tmp`;
   try {
-    await fs.promises.link(params.stagedPath, params.targetPath);
+    await fs.promises.copyFile(params.stagedPath, publishTempPath);
+    await fs.promises.link(publishTempPath, params.targetPath);
     return 'copied';
   } catch (error) {
     if ((error as NodeJS.ErrnoException | undefined)?.code === 'EEXIST') {
       return 'skipped_existing_runtime';
     }
     throw error;
+  } finally {
+    await cleanupPath(publishTempPath).catch(() => {});
   }
 }
 
@@ -265,14 +271,11 @@ async function rollbackCreatedArtifacts(
   for (const artifact of [...artifacts].reverse()) {
     if (artifact.kind === 'file') {
       try {
-        const [targetStats, stagedStats] = await Promise.all([
-          fs.promises.lstat(artifact.targetPath),
-          fs.promises.lstat(artifact.stagedPath),
+        const [targetContents, stagedContents] = await Promise.all([
+          fs.promises.readFile(artifact.targetPath),
+          fs.promises.readFile(artifact.stagedPath),
         ]);
-        if (
-          targetStats.dev !== stagedStats.dev ||
-          targetStats.ino !== stagedStats.ino
-        ) {
+        if (!targetContents.equals(stagedContents)) {
           continue;
         }
       } catch {

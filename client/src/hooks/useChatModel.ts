@@ -699,7 +699,7 @@ export function useChatModel() {
     ) {
       void refreshModels(providerState);
     }
-  }, [providerState, providerStatus, providers, refreshModels]);
+  }, [providerState, providerStatus, providers, refreshModels, setSelected]);
 
   const flags = useMemo(() => {
     const isLoading =

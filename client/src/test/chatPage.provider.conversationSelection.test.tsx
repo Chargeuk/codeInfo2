@@ -789,9 +789,7 @@ describe('Chat page sidebar conversation selection', () => {
       ).toBe(true),
     );
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /LM Model/i,
-      ),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(/LM Model/i),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
       /gpt-5\.1-codex-max/i,

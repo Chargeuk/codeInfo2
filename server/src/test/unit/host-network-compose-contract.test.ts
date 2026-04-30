@@ -134,10 +134,7 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.doesNotMatch(e2eServer, /\.\/codex:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex_agents:/u);
   assert.match(e2eServer, /\.\/scripts:\/app\/scripts:ro/u);
-  assert.match(
-    e2eServer,
-    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
-  );
+  assert.match(e2eServer, /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u);
   assert.match(e2eServer, /CODEINFO_SERVER_PORT=6010/u);
   assert.match(e2eServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(

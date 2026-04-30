@@ -8,7 +8,11 @@ import type { ModelInfo } from '@github/copilot-sdk';
 import express from 'express';
 import request from 'supertest';
 
-import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
+import {
+  __resetCopilotSeedBootstrapHooksForTests,
+  __setCopilotSeedBootstrapHooksForTests,
+  importCopilotSeedIntoRuntimeHome,
+} from '../../config/copilotSeedBootstrap.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
@@ -85,6 +89,16 @@ async function hasBootstrappedRuntime(runtimeHome: string) {
   } catch {
     return false;
   }
+}
+
+async function listBootstrapStageRoots(parentDir: string) {
+  const entries = await fs.readdir(parentDir, { withFileTypes: true });
+  return entries
+    .filter(
+      (entry) =>
+        entry.isDirectory() && entry.name.startsWith('.copilot-seed-stage-'),
+    )
+    .map((entry) => entry.name);
 }
 
 const createReadyPingResponse = () => ({
@@ -303,6 +317,122 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
     assert.equal(models.body.available, true);
     assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
   } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('boot-path seeding preserves a runtime that initializes after preflight instead of surfacing a mixed seed/runtime state', async () => {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-boot-replay-safe-'),
+  );
+  const seedHome = path.join(tempRoot, 'seed-home');
+  const runtimeHome = path.join(tempRoot, 'runtime-home');
+  const clientFactory = () =>
+    ({
+      system: {
+        listDownloadedModels: async () => [],
+      },
+    }) as never;
+  let injectedRuntime = false;
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    __setCopilotSeedBootstrapHooksForTests({
+      beforePublishArtifact: async ({ artifact }) => {
+        if (artifact !== 'settings.json' || injectedRuntime) return;
+        injectedRuntime = true;
+        await fs.mkdir(path.join(runtimeHome, 'session-state'), {
+          recursive: true,
+        });
+        await fs.writeFile(
+          path.join(runtimeHome, 'config.json'),
+          '{"runtime":"wins-after-preflight"}\n',
+          'utf8',
+        );
+        await fs.writeFile(
+          path.join(runtimeHome, 'settings.json'),
+          '{"runtimeSettings":"wins-after-preflight"}\n',
+          'utf8',
+        );
+        await fs.writeFile(
+          path.join(runtimeHome, 'session-state', 'session.json'),
+          '{"bootstrapped": false, "runtimeWins": true}\n',
+          'utf8',
+        );
+      },
+    });
+
+    const seedResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+      env: currentRuntimeEnv(),
+    });
+    assert.equal(
+      seedResult.status,
+      'seed_skipped_runtime_already_initialized',
+    );
+    assert.deepEqual(seedResult.copiedArtifacts, []);
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'config.json'), 'utf8'),
+      '{"runtime":"wins-after-preflight"}\n',
+    );
+    assert.deepEqual(await listBootstrapStageRoots(tempRoot), []);
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatProvidersRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => ({
+          start: async () => {},
+          stop: async () => [],
+          ping: async () => createReadyPingResponse(),
+          getAuthStatus: async () => ({
+            isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+            authType: 'user',
+          }),
+          listModels: async () =>
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? createReadyModels()
+              : [],
+        }),
+      }),
+    );
+    app.use(
+      '/chat',
+      createChatModelsRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => ({
+          start: async () => {},
+          stop: async () => [],
+          ping: async () => createReadyPingResponse(),
+          getAuthStatus: async () => ({
+            isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+            authType: 'user',
+          }),
+          listModels: async () =>
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? createReadyModels()
+              : [],
+        }),
+      }),
+    );
+
+    const providers = await request(app).get('/chat/providers');
+    assert.equal(providers.status, 200);
+    const copilotProvider = providers.body.providers.find(
+      (provider: { id?: string }) => provider.id === 'copilot',
+    );
+    assert.ok(copilotProvider);
+    assert.equal(copilotProvider.available, true);
+
+    const models = await request(app).get('/chat/models?provider=copilot');
+    assert.equal(models.status, 200);
+    assert.equal(models.body.provider, 'copilot');
+    assert.equal(models.body.available, true);
+    assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
+  } finally {
+    __resetCopilotSeedBootstrapHooksForTests();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

@@ -40,6 +40,27 @@ type RuntimeOwnership = {
   gid: number;
 };
 
+type StagedArtifactDescriptor = CopilotSeedArtifactDescriptor & {
+  sourcePath: string;
+  targetPath: string;
+  stagedPath: string;
+};
+
+type CreatedRuntimeArtifact = {
+  targetPath: string;
+  stagedPath: string;
+  kind: 'file' | 'directory';
+};
+
+type CopilotSeedBootstrapHooks = {
+  beforePublishArtifact?: (params: {
+    artifact: CopilotSeedArtifactName;
+    stagedPath: string;
+    targetPath: string;
+    kind: 'file' | 'directory';
+  }) => Promise<void> | void;
+};
+
 const COPILOT_SEED_ARTIFACTS: CopilotSeedArtifactDescriptor[] = [
   {
     artifact: 'config.json',
@@ -60,6 +81,10 @@ const COPILOT_SEED_ARTIFACTS: CopilotSeedArtifactDescriptor[] = [
 
 const COPILOT_RUNTIME_FILE_MODE = 0o600;
 const COPILOT_RUNTIME_DIRECTORY_MODE = 0o700;
+const defaultCopilotSeedBootstrapHooks: CopilotSeedBootstrapHooks = {};
+const copilotSeedBootstrapHooks: CopilotSeedBootstrapHooks = {
+  ...defaultCopilotSeedBootstrapHooks,
+};
 
 function trimToUndefined(value: string | undefined): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -92,6 +117,16 @@ async function cleanupPath(targetPath: string): Promise<void> {
     force: true,
     recursive: true,
   });
+}
+
+export function __setCopilotSeedBootstrapHooksForTests(
+  overrides: Partial<CopilotSeedBootstrapHooks>,
+) {
+  Object.assign(copilotSeedBootstrapHooks, overrides);
+}
+
+export function __resetCopilotSeedBootstrapHooksForTests() {
+  Object.assign(copilotSeedBootstrapHooks, defaultCopilotSeedBootstrapHooks);
 }
 
 function parseNumericId(value: string | undefined): number | undefined {
@@ -160,27 +195,91 @@ async function normalizeArtifactAccess(params: {
   await fs.promises.chmod(params.targetPath, COPILOT_RUNTIME_FILE_MODE);
 }
 
-async function copyArtifactAtomically(params: {
+function isAlreadyInitializedRenameError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'EEXIST' || code === 'ENOTEMPTY';
+}
+
+async function stageArtifactCopy(params: {
   sourcePath: string;
-  targetPath: string;
+  stagedPath: string;
   kind: 'file' | 'directory';
 }): Promise<void> {
-  const targetParent = path.dirname(params.targetPath);
-  await fs.promises.mkdir(targetParent, { recursive: true });
+  const stageParent = path.dirname(params.stagedPath);
+  await fs.promises.mkdir(stageParent, { recursive: true });
 
-  const tempPath = `${params.targetPath}.codeinfo-seed.${process.pid}.${Date.now()}.${Math.random()
-    .toString(16)
-    .slice(2)}.tmp`;
+  if (params.kind === 'directory') {
+    await fs.promises.cp(params.sourcePath, params.stagedPath, { recursive: true });
+    return;
+  }
+
+  await fs.promises.copyFile(params.sourcePath, params.stagedPath);
+}
+
+async function publishStagedArtifact(params: {
+  stagedPath: string;
+  targetPath: string;
+  kind: 'file' | 'directory';
+}): Promise<'copied' | 'skipped_existing_runtime'> {
+  if (params.kind === 'directory') {
+    try {
+      await fs.promises.rename(params.stagedPath, params.targetPath);
+      return 'copied';
+    } catch (error) {
+      if (isAlreadyInitializedRenameError(error) || (await pathExists(params.targetPath))) {
+        return 'skipped_existing_runtime';
+      }
+      throw error;
+    }
+  }
 
   try {
-    if (params.kind === 'directory') {
-      await fs.promises.cp(params.sourcePath, tempPath, { recursive: true });
-    } else {
-      await fs.promises.copyFile(params.sourcePath, tempPath);
+    await fs.promises.link(params.stagedPath, params.targetPath);
+    return 'copied';
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | undefined)?.code === 'EEXIST') {
+      return 'skipped_existing_runtime';
     }
-    await fs.promises.rename(tempPath, params.targetPath);
-  } finally {
-    await cleanupPath(tempPath).catch(() => {});
+    throw error;
+  }
+}
+
+async function collectRuntimeInitializedArtifacts(runtimeHome: string) {
+  const initializedArtifacts: CopilotSeedArtifactResult[] = [];
+  for (const descriptor of COPILOT_SEED_ARTIFACTS) {
+    const targetPath = path.join(runtimeHome, descriptor.relativePath);
+    if (!(await pathExists(targetPath))) continue;
+    initializedArtifacts.push({
+      artifact: descriptor.artifact,
+      action: 'skipped_existing_runtime',
+      sourcePath: '',
+      targetPath,
+    });
+  }
+  return initializedArtifacts;
+}
+
+async function rollbackCreatedArtifacts(
+  artifacts: CreatedRuntimeArtifact[],
+): Promise<void> {
+  for (const artifact of [...artifacts].reverse()) {
+    if (artifact.kind === 'file') {
+      try {
+        const [targetStats, stagedStats] = await Promise.all([
+          fs.promises.lstat(artifact.targetPath),
+          fs.promises.lstat(artifact.stagedPath),
+        ]);
+        if (
+          targetStats.dev !== stagedStats.dev ||
+          targetStats.ino !== stagedStats.ino
+        ) {
+          continue;
+        }
+      } catch {
+        continue;
+      }
+    }
+    await cleanupPath(artifact.targetPath).catch(() => {});
   }
 }
 
@@ -243,26 +342,41 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
 
   const copiedArtifacts: CopilotSeedArtifactName[] = [];
   const skippedArtifacts: CopilotSeedArtifactResult[] = [];
+  let stageRoot: string | undefined;
+  const createdTargets: CreatedRuntimeArtifact[] = [];
 
   try {
-    for (const descriptor of COPILOT_SEED_ARTIFACTS) {
-      const sourcePath = path.join(seedHome, descriptor.relativePath);
-      const targetPath = path.join(runtimeHome, descriptor.relativePath);
-
-      if (await pathExists(targetPath)) {
+    stageRoot = await fs.promises.mkdtemp(
+      path.join(path.dirname(runtimeHome), `.copilot-seed-stage-${process.pid}-`),
+    );
+    const runtimeInitializedArtifacts =
+      await collectRuntimeInitializedArtifacts(runtimeHome);
+    if (runtimeInitializedArtifacts.length > 0) {
+      for (const existingArtifact of runtimeInitializedArtifacts) {
+        const descriptor = COPILOT_SEED_ARTIFACTS.find(
+          (candidate) => candidate.artifact === existingArtifact.artifact,
+        );
+        if (!descriptor) continue;
         await normalizeArtifactAccess({
-          targetPath,
+          targetPath: existingArtifact.targetPath,
           kind: descriptor.kind,
           runtimeOwnership,
         });
-        skippedArtifacts.push({
-          artifact: descriptor.artifact,
-          action: 'skipped_existing_runtime',
-          sourcePath,
-          targetPath,
-        });
-        continue;
+        skippedArtifacts.push(existingArtifact);
       }
+      return {
+        status: 'seed_skipped_runtime_already_initialized',
+        runtimeHome,
+        seedHome,
+        copiedArtifacts: [],
+        skippedArtifacts,
+      };
+    }
+
+    const stagedArtifacts: StagedArtifactDescriptor[] = [];
+    for (const descriptor of COPILOT_SEED_ARTIFACTS) {
+      const sourcePath = path.join(seedHome, descriptor.relativePath);
+      const targetPath = path.join(runtimeHome, descriptor.relativePath);
 
       if (!(await pathExists(sourcePath))) {
         skippedArtifacts.push({
@@ -274,19 +388,73 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
         continue;
       }
 
-      await copyArtifactAtomically({
+      const stagedPath = path.join(stageRoot, descriptor.relativePath);
+      await stageArtifactCopy({
+        sourcePath,
+        stagedPath,
+        kind: descriptor.kind,
+      });
+      stagedArtifacts.push({
+        ...descriptor,
         sourcePath,
         targetPath,
-        kind: descriptor.kind,
+        stagedPath,
+      });
+    }
+
+    for (const stagedArtifact of stagedArtifacts) {
+      await copilotSeedBootstrapHooks.beforePublishArtifact?.({
+        artifact: stagedArtifact.artifact,
+        stagedPath: stagedArtifact.stagedPath,
+        targetPath: stagedArtifact.targetPath,
+        kind: stagedArtifact.kind,
+      });
+      const publishResult = await publishStagedArtifact({
+        stagedPath: stagedArtifact.stagedPath,
+        targetPath: stagedArtifact.targetPath,
+        kind: stagedArtifact.kind,
+      });
+      if (publishResult === 'skipped_existing_runtime') {
+        await rollbackCreatedArtifacts(createdTargets);
+        skippedArtifacts.push({
+          artifact: stagedArtifact.artifact,
+          action: 'skipped_existing_runtime',
+          sourcePath: stagedArtifact.sourcePath,
+          targetPath: stagedArtifact.targetPath,
+        });
+        for (const remainingArtifact of stagedArtifacts) {
+          if (remainingArtifact.artifact === stagedArtifact.artifact) continue;
+          if (remainingArtifact.targetPath === stagedArtifact.targetPath) continue;
+          if (await pathExists(remainingArtifact.targetPath)) continue;
+          skippedArtifacts.push({
+            artifact: remainingArtifact.artifact,
+            action: 'skipped_existing_runtime',
+            sourcePath: remainingArtifact.sourcePath,
+            targetPath: remainingArtifact.targetPath,
+          });
+        }
+        return {
+          status: 'seed_skipped_runtime_already_initialized',
+          runtimeHome,
+          seedHome,
+          copiedArtifacts: [],
+          skippedArtifacts,
+        };
+      }
+      createdTargets.push({
+        targetPath: stagedArtifact.targetPath,
+        stagedPath: stagedArtifact.stagedPath,
+        kind: stagedArtifact.kind,
       });
       await normalizeArtifactAccess({
-        targetPath,
-        kind: descriptor.kind,
+        targetPath: stagedArtifact.targetPath,
+        kind: stagedArtifact.kind,
         runtimeOwnership,
       });
-      copiedArtifacts.push(descriptor.artifact);
+      copiedArtifacts.push(stagedArtifact.artifact);
     }
   } catch (error) {
+    await rollbackCreatedArtifacts(createdTargets);
     return {
       status: 'seed_copy_failed',
       runtimeHome,
@@ -295,6 +463,10 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
       skippedArtifacts,
       error: error instanceof Error ? error.message : String(error),
     };
+  } finally {
+    if (stageRoot) {
+      await cleanupPath(stageRoot).catch(() => {});
+    }
   }
 
   return {

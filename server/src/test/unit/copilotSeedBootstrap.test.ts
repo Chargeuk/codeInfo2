@@ -4,7 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
+import {
+  __resetCopilotSeedBootstrapHooksForTests,
+  __setCopilotSeedBootstrapHooksForTests,
+  importCopilotSeedIntoRuntimeHome,
+} from '../../config/copilotSeedBootstrap.js';
 
 async function makeTempDir(prefix: string) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -55,6 +59,16 @@ async function lockDownRuntimeArtifacts(runtimeHome: string) {
     0o000,
   );
   await fs.chmod(path.join(runtimeHome, 'session-state'), 0o000);
+}
+
+async function listBootstrapStageRoots(parentDir: string) {
+  const entries = await fs.readdir(parentDir, { withFileTypes: true });
+  return entries
+    .filter(
+      (entry) =>
+        entry.isDirectory() && entry.name.startsWith('.copilot-seed-stage-'),
+    )
+    .map((entry) => entry.name);
 }
 
 test('copies config.json, settings.json, and session-state into an empty runtime home', async () => {
@@ -180,6 +194,68 @@ test('re-normalizes existing runtime artifacts for the runtime identity without 
   }
 });
 
+test('rolls back helper-owned seed writes when runtime initialization appears mid-sequence', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+  let injectedRuntime = false;
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    __setCopilotSeedBootstrapHooksForTests({
+      beforePublishArtifact: async ({ artifact }) => {
+        if (artifact !== 'settings.json' || injectedRuntime) return;
+        injectedRuntime = true;
+        await fs.mkdir(path.join(runtimeHome, 'session-state'), {
+          recursive: true,
+        });
+        await fs.writeFile(
+          path.join(runtimeHome, 'config.json'),
+          '{"runtime":"wins-after-preflight"}\n',
+          'utf8',
+        );
+        await fs.writeFile(
+          path.join(runtimeHome, 'settings.json'),
+          '{"runtimeSettings":"wins-after-preflight"}\n',
+          'utf8',
+        );
+        await fs.writeFile(
+          path.join(runtimeHome, 'session-state', 'session.json'),
+          '{"runtime":"session-after-preflight"}\n',
+          'utf8',
+        );
+      },
+    });
+
+    const result = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+    });
+
+    assert.equal(result.status, 'seed_skipped_runtime_already_initialized');
+    assert.deepEqual(result.copiedArtifacts, []);
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'config.json'), 'utf8'),
+      '{"runtime":"wins-after-preflight"}\n',
+    );
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'settings.json'), 'utf8'),
+      '{"runtimeSettings":"wins-after-preflight"}\n',
+    );
+    assert.equal(
+      await fs.readFile(
+        path.join(runtimeHome, 'session-state', 'session.json'),
+        'utf8',
+      ),
+      '{"runtime":"session-after-preflight"}\n',
+    );
+    assert.deepEqual(await listBootstrapStageRoots(tempRoot), []);
+  } finally {
+    __resetCopilotSeedBootstrapHooksForTests();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('reports seed_missing when the seed home is absent', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
 
@@ -234,6 +310,47 @@ test('returns seed_copy_failed when the runtime home cannot be created', async (
     assert.equal(result.status, 'seed_copy_failed');
     assert.match(result.error ?? '', /not a directory|ENOTDIR|ENOENT/u);
   } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('cleans helper-owned staged artifacts on publish failure without leaving a partial runtime behind', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    __setCopilotSeedBootstrapHooksForTests({
+      beforePublishArtifact: async ({ artifact }) => {
+        if (artifact === 'config.json') {
+          throw new Error('publish gate failed');
+        }
+      },
+    });
+
+    const result = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+    });
+
+    assert.equal(result.status, 'seed_copy_failed');
+    assert.match(result.error ?? '', /publish gate failed/u);
+    await assert.rejects(fs.access(path.join(runtimeHome, 'config.json')), {
+      code: 'ENOENT',
+    });
+    await assert.rejects(fs.access(path.join(runtimeHome, 'settings.json')), {
+      code: 'ENOENT',
+    });
+    await assert.rejects(
+      fs.access(path.join(runtimeHome, 'session-state', 'session.json')),
+      {
+        code: 'ENOENT',
+      },
+    );
+    assert.deepEqual(await listBootstrapStageRoots(tempRoot), []);
+  } finally {
+    __resetCopilotSeedBootstrapHooksForTests();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

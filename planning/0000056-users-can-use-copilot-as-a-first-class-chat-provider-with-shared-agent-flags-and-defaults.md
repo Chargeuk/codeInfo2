@@ -644,7 +644,7 @@ This task turns the current Codex-shaped discovery payload into one provider-neu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `33adb1b9`, `9485e8c9`
 
 #### Overview
@@ -1605,7 +1605,7 @@ This review-created task repairs the remaining tracked `server/.env` contract pr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 15`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

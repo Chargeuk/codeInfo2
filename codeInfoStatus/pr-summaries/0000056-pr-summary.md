@@ -91,3 +91,22 @@ The story also closes the biggest Copilot parity gaps that still existed after S
   - targeted cleanup proof homes: `git ls-files -ci --exclude-standard`, `python3 scripts/story_workflow_status.py`
   - closure mechanism: tracked-artifact inventory cleanup plus durable-path routing through `codeInfoStatus/flow-state/current-plan.json` and `codeInfoStatus/flow-state/review-disposition-state.json`
   - shared broad wrappers still pending in Task 14 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+
+- Review cycle `0000056-rc-20260430T200028Z-b202f879` is owned by Task 16 and closes review pass `0000056-20260430T202655Z-3d97be0d` plus the same-cycle inline minor fixes through one final focused-plus-broad validation pass rather than through another minor-fix revalidation task.
+- Current-pass finding `1` closure owner:
+  - focused proof homes: `server/src/test/unit/env-loading.test.ts`
+  - conditional focused proof homes when the repaired contract touches those seams: `server/src/test/unit/codexEnvDefaults.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`
+  - closure mechanism: prove the tracked `server/.env` contract is now template-safe, that machine-local LM Studio, Mongo, and Chroma endpoints moved out of tracked ownership, and that the preseeded process env -> `server/.env.local` -> `server/.env` precedence chain still holds on the repaired head
+  - shared broad wrappers still pending in Task 16 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Prior-pass finding `2` revalidation owner in the same cycle:
+  - focused proof home already recorded at inline resolution: `git ls-files -ci --exclude-standard`
+  - broad revalidation owner still pending in Task 16 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Prior-pass finding `3` revalidation owner in the same cycle:
+  - focused proof home already recorded at inline resolution: `server/src/test/features/chat_models.feature`
+  - broad revalidation owner still pending in Task 16 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Prior-pass finding `4` revalidation owner in the same cycle:
+  - focused proof homes already recorded at inline resolution: `server/src/test/integration/chat-copilot-resume.test.ts`, `server/src/test/integration/support/copilotChatHarness.ts`
+  - broad revalidation owner still pending in Task 16 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Current-pass finding `2` revalidation owner in the same cycle:
+  - focused proof home already recorded at inline resolution: `server/src/test/unit/copilotSeedBootstrap.test.ts`
+  - broad revalidation owner still pending in Task 16 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format

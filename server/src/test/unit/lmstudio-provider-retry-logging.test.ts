@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import { ChatInterfaceLMStudio } from '../../chat/interfaces/ChatInterfaceLMStudio.js';
 import {
   createLmStudioEmbeddingProvider,
@@ -255,7 +256,7 @@ test('LM Studio chat runtime falls back to the bounded defaults when provider-lo
               },
             }),
           },
-        }) as LMStudioClient,
+        }) as unknown as LMStudioClient,
       () => ({ tools: [{ name: 'VectorSearch' }] }),
     );
 

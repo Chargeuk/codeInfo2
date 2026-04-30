@@ -1252,10 +1252,10 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` from the repository root to prove the bounded LM Studio defaults contract is still reachable through the normal discovery entrypoint that surfaces resolved models and defaults.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the request-time LM Studio domain contract after the repair.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the runtime-side LM Studio option handling remains aligned with the same outward-facing contract.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-lmstudio-wrapper.test.ts` from the repository root to prove the restored LM Studio defaults/domain contract still holds on the repository-supported integration seam.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` from the repository root to prove the bounded LM Studio defaults contract is still reachable through the normal discovery entrypoint that surfaces resolved models and defaults.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the request-time LM Studio domain contract after the repair.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the runtime-side LM Studio option handling remains aligned with the same outward-facing contract.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-lmstudio-wrapper.test.ts` from the repository root to prove the restored LM Studio defaults/domain contract still holds on the repository-supported integration seam.
 
 #### Implementation notes
 
@@ -1265,6 +1265,10 @@ This review-created task repairs the outward-facing LM Studio option-domain cont
 - Subtask 4 complete: expanded `server/src/test/unit/chatValidators.test.ts` so the request-time LM Studio contract now explicitly rejects blank `toolAccess` input and out-of-range `maxTokens: 0` in addition to the existing whitespace, non-numeric, non-integer, and out-of-range coverage.
 - Subtask 5 complete: added a runtime-side LM Studio proof in `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` that captures execution options and proves widened provider-local defaults fall back to the bounded `temperature` and `maxTokens` contract before the LM Studio client acts.
 - Subtask 6 complete: added a repository-supported MCP integration case in `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` that proves widened provider-local LM Studio defaults still resolve to bounded runtime execution values instead of relying on the adjacent tool-policy or context-overflow assertions alone.
+- Testing step 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` first failed at server build because the new LM Studio runtime proof used `LMStudioClient` without importing the type and then used an overly direct client-double cast; after importing the type and narrowing the cast through `unknown`, the required wrapper reran cleanly with `29` tests passed and `0` failed.
+- Testing step 2 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` passed cleanly on the first wrapper run with `23` tests passed and `0` failed, so the request-time LM Studio bounded-domain contract now has direct automated proof.
+- Testing step 3 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` passed cleanly with `5` tests passed and `0` failed, so the runtime-side LM Studio bounded-default fallback contract now holds on the wrapper-first proof path too.
+- Testing step 4 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-lmstudio-wrapper.test.ts` passed cleanly with `4` tests passed and `0` failed, so the repository-supported MCP integration seam now explicitly holds the same bounded LM Studio defaults and runtime contract.
 
 ### Task 11. Re-establish a server-owned boundary for persisted flow metadata on conversations
 

@@ -5,13 +5,28 @@ Repair broken story-scope flow state for the current story so downstream steps c
 <critical_rules>
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk when it exists.
-- Run `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` and use its JSON output as the source of truth for what needs repair.
+- Run `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` first and use its JSON output as the source of truth for what needs repair when it returns usable output.
+- Perform a manual fallback only if `story_workflow_status.py` is missing, unreadable, cannot be invoked because Python is unavailable, exits before producing usable JSON, or returns empty or malformed output.
+- Do not use manual fallback to override valid script output, including a valid `repair_needed: false` result.
 - This step repairs story scope only. It must not rebuild review-loop routing state.
 - If the status output says no repair is needed, make no file changes and report a no-op.
 - Do not switch to a different story unless the current handoff is missing or unusable and there is no safe way to preserve the same selected story.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </critical_rules>
+
+<manual_fallback_rules>
+
+- Only after a permitted script failure may you determine story-scope repair manually from disk.
+- In that manual fallback:
+  - if `current-plan.json` is missing, unreadable, invalid, or lacks a usable current story or `plan_path`, treat the result as `repair_needed: true` with `repair_action: regenerate_current_plan_handoff`;
+  - otherwise, re-open the referenced plan and verify the current repository plus every additional repository in the handoff exists, is readable, and is still a git repository;
+  - if the plan file or any scoped repository is missing, unreadable, or no longer a git repository, treat the result as `repair_needed: true` with `repair_action: refresh_current_plan_handoff`;
+  - if the scoped repositories still exist but any current branch no longer matches the handoff story number, treat the result as `repair_needed: true` with `repair_action: normalize_scope_then_refresh_handoff`;
+  - if none of those repair conditions apply, treat the result as `repair_needed: false`.
+- If the script failed and the on-disk state still does not let you distinguish safely between those repair actions, stop and report the unresolved script failure instead of guessing.
+
+</manual_fallback_rules>
 
 <repair_rules>
 

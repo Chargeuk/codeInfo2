@@ -1180,6 +1180,113 @@ Optional guidance for the manual testing agent only.
 - Task Status: `__done__`
 - Git Commits:
 
+## Code Review Findings
+
+### Review Pass `0000056-20260430T202655Z-3d97be0d`
+
+- Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active routing. `codeInfoTmp/reviews/0000056-current-review.json` and the referenced findings artifact remain scratch review-loop evidence when present, not durable reviewer-facing state.
+- Review comparison context: local `HEAD` `3d97be0d96b40b15efbab93591950876efa750f8` vs resolved remote base `origin/main` at commit `ad225b99cdf66594f02e3b78d46ccaaad2e88d89`, with `remote_fetch_status: success` and no local-fallback base inference needed for this pass.
+- Active review cycle: `0000056-rc-20260430T200028Z-b202f879`.
+- Inline-resolved minor findings already handled in this active review cycle and owned by the fresh final revalidation task below: prior-pass findings `2`, `3`, and `4`, plus current-pass finding `2`.
+- Remaining unresolved task-required findings that must be encoded into executable plan state before the story can close: `1`.
+- No unresolved minor-batchable findings remain in active routing because current-pass finding `3` was confirmed already resolved on the current head, so the review loop should now exit to the main implementation loop for serious task-up work.
+
+### Task 15. Normalize the tracked server env contract versus machine-local overrides
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 14`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the remaining tracked `server/.env` contract problem from review pass `0000056-20260430T202655Z-3d97be0d`. The repair must decide which Codex and runtime defaults are honest tracked product defaults, move machine-local endpoint and workstation-specific values into the documented local-only path, and update the dependent proof and documentation surfaces so the repository no longer depends on one developer-shaped runtime file.
+
+#### Task Exit Criteria
+
+- The tracked `server/.env` no longer hardcodes machine-local endpoints, developer-home-relative paths, conflicting duplicate assignments, or permissive local-only runtime choices that should live in `.env.local` or another non-tracked surface.
+- The repository keeps one explicit, documented tracked-vs-local env layering contract for Codex defaults, Compose consumers, and startup env loading instead of mixing product defaults with developer-specific overrides in the same tracked file.
+- Focused proof surfaces cover the repaired tracked env contract honestly enough that later review does not need to infer whether a machine-local value is still expected to remain in source control.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260430T202655Z-3d97be0d`
+- Finding `1`: checked-in local runtime config with conflicting local overrides in `server/.env`.
+
+#### Documentation Locations
+
+- `server/.env`
+- `docker-compose.local.yml`
+- `server/src/config/startupEnv.ts`
+- Any repo-owned env template or proof file that still documents tracked Codex defaults or tracked/local layering for this seam
+
+#### Subtasks
+
+1. [ ] Re-read the current review finding and inspect `server/.env`, `docker-compose.local.yml`, `server/src/config/startupEnv.ts`, and any repo-owned env template or proof surface that still documents tracked Codex defaults so the tracked-versus-local contract is explicit before editing.
+2. [ ] Repair the tracked `server/.env` contract so only honest repo-owned defaults remain in source control, while machine-local endpoints, developer-home-relative paths, permissive local-only runtime flags, and conflicting duplicate assignments move to the documented local-only override path or another honest non-tracked owner.
+3. [ ] Repair or add focused proof-owner coverage for the tracked env contract so the repository explicitly proves the kept tracked defaults, the moved local-only values, and the startup env loader or compose consumer behavior without depending on one developer-shaped file layout.
+4. [ ] Refresh any repo-owned documentation or proof wording that still describes the old tracked `server/.env` behavior so the final regression surfaces credit the repaired default-contract story instead of the stale mixed tracked/local setup.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts` from the repository root to prove the repaired tracked-versus-local env loading contract.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root if the repaired contract changes compose-facing environment expectations that must stay explicit for local or container-backed server startup.
+
+#### Implementation notes
+
+- Added by review-task repair from review pass `0000056-20260430T202655Z-3d97be0d` after the review disposition state reclassified finding `1` out of the inline minor path. No implementation work has started on this task yet.
+
+### Task 16. Revalidate review pass 0000056-20260430T202655Z-3d97be0d after review-task and inline-minor repairs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 15`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This fresh final revalidation task owns closeout for review cycle `0000056-rc-20260430T200028Z-b202f879`. It must revalidate the current review-created findings block for review pass `0000056-20260430T202655Z-3d97be0d`, and it must also cover the inline-resolved minor fixes already recorded in this same active cycle so the story cannot close on partial regression proof.
+
+#### Task Exit Criteria
+
+- The review-created repair for current-pass finding `1` is proven on its focused proof homes and no longer leaves the tracked `server/.env` contract ambiguous.
+- The full relevant current-repository regression surfaces for review pass `0000056-20260430T202655Z-3d97be0d` pass on the repaired head.
+- The same final revalidation pass explicitly covers the already inline-resolved minor fixes from review cycle `0000056-rc-20260430T200028Z-b202f879`, including prior-pass findings `2`, `3`, and `4` plus current-pass finding `2`, so no second final minor-fix revalidation task is needed later.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260430T202655Z-3d97be0d`
+- Finding `1`: tracked `server/.env` contract versus machine-local overrides
+- Inline-resolved minor findings from review cycle `0000056-rc-20260430T200028Z-b202f879`: prior-pass findings `2`, `3`, and `4`, plus current-pass finding `2`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000056-pr-summary.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- The focused proof homes named in the testing block below
+
+#### Subtasks
+
+1. [ ] Re-read review pass `0000056-20260430T202655Z-3d97be0d`, the active `review-disposition-state.json`, and the inline minor-fix audit notes so the final proof pass names the exact current review-created finding plus all inline-resolved minor findings from review cycle `0000056-rc-20260430T200028Z-b202f879`.
+2. [ ] If Task 15 changes any proof-owner files or env-contract wording, refresh those focused proof homes before broad reruns so the final regression pass explicitly proves the repaired tracked env contract and still credits the already-resolved inline minor seams honestly.
+3. [ ] Refresh `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and the relevant `Implementation notes` only after the focused and broad proof surfaces below pass, so the reviewer-facing summary names which proof homes closed this current review-created findings block and which inline minor fixes were covered by the same final revalidation task.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts` from the repository root to prove the focused tracked env contract repaired by Task 15.
+2. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared compose build baseline still holds after the review-created repair and the inline minor fixes from this same cycle.
+3. [ ] Run `npm run build:summary:server` from the repository root to prove the server workspace still builds cleanly on the repaired head.
+4. [ ] Run `npm run build:summary:client` from the repository root to prove the client workspace still builds cleanly on the repaired head.
+5. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the full current-repository server-unit surface, including the inline-resolved Copilot/bootstrap/proof-owner seams from this same review cycle.
+6. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the current-repository cucumber feature surface still holds after the review-created env-contract repair and the inline minor proof-owner fixes.
+7. [ ] Run `npm run test:summary:client` from the repository root to prove the full client proof surface still holds for the same review cycle after the repaired head is rebuilt.
+8. [ ] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported end-to-end browser surface still holds for the repaired review-created block and the inline minor fixes from this same cycle.
+9. [ ] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
+
+#### Implementation notes
+
+- Added by review-task repair from review pass `0000056-20260430T202655Z-3d97be0d`. This task is the one final revalidation owner for review cycle `0000056-rc-20260430T200028Z-b202f879`, and no implementation or proof work has started on it yet.
+
 #### Overview
 
 This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by making the real session-registration seam match the advertised On/Off contract. The repair must prove that disabled tools are not merely hidden from metadata but also unavailable to the underlying Copilot session construction path that normal and resumed runs use.

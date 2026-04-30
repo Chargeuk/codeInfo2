@@ -71,3 +71,23 @@ The story also closes the biggest Copilot parity gaps that still existed after S
 - The provider-neutral `agentFlags` request shape is now the normal chat contract. Future client or server work must not reintroduce top-level Codex-only flag families as the main path.
 - `server/src/routes/chatDiscovery.ts` is now the shared provider-model-Agent-Flags discovery seam. Any later route work that forks model data and Agent Flag descriptors into unrelated payload families will regress the page and MCP parity this story established.
 - Copilot auth-home compatibility is now tolerant of Copilot-managed JSONC artifacts and repo-owned plaintext-token seeding rules. Future Copilot auth work must preserve that resilience instead of assuming one strict JSON artifact or one stale settings location.
+
+## Review-Created Repair Closeout Prep
+
+- Review cycle `0000056-rc-20260430T005807Z-5b91b96f` is owned by Task 14 and closes review pass `0000056-20260430T002543Z-86b67f53` through one final focused-plus-broad validation pass rather than through another repair task.
+- Finding `1` closure owner:
+  - focused proof homes: `server/src/test/unit/chat-interface-copilot.test.ts`, `server/src/test/integration/chat-copilot-resume.test.ts`
+  - shared broad wrappers still pending in Task 14 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Finding `2` closure owner:
+  - focused proof homes: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
+  - shared broad wrappers still pending in Task 14 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Finding `3` closure owner:
+  - focused proof homes: `server/src/test/integration/conversations.create.test.ts`, `server/src/test/unit/flows.flags.test.ts`, `server/src/test/integration/flows.run.resume.test.ts`, `client/src/test/chatSidebar.test.tsx`
+  - shared broad wrappers still pending in Task 14 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Finding `4` closure owner:
+  - focused proof homes: `server/src/test/unit/copilotSeedBootstrap.test.ts`, `server/src/test/integration/copilot.boot-path.test.ts`
+  - shared broad wrappers still pending in Task 14 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format
+- Finding `5` closure owner:
+  - targeted cleanup proof homes: `git ls-files -ci --exclude-standard`, `python3 scripts/story_workflow_status.py`
+  - closure mechanism: tracked-artifact inventory cleanup plus durable-path routing through `codeInfoStatus/flow-state/current-plan.json` and `codeInfoStatus/flow-state/review-disposition-state.json`
+  - shared broad wrappers still pending in Task 14 Testing: compose/build, full server unit, full server cucumber, full client, full e2e, compose-up readiness, lint, and format

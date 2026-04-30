@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach } from 'node:test';
 
+import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
   ThreadEvent,
   ThreadOptions as CodexThreadOptions,
@@ -11,7 +12,6 @@ import type {
 import express from 'express';
 import request from 'supertest';
 
-import type { LMStudioClient } from '@lmstudio/sdk';
 import { query, resetStore } from '../../logStore.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
@@ -48,11 +48,13 @@ class MockThread {
 }
 
 class MockCodex {
-  startThread(_opts?: CodexThreadOptions) {
+  startThread(opts?: CodexThreadOptions) {
+    void opts;
     return new MockThread('warning-label-thread');
   }
 
-  resumeThread(threadId: string, _opts?: CodexThreadOptions) {
+  resumeThread(threadId: string, opts?: CodexThreadOptions) {
+    void opts;
     return new MockThread(threadId);
   }
 }
@@ -125,10 +127,7 @@ test('POST /chat logs defaults-resolution warnings under the provider-neutral va
 
   const warningEntries = query({ text: 'chat validation warning' }, 20);
   assert.ok(warningEntries.length > 0);
-  assert.equal(
-    typeof warningEntries.at(-1)?.context?.warning,
-    'string',
-  );
+  assert.equal(typeof warningEntries.at(-1)?.context?.warning, 'string');
   assert.notEqual(String(warningEntries.at(-1)?.context?.warning ?? ''), '');
 
   const staleEntries = query({ text: 'chat flag ignored' }, 20);

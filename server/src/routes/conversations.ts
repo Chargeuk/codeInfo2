@@ -7,11 +7,6 @@ import {
   sanitizeConversationFlagsForProvider,
 } from '../chat/agentFlags.js';
 import {
-  ProviderRuntimeFlagError,
-  resolveCopilotRuntimeAgentFlags,
-  resolveLmStudioRuntimeAgentFlags,
-} from '../chat/providerRuntimeFlags.js';
-import {
   getInflight,
   mergeInflightTurns,
   snapshotInflight,
@@ -22,6 +17,11 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
+import {
+  ProviderRuntimeFlagError,
+  resolveCopilotRuntimeAgentFlags,
+  resolveLmStudioRuntimeAgentFlags,
+} from '../chat/providerRuntimeFlags.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
@@ -146,7 +146,9 @@ const validateConversationFlagsForProvider = (
 
   if (flags.agentFlags === undefined) return;
   if (!isPlainObject(flags.agentFlags)) {
-    throw new ConversationFlagsValidationError('flags.agentFlags must be an object');
+    throw new ConversationFlagsValidationError(
+      'flags.agentFlags must be an object',
+    );
   }
 
   for (const key of Object.keys(flags.agentFlags)) {

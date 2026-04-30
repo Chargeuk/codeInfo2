@@ -1335,7 +1335,7 @@ This review-created task restores the authority boundary between ordinary conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 6`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview

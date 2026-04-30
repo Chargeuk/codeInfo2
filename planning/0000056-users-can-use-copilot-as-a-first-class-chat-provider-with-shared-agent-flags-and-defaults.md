@@ -1584,9 +1584,9 @@ This review-created task repairs the remaining tracked `server/.env` contract pr
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts` from the repository root to prove the repaired tracked-versus-local env loading contract.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codexEnvDefaults.test.ts` from the repository root if the repaired contract changes which `Codex_*` defaults remain environment-driven versus hardcoded fallback defaults.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root if the repaired contract changes compose-facing environment expectations that must stay explicit for local or container-backed server startup.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts` from the repository root to prove the repaired tracked-versus-local env loading contract.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codexEnvDefaults.test.ts` from the repository root if the repaired contract changes which `Codex_*` defaults remain environment-driven versus hardcoded fallback defaults.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root if the repaired contract changes compose-facing environment expectations that must stay explicit for local or container-backed server startup.
 
 #### Implementation notes
 
@@ -1596,6 +1596,9 @@ This review-created task repairs the remaining tracked `server/.env` contract pr
 - Subtask 3 complete: prepared `server/src/test/unit/env-loading.test.ts` so the focused proof owner now explicitly covers the required precedence chain `preseeded process env -> server/.env.local -> server/.env` and proves that `CODEINFO_LMSTUDIO_BASE_URL`, `CODEINFO_CHROMA_URL`, and `CODEINFO_MONGO_URI` no longer claim tracked ownership through the startup loader when they are absent from `server/.env`.
 - Subtask 4 complete: prepared `server/src/test/unit/codexEnvDefaults.test.ts` so the proof owner now states the final Task 15 contract directly: the tracked `Codex_*` values remain intentional env-driven product defaults when present, the parser still falls back cleanly when they are absent, and the `Codex_model_list` path still warns and falls back deterministically on blank input.
 - Subtask 5 complete: prepared `server/src/test/unit/host-network-compose-contract.test.ts` so the default-entrypoint proof owner now asserts the main and local host-network server services read `server/.env` then `server/.env.local`, and that the compose-owned runtime overrides for `CODEINFO_LMSTUDIO_BASE_URL`, `CODEINFO_CODEX_WORKDIR=/data`, `CODEINFO_HOST_INGEST_DIR`, and the `/data` bind mount stay explicit instead of depending on a hidden workstation-specific `server/.env`.
+- Testing step 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/env-loading.test.ts` passed cleanly with `tests run: 12`, `passed: 12`, and `failed: 0`, so the focused startup-loader proof now covers the repaired tracked-versus-local precedence chain and the moved machine-local endpoint ownership.
+- Testing step 2 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/codexEnvDefaults.test.ts` passed cleanly with `tests run: 6`, `passed: 6`, and `failed: 0`, so the focused Codex proof owner now holds the final Task 15 choice that the retained `Codex_*` defaults stay environment-driven rather than moving to hardcoded fallback ownership.
+- Testing step 3 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` passed cleanly with `tests run: 3`, `passed: 3`, and `failed: 0`, so the focused host-network compose proof now holds the explicit main/local `server/.env` then `server/.env.local` loading order plus the compose-owned `/data`, LM Studio, Mongo, and Chroma runtime overrides.
 
 ### Task 16. Revalidate review pass 0000056-20260430T202655Z-3d97be0d after review-task and inline-minor repairs
 

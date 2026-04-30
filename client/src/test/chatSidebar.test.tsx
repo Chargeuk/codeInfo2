@@ -114,7 +114,7 @@ function filterConversations(
 }
 
 describe('ConversationList control gating', () => {
-  it('renders a run clue for parent and child flow conversations only', () => {
+  it('renders a run clue only for legitimate parent and child flow conversations', () => {
     render(
       <ConversationList
         {...createBaseProps({
@@ -145,6 +145,10 @@ describe('ConversationList control gating', () => {
               model: 'm1',
               lastMessageAt: '2025-01-03T00:00:00Z',
               archived: false,
+              flags: {
+                flow: { executionId: 'staleparent-12345678' },
+                flowChild: { executionId: 'stalechild-87654321' },
+              },
             },
           ],
         })}

@@ -91,16 +91,18 @@ function formatTimestamp(value?: string) {
   return date.toLocaleString();
 }
 
-function readRunExecutionId(flags?: ConversationFlags) {
+function readRunExecutionId(conversation: ConversationListItem) {
   const parentExecutionId =
-    typeof flags?.flow?.executionId === 'string'
-      ? flags.flow.executionId.trim()
+    conversation.flowName &&
+    typeof conversation.flags?.flow?.executionId === 'string'
+      ? conversation.flags.flow.executionId.trim()
       : '';
   if (parentExecutionId.length > 0) return parentExecutionId;
 
   const childExecutionId =
-    typeof flags?.flowChild?.executionId === 'string'
-      ? flags.flowChild.executionId.trim()
+    conversation.agentName &&
+    typeof conversation.flags?.flowChild?.executionId === 'string'
+      ? conversation.flags.flowChild.executionId.trim()
       : '';
   return childExecutionId.length > 0 ? childExecutionId : undefined;
 }
@@ -519,7 +521,7 @@ export function ConversationList({
               {sorted.map((conversation) => {
                 const selected = selectedId === conversation.conversationId;
                 const runLabel = formatRunLabel(
-                  readRunExecutionId(conversation.flags),
+                  readRunExecutionId(conversation),
                 );
                 return (
                   <ListItem

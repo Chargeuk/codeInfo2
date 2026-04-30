@@ -78,8 +78,6 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 
 const ALLOWED_CONVERSATION_FLAG_KEYS = new Set([
   'agentFlags',
-  'flow',
-  'flowChild',
   'threadId',
   'workingFolder',
 ]);
@@ -118,13 +116,15 @@ const validateConversationFlagsForProvider = (
     );
   }
 
-  if (flags.flow !== undefined && !isPlainObject(flags.flow)) {
-    throw new ConversationFlagsValidationError('flags.flow must be an object');
+  if (flags.flow !== undefined) {
+    throw new ConversationFlagsValidationError(
+      'flags.flow is server-owned and cannot be set via conversations API',
+    );
   }
 
-  if (flags.flowChild !== undefined && !isPlainObject(flags.flowChild)) {
+  if (flags.flowChild !== undefined) {
     throw new ConversationFlagsValidationError(
-      'flags.flowChild must be an object',
+      'flags.flowChild is server-owned and cannot be set via conversations API',
     );
   }
 

@@ -4006,8 +4006,11 @@ export async function startFlowRun(
     const existingFlags = (existingConversation?.flags ?? undefined) as
       | Record<string, unknown>
       | undefined;
-    const persistedResumeExecutionId = getFlowExecutionId(existingFlags);
-    resumeState = parseFlowResumeState(existingFlags);
+    const trustedPersistedFlowState =
+      existingConversation?.flowName === flowName ? existingFlags : undefined;
+    const persistedResumeExecutionId =
+      getFlowExecutionId(trustedPersistedFlowState);
+    resumeState = parseFlowResumeState(trustedPersistedFlowState);
     if (resumeStepPath) {
       if (!resumeState) {
         throw toFlowRunError(

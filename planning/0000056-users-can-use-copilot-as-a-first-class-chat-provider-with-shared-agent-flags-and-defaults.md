@@ -1299,13 +1299,13 @@ This review-created task restores the authority boundary between ordinary conver
 
 #### Subtasks
 
-1. [ ] Re-read the review evidence for Finding `3`, then inspect `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, and `client/src/components/chat/ConversationList.tsx` to separate ordinary REST-owned flags from flow-engine-owned `flags.flow` and `flags.flowChild`, including the persisted-state consumers that rely on those fields later.
-2. [ ] Repair the ordinary conversation write path in `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, and `server/src/chat/agentFlags.ts` so REST callers cannot persist `flags.flow` or `flags.flowChild`, any contradictory client-held flow metadata is excluded from submission instead of being merged into persisted state, and the flow engine’s nested `$set` writers remain the only supported path that can create or mutate those server-owned structures.
-3. [ ] Repair `server/src/test/integration/conversations.create.test.ts` so it proves ordinary conversation creation and update requests cannot smuggle `flags.flow` or `flags.flowChild` through the REST-owned write path.
-4. [ ] Repair `server/src/test/unit/flows.flags.test.ts` so it proves the flow engine’s nested `$set` writers remain the legitimate owner of persisted `flags.flow` and `flags.flowChild` after the boundary repair.
-5. [ ] Repair `server/src/test/integration/flows.run.resume.test.ts` so it proves the restored boundary still allows the real flow-resume consumer path to read server-owned persisted flow state after the REST-owned write path is tightened.
-6. [ ] Repair or split `client/src/test/chatSidebar.test.tsx` so the kept run-clue proof explicitly claims that only legitimate persisted flow-owned parent or child conversations render a run clue, while an ordinary conversation with contradictory stale `flags.flow` or `flags.flowChild` state does not regain a client-visible run/resume label; do not leave that stale-state exclusion implied only by adjacent assertions.
-7. [ ] If the boundary repair touches shared warning or validation helpers, repair `server/src/test/unit/chat-route-warning-label.test.ts` so route diagnostics still label the surviving warning categories honestly.
+1. [x] Re-read the review evidence for Finding `3`, then inspect `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, and `client/src/components/chat/ConversationList.tsx` to separate ordinary REST-owned flags from flow-engine-owned `flags.flow` and `flags.flowChild`, including the persisted-state consumers that rely on those fields later.
+2. [x] Repair the ordinary conversation write path in `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, and `server/src/chat/agentFlags.ts` so REST callers cannot persist `flags.flow` or `flags.flowChild`, any contradictory client-held flow metadata is excluded from submission instead of being merged into persisted state, and the flow engine’s nested `$set` writers remain the only supported path that can create or mutate those server-owned structures.
+3. [x] Repair `server/src/test/integration/conversations.create.test.ts` so it proves ordinary conversation creation and update requests cannot smuggle `flags.flow` or `flags.flowChild` through the REST-owned write path.
+4. [x] Repair `server/src/test/unit/flows.flags.test.ts` so it proves the flow engine’s nested `$set` writers remain the legitimate owner of persisted `flags.flow` and `flags.flowChild` after the boundary repair.
+5. [x] Repair `server/src/test/integration/flows.run.resume.test.ts` so it proves the restored boundary still allows the real flow-resume consumer path to read server-owned persisted flow state after the REST-owned write path is tightened.
+6. [x] Repair or split `client/src/test/chatSidebar.test.tsx` so the kept run-clue proof explicitly claims that only legitimate persisted flow-owned parent or child conversations render a run clue, while an ordinary conversation with contradictory stale `flags.flow` or `flags.flowChild` state does not regain a client-visible run/resume label; do not leave that stale-state exclusion implied only by adjacent assertions.
+7. [x] If the boundary repair touches shared warning or validation helpers, repair `server/src/test/unit/chat-route-warning-label.test.ts` so route diagnostics still label the surviving warning categories honestly.
 
 #### Testing
 
@@ -1317,7 +1317,13 @@ This review-created task restores the authority boundary between ordinary conver
 
 #### Implementation notes
 
-- None yet.
+- Subtask 1 complete: re-read Finding `3` and inspected the REST create route, repo sanitizers, flow-resume reader, and sidebar run-clue consumer. The current authority leak is the same `flags.flow` / `flags.flowChild.executionId` seam crossing all four surfaces: ordinary REST writes still admit those objects, repo sanitization still preserves them into persistence, `startFlowRun` trusts parent `flags.flow` on resume, and the sidebar renders any execution id it sees.
+- Subtask 2 complete: tightened ordinary conversation flag ownership at the real write seam by making `sanitizeConversationFlagsForProvider(...)` drop flow metadata unless a caller explicitly opts into preserving server-owned flow state, rejecting `flags.flow` and `flags.flowChild` on the REST create route, and stopping the ordinary repo create/update helpers from re-preserving those fields on write.
+- Subtask 3 complete: extended `server/src/test/integration/conversations.create.test.ts` with explicit negative create-route coverage for both `flags.flow` and `flags.flowChild`, so ordinary conversation writes now have direct proof that server-owned flow metadata cannot be smuggled through the REST-owned seam.
+- Subtask 4 complete: updated `server/src/test/unit/flows.flags.test.ts` so it explicitly contrasts ordinary conversation flag sanitization dropping flow-owned metadata with the legitimate nested `$set` writers that still own `flags.flow` and `flags.flowChild.executionId`.
+- Subtask 5 complete: tightened the flow-resume reader in `server/src/flows/service.ts` to trust persisted parent flow state only when the conversation is actually flow-owned for the requested `flowName`, then added `server/src/test/integration/flows.run.resume.test.ts` coverage proving stale ordinary-conversation flow metadata is ignored while the legitimate resume path still works.
+- Subtask 6 complete: updated the sidebar proof in `client/src/test/chatSidebar.test.tsx` and the `ConversationList` run-clue reader so only legitimate flow-owned parent or child conversations render a run clue; an ordinary conversation carrying contradictory stale `flags.flow` and `flags.flowChild` values no longer regains the chip.
+- Subtask 7 complete: no shared warning-label helper changed during the Task 11 authority-boundary repair, so `server/src/test/unit/chat-route-warning-label.test.ts` stayed honestly out of scope for this pass.
 
 ### Task 12. Make Copilot seed import replay-safe after preflight checks
 

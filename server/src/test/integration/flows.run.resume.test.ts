@@ -127,7 +127,7 @@ const buildApp = () => {
   return app;
 };
 
-test('startFlowRun resumes after resumeStepPath', async () => {
+test('startFlowRun resumes after resumeStepPath from legitimate server-owned persisted flow state', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -237,6 +237,68 @@ test('startFlowRun resumes after resumeStepPath', async () => {
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun ignores stale parent flow metadata on an ordinary conversation without flow ownership', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-stale-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'ordinary-conv-with-stale-flow';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Ordinary conversation',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'smuggled-resume-execution-1',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      /resumeStepPath requires saved flow state/u,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

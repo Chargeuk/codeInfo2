@@ -63,7 +63,7 @@ export function sanitizeConversationFlagsForProvider(
     next.workingFolder = flags.workingFolder.trim();
   }
 
-  if (options?.preserveFlowState !== false) {
+  if (options?.preserveFlowState === true) {
     if (isPlainObject(flags.flow)) {
       next.flow = flags.flow;
     }

@@ -127,9 +127,7 @@ export async function createConversation(
     agentName: input.agentName,
     flowName: input.flowName,
     source: input.source ?? 'REST',
-    flags: sanitizeConversationFlagsForProvider(input.provider, input.flags, {
-      preserveFlowState: true,
-    }),
+    flags: sanitizeConversationFlagsForProvider(input.provider, input.flags),
     lastMessageAt: input.lastMessageAt ?? new Date(),
   });
 
@@ -150,7 +148,6 @@ export async function updateConversationMeta(
     update.flags = sanitizeConversationFlagsForProvider(
       input.provider ?? 'codex',
       input.flags,
-      { preserveFlowState: true },
     );
   }
   if (input.lastMessageAt !== undefined)

@@ -121,3 +121,58 @@ test('rejects provider-incompatible persisted flags instead of silently dropping
   ]);
   assert.equal(createCalls, 0);
 });
+
+test('rejects server-owned parent and child flow metadata on ordinary conversation creates', async () => {
+  let createCalls = 0;
+
+  const flowRes = await request(
+    appWith({
+      createConversation: async () => {
+        createCalls += 1;
+        throw new Error('createConversation should not be called');
+      },
+    }),
+  )
+    .post('/conversations')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5',
+      flags: {
+        flow: {
+          executionId: 'smuggled-parent-1',
+        },
+      },
+    })
+    .expect(400);
+
+  assert.equal(flowRes.body.error, 'validation_error');
+  assert.deepEqual(flowRes.body.details.flags._errors, [
+    'flags.flow is server-owned and cannot be set via conversations API',
+  ]);
+
+  const flowChildRes = await request(
+    appWith({
+      createConversation: async () => {
+        createCalls += 1;
+        throw new Error('createConversation should not be called');
+      },
+    }),
+  )
+    .post('/conversations')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5',
+      flags: {
+        flowChild: {
+          executionId: 'smuggled-child-1',
+        },
+      },
+    })
+    .expect(400);
+
+  assert.equal(flowChildRes.body.error, 'validation_error');
+  assert.deepEqual(flowChildRes.body.details.flags._errors, [
+    'flags.flowChild is server-owned and cannot be set via conversations API',
+  ]);
+  assert.equal(createCalls, 0);
+});

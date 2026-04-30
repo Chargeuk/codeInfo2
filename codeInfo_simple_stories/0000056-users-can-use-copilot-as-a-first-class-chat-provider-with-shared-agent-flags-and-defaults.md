@@ -12,10 +12,11 @@ Users can use Copilot as a first-class chat provider with shared Agent Flags and
 6. Saved conversations, resumed flows, and provider-specific payloads do not leak stale or unsupported state back into later requests or sidebar labels.
 7. Existing Codex and LM Studio chat behaviour continues to work while defaults, validation, discovery, and proofs become provider-neutral.
 8. Support and engineering users can bootstrap, validate, and explain the final contract through the repository's standard wrappers, runtime smoke path, reviewer summary, and reliable review-loop workflow state.
+9. Checked-in server defaults stay portable and consistent instead of depending on one developer-shaped local runtime file.
 
 # Description
 
-This story makes Copilot feel like a full chat provider in the same product surfaces where Codex already feels strong, while also cleaning up the shared chat architecture so it no longer depends on Codex-only defaults, payloads, and UI controls. When this work is complete, each provider owns its own repo-local defaults, the browser renders one honest Agent Flags experience for the selected provider and model, Copilot works through the normal tool-aware chat seams, and the story closes with stronger validation around stale state, replay safety, tracked review-loop artifacts, and reviewer-facing proof.
+This story makes Copilot feel like a full chat provider in the same product surfaces where Codex already feels strong, while also cleaning up the shared chat architecture so it no longer depends on Codex-only defaults, payloads, and UI controls. When this work is complete, each provider owns its own repo-local defaults, the browser renders one honest Agent Flags experience for the selected provider and model, Copilot works through the normal tool-aware chat seams, checked-in server defaults stay portable instead of developer-specific, and the story closes with stronger validation around stale state, replay safety, tracked review-loop artifacts, and reviewer-facing proof.
 
 # Tasks
 
@@ -88,3 +89,13 @@ This story makes Copilot feel like a full chat provider in the same product surf
 
 - Revalidate the five current review-created findings through focused proof owners plus one broad wrapper-first regression pass.
 - Refresh the PR summary and closeout notes so reviewers can see which focused proof owners and broad wrapper surfaces closed each finding.
+
+15. [codeInfo2] - Normalize the tracked server env contract versus machine-local overrides.
+
+- Repair `server/.env` and the related startup and compose readers so tracked defaults stay portable while machine-local overrides move to the local-only path.
+- Keep proof focused on env precedence, explicit compose entrypoint loading, and the final `Codex_*` default contract where that seam still depends on env values.
+
+16. [codeInfo2] - Revalidate review pass `0000056-20260430T202655Z-3d97be0d` after review-task and inline-minor repairs.
+
+- Re-run the focused proof for the repaired tracked-env contract and keep the latest review-created findings block tied to one explicit final revalidation owner.
+- Use the shared build, test, compose, lint, format, and runtime smoke wrappers once to prove the repaired head and the inline-resolved minor fixes still hold together.

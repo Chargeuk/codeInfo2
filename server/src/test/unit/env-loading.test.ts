@@ -69,6 +69,26 @@ test('loads renamed CODEINFO env keys with .env.local override precedence', () =
   );
 });
 
+test('preseeded process env keeps winning over server/.env.local and server/.env', () => {
+  const serverRoot = createServerRoot();
+  const targetEnv: Record<string, string | undefined> = {
+    CODEINFO_LOG_LEVEL: 'warn',
+  };
+
+  writeEnvFile(serverRoot, '.env', ['CODEINFO_LOG_LEVEL=info', ''].join('\n'));
+  writeEnvFile(
+    serverRoot,
+    '.env.local',
+    ['CODEINFO_LOG_LEVEL=debug', ''].join('\n'),
+  );
+
+  const result = loadStartupEnv({ serverRoot, targetEnv });
+
+  assert.equal(targetEnv.CODEINFO_LOG_LEVEL, 'warn');
+  assert.equal(result.valueSources.CODEINFO_LOG_LEVEL, 'preseeded');
+  assert.deepEqual(result.loadedFiles, ['server/.env', 'server/.env.local']);
+});
+
 test('optional renamed CODEINFO env keys stay absent and defaults can still resolve', () => {
   const serverRoot = createServerRoot();
   const targetEnv: Record<string, string | undefined> = {};
@@ -98,6 +118,40 @@ test('optional renamed CODEINFO env keys stay absent and defaults can still reso
       ?.defined,
     false,
   );
+});
+
+test('machine-local runtime endpoints no longer claim tracked ownership through server/.env', () => {
+  const serverRoot = createServerRoot();
+  const targetEnv: Record<string, string | undefined> = {};
+
+  writeEnvFile(
+    serverRoot,
+    '.env',
+    ['CODEINFO_CHAT_DEFAULT_PROVIDER=codex', 'CODEINFO_LOG_LEVEL=info', '']
+      .join('\n'),
+  );
+
+  const result = loadStartupEnv({ serverRoot, targetEnv });
+  const resolutions = resolveCodeinfoEnvResolutions({
+    env: targetEnv,
+    loadResult: result,
+  });
+
+  for (const name of [
+    'CODEINFO_LMSTUDIO_BASE_URL',
+    'CODEINFO_CHROMA_URL',
+    'CODEINFO_MONGO_URI',
+  ] as const) {
+    assert.equal(targetEnv[name], undefined);
+    assert.equal(
+      resolutions.find((entry) => entry.name === name)?.source,
+      'absent',
+    );
+    assert.equal(
+      resolutions.find((entry) => entry.name === name)?.defined,
+      false,
+    );
+  }
 });
 
 test('runtime server env rename inventory is surfaced through startup env resolution', () => {

@@ -58,6 +58,10 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(dockerfile, /ENV CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
 
   const mainServer = getServiceBlock(mainCompose, 'server');
+  assert.match(
+    mainServer,
+    /env_file:\n\s+- server\/\.env\n\s+- server\/\.env\.local/u,
+  );
   assert.match(mainServer, /network_mode: host/u);
   assert.doesNotMatch(mainServer, /\n\s+ports:/u);
   assert.doesNotMatch(mainServer, /\n\s+networks:/u);
@@ -73,8 +77,15 @@ test('main stays image-baked while local host-network compose exposes the live d
     mainServer,
     /CODEINFO_PLAYWRIGHT_MCP_URL=http:\/\/host\.docker\.internal:8932\/mcp/u,
   );
+  assert.match(
+    mainServer,
+    /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
+  );
+  assert.match(mainServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
+  assert.match(mainServer, /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u);
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+  assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
@@ -87,6 +98,10 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
 
   const localServer = getServiceBlock(localCompose, 'server');
+  assert.match(
+    localServer,
+    /env_file:\n\s+- server\/\.env\n\s+- server\/\.env\.local/u,
+  );
   assert.match(localServer, /network_mode: host/u);
   assert.doesNotMatch(localServer, /\n\s+ports:/u);
   assert.doesNotMatch(localServer, /\n\s+networks:/u);
@@ -100,10 +115,20 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/flows:\/app\/flows/u);
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
+  assert.match(
+    localServer,
+    /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
+  );
+  assert.match(localServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
+  assert.match(localServer, /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(
     localServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:5510\/health'\]/u,
+  );
+  assert.match(
+    localServer,
+    /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data/u,
   );
   assert.match(
     localServer,

@@ -3,6 +3,7 @@ import test, { afterEach, beforeEach } from 'node:test';
 
 import {
   getCodexEnvDefaults,
+  getCodexModelList,
   mergeCodexModelList,
 } from '../../config/codexEnvDefaults.js';
 
@@ -12,6 +13,7 @@ const ENV_KEYS = [
   'Codex_reasoning_effort',
   'Codex_network_access_enabled',
   'Codex_web_search_enabled',
+  'Codex_model_list',
 ];
 
 const originalEnv = new Map<string, string | undefined>();
@@ -47,7 +49,7 @@ afterEach(() => {
   });
 });
 
-test('valid env values map into defaults', () => {
+test('tracked Codex_* env values remain the live product-default contract when present', () => {
   setEnv({
     Codex_sandbox_mode: 'workspace-write',
     Codex_approval_policy: 'on-request',
@@ -68,7 +70,7 @@ test('valid env values map into defaults', () => {
   assert.equal(warnings.length, 0);
 });
 
-test('missing env values fall back without warnings', () => {
+test('parser falls back cleanly when Codex_* env values are absent', () => {
   const { defaults, warnings } = getCodexEnvDefaults();
 
   assert.deepEqual(defaults, {
@@ -140,4 +142,20 @@ test('mergeCodexModelList preserves env order and appends chat config model only
     'gamma',
     'beta',
   ]);
+});
+
+test('empty Codex_model_list still falls back to the parser-owned model defaults', () => {
+  setEnv({
+    Codex_model_list: '   ',
+  });
+
+  const { models, warnings, fallbackUsed } = getCodexModelList();
+
+  assert.equal(fallbackUsed, true);
+  assert.ok(models.length > 0);
+  assert.ok(
+    warnings.some((warning) =>
+      warning.includes('Codex_model_list is empty'),
+    ),
+  );
 });

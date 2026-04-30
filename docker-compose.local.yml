@@ -38,13 +38,15 @@ services:
       - GIT_AUTHOR_EMAIL=llm@llm.com
       - GIT_COMMITTER_NAME=llm
       - GIT_COMMITTER_EMAIL=llm@llm.com
-      # Override to use host.docker.internal for ChromaDB
+      - CODEINFO_LMSTUDIO_BASE_URL=http://host.docker.internal:1234
       - CODEINFO_LOG_FILE_PATH=/app/logs/server-local.log
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8200
       - CODEINFO_CODEX_HOME=/app/codex
+      - CODEINFO_CODEX_WORKDIR=/data
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
+      - CODEINFO_HOST_INGEST_DIR=${CODEINFO_HOST_INGEST_DIR:-/tmp}
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
@@ -67,7 +69,7 @@ services:
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ./flows:/app/flows
       - ./flows-sandbox:/app/flows-sandbox
-      - ${CODEINFO_HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
+      - ${CODEINFO_HOST_INGEST_DIR:-/tmp}:/data
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'

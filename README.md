@@ -97,7 +97,7 @@ Use this section only when your network requires internal registries and/or corp
 Workflow env-file rules:
 
 ```text
-compose -> edit server/.env.local
+compose -> edit server/.env.local for host-only overrides; compose-owned container runtime overrides stay in docker-compose.yml
 compose:local -> edit server/.env.local and client/.env.local
 e2e -> edit .env.e2e
 ```
@@ -132,7 +132,7 @@ Corporate certificate directory requirements:
 
 ## MongoDB (conversation history)
 
-- Conversation persistence depends on MongoDB. Default URI: `CODEINFO_MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true`.
+- Conversation persistence depends on MongoDB. Compose-owned container runtime defaults come from `docker-compose.yml` and point the server container at `mongodb://host.docker.internal:27517/db?directConnection=true`; host-only non-compose overrides belong in `server/.env.local`.
 - `docker-compose.yml` includes a Mongo 8 replica-set service bound to host port 27517 and passes the same URI into the server container; local dev can reuse the same URI when running the server without Compose.
 - If Mongo is unreachable the server keeps running but reports `mongoConnected=false`; the client surfaces a banner and disables archive controls while allowing stateless chat.
 
@@ -160,6 +160,7 @@ Corporate certificate directory requirements:
 - Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
 - Codex home: `CODEINFO_CODEX_HOME=./codex`; the runtime seeds the canonical base template on first start. `docker-compose.local.yml` live-mounts repo `./codex` to `/app/codex` for local editing, while the main and e2e stacks use the image-prepared `/app/codex` home and still seed `config.toml` at startup when it is missing.
+- `CODEINFO_CODEX_WORKDIR` is no longer a checked-in developer-home path. The tracked `server/.env` keeps only a template placeholder, `docker-compose.yml` and `docker-compose.local.yml` now set the container runtime workdir explicitly to `/data`, and any host-only override belongs in `server/.env.local`.
 - Copilot runtime home: `CODEINFO_COPILOT_HOME=../copilot` in checked-in server development defaults, with `/app/copilot` reserved as the container override path for compose-backed runtimes and e2e. The optional `CODEINFO_COPILOT_CLI_PATH` override can point the SDK at an explicit `copilot` binary when `PATH` discovery is not reliable; if it is unset, the runtime keeps the default `PATH` lookup.
 - Docker Copilot persistence: the local compose stack bind-mounts the gitignored repo-root `./copilot` folder directly to `/app/copilot`, so local auth survives restarts in the same visible way as `./codex`. The wrapper now seeds repo-owned plaintext-token persistence in `copilot/settings.json` with `storeTokenPlaintext: true` only when that file is missing; it no longer writes this setting into Copilot-managed `config.json`. The main and e2e compose stacks keep the Docker-managed `copilot-data` named volume at `/app/copilot`, add a read-only `./copilot:/seed/copilot:ro` seed mount, and import `config.json`, `settings.json`, and `session-state/` into the writable runtime home only when those auth-bearing artifacts are missing there. Operators should not need to delete the runtime volume for normal startup, though a one-off volume reset can still be useful during local diagnosis. Copilot-managed JSON artifacts may contain JSONC comments, and the device-auth bootstrap now tolerates that compatibility format instead of failing before login. Published application ports stay unchanged.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
@@ -200,6 +201,7 @@ Corporate certificate directory requirements:
   - fallback behavior when the default provider is unavailable
 - Automatic fallback is provider-first and config-backed. When the default provider cannot supply a valid model, the server tries the next available provider and uses that fallback provider's own `chat/config.toml` model instead of reviving a hidden shared model env path.
 - Explicit user choice stays trustworthy. If the user explicitly selects Codex, Copilot, or LM Studio and that provider's local config is broken, the request fails clearly instead of silently switching to another provider.
+- `CODEINFO_LMSTUDIO_BASE_URL` is now treated as a runtime-local endpoint override, not a checked-in product default. Compose-owned server containers get an explicit `host.docker.internal` value from their compose `environment:` blocks, while host-only or workstation-specific LM Studio endpoints belong in `server/.env.local`.
 - Discovery now exposes one combined provider-model-Agent-Flags contract. `/chat/providers` and `/chat/models` return provider availability, runtime model data, provider-neutral Agent Flag descriptors, and provider/model-specific capability narrowing in one server-fed shape.
 - The browser chat page renders a provider-neutral `Agent Flags` panel from that descriptor contract. The page shows only the controls supported by the selected provider and model, seeds visible values from the resolved defaults in the provider-local config, and sends later edits back on normal chat requests as nested `agentFlags`.
 - The normal chat request contract keeps the existing transport fields (`provider`, `model`, `message`, `conversationId`, optional `inflightId`, `threadId`, and `working_folder`) and now carries provider-specific runtime options under one provider-neutral `agentFlags` object.

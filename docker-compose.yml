@@ -23,14 +23,16 @@ services:
       - CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8932
       - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2
-      # Override to use host.docker.internal for ChromaDB
+      - CODEINFO_LMSTUDIO_BASE_URL=http://host.docker.internal:1234
       - CODEINFO_LOG_FILE_PATH=/app/logs/server.log
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
       - CODEINFO_CODEX_HOME=/app/codex
+      - CODEINFO_CODEX_WORKDIR=/data
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_COPILOT_SEED_HOME=/seed/copilot
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
+      - CODEINFO_HOST_INGEST_DIR=${CODEINFO_HOST_INGEST_DIR:-/tmp}
       - FLOWS_DIR=/app/flows-sandbox
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
@@ -48,7 +50,7 @@ services:
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - copilot-data:/app/copilot
       - ./copilot:/seed/copilot:ro
-      - ${CODEINFO_HOST_INGEST_DIR:-/tmp}:${CODEINFO_CODEX_WORKDIR}:ro
+      - ${CODEINFO_HOST_INGEST_DIR:-/tmp}:/data:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
     depends_on:

@@ -1203,8 +1203,8 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-copilot.test.ts` from the repository root to prove the focused Copilot session-construction seam after the repair.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-resume.test.ts` from the repository root to prove the same contract still holds on the resumed-session path.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-copilot.test.ts` from the repository root to prove the focused Copilot session-construction seam after the repair.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-resume.test.ts` from the repository root to prove the same contract still holds on the resumed-session path.
 
 #### Implementation notes
 
@@ -1212,6 +1212,8 @@ This review-created task closes the remaining Copilot `toolAccess: 'off'` gap by
 - Updated `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so the create and resume builders now omit the repository-managed Copilot tool bundle entirely when `toolAccess` resolves to `off`, instead of still forwarding `tools` while pretending the session is tool-free through metadata alone.
 - Reworked `server/src/test/unit/chat-interface-copilot.test.ts` so the off-path cases now assert that fresh create and resume configs omit both `tools` and `availableTools`, while the existing on-path permission-oriented coverage still proves the normal bundle survives when tool access stays enabled.
 - Reworked `server/src/test/integration/chat-copilot-resume.test.ts` so the named integration proof now exercises real follow-up turns on the same conversation and asserts the resumed-session config preserves the same On/Off tool-registration contract instead of only checking empty metadata on the create path.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/chat-interface-copilot.test.ts` and the focused create/resume session-construction proof passed cleanly with 6 tests green, so the fresh builder seam now has honest wrapper-backed coverage before the resume-path checkpoint.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-resume.test.ts` and the focused resume-path proof passed cleanly with 2 tests green, so the real follow-up-turn seam now matches the same On/Off tool-registration contract as the fresh create path.
 
 ### Task 10. Restore one bounded LM Studio option-domain contract across discovery, validation, defaults, and runtime execution
 

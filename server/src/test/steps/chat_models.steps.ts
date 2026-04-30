@@ -164,7 +164,9 @@ Then('the chat providers response status code is {int}', (status: number) => {
   assert.equal(response.status, status);
 });
 
-Then('the chat models body equals the mock models fixture', () => {
+Then(
+  'the chat models body matches the normalized mock models fixture',
+  () => {
   assert(response, 'expected response');
   const body = response.body as Record<string, unknown>;
   const normalized = {
@@ -178,7 +180,8 @@ Then('the chat models body equals the mock models fixture', () => {
     providers: undefined,
   };
   assert.deepStrictEqual(normalized, expected);
-});
+  },
+);
 
 Then(
   'the chat models response includes provider-neutral providers metadata',

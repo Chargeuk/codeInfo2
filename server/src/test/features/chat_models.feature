@@ -3,7 +3,7 @@ Feature: Chat models endpoint
     Given chat models scenario "chat-fixture"
     When I request chat models
     Then the chat models response status code is 200
-    And the chat models body equals the mock models fixture
+    And the chat models body matches the normalized mock models fixture
     And the chat models response includes provider-neutral providers metadata
     And the LM Studio Agent Flags expose only the first-wave option keys
 

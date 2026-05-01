@@ -23,6 +23,8 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("correctness_bug", text)
         self.assertIn("proof_gap", text)
         self.assertIn("cleanup_preference", text)
+        self.assertIn("unknown_scope_impact", text)
+        self.assertIn("must not stop", text)
 
     def test_config_contract_prompt_discourages_behavior_changing_cleanup(self) -> None:
         text = read_text(
@@ -62,13 +64,30 @@ class ReviewPromptContractTests(unittest.TestCase):
         classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
         disposition_text = read_text("codeinfo_markdown/review_disposition.md")
         task_up_text = read_text("codeinfo_markdown/task_up/02-preflight.md")
+        task_audit_text = read_text(
+            "codeinfo_markdown/task_up/11-review-preemption-audit.md"
+        )
 
         self.assertIn("cleanup_preference", classify_text)
         self.assertIn("known-working runtime contract", classify_text)
+        self.assertIn("unknown_scope_impact", classify_text)
+        self.assertIn("normalize it to `unknown_scope_impact`", classify_text)
         self.assertIn("cleanup_preference", disposition_text)
         self.assertIn("known-working behavior", disposition_text)
+        self.assertIn("must not be absorbed", disposition_text)
+        self.assertIn("do not suppress the finding", disposition_text)
         self.assertIn("known-working runtime contract", task_up_text)
         self.assertIn("explicit reproduced defect", task_up_text)
+        self.assertIn("continue task-up normally", task_up_text)
+        self.assertIn("Missing or malformed `Scope Impact` metadata", task_audit_text)
+
+    def test_only_exact_cleanup_preference_gets_the_narrowing_behavior(self) -> None:
+        classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
+        disposition_text = read_text("codeinfo_markdown/review_disposition.md")
+
+        self.assertIn("Only when a finding explicitly says `Scope Impact: cleanup_preference`", classify_text)
+        self.assertIn("exact `Scope Impact` is `cleanup_preference`", disposition_text)
+        self.assertIn("If `Scope Impact` is missing, malformed, or unrecognized", disposition_text)
 
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(

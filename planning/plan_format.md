@@ -37,7 +37,7 @@ Use this optional section when story-level manual-proof defaults or expectations
 
 - Keep it optional, non-blocking, and checkbox-free.
 - Use it for story-scoped manual-testing guidance that may apply across multiple tasks or the final story validation pass, such as shared startup order, shared proof surfaces, shared access notes, or shared artifact expectations.
-- When story-level manual proof is likely to depend on a paired or supporting repository outside the current repository, name that repository and explain why when known. This helps the manual testing agent move faster, but does not strictly limit later proof investigation.
+- When story-level manual proof is likely to depend on a paired or supporting repository outside the current repository, reference that repository by its `Additional Repositories` alias or another portable identifier, not an absolute filesystem path, and explain why when known. This helps the manual testing agent move faster, but does not strictly limit later proof investigation.
 - Do not use this section to create completion gates for implementation tasks.
 - When tasks are generated, ensure the relevant story QA or final story validation tasks explicitly cover any applicable guidance from this section.
 - Task-level `Manual Testing Guidance` may later refine or override this section for one specific task when needed.
@@ -157,7 +157,7 @@ Optional guidance for the manual testing agent only.
 
 - Describe the most useful browser-visible, runtime-visible, or externally observable scenarios to check manually when this task reaches manual validation.
 - Name any suggested screenshots, console signals, network checks, or log markers that would help manual validation.
-- If this task's honest proof lives through a paired or supporting repository, name that repository and explain the proof path when known.
+- If this task's honest proof lives through a paired or supporting repository, name that repository using its `Additional Repositories` alias or another portable identifier, not an absolute filesystem path, and explain the proof path when known.
 - This guidance helps the manual testing agent, but it does not prohibit the agent from discovering and using other supporting repositories when proof honestly requires them.
 - If manual testing for the story will write task-level proof artifacts into `codeInfoTmp/` and `.gitignore` does not already ignore that scratch path, add or update that ignore rule before later proof depends on it.
 - For any task, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that they must not be committed because `codeInfoTmp/` is ignored.

@@ -24,7 +24,7 @@ Use the stored current-plan handoff as the only source of plan scope for this st
 - Verify that the story number in the current repository branch name matches the story number in the selected plan filename.
 - Verify that every additional repository path is readable.
 - Verify that every additional repository is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes.
-- If manual proof appears to require another readable local repository that is not declared in `additional_repositories`, you may still investigate and use it for manual proof.
+- If manual proof appears to require another readable local repository that is not declared in `additional_repositories`, you may still inspect it to understand and summarize the likely proof path.
 
 </scope_validation_rules>
 
@@ -49,7 +49,7 @@ When validation succeeds, return a concise response that includes:
 4. Whether story-level manual-testing guidance is present.
 5. If story-level guidance is present, a short summary of its defaults.
 6. What is still remaining to be done.
-7. Any additional supporting repositories that manual proof may need beyond the declared story repositories, when that is already evident.
+7. Any additional supporting repositories that later manual proof may need beyond the declared story repositories, when that is already evident.
 
 </output_contract>
 

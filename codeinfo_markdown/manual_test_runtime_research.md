@@ -212,9 +212,7 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
 {
   "plan_path": "<relative plan path from current-plan.json>",
   "proof_scope": {
-    "declared_story_repositories": [
-      "/abs/path/to/current-repo"
-    ],
+    "current_repository": "/abs/path/to/current-repo",
     "declared_additional_repositories": [],
     "supporting_repositories": [
       {
@@ -350,7 +348,7 @@ Return a concise summary that includes:
 6. whether story-level guidance was present and what defaults it added, if any
 7. whether bound-task `Manual Testing Guidance` added any startup, access, or artifact-destination constraints
 8. whether task-level guidance overrode any story-level direction
-9. which supporting repositories outside the declared story repository list were researched for manual proof, if any
+9. which supporting repositories outside the current repository and declared additional repository list were researched for manual proof, if any
 
 Do not perform manual testing in this step.
 Do not start or stop systems in this step.

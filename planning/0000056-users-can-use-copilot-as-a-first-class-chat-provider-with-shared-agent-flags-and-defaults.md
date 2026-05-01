@@ -1605,7 +1605,7 @@ This review-created task repairs the remaining tracked `server/.env` contract pr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 15`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1645,6 +1645,8 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 5. [x] Update `server/src/routes/chatModels.ts` and, if the fresh-runtime seed contract still depends on it, `server/src/config/runtimeConfig.ts` so an LM Studio config default that is absent from the live downloaded-model list no longer returns `defaultModel: model-1` and leaves the main-stack `/chat` model selector blank after a next-send provider switch.
 6. [x] Extend `server/src/test/unit/chatModels.codex.test.ts` to prove `/chat/models?provider=lmstudio` normalizes a stale configured default model key to a live downloaded-model entry and keeps `defaultModel` plus `providerInfo.defaultModel` aligned with the returned LM Studio model list.
 7. [x] Extend `client/src/test/chatPage.provider.conversationSelection.test.tsx` to prove switching the next-send provider from a Codex-backed conversation to LM Studio replaces the persisted Codex model label with a live LM Studio model label even when the server reports a stale configured LM Studio default.
+8. [ ] Update `docker-compose.yml`, `client/entrypoint.sh`, and any client runtime-config wiring needed so the checked-in main-stack browser runtime no longer injects `http://host.docker.internal:5010` as the chat API base URL on the Task 16 manual-proof path, and next-send provider/model refreshes from a Codex-backed `/chat` conversation resolve against a host-browser-reachable API endpoint instead of leaving the provider/model selectors stuck in loading state.
+9. [ ] Extend `client/src/test/baseUrl.env.test.ts` to prove the checked-in browser-runtime contract resolves a host-browser-reachable main-stack API base URL for manual-proof flows, including the directive or normalization path that prevents raw `host.docker.internal` literals from breaking provider and model refreshes in a host browser.
 
 #### Testing
 
@@ -1656,11 +1658,11 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 6. [x] Run `npm run build:summary:client` from the repository root to prove the client workspace still builds cleanly on the repaired head.
 7. [x] Run `npm run test:summary:server:unit` from the repository root to prove the full current-repository server-unit surface, including the inline-resolved Copilot/bootstrap/proof-owner seams from this same review cycle.
 8. [x] Run `npm run test:summary:server:cucumber` from the repository root to prove the current-repository cucumber feature surface still holds after the review-created env-contract repair and the inline minor proof-owner fixes.
-9. [x] Run `npm run test:summary:client` from the repository root to prove the full client proof surface still holds for the same review cycle after the repaired head is rebuilt.
+9. [ ] Run `npm run test:summary:client` from the repository root to prove the full client proof surface still holds for the same review cycle after the repaired head is rebuilt.
 10. [x] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported end-to-end browser surface still holds for the repaired review-created block and the inline minor fixes from this same cycle.
 11. [x] Run `npm run lint` from the repository root to prove the repaired head still passes the shared ESLint gate before review closeout.
 12. [x] Run `npm run format:check` from the repository root to prove the repaired head still passes the shared formatting gate before review closeout.
-13. [x] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
+13. [ ] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
 
 #### Manual Testing Guidance
 
@@ -1695,3 +1697,4 @@ Optional guidance for the manual testing agent only.
 - Manual testing ran as a full-story proof pass on a freshly restarted main stack from `npm run compose:build` and `npm run compose:up`, then returned the stack to its prior stopped state with `npm run compose:down`. Health, paired-frontend readiness, `/chat/providers`, `/chat/models?provider=copilot`, and `/chat/models?provider=lmstudio` all responded, and browser artifacts were saved under `codeInfoTmp/manual-testing/0000056/16/`; however, `/chat/models?provider=lmstudio` still reported `defaultModel: model-1` from config while the live LM Studio model keys were different, and switching the next-send provider from a Codex-backed `/chat` conversation to LM Studio left `data-testid="model-select"` blank in `proof-03-lmstudio-selected.png`. Added focused server and client follow-up subtasks and reopened Testing step 13 so automated proof reruns before the next manual retest.
 - Subtasks 5-7 complete: `server/src/routes/chatModels.ts` now normalizes stale LM Studio configured defaults to the first live downloaded-model entry before building provider metadata, so `defaultModel` and `providerInfo.defaultModel` stay aligned with the returned model list instead of echoing a dead `model-1` key. Added a server unit proof for that stale-default normalization in `server/src/test/unit/chatModels.codex.test.ts`, and strengthened `client/src/test/chatPage.provider.conversationSelection.test.tsx` so the persisted Codex-to-LM Studio provider-switch regression still resolves the visible model label to `LM Model` even when the mock server response reports a stale configured LM Studio default.
 - Testing step 13 complete: `npm run compose:up` restarted the supported main stack cleanly after the stale-LM-Studio-default repair, `curl -f http://localhost:5010/health` returned `{"status":"ok",...,"mongoConnected":true}`, `curl -f http://localhost:5001` returned the built client HTML shell, and `npm run compose:down` shut the stack back down cleanly. The reopened runtime-handoff checkpoint is honest again without needing any manual-only follow-up inside this automated-proof step.
+- Manual testing reran as a full-story proof pass on a freshly restarted main stack from `npm run compose:build` and `npm run compose:up`, with fresh scratch artifacts saved under `codeInfoTmp/manual-testing/0000056/16/`. API curls to `http://localhost:5010` and `http://localhost:5001` still passed, but the live browser booted with `apiBaseUrl: http://host.docker.internal:5010`, `support-network.json` recorded aborted `/chat/providers` and `/chat/models` requests on that browser path, and after switching the next-send provider away from a Codex-backed `/chat` conversation the model selector DOM stayed blank/disabled while the page remained in a loading state. Added exact main-stack client-runtime follow-up subtasks, reopened `npm run test:summary:client` plus the runtime-handoff checkpoint, and left Task 16 `__in_progress__` so automated proof reruns before the next manual retest.

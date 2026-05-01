@@ -32,6 +32,11 @@ Provide one shared checklist of review-hotspot categories that planning and task
 - Manual or runtime handoff:
   - Will the story need later manual-testing-agent, browser, API, or live-runtime proof?
   - If yes, identify the supported runtime path, env files, mounted paths, ports, seed/setup source, and artifact destination early enough that stale runtime assumptions do not become implementation blockers.
+- Runtime contract preservation:
+  - Does the story change `.env*`, `docker-compose*`, startup env loading, entrypoint shells, mounted-path mapping, or working-folder routing?
+  - If yes, record the current known-working behavior, the exact defect that justifies changing it, and the user-visible/runtime behaviors that must stay preserved.
+  - Name those preserved behaviors concretely when possible, such as startup, folder browsing, working-folder selection, saved working-folder restore, provider discovery, or default launcher reachability.
+  - Do not turn portability, neatness, or template-safety alone into a behavior-changing runtime refactor without a reproduced defect or explicit user-approved migration.
 - Config-domain enforcement:
   - Does the story change a constrained env/config input?
   - If yes, define blank-input behavior, whitespace behavior, lower bounds, upper bounds, and whether invalid values clamp, fallback, or fail.

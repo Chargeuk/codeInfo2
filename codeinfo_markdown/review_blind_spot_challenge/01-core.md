@@ -31,6 +31,14 @@ Do not repeatedly rerun or ask to regenerate review artifacts solely to satisfy 
 
 Treat the evidence artifact's `Risk-Invariant Matrix`, the findings artifact's `Rejected Risk Notes`, and any saturation artifact's sibling-scan outcome as the primary input set for this challenge.
 
+For every changed runtime file outside the allowed support-file set, run at least one changed-hunk contradiction pass that asks whether the exact edit can:
+
+- drop preserved state or identifiers during rebuild or normalization;
+- crash on malformed or partial config instead of degrading safely;
+- break shell, startup, or runtime portability assumptions;
+- mislabel diagnostics so operators are pointed at the wrong failure class;
+- add eager optional-dependency work or failure surfaces where lazy evaluation would preserve current behavior.
+
 </scope_rules>
 
 <output_contract>
@@ -42,6 +50,7 @@ The challenge artifact MUST include:
 - the canonical `plan_path`;
 - the review handoff path used;
 - the top-risk helpers/functions challenged;
+- which changed runtime files received a changed-hunk contradiction pass;
 - for each challenge, the contradictory input or semantic mismatch attempted;
 - whether the challenge produced a new finding, strengthened a rejected-risk note, or left residual weak proof;
 - exact file references for the evidence used.
@@ -73,6 +82,7 @@ This artifact is additive context for disposition. Downstream steps must still w
 - Confirm the review handoff still preserves existing repository comparison metadata after this step's update, and that any safely inferred comparison context is documented in the challenge artifact when it affects confidence.
 - Confirm the challenge consumed the saturation artifact when it was present, and still remained backward-compatible when it was absent.
 - Confirm the challenge inspected the top-risk helpers/functions rather than restarting the entire review.
+- Confirm every changed runtime file outside the allowed support-file set received at least one changed-hunk contradiction pass covering state loss, malformed config, portability, diagnostics labeling, or eager optional-dependency work.
 - Confirm the challenge artifact path matches the `challenge_file` value written into the handoff.
 - Confirm the artifact explicitly says whether any new finding was generated.
 

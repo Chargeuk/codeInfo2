@@ -243,15 +243,17 @@ ensure_repo_bind_mount_dirs_for_profile() {
       "${repo_root}/copilot" \
       "${repo_root}/codex" \
       "${repo_root}/codex/chat" \
+      "${repo_root}/lmstudio" \
+      "${repo_root}/lmstudio/chat" \
       "${repo_root}/codex_agents" \
       "${repo_root}/flows" \
       "${repo_root}/flows-sandbox" \
       "${repo_root}/playwright-output-local"
 
-    local copilot_config_path
-    copilot_config_path="${repo_root}/copilot/config.json"
-    if [ ! -e "${copilot_config_path}" ]; then
-      printf '{\n  "store_token_plaintext": true\n}\n' > "${copilot_config_path}"
+    local copilot_settings_path
+    copilot_settings_path="${repo_root}/copilot/settings.json"
+    if [ ! -e "${copilot_settings_path}" ]; then
+      printf '{\n  "storeTokenPlaintext": true\n}\n' > "${copilot_settings_path}"
     fi
   fi
 }

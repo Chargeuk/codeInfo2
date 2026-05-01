@@ -58,6 +58,8 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Lint or prettier fixes that go beyond the narrow story scope are allowed when they are required to leave the repository in an honestly passing state.
 - When the final task in the story has a runnable, browser-visible, or otherwise externally observable manual-proof surface, its `Manual Testing Guidance` must include story-specific startup and access guidance for the later `manual_testing_agent` pass.
 - When the story includes a `Story Manual Testing Guidance` section above `# Tasks`, ensure the relevant story QA or final validation task explicitly covers any applicable story-level manual-proof expectations from that section.
+- When a task's honest manual proof depends on a paired or supporting repository, name that repository in `Story Manual Testing Guidance` or task-level `Manual Testing Guidance` when known so the later manual-testing pass can find the real proof surface quickly.
+- This guidance should accelerate manual proof, not act as a hard repository allowlist.
 - That guidance should name:
   - which system surfaces to start or use;
   - which prerequisite services or helpers must already be running;

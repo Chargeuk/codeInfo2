@@ -48,6 +48,8 @@ Overview of where we are now, and where we would like to be once this phase has 
 - Optional story-scoped guidance for later manual testing and story QA only.
 - Do not use checkboxes, pass or fail gating language, or completion requirements here.
 - Use this section only for story-level manual-proof defaults or expectations that apply across multiple tasks or to the final story validation pass, such as shared startup order, shared proof surfaces, shared access notes, or shared artifact expectations.
+- When story-level manual proof is likely to depend on a paired or supporting repository outside the current repository, reference that repository by its `Additional Repositories` alias or another portable identifier, not an absolute filesystem path, and explain why when known.
+- This guidance is advisory for the manual tester and should help later proof move faster, but it does not strictly limit the supporting repositories that may be investigated for honest proof; keep any such references portable rather than using absolute paths.
 - When tasks are later added, ensure the relevant story QA or final story validation tasks explicitly cover any applicable guidance from this section.
 - Task-level `Manual Testing Guidance` may later refine or override this section for one specific task when needed.
 

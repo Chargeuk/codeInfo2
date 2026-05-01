@@ -1,21 +1,25 @@
 # Goal
 
-Manually assess the latest honestly completed task using only the stored plan scope and the current runtime research, then either record a manual-proof result, add follow-up work, or record an honest skip/not-applicable outcome.
+Manually assess the latest honestly completed task using the stored plan scope and current runtime research as the primary context, then either record a manual-proof result, add follow-up work, or record an honest skip/not-applicable outcome.
 
 <critical_rules>
 
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Use fresh disk reads and current git state, not conversational memory.
-- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
+- Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use the stored `plan_path` and `additional_repositories` as the primary story context for this flow.
+- For manual proof only, you may inspect and run additional supporting repositories when they are reasonably needed to perform honest proof for the active story or bound task.
+- Do not treat a supporting repository outside `additional_repositories` as a blocker by itself.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
 - Re-open the exact relative `plan_path` from disk before deciding what to test, because another agent may have just edited it. Use explicit shell reads such as `sed`, `cat`, or `rg`.
 - If `current-task.json` does not clearly resolve a task for this loop pass, state that manual testing must wait for task resolution and do not invent a different candidate task.
+- After resolving the bound task number, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>` and use its JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan.
 - Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists and determine its meaning from the information it contains rather than depending on an exact JSON shape.
 - Treat the runtime research file as a stored summary of the best supported startup, shutdown, prerequisite, surface, availability, and fallback information for the repositories in scope.
 - The runtime research file may legitimately be absent between regeneration steps because it is live local research rather than a durable tracked handoff artifact.
 - Use that information to choose the best supported proof path for the candidate task, but re-check that the selected paths still exist on disk before using them.
 - If the runtime research file is missing, unreadable, or obviously stale for the relevant repository or surface, state that the manual testing runtime research must be regenerated and do not invent a startup path.
-- Read the bound task's `Manual Testing Guidance` section when it exists and use it as task-scoped execution input, as long as it does not conflict with fresher repository evidence or the stored runtime research.
+- Read any story-level `Story Manual Testing Guidance` when it exists and use it as optional story-scoped default input for later manual proof.
+- Read the bound task's `Manual Testing Guidance` section when it exists and use it as task-scoped execution input that may refine or override story-level guidance, as long as it does not conflict with fresher repository evidence or the stored runtime research.
 
 </critical_rules>
 
@@ -28,6 +32,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - `README.md`
   - `codeinfo_markdown/repository_information.md` if it exists
 - Use those files to determine how to start the edited system and any required prerequisites.
+- If the changed behavior is actually proved through a paired or supporting application in another repository, you may use that repository for manual proof even when it is outside the story's declared working repositories.
+- Prefer the smallest honest supporting runtime needed for proof rather than starting unrelated systems.
 - Follow the repository run workflow and prefer documented wrapper commands where available.
 - Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence.
 - If `AGENTS.md` does not define wrapper guidance, prefer the highest-level safe command discoverable from repository evidence.
@@ -92,7 +98,7 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - In that final-task case:
   - first prove the final task's own acceptance-relevant behavior;
   - then run a concise end-to-end manual validation of the story's visible or externally observable outcomes across the earlier completed tasks that matter to the user-facing or externally observable story result;
-  - use the story Overview, the final task's Task Exit Criteria, and the completed task sequence as the scope for that broader proof;
+  - use the story Overview, any applicable story-level `Story Manual Testing Guidance`, the final task's Task Exit Criteria, and the completed task sequence as the scope for that broader proof;
   - when the story acceptance criteria can be proved more durably with artifacts, generate them where possible, such as Playwright MCP screenshots for visible states, browser console or network evidence for browser proof, and log lines or other observable runtime markers for backend-facing acceptance criteria;
   - tie each generated artifact back to the specific story acceptance criterion or externally observable outcome it proves;
   - keep follow-up work on the final task unless the failure clearly requires planner repair because the plan boundary is now wrong.
@@ -135,28 +141,40 @@ Manually assess the latest honestly completed task using only the stored plan sc
 
 </playwright_mcp_artifact_transfer_rules>
 
-<bound_task_guidance_rules>
+<story_and_task_guidance_rules>
 
+- Before executing manual proof, read story-level `Story Manual Testing Guidance` when it exists.
 - Before executing manual proof, read the bound task's `Manual Testing Guidance` section when it exists.
-- Use that guidance to shape:
+- Use story-level guidance to shape shared defaults such as:
+  - startup order;
+  - shared proof surfaces;
+  - shared prerequisite services;
+  - shared login, seed, or setup expectations;
+  - shared credential-source lookup;
+  - shared manual-proof artifact expectations.
+- Use task-level guidance to shape task-specific execution details such as:
   - which surfaces to test;
   - startup order;
   - prerequisite services;
   - login, seed, or setup path;
   - credential-source lookup;
   - manual-proof artifact destination.
-- Apply task guidance in this precedence order:
+- Apply story and task guidance in this precedence order:
   1. repository truth and safety from `AGENTS.md`, current repository evidence, and the stored runtime research;
   2. the bound task's `Manual Testing Guidance` as the task-scoped execution overlay;
-  3. no invention beyond those sources.
-- If the bound task's `Manual Testing Guidance` is missing, incomplete, or stale for the proof surface, continue with the best supported repository and runtime evidence rather than guessing.
-- If the bound task's `Manual Testing Guidance` conflicts with fresher repository evidence or the stored runtime research, prefer the fresher evidence and record the conflict honestly in the implementation notes instead of silently following or ignoring the task guidance.
+  3. story-level `Story Manual Testing Guidance` as optional story-scoped defaults;
+  4. no invention beyond those sources.
+- If story-level guidance is missing, continue normally and do not treat that as a blocker.
+- If the bound task's `Manual Testing Guidance` is missing, incomplete, or stale for the proof surface, continue with the best supported repository and runtime evidence plus any story-level guidance rather than guessing.
+- If task-level guidance conflicts with story-level guidance for the same decision area, prefer the task-level guidance and record the override honestly in the implementation notes instead of silently following one source.
+- If story-level guidance or task-level guidance conflicts with fresher repository evidence or the stored runtime research, prefer the fresher evidence and record the conflict honestly in the implementation notes instead of silently following or ignoring the guidance.
 
-</bound_task_guidance_rules>
+</story_and_task_guidance_rules>
 
 <manual_proof_scope_rules>
 
-- Base manual proof only on the candidate task's own Overview, Task Exit Criteria, Subtasks, and Testing section.
+- Base manual proof on the candidate task's own Overview, Task Exit Criteria, Subtasks, and Testing section, plus any applicable story-level `Story Manual Testing Guidance`.
+- For non-final tasks, use story-level guidance only as shared defaults, shared setup expectations, shared artifact expectations, or other instructions that explicitly apply to every manual pass.
 - Do not require later-task-owned UI, observability, queue-visibility, queue-removal, cleanup, or management surfaces unless the candidate task explicitly depends on them.
 - If a later task is where that surface is planned to appear, treat its current absence as out of scope for this task rather than as an automatic blocker.
 - Determine which runnable or externally observable surfaces the completed change affects.
@@ -165,6 +183,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - a user-visible or browser-accessible surface;
   - an HTTP or network surface that can be proved with tools such as `curl`;
   - a paired or connected frontend where the edited behavior actually appears.
+- When the edited behavior is surfaced through a paired or supporting repository, treat that paired surface as in scope for manual proof.
+- Do not fail manual proof solely because the required visible or externally observable surface lives outside the declared story repositories.
 - If the completed task does not affect any runnable, browser-accessible, or externally observable surface, add a brief implementation note stating that manual testing was assessed and is not applicable because the completed change has no relevant runnable proof surface. If the candidate task is also the final task in the story, state that full-story manual testing was also assessed and remained not applicable for the same reason. Then stop.
 - When manual testing is applicable, explicitly map the manual proof back to the candidate task's visible acceptance-relevant behavior.
 - When the candidate task changes transport contracts, request/response shapes, blocking wait behavior, or other observable runtime behavior, prove only the supported surfaces needed to validate that task's owned contract.
@@ -220,6 +240,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
   - `structural_proof_gap`:
     - the candidate task's required proof surface cannot honestly be exercised because a prerequisite runtime, harness, startup contract, environment contract, dependency contract, or other enabling capability does not yet exist or is clearly planner-owned;
     - in this case, stop retrying manual testing and record an honest blocker for planner repair.
+- The need to inspect or start a supporting repository outside the story's declared repository list is not, by itself, a `structural_proof_gap`.
+- Classify a blocker only when the required proof path remains genuinely undiscoverable, unreadable, or unsupported after bounded investigation.
 
 - If you can honestly prove the candidate task's own changed behavior, but a later-task-owned surface prevents additional convenience, observability, cleanup, or exploratory checks, do not add `**BLOCKER**`.
 - Instead, add a concise implementation note stating:
@@ -322,13 +344,17 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Report whether the task was eligible for manual testing because it was fully checked and unblocked.
 - Report whether new subtasks or testing steps were added.
 - Report whether the task status changed back to `__in_progress__` or forward to `__done__`.
+- Report whether story-level guidance was present and whether it was applied.
+- Report whether task-level guidance overrode any story-level direction.
+- Report any supporting repositories outside the declared story repository list that were used for proof and why they were needed.
 
 </output_contract>
 
 <verification_loop>
 
-- Confirm you used only the stored handoff and runtime-research scope.
+- Confirm you used the stored handoff and runtime-research scope as the starting context and expanded beyond it only when honest manual proof needed supporting repositories.
 - Confirm you used the task already resolved into `current-task.json`.
+- Confirm you read story-level `Story Manual Testing Guidance` when it was present.
 - Confirm you read the bound task's `Manual Testing Guidance` when it was present.
 - Confirm candidate eligibility was determined from checklist and blocker state rather than `Task Status` alone.
 - Confirm you did not require later-task-owned surfaces unless the candidate task explicitly depended on them.
@@ -346,7 +372,8 @@ Manually assess the latest honestly completed task using only the stored plan sc
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
 - Confirm manual-proof artifacts were routed to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` for the bound task rather than split between separate non-final and final-task destinations.
 - Confirm Playwright MCP screenshots were not expected to save directly into the target repository; confirm they were transferred from the Playwright output directory or its harness-visible bind into the target repository destination.
-- Confirm any conflict between bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.
+- Confirm any task-overrides-story decision was recorded honestly.
+- Confirm any conflict between story-level or bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
 
 </verification_loop>

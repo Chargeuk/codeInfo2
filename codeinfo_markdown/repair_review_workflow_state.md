@@ -4,13 +4,33 @@ Repair broken review-loop flow state for the current story so review exit routin
 
 <critical_rules>
 
-- Run `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` and use its JSON output as the source of truth for what needs repair.
+- Run `python3 "$CODEINFO_ROOT/scripts/story_workflow_status.py"` before making any repair decision, and use its JSON output as the source of truth for what needs repair when it returns usable output.
+- Only if manual fallback is required may you inspect `codeInfoStatus/flow-state/current-plan.json` or `codeInfoStatus/flow-state/review-disposition-state.json` directly to determine repair state.
+- Perform a manual fallback only if `story_workflow_status.py` is missing, unreadable, cannot be invoked because Python is unavailable, exits before producing usable JSON, or returns empty or malformed output.
+- Do not use manual fallback to override valid script output, including a valid `repair_needed: false` or `review_state_repair_needed: false` result.
 - Repair story scope first when `repair_needed` is true.
 - Rebuild `codeInfoStatus/flow-state/review-disposition-state.json` when `review_state_repair_needed` is true after story scope has been repaired.
 - If the status output says no repair is needed, make no file changes and report a no-op.
 - Use fresh disk reads and current git state, not conversational memory.
 
 </critical_rules>
+
+<manual_fallback_rules>
+
+- Only after a permitted script failure may you determine repair state manually from disk.
+- In that manual fallback, first determine story-scope repair exactly as follows:
+  - if `current-plan.json` is missing, unreadable, invalid, or lacks a usable current story or `plan_path`, treat story scope as `repair_needed: true` with `repair_action: regenerate_current_plan_handoff`;
+  - otherwise, re-open the referenced plan and verify the current repository plus every additional repository in the handoff exists, is readable, and is still a git repository;
+  - if the plan file or any scoped repository is missing, unreadable, or no longer a git repository, treat story scope as `repair_needed: true` with `repair_action: refresh_current_plan_handoff`;
+  - if the scoped repositories still exist but any current branch no longer matches the handoff story number, treat story scope as `repair_needed: true` with `repair_action: normalize_scope_then_refresh_handoff`;
+  - otherwise, treat story scope as `repair_needed: false`.
+- Only if story scope is healthy may you assess review-state repair manually.
+- In that review-state fallback:
+  - if `review-disposition-state.json` is missing, unreadable, invalid JSON, lacks a usable `story_number` or `plan_path`, has a mismatched story or plan, lacks a valid `review_cycle_id`, or contains non-boolean review flags, treat the result as `review_state_repair_needed: true` and rebuild the review disposition state;
+  - otherwise, treat the result as `review_state_repair_needed: false`.
+- If the script failed and the on-disk state still does not let you distinguish safely between those repair outcomes, stop and report the unresolved script failure instead of guessing.
+
+</manual_fallback_rules>
 
 <repair_rules>
 

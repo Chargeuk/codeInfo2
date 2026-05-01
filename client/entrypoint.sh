@@ -9,6 +9,9 @@ escape_js_string() {
 
 write_config() {
   API_BASE_URL_VALUE="${VITE_CODEINFO_API_URL:-${SERVER_API_URL:-${API_BASE_URL:-}}}"
+  if [ -z "$API_BASE_URL_VALUE" ] && [ -n "${CODEINFO_SERVER_PORT:-}" ]; then
+    API_BASE_URL_VALUE="USE_BROWSER_HOST:${CODEINFO_SERVER_PORT}"
+  fi
   LM_STUDIO_URL_VALUE="${VITE_CODEINFO_LMSTUDIO_URL:-}"
   LOG_FORWARD_ENABLED_VALUE="${VITE_CODEINFO_LOG_FORWARD_ENABLED:-}"
   LOG_MAX_BYTES_VALUE="${VITE_CODEINFO_LOG_MAX_BYTES:-}"
@@ -16,6 +19,8 @@ write_config() {
   printf "window.__CODEINFO_CONFIG__ = {\n" > "$CONFIG_PATH"
 
   if [ -n "$API_BASE_URL_VALUE" ]; then
+    # Preserve browser-host directives verbatim so the client can resolve a
+    # host-browser-reachable API base URL at runtime.
     SAFE_API_URL="$(escape_js_string "$API_BASE_URL_VALUE")"
     printf "  apiBaseUrl: '%s',\n" "$SAFE_API_URL" >> "$CONFIG_PATH"
   fi

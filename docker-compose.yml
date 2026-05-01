@@ -72,7 +72,7 @@ services:
       dockerfile: client/Dockerfile
       args:
         # These are baked into the Vite bundle at build time; fall back to the local defaults if not provided.
-        VITE_CODEINFO_API_URL: http://host.docker.internal:5010
+        VITE_CODEINFO_API_URL: ${VITE_CODEINFO_API_URL:-USE_BROWSER_HOST:5010}
         VITE_CODEINFO_LMSTUDIO_URL: ${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
         VITE_CODEINFO_LOG_FORWARD_ENABLED: true
         VITE_CODEINFO_LOG_MAX_BYTES: 32768
@@ -86,7 +86,8 @@ services:
       - client/.env
       - client/.env.local
     environment:
-      - VITE_CODEINFO_API_URL=http://host.docker.internal:5010
+      - CODEINFO_SERVER_PORT=5010
+      - VITE_CODEINFO_API_URL=${VITE_CODEINFO_API_URL:-USE_BROWSER_HOST:5010}
       - VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}
       - VITE_CODEINFO_LOG_FORWARD_ENABLED=true
       - VITE_CODEINFO_LOG_MAX_BYTES=32768

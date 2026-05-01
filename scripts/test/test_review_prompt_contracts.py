@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+FIXTURES_DIR = REPO_ROOT / "scripts" / "test" / "fixtures" / "review_prompt_contracts"
 
 
 def read_text(relative_path: str) -> str:
@@ -59,6 +60,9 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("shell, launcher, or runtime feature", text)
         self.assertIn("label honestly describes", text)
         self.assertIn("lazy resolution", text)
+        self.assertIn("lost preserved identifiers", text)
+        self.assertIn("malformed TOML", text)
+        self.assertIn("non-POSIX features such as `local`", text)
 
     def test_disposition_and_tasking_prompts_gate_cleanup_only_runtime_rewrites(self) -> None:
         classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
@@ -99,6 +103,18 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("contract-shape assertions alone", ensure_text)
         self.assertIn("preserved behavior proof", ensure_text)
         self.assertIn("contract-shape assertions", compact_text)
+
+    def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
+        self.assertTrue(FIXTURES_DIR.is_dir())
+        expected = {
+            "lost-thread-id.md": "thread id",
+            "malformed-toml-discovery.md": "malformed TOML",
+            "posix-sh-local.md": "non-POSIX shell features such as `local`",
+        }
+        for filename, needle in expected.items():
+            path = FIXTURES_DIR / filename
+            self.assertTrue(path.is_file(), f"missing fixture {filename}")
+            self.assertIn(needle, path.read_text())
 
 
 if __name__ == "__main__":

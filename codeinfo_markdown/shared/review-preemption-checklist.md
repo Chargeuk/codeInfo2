@@ -35,6 +35,7 @@ Provide one shared checklist of review-hotspot categories that planning and task
 - Runtime contract preservation:
   - Does the story change `.env*`, `docker-compose*`, startup env loading, entrypoint shells, mounted-path mapping, or working-folder routing?
   - If yes, record the current known-working behavior, the exact defect that justifies changing it, and the user-visible/runtime behaviors that must stay preserved.
+  - Name those preserved behaviors concretely when possible, such as startup, folder browsing, working-folder selection, saved working-folder restore, provider discovery, or default launcher reachability.
   - Do not turn portability, neatness, or template-safety alone into a behavior-changing runtime refactor without a reproduced defect or explicit user-approved migration.
 - Config-domain enforcement:
   - Does the story change a constrained env/config input?

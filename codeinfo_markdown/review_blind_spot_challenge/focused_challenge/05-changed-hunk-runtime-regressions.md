@@ -7,6 +7,7 @@ Force one last changed-hunk runtime regression scan so the blind-spot pass does 
 - Apply this file only during the blind-spot challenge.
 - Use it for changed runtime files outside the allowed support-file set, especially routes, interfaces, config loaders, entrypoints, startup scripts, and mounted-path helpers.
 - Keep the scan bounded to the changed hunks and the directly adjacent producer or consumer seams they affect.
+- Record the scan as short per-file subsections or bullets in the challenge artifact rather than inventing a rigid schema. Each subsection should name the changed file, the contradiction attempted, and the outcome.
 
 </usage_rules>
 
@@ -25,6 +26,12 @@ Force one last changed-hunk runtime regression scan so the blind-spot pass does 
   - execute the declared shell entrypoint under the actual shell named in the shebang;
   - trigger a non-config runtime failure inside a broad `try`/`catch` and compare the emitted label to the real fault;
   - request a non-default provider and check whether unrelated provider readiness work still runs eagerly.
+- Use known missed-review examples as pattern reminders rather than as a hard-coded schema, including:
+  - lost preserved identifiers such as a conversation or thread id during flag or metadata rebuilds;
+  - malformed TOML or config input crashing discovery or metadata routes instead of degrading safely;
+  - shell scripts that claim POSIX `sh` but use non-POSIX features such as `local`;
+  - runtime error markers that overclaim a narrower root cause than the surrounding failure region;
+  - provider readiness or model-discovery work that runs eagerly for unrelated providers.
 - If the changed hunk appears to introduce only portability or neatness cleanup, do not escalate it unless the contradictory scenario reproduces a real behavioral or operational problem on the current head.
 
 </changed_hunk_rules>

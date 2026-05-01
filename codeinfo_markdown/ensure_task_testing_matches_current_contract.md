@@ -10,6 +10,8 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Keep `Testing` automated-only and place any optional manual-testing-agent scenarios in `Manual Testing Guidance`.
 - Keep testing proportional to the actual change surface.
 - Prefer updating review-created `__to_do__` tasks and newly added revalidation tasks first.
+- For runtime-contract changes touching `.env*`, `docker-compose*`, startup env loading, entrypoints, mounted-path mapping, or working-folder routing, do not accept healthchecks, env dumps, or contract-shape assertions alone as sufficient proof. Require preserved behavior proof or an explicit weak-proof note.
+- Do not let testing lock in a newly invented runtime contract unless the plan also proves the previously working user-visible/runtime behavior still holds or documents an explicit approved migration.
 - For newly added review-created `__to_do__` tasks, keep targeted task-local proof compact when a fresh final revalidation task explicitly owns full relevant regression proof for the current review-created findings block.
 - Only update older `__done__` or `__in_progress__` tasks when a minimal testing-ownership, proof-path, dependency, or sequencing correction is required to keep the plan honest.
 - If you add any new unchecked testing step or proof-owning unchecked subtask to a task that is currently `__done__`, you must reopen that task to `__in_progress__` unless a different prerequisite task now owns the next real work and the repaired task should honestly return to `__to_do__`.

@@ -32,5 +32,7 @@ Capture the changed-test proof hotspots and the generic adversarial checklist th
 - If a changed test file is being used as acceptance proof, also record whether the test name, inline description, and assertions still exercise the same invariant after the implementation changes rather than only adjacent behavior.
 - If a changed proof-owning file uses BDD or step-style phases, also record whether assertion-style steps mutate the state that earlier setup or action phases were supposed to establish, and mark that proof as weak when the step can satisfy its own expectation.
 - If a changed test file is being used as acceptance proof, also record whether any negative assertion depends on an arbitrary elapsed-time sleep instead of a deterministic scheduler, resource, or state boundary, and mark that proof as weak when no stronger boundary is demonstrated.
+- If a changed runtime-contract surface such as `.env*`, `docker-compose*`, startup env loading, entrypoint selection, mounted-path mapping, or working-folder routing is being justified by new or changed tests, record whether those tests prove preserved user-visible behavior or merely assert a newly invented contract shape.
+- Mark proof as weak when the only evidence for a runtime-contract rewrite is env dumps, healthchecks, container-inspect output, or contract-shape assertions without preserved behavior proof.
 
 </hotspot_rules>

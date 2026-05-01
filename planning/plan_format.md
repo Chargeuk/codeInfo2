@@ -37,7 +37,7 @@ Use this optional section when story-level manual-proof defaults or expectations
 
 - Keep it optional, non-blocking, and checkbox-free.
 - Use it for story-scoped manual-testing guidance that may apply across multiple tasks or the final story validation pass, such as shared startup order, shared proof surfaces, shared access notes, or shared artifact expectations.
-- When story-level manual proof is likely to depend on a paired or supporting repository outside the main implementation repository, name that repository and explain why when known. This helps the manual testing agent move faster, but does not strictly limit later proof investigation.
+- When story-level manual proof is likely to depend on a paired or supporting repository outside the current repository, name that repository and explain why when known. This helps the manual testing agent move faster, but does not strictly limit later proof investigation.
 - Do not use this section to create completion gates for implementation tasks.
 - When tasks are generated, ensure the relevant story QA or final story validation tasks explicitly cover any applicable guidance from this section.
 - Task-level `Manual Testing Guidance` may later refine or override this section for one specific task when needed.

@@ -1,6 +1,6 @@
 # Goal
 
-Manually assess the latest honestly completed task using only the stored plan scope and the current runtime research, then either record a manual-proof result, add follow-up work, or record an honest skip/not-applicable outcome.
+Manually assess the latest honestly completed task using the stored plan scope and current runtime research as the primary context, then either record a manual-proof result, add follow-up work, or record an honest skip/not-applicable outcome.
 
 <critical_rules>
 

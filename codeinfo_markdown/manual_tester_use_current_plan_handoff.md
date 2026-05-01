@@ -6,7 +6,7 @@ Use the stored current-plan handoff as the only source of plan scope for this st
 
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - Use the stored `plan_path` and `additional_repositories` as the primary story context for this flow.
-- For manual testing only, you may inspect and run other repositories when they are reasonably needed to perform honest proof for the active story.
+- For manual testing only, you may inspect other repositories when they are reasonably needed to understand the active story's honest proof path.
 - Do NOT use `code_info` tools for this step.
 - Do NOT independently switch to a different story or plan.
 - Do NOT make file changes in this step.

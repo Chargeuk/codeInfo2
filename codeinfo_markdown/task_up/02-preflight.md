@@ -42,6 +42,7 @@ Lock the active story, repository scope, and tasking format before generating or
 - Determine whether the selected plan already uses the current section contract of `Subtasks`, automated-only `Testing`, and optional `Manual Testing Guidance`.
 - If the selected plan contains manual testing checklist items inside `Subtasks` or `Testing`, treat that as a tasking-format defect to be repaired later in this workflow.
 - If the selected plan contains subtasks that depend on later automated or manual proof outputs, treat that as a tasking-format defect to be repaired later in this workflow.
+- If the review finding that triggered task-up would alter a known-working runtime contract such as env loading, compose ownership, mounted-path mapping, startup shells, or working-folder selection, stop and require an explicit reproduced defect or user-approved scope expansion before turning that finding into a review-created task.
   </required_checks>
 
 <verification_loop>

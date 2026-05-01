@@ -24,6 +24,12 @@ Start the multi-step review sequence for the current story by gathering evidence
 - Do not edit any plan in this step unless a tiny note is absolutely required to unblock the review.
 - Do not commit in this step unless you had to make tracked changes for that unblock.
 - Before writing any review artifact under `codeInfoTmp/reviews/`, verify that the repository ignores `codeInfoTmp/`. If it does not, add or update `.gitignore` before later review steps rely on that scratch directory. Do not commit the scratch review artifacts themselves.
+- When changed non-support files include `.env*`, `docker-compose*`, entrypoints, startup env loaders, mounted-path mapping, or working-folder routing, record a `Runtime Contract Preservation Matrix` in the evidence summary. That matrix must name:
+  - the current known-working behavior;
+  - the new contract being asserted by the diff;
+  - the user-visible/runtime behaviors that must stay preserved;
+  - what proof exists for preservation and what proof is still weak or missing.
+- For those runtime-contract surfaces, do not treat healthchecks, env dumps, or container-inspect output as sufficient preserved-behavior proof by themselves.
 
 </critical_rules>
 
@@ -115,6 +121,7 @@ When `remote_fetch_status` is `fetch_failed`, the handoff may include `remote_fe
 15. Call out any implementation area that looks more complex or verbose than the planned work actually required, even if it may still be correct.
 16. Generate a unique `review_pass_id` using the shared story number, a UTC timestamp, and the current repository short SHA.
 17. Record the per-repository stable aliases, local HEAD short SHA values, logical base branches, resolved base branches, resolved base sources, remote names, remote fetch statuses, optional fetch-failed-only sanitized remote fetch errors, optional fetch-failed-only exit codes, local fallback reasons, comparison base refs, pinned comparison base commit IDs, comparison head refs, and comparison rules separately in the evidence summary and handoff.
+18. When a `Runtime Contract Preservation Matrix` is required, include at least one concrete preserved-behavior proof source or one explicit weak-proof note for each affected behavior, such as startup, folder browsing, working-folder persistence, or default-path reachability.
 
 </step_order>
 
@@ -179,6 +186,7 @@ This handoff file is the ONLY review file the next step may use. Do not rely on 
 - Confirm every acceptance criterion has a proof source or an explicit weak/missing-proof note.
 - Confirm cross-repository evidence was added when the story spans multiple repositories.
 - Confirm the tracked-diff hygiene sweep covered ignored-but-tracked files, temp artifacts, local config, and secret-like values.
+- Confirm any required `Runtime Contract Preservation Matrix` was captured and that preserved behavior was not credited solely from healthchecks, env dumps, or container-inspect output.
 - Confirm queued/admission-vs-execution validation gaps and mocked-seam false confidence were recorded as hotspots when present.
 - Confirm the evidence summary contains a `Risk-Invariant Matrix` for the top risky helpers/functions.
 - Confirm the top 3 risky helpers/functions were named.

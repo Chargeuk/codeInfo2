@@ -27,6 +27,7 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 - When tests rely on shared state, ports, files, caches, retries, or negative assertions, ensure the tasks make deterministic boundaries, teardown behavior, and worker or parallel-safety explicit.
 - When broad wrappers, Compose, Docker, browser runtimes, or shared services are required for proof, ensure the tasks distinguish task-owned failures from shared baseline, harness, or environment failures and add prerequisite ownership where the baseline is known to be unhealthy or unproved.
 - When later manual/runtime proof is likely, ensure the tasks or final manual guidance name the current supported runtime contract: stack, env files, mounted path namespace, ports, readiness checks, seed/setup source, and artifact location.
+- When a proposed review-created task would change a known-working runtime contract, ensure the task names the reproduced defect that justifies the change. If no reproduced defect exists, treat that proposal as a tasking defect and do not let portability or neatness alone drive the task.
 - Add or rewrite subtasks where needed so a later implementer does not have to infer these review hotspots from broad task wording.
 - When a likely review hotspot would benefit from manual browser validation, express that as optional `Manual Testing Guidance`, not as a required subtask or testing checklist item.
 - When a hotspot needs proof, prefer proof-authoring subtasks plus automated `Testing` coverage wherever realistic.

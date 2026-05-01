@@ -30,6 +30,23 @@ Continue the current story review using ONLY the stored review handoff, perform 
 
 </critical_rules>
 
+<finding_taxonomy_rules>
+
+- For every actionable finding, explicitly state one `Scope Impact` classification:
+  - `behavioral_regression`
+  - `correctness_bug`
+  - `proof_gap`
+  - `cleanup_preference`
+- `cleanup_preference` means portability, template-safety, or contract neatness concern without a reproduced user-visible, runtime, or operational failure on the current head.
+- Do not raise a `cleanup_preference` finding as `must_fix` or `should_fix` unless at least one of these is true:
+  - the active story explicitly asked for that cleanup;
+  - the current head is already broken because of the issue;
+  - the user has explicitly approved that scope expansion.
+- When a finding touches `.env*`, `docker-compose*`, startup env loaders, entrypoints, mounted-path mapping, or working-folder selection surfaces, compare the current known-working behavior before recommending a behavior-changing cleanup.
+- If the current behavior is known to work and the review concern is only portability or neatness, prefer `optional_simplification` plus `Scope Impact: cleanup_preference`, or record the concern as a rejected-risk note instead of reopening the story.
+
+</finding_taxonomy_rules>
+
 <scope_rules>
 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
@@ -77,6 +94,7 @@ The findings file or incomplete-review artifact MUST:
 - include file references;
 - classify each finding as `must_fix`, `should_fix`, or `optional_simplification` when findings can be produced;
 - state for each finding whether it is a `plan_contract_issue` or a `generic_engineering_issue` when findings can be produced;
+- state each finding's `Scope Impact` using the taxonomy above when findings can be produced;
 - identify the affected repository scope for every finding or incomplete-review blocker using the reviewed repository roots or aliases when available;
 - for every `must_fix` or `should_fix` finding, name the defect class and the most likely same-class sibling surfaces that should be checked next, or state explicitly why no meaningful sibling surface exists for that finding;
 - include a short `Finding Saturation Seeds` section that records the likely same-class sibling files, mirrored producers or consumers, lifecycle-adjacent seams, proof-owner chains, or support-file families that a later bounded saturation pass should check before disposition when findings can be produced;

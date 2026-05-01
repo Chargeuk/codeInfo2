@@ -24,6 +24,7 @@ Finish the current story review using ONLY the stored review handoff and the art
 - These review artifacts may live under ignored scratch paths such as `codeInfoTmp/reviews/` and must not be committed.
 - Treat `codeInfoTmp/reviews/<story-number>-current-review.json` as transient review handoff state, `codeInfoTmp/reviews/<story-number>-external-review-input.md` as transient review input, and `codeInfoTmp/reviews/<review-pass-id>-blind-spot-challenge.md` as optional additive context rather than required durable artifacts.
 - Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
+- Do not reopen the story or create review-fix tasks solely from a finding whose `Scope Impact` is `cleanup_preference`, unless the review artifacts show a reproduced current-head failure, the active story explicitly asked for the cleanup, or the user explicitly approved that scope expansion.
 - This is the only review step allowed to mutate plans.
 - This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
 
@@ -137,6 +138,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 40. When the findings artifact communicates no actionable findings after a complete review, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
 41. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 42. If the findings artifact is missing, unreadable, or ambiguous even after safe inference from the handoff and referenced artifacts, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review. Do not create a no-findings close-out in that case.
+43. If a runtime-config or local-stack cleanup would change known-working behavior and the artifacts do not prove a current defect, do not convert that cleanup into a review-created task. Preserve it as non-actionable or leave it for explicit user-approved follow-up instead.
 
 </disposition_rules>
 

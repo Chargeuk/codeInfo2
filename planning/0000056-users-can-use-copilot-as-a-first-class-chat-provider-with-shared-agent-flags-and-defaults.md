@@ -1703,3 +1703,39 @@ Optional guidance for the manual testing agent only.
 - Testing step 9 complete: `npm run test:summary:client` reran cleanly after the checked-in browser-runtime base-url repair with `tests run: 724`, `passed: 724`, and `failed: 0`, so the full client surface now holds on the repaired Task 16 head before the final runtime-handoff rerun.
 - Testing step 13 complete: `npm run compose:up` restarted the supported main stack cleanly after the checked-in browser-runtime base-url repair, `curl -f http://localhost:5010/health` returned `{"status":"ok",...,"mongoConnected":true}`, `curl -f http://localhost:5001` returned the built client HTML shell, and `npm run compose:down` shut the stack back down cleanly. The reopened runtime-handoff checkpoint now holds on the repaired head alongside the client wrapper rerun.
 - Manual testing succeeded as a full-story proof pass on a freshly restarted main stack from `npm run compose:build` and `npm run compose:up`, then returned the stack to its prior stopped state with `npm run compose:down`. `curl` proof for `http://localhost:5010/health`, `http://localhost:5001`, `/chat/providers`, `/chat/models?provider=codex`, `/chat/models?provider=copilot`, and `/chat/models?provider=lmstudio` all passed; the browser showed Codex provider-neutral Agent Flags, Copilot switched in with `Auto` plus `Reasoning Effort` and `Tool Access`, and after restoring a Codex conversation the next-send switch to LM Studio resolved `data-testid="model-select"` to the live `Huihui Qwen3.5 9B Abliterated` label instead of a blank value. Saved retained support artifacts under `codeInfoTmp/manual-testing/0000056/16/` (`support-health.json`, `support-providers.json`, `support-models-*.json`, `support-client-env.txt`, `support-browser.json`, `support-console.txt`, `support-network.json`); Playwright MCP screenshots were captured with staging filenames `manual-testing/0000056/16/proof-01-codex-chat.png`, `proof-02-copilot-flags.png`, and `proof-03-lmstudio-flags.png`, but copy-out into the repository scratch folder was blocked because `$CODEINFO_ROOT/playwright-output-local` is absent and the running `codeinfo2-playwright-mcp-1` container did not expose those staged files at `/tmp/playwright-output`. No new subtasks were needed because that transfer limitation did not invalidate the task-owned or story-level acceptance proof.
+
+## Post-Implementation Code Review
+
+Review pass `0000056-20260501T005010Z-506c6c19` closed cleanly with no endorsed actionable findings.
+
+- Branch-vs-base checks performed:
+  - Current repository only was in scope.
+  - Reviewed local `HEAD` `506c6c19467d242bd4c3905111e7a33cbe40196f` on branch `feature/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults`.
+  - Compared against remote-tracking base `origin/main` at `e1dfeaa8cfac7c4608efe3e70aa8b7d10149d814`.
+  - Comparison metadata held as `comparison_base_ref: origin/main`, `comparison_base_commit: e1dfeaa8cfac7c4608efe3e70aa8b7d10149d814`, `comparison_head_ref: HEAD`, and `comparison_rule: local_head_vs_resolved_base`.
+  - Base resolution used the remote path with `resolved_base_source: remote` and `remote_fetch_status: success`; no local fallback was needed.
+- Acceptance-evidence checks performed:
+  - Read the canonical plan, the stored review handoff, the evidence artifact, the findings artifact, the findings-saturation artifact, and the blind-spot challenge artifact for this review pass.
+  - Confirmed the canonical plan finished with `Task 16` `__done__` and that the story workflow status reports `story_complete: true`.
+  - Relied on the branch’s recorded task-validation history plus the retained review evidence artifact for final acceptance confidence, including the wrapper-backed build, unit, cucumber, client, e2e, lint, format, runtime-handoff, and final manual-proof notes already recorded in Tasks `15` and `16`.
+- Files and surfaces inspected at review time:
+  - Provider-neutral admission/execution seams: `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/providerRuntimeFlags.ts`, `server/src/routes/conversations.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, and `common/src/lmstudio.ts`.
+  - Persistence, flow, and display seams: `server/src/chat/agentFlags.ts`, `server/src/flows/service.ts`, `server/src/mongo/repo.ts`, `client/src/components/chat/ConversationList.tsx`, `client/src/pages/ChatPage.tsx`, and `client/src/hooks/useChatStream.ts`.
+  - Startup/bootstrap and proof-owner seams: `server/src/config/copilotSeedBootstrap.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, `server/src/test/integration/copilot.boot-path.test.ts`, `server/src/test/steps/chat_models.steps.ts`, and the retained evidence and scratch proof artifacts under `codeInfoTmp/reviews/` and `codeInfoTmp/manual-testing/0000056/16/`.
+- Why the current repository remains complete:
+  - The findings artifact reports no actionable findings for this pass.
+  - The saturation artifact reports `no_new_actionable_findings`.
+  - The blind-spot challenge reports `no_new_findings`.
+  - The completed Task `16` closeout evidence records the final client rerun, runtime-handoff rerun, and successful full-story manual proof on the rebuilt main stack.
+- Why the overall story remains complete:
+  - No additional repositories were in scope, so there is no unresolved cross-repository integration seam.
+  - The final plan task is complete, all plan tasks are done, and the clean no-findings review pass did not reopen any story-owned work.
+- Rejected risks carried forward:
+  - Copilot create-vs-resume tool gating still follows the shared `resolveSessionFlags(...)` seam, so `toolAccess: 'off'` does not reintroduce tool wiring on a later execution path.
+  - LM Studio config-default parsing and request-time overrides still enforce one bounded runtime domain instead of accepting broader or contradictory values across surfaces.
+  - Untrusted conversation writes still cannot persist server-owned `flags.flow*` metadata for later resume or display reuse.
+  - Copilot seed bootstrap still stages, rolls back, and yields replay-safe runtime-home behavior in the reviewed helper and focused proof owners.
+  - The changed proof-owner titles and BDD wording now match the narrower invariants their assertions actually prove.
+- Residual risk and confidence limits:
+  - This findings pass did not rerun the full wrapper or end-to-end suites itself; broader acceptance confidence is grounded in the stored evidence artifact and the already-recorded task-validation history rather than a second fresh wrapper cycle during review.
+  - Copilot seed-bootstrap degraded-startup coverage is still stronger at the helper and focused integration level than at a broad end-to-end wrapper level, so confidence there is honest but not exhaustive.

@@ -1762,3 +1762,280 @@ Review pass `0000056-20260501T005010Z-506c6c19` closed cleanly with no endorsed 
    The trickiest parts were teaching LM Studio model discovery to replace dead configured defaults with a live downloaded-model choice, preserving a browser-safe `USE_BROWSER_HOST` runtime directive through compose and the client entrypoint so provider/model refreshes still work after switching away from a Codex-backed conversation, restoring the local compose host-path contract without undoing the main-stack browser fix, and adding lightweight review guardrails that treat `cleanup_preference` as a narrow hint while still failing open when review metadata is missing or malformed.
 4. What a reviewer should take particular interest in.
    Reviewers should focus on the provider/runtime contract seams in `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/config/startupEnv.ts`, `server/src/routes/chatModels.ts`, `docker-compose.yml`, and `client/entrypoint.sh`, the intentionally restored local-stack ownership in `server/.env`, `docker-compose.local.yml`, and `server/src/test/unit/host-network-compose-contract.test.ts`, the review-workflow hardening under `codeinfo_markdown/`, `codex_agents/review_agent/commands/review_blind_spot_challenge.json`, and `scripts/test/test_review_prompt_contracts.py`, plus the clean no-findings closeout in `## Post-Implementation Code Review` and the curated durable manual-proof bundle under `codeInfoStatus/manual-proof/0000056/` that captures the retained story-level browser evidence.
+
+## Code Review Findings
+
+### Review Pass `0000056-20260501T220148Z-a78707f5`
+
+- Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active routing, with the stored handoff and findings artifacts kept as supporting evidence for the same story and review pass.
+- Review comparison context: local `HEAD` `a78707f58e1798224d9b945b58afa79cfa43d2c3` vs resolved remote base `origin/main` at commit `e1dfeaa8cfac7c4608efe3e70aa8b7d10149d814`, with `comparison_rule: local_head_vs_resolved_base`, `resolved_base_source: remote`, and `remote_fetch_status: success`.
+- Active review cycle: `0000056-rc-20260501T235427Z-243cab18`.
+- Inline-resolved minor findings already handled in `## Minor Review Fixes` for this same review cycle: `finding-1-codex-threadid-preservation`, `finding-2-copilot-discovery-toml-guard`, `finding-3-codex-lmstudio-discovery-toml-guard`, `finding-5-server-entrypoint-posix-local`, `finding-7-copilot-resume-proof-boundary`, `finding-10-provider-stop-lock-guard-parity`, and `finding-11-client-entrypoint-js-escaping`.
+- No unresolved minor-batchable findings remain in active routing, so the review loop should now exit to the main implementation loop for the serious task-up repairs below.
+- Remaining unresolved task-required findings that must be encoded into executable plan state before the story can close: `finding-4-copilot-bootstrap-partial-home`, `finding-6-chat-inflight-replay-duplication`, `finding-8-lmstudio-error-mislabel`, and `finding-9-defaults-marker-schema-drift`.
+
+### Task 17. Repair partial-runtime Copilot seed bootstrap classification before startup import
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 16`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the Copilot runtime-home bootstrap seam so startup does not treat a partially populated runtime home as fully initialized. The implementation must keep the current replay-safe publish contract, but it must distinguish complete auth-bearing runtime state from damaged or partial state strongly enough that missing peers are imported or otherwise repaired instead of being left behind permanently.
+
+#### Task Exit Criteria
+
+- A runtime home containing only `config.json`, only `settings.json`, only `session-state/session.json`, or any two-of-three partial combination is no longer treated as a complete initialized runtime for the normal startup import path.
+- A complete runtime home that already contains all required Copilot auth-bearing artifacts still keeps the existing skip-path behavior instead of being overwritten.
+- The bootstrap helper still preserves replay-safe late-publish behavior when runtime artifacts appear after preflight but before publish, including the interleaving where another writer completes the runtime home before the current publish step can finish.
+- Focused proof owners state the difference between complete runtime ownership and partial-runtime repair explicitly enough that later review can see which artifact combinations must import missing peers, which combinations must skip safely, and which copied artifacts are expected in each repaired partial case.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260501T220148Z-a78707f5`
+- Finding `finding-4-copilot-bootstrap-partial-home`: Copilot startup seeding treats a partially populated runtime home as fully initialized.
+
+#### Documentation Locations
+
+- `server/src/config/copilotSeedBootstrap.ts`
+- `server/src/test/unit/copilotSeedBootstrap.test.ts`
+- `server/src/test/integration/copilot.boot-path.test.ts`
+- `README.md`
+
+#### Subtasks
+
+1. [ ] In `server/src/config/copilotSeedBootstrap.ts`, repair the runtime-home classification and skip-path logic so the exact complete artifact set (`config.json`, `settings.json`, and `session-state/session.json`) is required before startup skips seeding, while one-of-three and two-of-three partial homes still import missing peers, helper-owned staged writes are the only artifacts cleaned up on publish failure, and the late-publish collision path stays replay-safe if another writer completes the runtime between classification and publish.
+2. [ ] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` to add or rewrite named cases that prove four exact helper outcomes in `server/src/config/copilotSeedBootstrap.ts`: one-of-three partial homes import the missing peers, two-of-three partial homes import the missing peer, complete-runtime homes still skip seeding, and publish-failure cleanup removes only helper-owned staged artifacts while a late-publish winner from another writer remains intact.
+3. [ ] Edit `server/src/test/integration/copilot.boot-path.test.ts` to prove the normal `CODEINFO_COPILOT_HOME` boot path repairs partial runtime homes and still skips a complete runtime home, and update `README.md` only if the documented runtime-home artifact contract or bootstrap skip rule changes as part of that repair.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper contract for partial and complete runtime-home states.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported default startup path now repairs partial runtime homes without regressing replay-safe boot behavior.
+
+#### Implementation notes
+
+- Added by review-task repair from review pass `0000056-20260501T220148Z-a78707f5` after the active disposition state left `finding-4-copilot-bootstrap-partial-home` unresolved and task-required. No implementation work has started on this task yet.
+
+### Task 18. Add a completed-run replay barrier for caller-supplied chat inflight IDs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 16`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the REST chat replay seam so reusing the same caller-supplied `inflightId` cannot append a duplicate turn or dispatch a second provider run after the first logical send has already completed. The implementation must keep the existing live-run lock and stop behavior, but it must add a durable completed-run barrier or equivalent idempotent contract for ambiguous retries after in-memory inflight cleanup.
+
+#### Task Exit Criteria
+
+- Replaying the same logical POST with the same caller-supplied `(conversationId, inflightId)` after the first request already committed can no longer append another persisted user turn, start another provider run, or return a fresh `started` acceptance that hides the duplicate, whether the retry lands immediately after terminal completion or after in-memory inflight cleanup already ran.
+- The repaired seam still preserves the intended behavior for genuinely new sends, active-run stop or cancel flows, and fresh retries that use a different logical `inflightId`.
+- A stale completed `inflightId` restored or retained in client state is treated as replay-only input and excluded from starting a new send, while a truly new send with a fresh `inflightId` still follows the normal accepted path.
+- The chosen replay barrier is encoded at one coherent server-owned seam keyed by the caller-visible send identity instead of scattering duplicate-prevention heuristics across unrelated callers.
+- Focused proof owners make the completed-run replay contract explicit enough that later review can see how route admission, inflight finalization or cleanup, websocket lifecycle emission, and persisted turn state agree on the same stable non-duplicating replay result.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260501T220148Z-a78707f5`
+- Finding `finding-6-chat-inflight-replay-duplication`: REST chat replays can duplicate a completed send when the caller reuses the same `inflightId`.
+
+#### Documentation Locations
+
+- `server/src/routes/chat.ts`
+- `server/src/chat/inflightRegistry.ts`
+- `server/src/test/integration/chat-tools-wire.test.ts`
+- `server/src/test/integration/conversations.turns.test.ts`
+
+#### Subtasks
+
+1. [ ] Across `server/src/routes/chat.ts` and `server/src/chat/inflightRegistry.ts`, add one server-owned replay barrier keyed by `(conversationId, inflightId)` before a second `createInflight` or `publishUserTurn` path can run, make the mixed state explicit that a stale completed `inflightId` is replay-only input rather than a new send, preserve genuinely new sends plus the existing active-run stop or cancel lifecycle, and keep one durable completion reader or marker alive long enough that cleanup cannot reopen the send path for the same completed logical request.
+2. [ ] Edit `server/src/test/integration/chat-tools-wire.test.ts` to add or rewrite one replay-specific case for the route-lifecycle seam in `server/src/routes/chat.ts` plus `server/src/chat/inflightRegistry.ts`: an immediate replay after terminal completion must return the stable non-duplicating result, must not emit a second started lifecycle or provider run, must still fail the same way if it lands between terminal emission and cleanup, and must still leave a fresh send with a different `inflightId` accepted.
+3. [ ] Edit `server/src/test/integration/conversations.turns.test.ts` to add or rewrite one replay-specific case for the persisted-state seam in `server/src/routes/chat.ts` plus `server/src/chat/inflightRegistry.ts`: the same completed `(conversationId, inflightId)` must still be blocked after cleanup, must not duplicate the persisted user turn, assistant completion, or terminal transcript, and must ignore or reject contradictory stale replay payloads instead of mutating stored conversation state.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-tools-wire.test.ts` from the repository root to prove the repaired completed-run replay barrier at the route or inflight lifecycle seam.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` from the repository root to prove the repaired seam no longer duplicates persisted conversation turns on a replayed `inflightId`.
+
+#### Implementation notes
+
+- Added by review-task repair from review pass `0000056-20260501T220148Z-a78707f5` after the active disposition state left `finding-6-chat-inflight-replay-duplication` unresolved and task-required. No implementation work has started on this task yet.
+
+### Task 19. Limit LM Studio runtime-flags-invalid diagnostics to actual flag-validation failures
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 16`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the LM Studio execution error-mapping seam so the `story.0000056.task04.lmstudio_runtime_flags_invalid` diagnostic only describes real runtime-flag validation failures. The implementation must preserve the current bounded runtime-flag contract, but it must stop labeling unrelated execution, network, or model failures as if they were invalid flag input.
+
+#### Task Exit Criteria
+
+- Runtime-flag validation failures still map to the current narrow diagnostic marker or equivalent explicit invalid-flags surface, and that marker is emitted only from the runtime-flag parsing or normalization boundary that actually owns `ProviderRuntimeFlagError`.
+- Non-flag LM Studio execution failures no longer emit the invalid-runtime-flags diagnostic marker just because they occurred inside the same broad execution `try` block.
+- The repaired seam does not redefine the whole LM Studio error taxonomy; it only narrows the invalid-runtime-flags classification to the bounded validation scope that the current task owns.
+- Focused proof owners make the valid distinction between invalid flags and unrelated execution failures explicit enough that later review can see the intended contract from the `resolveLmStudioRuntimeAgentFlags` producer seam through the `ChatInterfaceLMStudio.execute` consumer path, including one failing LM Studio execution path that occurs after flags already parsed successfully.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260501T220148Z-a78707f5`
+- Finding `finding-8-lmstudio-error-mislabel`: The LM Studio catch path can label general execution failures as runtime-flag validation errors.
+
+#### Documentation Locations
+
+- `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+- `server/src/chat/providerRuntimeFlags.ts`
+- `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`
+- `server/src/test/unit/lmstudio-provider-dispatch.test.ts`
+
+#### Subtasks
+
+1. [ ] Across `server/src/chat/providerRuntimeFlags.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, narrow the `ProviderRuntimeFlagError` boundary so the invalid-runtime-flags marker is emitted only from bounded runtime-flag parsing or validation, while later LM Studio client, model, or execution failures keep the normal general-error consumer path after flags already parsed successfully.
+2. [ ] Edit `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` so it contains two explicit proof cases with honest names and assertions: one case for real invalid or out-of-range runtime-flag input from `server/src/chat/providerRuntimeFlags.ts`, and one separate case proving `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` does not reuse the invalid-flags marker for a post-parse execution failure in the shared retry or logging path.
+3. [ ] Edit `server/src/test/unit/lmstudio-provider-dispatch.test.ts` to add or rewrite one post-parse failure case that proves `server/src/chat/providerRuntimeFlags.ts` already accepted the runtime flags before a later failure in `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and that the later failure still reaches the normal LM Studio error consumer path instead of the invalid-flags classification.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the repaired invalid-flags versus general-execution diagnostic split.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts` from the repository root to prove the repaired early-validation versus later-execution boundary on the focused LM Studio runtime seam.
+
+#### Implementation notes
+
+- Added by review-task repair from review pass `0000056-20260501T220148Z-a78707f5` after the active disposition state left `finding-8-lmstudio-error-mislabel` unresolved and task-required. No implementation work has started on this task yet.
+
+### Task 20. Normalize the shared defaults-applied marker schema across REST and MCP emitters
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 16`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This review-created task repairs the shared defaults-applied marker seam so REST and MCP emitters keep one stable warning payload vocabulary for `DEV_0000047_T01_CODEX_DEFAULTS_APPLIED`. Use `warning_count` as the shared primary warning-cardinality field because the current REST emitters already converge on that name; if a retained detailed warning list is still needed, every emitter must use the same secondary field name instead of leaving MCP on a one-off payload shape.
+
+#### Task Exit Criteria
+
+- The shared defaults-applied marker no longer emits path-dependent warning payload field names across `chatValidators`, `chatProviders`, `chatModels`, and `codebaseQuestion`.
+- The repaired marker contract is owned at one explicit shared schema seam rather than by ad hoc emitter-specific payload shapes.
+- Focused proof owners in the REST and MCP surfaces state the same warning payload vocabulary directly enough that later review can tell whether the marker stayed stable, including the shared `warning_count` primary field and any retained secondary warning-list field across both the REST console emitters and the MCP `append` or `console.info` emitters.
+- The repair does not create a second divergent marker or a compatibility-only alias unless the plan text states exactly why that extra shape is still required.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260501T220148Z-a78707f5`
+- Finding `finding-9-defaults-marker-schema-drift`: The shared defaults-applied marker emits incompatible warning payload fields across REST and MCP paths.
+
+#### Documentation Locations
+
+- `server/src/config/chatDefaults.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/routes/chatProviders.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/chatProviders.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+
+#### Subtasks
+
+1. [ ] Across `server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts`, normalize one explicit defaults-marker schema owner so every REST and MCP emitter publishes `warning_count` and, if retained, the same secondary warning-list field name, and make each reader or emitter surface consume that shared schema instead of reconstructing path-specific payload keys.
+2. [ ] Edit `server/src/test/unit/chatValidators.test.ts` so one marker-specific case has a title and assertions that explicitly prove the REST validation surface in `server/src/config/chatDefaults.ts` plus `server/src/routes/chatValidators.ts` emits the shared `warning_count` field and the retained secondary warning-list field name; rename, split, or rewrite any older case that only claims normalized `model_source` or generic resolver parity.
+3. [ ] Edit `server/src/test/unit/chatProviders.test.ts` so one marker-specific case has a title and assertions that explicitly prove the providers discovery surface in `server/src/config/chatDefaults.ts` plus `server/src/routes/chatProviders.ts` emits the same warning payload keys and values; rename, split, or rewrite any older case that only claims normalized `model_source` or generic defaults parity.
+4. [ ] Edit `server/src/test/unit/chatModels.codex.test.ts` so one marker-specific case has a title and assertions that explicitly prove the models discovery surface in `server/src/config/chatDefaults.ts` plus `server/src/routes/chatModels.ts` emits the same warning payload keys and values; rename, split, or rewrite any older case that only claims normalized `model_source` or generic resolver parity.
+5. [ ] Edit `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so one marker-specific case has a title and assertions that explicitly prove `server/src/config/chatDefaults.ts` plus `server/src/mcp2/tools/codebaseQuestion.ts` emit the same warning payload keys and values through the `codebase_question` path; rename, split, or rewrite any older parity fixture that only claims REST-default alignment.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the repaired shared marker schema on the REST validation surface.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts` from the repository root to prove the repaired shared marker schema on the providers discovery surface.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` from the repository root to prove the repaired shared marker schema on the models discovery surface.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the repaired shared marker schema on the MCP `codebase_question` surface.
+
+#### Implementation notes
+
+- Added by review-task repair from review pass `0000056-20260501T220148Z-a78707f5` after the active disposition state left `finding-9-defaults-marker-schema-drift` unresolved and task-required. No implementation work has started on this task yet.
+
+### Task 21. Revalidate review pass 0000056-20260501T220148Z-a78707f5 after review-task and inline-minor repairs
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 17`, `Task 18`, `Task 19`, `Task 20`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This fresh final revalidation task owns closeout for review cycle `0000056-rc-20260501T235427Z-243cab18`. It must revalidate the current review-created findings block for review pass `0000056-20260501T220148Z-a78707f5`, and it must also cover the inline-resolved minor fixes already recorded in `## Minor Review Fixes` for this same active review cycle so the story cannot close on partial proof.
+
+#### Task Exit Criteria
+
+- The review-created repairs for `finding-4-copilot-bootstrap-partial-home`, `finding-6-chat-inflight-replay-duplication`, `finding-8-lmstudio-error-mislabel`, and `finding-9-defaults-marker-schema-drift` are proven on their focused proof homes and no longer leave the current review pass unresolved.
+- The same final revalidation pass explicitly covers the inline-resolved minor fixes already recorded for review cycle `0000056-rc-20260501T235427Z-243cab18`, so no second final minor-fix revalidation task is needed later for findings `1`, `2`, `3`, `5`, `7`, `10`, and `11`.
+- This task owns the only broad wrapper-backed regression proof for the current review-created findings block; Tasks `17` through `20` keep only their targeted automated proof for the changed seam they implement.
+- The full relevant current-repository regression surfaces for this review-created block pass on the repaired head, and any failing wrapper or runtime gate is classified honestly rather than being confused with one finding’s focused proof.
+- If compose build, stack startup, or health probes fail before the finding-specific assertions run, the closeout record classifies that outcome as a shared wrapper, baseline, or runtime-handoff blocker instead of misfiling it as one repaired finding regressing.
+- The reviewer-facing closeout summary for Story `0000056` names which focused proof homes closed the task-required findings, which broad wrapper-backed surfaces revalidated the inline-resolved minor fixes from the same review cycle, and which review-cycle final task ownership field in `review-disposition-state.json` was closed by this task.
+
+#### Addresses Findings
+
+- Review pass `0000056-20260501T220148Z-a78707f5`
+- Task-required findings: `finding-4-copilot-bootstrap-partial-home`, `finding-6-chat-inflight-replay-duplication`, `finding-8-lmstudio-error-mislabel`, and `finding-9-defaults-marker-schema-drift`
+- Inline-resolved minor findings from review cycle `0000056-rc-20260501T235427Z-243cab18`: `finding-1-codex-threadid-preservation`, `finding-2-copilot-discovery-toml-guard`, `finding-3-codex-lmstudio-discovery-toml-guard`, `finding-5-server-entrypoint-posix-local`, `finding-7-copilot-resume-proof-boundary`, `finding-10-provider-stop-lock-guard-parity`, and `finding-11-client-entrypoint-js-escaping`
+
+#### Affected Repositories
+
+- `Current Repository`
+
+#### Documentation Locations
+
+- `codeInfoStatus/pr-summaries/0000056-pr-summary.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- The focused proof homes and wrapper-backed regression surfaces named in the testing block below
+
+#### Subtasks
+
+1. [ ] Prepare one explicit review-cycle proof map for this final pass by listing, in working notes for the task, each requirement from Tasks `17` through `20` alongside its implementation owner files, focused proof files, and the broad wrapper-backed reruns that must also revalidate the inline-resolved minor fixes for review cycle `0000056-rc-20260501T235427Z-243cab18`.
+2. [ ] Edit the focused proof owners changed by Tasks `17` through `20` so each file named in the proof map states its repaired contract directly before the broad reruns start, including any needed rename, split, or rewrite where an older title currently claims only adjacent behavior instead of the repaired invariant: `server/src/test/unit/copilotSeedBootstrap.test.ts`, `server/src/test/integration/copilot.boot-path.test.ts`, `server/src/test/integration/chat-tools-wire.test.ts`, `server/src/test/integration/conversations.turns.test.ts`, `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, `server/src/test/unit/lmstudio-provider-dispatch.test.ts`, `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`.
+3. [ ] Prepare the closeout destinations in `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and `codeInfoStatus/flow-state/review-disposition-state.json` by identifying which fields must record the proof homes for each current-pass finding, the wrapper-backed surfaces that revalidate the inline minor fixes, and the blocker classifications to use if compose-build, startup, or health-probe failures happen before finding-specific assertions run.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared compose build baseline still holds after the current review-created repairs and the inline minor fixes from this same review cycle.
+2. [ ] Run `npm run build:summary:server` from the repository root to prove the server workspace still builds cleanly on the repaired head before the focused and broad server reruns.
+3. [ ] Run `npm run build:summary:client` from the repository root to prove the client workspace still builds cleanly on the repaired head before the broad client and e2e reruns.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the focused helper contract repaired by Task `17`.
+5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported startup path repaired by Task `17`.
+6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-tools-wire.test.ts` from the repository root to prove the completed-run replay barrier repaired by Task `18`.
+7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` from the repository root to prove Task `18` no longer allows duplicate persisted turns on a replayed `inflightId`.
+8. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the diagnostic-boundary repair from Task `19`.
+9. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts` from the repository root to prove the focused LM Studio dispatch seam still holds after the Task `19` error-boundary repair.
+10. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the shared defaults-applied marker schema repaired by Task `20` on the REST validation surface.
+11. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts` from the repository root to prove the shared defaults-applied marker schema repaired by Task `20` on the providers discovery surface.
+12. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` from the repository root to prove the shared defaults-applied marker schema repaired by Task `20` on the models discovery surface.
+13. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the shared defaults-applied marker schema repaired by Task `20` on the MCP `codebase_question` surface.
+14. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the full current-repository server-unit surface, including the current review-created seams and the inline-resolved server-side minor findings from this same review cycle.
+15. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the current-repository server cucumber surface still holds after the current review-created repairs.
+16. [ ] Run `npm run test:summary:client` from the repository root to prove the full client proof surface still holds for the same review cycle after the repaired head is rebuilt.
+17. [ ] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported end-to-end browser surface still holds for the current review-created block and the inline minor fixes from this same cycle.
+18. [ ] Run `npm run lint` from the repository root to prove the repaired head still passes the shared ESLint gate before review closeout.
+19. [ ] Run `npm run format:check` from the repository root to prove the repaired head still passes the shared formatting gate before review closeout.
+20. [ ] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
+
+#### Manual Testing Guidance
+
+Optional guidance for the manual testing agent only.
+
+- If a final human-stack pass is still required after the automated reruns are green, reuse the main stack started through `npm run compose:up` with `server/.env` plus `server/.env.local`, wait for `http://localhost:5010/health` and `http://localhost:5001` to succeed first, and then walk the smallest acceptance path that exercises the repaired review-created seams: partial Copilot runtime bootstrap from `/seed/copilot` into `/app/copilot`, a replayed `inflightId` retry, one LM Studio post-parse execution failure, and one shared defaults-applied marker emission path while repository-mounted paths still resolve under `/data`.
+- If Playwright MCP screenshots are needed, first capture them with staging filenames such as `manual-testing/0000056/21/proof-01-bootstrap.png` in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000056/21/` instead of assuming Playwright writes directly into the repository.
+
+#### Implementation notes
+
+- Added by review-task repair from review pass `0000056-20260501T220148Z-a78707f5` because unresolved task-required findings remain in the active disposition state after the inline-minor path completed. No implementation work has started on this shared final revalidation task yet.

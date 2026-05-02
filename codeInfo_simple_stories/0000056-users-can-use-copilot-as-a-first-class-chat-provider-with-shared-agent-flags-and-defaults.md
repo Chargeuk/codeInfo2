@@ -99,3 +99,28 @@ This story makes Copilot feel like a full chat provider in the same product surf
 
 - Re-run the focused proof for the repaired tracked-env contract and keep the latest review-created findings block tied to one explicit final revalidation owner.
 - Use the shared build, test, compose, lint, format, and runtime smoke wrappers once to prove the repaired head and the inline-resolved minor fixes still hold together.
+
+17. [codeInfo2] - Repair partial-runtime Copilot bootstrap classification before startup import.
+
+- Tighten `server/src/config/copilotSeedBootstrap.ts` so partial Copilot runtime homes are repaired instead of being mistaken for a complete initialized home.
+- Update the unit and boot-path proof files so complete, partial, and late-publish runtime states stay clearly separated.
+
+18. [codeInfo2] - Add a replay barrier for completed chat sends that reuse the same `inflightId`.
+
+- Repair `server/src/routes/chat.ts` and `server/src/chat/inflightRegistry.ts` so a completed `(conversationId, inflightId)` cannot start a second provider run or append duplicate turns.
+- Keep the proof focused on immediate replay, post-cleanup replay, and stale completed client state versus a genuinely new send.
+
+19. [codeInfo2] - Limit LM Studio invalid-flags diagnostics to real runtime-flag failures.
+
+- Narrow the LM Studio error boundary so only real flag-validation failures emit the invalid-runtime-flags marker.
+- Update the LM Studio proof files so post-parse execution failures stay on the normal consumer path instead of looking like bad flag input.
+
+20. [codeInfo2] - Normalize the shared defaults-applied warning schema across REST and MCP paths.
+
+- Align the shared defaults marker so `chatValidators`, `chatProviders`, `chatModels`, and `codebase_question` all emit the same warning payload vocabulary.
+- Refresh the focused REST and MCP proof files so the shared `warning_count` contract and any retained warning list field stay consistent.
+
+21. [codeInfo2] - Revalidate the final review-created findings block and close the current review cycle.
+
+- Re-run the focused proof for Tasks 17 through 20, plus the broad build, test, lint, format, compose, and runtime smoke wrappers that also cover the inline-resolved minor fixes.
+- Update the review closeout summary and flow-state records so reviewers can see which proof homes closed the final task-required findings and the active review cycle.

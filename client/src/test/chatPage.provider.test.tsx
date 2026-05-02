@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
@@ -20,6 +26,9 @@ beforeEach(() => {
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
 const { default: HomePage } = await import('../pages/HomePage');
+const { shouldPreserveCopilotReasoningDefault } = await import(
+  '../hooks/useChatModel'
+);
 
 const routes = [
   {
@@ -41,10 +50,11 @@ function mockChatProvidersFetch(options: {
     reason?: string;
   }>;
   modelsProvider: string;
-  models?: Array<{ key: string; displayName: string; type: string }>;
+  models?: Array<Record<string, unknown>>;
   defaultModel?: string;
   selectedProvider?: string;
   selectedModel?: string;
+  providerInfo?: Record<string, unknown>;
   agents?: Array<{ name: string }>;
 }) {
   mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
@@ -89,6 +99,7 @@ function mockChatProvidersFetch(options: {
           ...(options.defaultModel
             ? { defaultModel: options.defaultModel }
             : {}),
+          ...(options.providerInfo ? { providerInfo: options.providerInfo } : {}),
           models: options.models ?? [
             { key: 'm1', displayName: 'Model 1', type: 'gguf' },
           ],
@@ -111,6 +122,20 @@ function mockChatProvidersFetch(options: {
 }
 
 describe('Chat provider selection (WS transport)', () => {
+  const copilotReasoningFlag = {
+    key: 'modelReasoningEffort',
+    label: 'Reasoning Effort',
+    controlType: 'select',
+    editable: true,
+    seedDefault: 'medium',
+    resolvedDefault: 'high',
+    supportedValues: [
+      { value: 'low', label: 'Low' },
+      { value: 'medium', label: 'Medium' },
+      { value: 'high', label: 'High' },
+    ],
+  } as const;
+
   it('uses the server-selected provider and model during bootstrap', async () => {
     mockChatProvidersFetch({
       providers: [
@@ -173,6 +198,152 @@ describe('Chat provider selection (WS transport)', () => {
     await waitFor(() =>
       expect(modelSelect).toHaveTextContent(/gpt-5 mini/i),
     );
+  });
+
+  it('keeps the Copilot config reasoning default for the default Copilot provider-model pair', async () => {
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'copilot',
+          label: 'GitHub Copilot',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      modelsProvider: 'copilot',
+      models: [
+        {
+          key: 'gpt-5-mini',
+          displayName: 'GPT-5 mini',
+          type: 'copilot',
+          supportedReasoningEfforts: ['low', 'medium', 'high'],
+          defaultReasoningEffort: 'medium',
+          flagOverrides: [
+            {
+              key: 'modelReasoningEffort',
+              resolvedDefault: 'medium',
+              supportedValues: [
+                { value: 'low', label: 'Low' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'high', label: 'High' },
+              ],
+            },
+          ],
+        },
+      ],
+      defaultModel: 'gpt-5-mini',
+      selectedProvider: 'copilot',
+      selectedModel: 'gpt-5-mini',
+      providerInfo: {
+        id: 'copilot',
+        label: 'GitHub Copilot',
+        available: true,
+        toolsAvailable: true,
+        defaultModel: 'gpt-5-mini',
+        agentFlags: [copilotReasoningFlag],
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await ensureAgentFlagsPanelExpanded();
+
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
+  });
+
+  it('uses the model reasoning default when the selected Copilot model is not the config default model', async () => {
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'copilot',
+          label: 'GitHub Copilot',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      modelsProvider: 'copilot',
+      models: [
+        {
+          key: 'gpt-5.5',
+          displayName: 'GPT-5.5',
+          type: 'copilot',
+          supportedReasoningEfforts: ['low', 'medium', 'high'],
+          defaultReasoningEffort: 'medium',
+          flagOverrides: [
+            {
+              key: 'modelReasoningEffort',
+              resolvedDefault: 'medium',
+              supportedValues: [
+                { value: 'low', label: 'Low' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'high', label: 'High' },
+              ],
+            },
+          ],
+        },
+      ],
+      defaultModel: 'gpt-5-mini',
+      selectedProvider: 'copilot',
+      selectedModel: 'gpt-5.5',
+      providerInfo: {
+        id: 'copilot',
+        label: 'GitHub Copilot',
+        available: true,
+        toolsAvailable: true,
+        defaultModel: 'gpt-5-mini',
+        agentFlags: [copilotReasoningFlag],
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await ensureAgentFlagsPanelExpanded();
+
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/medium/i));
+  });
+
+  it('does not preserve the Copilot config reasoning default when Copilot is not the server default provider', () => {
+    expect(
+      shouldPreserveCopilotReasoningDefault({
+        provider: 'copilot',
+        serverSelectedProvider: 'codex',
+        descriptorKey: 'modelReasoningEffort',
+        providerDefaultModel: 'gpt-5-mini',
+        selectedModel: 'gpt-5-mini',
+      }),
+    ).toBe(false);
   });
 
   it('renders providers in codex, copilot, lmstudio order and shows the Copilot disabled reason', async () => {

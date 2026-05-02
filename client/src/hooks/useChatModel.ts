@@ -224,6 +224,12 @@ function parseModelsResponse(payload: unknown): ChatModelsResponse {
 function mergeAgentFlagDescriptors(
   base: ChatAgentFlagDescriptor[] | undefined,
   overrides: ChatModelFlagOverride[] | undefined,
+  options?: {
+    provider?: ChatProviderId;
+    serverSelectedProvider?: ChatProviderId;
+    selectedModel?: string;
+    providerDefaultModel?: string;
+  },
 ): ChatAgentFlagDescriptor[] {
   if (!base || base.length === 0) {
     return [];
@@ -239,9 +245,19 @@ function mergeAgentFlagDescriptors(
       return { ...descriptor };
     }
 
+    const keepCopilotProviderResolvedDefault =
+      shouldPreserveCopilotReasoningDefault({
+        provider: options?.provider,
+        serverSelectedProvider: options?.serverSelectedProvider,
+        descriptorKey: descriptor.key,
+        providerDefaultModel: options?.providerDefaultModel,
+        selectedModel: options?.selectedModel,
+      });
+
     return {
       ...descriptor,
-      ...(override.resolvedDefault !== undefined
+      ...(!keepCopilotProviderResolvedDefault &&
+      override.resolvedDefault !== undefined
         ? { resolvedDefault: override.resolvedDefault }
         : {}),
       ...(override.supportedValues !== undefined
@@ -252,6 +268,23 @@ function mergeAgentFlagDescriptors(
       ...(override.integer !== undefined ? { integer: override.integer } : {}),
     };
   });
+}
+
+export function shouldPreserveCopilotReasoningDefault(params: {
+  provider?: ChatProviderId;
+  serverSelectedProvider?: ChatProviderId;
+  descriptorKey: string;
+  providerDefaultModel?: string;
+  selectedModel?: string;
+}): boolean {
+  return (
+    params.provider === 'copilot' &&
+    params.serverSelectedProvider === 'copilot' &&
+    params.descriptorKey === 'modelReasoningEffort' &&
+    typeof params.providerDefaultModel === 'string' &&
+    params.providerDefaultModel.length > 0 &&
+    params.selectedModel === params.providerDefaultModel
+  );
 }
 
 function buildLegacyCodexAgentFlags(params: {
@@ -367,6 +400,9 @@ export function useChatModel() {
   );
 
   const [providers, setProviders] = useState<ChatProviderInfo[]>([]);
+  const [serverSelectedProvider, setServerSelectedProvider] = useState<
+    ChatProviderId | undefined
+  >(undefined);
   const [providerState, setProviderState] = useState<
     ChatProviderId | undefined
   >(undefined);
@@ -491,6 +527,7 @@ export function useChatModel() {
       // Legacy compatibility: some callers still return the models array directly.
       if (data.kind === 'legacy') {
         legacyBootstrapRef.current = true;
+        setServerSelectedProvider(undefined);
         const legacyModels = data.models;
         const list = buildLegacyBootstrapProviders();
         setProviders(list);
@@ -516,6 +553,7 @@ export function useChatModel() {
       legacyBootstrapRef.current = false;
       const list = normalizeProviders(data.providers);
       setProviders(list);
+      setServerSelectedProvider(data.selectedProvider);
       const preferredProvider =
         data.selectedProvider &&
         list.some((provider) => provider.id === data.selectedProvider)
@@ -539,6 +577,7 @@ export function useChatModel() {
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const message = (err as Error).message;
+      setServerSelectedProvider(undefined);
       setProviders(buildUnavailableProviders(message));
       setProviderReason(message);
       setAvailable(false);
@@ -823,13 +862,21 @@ export function useChatModel() {
           })
         : undefined);
 
-    return mergeAgentFlagDescriptors(baseFlags, selectedModel?.flagOverrides);
+    return mergeAgentFlagDescriptors(baseFlags, selectedModel?.flagOverrides, {
+      provider: providerState,
+      serverSelectedProvider,
+      selectedModel: selected,
+      providerDefaultModel: providerInfo?.defaultModel,
+    });
   }, [
     codexDefaults,
     models,
     providerInfo?.agentFlags,
+    providerInfo?.defaultModel,
     providerState,
+    selected,
     selectedModel?.flagOverrides,
+    serverSelectedProvider,
   ]);
 
   return {

@@ -74,6 +74,7 @@ const paramsSchema = z
     provider: z.enum(['codex', 'copilot', 'lmstudio']).optional(),
     model: z.string().min(1).optional(),
   })
+  .strict()
   .superRefine((value, ctx) => {
     if (value.replayId && !value.conversationId) {
       ctx.addIssue({
@@ -83,8 +84,7 @@ const paramsSchema = z
           'replayId requires conversationId so follow-up retries stay scoped to one conversation.',
       });
     }
-  })
-  .strict();
+  });
 
 export type CodebaseQuestionParams = z.infer<typeof paramsSchema>;
 

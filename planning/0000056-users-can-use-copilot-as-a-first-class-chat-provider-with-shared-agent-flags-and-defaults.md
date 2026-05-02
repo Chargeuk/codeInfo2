@@ -1852,7 +1852,7 @@ Optional guidance for the manual testing agent only.
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16`
 - Task Status: `__in_progress__`
-- Git Commits: `e43174ad`
+- Git Commits: `e43174ad`, `36adc204`
 
 #### Overview
 

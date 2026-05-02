@@ -2229,8 +2229,8 @@ This review-created task repairs the Copilot seed import trust boundary so bind-
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper-owned seed trust boundary.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported startup path still works while rejecting symlinked seed artifacts.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper-owned seed trust boundary.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported startup path still works while rejecting symlinked seed artifacts.
 
 #### Manual Testing Guidance
 
@@ -2245,6 +2245,8 @@ Optional guidance for the manual testing agent only.
 - Subtask 1 complete: `server/src/config/copilotSeedBootstrap.ts` now rejects any symlinked seed artifact path before staged copy or publish begins, including symlinked directories and nested symlink entries inside a seeded tree, while leaving the existing regular-artifact partial merge, helper cleanup, and cross-device directory publish behavior unchanged for real files and directories.
 - Subtask 2 complete: `server/src/test/unit/copilotSeedBootstrap.test.ts` now has dedicated helper-owned trust-boundary proofs for a symlinked `config.json` file and a symlinked `session-state/` directory, and both cases assert that the helper fails before trusting the seed artifact while still cleaning up staged helper state so no partial runtime survives the rejection.
 - Subtask 3 complete: `server/src/test/integration/copilot.boot-path.test.ts` now has a supported `/seed/copilot` to `/app/copilot` proof that a symlinked seeded `session-state/` artifact is rejected before the runtime can become bootstrapped or surface as an available Copilot provider on the startup path, while the existing boot-path cases continue to own the unchanged regular-seeding behavior.
+- Testing 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` passed cleanly with 14 tests run, 14 passed, and 0 failed, so the direct helper seam now has an honest focused proof checkpoint on disk.
+- Testing 2 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` passed cleanly with 7 tests run, 7 passed, and 0 failed, so the supported startup-path trust boundary now has an honest focused proof checkpoint on disk.
 
 ### Task 24. Add a caller-visible replay barrier for MCP `codebase_question` follow-up retries
 

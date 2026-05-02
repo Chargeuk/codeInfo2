@@ -54,7 +54,10 @@ test('client entrypoint emits executable runtime config for env values with back
     runtimeWindow.__CODEINFO_CONFIG__?.lmStudioBaseUrl,
     lmStudioBaseUrl,
   );
-  assert.match(configSource, /apiBaseUrl: "https:\/\/host\\\\\\\\path\\nnext-line"/u);
+  assert.match(
+    configSource,
+    /apiBaseUrl: "https:\/\/host\\\\\\\\path\\nnext-line"/u,
+  );
   assert.match(
     configSource,
     /lmStudioBaseUrl: "http:\/\/lmstudio\.local\/with\\\\slash\\nline-two"/u,

@@ -183,8 +183,7 @@ export function buildCodexAgentFlags(params: {
   codexHome?: string;
   defaults?: CodexDefaults;
 }): ChatAgentFlagDescriptor[] {
-  const defaults =
-    params.defaults ?? buildCodexCompatibilityDefaults(params);
+  const defaults = params.defaults ?? buildCodexCompatibilityDefaults(params);
   const reasoningChoices = aggregateModelChoices(
     params.capabilities.models.flatMap(
       (entry) => entry.supportedReasoningEfforts,
@@ -522,9 +521,7 @@ export function buildCopilotModelFlagOverrides(
   ];
 }
 
-export function buildLmStudioAgentFlags(params: {
-  lmstudioHome?: string;
-}): {
+export function buildLmStudioAgentFlags(params: { lmstudioHome?: string }): {
   agentFlags: ChatAgentFlagDescriptor[];
   warnings: string[];
 } {

@@ -362,8 +362,14 @@ test('copilot models route degrades malformed chat defaults to warnings instead 
         { key: 'toolAccess', resolvedDefault: 'on' },
       ],
     );
-    assert.match((res.body.warnings ?? []).join('\n'), /default model resolution/i);
-    assert.match((res.body.warnings ?? []).join('\n'), /agentFlags resolution/i);
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /default model resolution/i,
+    );
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /agentFlags resolution/i,
+    );
   } finally {
     await stopServer(server);
     await fs.rm(tempCopilotHome, { recursive: true, force: true });

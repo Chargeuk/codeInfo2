@@ -2319,7 +2319,7 @@ This review-created task repairs the MCP follow-up retry contract so callers can
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 22`, `Task 23`, `Task 24`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2408,3 +2408,4 @@ Optional guidance for the manual testing agent only.
 - Testing 15 complete: the first `npm run lint` attempt failed on one `import/order` warning in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`, a bounded in-scope repair moved the `inflightRegistry` import ahead of `ChatInterface`, and the honest rerun then passed cleanly with no remaining ESLint warnings or errors.
 - Testing 16 complete: the first `npm run format:check` attempt reported Prettier drift in 6 review-cycle files, a bounded `npx prettier --write` repair normalized those touched seams, and the honest rerun then reported `All matched files use Prettier code style!`.
 - Testing 17 complete: `npm run compose:up` brought the supported runtime stack up cleanly, `curl -f http://localhost:5010/health` returned `{"status":"ok",...,"mongoConnected":true}`, `curl -f http://localhost:5001` returned the client HTML shell successfully, and `npm run compose:down` then shut the stack down cleanly without leaving the review-cycle handoff runtime running.
+- Planner normalization complete: this fully checked, unblocked final revalidation task no longer had an honest open owner gate, so the status was closed to `__done__` without adding new checklist work.

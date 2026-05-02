@@ -2166,18 +2166,19 @@ This review-created task repairs the explicit-provider admission contract for bo
 - `server/src/routes/chat.ts`
 - `server/src/mcp2/tools/codebaseQuestion.ts`
 - `server/src/config/chatDefaults.ts`
-- `server/src/test/unit/chat-unsupported-provider.test.ts`
+- `server/src/test/integration/chat-copilot-fallback.test.ts`
 - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
 
 #### Subtasks
 
-1. [ ] In `server/src/routes/chat.ts` and `server/src/mcp2/tools/codebaseQuestion.ts`, reorder the explicit-provider admission flow so the selected provider's own availability or validation boundary is evaluated before unrelated alternate-provider readiness or model-discovery work begins, while still preserving the current fallback-selection behavior for requests that do allow fallback.
-2. [ ] Keep one shared provider-selection contract seam between `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` so the REST and MCP entrypoints do not drift on when an explicit-provider request is allowed to fail early versus when fallback probing is still expected.
-3. [ ] Edit the focused proof owners so one REST case and one MCP case state the repaired selected-provider-first contract directly, including the degraded condition where the named provider is unavailable but an unrelated alternate-provider probe would also fail if it were still reached.
+1. [ ] In `server/src/routes/chat.ts`, move the explicit-provider rejection path so a request that already names `provider` reaches that provider's own unavailable or validation boundary before `client.system.listDownloadedModels()` or `resolveCopilotReadiness(...)` can run for unrelated fallback providers, while keeping the current fallback-selection flow for requests that omit `provider`.
+2. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, mirror the same selected-provider-first ordering for `provider`-pinned MCP calls so the tool can fail with the named provider's own unavailable result before unrelated alternate-provider readiness or model-discovery work begins, while keeping the current fallback behavior for MCP calls that still allow provider resolution.
+3. [ ] Keep one shared provider-selection contract seam between `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` so the REST and MCP entrypoints agree on when explicit-provider requests may fail early versus when fallback probing is still expected.
+4. [ ] Edit `server/src/test/integration/chat-copilot-fallback.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` so one REST case and one MCP case state the repaired selected-provider-first contract directly, including the degraded condition where the named provider is unavailable but an unrelated alternate-provider probe would also fail if it were still reached, while a default-provider fallback case still proves the fallback path remains intact.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-unsupported-provider.test.ts` from the repository root to prove the repaired explicit-provider rejection boundary on the REST `/chat` surface.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts` from the repository root to prove the repaired explicit-provider rejection boundary on the REST `/chat` surface while preserving the default-provider fallback path.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` from the repository root to prove the repaired explicit-provider rejection boundary on the MCP `codebase_question` surface.
 
 #### Implementation notes
@@ -2215,9 +2216,10 @@ This review-created task repairs the Copilot seed import trust boundary so bind-
 
 #### Subtasks
 
-1. [ ] In `server/src/config/copilotSeedBootstrap.ts`, add one seed-artifact trust-boundary check that rejects symlinked files or directories before staged copy or publish can move them into the trusted runtime home, while preserving the existing partial-runtime repair and cross-device fallback behavior for regular artifacts.
-2. [ ] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` so one explicit helper-owned case proves a symlink-bearing seed home is rejected or ignored safely before publish, without regressing the already-repaired partial-runtime merge and complete-runtime skip cases.
-3. [ ] Edit `server/src/test/integration/copilot.boot-path.test.ts` so the supported boot-path proof states the startup contract directly: regular seed content still imports into `/app/copilot`, but symlinked seed runtime artifacts are not accepted as trusted runtime state on the next supported boot pass.
+1. [ ] In `server/src/config/copilotSeedBootstrap.ts`, add one seed-artifact trust-boundary check that rejects symlinked files or directories before staged copy or publish can move them into the trusted runtime home, and make the rejection happen before the helper can treat the seed artifact as a regular file or directory candidate for partial-runtime repair.
+2. [ ] Keep the existing partial-runtime merge, helper-owned cleanup, and cross-device publish fallback behavior intact for regular `config.json`, `settings.json`, and `session-state/` artifacts, instead of broadening the repair into a general runtime-home rewrite.
+3. [ ] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` so focused helper-owned cases prove the trust boundary for both a symlinked file artifact and a symlinked `session-state/` directory, while also proving the already-repaired partial-runtime merge and complete-runtime skip paths still behave the same for regular artifacts.
+4. [ ] Edit `server/src/test/integration/copilot.boot-path.test.ts` so the supported boot-path proof states the startup contract directly: regular seed content still imports into `/app/copilot`, but symlinked seed runtime artifacts are rejected before they can become trusted runtime state on the next supported boot pass.
 
 #### Testing
 
@@ -2255,19 +2257,22 @@ This review-created task repairs the MCP follow-up retry contract so callers can
 
 - `server/src/mcp2/tools/codebaseQuestion.ts`
 - `server/src/chat/inflightRegistry.ts`
+- `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
 - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
 - `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`
 
 #### Subtasks
 
-1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts` and any shared replay helper it owns, add one caller-visible replay identity or idempotency field for `codebase_question` follow-ups and make repeated requests with the same logical identity return a stable replay result instead of generating fresh provider work against the same conversation.
-2. [ ] Keep the replay barrier at one coherent MCP-owned seam by reusing the current conversation plus inflight ownership model only where it helps enforce the new idempotency contract, rather than redefining unrelated tool or route replay behavior.
-3. [ ] Edit the focused proof owners so one MCP tool case and one streaming or conversation-lifecycle case state the repaired replay contract directly, including the bounded ambiguous-retry path where the first attempt may already have committed before the caller retries.
+1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, add one caller-visible replay identity field to the tool input schema and argument parsing so a retrying caller can mark two follow-up attempts as the same logical request instead of always receiving a fresh random inflight id.
+2. [ ] Thread that replay identity through the current MCP-owned conversation plus inflight seam so a repeated logical follow-up can return one stable replay result after completion, while a genuinely new follow-up with a different replay identity still takes the normal accepted path.
+3. [ ] Keep the replay barrier at one coherent MCP-owned seam by reusing `server/src/chat/inflightRegistry.ts` only where it helps enforce the new `codebase_question` idempotency contract, rather than redefining unrelated tool, REST, or websocket replay behavior.
+4. [ ] Edit `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` so the focused proof owners state the new caller-visible replay field, the stable replay result after completion, and the non-duplicating streamed or persisted follow-up contract directly.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the repaired caller-visible replay barrier on the direct MCP tool seam.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root to prove the repaired replay barrier does not duplicate the persisted or streamed follow-up contract.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts` from the repository root to prove the new caller-visible replay identity field is validated and parsed honestly on the direct MCP tool seam.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the repaired caller-visible replay barrier on the direct MCP tool seam.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root to prove the repaired replay barrier does not duplicate the persisted or streamed follow-up contract.
 
 #### Implementation notes
 
@@ -2310,28 +2315,36 @@ This fresh final revalidation task owns closeout for review cycle `0000056-rc-20
 
 #### Subtasks
 
-1. [ ] Prepare one explicit review-cycle proof map for this final pass by listing each requirement from Tasks `22` through `24` alongside its implementation owner files, focused proof files, and the broad wrapper-backed reruns that must also revalidate the inline-resolved minor fixes for review cycle `0000056-rc-20260502T143918Z-056fcf4c`.
+1. [ ] Prepare one explicit review-cycle proof map for this final pass by listing each requirement from Tasks `22` through `24` alongside its implementation owner files and focused proof homes: `server/src/test/integration/chat-copilot-fallback.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`, `server/src/test/unit/copilotSeedBootstrap.test.ts`, `server/src/test/integration/copilot.boot-path.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`.
 2. [ ] Edit the focused proof owners changed by Tasks `22` through `24` so each file named in the proof map states its repaired contract directly before the broad reruns start, including any needed rename, split, or rewrite where an older title currently claims only adjacent behavior instead of the repaired invariant.
-3. [ ] Prepare the closeout destinations in `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and `codeInfoStatus/flow-state/review-disposition-state.json` by identifying which fields must record the proof homes for each current-pass finding, the wrapper-backed surfaces that revalidate the inline minor fixes, and the blocker classifications to use if compose-build, startup, or health-probe failures happen before finding-specific assertions run.
+3. [ ] Prepare the closeout destinations in `codeInfoStatus/pr-summaries/0000056-pr-summary.md` and `codeInfoStatus/flow-state/review-disposition-state.json` by identifying which fields must record the proof homes for each current-pass finding, which wrapper-backed reruns revalidate the inline-resolved minor fixes from review cycle `0000056-rc-20260502T143918Z-056fcf4c`, and which blocker classifications to use if compose-build, startup, or health-probe failures happen before finding-specific assertions run.
 
 #### Testing
 
 1. [ ] Run `npm run compose:build:summary` from the repository root to prove the shared compose build baseline still holds after the current review-created repairs and the inline minor fixes from this same review cycle.
 2. [ ] Run `npm run build:summary:server` from the repository root to prove the server workspace still builds cleanly on the repaired head before the focused and broad server reruns.
 3. [ ] Run `npm run build:summary:client` from the repository root to prove the client workspace still builds cleanly on the repaired head before the broad client and e2e reruns.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chat-unsupported-provider.test.ts` from the repository root to prove the focused explicit-provider repair from Task `22` on the REST surface.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts` from the repository root to prove the focused explicit-provider repair from Task `22` on the REST surface while preserving the default-provider fallback path.
 5. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` from the repository root to prove the focused explicit-provider repair from Task `22` on the MCP surface.
 6. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the focused seed-import trust-boundary repair from Task `23`.
 7. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported startup path repaired by Task `23`.
-8. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the focused MCP replay-barrier repair from Task `24`.
-9. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root to prove the streamed or persisted follow-up seam repaired by Task `24`.
-10. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the full current-repository server-unit surface, including the current review-created seams and the inline-resolved server-side minor findings from this same review cycle.
-11. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the current-repository server cucumber surface still holds after the current review-created repairs.
-12. [ ] Run `npm run test:summary:client` from the repository root to prove the full client proof surface still holds for the same review cycle after the repaired head is rebuilt.
-13. [ ] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported end-to-end browser surface still holds for the current review-created block and the inline minor fixes from this same cycle.
-14. [ ] Run `npm run lint` from the repository root to prove the repaired head still passes the shared ESLint gate before review closeout.
-15. [ ] Run `npm run format:check` from the repository root to prove the repaired head still passes the shared formatting gate before review closeout.
-16. [ ] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
+8. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts` from the repository root to prove the new caller-visible replay identity field repaired by Task `24`.
+9. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the focused MCP replay-barrier repair from Task `24`.
+10. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root to prove the streamed or persisted follow-up seam repaired by Task `24`.
+11. [ ] Run `npm run test:summary:server:unit` from the repository root to prove the full current-repository server-unit surface, including the current review-created seams and the inline-resolved server-side minor findings from this same review cycle.
+12. [ ] Run `npm run test:summary:server:cucumber` from the repository root to prove the current-repository server cucumber surface still holds after the current review-created repairs.
+13. [ ] Run `npm run test:summary:client` from the repository root to prove the full client proof surface still holds for the same review cycle after the repaired head is rebuilt.
+14. [ ] Run `npm run test:summary:e2e` from the repository root to prove the repository-supported end-to-end browser surface still holds for the current review-created block and the inline minor fixes from this same cycle.
+15. [ ] Run `npm run lint` from the repository root to prove the repaired head still passes the shared ESLint gate before review closeout.
+16. [ ] Run `npm run format:check` from the repository root to prove the repaired head still passes the shared formatting gate before review closeout.
+17. [ ] Run `npm run compose:up` from the repository root, then run `curl -f http://localhost:5010/health` and `curl -f http://localhost:5001`, and then run `npm run compose:down` to prove the supported runtime handoff still starts cleanly after the repaired head.
+
+#### Manual Testing Guidance
+
+Optional guidance for the manual testing agent only.
+
+- If a later human-stack pass is still needed after the automated reruns are green, reuse the main stack started through `npm run compose:up`, confirm `http://localhost:5010/health` and `http://localhost:5001` first, then walk one explicit-provider failure path, one seeded Copilot runtime bootstrap path, and one replayed MCP `codebase_question` follow-up path with a retained replay identity.
+- If Playwright MCP screenshots are needed for the explicit-provider or seeded-runtime UI surfaces, first capture them with relative staging filenames such as `manual-testing/0000056/25/proof-01-explicit-provider.png` in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000056/25/` instead of assuming Playwright writes directly into the repository.
 
 #### Implementation notes
 

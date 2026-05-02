@@ -59,7 +59,6 @@ drop_privileges_and_exec_node() {
 }
 
 run_copilot_seed_import() {
-  local seed_result_json seed_status
   seed_result_json="$(node dist/config/copilotSeedBootstrap.js 2>&1)" || {
     printf 'story.0000056.task04.copilot_seed_import {"status":"seed_copy_failed","runtimeHome":"%s","seedHome":"%s","copiedArtifacts":[],"skippedArtifacts":[],"error":%s}\n' \
       "${CODEINFO_COPILOT_HOME:-/app/copilot}" \

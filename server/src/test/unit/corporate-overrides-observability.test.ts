@@ -67,6 +67,17 @@ test('server entrypoint derives T01 booleans from build metadata and emits T02 f
   }
 });
 
+test('server entrypoint stays POSIX-sh compatible around Copilot seed import locals', () => {
+  const content = readRepoFile('server', 'entrypoint.sh');
+
+  assert.match(content, /^#!\/usr\/bin\/env sh$/m);
+  assert.doesNotMatch(
+    content,
+    /^\s*local\s+/m,
+    'server entrypoint should not use bash-only local declarations under a sh shebang',
+  );
+});
+
 test('docker-compose.local.yml passes the docker socket gid as a supplemental runtime group', () => {
   const content = readRepoFile('docker-compose.local.yml');
 

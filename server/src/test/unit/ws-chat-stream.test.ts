@@ -229,6 +229,18 @@ async function stopServer(server: {
   );
 }
 
+async function waitForInflightCleared(
+  conversationId: string,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getInflight(conversationId) === undefined) return;
+    await delay(25);
+  }
+  throw new Error(`Timed out waiting for inflight cleanup: ${conversationId}`);
+}
+
 beforeEach(() => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   memoryConversations.clear();
@@ -910,7 +922,7 @@ test('duplicate websocket stop requests emit one terminal outcome for the same r
     });
 
     assert.equal(final.status, 'stopped');
-    await delay(200);
+    await waitForInflightCleared(conversationId);
     assert.equal(seenFinals.length, 1);
   } finally {
     ws.off('message', onMessage);
@@ -1198,7 +1210,7 @@ test('late assistant update after finalization does not emit duplicate assistant
       );
     });
     assert.equal(assistantDeltaEvents.length, 2);
-    await delay(100);
+    await waitForInflightCleared(conversationId);
     assert.equal(seenFinals.length, 1);
     assert.equal(getInflight(conversationId), undefined);
   } finally {

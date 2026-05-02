@@ -319,3 +319,53 @@ test('copilot models route normalizes stale configured defaults to a live runnab
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });
+
+test('copilot models route degrades malformed chat defaults to warnings instead of failing discovery', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-copilot-malformed-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'copilot');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.defaultModel, 'copilot-gpt-5');
+    assert.equal(res.body.defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      res.body.agentFlags.map(
+        (entry: { key: string; resolvedDefault: unknown }) => ({
+          key: entry.key,
+          resolvedDefault: entry.resolvedDefault,
+        }),
+      ),
+      [
+        { key: 'modelReasoningEffort', resolvedDefault: 'medium' },
+        { key: 'toolAccess', resolvedDefault: 'on' },
+      ],
+    );
+    assert.match((res.body.warnings ?? []).join('\n'), /default model resolution/i);
+    assert.match((res.body.warnings ?? []).join('\n'), /agentFlags resolution/i);
+  } finally {
+    await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});

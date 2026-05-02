@@ -401,12 +401,26 @@ export function buildCodexModelFlagOverrides(
 export function buildCopilotAgentFlags(params: {
   models: ModelInfo[];
   copilotHome?: string;
-}): ChatAgentFlagDescriptor[] {
-  const snapshot = loadProviderChatDefaultsSnapshotSync({
-    provider: 'copilot',
-    copilotHome: params.copilotHome,
-  });
-  const config = snapshot.config ?? {};
+}): {
+  agentFlags: ChatAgentFlagDescriptor[];
+  warnings: string[];
+} {
+  let config: Record<string, unknown> = {};
+  const warnings: string[] = [];
+
+  try {
+    const snapshot = loadProviderChatDefaultsSnapshotSync({
+      provider: 'copilot',
+      copilotHome: params.copilotHome,
+    });
+    config = snapshot.config ?? {};
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    warnings.push(
+      `copilot/chat/config.toml could not be loaded for agentFlags resolution (${reason}).`,
+    );
+  }
+
   const configuredReasoningEffort =
     normalizeString(config.reasoning_effort) ??
     DEFAULT_COPILOT_REASONING_EFFORT;
@@ -430,33 +444,36 @@ export function buildCopilotAgentFlags(params: {
     },
   );
 
-  return [
-    {
-      key: 'modelReasoningEffort',
-      label: 'Reasoning Effort',
-      controlType: 'select',
-      editable: true,
-      seedDefault: DEFAULT_COPILOT_REASONING_EFFORT,
-      resolvedDefault: configuredReasoningEffort,
-      supportedValues:
-        reasoningChoices.length > 0
-          ? reasoningChoices
-          : [
-              toChoice('low', 'Low'),
-              toChoice('medium', 'Medium'),
-              toChoice('high', 'High'),
-            ],
-    },
-    {
-      key: 'toolAccess',
-      label: 'Tool Access',
-      controlType: 'select',
-      editable: true,
-      seedDefault: DEFAULT_COPILOT_TOOL_ACCESS,
-      resolvedDefault: configuredToolAccess,
-      supportedValues: [...COPILOT_TOOL_ACCESS_CHOICES],
-    },
-  ];
+  return {
+    agentFlags: [
+      {
+        key: 'modelReasoningEffort',
+        label: 'Reasoning Effort',
+        controlType: 'select',
+        editable: true,
+        seedDefault: DEFAULT_COPILOT_REASONING_EFFORT,
+        resolvedDefault: configuredReasoningEffort,
+        supportedValues:
+          reasoningChoices.length > 0
+            ? reasoningChoices
+            : [
+                toChoice('low', 'Low'),
+                toChoice('medium', 'Medium'),
+                toChoice('high', 'High'),
+              ],
+      },
+      {
+        key: 'toolAccess',
+        label: 'Tool Access',
+        controlType: 'select',
+        editable: true,
+        seedDefault: DEFAULT_COPILOT_TOOL_ACCESS,
+        resolvedDefault: configuredToolAccess,
+        supportedValues: [...COPILOT_TOOL_ACCESS_CHOICES],
+      },
+    ],
+    warnings,
+  };
 }
 
 export function buildCopilotModelFlagOverrides(

@@ -773,6 +773,73 @@ test('providers route exposes provider-local default-model ownership without usi
   }
 });
 
+test('providers route degrades malformed Copilot chat defaults to warnings instead of failing discovery', async () => {
+  await setCodexHome('model = "config-model"\n');
+  await setCopilotHome('reasoning_effort = [\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  env.set('COPILOT_GITHUB_TOKEN', 'ghu_test_token_value');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const copilotHarness = createMockCopilotSdkHarness({
+    name: 'provider-malformed-copilot-config',
+    authStatus: {
+      isAuthenticated: true,
+      authType: 'gh-cli',
+      statusMessage: 'authenticated via gh',
+    },
+    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+  });
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+    copilotHarness,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    const copilot = (res.body.providers as Array<Record<string, unknown>>).find(
+      (provider) => provider.id === 'copilot',
+    );
+    assert.ok(copilot);
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(copilot.available, true);
+    assert.equal(copilot.defaultModel, 'copilot-gpt-5');
+    assert.equal(copilot.defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      (
+        copilot.agentFlags as Array<{ key: string; resolvedDefault: unknown }>
+      ).map((entry) => ({
+        key: entry.key,
+        resolvedDefault: entry.resolvedDefault,
+      })),
+      [
+        { key: 'modelReasoningEffort', resolvedDefault: 'medium' },
+        { key: 'toolAccess', resolvedDefault: 'on' },
+      ],
+    );
+    assert.match(
+      (copilot.warnings as string[]).join('\n'),
+      /default model resolution/i,
+    );
+    assert.match(
+      (copilot.warnings as string[]).join('\n'),
+      /agentFlags resolution/i,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('providers route keeps seed defaults separate from config-resolved defaults in Agent Flag descriptors', async () => {
   await setCodexHome(
     [

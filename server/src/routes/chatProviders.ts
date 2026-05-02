@@ -122,6 +122,10 @@ export function createChatProvidersRouter({
       models: copilot.modelsRaw,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
+    const copilotAgentFlags = buildCopilotAgentFlags({
+      models: copilot.modelsRaw,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    });
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
       requestedModel,
@@ -162,16 +166,16 @@ export function createChatProvidersRouter({
         toolsAvailable: copilot.toolsAvailable,
         reason: copilot.reason,
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        warnings: copilot.reason ? [copilot.reason] : [],
+        warnings: [
+          ...(copilot.reason ? [copilot.reason] : []),
+          ...copilotAgentFlags.warnings,
+        ],
         modelMetadata: {
           defaultModel: copilotModelMetadata.defaultModel,
           defaultModelSource: copilotModelMetadata.defaultModelSource,
           warnings: copilotModelMetadata.warnings,
         },
-        agentFlags: buildCopilotAgentFlags({
-          models: copilot.modelsRaw,
-          copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        }),
+        agentFlags: copilotAgentFlags.agentFlags,
       }),
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',

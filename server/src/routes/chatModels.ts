@@ -290,6 +290,10 @@ export function createChatModelsRouter({
       models: copilotRawModels,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
+    const copilotAgentFlags = buildCopilotAgentFlags({
+      models: copilotRawModels,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    });
     const { mapped: mappedCopilotModels, ignoredUnsupportedFields } =
       mapCopilotModels(copilotRawModels);
     const prioritizedCopilotModels = prioritizeModel(
@@ -425,19 +429,16 @@ export function createChatModelsRouter({
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings:
           copilotAvailable && readiness.reason
-            ? [readiness.reason]
+            ? [readiness.reason, ...copilotAgentFlags.warnings]
             : readiness.reason
-              ? [readiness.reason]
-              : [],
+              ? [readiness.reason, ...copilotAgentFlags.warnings]
+              : [...copilotAgentFlags.warnings],
         modelMetadata: {
           defaultModel: copilotModelMetadata.defaultModel,
           defaultModelSource: copilotModelMetadata.defaultModelSource,
           warnings: copilotModelMetadata.warnings,
         },
-        agentFlags: buildCopilotAgentFlags({
-          models: copilotRawModels,
-          copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        }),
+        agentFlags: copilotAgentFlags.agentFlags,
       }),
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',

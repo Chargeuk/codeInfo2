@@ -856,7 +856,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
 - Task Status: `__done__`
-- Git Commits: `e43174ad`
+- Git Commits:
 
 #### Overview
 
@@ -904,7 +904,7 @@ This task repairs the shared repo-wide lint baseline that is currently blocking 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4`
 - Task Status: `__done__`
-- Git Commits:
+- Git Commits: `e43174ad`
 
 #### Overview
 
@@ -1852,7 +1852,7 @@ Optional guidance for the manual testing agent only.
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16`
 - Task Status: `__in_progress__`
-- Git Commits:
+- Git Commits: `e43174ad`
 
 #### Overview
 

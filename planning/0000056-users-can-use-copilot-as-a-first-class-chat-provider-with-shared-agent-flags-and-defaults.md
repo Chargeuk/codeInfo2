@@ -1937,8 +1937,8 @@ This review-created task repairs the LM Studio execution error-mapping seam so t
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the repaired invalid-flags versus general-execution diagnostic split.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts` from the repository root to prove the repaired early-validation versus later-execution boundary on the focused LM Studio runtime seam.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` from the repository root to prove the repaired invalid-flags versus general-execution diagnostic split.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts` from the repository root to prove the repaired early-validation versus later-execution boundary on the focused LM Studio runtime seam.
 
 #### Implementation notes
 
@@ -1946,6 +1946,8 @@ This review-created task repairs the LM Studio execution error-mapping seam so t
 - Subtask 1 complete: `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` now resolves LM Studio runtime flags in its own bounded `ProviderRuntimeFlagError` branch and emits `story.0000056.task04.lmstudio_runtime_flags_invalid` only from that validation boundary, while later LM Studio client or execution failures now fall through to the normal general error event path after flags already parsed successfully.
 - Subtask 2 complete: `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` now names the real invalid-runtime-flag case explicitly and adds a separate post-parse execution failure case that proves the shared retry or logging path no longer emits the invalid-flags marker once LM Studio runtime flags already parsed successfully.
 - Subtask 3 complete: `server/src/test/unit/lmstudio-provider-dispatch.test.ts` now proves accepted LM Studio runtime flags are forwarded into the dispatch path before a later failure occurs, and that the later failure still surfaces as the normal execution error instead of the invalid-flags classification.
+- Testing 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-retry-logging.test.ts` passed cleanly with `tests run: 6`, `passed: 6`, and `failed: 0`, so the focused invalid-flags versus post-parse execution split now has wrapper-backed proof on its retry/logging owner.
+- Testing 2 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/lmstudio-provider-dispatch.test.ts` passed cleanly with `tests run: 6`, `passed: 6`, and `failed: 0`, so the focused early-validation versus later-execution boundary now has wrapper-backed proof on its dispatch owner.
 
 ### Task 20. Normalize the shared defaults-applied marker schema across REST and MCP emitters
 

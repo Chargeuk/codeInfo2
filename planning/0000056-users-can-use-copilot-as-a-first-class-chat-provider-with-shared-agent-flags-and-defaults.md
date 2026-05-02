@@ -856,7 +856,7 @@ This task applies the provider-neutral contract to the real runtime adapters and
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 3`
 - Task Status: `__done__`
-- Git Commits: `09758cb0`
+- Git Commits:
 
 #### Overview
 
@@ -1780,7 +1780,7 @@ Review pass `0000056-20260501T005010Z-506c6c19` closed cleanly with no endorsed 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16`
 - Task Status: `__in_progress__`
-- Git Commits:
+- Git Commits: `09758cb0`, `63190098`
 
 #### Overview
 

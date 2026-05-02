@@ -70,6 +70,7 @@ class MockCodex {
   id: string;
   lastStartOptions?: CodexThreadOptions;
   lastResumeOptions?: CodexThreadOptions;
+  lastResumeThreadId?: string;
 
   constructor(id = 'thread-mock') {
     this.id = id;
@@ -81,6 +82,7 @@ class MockCodex {
   }
 
   resumeThread(threadId: string, opts?: CodexThreadOptions) {
+    this.lastResumeThreadId = threadId;
     this.lastResumeOptions = opts;
     return new MockThread(threadId);
   }
@@ -1022,6 +1024,53 @@ test('codex chat resumes existing thread when threadId supplied', async () => {
     .expect(202);
 
   assert.equal(mockCodex.lastResumeOptions?.model, 'gpt-5.1-codex-max');
+});
+
+test('codex chat preserves persisted thread when resuming the same conversation without request threadId', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const conversationId = 'conv-codex-persisted-thread';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Persisted thread conversation',
+    source: 'REST',
+    flags: { threadId: 'thread-persisted' },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as never);
+
+  const mockCodex = new MockCodex('thread-persisted');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ conversationId }))
+    .expect(202);
+
+  await waitForAssistantTurn(conversationId);
+
+  assert.equal(mockCodex.lastResumeThreadId, 'thread-persisted');
+  assert.equal(mockCodex.lastStartOptions, undefined);
+  assert.equal(
+    memoryConversations.get(conversationId)?.flags?.threadId,
+    'thread-persisted',
+  );
 });
 
 test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {

@@ -481,12 +481,25 @@ export function createChatRouter({
     const ensureConversation = async (): Promise<Conversation | null> => {
       const buildRuntimeConversationFlags = (
         currentFlags: Record<string, unknown> | undefined,
+        currentProvider?: Conversation['provider'],
+        currentModel?: Conversation['model'],
       ) => {
+        const persistedThreadId =
+          threadId ??
+          (executionProvider === 'codex' &&
+          currentProvider === 'codex' &&
+          currentModel === executionModel &&
+          typeof currentFlags?.threadId === 'string' &&
+          currentFlags.threadId.trim()
+            ? currentFlags.threadId.trim()
+            : null);
+
         return buildConversationFlags({
           provider: executionProvider,
           currentFlags,
           agentFlags: effectiveAgentFlags,
           workingFolder: effectiveWorkingFolder,
+          threadId: persistedThreadId,
           preserveFlowState: false,
         });
       };
@@ -519,7 +532,11 @@ export function createChatRouter({
           ...existing,
           provider: executionProvider,
           model: executionModel,
-          flags: buildRuntimeConversationFlags(existing.flags),
+          flags: buildRuntimeConversationFlags(
+            existing.flags,
+            existing.provider,
+            existing.model,
+          ),
           source: existing.source ?? 'REST',
           lastMessageAt: now,
           updatedAt: now,
@@ -555,7 +572,11 @@ export function createChatRouter({
         conversationId,
         provider: executionProvider,
         model: executionModel,
-        flags: buildRuntimeConversationFlags(existing.flags),
+        flags: buildRuntimeConversationFlags(
+          existing.flags,
+          existing.provider,
+          existing.model,
+        ),
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)

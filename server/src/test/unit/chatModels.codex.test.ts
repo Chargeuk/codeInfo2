@@ -197,7 +197,7 @@ test('chat models marker emits the shared warning_count and warnings fields with
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
-    await request(server.httpServer)
+    const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
 
@@ -206,8 +206,8 @@ test('chat models marker emits the shared warning_count and warnings fields with
     assert.equal(marker.surface, '/chat/models');
     assert.equal(marker.model_source, 'fallback');
     assert.equal(marker.codex_model_source, 'hardcoded');
-    assert.equal(marker.warning_count, 0);
-    assert.deepEqual(marker.warnings, []);
+    assert.equal(marker.warning_count, res.body.codexWarnings.length);
+    assert.deepEqual(marker.warnings, res.body.codexWarnings);
   } finally {
     console.info = originalInfo;
     await stopServer(server);

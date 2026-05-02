@@ -642,7 +642,10 @@ test('codebase_question marker emits the shared warning_count and warnings field
     });
     const latest = markerLogs.at(-1);
     const context = latest?.context as
-      | { defaults?: { webSearchEnabled?: boolean } }
+      | {
+          defaults?: { webSearchEnabled?: boolean };
+          warningCount?: number;
+        }
       | undefined;
     assert.ok(context?.defaults);
     assert.equal(context.defaults?.webSearchEnabled, true);
@@ -663,8 +666,11 @@ test('codebase_question marker emits the shared warning_count and warnings field
     assert.ok(story47Context);
     assert.equal(story47Context?.model_source, 'fallback');
     assert.equal(story47Context?.codex_model_source, 'hardcoded');
-    assert.equal(story47Context?.warning_count, 0);
-    assert.deepEqual(story47Context?.warnings, []);
+    assert.equal(story47Context?.warning_count, context.warningCount);
+    assert.deepEqual(story47Context?.warnings, [
+      'codex/chat/config.toml uses legacy approval_policy "on-failure"; normalized to "on-request".',
+      'codex/chat/config.toml uses legacy web_search; normalized to web_search_mode.',
+    ]);
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;

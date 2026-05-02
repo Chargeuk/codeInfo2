@@ -1995,10 +1995,10 @@ This review-created task repairs the shared defaults-applied marker seam so REST
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the repaired shared marker schema on the REST validation surface.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts` from the repository root to prove the repaired shared marker schema on the providers discovery surface.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` from the repository root to prove the repaired shared marker schema on the models discovery surface.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the repaired shared marker schema on the MCP `codebase_question` surface.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` from the repository root to prove the repaired shared marker schema on the REST validation surface.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts` from the repository root to prove the repaired shared marker schema on the providers discovery surface.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` from the repository root to prove the repaired shared marker schema on the models discovery surface.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the repaired shared marker schema on the MCP `codebase_question` surface.
 
 #### Implementation notes
 
@@ -2008,6 +2008,10 @@ This review-created task repairs the shared defaults-applied marker seam so REST
 - Subtask 3 complete: `server/src/test/unit/chatProviders.test.ts` now states the provider-discovery marker contract directly and asserts the `/chat/providers` Story 47 payload uses the same shared `warning_count` and `warnings` keys, even when the warning list is empty on the happy-path discovery surface.
 - Subtask 4 complete: `server/src/test/unit/chatModels.codex.test.ts` now states the models-discovery marker contract directly and asserts the `/chat/models` Story 47 payload uses the same shared `warning_count` and `warnings` keys instead of depending on the older generic model-source-only parity wording.
 - Subtask 5 complete: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` now states the MCP Story 47 marker contract directly and asserts the `codebase_question` path emits the same shared `warning_count` and `warnings` keys as the REST surfaces while still preserving the existing model-source assertions.
+- Testing 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts` passed cleanly with `tests run: 23`, `passed: 23`, and `failed: 0`, so the REST validation proof owner now has direct wrapper-backed evidence for the repaired shared `warning_count` plus `warnings` marker schema.
+- Testing 2 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts` passed cleanly on rerun with `tests run: 16`, `passed: 16`, and `failed: 0`; the first attempt exposed that the rewritten REST discovery proofs had to compare the marker payload to the actual `res.body.codexWarnings` array instead of assuming an empty warning list, and the follow-up repair kept the test aligned with the real shared schema contract.
+- Testing 3 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.codex.test.ts` passed cleanly with `tests run: 31`, `passed: 31`, and `failed: 0`, confirming the same shared `warning_count` plus `warnings` marker schema on the models discovery surface after the proof rewrite started comparing against the actual `res.body.codexWarnings` payload.
+- Testing 4 complete: `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` passed cleanly with `tests run: 10`, `passed: 10`, and `failed: 0`, so the MCP `codebase_question` proof owner now also confirms the shared `warning_count` plus `warnings` marker vocabulary after aligning its expectations with the same real warning payload values the REST surfaces use.
 
 ### Task 21. Revalidate review pass 0000056-20260501T220148Z-a78707f5 after review-task and inline-minor repairs
 

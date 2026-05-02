@@ -547,15 +547,17 @@ test('providers marker emits the shared warning_count and warnings fields with t
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
 
   try {
-    await request(server.httpServer).get('/chat/providers').expect(200);
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
 
     const marker = markerPayloads.at(-1);
     assert.ok(marker);
     assert.equal(marker.surface, '/chat/providers');
     assert.equal(marker.model_source, 'fallback');
     assert.equal(marker.codex_model_source, 'hardcoded');
-    assert.equal(marker.warning_count, 0);
-    assert.deepEqual(marker.warnings, []);
+    assert.equal(marker.warning_count, res.body.codexWarnings.length);
+    assert.deepEqual(marker.warnings, res.body.codexWarnings);
   } finally {
     console.info = originalInfo;
     await stopServer(server);

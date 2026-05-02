@@ -595,7 +595,7 @@ test('vector summary match uses the lowest distance', () => {
   assert.equal(summaries[0].files[0].embeddingModel, 'text-embedding-3-small');
 });
 
-test('codebase_question parity fixture aligns MCP defaults with REST resolver expectations', async () => {
+test('codebase_question marker emits the shared warning_count and warnings fields while matching the REST defaults vocabulary', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
   const originalChatDefaultProvider =
@@ -656,11 +656,15 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
       | {
           model_source?: string;
           codex_model_source?: string;
+          warning_count?: number;
+          warnings?: string[];
         }
       | undefined;
     assert.ok(story47Context);
     assert.equal(story47Context?.model_source, 'fallback');
     assert.equal(story47Context?.codex_model_source, 'hardcoded');
+    assert.equal(story47Context?.warning_count, 0);
+    assert.deepEqual(story47Context?.warnings, []);
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;

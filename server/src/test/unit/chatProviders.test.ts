@@ -520,7 +520,7 @@ test('providers route logs model-stage precedence ahead of tool-surface failures
   }
 });
 
-test('providers marker normalizes model_source and retains raw codex_model_source', async () => {
+test('providers marker emits the shared warning_count and warnings fields with the same values as the REST defaults surface', async () => {
   await setCodexHome();
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
   env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
@@ -554,6 +554,8 @@ test('providers marker normalizes model_source and retains raw codex_model_sourc
     assert.equal(marker.surface, '/chat/providers');
     assert.equal(marker.model_source, 'fallback');
     assert.equal(marker.codex_model_source, 'hardcoded');
+    assert.equal(marker.warning_count, 0);
+    assert.deepEqual(marker.warnings, []);
   } finally {
     console.info = originalInfo;
     await stopServer(server);

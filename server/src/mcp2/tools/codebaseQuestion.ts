@@ -28,6 +28,7 @@ import type {
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
+  buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
@@ -335,7 +336,6 @@ export async function runCodebaseQuestion(
     ...codexCapabilities.warnings,
     ...resolvedDefaults.warnings,
   ];
-  const codexWarningFields = extractWarningFields(codexWarnings);
   const codexState = {
     available: codexAvailable,
     models: codexCapabilities.models.map((entry) => entry.model),
@@ -435,24 +435,23 @@ export async function runCodebaseQuestion(
     message: STORY_47_TASK_1_LOG_MARKER,
     timestamp: new Date().toISOString(),
     source: 'server',
-    context: {
+    context: buildDefaultsAppliedMarkerPayload({
       surface: 'mcp2.codebase_question',
-      requested_provider: runtimeSelection.requestedProvider,
-      requested_model: runtimeSelection.requestedModel,
-      resolved_model: runtimeSelection.executionModel,
-      model_source:
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      resolvedModel: runtimeSelection.executionModel,
+      modelSource:
         requestedProvider === 'codex'
           ? toChatResolutionSource(
               codexRequestedDefaults?.sources.model ?? 'hardcoded',
             )
           : resolvedDefaults.modelSource,
-      codex_model_source:
+      codexModelSource:
         requestedProvider === 'codex'
           ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
           : undefined,
-      success: true,
-      warning_fields: codexWarningFields,
-    },
+      warnings: codexWarnings,
+    }),
   });
   append({
     level: 'info',
@@ -465,35 +464,37 @@ export async function runCodebaseQuestion(
       executionProvider: runtimeSelection.executionProvider,
       executionModel: runtimeSelection.executionModel,
       warningCount: codexWarnings.length,
-      warningFields: codexWarningFields,
+      warningFields: extractWarningFields(codexWarnings),
       defaults: codexCapabilities.defaults,
     },
   });
-  console.info(STORY_47_TASK_1_LOG_MARKER, {
-    surface: 'mcp2.codebase_question',
-    requested_provider: runtimeSelection.requestedProvider,
-    requested_model: runtimeSelection.requestedModel,
-    resolved_model: runtimeSelection.executionModel,
-    model_source:
-      requestedProvider === 'codex'
-        ? toChatResolutionSource(
-            codexRequestedDefaults?.sources.model ?? 'hardcoded',
-          )
-        : resolvedDefaults.modelSource,
-    codex_model_source:
-      requestedProvider === 'codex'
-        ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
-        : undefined,
-    success: true,
-    warning_fields: codexWarningFields,
-  });
+  console.info(
+    STORY_47_TASK_1_LOG_MARKER,
+    buildDefaultsAppliedMarkerPayload({
+      surface: 'mcp2.codebase_question',
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      resolvedModel: runtimeSelection.executionModel,
+      modelSource:
+        requestedProvider === 'codex'
+          ? toChatResolutionSource(
+              codexRequestedDefaults?.sources.model ?? 'hardcoded',
+            )
+          : resolvedDefaults.modelSource,
+      codexModelSource:
+        requestedProvider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : undefined,
+      warnings: codexWarnings,
+    }),
+  );
   console.info(TASK8_LOG_MARKER, {
     surface: 'mcp2.codebase_question',
     requestedProvider: runtimeSelection.requestedProvider,
     executionProvider: runtimeSelection.executionProvider,
     executionModel: runtimeSelection.executionModel,
     warningCount: codexWarnings.length,
-    warningFields: codexWarningFields,
+    warningFields: extractWarningFields(codexWarnings),
     defaults: codexCapabilities.defaults,
   });
 

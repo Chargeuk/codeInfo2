@@ -13,6 +13,7 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
@@ -266,25 +267,29 @@ export function createChatProvidersRouter({
       },
       'chat providers resolved',
     );
-    console.info(STORY_47_TASK_1_LOG_MARKER, {
-      surface: '/chat/providers',
-      requested_provider: runtimeSelection.requestedProvider,
-      requested_model: runtimeSelection.requestedModel,
-      resolved_model: runtimeSelection.executionModel,
-      ordered_provider_contract: ORDERED_CHAT_PROVIDER_CONTRACT,
-      model_source:
-        requestedDefaults.provider === 'codex'
-          ? toChatResolutionSource(
-              codexRequestedDefaults?.sources.model ?? 'hardcoded',
-            )
-          : requestedDefaults.modelSource,
-      codex_model_source:
-        requestedDefaults.provider === 'codex'
-          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
-          : undefined,
-      success: true,
-      warning_count: codexWarnings.length,
-    });
+    console.info(
+      STORY_47_TASK_1_LOG_MARKER,
+      buildDefaultsAppliedMarkerPayload({
+        surface: '/chat/providers',
+        requestedProvider: runtimeSelection.requestedProvider,
+        requestedModel: runtimeSelection.requestedModel,
+        resolvedModel: runtimeSelection.executionModel,
+        modelSource:
+          requestedDefaults.provider === 'codex'
+            ? toChatResolutionSource(
+                codexRequestedDefaults?.sources.model ?? 'hardcoded',
+              )
+            : requestedDefaults.modelSource,
+        codexModelSource:
+          requestedDefaults.provider === 'codex'
+            ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+            : undefined,
+        warnings: codexWarnings,
+        extras: {
+          ordered_provider_contract: ORDERED_CHAT_PROVIDER_CONTRACT,
+        },
+      }),
+    );
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat/providers',
       provider: 'codex',

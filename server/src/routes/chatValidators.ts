@@ -18,6 +18,7 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   ChatDefaultsResolutionError,
@@ -497,20 +498,24 @@ export async function validateChatRequest(
         ? resolveCopilotAgentFlags(rawAgentFlags)
         : resolveLmStudioAgentFlags(rawAgentFlags);
 
-  console.info(STORY_47_TASK_1_LOG_MARKER, {
-    surface: 'chat_validation',
-    requested_provider: requestedProvider ?? provider,
-    requested_model: requestedModel ?? model,
-    resolved_model: model,
-    model_source: modelSource,
-    codex_model_source:
-      provider === 'codex' ? toCodexDefaultSource(modelSource) : undefined,
-    success: true,
-    warning_count: warnings.length,
-    defaultedFlags: Object.keys(agentFlags).filter(
-      (key) => rawAgentFlags[key] === undefined,
-    ),
-  });
+  console.info(
+    STORY_47_TASK_1_LOG_MARKER,
+    buildDefaultsAppliedMarkerPayload({
+      surface: 'chat_validation',
+      requestedProvider: (requestedProvider ?? provider) as ChatDefaultProvider,
+      requestedModel: requestedModel ?? model,
+      resolvedModel: model,
+      modelSource,
+      codexModelSource:
+        provider === 'codex' ? toCodexDefaultSource(modelSource) : undefined,
+      warnings,
+      extras: {
+        defaultedFlags: Object.keys(agentFlags).filter(
+          (key) => rawAgentFlags[key] === undefined,
+        ),
+      },
+    }),
+  );
   console.info(TASK7_LOG_MARKER, {
     surface: 'chat_validation',
     provider,

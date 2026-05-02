@@ -12,6 +12,7 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  buildDefaultsAppliedMarkerPayload,
   ChatDefaultsResolutionError,
   resolveChatDefaults,
   resolveCodexChatDefaults,
@@ -474,18 +475,20 @@ export function createChatModelsRouter({
         codexDefaults,
         codexWarnings,
       });
-      console.info(STORY_47_TASK_1_LOG_MARKER, {
-        surface: '/chat/models',
-        requested_provider: 'codex',
-        requested_model: codexPreferredDefaults.values.model,
-        resolved_model: codexPreferredDefaults.values.model,
-        model_source: toChatResolutionSource(
-          codexPreferredDefaults.sources.model,
-        ),
-        codex_model_source: codexPreferredDefaults.sources.model,
-        success: true,
-        warning_count: codexWarnings.length,
-      });
+      console.info(
+        STORY_47_TASK_1_LOG_MARKER,
+        buildDefaultsAppliedMarkerPayload({
+          surface: '/chat/models',
+          requestedProvider: 'codex',
+          requestedModel: codexPreferredDefaults.values.model,
+          resolvedModel: codexPreferredDefaults.values.model,
+          modelSource: toChatResolutionSource(
+            codexPreferredDefaults.sources.model,
+          ),
+          codexModelSource: codexPreferredDefaults.sources.model,
+          warnings: codexWarnings,
+        }),
+      );
       console.info(TASK7_LOG_MARKER, {
         surface: '/chat/models',
         provider: 'codex',

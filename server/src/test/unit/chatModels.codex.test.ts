@@ -177,7 +177,7 @@ test('codex env model list parsing surfaces defaults and warnings', async () => 
   }
 });
 
-test('chat models marker normalizes model_source and retains raw codex_model_source', async () => {
+test('chat models marker emits the shared warning_count and warnings fields with the same values as the REST defaults surface', async () => {
   await setCodexHome();
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
@@ -206,6 +206,8 @@ test('chat models marker normalizes model_source and retains raw codex_model_sou
     assert.equal(marker.surface, '/chat/models');
     assert.equal(marker.model_source, 'fallback');
     assert.equal(marker.codex_model_source, 'hardcoded');
+    assert.equal(marker.warning_count, 0);
+    assert.deepEqual(marker.warnings, []);
   } finally {
     console.info = originalInfo;
     await stopServer(server);

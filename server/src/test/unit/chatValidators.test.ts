@@ -158,8 +158,8 @@ test('omitted codex provider and model resolve through the chat-config-aware def
   assert.equal(result.defaultsResolution.modelSource, 'config');
 });
 
-test('chat validation marker keeps normalized model_source and separate raw codex_model_source', async () => {
-  await setChatConfig('model = "config-model"\n');
+test('chat validation marker emits the shared warning_count and warnings fields alongside normalized model-source details', async () => {
+  await setChatConfig('model = 7\n');
 
   const markerPayloads: Array<Record<string, unknown>> = [];
   const originalInfo = console.info;
@@ -182,6 +182,10 @@ test('chat validation marker keeps normalized model_source and separate raw code
     assert.equal(marker.surface, 'chat_validation');
     assert.equal(marker.model_source, 'request');
     assert.equal(marker.codex_model_source, 'override');
+    assert.equal(marker.warning_count, 1);
+    assert.deepEqual(marker.warnings, [
+      'codex/chat/config.toml has invalid value for "model", falling back to env/hardcoded defaults.',
+    ]);
   } finally {
     console.info = originalInfo;
   }

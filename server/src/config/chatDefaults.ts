@@ -83,6 +83,18 @@ export type ResolvedCodexChatDefaults = {
   warnings: string[];
 };
 
+export type DefaultsAppliedMarkerPayload = {
+  surface: string;
+  requested_provider: ChatDefaultProvider;
+  requested_model: string;
+  resolved_model: string;
+  model_source: ResolutionSource;
+  codex_model_source?: CodexDefaultSource;
+  success: true;
+  warning_count: number;
+  warnings: string[];
+};
+
 export const ORDERED_CHAT_PROVIDERS = ORDERED_CHAT_PROVIDER_IDS;
 
 const FALLBACK_PROVIDER: ChatDefaultProvider = DEFAULT_CHAT_PROVIDER_ID;
@@ -114,6 +126,28 @@ const MODEL_REASONING_EFFORTS = new Set([
   'xhigh',
 ]);
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
+
+export const buildDefaultsAppliedMarkerPayload = (params: {
+  surface: string;
+  requestedProvider: ChatDefaultProvider;
+  requestedModel: string;
+  resolvedModel: string;
+  modelSource: ResolutionSource;
+  codexModelSource?: CodexDefaultSource;
+  warnings: string[];
+  extras?: Record<string, unknown>;
+}): DefaultsAppliedMarkerPayload & Record<string, unknown> => ({
+  surface: params.surface,
+  requested_provider: params.requestedProvider,
+  requested_model: params.requestedModel,
+  resolved_model: params.resolvedModel,
+  model_source: params.modelSource,
+  codex_model_source: params.codexModelSource,
+  success: true,
+  warning_count: params.warnings.length,
+  warnings: [...params.warnings],
+  ...(params.extras ?? {}),
+});
 
 const parseModeBoolean = (value: unknown): CodexWebSearchMode | undefined => {
   if (typeof value === 'boolean') {

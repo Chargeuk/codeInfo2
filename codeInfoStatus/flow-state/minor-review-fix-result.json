@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-02T15:12:25Z",
+  "generated_at_utc": "2026-05-02T15:16:58Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260502T125558Z-6d5d4717",
-  "finding_id": "finding-6",
+  "finding_id": "finding-9",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Aligned the websocket ScriptedChat helper so already-aborted runs emit cancellation before any thread or transcript event.",
+  "summary": "Replaced the duplicate-stop integration proof's fixed delay with the stronger runtime cleanup boundary already exposed in the test file.",
   "changed_files": [
-    "server/src/test/unit/ws-chat-stream.test.ts"
+    "server/src/test/integration/chat-tools-wire.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/ws-chat-stream.test.ts",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/chat-tools-wire.test.ts",
       "result": "passed",
-      "notes": "Wrapper passed cleanly with 19 tests run, 19 passed, and 0 failed."
+      "notes": "Wrapper passed cleanly with 11 tests run, 11 passed, and 0 failed."
     }
   ],
-  "commit_sha": "7c243458cabff13cdacfc27c6113e57b16df84fd",
+  "commit_sha": "4df7348b60691717414057e255dbd6e7dbaa6f21",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

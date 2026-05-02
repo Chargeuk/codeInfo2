@@ -8,11 +8,11 @@ import test from 'node:test';
 
 import express from 'express';
 
-import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   getCompletedInflightByReplayId,
   getInflight,
 } from '../../chat/inflightRegistry.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { resetStore } from '../../logStore.js';
 import { handleRpc } from '../../mcp2/router.js';
@@ -531,8 +531,9 @@ test('MCP codebase_question replays one stable follow-up result before cleanup a
     });
     assert.equal(firstFinal.status, 'ok');
 
-    await waitForCondition(() =>
-      getCompletedInflightByReplayId({ conversationId, replayId }) !== null,
+    await waitForCondition(
+      () =>
+        getCompletedInflightByReplayId({ conversationId, replayId }) !== null,
     );
     assert.ok(getInflight(conversationId));
 
@@ -553,8 +554,8 @@ test('MCP codebase_question replays one stable follow-up result before cleanup a
     });
     assert.ok((immediateReplay as { result?: unknown }).result);
     const immediateReplayPayload = JSON.parse(
-      (immediateReplay as { result: { content: Array<{ text: string }> } }).result
-        .content[0].text,
+      (immediateReplay as { result: { content: Array<{ text: string }> } })
+        .result.content[0].text,
     );
     assert.equal(chat.runs, 1);
     assert.equal(

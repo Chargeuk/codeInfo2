@@ -591,7 +591,10 @@ test('codebase_question replays one stable Copilot follow-up result for the same
 
   assert.equal(chat.runs, 2);
   assert.equal(freshReplayPayload.conversationId, 'mcp-replay-happy-1');
-  assert.equal(freshReplayPayload.segments[0].text, 'Replay answer 2: fresh logical follow-up');
+  assert.equal(
+    freshReplayPayload.segments[0].text,
+    'Replay answer 2: fresh logical follow-up',
+  );
 });
 
 test('codebase_question keeps caller conversationId stable across Codex replay windows even when provider thread ids differ', async () => {
@@ -686,7 +689,9 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
     });
 
     assert.ok(afterCleanupCall.result);
-    const afterCleanupPayload = JSON.parse(afterCleanupCall.result.content[0].text);
+    const afterCleanupPayload = JSON.parse(
+      afterCleanupCall.result.content[0].text,
+    );
     assert.equal(afterCleanupPayload.conversationId, 'caller-follow-up-1');
     assert.deepEqual(afterCleanupPayload, firstPayload);
 
@@ -706,7 +711,9 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
     });
 
     assert.ok(freshReplayCall.result);
-    const freshReplayPayload = JSON.parse(freshReplayCall.result.content[0].text);
+    const freshReplayPayload = JSON.parse(
+      freshReplayCall.result.content[0].text,
+    );
     assert.equal(divergentCodex.runs, 2);
     assert.equal(freshReplayPayload.conversationId, 'caller-follow-up-1');
     assert.equal(freshReplayPayload.segments[0].text, 'Codex replay answer 2');

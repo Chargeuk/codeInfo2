@@ -240,7 +240,9 @@ async function assertSeedArtifactTreeHasNoSymlinks(
     return;
   }
 
-  const entries = await fs.promises.readdir(targetPath, { withFileTypes: true });
+  const entries = await fs.promises.readdir(targetPath, {
+    withFileTypes: true,
+  });
   for (const entry of entries) {
     if (entry.isSymbolicLink()) {
       throw new Error(

@@ -461,8 +461,9 @@ async function executeCodebaseQuestion(
   );
   if (!explicitProviderSelected || requestedProvider === 'lmstudio') {
     if (!BASE_URL_REGEX.test(baseUrl)) {
-      lmstudioState =
-        buildUnavailableRuntimeProviderState('lmstudio unavailable');
+      lmstudioState = buildUnavailableRuntimeProviderState(
+        'lmstudio unavailable',
+      );
     } else {
       try {
         const factory =
@@ -482,8 +483,9 @@ async function executeCodebaseQuestion(
               }
             : buildUnavailableRuntimeProviderState('lmstudio unavailable');
       } catch {
-        lmstudioState =
-          buildUnavailableRuntimeProviderState('lmstudio unavailable');
+        lmstudioState = buildUnavailableRuntimeProviderState(
+          'lmstudio unavailable',
+        );
       }
     }
   }
@@ -678,9 +680,7 @@ async function executeCodebaseQuestion(
     return lateCompletedReplay;
   }
 
-  const inflightId = replayId
-    ? `mcp-replay-${replayId}`
-    : crypto.randomUUID();
+  const inflightId = replayId ? `mcp-replay-${replayId}` : crypto.randomUUID();
 
   const existingFlags =
     existingConversation && existingConversation._id === resolvedConversationId

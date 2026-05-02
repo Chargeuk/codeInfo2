@@ -80,7 +80,7 @@ export class McpResponder {
     const conversationId =
       options?.preferFallbackConversationId && fallbackConversationId
         ? fallbackConversationId
-        : this.providerThreadId ?? fallbackConversationId;
+        : (this.providerThreadId ?? fallbackConversationId);
 
     if (this.errorMessage) {
       throw new Error(this.errorMessage);

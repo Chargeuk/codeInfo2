@@ -318,8 +318,9 @@ export function createChatRouter({
     );
     if (!explicitProviderSelected || requestedProvider === 'lmstudio') {
       if (!BASE_URL_REGEX.test(baseUrl)) {
-        lmstudioState =
-          buildUnavailableRuntimeProviderState('lmstudio unavailable');
+        lmstudioState = buildUnavailableRuntimeProviderState(
+          'lmstudio unavailable',
+        );
       } else {
         try {
           const client = clientFactory(toWebSocketUrl(baseUrl));
@@ -327,7 +328,9 @@ export function createChatRouter({
           const lmstudioModels = models
             .filter(isChatModel)
             .map((entry) => entry.modelKey)
-            .filter((value) => typeof value === 'string' && value.trim().length);
+            .filter(
+              (value) => typeof value === 'string' && value.trim().length,
+            );
           lmstudioState =
             lmstudioModels.length > 0
               ? {
@@ -336,8 +339,9 @@ export function createChatRouter({
                 }
               : buildUnavailableRuntimeProviderState('lmstudio unavailable');
         } catch {
-          lmstudioState =
-            buildUnavailableRuntimeProviderState('lmstudio unavailable');
+          lmstudioState = buildUnavailableRuntimeProviderState(
+            'lmstudio unavailable',
+          );
         }
       }
     }

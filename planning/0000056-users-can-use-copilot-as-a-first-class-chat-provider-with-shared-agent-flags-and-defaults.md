@@ -2178,8 +2178,8 @@ This review-created task repairs the explicit-provider admission contract for bo
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts` from the repository root to prove the repaired explicit-provider rejection boundary on the REST `/chat` surface while preserving the default-provider fallback path.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` from the repository root to prove the repaired explicit-provider rejection boundary on the MCP `codebase_question` surface.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts` from the repository root to prove the repaired explicit-provider rejection boundary on the REST `/chat` surface while preserving the default-provider fallback path.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` from the repository root to prove the repaired explicit-provider rejection boundary on the MCP `codebase_question` surface.
 
 #### Implementation notes
 
@@ -2187,6 +2187,8 @@ This review-created task repairs the explicit-provider admission contract for bo
 - Subtask 1 complete: `server/src/routes/chat.ts` and `server/src/mcp2/tools/codebaseQuestion.ts` now skip fallback-only LM Studio and Copilot probing whenever the request pins `provider`, while `server/src/config/chatDefaults.ts` now exports a shared unavailable-state helper so explicit-provider requests can fail on the selected provider's own boundary first without changing the omitted-provider fallback path.
 - Subtask 2 complete: `server/src/test/integration/chat-copilot-fallback.test.ts` now makes the REST ordering boundary observable by renaming the explicit-provider case to the selected-provider-first contract and asserting an injected LM Studio fallback probe never runs, while the omitted-provider case keeps the preserved fallback-selection path explicit.
 - Subtask 3 complete: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` now makes the MCP ordering boundary observable by proving an explicit Copilot request never reaches an injected LM Studio fallback probe, and it adds a dedicated omitted-provider fallback case that still recovers onto Codex when provider resolution remains allowed.
+- Testing 1 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts` passed cleanly with `tests run: 3`, `passed: 3`, and `failed: 0`, so the REST proof owner now has wrapper-backed evidence that explicit Copilot requests fail before the unrelated LM Studio fallback probe can run while omitted-provider requests still recover through fallback selection.
+- Testing 2 complete: `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` passed cleanly on rerun with `tests run: 3`, `passed: 3`, and `failed: 0`; the first attempt exposed that the new omitted-provider fallback proof had hard-coded the fallback Codex model instead of deriving the current first selectable capability model, and the follow-up repair kept the assertion aligned with the real fallback-selection seam.
 
 ### Task 23. Reject symlinked Copilot seed artifacts before runtime-home import
 

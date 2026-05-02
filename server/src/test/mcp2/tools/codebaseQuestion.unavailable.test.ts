@@ -199,6 +199,10 @@ test('codebase_question still falls back when provider resolution is omitted and
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'invalid-url';
 
   try {
+    const capabilities = await resolveCodexCapabilities({
+      consumer: 'chat_validation',
+      codexHome: process.env.CODEX_HOME,
+    });
     const result = await runCodebaseQuestion(
       { question: 'Fallback please' },
       {
@@ -227,7 +231,7 @@ test('codebase_question still falls back when provider resolution is omitted and
     };
 
     assert.equal(payload.conversationId, 'thread-fallback');
-    assert.equal(payload.modelId, 'gpt-5.3-codex');
+    assert.equal(payload.modelId, capabilities.models[0]?.model);
     assert.equal(payload.segments.at(-1)?.type, 'answer');
     assert.equal(payload.segments.at(-1)?.text, 'Fallback answer');
   } finally {

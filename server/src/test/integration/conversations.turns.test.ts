@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import request from 'supertest';
 import {
   appendAnalysisDelta,
@@ -9,10 +10,18 @@ import {
   bumpSeq,
   cleanupInflight,
   createInflight,
+  getInflight,
   markInflightPersisted,
   markInflightFinal,
 } from '../../chat/inflightRegistry.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import type { TurnSummary } from '../../mongo/repo.js';
+import { createChatRouter } from '../../routes/chat.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 
 const appWith = (
@@ -23,6 +32,75 @@ const appWith = (
   app.use(createConversationsRouter(overrides));
   return app;
 };
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+class ScriptedChat extends ChatInterface {
+  constructor(
+    private readonly script: (
+      chat: ChatInterface,
+      signal?: AbortSignal,
+    ) => Promise<void>,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ): Promise<void> {
+    const signal = (flags as { signal?: AbortSignal }).signal;
+    if (signal?.aborted) {
+      this.emit('error', { type: 'error', message: 'aborted' });
+      return;
+    }
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    await this.script(this, signal);
+  }
+}
+
+async function waitForChatPersistence(
+  conversationId: string,
+  expectedTurnCount: number,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const turns = getMemoryTurns(conversationId);
+    if (
+      turns.length === expectedTurnCount &&
+      getInflight(conversationId) === undefined
+    ) {
+      return turns;
+    }
+    await delay(25);
+  }
+  throw new Error(
+    `Timed out waiting for persisted chat turns: ${conversationId}`,
+  );
+}
+
+function createChatApp(chatFactory: () => ChatInterface) {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [
+              { modelKey: 'model-1', displayName: 'model-1', type: 'llm' },
+            ],
+          },
+        }) as unknown as LMStudioClient,
+      chatFactory,
+    }),
+  );
+  return app;
+}
 
 test('returns full turn history newest-first (ignores pagination query)', async () => {
   const turns: TurnSummary[] = [
@@ -72,6 +150,63 @@ test('returns not_found when conversation is missing', async () => {
     .get('/conversations/missing/turns')
     .expect(404);
   assert.equal(res.body.error, 'not_found');
+});
+
+test('completed replay requests do not duplicate persisted turns and reject contradictory stale payloads after cleanup', async () => {
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  memoryConversations.clear();
+  memoryTurns.clear();
+
+  const conversationId = 'c-replay-persisted';
+  const inflightId = 'i-replay-persisted';
+  const app = createChatApp(
+    () =>
+      new ScriptedChat(async (chat) => {
+        chat.emit('final', { type: 'final', content: 'done' });
+        chat.emit('complete', { type: 'complete', threadId: 'thread-1' });
+      }),
+  );
+
+  const first = await request(app).post('/chat').send({
+    provider: 'lmstudio',
+    model: 'model-1',
+    conversationId,
+    inflightId,
+    message: 'hello',
+  });
+  assert.equal(first.status, 202);
+
+  await waitForChatPersistence(conversationId, 2);
+
+  const replay = await request(app).post('/chat').send({
+    provider: 'lmstudio',
+    model: 'model-1',
+    conversationId,
+    inflightId,
+    message: 'hello',
+  });
+  assert.equal(replay.status, 409);
+  assert.equal(replay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
+
+  const contradictoryReplay = await request(app).post('/chat').send({
+    provider: 'lmstudio',
+    model: 'model-1',
+    conversationId,
+    inflightId,
+    message: 'mutate the stored conversation',
+  });
+  assert.equal(contradictoryReplay.status, 409);
+  assert.equal(contradictoryReplay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
+
+  const persistedTurns = getMemoryTurns(conversationId);
+  assert.equal(persistedTurns.length, 2);
+  assert.equal(persistedTurns.filter((turn) => turn.role === 'user').length, 1);
+  assert.equal(
+    persistedTurns.filter((turn) => turn.role === 'assistant').length,
+    1,
+  );
+  assert.equal(persistedTurns[0]?.content, 'hello');
+  assert.equal(persistedTurns[1]?.content, 'done');
 });
 
 test('inflight-only snapshot returns inflight items and inflight payload', async () => {

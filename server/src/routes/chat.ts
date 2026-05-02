@@ -23,6 +23,7 @@ import {
   cleanupInflight,
   consumePendingConversationCancel,
   createInflight,
+  getCompletedInflight,
   getInflight,
 } from '../chat/inflightRegistry.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
@@ -126,6 +127,23 @@ const isChatModel = (model: { type?: string; architecture?: string }) => {
   const kind = (model.type ?? '').toLowerCase();
   return kind !== 'embedding' && kind !== 'vector';
 };
+
+function buildCompletedReplayResponse(params: {
+  conversationId: string;
+  inflightId: string;
+  finalStatus?: 'ok' | 'stopped' | 'failed';
+}) {
+  return {
+    status: 'error' as const,
+    code: 'INFLIGHT_ALREADY_COMPLETED' as const,
+    message:
+      'This inflightId has already completed for the conversation and cannot be replayed.',
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    replayed: true,
+    finalStatus: params.finalStatus ?? 'ok',
+  };
+}
 
 export function createChatRouter({
   clientFactory,
@@ -258,6 +276,25 @@ export function createChatRouter({
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
     const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+
+    if (
+      typeof requestedInflightId === 'string' &&
+      requestedInflightId.length > 0
+    ) {
+      const completedReplay = getCompletedInflight({
+        conversationId,
+        inflightId: requestedInflightId,
+      });
+      if (completedReplay) {
+        return res.status(409).json(
+          buildCompletedReplayResponse({
+            conversationId,
+            inflightId: requestedInflightId,
+            finalStatus: completedReplay.finalStatus,
+          }),
+        );
+      }
+    }
     const safeBase = scrubBaseUrl(baseUrl);
 
     const codexDetection = getCodexDetection();
@@ -639,6 +676,39 @@ export function createChatRouter({
     }
 
     if (!tryAcquireConversationLock(conversationId)) {
+      if (
+        typeof requestedInflightId === 'string' &&
+        requestedInflightId.length > 0
+      ) {
+        const activeInflight = getInflight(conversationId);
+        if (
+          activeInflight?.inflightId === requestedInflightId &&
+          activeInflight.finalStatus
+        ) {
+          return res.status(409).json(
+            buildCompletedReplayResponse({
+              conversationId,
+              inflightId: requestedInflightId,
+              finalStatus: activeInflight.finalStatus,
+            }),
+          );
+        }
+
+        const completedReplay = getCompletedInflight({
+          conversationId,
+          inflightId: requestedInflightId,
+        });
+        if (completedReplay) {
+          return res.status(409).json(
+            buildCompletedReplayResponse({
+              conversationId,
+              inflightId: requestedInflightId,
+              finalStatus: completedReplay.finalStatus,
+            }),
+          );
+        }
+      }
+
       return res.status(409).json({
         status: 'error',
         code: 'RUN_IN_PROGRESS',
@@ -668,6 +738,21 @@ export function createChatRouter({
       typeof requestedInflightId === 'string' && requestedInflightId.length > 0
         ? requestedInflightId
         : crypto.randomUUID();
+
+    const completedReplay = getCompletedInflight({
+      conversationId,
+      inflightId,
+    });
+    if (completedReplay) {
+      releaseConversationLockFn(conversationId, runToken);
+      return res.status(409).json(
+        buildCompletedReplayResponse({
+          conversationId,
+          inflightId,
+          finalStatus: completedReplay.finalStatus,
+        }),
+      );
+    }
 
     createInflight({
       conversationId,

@@ -155,10 +155,14 @@ export function createChatProvidersRouter({
         'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
       );
     }
+    const codexConfigWarnings: string[] = [];
     const codexDefaults = buildCodexCompatibilityDefaults({
       capabilities,
       codexHome: process.env.CODEX_HOME,
+      warnings: codexConfigWarnings,
     });
+    codexWarnings.push(...codexConfigWarnings);
+    const lmstudioAgentFlags = buildLmStudioAgentFlags({});
     const providerMap = {
       copilot: buildProviderInfo({
         provider: 'copilot',
@@ -183,8 +187,11 @@ export function createChatProvidersRouter({
         toolsAvailable: lmstudioModels.length > 0,
         reason: lmstudioReason,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
-        warnings: lmstudioReason ? [lmstudioReason] : [],
-        agentFlags: buildLmStudioAgentFlags({}),
+        warnings: [
+          ...(lmstudioReason ? [lmstudioReason] : []),
+          ...lmstudioAgentFlags.warnings,
+        ],
+        agentFlags: lmstudioAgentFlags.agentFlags,
       }),
       codex: buildProviderInfo({
         provider: 'codex',
@@ -196,6 +203,7 @@ export function createChatProvidersRouter({
         agentFlags: buildCodexAgentFlags({
           capabilities,
           codexHome: process.env.CODEX_HOME,
+          defaults: codexDefaults,
         }),
         compatibility: {
           codexDefaults,

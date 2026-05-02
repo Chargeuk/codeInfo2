@@ -840,6 +840,51 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
   }
 });
 
+test('providers route degrades malformed Codex chat defaults to warnings instead of failing discovery', async () => {
+  await setCodexHome('sandbox_mode = [\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    const codex = (res.body.providers as Array<Record<string, unknown>>).find(
+      (provider) => provider.id === 'codex',
+    );
+    assert.ok(codex);
+    assert.equal(res.body.selectedProvider, 'codex');
+    assert.equal(codex.available, true);
+    assert.equal(codex.defaultModel, 'gpt-5.3-codex');
+    assert.equal(codex.defaultModelSource, 'hardcoded');
+    assert.equal(res.body.codexDefaults.sandboxMode, 'danger-full-access');
+    assert.equal(res.body.codexDefaults.webSearchMode, 'live');
+    assert.match(
+      (codex.warnings as string[]).join('\n'),
+      /default model resolution/i,
+    );
+    assert.match(
+      (codex.warnings as string[]).join('\n'),
+      /discovery defaults resolution/i,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('providers route keeps seed defaults separate from config-resolved defaults in Agent Flag descriptors', async () => {
   await setCodexHome(
     [

@@ -230,10 +230,13 @@ export function createChatModelsRouter({
       );
     }
     const codexWarnings = [...capabilities.warnings, ...codexRuntimeWarnings];
+    const codexConfigWarnings: string[] = [];
     const codexDefaults = buildCodexCompatibilityDefaults({
       capabilities,
       codexHome: process.env.CODEX_HOME,
+      warnings: codexConfigWarnings,
     });
+    codexWarnings.push(...codexConfigWarnings);
     let requestedDefaults: ReturnType<typeof resolveChatDefaults> | undefined =
       undefined;
     try {
@@ -401,6 +404,7 @@ export function createChatModelsRouter({
         );
       }
     }
+    const lmstudioAgentFlags = buildLmStudioAgentFlags({});
 
     const providerMap = {
       codex: buildProviderInfo({
@@ -413,6 +417,7 @@ export function createChatModelsRouter({
         agentFlags: buildCodexAgentFlags({
           capabilities,
           codexHome: process.env.CODEX_HOME,
+          defaults: codexDefaults,
         }),
         compatibility: {
           codexDefaults,
@@ -446,9 +451,12 @@ export function createChatModelsRouter({
         toolsAvailable: lmstudioAvailable,
         reason: lmstudioReason,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
-        warnings: lmstudioReason ? [lmstudioReason] : [],
+        warnings: [
+          ...(lmstudioReason ? [lmstudioReason] : []),
+          ...lmstudioAgentFlags.warnings,
+        ],
         modelMetadata: lmstudioModelMetadata,
-        agentFlags: buildLmStudioAgentFlags({}),
+        agentFlags: lmstudioAgentFlags.agentFlags,
       }),
     } as const;
     const providers = orderProviders(providerMap, provider);

@@ -959,6 +959,57 @@ test('lmstudio discovery surfaces only bounded resolved defaults from provider-l
   }
 });
 
+test('lmstudio models route degrades malformed chat defaults to warnings instead of failing discovery', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-malformed-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'lmstudio');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.defaultModel, 'model-1');
+    assert.equal(res.body.defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      res.body.agentFlags.map(
+        (entry: { key: string; resolvedDefault: unknown }) => ({
+          key: entry.key,
+          resolvedDefault: entry.resolvedDefault,
+        }),
+      ),
+      [
+        { key: 'temperature', resolvedDefault: 0.2 },
+        { key: 'maxTokens', resolvedDefault: 4096 },
+        { key: 'contextOverflowPolicy', resolvedDefault: 'truncateMiddle' },
+        { key: 'toolAccess', resolvedDefault: 'on' },
+      ],
+    );
+    assert.match((res.body.warnings ?? []).join('\n'), /agentFlags resolution/i);
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({

@@ -133,12 +133,23 @@ type BuildProviderInfoParams = ProviderHomeParams & {
 export function buildCodexCompatibilityDefaults(params: {
   capabilities: CodexCapabilityResolution;
   codexHome?: string;
+  warnings?: string[];
 }): CodexDefaults {
-  const snapshot = loadProviderChatDefaultsSnapshotSync({
-    provider: 'codex',
-    codexHome: params.codexHome,
-  });
-  const config = snapshot.config ?? {};
+  let config: Record<string, unknown> = {};
+
+  try {
+    const snapshot = loadProviderChatDefaultsSnapshotSync({
+      provider: 'codex',
+      codexHome: params.codexHome,
+    });
+    config = snapshot.config ?? {};
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    params.warnings?.push(
+      `codex/chat/config.toml could not be loaded for discovery defaults resolution (${reason}).`,
+    );
+  }
+
   const modelReasoningSummary = normalizeString(config.model_reasoning_summary);
   const modelVerbosity = normalizeString(config.model_verbosity);
   const webSearchMode = normalizeString(config.web_search_mode);
@@ -170,8 +181,10 @@ export function buildCodexCompatibilityDefaults(params: {
 export function buildCodexAgentFlags(params: {
   capabilities: CodexCapabilityResolution;
   codexHome?: string;
+  defaults?: CodexDefaults;
 }): ChatAgentFlagDescriptor[] {
-  const defaults = buildCodexCompatibilityDefaults(params);
+  const defaults =
+    params.defaults ?? buildCodexCompatibilityDefaults(params);
   const reasoningChoices = aggregateModelChoices(
     params.capabilities.models.flatMap(
       (entry) => entry.supportedReasoningEfforts,
@@ -511,51 +524,70 @@ export function buildCopilotModelFlagOverrides(
 
 export function buildLmStudioAgentFlags(params: {
   lmstudioHome?: string;
-}): ChatAgentFlagDescriptor[] {
-  const configDefaults = resolveLmStudioConfigAgentFlags({
-    lmstudioHome: params.lmstudioHome,
-  });
+}): {
+  agentFlags: ChatAgentFlagDescriptor[];
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  let configDefaults = {
+    temperature: DEFAULT_LMSTUDIO_TEMPERATURE,
+    maxTokens: DEFAULT_LMSTUDIO_MAX_TOKENS,
+    contextOverflowPolicy: DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
+    toolAccess: DEFAULT_LMSTUDIO_TOOL_ACCESS,
+  };
 
-  return [
-    {
-      key: 'temperature',
-      label: 'Temperature',
-      controlType: 'number',
-      editable: true,
-      seedDefault: DEFAULT_LMSTUDIO_TEMPERATURE,
-      resolvedDefault: configDefaults.temperature,
-      min: 0,
-      max: 2,
-    },
-    {
-      key: 'maxTokens',
-      label: 'Max Tokens',
-      controlType: 'number',
-      editable: true,
-      seedDefault: DEFAULT_LMSTUDIO_MAX_TOKENS,
-      resolvedDefault: configDefaults.maxTokens,
-      min: 1,
-      integer: true,
-    },
-    {
-      key: 'contextOverflowPolicy',
-      label: 'Context Overflow Policy',
-      controlType: 'select',
-      editable: true,
-      seedDefault: DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
-      resolvedDefault: configDefaults.contextOverflowPolicy,
-      supportedValues: [...LMSTUDIO_CONTEXT_OVERFLOW_CHOICES],
-    },
-    {
-      key: 'toolAccess',
-      label: 'Tool Access',
-      controlType: 'select',
-      editable: true,
-      seedDefault: DEFAULT_LMSTUDIO_TOOL_ACCESS,
-      resolvedDefault: configDefaults.toolAccess,
-      supportedValues: [...COPILOT_TOOL_ACCESS_CHOICES],
-    },
-  ];
+  try {
+    configDefaults = resolveLmStudioConfigAgentFlags({
+      lmstudioHome: params.lmstudioHome,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    warnings.push(reason);
+  }
+
+  return {
+    agentFlags: [
+      {
+        key: 'temperature',
+        label: 'Temperature',
+        controlType: 'number',
+        editable: true,
+        seedDefault: DEFAULT_LMSTUDIO_TEMPERATURE,
+        resolvedDefault: configDefaults.temperature,
+        min: 0,
+        max: 2,
+      },
+      {
+        key: 'maxTokens',
+        label: 'Max Tokens',
+        controlType: 'number',
+        editable: true,
+        seedDefault: DEFAULT_LMSTUDIO_MAX_TOKENS,
+        resolvedDefault: configDefaults.maxTokens,
+        min: 1,
+        integer: true,
+      },
+      {
+        key: 'contextOverflowPolicy',
+        label: 'Context Overflow Policy',
+        controlType: 'select',
+        editable: true,
+        seedDefault: DEFAULT_LMSTUDIO_CONTEXT_OVERFLOW_POLICY,
+        resolvedDefault: configDefaults.contextOverflowPolicy,
+        supportedValues: [...LMSTUDIO_CONTEXT_OVERFLOW_CHOICES],
+      },
+      {
+        key: 'toolAccess',
+        label: 'Tool Access',
+        controlType: 'select',
+        editable: true,
+        seedDefault: DEFAULT_LMSTUDIO_TOOL_ACCESS,
+        resolvedDefault: configDefaults.toolAccess,
+        supportedValues: [...COPILOT_TOOL_ACCESS_CHOICES],
+      },
+    ],
+    warnings,
+  };
 }
 
 export function toCompatibilityCodexWarnings(

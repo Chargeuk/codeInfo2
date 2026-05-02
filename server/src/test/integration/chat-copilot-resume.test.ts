@@ -99,7 +99,7 @@ test('copilot resume-session path preserves the On and Off tool-registration con
           toolAccess: 'on',
         },
       });
-    await waitForAssistantTurn('copilot-tool-access-on');
+    await waitForAssistantTurnCount('copilot-tool-access-on', 2);
 
     assert.equal(
       server.harness.getState().lastResumeSession?.sessionId,
@@ -149,7 +149,7 @@ test('copilot resume-session path preserves the On and Off tool-registration con
           toolAccess: 'off',
         },
       });
-    await waitForAssistantTurn('copilot-tool-access-off');
+    await waitForAssistantTurnCount('copilot-tool-access-off', 2);
 
     assert.equal(
       server.harness.getState().lastResumeSession?.sessionId,

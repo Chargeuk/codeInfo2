@@ -1,31 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-02T15:06:51Z",
+  "generated_at_utc": "2026-05-02T15:12:25Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260502T125558Z-6d5d4717",
-  "finding_id": "finding-5",
+  "finding_id": "finding-6",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Cleared stale local flowName and agentName labels when fresher server conversation summaries omit those classifiers.",
+  "summary": "Aligned the websocket ScriptedChat helper so already-aborted runs emit cancellation before any thread or transcript event.",
   "changed_files": [
-    "client/src/hooks/useConversations.ts",
-    "client/src/test/useConversations.source.test.ts",
-    "client/src/test/flowsPage.test.tsx"
+    "server/src/test/unit/ws-chat-stream.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:client -- --file client/src/test/useConversations.source.test.ts",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/ws-chat-stream.test.ts",
       "result": "passed",
-      "notes": "Wrapper passed cleanly with 11 tests run, 11 passed, and 0 failed."
-    },
-    {
-      "command": "npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx",
-      "result": "passed",
-      "notes": "Wrapper passed cleanly with 10 tests run, 10 passed, and 0 failed."
+      "notes": "Wrapper passed cleanly with 19 tests run, 19 passed, and 0 failed."
     }
   ],
-  "commit_sha": "583aef59f1e06fcebcbdb9c679600fefb546fb4e",
+  "commit_sha": "7c243458cabff13cdacfc27c6113e57b16df84fd",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

@@ -1903,7 +1903,7 @@ This review-created task repairs the REST chat replay seam so reusing the same c
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `86d27cc3`, `01931acb`
 
 #### Overview

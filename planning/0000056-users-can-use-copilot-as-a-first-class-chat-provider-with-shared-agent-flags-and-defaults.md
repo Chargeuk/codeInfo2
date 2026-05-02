@@ -1818,8 +1818,8 @@ This review-created task repairs the Copilot runtime-home bootstrap seam so star
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper contract for partial and complete runtime-home states, including the new cross-device directory-publish seam.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported default startup path now repairs partial runtime homes without regressing replay-safe boot behavior on the repository-supported main-compose seed/runtime layout.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper contract for partial and complete runtime-home states, including the new cross-device directory-publish seam.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported default startup path now repairs partial runtime homes without regressing replay-safe boot behavior on the repository-supported main-compose seed/runtime layout.
 
 #### Manual Testing Guidance
 
@@ -1843,6 +1843,8 @@ Optional guidance for the manual testing agent only.
 - Subtask 6 complete: added an integration proof that models the supported `/seed/copilot` bind source into `/app/copilot` runtime seam, forces the directory publish onto the cross-device fallback path, and proves startup leaves Copilot available with the copied `session-state/` peer instead of surfacing `seed_copy_failed`.
 - Subtask 7 complete: `npm run lint` passed after the cross-device fallback and proof-owner updates, so the reopened Task 17 repair stays within the shared ESLint gate before the later automated reruns.
 - Subtask 8 complete: `npm run format:check` initially flagged the three Task 17 repair files, so I ran Prettier on those exact files and reran the shared formatting gate until it passed cleanly without reopening any Testing checklist items.
+- Testing step 1 re-complete: `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` now reruns cleanly against the reopened cross-device seam with `12` tests passed and `0` failed, covering the new `EXDEV` fallback proof without needing any additional repair during this pass.
+- Testing step 2 re-complete: `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` also reran cleanly with `6` tests passed and `0` failed, so the supported boot-path proof now covers the reopened `/seed/copilot` -> `/app/copilot` runtime seam without surfacing `seed_copy_failed`.
 
 ### Task 18. Add a completed-run replay barrier for caller-supplied chat inflight IDs
 

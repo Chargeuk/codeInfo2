@@ -1779,7 +1779,7 @@ Review pass `0000056-20260501T005010Z-506c6c19` closed cleanly with no endorsed 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits: `09758cb0`, `63190098`, `4dccd73f`, `270ec1e7`
 
 #### Overview
@@ -1810,11 +1810,24 @@ This review-created task repairs the Copilot runtime-home bootstrap seam so star
 1. [x] In `server/src/config/copilotSeedBootstrap.ts`, repair the runtime-home classification and skip-path logic so the exact complete artifact set (`config.json`, `settings.json`, and `session-state/session.json`) is required before startup skips seeding, while one-of-three and two-of-three partial homes still import missing peers, helper-owned staged writes are the only artifacts cleaned up on publish failure, and the late-publish collision path stays replay-safe if another writer completes the runtime between classification and publish.
 2. [x] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` to add or rewrite named cases that prove four exact helper outcomes in `server/src/config/copilotSeedBootstrap.ts`: one-of-three partial homes import the missing peers, two-of-three partial homes import the missing peer, complete-runtime homes still skip seeding, and publish-failure cleanup removes only helper-owned staged artifacts while a late-publish winner from another writer remains intact.
 3. [x] Edit `server/src/test/integration/copilot.boot-path.test.ts` to prove the normal `CODEINFO_COPILOT_HOME` boot path repairs partial runtime homes and still skips a complete runtime home, and update `README.md` only if the documented runtime-home artifact contract or bootstrap skip rule changes as part of that repair.
+4. [ ] In `server/src/config/copilotSeedBootstrap.ts`, repair the startup directory-publish path so `session-state/` can be imported from the bind-mounted seed home at `/seed/copilot` into the named-volume runtime home at `/app/copilot` without surfacing `EXDEV` on the real main-compose layout, while preserving the existing partial-runtime merge behavior, cleanup ownership, and late-publish skip contract for fully initialized runtime homes.
+5. [ ] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` to add one explicit cross-device directory-publish proof for `server/src/config/copilotSeedBootstrap.ts`: when the runtime is partial and only `session-state/` is still missing, the helper must still return `seed_applied` and publish the missing directory even if same-device rename is unavailable, while a complete runtime continues to return `seed_skipped_runtime_already_initialized`.
+6. [ ] Edit `server/src/test/integration/copilot.boot-path.test.ts` so one focused proof models the repository-supported main-compose seam (`/seed/copilot` bind source into `/app/copilot` named-volume runtime) and proves startup no longer emits `seed_copy_failed` or leaves the runtime without the copied `session-state/` peer on the next supported boot pass.
+7. [ ] Run `npm run lint` from the repository root after the Task 17 repair and proof-owner updates land, and fix any issues found before the next automated rerun.
+8. [ ] Run `npm run format:check` from the repository root after the Task 17 repair and proof-owner updates land, and fix any issues found before the next automated rerun.
 
 #### Testing
 
-1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper contract for partial and complete runtime-home states.
-2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported default startup path now repairs partial runtime homes without regressing replay-safe boot behavior.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper contract for partial and complete runtime-home states, including the new cross-device directory-publish seam.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported default startup path now repairs partial runtime homes without regressing replay-safe boot behavior on the repository-supported main-compose seed/runtime layout.
+
+#### Manual Testing Guidance
+
+Optional guidance for the manual testing agent only.
+
+- Re-test Task 17 on the main `docker-compose.yml` stack rather than on `docker-compose.local.yml`, because the failing seam only reproduces when the writable Copilot runtime home is the named volume at `/app/copilot` and the seed source is the read-only bind mount at `/seed/copilot`.
+- Before the next manual retest, stop the main stack, reset the `codeinfo2_copilot-data` volume if needed for a clean first-boot repro, restart through `npm run compose:build` then `npm run compose:up`, and inspect the writable runtime home instead of relying only on `/chat/providers`.
+- Save later scratch proof for this task under `codeInfoTmp/manual-testing/0000056/17/`, and keep the local compose stack untouched if it is already backing the current session.
 
 #### Implementation notes
 
@@ -1824,6 +1837,7 @@ This review-created task repairs the Copilot runtime-home bootstrap seam so star
 - Subtask 3 complete: updated `server/src/test/integration/copilot.boot-path.test.ts` so the normal `CODEINFO_COPILOT_HOME` seam now proves partial-runtime repair before the next-pass complete-runtime skip, and updated the README Copilot persistence contract to say partial runtime homes are repaired while fully initialized runtime homes are skipped instead of overwritten.
 - Testing step 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` first failed because the new partial-runtime fixture helper did not create the runtime root before writing single-file cases and because the helper still used permission-sensitive existence checks that broke the runtime-identity renormalization case on a locked-down `session-state` directory. After switching runtime existence checks to `lstat`, normalizing existing runtime artifacts before readiness classification, and fixing the runtime-fixture helper to create the runtime root explicitly, the original wrapper reran cleanly with `11` tests passed and `0` failed.
 - Testing step 2 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` then passed cleanly on the first wrapper run after the helper classification fix, with `5` tests passed and `0` failed, so the supported `CODEINFO_COPILOT_HOME` boot path now has direct automated proof for partial-runtime repair plus next-pass complete-runtime skip behavior.
+- Manual testing (task-scoped) found a concrete runtime regression on the repository-supported main `docker-compose.yml` stack after restarting from a stale-or-unknown baseline: `/health` came up cleanly on a fresh `codeinfo2_copilot-data` volume, but the real startup path emitted `story.0000056.task04.copilot_seed_import` with `status=seed_copy_failed` and `error=EXDEV: cross-device link not permitted` while publishing `/seed/copilot/session-state` into `/app/copilot`. Scratch proof was saved under `codeInfoTmp/manual-testing/0000056/17/`, no browser screenshots were needed because this task owns a startup/runtime seam rather than a browser-visible surface, and Testing steps `1` and `2` were reopened because automated proof must cover the real cross-device compose layout before the next manual retest.
 
 ### Task 18. Add a completed-run replay barrier for caller-supplied chat inflight IDs
 

@@ -85,7 +85,10 @@ test('server entrypoint degrades malformed Copilot seed helper stdout into a war
   const functionMatch = content.match(
     /run_copilot_seed_import\(\) \{[\s\S]*?\n\}\n\nif \[ -x "\$CHROME_BIN" \]; then/u,
   );
-  assert(functionMatch, 'expected to locate run_copilot_seed_import in entrypoint');
+  assert(
+    functionMatch,
+    'expected to locate run_copilot_seed_import in entrypoint',
+  );
 
   const functionSource = functionMatch[0].replace(
     /\n\nif \[ -x "\$CHROME_BIN" \]; then$/u,
@@ -97,7 +100,7 @@ test('server entrypoint degrades malformed Copilot seed helper stdout into a war
   fs.mkdirSync(fakeBinDir, { recursive: true });
   fs.writeFileSync(
     path.join(fakeBinDir, 'node'),
-    '#!/usr/bin/env sh\nprintf \'%s\\n\' \'not-json-helper-output\'\n',
+    "#!/usr/bin/env sh\nprintf '%s\\n' 'not-json-helper-output'\n",
     'utf8',
   );
   fs.chmodSync(path.join(fakeBinDir, 'node'), 0o755);

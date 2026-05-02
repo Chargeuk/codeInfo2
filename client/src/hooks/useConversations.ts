@@ -542,7 +542,7 @@ export function useConversations(params?: {
         );
       });
     },
-    [applyFilter, dedupeAndSort],
+    [applyFilter, dedupeAndSort, log],
   );
 
   const applyWsDelete = useCallback(

@@ -230,45 +230,47 @@ describe('useConversations source metadata', () => {
   });
 
   it('clears stale flowName and agentName when a working-folder refresh omits them', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-      const target = typeof url === 'string' ? url : url.toString();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-      if (
-        target.includes('/conversations/c1/working-folder') &&
-        init?.method === 'POST'
-      ) {
+        if (
+          target.includes('/conversations/c1/working-folder') &&
+          init?.method === 'POST'
+        ) {
+          return Promise.resolve(
+            mockJsonResponse({
+              conversation: {
+                conversationId: 'c1',
+                title: 'Flow convo updated',
+                provider: 'codex',
+                model: 'gpt',
+                source: 'REST',
+                lastMessageAt: '2025-01-02T00:00:00.000Z',
+                flags: { workingFolder: '/repos/demo' },
+              },
+            }),
+          );
+        }
+
         return Promise.resolve(
           mockJsonResponse({
-            conversation: {
-              conversationId: 'c1',
-              title: 'Flow convo updated',
-              provider: 'codex',
-              model: 'gpt',
-              source: 'REST',
-              lastMessageAt: '2025-01-02T00:00:00.000Z',
-              flags: { workingFolder: '/repos/demo' },
-            },
+            items: [
+              {
+                conversationId: 'c1',
+                title: 'Flow convo',
+                provider: 'codex',
+                model: 'gpt',
+                source: 'REST',
+                lastMessageAt: '2025-01-01T00:00:00.000Z',
+                flowName: 'daily',
+                agentName: 'planner',
+              },
+            ],
           }),
         );
-      }
-
-      return Promise.resolve(
-        mockJsonResponse({
-          items: [
-            {
-              conversationId: 'c1',
-              title: 'Flow convo',
-              provider: 'codex',
-              model: 'gpt',
-              source: 'REST',
-              lastMessageAt: '2025-01-01T00:00:00.000Z',
-              flowName: 'daily',
-              agentName: 'planner',
-            },
-          ],
-        }),
-      );
-    });
+      },
+    );
 
     const { result } = renderHook(() => useConversations());
 

@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-02T14:43:21Z",
+  "generated_at_utc": "2026-05-02T14:53:38Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260502T125558Z-6d5d4717",
-  "finding_id": "finding-1",
+  "finding_id": "finding-2",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Hardened the server entrypoint so malformed Copilot seed helper stdout degrades to the existing warning path instead of aborting the launcher before Node starts.",
+  "summary": "Extended the existing chat stop-lock so sidebar archive, restore, and bulk-selection affordances freeze with row navigation during pending cancellation.",
   "changed_files": [
-    "server/entrypoint.sh",
-    "server/src/test/unit/corporate-overrides-observability.test.ts"
+    "client/src/components/chat/ConversationList.tsx",
+    "client/src/test/chatSidebar.test.tsx"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/corporate-overrides-observability.test.ts",
+      "command": "npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx",
       "result": "passed",
-      "notes": "Wrapper passed cleanly with 5 tests run, 5 passed, and 0 failed."
+      "notes": "Wrapper passed cleanly with 16 tests run, 16 passed, and 0 failed."
     }
   ],
-  "commit_sha": "eead6243c4f1528caa18de5524f4135c3c311731",
+  "commit_sha": "d5a4117524d9cdbf542cba13a1e194d29944a3d4",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

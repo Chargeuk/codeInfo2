@@ -1886,8 +1886,8 @@ This review-created task repairs the REST chat replay seam so reusing the same c
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-tools-wire.test.ts` from the repository root to prove the repaired completed-run replay barrier at the route or inflight lifecycle seam.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` from the repository root to prove the repaired seam no longer duplicates persisted conversation turns on a replayed `inflightId`.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-tools-wire.test.ts` from the repository root to prove the repaired completed-run replay barrier at the route or inflight lifecycle seam.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` from the repository root to prove the repaired seam no longer duplicates persisted conversation turns on a replayed `inflightId`.
 
 #### Implementation notes
 
@@ -1895,6 +1895,8 @@ This review-created task repairs the REST chat replay seam so reusing the same c
 - Subtask 1 complete: `server/src/chat/inflightRegistry.ts` now records completed inflight snapshots keyed by `(conversationId, inflightId)` when a run finalizes or persists, and `server/src/routes/chat.ts` now treats a caller-supplied completed `inflightId` as replay-only input by returning a stable `INFLIGHT_ALREADY_COMPLETED` result both after cleanup and during the short finalized-but-not-cleaned-up window instead of starting a second run or publishing a duplicate user turn.
 - Subtask 2 complete: added a focused route-lifecycle proof in `server/src/test/integration/chat-tools-wire.test.ts` that replays the same caller-supplied `inflightId` once after terminal emission but before cleanup and again after cleanup, proves both retries return the same stable replay result without a second provider run, and still proves a fresh `inflightId` on the same conversation starts normally.
 - Subtask 3 complete: added a persisted-state proof in `server/src/test/integration/conversations.turns.test.ts` that runs the chat route with a caller-supplied `inflightId`, waits for cleanup and persisted turns, then proves same-id replays are rejected without duplicating stored user or assistant turns and without letting a contradictory stale payload mutate the saved conversation.
+- Testing step 1 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/chat-tools-wire.test.ts` reran cleanly with `11` tests passed and `0` failed, so the route-lifecycle replay barrier now has direct wrapper-backed proof for both the pre-cleanup and post-cleanup replay windows plus the fresh-`inflightId` acceptance path.
+- Testing step 2 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts` also reran cleanly with `23` tests passed and `0` failed, so the persisted-state seam now has direct wrapper-backed proof that completed-id replays do not duplicate stored turns and do not let contradictory stale payloads mutate the saved conversation after cleanup.
 
 ### Task 19. Limit LM Studio runtime-flags-invalid diagnostics to actual flag-validation failures
 

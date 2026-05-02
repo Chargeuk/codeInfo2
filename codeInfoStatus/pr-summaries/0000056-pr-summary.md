@@ -20,3 +20,24 @@
 - The latest `Post-Implementation Code Review` in the plan closes review pass `0000056-20260501T005010Z-506c6c19` with no actionable findings.
 - The accepted final branch state now explicitly keeps the restored `server/.env` and `docker-compose.local.yml` local-stack contract, the matching host-ingest proof owner in `server/src/test/unit/host-network-compose-contract.test.ts`, and the review-workflow hardening that prevents cleanup-only runtime rewrites from being reintroduced on future review passes.
 - The plan’s final task is complete, the story is recorded as complete on disk, and the PR summary reflects that final plan state rather than the earlier task-up and review-loop phases.
+
+## Task 21 Closeout Prep
+
+### Task-Required Finding Proof Homes
+
+- `finding-4-copilot-bootstrap-partial-home`: implementation owners [copilotSeedBootstrap.ts](/home/d_a_s/code/codeInfo2/server/src/config/copilotSeedBootstrap.ts:1); focused proof homes [copilotSeedBootstrap.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/copilotSeedBootstrap.test.ts:1) and [copilot.boot-path.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/integration/copilot.boot-path.test.ts:1); closeout should cite Testing steps `4` and `5`.
+- `finding-6-chat-inflight-replay-duplication`: implementation owners [chat.ts](/home/d_a_s/code/codeInfo2/server/src/routes/chat.ts:1) and [inflightRegistry.ts](/home/d_a_s/code/codeInfo2/server/src/chat/inflightRegistry.ts:1); focused proof homes [chat-tools-wire.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/integration/chat-tools-wire.test.ts:1) and [conversations.turns.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/integration/conversations.turns.test.ts:1); closeout should cite Testing steps `6` and `7`.
+- `finding-8-lmstudio-error-mislabel`: implementation owners [providerRuntimeFlags.ts](/home/d_a_s/code/codeInfo2/server/src/chat/providerRuntimeFlags.ts:1) and [ChatInterfaceLMStudio.ts](/home/d_a_s/code/codeInfo2/server/src/chat/interfaces/ChatInterfaceLMStudio.ts:1); focused proof homes [lmstudio-provider-retry-logging.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/lmstudio-provider-retry-logging.test.ts:1) and [lmstudio-provider-dispatch.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/lmstudio-provider-dispatch.test.ts:1); closeout should cite Testing steps `8` and `9`.
+- `finding-9-defaults-marker-schema-drift`: implementation owners [chatDefaults.ts](/home/d_a_s/code/codeInfo2/server/src/config/chatDefaults.ts:1), [chatValidators.ts](/home/d_a_s/code/codeInfo2/server/src/routes/chatValidators.ts:1), [chatProviders.ts](/home/d_a_s/code/codeInfo2/server/src/routes/chatProviders.ts:1), [chatModels.ts](/home/d_a_s/code/codeInfo2/server/src/routes/chatModels.ts:1), and [codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts:1); focused proof homes [chatValidators.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/chatValidators.test.ts:1), [chatProviders.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/chatProviders.test.ts:1), [chatModels.codex.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/chatModels.codex.test.ts:1), and [codebaseQuestion.happy.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts:1); closeout should cite Testing steps `10` through `13`.
+
+### Broad Wrapper-Backed Revalidation Surfaces
+
+- Shared baseline and build reruns: Testing steps `1`, `2`, and `3`.
+- Broad server and client reruns that must also cover the inline-resolved minor findings from review cycle `0000056-rc-20260501T235427Z-243cab18`: Testing steps `14`, `15`, `16`, and `17`.
+- Shared quality gates and supported runtime handoff: Testing steps `18`, `19`, and `20`.
+
+### Shared Blocker Classifications
+
+- If `npm run compose:build:summary` fails before any finding-specific assertions run, classify the closeout outcome as a shared compose-build baseline blocker rather than a regression in findings `4`, `6`, `8`, or `9`.
+- If `npm run compose:up`, `curl -f http://localhost:5010/health`, or `curl -f http://localhost:5001` fails before any finding-specific assertions run, classify the closeout outcome as a shared runtime-handoff blocker rather than a finding-specific regression.
+- If a broad wrapper such as `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, or `npm run test:summary:e2e` fails before the failing surface can be isolated to one finding seam, classify the outcome as a shared regression-surface blocker first and only narrow it to one finding after targeted evidence exists.

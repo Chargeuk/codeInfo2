@@ -1,31 +1,31 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-02T15:01:27Z",
+  "generated_at_utc": "2026-05-02T15:06:51Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260502T125558Z-6d5d4717",
-  "finding_id": "finding-4",
+  "finding_id": "finding-5",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Clamped Copilot discovery defaults so unsupported config strings no longer surface as resolved defaults that runtime silently ignores.",
+  "summary": "Cleared stale local flowName and agentName labels when fresher server conversation summaries omit those classifiers.",
   "changed_files": [
-    "server/src/routes/chatDiscovery.ts",
-    "server/src/test/unit/chatModels.copilot.test.ts",
-    "server/src/test/unit/chatProviders.test.ts"
+    "client/src/hooks/useConversations.ts",
+    "client/src/test/useConversations.source.test.ts",
+    "client/src/test/flowsPage.test.tsx"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.copilot.test.ts",
+      "command": "npm run test:summary:client -- --file client/src/test/useConversations.source.test.ts",
       "result": "passed",
-      "notes": "Wrapper passed cleanly with 7 tests run, 7 passed, and 0 failed."
+      "notes": "Wrapper passed cleanly with 11 tests run, 11 passed, and 0 failed."
     },
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts",
+      "command": "npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx",
       "result": "passed",
-      "notes": "Wrapper passed cleanly with 17 tests run, 17 passed, and 0 failed."
+      "notes": "Wrapper passed cleanly with 10 tests run, 10 passed, and 0 failed."
     }
   ],
-  "commit_sha": "f2494469bdf176896c4e0c1845cb94f2d951e3b0",
+  "commit_sha": "583aef59f1e06fcebcbdb9c679600fefb546fb4e",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

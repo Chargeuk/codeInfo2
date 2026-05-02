@@ -67,7 +67,16 @@ run_copilot_seed_import() {
     return 0
   }
 
-  seed_status="$(printf '%s' "$seed_result_json" | jq -r '.status // "seed_copy_failed"')"
+  if seed_status="$(printf '%s' "$seed_result_json" | jq -r '.status // "seed_copy_failed"' 2>/dev/null)"; then
+    :
+  else
+    printf 'story.0000056.task04.copilot_seed_import {"status":"seed_copy_failed","runtimeHome":"%s","seedHome":"%s","copiedArtifacts":[],"skippedArtifacts":[],"error":"Malformed Copilot seed bootstrap output","rawOutput":%s}\n' \
+      "${CODEINFO_COPILOT_HOME:-/app/copilot}" \
+      "${CODEINFO_COPILOT_SEED_HOME:-}" \
+      "$(printf '%s' "$seed_result_json" | jq -Rsa '.')" >&2
+    return 0
+  fi
+
   if [ "$seed_status" = "seed_copy_failed" ]; then
     printf 'story.0000056.task04.copilot_seed_import %s\n' "$seed_result_json" >&2
     return 0

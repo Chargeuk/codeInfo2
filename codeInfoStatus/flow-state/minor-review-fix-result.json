@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-02T00:34:35Z",
+  "generated_at_utc": "2026-05-02T00:39:53Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260501T220148Z-a78707f5",
-  "finding_id": "finding-10-provider-stop-lock-guard-parity",
+  "finding_id": "finding-11-client-entrypoint-js-escaping",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "The provider-change path now honors the next-send stop lock at the handler boundary and the stop-lock proof dispatches a blocked provider change directly.",
+  "summary": "The client entrypoint now emits real JavaScript string literals for runtime config values, including backslashes and newlines.",
   "changed_files": [
-    "client/src/pages/ChatPage.tsx",
-    "client/src/test/chatPage.stop.test.tsx"
+    "client/entrypoint.sh",
+    "client/src/test/clientEntrypoint.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:client -- --file client/src/test/chatPage.stop.test.tsx --test-name \"locks model changes and new-conversation resets when the selected conversation is stopping without an inflight id yet\"",
+      "command": "npm run test:summary:client -- --file client/src/test/clientEntrypoint.test.ts --test-name \"client entrypoint emits executable runtime config for env values with backslashes and newlines\"",
       "result": "passed",
-      "notes": "Targeted client wrapper proved provider changes dispatched through the hidden select input are ignored while the selected conversation is stop-locked."
+      "notes": "Targeted client wrapper ran the shell entrypoint against a temp config path and proved the emitted config.js stays executable and preserves backslash and newline env values."
     }
   ],
-  "commit_sha": "6ee17463edf08efb18c526d09570860cfa9c9181",
+  "commit_sha": "a801153c13b7d753a1d0b592aa1b19d06c7025fb",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

@@ -1,25 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-02T00:23:39Z",
+  "generated_at_utc": "2026-05-02T00:28:49Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260501T220148Z-a78707f5",
-  "finding_id": "finding-5-server-entrypoint-posix-local",
+  "finding_id": "finding-7-copilot-resume-proof-boundary",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "The server entrypoint now stays POSIX-sh compatible by removing the bash-only local declaration from Copilot seed import startup.",
+  "summary": "The Copilot resume proof now waits for the resumed turn count instead of reusing the stale first-turn assistant boundary.",
   "changed_files": [
-    "server/entrypoint.sh",
-    "server/src/test/unit/corporate-overrides-observability.test.ts"
+    "server/src/test/integration/chat-copilot-resume.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/corporate-overrides-observability.test.ts --test-name \"server entrypoint stays POSIX-sh compatible around Copilot seed import locals\"",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-resume.test.ts --test-name \"copilot resume-session path preserves the On and Off tool-registration contract\"",
       "result": "passed",
-      "notes": "Targeted server wrapper proved the POSIX sh entrypoint no longer carries a bash-only local declaration in the Copilot seed import helper."
+      "notes": "Targeted server wrapper proved the resumed Copilot tool-access assertions now wait on the second assistant turn instead of the stale first-turn boundary."
     }
   ],
-  "commit_sha": "982a7b9e9bcc9802315b7530cf1fedc656458883",
+  "commit_sha": "ef319ee45661e485aba539c599269db52f000297",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

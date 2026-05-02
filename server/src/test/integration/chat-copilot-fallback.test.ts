@@ -139,7 +139,7 @@ test('copilot chat still falls back automatically when provider resolution is om
   }
 });
 
-test('explicit Copilot chat requests stop failing when startup seed import supplies the missing runtime auth artifacts', async () => {
+test('explicit Copilot chat requests recover once startup seed import restores the missing runtime auth artifacts', async () => {
   const tempRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'copilot-chat-seed-import-'),
   );

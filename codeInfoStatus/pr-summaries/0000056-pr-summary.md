@@ -41,3 +41,47 @@
 - If `npm run compose:build:summary` fails before any finding-specific assertions run, classify the closeout outcome as a shared compose-build baseline blocker rather than a regression in findings `4`, `6`, `8`, or `9`.
 - If `npm run compose:up`, `curl -f http://localhost:5010/health`, or `curl -f http://localhost:5001` fails before any finding-specific assertions run, classify the closeout outcome as a shared runtime-handoff blocker rather than a finding-specific regression.
 - If a broad wrapper such as `npm run test:summary:server:unit`, `npm run test:summary:server:cucumber`, `npm run test:summary:client`, or `npm run test:summary:e2e` fails before the failing surface can be isolated to one finding seam, classify the outcome as a shared regression-surface blocker first and only narrow it to one finding after targeted evidence exists.
+
+## Task 25 Final-Pass Proof Map
+
+### Task 22: explicit-provider rejection
+
+- Implementation seams: [chat.ts](/home/d_a_s/code/codeInfo2/server/src/routes/chat.ts:1), [codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts:1), and [chatDefaults.ts](/home/d_a_s/code/codeInfo2/server/src/config/chatDefaults.ts:1)
+- Focused proof homes: [chat-copilot-fallback.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/integration/chat-copilot-fallback.test.ts:1) and [codebaseQuestion.unavailable.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts:1)
+- Final-pass focused reruns: Task 25 Testing steps `4` and `5`
+
+### Task 23: Copilot seed-import trust boundary
+
+- Implementation seam: [copilotSeedBootstrap.ts](/home/d_a_s/code/codeInfo2/server/src/config/copilotSeedBootstrap.ts:1)
+- Focused proof homes: [copilotSeedBootstrap.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/copilotSeedBootstrap.test.ts:1) and [copilot.boot-path.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/integration/copilot.boot-path.test.ts:1)
+- Final-pass focused reruns: Task 25 Testing steps `6` and `7`
+
+### Task 24: MCP replay barrier
+
+- Implementation seams: [codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts:1), [router.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/router.ts:1), and [inflightRegistry.ts](/home/d_a_s/code/codeInfo2/server/src/chat/inflightRegistry.ts:1)
+- Focused proof homes: [codebaseQuestion.validation.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts:1), [codebaseQuestion.happy.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts:1), and [mcp-codebase-question-ws-stream.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/integration/mcp-codebase-question-ws-stream.test.ts:1)
+- Final-pass focused reruns: Task 25 Testing steps `8`, `9`, and `10`
+
+## Task 25 Closeout Prep
+
+### Inline Minor Fix Revalidation Placeholders
+
+- Review cycle: `0000056-rc-20260502T143918Z-056fcf4c`
+- Covered inline-resolved minor findings: `finding-1`, `finding-2`, `finding-4`, `finding-5`, `finding-6`, `finding-9`, and `finding-10`
+- Pending broad wrapper-backed reruns to record later:
+  - `compose_build_summary` -> Task 25 Testing step `1`
+  - `build_summary_server` -> Task 25 Testing step `2`
+  - `build_summary_client` -> Task 25 Testing step `3`
+  - `test_summary_server_unit_full` -> Task 25 Testing step `11`
+  - `test_summary_server_cucumber` -> Task 25 Testing step `12`
+  - `test_summary_client_full` -> Task 25 Testing step `13`
+  - `test_summary_e2e` -> Task 25 Testing step `14`
+  - `lint` -> Task 25 Testing step `15`
+  - `format_check` -> Task 25 Testing step `16`
+  - `compose_up_health_runtime_handoff` -> Task 25 Testing step `17`
+
+### Shared Blocker Classification Keys
+
+- `compose_build_pre_assertion` -> `shared_compose_build_baseline_blocker`
+- `startup_or_health_pre_assertion` -> `shared_runtime_handoff_blocker`
+- `broad_wrapper_pre_isolation` -> `shared_regression_surface_blocker`

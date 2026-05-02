@@ -76,7 +76,7 @@ async function withTempCopilotHome(chatToml: string): Promise<{
   };
 }
 
-test('codebase_question returns CODE_INFO_LLM_UNAVAILABLE when Codex is missing', async () => {
+test('codebase_question fails on the selected explicit Codex provider when Codex is unavailable', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalLmBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';

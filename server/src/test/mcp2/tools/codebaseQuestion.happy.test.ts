@@ -536,7 +536,7 @@ test('codebase_question reuses shared provider defaults when provider copilot is
   }
 });
 
-test('codebase_question returns one stable replay result for the same logical follow-up while a different replayId stays on the fresh path', async () => {
+test('codebase_question replays one stable Copilot follow-up result for the same caller-visible replayId while a different replayId stays on the fresh path', async () => {
   const chat = new ReplayBarrierChat();
   const deps = {
     chatFactory: () => chat,

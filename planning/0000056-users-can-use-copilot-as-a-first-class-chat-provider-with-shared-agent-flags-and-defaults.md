@@ -1931,9 +1931,9 @@ This review-created task repairs the LM Studio execution error-mapping seam so t
 
 #### Subtasks
 
-1. [ ] Across `server/src/chat/providerRuntimeFlags.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, narrow the `ProviderRuntimeFlagError` boundary so the invalid-runtime-flags marker is emitted only from bounded runtime-flag parsing or validation, while later LM Studio client, model, or execution failures keep the normal general-error consumer path after flags already parsed successfully.
-2. [ ] Edit `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` so it contains two explicit proof cases with honest names and assertions: one case for real invalid or out-of-range runtime-flag input from `server/src/chat/providerRuntimeFlags.ts`, and one separate case proving `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` does not reuse the invalid-flags marker for a post-parse execution failure in the shared retry or logging path.
-3. [ ] Edit `server/src/test/unit/lmstudio-provider-dispatch.test.ts` to add or rewrite one post-parse failure case that proves `server/src/chat/providerRuntimeFlags.ts` already accepted the runtime flags before a later failure in `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and that the later failure still reaches the normal LM Studio error consumer path instead of the invalid-flags classification.
+1. [x] Across `server/src/chat/providerRuntimeFlags.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, narrow the `ProviderRuntimeFlagError` boundary so the invalid-runtime-flags marker is emitted only from bounded runtime-flag parsing or validation, while later LM Studio client, model, or execution failures keep the normal general-error consumer path after flags already parsed successfully.
+2. [x] Edit `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` so it contains two explicit proof cases with honest names and assertions: one case for real invalid or out-of-range runtime-flag input from `server/src/chat/providerRuntimeFlags.ts`, and one separate case proving `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` does not reuse the invalid-flags marker for a post-parse execution failure in the shared retry or logging path.
+3. [x] Edit `server/src/test/unit/lmstudio-provider-dispatch.test.ts` to add or rewrite one post-parse failure case that proves `server/src/chat/providerRuntimeFlags.ts` already accepted the runtime flags before a later failure in `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and that the later failure still reaches the normal LM Studio error consumer path instead of the invalid-flags classification.
 
 #### Testing
 
@@ -1943,6 +1943,9 @@ This review-created task repairs the LM Studio execution error-mapping seam so t
 #### Implementation notes
 
 - Added by review-task repair from review pass `0000056-20260501T220148Z-a78707f5` after the active disposition state left `finding-8-lmstudio-error-mislabel` unresolved and task-required. No implementation work has started on this task yet.
+- Subtask 1 complete: `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` now resolves LM Studio runtime flags in its own bounded `ProviderRuntimeFlagError` branch and emits `story.0000056.task04.lmstudio_runtime_flags_invalid` only from that validation boundary, while later LM Studio client or execution failures now fall through to the normal general error event path after flags already parsed successfully.
+- Subtask 2 complete: `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` now names the real invalid-runtime-flag case explicitly and adds a separate post-parse execution failure case that proves the shared retry or logging path no longer emits the invalid-flags marker once LM Studio runtime flags already parsed successfully.
+- Subtask 3 complete: `server/src/test/unit/lmstudio-provider-dispatch.test.ts` now proves accepted LM Studio runtime flags are forwarded into the dispatch path before a later failure occurs, and that the later failure still surfaces as the normal execution error instead of the invalid-flags classification.
 
 ### Task 20. Normalize the shared defaults-applied marker schema across REST and MCP emitters
 

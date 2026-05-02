@@ -14,7 +14,10 @@ import type {
 } from '../../mongo/turn.js';
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
 import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
-import { resolveLmStudioRuntimeAgentFlags } from '../providerRuntimeFlags.js';
+import {
+  ProviderRuntimeFlagError,
+  resolveLmStudioRuntimeAgentFlags,
+} from '../providerRuntimeFlags.js';
 import {
   ChatInterface,
   type ChatCompleteEvent,
@@ -477,10 +480,51 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       pendingSyntheticResults.delete(callId);
     };
 
+    const emitInvalidRuntimeFlags = (err: ProviderRuntimeFlagError) => {
+      append({
+        level: 'error',
+        message: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          conversationId,
+          model,
+          baseUrl: safeBase,
+          error: err.message,
+        },
+      });
+      baseLogger.error(
+        {
+          requestId,
+          conversationId,
+          model,
+          baseUrl: safeBase,
+          err,
+        },
+        'story.0000056.task04.lmstudio_runtime_flags_invalid',
+      );
+      const errorEvent: ChatErrorEvent = {
+        type: 'error',
+        message: err.message,
+      };
+      emitTerminal(errorEvent);
+    };
+
+    let runtimeFlags;
     try {
-      const runtimeFlags = resolveLmStudioRuntimeAgentFlags(
+      runtimeFlags = resolveLmStudioRuntimeAgentFlags(
         (flags as LmStudioRunFlags)?.agentFlags,
       );
+    } catch (err) {
+      if (err instanceof ProviderRuntimeFlagError) {
+        emitInvalidRuntimeFlags(err);
+        return;
+      }
+      throw err;
+    }
+
+    try {
       const client = this.clientFactory(wsBase);
       const modelClient = await client.llm.model(model);
 
@@ -825,29 +869,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     } catch (err) {
       const messageText =
         (err as Error | undefined)?.message ?? 'lmstudio unavailable';
-      append({
-        level: 'error',
-        message: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: {
-          conversationId,
-          model,
-          baseUrl: safeBase,
-          error: messageText,
-        },
-      });
-      baseLogger.error(
-        {
-          requestId,
-          conversationId,
-          model,
-          baseUrl: safeBase,
-          err,
-        },
-        'story.0000056.task04.lmstudio_runtime_flags_invalid',
-      );
       const errorEvent: ChatErrorEvent = {
         type: 'error',
         message: messageText,

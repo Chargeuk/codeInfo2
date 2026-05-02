@@ -167,7 +167,7 @@ test('rejects whitespace-only LM Studio input with the same bad-request error', 
   assert.equal(logs[0]?.context?.rawInputClassification, 'whitespace_only');
 });
 
-test('LM Studio chat runtime rejects unlimited and out-of-range numeric agent flag values while leaving a diagnosable log entry', async () => {
+test('LM Studio chat runtime labels real invalid runtime flag input with the bounded invalid-flags marker', async () => {
   const runInvalidFlags = async (agentFlags: Record<string, unknown>) => {
     resetStore();
     const chat = new ChatInterfaceLMStudio(
@@ -213,6 +213,49 @@ test('LM Studio chat runtime rejects unlimited and out-of-range numeric agent fl
     String(outOfRange.log?.context?.error ?? ''),
     /agentFlags\.temperature must be at most 2/u,
   );
+});
+
+test('LM Studio chat runtime does not reuse the invalid-flags marker for a post-parse execution failure', async () => {
+  resetStore();
+  const chat = new ChatInterfaceLMStudio(
+    () =>
+      ({
+        llm: {
+          model: async () => ({
+            act: async () => {
+              throw new Error('lmstudio execution failed after flags parsed');
+            },
+          }),
+        },
+      }) as unknown as LMStudioClient,
+    () => ({ tools: [] }),
+  );
+  const errors: string[] = [];
+  chat.on('error', (event) => errors.push(event.message));
+
+  await chat.execute(
+    'hello',
+    {
+      requestId: 'lmstudio-runtime-post-parse-failure',
+      baseUrl: 'http://127.0.0.1:1234',
+      agentFlags: {
+        temperature: 0.7,
+        maxTokens: 128,
+      },
+      history: [],
+    },
+    'lmstudio-runtime-post-parse-conversation',
+    'lmstudio-model',
+  );
+
+  assert.match(
+    errors.at(-1) ?? '',
+    /lmstudio execution failed after flags parsed/u,
+  );
+  const invalidLogs = query({
+    text: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
+  });
+  assert.equal(invalidLogs.length, 0);
 });
 
 test('LM Studio chat runtime falls back to the bounded defaults when provider-local config widens temperature or maxTokens', async () => {

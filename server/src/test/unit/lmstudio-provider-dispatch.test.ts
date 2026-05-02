@@ -193,3 +193,48 @@ test('LM Studio chat runtime short-circuits already-aborted runs before loading 
   assert.equal(loadHistoryCalls, 0);
   assert.equal(clientFactoryCalls, 0);
 });
+
+test('LM Studio chat runtime accepts parsed runtime flags before a later execution failure and surfaces the normal error path', async () => {
+  const capturedOptions: Record<string, unknown>[] = [];
+  const chat = new ChatInterfaceLMStudio(
+    () =>
+      ({
+        llm: {
+          model: async () => ({
+            act: async (
+              _chat: unknown,
+              _tools: ReadonlyArray<unknown>,
+              opts: Record<string, unknown>,
+            ) => {
+              capturedOptions.push(opts);
+              throw new Error('lmstudio dispatch failed after parse');
+            },
+          }),
+        },
+      }) as never,
+    () => ({ tools: [] }),
+  );
+  const errors: string[] = [];
+  chat.on('error', (event) => errors.push(event.message));
+
+  await chat.execute(
+    'hello',
+    {
+      baseUrl: 'http://127.0.0.1:1234',
+      history: [],
+      agentFlags: {
+        temperature: 0.4,
+        maxTokens: 128,
+        contextOverflowPolicy: 'rollingWindow',
+      },
+    },
+    'lmstudio-chat-post-parse-dispatch',
+    'lmstudio-model',
+  );
+
+  assert.equal(capturedOptions.length, 1);
+  assert.equal(capturedOptions[0]?.temperature, 0.4);
+  assert.equal(capturedOptions[0]?.maxTokens, 128);
+  assert.equal(capturedOptions[0]?.contextOverflowPolicy, 'rollingWindow');
+  assert.match(errors.at(-1) ?? '', /lmstudio dispatch failed after parse/u);
+});

@@ -9,14 +9,16 @@ Users can use Copilot as a first-class chat provider with shared Agent Flags and
 3. Chat users see one provider-neutral `Agent Flags` panel that shows only the controls the selected provider and model actually support.
 4. Chat users can change Agent Flags without losing the current conversation, while provider or model changes still start a new conversation on the next send.
 5. Chat users can use Copilot with the product-managed tool layer in the normal chat page and through the shared `codebase_question` MCP path.
-6. Saved conversations, resumed flows, and provider-specific payloads do not leak stale or unsupported state back into later requests or sidebar labels.
-7. Existing Codex and LM Studio chat behaviour continues to work while defaults, validation, discovery, and proofs become provider-neutral.
-8. Support and engineering users can bootstrap, validate, and explain the final contract through the repository's standard wrappers, runtime smoke path, reviewer summary, and reliable review-loop workflow state.
-9. Checked-in server defaults stay portable and consistent instead of depending on one developer-shaped local runtime file.
+6. Chat users and MCP callers get honest explicit-provider failures instead of hidden fallback checks against unrelated providers.
+7. Saved conversations, resumed flows, provider-specific payloads, and MCP follow-up retries do not leak stale or duplicated state back into later requests, sidebar labels, or repeated follow-up work.
+8. Copilot runtime bootstrap keeps working while rejecting unsafe seeded runtime artifacts before they can become trusted runtime state.
+9. Existing Codex and LM Studio chat behaviour continues to work while defaults, validation, discovery, warnings, and proofs become provider-neutral.
+10. Support and engineering users can bootstrap, validate, and explain the final contract through the repository's standard wrappers, runtime smoke path, reviewer summary, and reliable review-loop workflow state.
+11. Checked-in server defaults stay portable and consistent instead of depending on one developer-shaped local runtime file.
 
 # Description
 
-This story makes Copilot feel like a full chat provider in the same product surfaces where Codex already feels strong, while also cleaning up the shared chat architecture so it no longer depends on Codex-only defaults, payloads, and UI controls. When this work is complete, each provider owns its own repo-local defaults, the browser renders one honest Agent Flags experience for the selected provider and model, Copilot works through the normal tool-aware chat seams, checked-in server defaults stay portable instead of developer-specific, and the story closes with stronger validation around stale state, replay safety, tracked review-loop artifacts, and reviewer-facing proof.
+This story makes Copilot feel like a full chat provider in the same product surfaces where Codex already feels strong, while also cleaning up the shared chat architecture so it no longer depends on Codex-only defaults, payloads, and UI controls. When this work is complete, each provider owns its own repo-local defaults, the browser renders one honest Agent Flags experience for the selected provider and model, Copilot works through the normal tool-aware chat seams, explicit provider failures stay trustworthy, retry and bootstrap safety are stronger, checked-in server defaults stay portable instead of developer-specific, and the story closes with reviewer-facing proof that the repaired contract still holds end to end.
 
 # Tasks
 
@@ -105,22 +107,42 @@ This story makes Copilot feel like a full chat provider in the same product surf
 - Tighten `server/src/config/copilotSeedBootstrap.ts` so partial Copilot runtime homes are repaired instead of being mistaken for a complete initialized home.
 - Update the unit and boot-path proof files so complete, partial, and late-publish runtime states stay clearly separated.
 
-18. [codeInfo2] - Add a replay barrier for completed chat sends that reuse the same `inflightId`.
+18. [codeInfo2] - Add a completed-run replay barrier for caller-supplied chat inflight IDs.
 
 - Repair `server/src/routes/chat.ts` and `server/src/chat/inflightRegistry.ts` so a completed `(conversationId, inflightId)` cannot start a second provider run or append duplicate turns.
 - Keep the proof focused on immediate replay, post-cleanup replay, and stale completed client state versus a genuinely new send.
 
-19. [codeInfo2] - Limit LM Studio invalid-flags diagnostics to real runtime-flag failures.
+19. [codeInfo2] - Limit LM Studio runtime-flags-invalid diagnostics to actual flag-validation failures.
 
 - Narrow the LM Studio error boundary so only real flag-validation failures emit the invalid-runtime-flags marker.
 - Update the LM Studio proof files so post-parse execution failures stay on the normal consumer path instead of looking like bad flag input.
 
-20. [codeInfo2] - Normalize the shared defaults-applied warning schema across REST and MCP paths.
+20. [codeInfo2] - Normalize the shared defaults-applied marker schema across REST and MCP emitters.
 
 - Align the shared defaults marker so `chatValidators`, `chatProviders`, `chatModels`, and `codebase_question` all emit the same warning payload vocabulary.
 - Refresh the focused REST and MCP proof files so the shared `warning_count` contract and any retained warning list field stay consistent.
 
-21. [codeInfo2] - Revalidate the final review-created findings block and close the current review cycle.
+21. [codeInfo2] - Revalidate review pass `0000056-20260501T220148Z-a78707f5` after review-task and inline-minor repairs.
 
 - Re-run the focused proof for Tasks 17 through 20, plus the broad build, test, lint, format, compose, and runtime smoke wrappers that also cover the inline-resolved minor fixes.
 - Update the review closeout summary and flow-state records so reviewers can see which proof homes closed the final task-required findings and the active review cycle.
+
+22. [codeInfo2] - Fail explicit-provider requests before unrelated alternate-provider readiness probes.
+
+- Move the provider-pinned `/chat` and `codebase_question` paths onto a selected-provider-first failure order while keeping the omitted-provider fallback path intact.
+- Update the focused REST and MCP proof files so the explicit-provider rejection rule is visible without inferring it from fallback-only behaviour.
+
+23. [codeInfo2] - Reject symlinked Copilot seed artifacts before runtime-home import.
+
+- Tighten `server/src/config/copilotSeedBootstrap.ts` so symlinked seed files or directories are rejected before staged copy or publish.
+- Keep the proof explicit on the helper seam and the supported boot path while preserving the existing regular-artifact merge and cross-device behaviour.
+
+24. [codeInfo2] - Add a caller-visible replay barrier for MCP `codebase_question` follow-up retries.
+
+- Add one replay identity to the `codebase_question` input seam and store replay state by conversation plus replay identity.
+- Prove the same logical follow-up no longer duplicates provider work before cleanup or after cleanup, while genuinely new follow-ups still run normally.
+
+25. [codeInfo2] - Revalidate review pass `0000056-20260502T125558Z-6d5d4717` after review-task and inline-minor repairs.
+
+- Re-run the focused proof for Tasks 22 through 24 and the current review cycle's inline-resolved minor fixes.
+- Close the review cycle with one broad wrapper-backed revalidation pass, refreshed reviewer summary notes, and updated review-routing state.

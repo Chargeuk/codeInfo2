@@ -139,7 +139,8 @@ export function ConversationList({
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
   const showFilters = true;
   const showRowActions = true;
-  const bulkDisabled = Boolean(disabled || mongoConnected === false);
+  const mutationDisabled = Boolean(disabled || selectionDisabled);
+  const bulkDisabled = Boolean(mutationDisabled || mongoConnected === false);
   const sorted = useMemo(
     () =>
       [...conversations].sort((a, b) => {
@@ -554,7 +555,7 @@ export function ConversationList({
                                       });
                                     });
                                 }}
-                                disabled={disabled}
+                                disabled={mutationDisabled}
                                 data-testid="conversation-restore"
                                 aria-label="Restore conversation"
                               >
@@ -587,7 +588,7 @@ export function ConversationList({
                                       });
                                     });
                                 }}
-                                disabled={disabled}
+                                disabled={mutationDisabled}
                                 data-testid="conversation-archive"
                                 aria-label="Archive conversation"
                               >
@@ -602,7 +603,7 @@ export function ConversationList({
                     <ListItemButton
                       selected={selected}
                       onClick={() => onSelect(conversation.conversationId)}
-                      disabled={Boolean(disabled || selectionDisabled)}
+                      disabled={mutationDisabled}
                       data-testid="conversation-row"
                       style={{ paddingLeft: 12, paddingRight: 12 }}
                       sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}

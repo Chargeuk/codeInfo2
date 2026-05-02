@@ -255,6 +255,25 @@ describe('ConversationList control gating', () => {
     expect(onRestore).toHaveBeenCalledWith('c2');
   });
 
+  it('freezes sibling sidebar mutations when selectionDisabled is true', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          selectionDisabled: true,
+          conversations: baseConversations,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('conversation-archive')).toBeDisabled();
+    expect(screen.getByTestId('conversation-restore')).toBeDisabled();
+    expect(screen.getByTestId('conversation-select-all')).toBeDisabled();
+    expect(screen.getAllByTestId('conversation-select')).toHaveLength(2);
+    for (const checkbox of screen.getAllByTestId('conversation-select')) {
+      expect(checkbox).toBeDisabled();
+    }
+  });
+
   it('shows the error state and invokes retry', async () => {
     const user = userEvent.setup();
     const onRetry = jest.fn();

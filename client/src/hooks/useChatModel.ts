@@ -136,7 +136,12 @@ function parseProvidersResponse(
   payload: unknown,
 ):
   | { kind: 'legacy'; models: ChatModelInfo[] }
-  | { kind: 'current'; providers: ChatProviderInfo[] } {
+  | {
+      kind: 'current';
+      providers: ChatProviderInfo[];
+      selectedProvider?: ChatProviderId;
+      selectedModel?: string;
+    } {
   if (Array.isArray(payload)) {
     if (!payload.every(isChatModelInfo)) {
       throw new Error('Malformed chat providers response');
@@ -156,9 +161,35 @@ function parseProvidersResponse(
     throw new Error('Malformed chat providers response');
   }
 
+  const selectedProvider =
+    payload.selectedProvider === undefined
+      ? undefined
+      : typeof payload.selectedProvider === 'string' &&
+          isChatProviderId(payload.selectedProvider)
+        ? payload.selectedProvider
+        : undefined;
+  if (
+    payload.selectedProvider !== undefined &&
+    selectedProvider === undefined
+  ) {
+    throw new Error('Malformed chat providers response');
+  }
+
+  const selectedModel =
+    payload.selectedModel === undefined
+      ? undefined
+      : typeof payload.selectedModel === 'string'
+        ? payload.selectedModel
+        : undefined;
+  if (payload.selectedModel !== undefined && selectedModel === undefined) {
+    throw new Error('Malformed chat providers response');
+  }
+
   return {
     kind: 'current',
     providers: payload.providers,
+    selectedProvider,
+    selectedModel,
   };
 }
 
@@ -327,6 +358,10 @@ export function useChatModel() {
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
   const providerRef = useRef<ChatProviderId | undefined>(undefined);
+  const bootstrapSelectedModelRef = useRef<{
+    provider: ChatProviderId;
+    model: string;
+  } | null>(null);
   const hydratedModelsProviderRef = useRef<ChatProviderId | undefined>(
     undefined,
   );
@@ -481,7 +516,22 @@ export function useChatModel() {
       legacyBootstrapRef.current = false;
       const list = normalizeProviders(data.providers);
       setProviders(list);
-      const chosen = pickProvider(list);
+      const preferredProvider =
+        data.selectedProvider &&
+        list.some((provider) => provider.id === data.selectedProvider)
+          ? data.selectedProvider
+          : undefined;
+      const chosen = preferredProvider ?? pickProvider(list);
+      bootstrapSelectedModelRef.current =
+        preferredProvider &&
+        chosen === preferredProvider &&
+        data.selectedModel &&
+        data.selectedModel.trim().length > 0
+          ? {
+              provider: preferredProvider,
+              model: data.selectedModel.trim(),
+            }
+          : null;
       setProvider(chosen, { source: 'provider-bootstrap' });
       const match = list.find((p) => p.id === chosen);
       setProviderReason(match?.reason);
@@ -632,10 +682,33 @@ export function useChatModel() {
             if (prev && models.some((m) => m.key === prev)) {
               return prev;
             }
-            return models[0]?.key;
+            const bootstrapSelectedModel =
+              bootstrapSelectedModelRef.current?.provider === effectiveProvider
+                ? bootstrapSelectedModelRef.current.model
+                : undefined;
+            if (
+              bootstrapSelectedModel &&
+              models.some((model) => model.key === bootstrapSelectedModel)
+            ) {
+              return bootstrapSelectedModel;
+            }
+            const resolvedDefaultModel =
+              typeof data.defaultModel === 'string' &&
+              models.some((model) => model.key === data.defaultModel)
+                ? data.defaultModel
+                : typeof resolvedProviderInfo?.defaultModel === 'string' &&
+                    models.some(
+                      (model) => model.key === resolvedProviderInfo.defaultModel,
+                    )
+                  ? resolvedProviderInfo.defaultModel
+                  : undefined;
+            return resolvedDefaultModel ?? models[0]?.key;
           },
           { source: 'model-bootstrap' },
         );
+        if (bootstrapSelectedModelRef.current?.provider === effectiveProvider) {
+          bootstrapSelectedModelRef.current = null;
+        }
         setStatus('success');
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;

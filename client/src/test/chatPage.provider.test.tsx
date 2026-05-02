@@ -41,6 +41,10 @@ function mockChatProvidersFetch(options: {
     reason?: string;
   }>;
   modelsProvider: string;
+  models?: Array<{ key: string; displayName: string; type: string }>;
+  defaultModel?: string;
+  selectedProvider?: string;
+  selectedModel?: string;
   agents?: Array<{ name: string }>;
 }) {
   mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
@@ -63,7 +67,15 @@ function mockChatProvidersFetch(options: {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ providers: options.providers }),
+        json: async () => ({
+          providers: options.providers,
+          ...(options.selectedProvider
+            ? { selectedProvider: options.selectedProvider }
+            : {}),
+          ...(options.selectedModel
+            ? { selectedModel: options.selectedModel }
+            : {}),
+        }),
       }) as unknown as Response;
     }
     if (href.includes('/chat/models')) {
@@ -74,7 +86,12 @@ function mockChatProvidersFetch(options: {
           provider: options.modelsProvider,
           available: true,
           toolsAvailable: true,
-          models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+          ...(options.defaultModel
+            ? { defaultModel: options.defaultModel }
+            : {}),
+          models: options.models ?? [
+            { key: 'm1', displayName: 'Model 1', type: 'gguf' },
+          ],
         }),
       }) as unknown as Response;
     }
@@ -94,6 +111,70 @@ function mockChatProvidersFetch(options: {
 }
 
 describe('Chat provider selection (WS transport)', () => {
+  it('uses the server-selected provider and model during bootstrap', async () => {
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'copilot',
+          label: 'GitHub Copilot',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      modelsProvider: 'copilot',
+      models: [
+        {
+          key: 'auto',
+          displayName: 'Auto',
+          type: 'copilot',
+        },
+        {
+          key: 'gpt-5-mini',
+          displayName: 'GPT-5 mini',
+          type: 'copilot',
+        },
+      ],
+      defaultModel: 'gpt-5-mini',
+      selectedProvider: 'copilot',
+      selectedModel: 'gpt-5-mini',
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/loading chat providers and models/i),
+      ).toBeNull(),
+    );
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    const modelSelect = await screen.findByRole('combobox', {
+      name: /model/i,
+    });
+
+    await waitFor(() =>
+      expect(providerSelect).toHaveTextContent(/github copilot/i),
+    );
+    await waitFor(() =>
+      expect(modelSelect).toHaveTextContent(/gpt-5 mini/i),
+    );
+  });
+
   it('renders providers in codex, copilot, lmstudio order and shows the Copilot disabled reason', async () => {
     const user = userEvent.setup();
     mockChatProvidersFetch({

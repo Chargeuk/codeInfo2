@@ -1,25 +1,31 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-02T14:53:38Z",
+  "generated_at_utc": "2026-05-02T15:01:27Z",
   "story_number": "0000056",
   "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
   "review_pass_id": "0000056-20260502T125558Z-6d5d4717",
-  "finding_id": "finding-2",
+  "finding_id": "finding-4",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Extended the existing chat stop-lock so sidebar archive, restore, and bulk-selection affordances freeze with row navigation during pending cancellation.",
+  "summary": "Clamped Copilot discovery defaults so unsupported config strings no longer surface as resolved defaults that runtime silently ignores.",
   "changed_files": [
-    "client/src/components/chat/ConversationList.tsx",
-    "client/src/test/chatSidebar.test.tsx"
+    "server/src/routes/chatDiscovery.ts",
+    "server/src/test/unit/chatModels.copilot.test.ts",
+    "server/src/test/unit/chatProviders.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.copilot.test.ts",
       "result": "passed",
-      "notes": "Wrapper passed cleanly with 16 tests run, 16 passed, and 0 failed."
+      "notes": "Wrapper passed cleanly with 7 tests run, 7 passed, and 0 failed."
+    },
+    {
+      "command": "npm run test:summary:server:unit -- --file server/src/test/unit/chatProviders.test.ts",
+      "result": "passed",
+      "notes": "Wrapper passed cleanly with 17 tests run, 17 passed, and 0 failed."
     }
   ],
-  "commit_sha": "d5a4117524d9cdbf542cba13a1e194d29944a3d4",
+  "commit_sha": "f2494469bdf176896c4e0c1845cb94f2d951e3b0",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

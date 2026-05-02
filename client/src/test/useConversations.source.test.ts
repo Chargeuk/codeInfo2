@@ -189,6 +189,107 @@ describe('useConversations source metadata', () => {
     expect(result.current.readWorkingFolder(updated)).toBeUndefined();
   });
 
+  it('clears stale flowName and agentName when a websocket upsert omits them', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Flow convo',
+            provider: 'codex',
+            model: 'gpt',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            flowName: 'daily',
+            agentName: 'planner',
+          },
+        ],
+      }),
+    );
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c1',
+        title: 'Flow convo updated',
+        provider: 'codex',
+        model: 'gpt',
+        source: 'REST',
+        lastMessageAt: '2025-01-02T00:00:00.000Z',
+      });
+    });
+
+    const updated = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+    expect(updated?.flowName).toBeUndefined();
+    expect(updated?.agentName).toBeUndefined();
+  });
+
+  it('clears stale flowName and agentName when a working-folder refresh omits them', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (
+        target.includes('/conversations/c1/working-folder') &&
+        init?.method === 'POST'
+      ) {
+        return Promise.resolve(
+          mockJsonResponse({
+            conversation: {
+              conversationId: 'c1',
+              title: 'Flow convo updated',
+              provider: 'codex',
+              model: 'gpt',
+              source: 'REST',
+              lastMessageAt: '2025-01-02T00:00:00.000Z',
+              flags: { workingFolder: '/repos/demo' },
+            },
+          }),
+        );
+      }
+
+      return Promise.resolve(
+        mockJsonResponse({
+          items: [
+            {
+              conversationId: 'c1',
+              title: 'Flow convo',
+              provider: 'codex',
+              model: 'gpt',
+              source: 'REST',
+              lastMessageAt: '2025-01-01T00:00:00.000Z',
+              flowName: 'daily',
+              agentName: 'planner',
+            },
+          ],
+        }),
+      );
+    });
+
+    const { result } = renderHook(() => useConversations());
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+
+    await act(async () => {
+      await result.current.updateWorkingFolder({
+        conversationId: 'c1',
+        workingFolder: '/repos/demo',
+        surface: 'flows',
+      });
+    });
+
+    const updated = result.current.conversations.find(
+      (item) => item.conversationId === 'c1',
+    );
+    expect(updated?.flowName).toBeUndefined();
+    expect(updated?.agentName).toBeUndefined();
+    expect(result.current.readWorkingFolder(updated)).toBe('/repos/demo');
+  });
+
   it('ignores websocket upserts with malformed present source values instead of relabeling them as REST', async () => {
     const { result } = renderHook(() => useConversations());
 

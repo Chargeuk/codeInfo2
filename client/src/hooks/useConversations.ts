@@ -469,14 +469,8 @@ export function useConversations(params?: {
             normalizedConversation.flags !== undefined
               ? normalizeFlags(normalizedConversation.flags)
               : normalizeFlags(existing?.flags),
-          flowName:
-            normalizedConversation.flowName !== undefined
-              ? normalizedConversation.flowName
-              : existing?.flowName,
-          agentName:
-            normalizedConversation.agentName !== undefined
-              ? normalizedConversation.agentName
-              : existing?.agentName,
+          flowName: normalizedConversation.flowName,
+          agentName: normalizedConversation.agentName,
         };
 
         return dedupeAndSort(
@@ -526,25 +520,6 @@ export function useConversations(params?: {
         const existing = prev.find(
           (c) => c.conversationId === normalizedConversation.conversationId,
         );
-        const flowName =
-          normalizedConversation.flowName !== undefined
-            ? normalizedConversation.flowName
-            : existing?.flowName;
-        const agentName =
-          normalizedConversation.agentName !== undefined
-            ? normalizedConversation.agentName
-            : existing?.agentName;
-
-        if (
-          normalizedConversation.flowName === undefined &&
-          existing?.flowName
-        ) {
-          log('info', 'flows.ws.upsert.merge_flowName', {
-            conversationId: normalizedConversation.conversationId,
-            flowName: existing.flowName,
-          });
-        }
-
         const merged: ConversationSummary = {
           ...existing,
           ...normalizedConversation,
@@ -553,8 +528,8 @@ export function useConversations(params?: {
             normalizedConversation.flags !== undefined
               ? normalizeFlags(normalizedConversation.flags)
               : normalizeFlags(existing?.flags),
-          flowName,
-          agentName,
+          flowName: normalizedConversation.flowName,
+          agentName: normalizedConversation.agentName,
         };
 
         return dedupeAndSort(
@@ -567,7 +542,7 @@ export function useConversations(params?: {
         );
       });
     },
-    [applyFilter, dedupeAndSort, log],
+    [applyFilter, dedupeAndSort],
   );
 
   const applyWsDelete = useCallback(

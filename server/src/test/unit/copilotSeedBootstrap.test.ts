@@ -45,6 +45,7 @@ async function writeRuntimeArtifacts(params: {
   includeSettings?: boolean;
   includeSessionState?: boolean;
 }) {
+  await fs.mkdir(params.runtimeHome, { recursive: true });
   if (params.includeSessionState) {
     await fs.mkdir(path.join(params.runtimeHome, 'session-state'), {
       recursive: true,

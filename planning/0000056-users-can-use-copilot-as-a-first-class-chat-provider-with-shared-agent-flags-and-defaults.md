@@ -1813,8 +1813,8 @@ This review-created task repairs the Copilot runtime-home bootstrap seam so star
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper contract for partial and complete runtime-home states.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported default startup path now repairs partial runtime homes without regressing replay-safe boot behavior.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` from the repository root to prove the repaired helper contract for partial and complete runtime-home states.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` from the repository root to prove the supported default startup path now repairs partial runtime homes without regressing replay-safe boot behavior.
 
 #### Implementation notes
 
@@ -1822,6 +1822,8 @@ This review-created task repairs the Copilot runtime-home bootstrap seam so star
 - Subtask 1 complete: `server/src/config/copilotSeedBootstrap.ts` no longer treats any single pre-existing auth artifact as a fully initialized runtime. The helper now skips only when the full auth-bearing runtime set is already ready, preserves the late-completion rollback path when another writer finishes the runtime after preflight, and can merge missing peers into a partial runtime home instead of abandoning it as “already initialized.”
 - Subtask 2 complete: rewrote `server/src/test/unit/copilotSeedBootstrap.test.ts` around the Task 17 helper contracts by adding explicit one-of-three and two-of-three partial-runtime repair cases, renaming the complete-runtime skip proof, and tightening the replay-safe and publish-failure titles so later review can read the repaired helper boundary directly from the proof owner.
 - Subtask 3 complete: updated `server/src/test/integration/copilot.boot-path.test.ts` so the normal `CODEINFO_COPILOT_HOME` seam now proves partial-runtime repair before the next-pass complete-runtime skip, and updated the README Copilot persistence contract to say partial runtime homes are repaired while fully initialized runtime homes are skipped instead of overwritten.
+- Testing step 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/copilotSeedBootstrap.test.ts` first failed because the new partial-runtime fixture helper did not create the runtime root before writing single-file cases and because the helper still used permission-sensitive existence checks that broke the runtime-identity renormalization case on a locked-down `session-state` directory. After switching runtime existence checks to `lstat`, normalizing existing runtime artifacts before readiness classification, and fixing the runtime-fixture helper to create the runtime root explicitly, the original wrapper reran cleanly with `11` tests passed and `0` failed.
+- Testing step 2 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/copilot.boot-path.test.ts` then passed cleanly on the first wrapper run after the helper classification fix, with `5` tests passed and `0` failed, so the supported `CODEINFO_COPILOT_HOME` boot path now has direct automated proof for partial-runtime repair plus next-pass complete-runtime skip behavior.
 
 ### Task 18. Add a completed-run replay barrier for caller-supplied chat inflight IDs
 

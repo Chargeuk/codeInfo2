@@ -101,7 +101,7 @@ function trimToUndefined(value: string | undefined): string | undefined {
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
-    await fs.promises.access(targetPath);
+    await fs.promises.lstat(targetPath);
     return true;
   } catch {
     return false;
@@ -262,10 +262,21 @@ async function publishStagedArtifact(params: {
   }
 }
 
-async function collectRuntimeInitializedArtifacts(runtimeHome: string) {
+async function collectRuntimeInitializedArtifacts(
+  runtimeHome: string,
+  runtimeOwnership?: RuntimeOwnership,
+) {
   const runtimeArtifacts: RuntimeArtifactState[] = [];
   for (const descriptor of COPILOT_SEED_ARTIFACTS) {
     const targetPath = path.join(runtimeHome, descriptor.relativePath);
+    const targetType = await readPathType(targetPath);
+    if (targetType !== 'missing') {
+      await normalizeArtifactAccess({
+        targetPath,
+        kind: descriptor.kind,
+        runtimeOwnership,
+      }).catch(() => {});
+    }
     runtimeArtifacts.push({
       descriptor,
       sourcePath: '',
@@ -498,7 +509,10 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
         `.copilot-seed-stage-${process.pid}-`,
       ),
     );
-    const runtimeArtifacts = await collectRuntimeInitializedArtifacts(runtimeHome);
+    const runtimeArtifacts = await collectRuntimeInitializedArtifacts(
+      runtimeHome,
+      runtimeOwnership,
+    );
     if (runtimeArtifacts.every((artifact) => artifact.targetReady)) {
       for (const existingArtifact of runtimeArtifacts) {
         await normalizeArtifactAccess({
@@ -575,7 +589,7 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
       });
 
       const refreshedRuntimeArtifacts =
-        await collectRuntimeInitializedArtifacts(runtimeHome);
+        await collectRuntimeInitializedArtifacts(runtimeHome, runtimeOwnership);
       if (refreshedRuntimeArtifacts.every((artifact) => artifact.targetReady)) {
         await rollbackCreatedArtifacts(createdTargets);
         for (const existingArtifact of refreshedRuntimeArtifacts) {

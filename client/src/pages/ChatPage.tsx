@@ -932,6 +932,10 @@ export default function ChatPage() {
   const handleProviderChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (nextSendContextLocked) {
+      return;
+    }
+
     const nextProvider = event.target.value;
     const previousProvider = provider ?? null;
     const currentConversationId = activeConversationId ?? null;

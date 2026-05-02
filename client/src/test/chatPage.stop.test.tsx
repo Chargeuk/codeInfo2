@@ -274,6 +274,18 @@ describe('Chat page stop control', () => {
     expect(screen.getByText('Conversation one')).toBeInTheDocument();
     expect(screen.getByLabelText('Provider')).toHaveTextContent('LM Studio');
 
+    const providerHiddenInput =
+      screen.getByTestId('provider-select').parentElement?.querySelector(
+        'input',
+      );
+    expect(providerHiddenInput).not.toBeNull();
+    fireEvent.change(providerHiddenInput as HTMLInputElement, {
+      target: { value: 'codex' },
+    });
+    expect(screen.getByLabelText('Provider')).toHaveTextContent('LM Studio');
+    expect(screen.queryByText('OpenAI Codex')).not.toBeInTheDocument();
+    expect(screen.getByText('Conversation one')).toBeInTheDocument();
+
     await act(async () => {
       resolveChatStart?.(
         new Response(

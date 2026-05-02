@@ -107,6 +107,104 @@ class MockCodex {
   }
 }
 
+class BlockingReplayThread {
+  id: string;
+  private answerText: string;
+  private onStarted: () => void;
+  private releasePromise: Promise<void>;
+
+  constructor(params: {
+    id: string;
+    answerText: string;
+    onStarted: () => void;
+    releasePromise: Promise<void>;
+  }) {
+    this.id = params.id;
+    this.answerText = params.answerText;
+    this.onStarted = params.onStarted;
+    this.releasePromise = params.releasePromise;
+  }
+
+  async runStreamed() {
+    const threadId = this.id;
+    const answerText = this.answerText;
+    const onStarted = this.onStarted;
+    const releasePromise = this.releasePromise;
+    async function* generator(): AsyncGenerator<ThreadEvent> {
+      yield { type: 'thread.started', thread_id: threadId };
+      onStarted();
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: answerText },
+      };
+      await releasePromise;
+      yield { type: 'turn.completed', thread_id: threadId };
+    }
+
+    return { events: generator() };
+  }
+}
+
+class DivergentReplayCodex extends MockCodex {
+  runs = 0;
+  private readonly providerThreadId: string;
+  private waitForStartPromise: Promise<void> | null = null;
+  private resolveStarted: (() => void) | null = null;
+  private releaseCurrentRun: (() => void) | null = null;
+
+  constructor(providerThreadId = 'provider-thread-xyz') {
+    super(providerThreadId);
+    this.providerThreadId = providerThreadId;
+  }
+
+  override resumeThread(threadId: string, opts?: unknown) {
+    this.lastResumeId = threadId;
+    this.lastResumeOptions = opts;
+    this.runs += 1;
+    return this.createThread();
+  }
+
+  async waitForRunStart() {
+    while (!this.waitForStartPromise) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    await this.waitForStartPromise;
+  }
+
+  releaseRun() {
+    if (!this.releaseCurrentRun) {
+      throw new Error('releaseRun called before a run started');
+    }
+    this.releaseCurrentRun();
+  }
+
+  private createThread() {
+    const shouldBlock = this.runs === 1;
+    let releasePromise = Promise.resolve();
+    this.waitForStartPromise = new Promise<void>((resolve) => {
+      this.resolveStarted = resolve;
+    });
+    if (shouldBlock) {
+      let resolveRelease: (() => void) | null = null;
+      releasePromise = new Promise<void>((resolve) => {
+        resolveRelease = resolve;
+      });
+      this.releaseCurrentRun = resolveRelease;
+    } else {
+      this.releaseCurrentRun = () => {};
+    }
+
+    return new BlockingReplayThread({
+      id: this.providerThreadId,
+      answerText: `Codex replay answer ${this.runs}`,
+      onStarted: () => {
+        this.resolveStarted?.();
+      },
+      releasePromise,
+    });
+  }
+}
+
 type JsonRpcHttpResponse = {
   id?: number | string | null;
   result?: {
@@ -494,6 +592,136 @@ test('codebase_question returns one stable replay result for the same logical fo
   assert.equal(chat.runs, 2);
   assert.equal(freshReplayPayload.conversationId, 'mcp-replay-happy-1');
   assert.equal(freshReplayPayload.segments[0].text, 'Replay answer 2: fresh logical follow-up');
+});
+
+test('codebase_question keeps caller conversationId stable across Codex replay windows even when provider thread ids differ', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const divergentCodex = new DivergentReplayCodex('provider-thread-xyz');
+  setToolDeps({
+    codexFactory: () => divergentCodex,
+    clientFactory: makeLmStudioClientFactory(),
+  });
+  const tempHome = await withTempCodexHome({
+    chatToml: [
+      'model = "gpt-5.3-codex-spark"',
+      'sandbox_mode = "workspace-write"',
+      'approval_policy = "on-request"',
+      'model_reasoning_effort = "minimal"',
+      'web_search_mode = "disabled"',
+      '',
+    ].join('\n'),
+  });
+  process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.Codex_network_access_enabled = 'false';
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const firstCallPromise = postJson(port, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'first logical follow-up',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-1',
+          provider: 'codex',
+        },
+      },
+    });
+
+    await divergentCodex.waitForRunStart();
+
+    const sameReplayPromise = postJson(port, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'stale retry should not win',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-1',
+          provider: 'codex',
+        },
+      },
+    });
+
+    assert.equal(divergentCodex.runs, 1);
+    divergentCodex.releaseRun();
+
+    const firstCall = await firstCallPromise;
+    const sameReplayCall = await sameReplayPromise;
+
+    assert.ok(firstCall.result);
+    assert.ok(sameReplayCall.result);
+    const firstPayload = JSON.parse(firstCall.result.content[0].text);
+    const sameReplayPayload = JSON.parse(sameReplayCall.result.content[0].text);
+
+    assert.equal(firstPayload.conversationId, 'caller-follow-up-1');
+    assert.equal(sameReplayPayload.conversationId, 'caller-follow-up-1');
+    assert.deepEqual(sameReplayPayload, firstPayload);
+    assert.equal(divergentCodex.lastResumeId, 'caller-follow-up-1');
+
+    const afterCleanupCall = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'late stale retry should still replay',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-1',
+          provider: 'codex',
+        },
+      },
+    });
+
+    assert.ok(afterCleanupCall.result);
+    const afterCleanupPayload = JSON.parse(afterCleanupCall.result.content[0].text);
+    assert.equal(afterCleanupPayload.conversationId, 'caller-follow-up-1');
+    assert.deepEqual(afterCleanupPayload, firstPayload);
+
+    const freshReplayCall = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'fresh logical follow-up',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-2',
+          provider: 'codex',
+        },
+      },
+    });
+
+    assert.ok(freshReplayCall.result);
+    const freshReplayPayload = JSON.parse(freshReplayCall.result.content[0].text);
+    assert.equal(divergentCodex.runs, 2);
+    assert.equal(freshReplayPayload.conversationId, 'caller-follow-up-1');
+    assert.equal(freshReplayPayload.segments[0].text, 'Codex replay answer 2');
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    delete process.env.Codex_network_access_enabled;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
 });
 
 test('codebase_question normalizes implicit Copilot defaults and omits reasoning for models that do not support it', async () => {

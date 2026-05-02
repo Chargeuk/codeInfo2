@@ -787,6 +787,9 @@ async function executeCodebaseQuestion(
   const payload: CodebaseQuestionResult = responder.toResult(
     executionModel,
     resolvedConversationId,
+    {
+      preferFallbackConversationId: typeof conversationId === 'string',
+    },
   );
   logSummaryContractRead({
     conversationId: resolvedConversationId,

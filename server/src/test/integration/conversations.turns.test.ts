@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import express from 'express';
 import type { LMStudioClient } from '@lmstudio/sdk';
+import express from 'express';
 import request from 'supertest';
 import {
   appendAnalysisDelta,
@@ -49,8 +49,9 @@ class ScriptedChat extends ChatInterface {
     _message: string,
     flags: Record<string, unknown>,
     conversationId: string,
-    _model: string,
+    model: string,
   ): Promise<void> {
+    void model;
     const signal = (flags as { signal?: AbortSignal }).signal;
     if (signal?.aborted) {
       this.emit('error', { type: 'error', message: 'aborted' });

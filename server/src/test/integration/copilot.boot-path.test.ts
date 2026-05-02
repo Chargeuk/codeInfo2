@@ -469,6 +469,78 @@ test('boot-path seeding repairs the supported /seed/copilot to /app/copilot sess
   }
 });
 
+test('boot-path seeding rejects symlinked /seed/copilot runtime artifacts before they become trusted in /app/copilot', async () => {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-boot-symlink-'),
+  );
+  const seedHome = path.join(tempRoot, 'seed', 'copilot');
+  const runtimeHome = path.join(tempRoot, 'app', 'copilot');
+  const realSessionState = path.join(tempRoot, 'linked-session-state');
+  const clientFactory = () =>
+    ({
+      system: {
+        listDownloadedModels: async () => [],
+      },
+    }) as never;
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await fs.mkdir(realSessionState, { recursive: true });
+    await fs.writeFile(
+      path.join(realSessionState, 'session.json'),
+      '{"linked":true}\n',
+      'utf8',
+    );
+    await fs.rm(path.join(seedHome, 'session-state'), {
+      recursive: true,
+      force: true,
+    });
+    await fs.symlink(realSessionState, path.join(seedHome, 'session-state'));
+
+    const seedResult = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+      env: currentRuntimeEnv(),
+    });
+
+    assert.equal(seedResult.status, 'seed_copy_failed');
+    assert.match(seedResult.error ?? '', /symlink/u);
+    assert.match(seedResult.error ?? '', /session-state/u);
+    assert.equal(await hasBootstrappedRuntime(runtimeHome), false);
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatProvidersRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => ({
+          start: async () => {},
+          stop: async () => [],
+          ping: async () => createReadyPingResponse(),
+          getAuthStatus: async () => ({
+            isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+            authType: 'user',
+          }),
+          listModels: async () =>
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? createReadyModels()
+              : [],
+        }),
+      }),
+    );
+
+    const providers = await request(app).get('/chat/providers');
+    assert.equal(providers.status, 200);
+    const copilotProvider = providers.body.providers.find(
+      (provider: { id?: string }) => provider.id === 'copilot',
+    );
+    assert.ok(copilotProvider);
+    assert.equal(copilotProvider.available, false);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('boot-path seeding preserves a runtime that initializes after preflight instead of surfacing a mixed seed/runtime state', async () => {
   const tempRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'copilot-boot-replay-safe-'),

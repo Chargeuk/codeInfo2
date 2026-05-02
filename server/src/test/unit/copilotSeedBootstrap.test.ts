@@ -511,6 +511,90 @@ test('returns seed_copy_failed when the runtime home cannot be created', async (
   }
 });
 
+test('rejects a symlinked seed file before staged copy or publish begins', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+  const realConfig = path.join(tempRoot, 'real-config.json');
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await fs.writeFile(realConfig, '{"linked":true}\n', 'utf8');
+    await fs.rm(path.join(seedHome, 'config.json'));
+    await fs.symlink(realConfig, path.join(seedHome, 'config.json'));
+
+    const result = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+    });
+
+    assert.equal(result.status, 'seed_copy_failed');
+    assert.match(result.error ?? '', /symlink/u);
+    assert.match(result.error ?? '', /config\.json/u);
+    await assert.rejects(fs.access(path.join(runtimeHome, 'config.json')), {
+      code: 'ENOENT',
+    });
+    await assert.rejects(fs.access(path.join(runtimeHome, 'settings.json')), {
+      code: 'ENOENT',
+    });
+    await assert.rejects(
+      fs.access(path.join(runtimeHome, 'session-state', 'session.json')),
+      {
+        code: 'ENOENT',
+      },
+    );
+    assert.deepEqual(await listBootstrapStageRoots(tempRoot), []);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rejects a symlinked seed session-state directory before publish and removes helper-owned partial runtime state', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+  const realSessionState = path.join(tempRoot, 'linked-session-state');
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await fs.mkdir(realSessionState, { recursive: true });
+    await fs.writeFile(
+      path.join(realSessionState, 'session.json'),
+      '{"linked":true}\n',
+      'utf8',
+    );
+    await fs.rm(path.join(seedHome, 'session-state'), {
+      recursive: true,
+      force: true,
+    });
+    await fs.symlink(realSessionState, path.join(seedHome, 'session-state'));
+
+    const result = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+    });
+
+    assert.equal(result.status, 'seed_copy_failed');
+    assert.match(result.error ?? '', /symlink/u);
+    assert.match(result.error ?? '', /session-state/u);
+    await assert.rejects(fs.access(path.join(runtimeHome, 'config.json')), {
+      code: 'ENOENT',
+    });
+    await assert.rejects(fs.access(path.join(runtimeHome, 'settings.json')), {
+      code: 'ENOENT',
+    });
+    await assert.rejects(
+      fs.access(path.join(runtimeHome, 'session-state', 'session.json')),
+      {
+        code: 'ENOENT',
+      },
+    );
+    assert.deepEqual(await listBootstrapStageRoots(tempRoot), []);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('publish-failure cleanup removes only helper-owned staged artifacts without leaving a partial runtime behind', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
   const seedHome = path.join(tempRoot, 'seed');

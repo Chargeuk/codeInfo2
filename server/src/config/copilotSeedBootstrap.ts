@@ -229,6 +229,35 @@ async function stageArtifactCopy(params: {
   await fs.promises.copyFile(params.sourcePath, params.stagedPath);
 }
 
+async function assertSeedArtifactTreeHasNoSymlinks(
+  targetPath: string,
+): Promise<void> {
+  const stats = await fs.promises.lstat(targetPath);
+  if (stats.isSymbolicLink()) {
+    throw new Error(`copilot seed artifact cannot be a symlink: ${targetPath}`);
+  }
+  if (!stats.isDirectory()) {
+    return;
+  }
+
+  const entries = await fs.promises.readdir(targetPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) {
+      throw new Error(
+        `copilot seed artifact cannot be a symlink: ${path.join(
+          targetPath,
+          entry.name,
+        )}`,
+      );
+    }
+    if (entry.isDirectory()) {
+      await assertSeedArtifactTreeHasNoSymlinks(
+        path.join(targetPath, entry.name),
+      );
+    }
+  }
+}
+
 async function publishStagedArtifact(params: {
   stagedPath: string;
   targetPath: string;
@@ -587,6 +616,8 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
         });
         continue;
       }
+
+      await assertSeedArtifactTreeHasNoSymlinks(sourcePath);
 
       const stagedPath = path.join(stageRoot, descriptor.relativePath);
       await stageArtifactCopy({

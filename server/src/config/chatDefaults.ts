@@ -44,6 +44,14 @@ export type RuntimeProviderState = {
   reason?: string;
 };
 
+export const buildUnavailableRuntimeProviderState = (
+  reason?: string,
+): RuntimeProviderState => ({
+  available: false,
+  models: [],
+  reason,
+});
+
 export type RuntimeProviderSelection = {
   requestedProvider: ChatDefaultProvider;
   requestedModel: string;

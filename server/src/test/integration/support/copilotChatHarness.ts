@@ -79,6 +79,7 @@ export async function startCopilotChatServer(params?: {
   withWs?: boolean;
   lmstudioAvailable?: boolean;
   mcpAvailable?: boolean;
+  lmstudioClientFactory?: (baseUrl: string) => LMStudioClient;
 }) {
   memoryConversations.clear();
   memoryTurns.clear();
@@ -107,9 +108,9 @@ export async function startCopilotChatServer(params?: {
   app.use(
     '/chat',
     createChatRouter({
-      clientFactory: createDummyClientFactory(
-        params?.lmstudioAvailable === true,
-      ),
+      clientFactory:
+        params?.lmstudioClientFactory ??
+        createDummyClientFactory(params?.lmstudioAvailable === true),
       copilotLifecycleFactory: () => harness.createLifecycle(),
     }),
   );

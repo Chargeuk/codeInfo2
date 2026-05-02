@@ -39,6 +39,7 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  buildUnavailableRuntimeProviderState,
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
@@ -275,6 +276,8 @@ export function createChatRouter({
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
+    const explicitProviderSelected =
+      defaultsResolution.providerSource === 'request';
     const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
 
     if (
@@ -308,34 +311,53 @@ export function createChatRouter({
     };
     const mcp = await getMcpStatus();
 
-    let lmstudioModels: string[] = [];
-    let lmstudioReason: string | undefined;
-    let lmstudioAvailable = false;
-    if (!BASE_URL_REGEX.test(baseUrl)) {
-      lmstudioReason = 'lmstudio unavailable';
-    } else {
-      try {
-        const client = clientFactory(toWebSocketUrl(baseUrl));
-        const models = await client.system.listDownloadedModels();
-        lmstudioModels = models
-          .filter(isChatModel)
-          .map((entry) => entry.modelKey)
-          .filter((value) => typeof value === 'string' && value.trim().length);
-        if (lmstudioModels.length > 0) {
-          lmstudioAvailable = true;
-        } else {
-          lmstudioReason = 'lmstudio unavailable';
+    let lmstudioState = buildUnavailableRuntimeProviderState(
+      explicitProviderSelected && requestedProvider !== 'lmstudio'
+        ? 'lmstudio probe skipped for explicit provider request'
+        : 'lmstudio unavailable',
+    );
+    if (!explicitProviderSelected || requestedProvider === 'lmstudio') {
+      if (!BASE_URL_REGEX.test(baseUrl)) {
+        lmstudioState =
+          buildUnavailableRuntimeProviderState('lmstudio unavailable');
+      } else {
+        try {
+          const client = clientFactory(toWebSocketUrl(baseUrl));
+          const models = await client.system.listDownloadedModels();
+          const lmstudioModels = models
+            .filter(isChatModel)
+            .map((entry) => entry.modelKey)
+            .filter((value) => typeof value === 'string' && value.trim().length);
+          lmstudioState =
+            lmstudioModels.length > 0
+              ? {
+                  available: true,
+                  models: lmstudioModels,
+                }
+              : buildUnavailableRuntimeProviderState('lmstudio unavailable');
+        } catch {
+          lmstudioState =
+            buildUnavailableRuntimeProviderState('lmstudio unavailable');
         }
-      } catch {
-        lmstudioReason = 'lmstudio unavailable';
       }
     }
-    const copilotReadiness = await resolveCopilotReadiness({
-      createRuntime: copilotLifecycleFactory,
-      env: process.env,
-      toolsAvailable: mcp.available,
-      toolsReason: mcp.reason,
-    });
+    const copilotReadiness =
+      !explicitProviderSelected || requestedProvider === 'copilot'
+        ? await resolveCopilotReadiness({
+            createRuntime: copilotLifecycleFactory,
+            env: process.env,
+            toolsAvailable: mcp.available,
+            toolsReason: mcp.reason,
+          })
+        : {
+            available: false,
+            toolsAvailable: mcp.available,
+            reason: 'copilot probe skipped for explicit provider request',
+            blockingStage: 'connectivity' as const,
+            models: [],
+            modelsRaw: [],
+            authSource: 'unauthenticated' as const,
+          };
     const normalizedRequestedModel =
       requestedProvider === 'copilot'
         ? normalizeImplicitCopilotRequestedModel({
@@ -353,17 +375,11 @@ export function createChatRouter({
         models: copilotReadiness.models,
         reason: copilotReadiness.reason,
       },
-      lmstudio: {
-        available: lmstudioAvailable,
-        models: lmstudioModels,
-        reason: lmstudioReason,
-      },
+      lmstudio: lmstudioState,
     });
 
     const executionProvider = runtimeSelection.executionProvider;
     const executionModel = runtimeSelection.executionModel;
-    const explicitProviderSelected =
-      defaultsResolution.providerSource === 'request';
     if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
       return res.status(503).json({
         status: 'error',
@@ -428,7 +444,7 @@ export function createChatRouter({
       decision: runtimeSelection.decision,
       requestedReason: runtimeSelection.requestedReason,
       fallbackReason: runtimeSelection.fallbackReason,
-      lmstudioModelCount: lmstudioModels.length,
+      lmstudioModelCount: lmstudioState.models.length,
       baseUrl: safeBase,
     };
     append({

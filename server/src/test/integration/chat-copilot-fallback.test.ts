@@ -68,13 +68,20 @@ async function hasBootstrappedRuntime(runtimeHome: string) {
   }
 }
 
-test('copilot chat returns explicit-provider failure when the user selected an unavailable provider directly', async () => {
+test('copilot chat fails on the selected explicit provider before unrelated LM Studio fallback probing can run', async () => {
+  let lmstudioProbeCount = 0;
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-explicit-provider-failure',
       startError: new Error('copilot unavailable'),
     },
     lmstudioAvailable: true,
+    lmstudioClientFactory: () => {
+      lmstudioProbeCount += 1;
+      throw new Error(
+        'lmstudio fallback probe should not run for explicit copilot requests',
+      );
+    },
   });
 
   try {
@@ -92,6 +99,7 @@ test('copilot chat returns explicit-provider failure when the user selected an u
       String(response.body.message),
       /copilot connectivity unavailable/i,
     );
+    assert.equal(lmstudioProbeCount, 0);
     assert.equal(memoryConversations.get(conversationId), undefined);
     assert.equal(server.harness.getState().lastCreateSessionConfig, undefined);
   } finally {
@@ -99,7 +107,7 @@ test('copilot chat returns explicit-provider failure when the user selected an u
   }
 });
 
-test('copilot chat still falls back automatically when default provider resolution prefers copilot and runtime selection must recover', async () => {
+test('copilot chat still falls back automatically when provider resolution is omitted and runtime selection must recover', async () => {
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-default-provider-fallback',

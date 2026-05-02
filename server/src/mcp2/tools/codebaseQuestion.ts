@@ -28,6 +28,7 @@ import type {
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
+  buildUnavailableRuntimeProviderState,
   buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
@@ -293,6 +294,8 @@ export async function runCodebaseQuestion(
         : undefined,
   });
   const requestedProvider = resolvedDefaults.provider;
+  const explicitProviderSelected =
+    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0;
   const codexRequestedDefaults =
     requestedProvider === 'codex' &&
     !(typeof parsed.model === 'string' && parsed.model.trim().length > 0)
@@ -345,35 +348,55 @@ export async function runCodebaseQuestion(
   const baseUrl =
     process.env.CODEINFO_LMSTUDIO_BASE_URL ??
     'http://host.docker.internal:1234';
-  let lmstudioModels: string[] = [];
-  let lmstudioReason: string | undefined;
-  if (!BASE_URL_REGEX.test(baseUrl)) {
-    lmstudioReason = 'lmstudio unavailable';
-  } else {
-    try {
-      const factory =
-        deps.clientFactory ??
-        ((url: string) => new LMStudioClient({ baseUrl: url }));
-      const lmClient = factory(toWebSocketUrl(baseUrl));
-      const listed = await lmClient.system.listDownloadedModels();
-      lmstudioModels = listed
-        .filter(isChatModel)
-        .map((entry) => entry.modelKey)
-        .filter((value) => typeof value === 'string' && value.trim().length);
-      if (lmstudioModels.length === 0) {
-        lmstudioReason = 'lmstudio unavailable';
+  let lmstudioState = buildUnavailableRuntimeProviderState(
+    explicitProviderSelected && requestedProvider !== 'lmstudio'
+      ? 'lmstudio probe skipped for explicit provider request'
+      : 'lmstudio unavailable',
+  );
+  if (!explicitProviderSelected || requestedProvider === 'lmstudio') {
+    if (!BASE_URL_REGEX.test(baseUrl)) {
+      lmstudioState =
+        buildUnavailableRuntimeProviderState('lmstudio unavailable');
+    } else {
+      try {
+        const factory =
+          deps.clientFactory ??
+          ((url: string) => new LMStudioClient({ baseUrl: url }));
+        const lmClient = factory(toWebSocketUrl(baseUrl));
+        const listed = await lmClient.system.listDownloadedModels();
+        const lmstudioModels = listed
+          .filter(isChatModel)
+          .map((entry) => entry.modelKey)
+          .filter((value) => typeof value === 'string' && value.trim().length);
+        lmstudioState =
+          lmstudioModels.length > 0
+            ? {
+                available: true,
+                models: lmstudioModels,
+              }
+            : buildUnavailableRuntimeProviderState('lmstudio unavailable');
+      } catch {
+        lmstudioState =
+          buildUnavailableRuntimeProviderState('lmstudio unavailable');
       }
-    } catch {
-      lmstudioReason = 'lmstudio unavailable';
     }
   }
 
-  const copilotReadiness = await (
-    deps.copilotReadinessResolver ?? resolveCopilotReadiness
-  )({
-    toolsAvailable: true,
-    env: process.env,
-  });
+  const copilotReadiness =
+    !explicitProviderSelected || requestedProvider === 'copilot'
+      ? await (deps.copilotReadinessResolver ?? resolveCopilotReadiness)({
+          toolsAvailable: true,
+          env: process.env,
+        })
+      : {
+          available: false,
+          toolsAvailable: true,
+          reason: 'copilot probe skipped for explicit provider request',
+          blockingStage: 'connectivity' as const,
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated' as const,
+        };
   const normalizedRequestedModel =
     requestedProvider === 'copilot'
       ? normalizeImplicitCopilotRequestedModel({
@@ -392,11 +415,7 @@ export async function runCodebaseQuestion(
       models: copilotReadiness.models,
       reason: copilotReadiness.reason,
     },
-    lmstudio: {
-      available: lmstudioModels.length > 0,
-      models: lmstudioModels,
-      reason: lmstudioReason,
-    },
+    lmstudio: lmstudioState,
   });
   append({
     level: 'info',
@@ -414,7 +433,7 @@ export async function runCodebaseQuestion(
       decision: runtimeSelection.decision,
       requestedReason: runtimeSelection.requestedReason,
       fallbackReason: runtimeSelection.fallbackReason,
-      lmstudioModelCount: lmstudioModels.length,
+      lmstudioModelCount: lmstudioState.models.length,
     },
   });
   append({
@@ -498,8 +517,6 @@ export async function runCodebaseQuestion(
     defaults: codexCapabilities.defaults,
   });
 
-  const explicitProviderSelected =
-    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0;
   if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
   }

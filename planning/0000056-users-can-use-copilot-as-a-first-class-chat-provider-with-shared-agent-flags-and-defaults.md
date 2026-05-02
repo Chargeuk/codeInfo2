@@ -1955,7 +1955,7 @@ This review-created task repairs the LM Studio execution error-mapping seam so t
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16`
 - Task Status: `__in_progress__`
-- Git Commits: `ce138f72`
+- Git Commits: `ce138f72`, `30e958ba`
 
 #### Overview
 

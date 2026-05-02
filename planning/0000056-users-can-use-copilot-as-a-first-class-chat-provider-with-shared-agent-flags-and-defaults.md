@@ -2441,3 +2441,14 @@ Optional guidance for the manual testing agent only.
 - Testing 16 complete: the first `npm run format:check` attempt reported Prettier drift in 6 review-cycle files, a bounded `npx prettier --write` repair normalized those touched seams, and the honest rerun then reported `All matched files use Prettier code style!`.
 - Testing 17 complete: `npm run compose:up` brought the supported runtime stack up cleanly, `curl -f http://localhost:5010/health` returned `{"status":"ok",...,"mongoConnected":true}`, `curl -f http://localhost:5001` returned the client HTML shell successfully, and `npm run compose:down` then shut the stack down cleanly without leaving the review-cycle handoff runtime running.
 - Planner normalization complete: this fully checked, unblocked final revalidation task no longer had an honest open owner gate, so the status was closed to `__done__` without adding new checklist work.
+
+## Final Summary
+
+1. What has been changed.
+   Story `0000056` now closes with Copilot as a first-class provider alongside Codex and LM Studio, provider-local chat defaults, provider-neutral Agent Flags, repaired Copilot seed-bootstrap and replay-barrier seams from the later review tasks, and a refreshed durable manual-proof bundle under `codeInfoStatus/manual-proof/0000056/`.
+2. Why it changed.
+   These changes were needed to make provider selection, defaults, tool access, persisted conversation behavior, and MCP follow-up behavior consistent and trustworthy across the supported providers, while also closing the review-created repair work with honest wrapper-backed proof and retained manual evidence.
+3. A simple explanation of any complex logic that needed to be added.
+   The most complex logic was the provider-neutral defaults and Agent Flags contract, the Copilot seed-runtime bootstrap rules that preserve trusted runtime ownership while repairing partial homes safely, and the MCP replay barrier that binds retries to one caller-visible replay identity so stale follow-ups do not duplicate provider work or drift to a different conversation id.
+4. What a reviewer should take particular interest in.
+   Reviewers should focus on the provider/runtime seams in `server/src/config/chatDefaults.ts`, `server/src/config/copilotSeedBootstrap.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/responders/McpResponder.ts`, and the client-side conversation state merge path in `client/src/hooks/useConversations.ts`, then use the curated `codeInfoStatus/manual-proof/0000056/` bundle as the durable story-closeout evidence to spot-check the browser-visible and runtime-visible outcomes that were retained after review.

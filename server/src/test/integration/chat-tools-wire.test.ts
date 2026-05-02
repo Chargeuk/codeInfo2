@@ -997,7 +997,7 @@ test('duplicate stop requests for a chat run emit one terminal stopped event', a
     });
 
     assert.equal(final.status, 'stopped');
-    await delay(200);
+    await waitForRuntimeCleanup(conversationId);
     assert.equal(seenFinals.length, 1);
   } finally {
     ws.off('message', onMessage);

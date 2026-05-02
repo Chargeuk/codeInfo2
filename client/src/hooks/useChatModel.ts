@@ -132,9 +132,7 @@ function isChatProviderInfo(value: unknown): value is ChatProviderInfo {
   );
 }
 
-function parseProvidersResponse(
-  payload: unknown,
-):
+function parseProvidersResponse(payload: unknown):
   | { kind: 'legacy'; models: ChatModelInfo[] }
   | {
       kind: 'current';
@@ -737,7 +735,8 @@ export function useChatModel() {
                 ? data.defaultModel
                 : typeof resolvedProviderInfo?.defaultModel === 'string' &&
                     models.some(
-                      (model) => model.key === resolvedProviderInfo.defaultModel,
+                      (model) =>
+                        model.key === resolvedProviderInfo.defaultModel,
                     )
                   ? resolvedProviderInfo.defaultModel
                   : undefined;

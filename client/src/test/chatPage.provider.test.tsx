@@ -1,11 +1,5 @@
 import { jest } from '@jest/globals';
-import {
-  act,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
@@ -99,7 +93,9 @@ function mockChatProvidersFetch(options: {
           ...(options.defaultModel
             ? { defaultModel: options.defaultModel }
             : {}),
-          ...(options.providerInfo ? { providerInfo: options.providerInfo } : {}),
+          ...(options.providerInfo
+            ? { providerInfo: options.providerInfo }
+            : {}),
           models: options.models ?? [
             { key: 'm1', displayName: 'Model 1', type: 'gguf' },
           ],
@@ -195,9 +191,7 @@ describe('Chat provider selection (WS transport)', () => {
     await waitFor(() =>
       expect(providerSelect).toHaveTextContent(/github copilot/i),
     );
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent(/gpt-5 mini/i),
-    );
+    await waitFor(() => expect(modelSelect).toHaveTextContent(/gpt-5 mini/i));
   });
 
   it('keeps the Copilot config reasoning default for the default Copilot provider-model pair', async () => {

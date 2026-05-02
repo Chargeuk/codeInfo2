@@ -489,7 +489,7 @@ Overall, when this story is complete:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `29fcf217`, `229d9671`
 
 #### Overview
@@ -571,7 +571,7 @@ This task replaces the remaining shared default-model contract with one provider
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `01f725ae`, `eed54638`, `b2d92c03`
 
 #### Overview
@@ -2142,7 +2142,7 @@ Optional guidance for the manual testing agent only.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 21`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits: `8fcaec32`, `3e58f45d`
 
 #### Overview
@@ -2189,7 +2189,7 @@ This review-created task repairs the explicit-provider admission contract for bo
 - Subtask 3 complete: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` now makes the MCP ordering boundary observable by proving an explicit Copilot request never reaches an injected LM Studio fallback probe, and it adds a dedicated omitted-provider fallback case that still recovers onto Codex when provider resolution remains allowed.
 - Testing 1 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/chat-copilot-fallback.test.ts` passed cleanly with `tests run: 3`, `passed: 3`, and `failed: 0`, so the REST proof owner now has wrapper-backed evidence that explicit Copilot requests fail before the unrelated LM Studio fallback probe can run while omitted-provider requests still recover through fallback selection.
 - Testing 2 complete: `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` passed cleanly on rerun with `tests run: 3`, `passed: 3`, and `failed: 0`; the first attempt exposed that the new omitted-provider fallback proof had hard-coded the fallback Codex model instead of deriving the current first selectable capability model, and the follow-up repair kept the assertion aligned with the real fallback-selection seam.
-- **BLOCKER** Task-scoped manual testing restarted the stale/unknown main stack with `npm run compose:build` and `npm run compose:up`, confirmed clean startup via `/health`, `5011/mcp` `initialize`, and `tools/list`, then saved runtime evidence under `codeInfoTmp/manual-testing/0000056/22/` before returning the main stack to stopped with `npm run compose:down`. The supported runtime currently reports Codex, Copilot, and LM Studio all available in `/chat/providers` plus the provider model lists, so the task-owned degraded ordering case cannot be exercised honestly on the normal stack because no selected provider is unavailable and the repo does not document a supported way to force one provider unavailable while an unrelated alternate-provider probe would also fail. This pass therefore stops as a `structural_proof_gap` rather than claiming that a healthy-provider request proves the selected-provider-first unavailable contract.
+- **BLOCKING ANSWER** Repository precedents show that the right degraded runtime seam is the existing isolated compose-e2e fake Copilot path, not the healthy main stack: `server/src/copilot/fake/runtimeSeam.ts`, `server/src/copilot/fake/copilotScenarioCatalog.ts`, `server/src/test/integration/copilot.compose-e2e-runtime.test.ts`, `server/.env.e2e`, and `docker-compose.e2e.yml` already boot the normal routers with `CODEINFO_FAKE_COPILOT_SCENARIO=copilot-auth-required` while the server still starts, and that same compose-style proof pins `CODEINFO_LMSTUDIO_BASE_URL` to `http://127.0.0.1:9` so an incorrect explicit-provider fallback probe would also hit an unavailable LM Studio seam. External precedent confirms this is the supported way to vary startup mode without changing application code: Docker Compose documents that service `environment` overrides `env_file`, and that per-stack or per-run overrides via `environment`, `--env-file`, or `docker compose run -e` are the intended mechanism for alternate test scenarios rather than mutating the base compose file in place (Docker Docs: environment variable precedence and Compose service `env_file`/`environment`; Context7 `/docker/compose`; DeepWiki `docker/compose` environment-precedence notes). That fits the local repo state because Task 22's product seam is already proved in `server/src/test/integration/chat-copilot-fallback.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`, while the unresolved gap was only a `manual or runtime environment seam`: how to make one provider unavailable on a supported runtime surface without inventing a new product toggle. Rejected alternatives were destabilizing the healthy main stack's real Copilot or LM Studio state, inventing an undocumented startup flag, or treating a healthy-provider manual run as sufficient proof for the selected-provider-first unavailable contract. Task-local blocker ownership is therefore resolved here, and any later broad runtime rerun belongs to Task 25's final revalidation scope rather than to additional Task 22 product work.
 
 ### Task 23. Reject symlinked Copilot seed artifacts before runtime-home import
 

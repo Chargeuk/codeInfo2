@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-05-02T00:00:26Z",
+  "story_number": "0000056",
+  "plan_path": "planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md",
+  "review_pass_id": "0000056-20260501T220148Z-a78707f5",
+  "finding_id": "finding-1-codex-threadid-preservation",
+  "repository": "current_repository",
+  "status": "fixed",
+  "summary": "Preserved persisted Codex thread state during same-model REST conversation flag rebuilds.",
+  "changed_files": [
+    "server/src/routes/chat.ts",
+    "server/src/test/integration/chat-codex.test.ts"
+  ],
+  "targeted_proof": [
+    {
+      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts --test-name \"codex chat preserves persisted thread when resuming the same conversation without request threadId\"",
+      "result": "passed",
+      "notes": "Targeted server wrapper ran one focused regression and passed cleanly."
+    }
+  ],
+  "commit_sha": "be7c9aae64a1c38c5eabc671b4d795bb8422af5a",
+  "reclassification_reason": null,
+  "blocker": null,
+  "blocker_scope": null
+}

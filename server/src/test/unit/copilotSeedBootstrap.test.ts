@@ -39,6 +39,38 @@ async function writeSeedArtifacts(seedHome: string) {
   );
 }
 
+async function writeRuntimeArtifacts(params: {
+  runtimeHome: string;
+  includeConfig?: boolean;
+  includeSettings?: boolean;
+  includeSessionState?: boolean;
+}) {
+  if (params.includeSessionState) {
+    await fs.mkdir(path.join(params.runtimeHome, 'session-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(params.runtimeHome, 'session-state', 'session.json'),
+      '{"runtime":"session"}\n',
+      'utf8',
+    );
+  }
+  if (params.includeConfig) {
+    await fs.writeFile(
+      path.join(params.runtimeHome, 'config.json'),
+      '{"runtime":"wins"}\n',
+      'utf8',
+    );
+  }
+  if (params.includeSettings) {
+    await fs.writeFile(
+      path.join(params.runtimeHome, 'settings.json'),
+      '{"runtimeSettings":"wins"}\n',
+      'utf8',
+    );
+  }
+}
+
 function currentRuntimeEnv(): NodeJS.ProcessEnv {
   const uid = process.getuid?.();
   const gid = process.getgid?.();
@@ -101,31 +133,19 @@ test('copies config.json, settings.json, and session-state into an empty runtime
   }
 });
 
-test('skips copying when runtime auth-bearing artifacts already exist before import begins', async () => {
+test('complete runtime homes still skip seeding without overwriting existing auth-bearing artifacts', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
   const seedHome = path.join(tempRoot, 'seed');
   const runtimeHome = path.join(tempRoot, 'runtime');
 
   try {
     await writeSeedArtifacts(seedHome);
-    await fs.mkdir(path.join(runtimeHome, 'session-state'), {
-      recursive: true,
+    await writeRuntimeArtifacts({
+      runtimeHome,
+      includeConfig: true,
+      includeSettings: true,
+      includeSessionState: true,
     });
-    await fs.writeFile(
-      path.join(runtimeHome, 'config.json'),
-      '{"runtime":"wins"}\n',
-      'utf8',
-    );
-    await fs.writeFile(
-      path.join(runtimeHome, 'settings.json'),
-      '{"runtimeSettings":"wins"}\n',
-      'utf8',
-    );
-    await fs.writeFile(
-      path.join(runtimeHome, 'session-state', 'session.json'),
-      '{"runtime":"session"}\n',
-      'utf8',
-    );
 
     const result = await importCopilotSeedIntoRuntimeHome({
       runtimeHome,
@@ -141,6 +161,102 @@ test('skips copying when runtime auth-bearing artifacts already exist before imp
     assert.equal(
       await fs.readFile(path.join(runtimeHome, 'settings.json'), 'utf8'),
       '{"runtimeSettings":"wins"}\n',
+    );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('one-of-three partial runtime homes import the missing peers without overwriting the existing artifact', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await writeRuntimeArtifacts({
+      runtimeHome,
+      includeConfig: true,
+    });
+
+    const result = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+    });
+
+    assert.equal(result.status, 'seed_applied');
+    assert.deepEqual(result.copiedArtifacts.sort(), [
+      'session-state',
+      'settings.json',
+    ]);
+    assert.deepEqual(result.skippedArtifacts, [
+      {
+        artifact: 'config.json',
+        action: 'skipped_existing_runtime',
+        sourcePath: path.join(seedHome, 'config.json'),
+        targetPath: path.join(runtimeHome, 'config.json'),
+      },
+    ]);
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'config.json'), 'utf8'),
+      '{"runtime":"wins"}\n',
+    );
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'settings.json'), 'utf8'),
+      '{"storeTokenPlaintext":true}\n',
+    );
+    assert.equal(
+      await fs.readFile(
+        path.join(runtimeHome, 'session-state', 'session.json'),
+        'utf8',
+      ),
+      '{"session":"ok"}\n',
+    );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('two-of-three partial runtime homes import only the missing peer and preserve the existing pair', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await writeRuntimeArtifacts({
+      runtimeHome,
+      includeConfig: true,
+      includeSessionState: true,
+    });
+
+    const result = await importCopilotSeedIntoRuntimeHome({
+      runtimeHome,
+      seedHome,
+    });
+
+    assert.equal(result.status, 'seed_applied');
+    assert.deepEqual(result.copiedArtifacts, ['settings.json']);
+    assert.deepEqual(
+      result.skippedArtifacts
+        .map((artifact) => artifact.artifact)
+        .sort(),
+      ['config.json', 'session-state'],
+    );
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'config.json'), 'utf8'),
+      '{"runtime":"wins"}\n',
+    );
+    assert.equal(
+      await fs.readFile(
+        path.join(runtimeHome, 'session-state', 'session.json'),
+        'utf8',
+      ),
+      '{"runtime":"session"}\n',
+    );
+    assert.equal(
+      await fs.readFile(path.join(runtimeHome, 'settings.json'), 'utf8'),
+      '{"storeTokenPlaintext":true}\n',
     );
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
@@ -194,7 +310,7 @@ test('re-normalizes existing runtime artifacts for the runtime identity without 
   }
 });
 
-test('rolls back helper-owned seed writes when runtime initialization appears mid-sequence', async () => {
+test('late-publish runtime winners remain intact when another writer completes the runtime mid-sequence', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
   const seedHome = path.join(tempRoot, 'seed');
   const runtimeHome = path.join(tempRoot, 'runtime');
@@ -314,7 +430,7 @@ test('returns seed_copy_failed when the runtime home cannot be created', async (
   }
 });
 
-test('cleans helper-owned staged artifacts on publish failure without leaving a partial runtime behind', async () => {
+test('publish-failure cleanup removes only helper-owned staged artifacts without leaving a partial runtime behind', async () => {
   const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
   const seedHome = path.join(tempRoot, 'seed');
   const runtimeHome = path.join(tempRoot, 'runtime');

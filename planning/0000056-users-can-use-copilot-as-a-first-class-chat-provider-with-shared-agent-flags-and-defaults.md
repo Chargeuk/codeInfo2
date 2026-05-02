@@ -1807,9 +1807,9 @@ This review-created task repairs the Copilot runtime-home bootstrap seam so star
 
 #### Subtasks
 
-1. [ ] In `server/src/config/copilotSeedBootstrap.ts`, repair the runtime-home classification and skip-path logic so the exact complete artifact set (`config.json`, `settings.json`, and `session-state/session.json`) is required before startup skips seeding, while one-of-three and two-of-three partial homes still import missing peers, helper-owned staged writes are the only artifacts cleaned up on publish failure, and the late-publish collision path stays replay-safe if another writer completes the runtime between classification and publish.
-2. [ ] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` to add or rewrite named cases that prove four exact helper outcomes in `server/src/config/copilotSeedBootstrap.ts`: one-of-three partial homes import the missing peers, two-of-three partial homes import the missing peer, complete-runtime homes still skip seeding, and publish-failure cleanup removes only helper-owned staged artifacts while a late-publish winner from another writer remains intact.
-3. [ ] Edit `server/src/test/integration/copilot.boot-path.test.ts` to prove the normal `CODEINFO_COPILOT_HOME` boot path repairs partial runtime homes and still skips a complete runtime home, and update `README.md` only if the documented runtime-home artifact contract or bootstrap skip rule changes as part of that repair.
+1. [x] In `server/src/config/copilotSeedBootstrap.ts`, repair the runtime-home classification and skip-path logic so the exact complete artifact set (`config.json`, `settings.json`, and `session-state/session.json`) is required before startup skips seeding, while one-of-three and two-of-three partial homes still import missing peers, helper-owned staged writes are the only artifacts cleaned up on publish failure, and the late-publish collision path stays replay-safe if another writer completes the runtime between classification and publish.
+2. [x] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` to add or rewrite named cases that prove four exact helper outcomes in `server/src/config/copilotSeedBootstrap.ts`: one-of-three partial homes import the missing peers, two-of-three partial homes import the missing peer, complete-runtime homes still skip seeding, and publish-failure cleanup removes only helper-owned staged artifacts while a late-publish winner from another writer remains intact.
+3. [x] Edit `server/src/test/integration/copilot.boot-path.test.ts` to prove the normal `CODEINFO_COPILOT_HOME` boot path repairs partial runtime homes and still skips a complete runtime home, and update `README.md` only if the documented runtime-home artifact contract or bootstrap skip rule changes as part of that repair.
 
 #### Testing
 
@@ -1819,6 +1819,9 @@ This review-created task repairs the Copilot runtime-home bootstrap seam so star
 #### Implementation notes
 
 - Added by review-task repair from review pass `0000056-20260501T220148Z-a78707f5` after the active disposition state left `finding-4-copilot-bootstrap-partial-home` unresolved and task-required. No implementation work has started on this task yet.
+- Subtask 1 complete: `server/src/config/copilotSeedBootstrap.ts` no longer treats any single pre-existing auth artifact as a fully initialized runtime. The helper now skips only when the full auth-bearing runtime set is already ready, preserves the late-completion rollback path when another writer finishes the runtime after preflight, and can merge missing peers into a partial runtime home instead of abandoning it as “already initialized.”
+- Subtask 2 complete: rewrote `server/src/test/unit/copilotSeedBootstrap.test.ts` around the Task 17 helper contracts by adding explicit one-of-three and two-of-three partial-runtime repair cases, renaming the complete-runtime skip proof, and tightening the replay-safe and publish-failure titles so later review can read the repaired helper boundary directly from the proof owner.
+- Subtask 3 complete: updated `server/src/test/integration/copilot.boot-path.test.ts` so the normal `CODEINFO_COPILOT_HOME` seam now proves partial-runtime repair before the next-pass complete-runtime skip, and updated the README Copilot persistence contract to say partial runtime homes are repaired while fully initialized runtime homes are skipped instead of overwritten.
 
 ### Task 18. Add a completed-run replay barrier for caller-supplied chat inflight IDs
 

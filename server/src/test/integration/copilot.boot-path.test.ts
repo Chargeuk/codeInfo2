@@ -47,6 +47,38 @@ async function writeSeedArtifacts(seedHome: string) {
   );
 }
 
+async function writeRuntimeArtifacts(params: {
+  runtimeHome: string;
+  includeConfig?: boolean;
+  includeSettings?: boolean;
+  includeSessionState?: boolean;
+}) {
+  if (params.includeSessionState) {
+    await fs.mkdir(path.join(params.runtimeHome, 'session-state'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(params.runtimeHome, 'session-state', 'session.json'),
+      '{"bootstrapped": false, "runtimeWins": true}\n',
+      'utf8',
+    );
+  }
+  if (params.includeConfig) {
+    await fs.writeFile(
+      path.join(params.runtimeHome, 'config.json'),
+      '{"runtime":"wins"}\n',
+      'utf8',
+    );
+  }
+  if (params.includeSettings) {
+    await fs.writeFile(
+      path.join(params.runtimeHome, 'settings.json'),
+      '{"runtimeSettings":"wins"}\n',
+      'utf8',
+    );
+  }
+}
+
 async function writeCopilotChatConfig(seedHome: string, contents: string) {
   await fs.mkdir(path.join(seedHome, 'chat'), { recursive: true });
   await fs.writeFile(
@@ -231,7 +263,7 @@ test('named auth-required fake Copilot scenario surfaces the negative path clean
   }
 });
 
-test('seed-imported runtime homes make Copilot visible on providers and models instead of surfacing auth-required by default', async () => {
+test('boot-path seeding repairs partial runtime homes and still skips a complete runtime on the next startup pass', async () => {
   const tempRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'copilot-boot-path-'),
   );
@@ -246,12 +278,20 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
 
   try {
     await writeSeedArtifacts(seedHome);
+    await writeRuntimeArtifacts({
+      runtimeHome,
+      includeConfig: true,
+    });
     const seedResult = await importCopilotSeedIntoRuntimeHome({
       runtimeHome,
       seedHome,
       env: currentRuntimeEnv(),
     });
     assert.equal(seedResult.status, 'seed_applied');
+    assert.deepEqual(seedResult.copiedArtifacts.sort(), [
+      'session-state',
+      'settings.json',
+    ]);
     await lockDownRuntimeArtifacts(runtimeHome);
     const normalizationResult = await importCopilotSeedIntoRuntimeHome({
       runtimeHome,
@@ -262,6 +302,7 @@ test('seed-imported runtime homes make Copilot visible on providers and models i
       normalizationResult.status,
       'seed_skipped_runtime_already_initialized',
     );
+    assert.deepEqual(normalizationResult.copiedArtifacts, []);
 
     const app = express();
     app.use(

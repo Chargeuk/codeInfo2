@@ -35,6 +35,13 @@ type CopilotSeedArtifactDescriptor = {
   kind: 'file' | 'directory';
 };
 
+type RuntimeArtifactState = {
+  descriptor: CopilotSeedArtifactDescriptor;
+  sourcePath: string;
+  targetPath: string;
+  targetReady: boolean;
+};
+
 type RuntimeOwnership = {
   uid: number;
   gid: number;
@@ -256,18 +263,51 @@ async function publishStagedArtifact(params: {
 }
 
 async function collectRuntimeInitializedArtifacts(runtimeHome: string) {
-  const initializedArtifacts: CopilotSeedArtifactResult[] = [];
+  const runtimeArtifacts: RuntimeArtifactState[] = [];
   for (const descriptor of COPILOT_SEED_ARTIFACTS) {
     const targetPath = path.join(runtimeHome, descriptor.relativePath);
-    if (!(await pathExists(targetPath))) continue;
-    initializedArtifacts.push({
-      artifact: descriptor.artifact,
-      action: 'skipped_existing_runtime',
+    runtimeArtifacts.push({
+      descriptor,
       sourcePath: '',
       targetPath,
+      targetReady: await isArtifactRuntimeReady({
+        targetPath,
+        descriptor,
+      }),
     });
   }
-  return initializedArtifacts;
+  return runtimeArtifacts;
+}
+
+async function directoryHasEntries(targetPath: string): Promise<boolean> {
+  try {
+    const entries = await fs.promises.readdir(targetPath);
+    return entries.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function isArtifactRuntimeReady(params: {
+  targetPath: string;
+  descriptor: CopilotSeedArtifactDescriptor;
+}): Promise<boolean> {
+  if (params.descriptor.kind === 'file') {
+    return pathExists(params.targetPath);
+  }
+
+  const targetType = await readPathType(params.targetPath);
+  if (targetType !== 'directory') {
+    return false;
+  }
+
+  if (
+    await pathExists(path.join(params.targetPath, 'session.json'))
+  ) {
+    return true;
+  }
+
+  return directoryHasEntries(params.targetPath);
 }
 
 async function rollbackCreatedArtifacts(
@@ -289,6 +329,104 @@ async function rollbackCreatedArtifacts(
     }
     await cleanupPath(artifact.targetPath).catch(() => {});
   }
+}
+
+async function mergeStagedDirectoryIntoRuntime(params: {
+  stagedPath: string;
+  targetPath: string;
+  runtimeOwnership?: RuntimeOwnership;
+  createdTargets: CreatedRuntimeArtifact[];
+}): Promise<'copied' | 'skipped_existing_runtime'> {
+  const targetType = await readPathType(params.targetPath);
+  if (targetType === 'missing') {
+    const publishResult = await publishStagedArtifact({
+      stagedPath: params.stagedPath,
+      targetPath: params.targetPath,
+      kind: 'directory',
+    });
+    if (publishResult === 'copied') {
+      params.createdTargets.push({
+        targetPath: params.targetPath,
+        stagedPath: params.stagedPath,
+        kind: 'directory',
+      });
+      await normalizeArtifactAccess({
+        targetPath: params.targetPath,
+        kind: 'directory',
+        runtimeOwnership: params.runtimeOwnership,
+      });
+    }
+    return publishResult;
+  }
+
+  if (targetType !== 'directory') {
+    throw new Error(
+      `copilot runtime artifact path is not a directory: ${params.targetPath}`,
+    );
+  }
+
+  const stagedEntries = await fs.promises.readdir(params.stagedPath, {
+    withFileTypes: true,
+  });
+  let copiedAny = false;
+
+  for (const entry of stagedEntries) {
+    const childStagedPath = path.join(params.stagedPath, entry.name);
+    const childTargetPath = path.join(params.targetPath, entry.name);
+
+    if (entry.isDirectory()) {
+      const childResult = await mergeStagedDirectoryIntoRuntime({
+        stagedPath: childStagedPath,
+        targetPath: childTargetPath,
+        runtimeOwnership: params.runtimeOwnership,
+        createdTargets: params.createdTargets,
+      });
+      copiedAny = copiedAny || childResult === 'copied';
+      continue;
+    }
+
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const childResult = await publishStagedArtifact({
+      stagedPath: childStagedPath,
+      targetPath: childTargetPath,
+      kind: 'file',
+    });
+    if (childResult !== 'copied') {
+      continue;
+    }
+    copiedAny = true;
+    params.createdTargets.push({
+      targetPath: childTargetPath,
+      stagedPath: childStagedPath,
+      kind: 'file',
+    });
+    await normalizeArtifactAccess({
+      targetPath: childTargetPath,
+      kind: 'file',
+      runtimeOwnership: params.runtimeOwnership,
+    });
+  }
+
+  await normalizeArtifactAccess({
+    targetPath: params.targetPath,
+    kind: 'directory',
+    runtimeOwnership: params.runtimeOwnership,
+  });
+  return copiedAny ? 'copied' : 'skipped_existing_runtime';
+}
+
+function toSkippedExistingRuntimeArtifact(
+  artifact: RuntimeArtifactState,
+): CopilotSeedArtifactResult {
+  return {
+    artifact: artifact.descriptor.artifact,
+    action: 'skipped_existing_runtime',
+    sourcePath: artifact.sourcePath,
+    targetPath: artifact.targetPath,
+  };
 }
 
 export async function importCopilotSeedIntoRuntimeHome(params: {
@@ -360,20 +498,17 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
         `.copilot-seed-stage-${process.pid}-`,
       ),
     );
-    const runtimeInitializedArtifacts =
-      await collectRuntimeInitializedArtifacts(runtimeHome);
-    if (runtimeInitializedArtifacts.length > 0) {
-      for (const existingArtifact of runtimeInitializedArtifacts) {
-        const descriptor = COPILOT_SEED_ARTIFACTS.find(
-          (candidate) => candidate.artifact === existingArtifact.artifact,
-        );
-        if (!descriptor) continue;
+    const runtimeArtifacts = await collectRuntimeInitializedArtifacts(runtimeHome);
+    if (runtimeArtifacts.every((artifact) => artifact.targetReady)) {
+      for (const existingArtifact of runtimeArtifacts) {
         await normalizeArtifactAccess({
           targetPath: existingArtifact.targetPath,
-          kind: descriptor.kind,
+          kind: existingArtifact.descriptor.kind,
           runtimeOwnership,
         });
-        skippedArtifacts.push(existingArtifact);
+        skippedArtifacts.push(
+          toSkippedExistingRuntimeArtifact(existingArtifact),
+        );
       }
       return {
         status: 'seed_skipped_runtime_already_initialized',
@@ -414,36 +549,44 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
     }
 
     for (const stagedArtifact of stagedArtifacts) {
-      await copilotSeedBootstrapHooks.beforePublishArtifact?.({
-        artifact: stagedArtifact.artifact,
-        stagedPath: stagedArtifact.stagedPath,
-        targetPath: stagedArtifact.targetPath,
-        kind: stagedArtifact.kind,
-      });
-      const publishResult = await publishStagedArtifact({
-        stagedPath: stagedArtifact.stagedPath,
-        targetPath: stagedArtifact.targetPath,
-        kind: stagedArtifact.kind,
-      });
-      if (publishResult === 'skipped_existing_runtime') {
-        await rollbackCreatedArtifacts(createdTargets);
+      const preflightArtifact = runtimeArtifacts.find(
+        (artifact) => artifact.descriptor.artifact === stagedArtifact.artifact,
+      );
+      if (preflightArtifact?.targetReady) {
+        await normalizeArtifactAccess({
+          targetPath: stagedArtifact.targetPath,
+          kind: stagedArtifact.kind,
+          runtimeOwnership,
+        });
         skippedArtifacts.push({
           artifact: stagedArtifact.artifact,
           action: 'skipped_existing_runtime',
           sourcePath: stagedArtifact.sourcePath,
           targetPath: stagedArtifact.targetPath,
         });
-        for (const remainingArtifact of stagedArtifacts) {
-          if (remainingArtifact.artifact === stagedArtifact.artifact) continue;
-          if (remainingArtifact.targetPath === stagedArtifact.targetPath)
-            continue;
-          if (await pathExists(remainingArtifact.targetPath)) continue;
-          skippedArtifacts.push({
-            artifact: remainingArtifact.artifact,
-            action: 'skipped_existing_runtime',
-            sourcePath: remainingArtifact.sourcePath,
-            targetPath: remainingArtifact.targetPath,
+        continue;
+      }
+
+      await copilotSeedBootstrapHooks.beforePublishArtifact?.({
+        artifact: stagedArtifact.artifact,
+        stagedPath: stagedArtifact.stagedPath,
+        targetPath: stagedArtifact.targetPath,
+        kind: stagedArtifact.kind,
+      });
+
+      const refreshedRuntimeArtifacts =
+        await collectRuntimeInitializedArtifacts(runtimeHome);
+      if (refreshedRuntimeArtifacts.every((artifact) => artifact.targetReady)) {
+        await rollbackCreatedArtifacts(createdTargets);
+        for (const existingArtifact of refreshedRuntimeArtifacts) {
+          await normalizeArtifactAccess({
+            targetPath: existingArtifact.targetPath,
+            kind: existingArtifact.descriptor.kind,
+            runtimeOwnership,
           });
+          skippedArtifacts.push(
+            toSkippedExistingRuntimeArtifact(existingArtifact),
+          );
         }
         return {
           status: 'seed_skipped_runtime_already_initialized',
@@ -453,16 +596,41 @@ export async function importCopilotSeedIntoRuntimeHome(params: {
           skippedArtifacts,
         };
       }
-      createdTargets.push({
-        targetPath: stagedArtifact.targetPath,
-        stagedPath: stagedArtifact.stagedPath,
-        kind: stagedArtifact.kind,
-      });
-      await normalizeArtifactAccess({
-        targetPath: stagedArtifact.targetPath,
-        kind: stagedArtifact.kind,
-        runtimeOwnership,
-      });
+
+      const publishResult =
+        stagedArtifact.kind === 'directory'
+          ? await mergeStagedDirectoryIntoRuntime({
+              stagedPath: stagedArtifact.stagedPath,
+              targetPath: stagedArtifact.targetPath,
+              runtimeOwnership,
+              createdTargets,
+            })
+          : await publishStagedArtifact({
+              stagedPath: stagedArtifact.stagedPath,
+              targetPath: stagedArtifact.targetPath,
+              kind: stagedArtifact.kind,
+            });
+      if (publishResult === 'skipped_existing_runtime') {
+        skippedArtifacts.push({
+          artifact: stagedArtifact.artifact,
+          action: 'skipped_existing_runtime',
+          sourcePath: stagedArtifact.sourcePath,
+          targetPath: stagedArtifact.targetPath,
+        });
+        continue;
+      }
+      if (stagedArtifact.kind === 'file') {
+        createdTargets.push({
+          targetPath: stagedArtifact.targetPath,
+          stagedPath: stagedArtifact.stagedPath,
+          kind: stagedArtifact.kind,
+        });
+        await normalizeArtifactAccess({
+          targetPath: stagedArtifact.targetPath,
+          kind: stagedArtifact.kind,
+          runtimeOwnership,
+        });
+      }
       copiedArtifacts.push(stagedArtifact.artifact);
     }
   } catch (error) {

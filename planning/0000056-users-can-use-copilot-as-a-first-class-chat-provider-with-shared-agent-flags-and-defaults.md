@@ -2253,7 +2253,7 @@ Optional guidance for the manual testing agent only.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 21`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -2289,11 +2289,13 @@ This review-created task repairs the MCP follow-up retry contract so callers can
 3. [x] Edit `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts` so the direct MCP validation proof owner states the replay-field contract explicitly, including the accepted caller-visible field shape and the rejected malformed or unsupported replay-field cases that must fail before provider work starts. If the reused validation file would otherwise keep a provider-only title or adjacent schema claim, add or rename replay-focused validation cases so the new input invariant is explicit.
 4. [x] Edit `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so the direct MCP happy-path proof owner states the replay barrier explicitly: one stable replay result is returned for the same logical follow-up after completion, while a genuinely new follow-up with a different replay identity still takes the normal accepted path. If the existing answer-only or provider-default titles are too adjacent, add or rename dedicated replay-focused happy-path cases so the producer-consumer claim is explicit.
 5. [x] Edit `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` so the integration proof owner states both cleanup-sensitive retry windows directly and proves the streamed or persisted follow-up contract stays non-duplicating when the same logical replay arrives before cleanup finishes and after cleanup already ran. Make the proof use deterministic completion and cleanup boundaries for the same conversation plus replay identity instead of elapsed-time assumptions, and split or rename any reused websocket transcript or provider-parity cases if needed so the ordering-sensitive replay-window invariant cannot pass by observing only the early stream or only the final persisted state.
+6. [ ] In `server/src/chat/responders/McpResponder.ts` and `server/src/mcp2/tools/codebaseQuestion.ts`, keep the MCP `codebase_question` result `conversationId` anchored to the caller-supplied follow-up conversation when `conversationId` is provided, even if Codex emits a different provider thread id on `thread` or `complete` events. If the provider thread still needs to be preserved for resume behavior, keep it outside the returned MCP payload instead of letting the first response disagree with replayed results for the same logical follow-up.
+7. [ ] Edit `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so a replay-focused Codex case emits a provider-side thread id different from the caller conversation id and proves the first response, the before-cleanup replay result, and the after-cleanup replay result all return the same caller-scoped `conversationId`, while a different `replayId` still stays on the fresh path.
 
 #### Testing
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts` from the repository root to prove the new caller-visible replay identity field is validated and parsed honestly on the direct MCP tool seam.
-2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the repaired caller-visible replay barrier on the direct MCP tool seam.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root to prove the repaired caller-visible replay barrier on the direct MCP tool seam.
 3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root to prove the repaired replay barrier does not duplicate the persisted or streamed follow-up contract.
 
 #### Implementation notes
@@ -2306,6 +2308,7 @@ This review-created task repairs the MCP follow-up retry contract so callers can
 - Testing 1 complete: `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts` passed cleanly with 7 tests run, 7 passed, and 0 failed after a small in-scope schema-chain repair moved `.strict()` ahead of `.superRefine()` in the `replayId` validator.
 - Testing 2 complete: `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` passed cleanly with 11 tests run, 11 passed, and 0 failed, so the direct MCP replay barrier now has an honest focused happy-path proof checkpoint on disk.
 - Testing 3 complete: `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` passed cleanly with 4 tests run, 4 passed, and 0 failed, so the cleanup-sensitive replay-window contract now has an honest focused integration proof checkpoint on disk.
+- Manual testing found a concrete replay-result contract bug on the live main-stack MCP seam. `codeInfoTmp/manual-testing/0000056/24/` shows that the persisted conversation stayed correctly scoped to `manual-task24-replay-codex-1777743496`, both replay windows kept the turn count flat at two turns, and a fresh `replayId` grew the turn count to four, but the original Codex response returned inner `conversationId` `019de9c5-075f-7660-ab06-d90de5c460d5` while the before-cleanup and after-cleanup replay payloads both returned the caller conversation id instead. A bounded diagnosis traced that mismatch to `server/src/chat/responders/McpResponder.ts`, which prefers provider-emitted thread ids in the first response while `buildReplayResult()` in `server/src/mcp2/tools/codebaseQuestion.ts` rebuilds replay payloads with the caller conversation id, so Subtasks 6-7 were added and Testing 2 was reopened for the direct happy-path proof owner before a later manual retest.
 
 ### Task 25. Revalidate review pass 0000056-20260502T125558Z-6d5d4717 after review-task and inline-minor repairs
 

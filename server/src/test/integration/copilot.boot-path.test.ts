@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import nodeFs from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -132,6 +133,36 @@ async function listBootstrapStageRoots(parentDir: string) {
         entry.isDirectory() && entry.name.startsWith('.copilot-seed-stage-'),
     )
     .map((entry) => entry.name);
+}
+
+async function withForcedSessionStateRenameExdev<T>(
+  callback: () => Promise<T>,
+): Promise<T> {
+  const originalRename = nodeFs.promises.rename;
+  nodeFs.promises.rename = async (
+    oldPath: nodeFs.PathLike,
+    newPath: nodeFs.PathLike,
+  ) => {
+    if (
+      typeof oldPath === 'string' &&
+      typeof newPath === 'string' &&
+      oldPath.includes(`${path.sep}session-state`) &&
+      newPath.endsWith(`${path.sep}session-state`)
+    ) {
+      const error = new Error(
+        'cross-device link not permitted',
+      ) as NodeJS.ErrnoException;
+      error.code = 'EXDEV';
+      throw error;
+    }
+    return originalRename.call(nodeFs.promises, oldPath, newPath);
+  };
+
+  try {
+    return await callback();
+  } finally {
+    nodeFs.promises.rename = originalRename;
+  }
 }
 
 const createReadyPingResponse = () => ({
@@ -358,6 +389,81 @@ test('boot-path seeding repairs partial runtime homes and still skips a complete
     assert.equal(models.body.provider, 'copilot');
     assert.equal(models.body.available, true);
     assert.equal(models.body.models[0]?.key, 'copilot-gpt-5');
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('boot-path seeding repairs the supported /seed/copilot to /app/copilot session-state seam when directory rename crosses devices', async () => {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-boot-exdev-'),
+  );
+  const seedHome = path.join(tempRoot, 'seed', 'copilot');
+  const runtimeHome = path.join(tempRoot, 'app', 'copilot');
+  const clientFactory = () =>
+    ({
+      system: {
+        listDownloadedModels: async () => [],
+      },
+    }) as never;
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await writeRuntimeArtifacts({
+      runtimeHome,
+      includeConfig: true,
+      includeSettings: true,
+    });
+
+    const seedResult = await withForcedSessionStateRenameExdev(() =>
+      importCopilotSeedIntoRuntimeHome({
+        runtimeHome,
+        seedHome,
+        env: currentRuntimeEnv(),
+      }),
+    );
+
+    assert.equal(seedResult.status, 'seed_applied');
+    assert.deepEqual(seedResult.copiedArtifacts, ['session-state']);
+    assert.match(JSON.stringify(seedResult), /seed_applied/u);
+    assert.equal(
+      await fs.readFile(
+        path.join(runtimeHome, 'session-state', 'session.json'),
+        'utf8',
+      ),
+      '{"bootstrapped": true}\n',
+    );
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatProvidersRouter({
+        clientFactory,
+        copilotRuntimeFactory: () => ({
+          start: async () => {},
+          stop: async () => [],
+          ping: async () => createReadyPingResponse(),
+          getAuthStatus: async () => ({
+            isAuthenticated: await hasBootstrappedRuntime(runtimeHome),
+            authType: 'user',
+          }),
+          listModels: async () =>
+            (await hasBootstrappedRuntime(runtimeHome))
+              ? createReadyModels()
+              : [],
+        }),
+      }),
+    );
+
+    const providers = await request(app).get('/chat/providers');
+    assert.equal(providers.status, 200);
+    const copilotProvider = providers.body.providers.find(
+      (provider: { id?: string }) => provider.id === 'copilot',
+    );
+    assert.ok(copilotProvider);
+    assert.equal(copilotProvider.available, true);
+    assert.equal(seedResult.status, 'seed_applied');
+    assert.doesNotMatch(seedResult.error ?? '', /seed_copy_failed|EXDEV/u);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

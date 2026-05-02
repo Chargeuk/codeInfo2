@@ -207,6 +207,10 @@ function isAlreadyInitializedRenameError(error: unknown): boolean {
   return code === 'EEXIST' || code === 'ENOTEMPTY';
 }
 
+function isCrossDeviceRenameError(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | undefined)?.code === 'EXDEV';
+}
+
 async function stageArtifactCopy(params: {
   sourcePath: string;
   stagedPath: string;
@@ -312,9 +316,7 @@ async function isArtifactRuntimeReady(params: {
     return false;
   }
 
-  if (
-    await pathExists(path.join(params.targetPath, 'session.json'))
-  ) {
+  if (await pathExists(path.join(params.targetPath, 'session.json'))) {
     return true;
   }
 
@@ -350,24 +352,62 @@ async function mergeStagedDirectoryIntoRuntime(params: {
 }): Promise<'copied' | 'skipped_existing_runtime'> {
   const targetType = await readPathType(params.targetPath);
   if (targetType === 'missing') {
-    const publishResult = await publishStagedArtifact({
-      stagedPath: params.stagedPath,
-      targetPath: params.targetPath,
-      kind: 'directory',
-    });
-    if (publishResult === 'copied') {
+    try {
+      const publishResult = await publishStagedArtifact({
+        stagedPath: params.stagedPath,
+        targetPath: params.targetPath,
+        kind: 'directory',
+      });
+      if (publishResult === 'copied') {
+        params.createdTargets.push({
+          targetPath: params.targetPath,
+          stagedPath: params.stagedPath,
+          kind: 'directory',
+        });
+        await normalizeArtifactAccess({
+          targetPath: params.targetPath,
+          kind: 'directory',
+          runtimeOwnership: params.runtimeOwnership,
+        });
+      }
+      return publishResult;
+    } catch (error) {
+      if (!isCrossDeviceRenameError(error)) {
+        throw error;
+      }
+
+      try {
+        await fs.promises.mkdir(params.targetPath);
+      } catch (mkdirError) {
+        if (
+          (mkdirError as NodeJS.ErrnoException | undefined)?.code ===
+            'EEXIST' ||
+          (await pathExists(params.targetPath))
+        ) {
+          return 'skipped_existing_runtime';
+        }
+        throw mkdirError;
+      }
+
       params.createdTargets.push({
         targetPath: params.targetPath,
         stagedPath: params.stagedPath,
         kind: 'directory',
+      });
+
+      const publishResult = await mergeStagedDirectoryIntoRuntime({
+        stagedPath: params.stagedPath,
+        targetPath: params.targetPath,
+        runtimeOwnership: params.runtimeOwnership,
+        createdTargets: params.createdTargets,
       });
       await normalizeArtifactAccess({
         targetPath: params.targetPath,
         kind: 'directory',
         runtimeOwnership: params.runtimeOwnership,
       });
+      return publishResult;
     }
-    return publishResult;
   }
 
   if (targetType !== 'directory') {

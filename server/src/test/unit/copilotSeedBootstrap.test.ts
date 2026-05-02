@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import nodeFs from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -102,6 +103,36 @@ async function listBootstrapStageRoots(parentDir: string) {
         entry.isDirectory() && entry.name.startsWith('.copilot-seed-stage-'),
     )
     .map((entry) => entry.name);
+}
+
+async function withForcedSessionStateRenameExdev<T>(
+  callback: () => Promise<T>,
+): Promise<T> {
+  const originalRename = nodeFs.promises.rename;
+  nodeFs.promises.rename = async (
+    oldPath: nodeFs.PathLike,
+    newPath: nodeFs.PathLike,
+  ) => {
+    if (
+      typeof oldPath === 'string' &&
+      typeof newPath === 'string' &&
+      oldPath.includes(`${path.sep}session-state`) &&
+      newPath.endsWith(`${path.sep}session-state`)
+    ) {
+      const error = new Error(
+        'cross-device link not permitted',
+      ) as NodeJS.ErrnoException;
+      error.code = 'EXDEV';
+      throw error;
+    }
+    return originalRename.call(nodeFs.promises, oldPath, newPath);
+  };
+
+  try {
+    return await callback();
+  } finally {
+    nodeFs.promises.rename = originalRename;
+  }
 }
 
 test('copies config.json, settings.json, and session-state into an empty runtime home', async () => {
@@ -239,9 +270,7 @@ test('two-of-three partial runtime homes import only the missing peer and preser
     assert.equal(result.status, 'seed_applied');
     assert.deepEqual(result.copiedArtifacts, ['settings.json']);
     assert.deepEqual(
-      result.skippedArtifacts
-        .map((artifact) => artifact.artifact)
-        .sort(),
+      result.skippedArtifacts.map((artifact) => artifact.artifact).sort(),
       ['config.json', 'session-state'],
     );
     assert.equal(
@@ -259,6 +288,57 @@ test('two-of-three partial runtime homes import only the missing peer and preser
       await fs.readFile(path.join(runtimeHome, 'settings.json'), 'utf8'),
       '{"storeTokenPlaintext":true}\n',
     );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('partial runtime homes still publish the missing session-state directory when same-device rename is unavailable', async () => {
+  const tempRoot = await makeTempDir('copilot-seed-bootstrap-');
+  const seedHome = path.join(tempRoot, 'seed');
+  const runtimeHome = path.join(tempRoot, 'runtime');
+
+  try {
+    await writeSeedArtifacts(seedHome);
+    await writeRuntimeArtifacts({
+      runtimeHome,
+      includeConfig: true,
+      includeSettings: true,
+    });
+
+    const repairResult = await withForcedSessionStateRenameExdev(() =>
+      importCopilotSeedIntoRuntimeHome({
+        runtimeHome,
+        seedHome,
+      }),
+    );
+
+    assert.equal(repairResult.status, 'seed_applied');
+    assert.deepEqual(repairResult.copiedArtifacts, ['session-state']);
+    assert.deepEqual(
+      repairResult.skippedArtifacts.map((artifact) => artifact.artifact).sort(),
+      ['config.json', 'settings.json'],
+    );
+    assert.equal(
+      await fs.readFile(
+        path.join(runtimeHome, 'session-state', 'session.json'),
+        'utf8',
+      ),
+      '{"session":"ok"}\n',
+    );
+
+    const completeResult = await withForcedSessionStateRenameExdev(() =>
+      importCopilotSeedIntoRuntimeHome({
+        runtimeHome,
+        seedHome,
+      }),
+    );
+
+    assert.equal(
+      completeResult.status,
+      'seed_skipped_runtime_already_initialized',
+    );
+    assert.deepEqual(completeResult.copiedArtifacts, []);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

@@ -1768,6 +1768,7 @@ Review pass `0000056-20260501T005010Z-506c6c19` closed cleanly with no endorsed 
 ### Review Pass `0000056-20260501T220148Z-a78707f5`
 
 - Source of truth: `codeInfoStatus/flow-state/review-disposition-state.json` for active routing, with the stored handoff and findings artifacts kept as supporting evidence for the same story and review pass.
+- This review pass came from ingested external review comments, and the detailed accepted-versus-rejected external adjudication trail remains in the local findings and saturation artifacts for this pass.
 - Review comparison context: local `HEAD` `a78707f58e1798224d9b945b58afa79cfa43d2c3` vs resolved remote base `origin/main` at commit `e1dfeaa8cfac7c4608efe3e70aa8b7d10149d814`, with `comparison_rule: local_head_vs_resolved_base`, `resolved_base_source: remote`, and `remote_fetch_status: success`.
 - Active review cycle: `0000056-rc-20260501T235427Z-243cab18`.
 - Inline-resolved minor findings already handled in `## Minor Review Fixes` for this same review cycle: `finding-1-codex-threadid-preservation`, `finding-2-copilot-discovery-toml-guard`, `finding-3-codex-lmstudio-discovery-toml-guard`, `finding-5-server-entrypoint-posix-local`, `finding-7-copilot-resume-proof-boundary`, `finding-10-provider-stop-lock-guard-parity`, and `finding-11-client-entrypoint-js-escaping`.

@@ -17,7 +17,10 @@ import {
   DEFAULT_LMSTUDIO_MAX_TOKENS,
   DEFAULT_LMSTUDIO_TEMPERATURE,
   DEFAULT_LMSTUDIO_TOOL_ACCESS,
+  copilotReasoningEfforts,
+  parseOptionalConfigString,
   resolveLmStudioConfigAgentFlags,
+  toolAccessModes,
 } from '../chat/providerRuntimeFlags.js';
 import type {
   CodexCapabilityResolution,
@@ -434,10 +437,13 @@ export function buildCopilotAgentFlags(params: {
   }
 
   const configuredReasoningEffort =
-    normalizeString(config.reasoning_effort) ??
-    DEFAULT_COPILOT_REASONING_EFFORT;
+    parseOptionalConfigString(
+      config.reasoning_effort,
+      copilotReasoningEfforts,
+    ) ?? DEFAULT_COPILOT_REASONING_EFFORT;
   const configuredToolAccess =
-    normalizeString(config.tool_access) ?? DEFAULT_COPILOT_TOOL_ACCESS;
+    parseOptionalConfigString(config.tool_access, toolAccessModes) ??
+    DEFAULT_COPILOT_TOOL_ACCESS;
   const reasoningChoices = aggregateModelChoices(
     params.models.flatMap((model) => {
       if (!Array.isArray(model.supportedReasoningEfforts)) return [];

@@ -2172,10 +2172,8 @@ This review-created task repairs the explicit-provider admission contract for bo
 
 #### Subtasks
 
-1. [ ] In `server/src/routes/chat.ts`, move the explicit-provider rejection path so a request that already names `provider` reaches that provider's own unavailable or validation boundary before `client.system.listDownloadedModels()` or `resolveCopilotReadiness(...)` can run for unrelated fallback providers, while keeping the current fallback-selection flow for requests that omit `provider`.
-2. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, mirror the same selected-provider-first ordering for `provider`-pinned MCP calls so the tool can fail with the named provider's own unavailable result before unrelated alternate-provider readiness or model-discovery work begins, while keeping the current fallback behavior for MCP calls that still allow provider resolution.
-3. [ ] Keep one shared provider-selection contract seam between `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts` so the REST and MCP entrypoints agree on when explicit-provider requests may fail early versus when fallback probing is still expected.
-4. [ ] Edit `server/src/test/integration/chat-copilot-fallback.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` so one REST case and one MCP case state the repaired selected-provider-first contract directly, force an unrelated alternate-provider probe to fail if it is still reached, and prove the selected-provider rejection now happens first while a default-provider fallback case still proves the fallback path remains intact.
+1. [ ] Repair the selected-provider-first admission seam across `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, and any shared selection helpers in `server/src/config/chatDefaults.ts` so `provider`-pinned REST and MCP requests fail on the named provider's own unavailable or validation boundary before unrelated LM Studio model discovery or Copilot readiness work can run, while requests that omit `provider` still keep the current fallback-selection behavior.
+2. [ ] Edit `server/src/test/integration/chat-copilot-fallback.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` so the focused proof owners force an unrelated alternate-provider probe to fail if it is still reached, prove the selected-provider rejection now happens first on both REST and MCP, and still preserve one default-provider fallback case that proves the fallback path remains intact.
 
 #### Testing
 
@@ -2218,10 +2216,8 @@ This review-created task repairs the Copilot seed import trust boundary so bind-
 
 #### Subtasks
 
-1. [ ] In `server/src/config/copilotSeedBootstrap.ts`, add one seed-artifact trust-boundary check that rejects symlinked files or directories before staged copy or publish can move them into the trusted runtime home, and make the rejection happen before the helper can treat the seed artifact as a regular file or directory candidate for partial-runtime repair.
-2. [ ] Keep the existing partial-runtime merge, helper-owned cleanup, and cross-device publish fallback behavior intact for regular `config.json`, `settings.json`, and `session-state/` artifacts, instead of broadening the repair into a general runtime-home rewrite.
-3. [ ] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` so focused helper-owned cases prove the trust boundary for both a symlinked file artifact and a symlinked `session-state/` directory, while also proving the already-repaired partial-runtime merge and complete-runtime skip paths still behave the same for regular artifacts.
-4. [ ] Edit `server/src/test/integration/copilot.boot-path.test.ts` so the supported boot-path proof states the startup contract directly: regular seed content still imports into `/app/copilot`, but symlinked seed runtime artifacts are rejected before they can become trusted runtime state on the next supported boot pass.
+1. [ ] Repair the seed-import trust boundary in `server/src/config/copilotSeedBootstrap.ts` so symlinked seed files or directories are rejected before staged copy or publish, while the existing partial-runtime merge, helper-owned cleanup, and cross-device publish fallback still remain intact for regular `config.json`, `settings.json`, and `session-state/` artifacts.
+2. [ ] Edit `server/src/test/unit/copilotSeedBootstrap.test.ts` and `server/src/test/integration/copilot.boot-path.test.ts` so the focused proof owners cover the full compact seam: a symlinked file artifact, a symlinked `session-state/` directory, the unchanged regular-artifact partial-runtime merge path, and the supported `/seed/copilot` -> `/app/copilot` boot path that must reject symlinked seed runtime artifacts before they become trusted runtime state.
 
 #### Testing
 
@@ -2274,11 +2270,8 @@ This review-created task repairs the MCP follow-up retry contract so callers can
 
 #### Subtasks
 
-1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, add one caller-visible replay identity field to the tool input schema and argument parsing so a retrying caller can mark two follow-up attempts as the same logical request instead of always receiving a fresh random inflight id.
-2. [ ] Thread that replay identity through the current MCP-owned conversation plus inflight seam so a repeated logical follow-up can return one stable replay result after completion, while a genuinely new follow-up with a different replay identity still takes the normal accepted path.
-3. [ ] Preserve the caller-visible transport contract through `server/src/mcp2/router.ts` and the direct tool path in `server/src/mcp2/tools/codebaseQuestion.ts` so the new replay field and replay result survive the normal `tools/call` wrapper path instead of only a helper-owned shortcut.
-4. [ ] Keep the replay barrier at one coherent MCP-owned seam by reusing `server/src/chat/inflightRegistry.ts` only where it helps enforce the new `codebase_question` idempotency contract, rather than redefining unrelated tool, REST, or websocket replay behavior.
-5. [ ] Edit `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` so the focused proof owners state the new caller-visible replay field, the stable replay result after completion, the before-cleanup and after-cleanup retry windows, and the non-duplicating streamed or persisted follow-up contract directly.
+1. [ ] Repair the caller-visible replay seam across `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/mcp2/router.ts`, and the MCP-owned replay state in `server/src/chat/inflightRegistry.ts` so `codebase_question` accepts one replay identity field through the normal `tools/call` wrapper path, returns one stable replay result for repeated logical follow-ups after completion, and still accepts genuinely new follow-ups with a different replay identity.
+2. [ ] Edit `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` so the focused proof owners cover the compact contract end to end: replay-field validation, the stable replay result after completion, both retry windows that matter for this seam before and after cleanup, and the non-duplicating streamed or persisted follow-up contract.
 
 #### Testing
 

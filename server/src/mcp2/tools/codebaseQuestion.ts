@@ -15,7 +15,9 @@ import {
 import {
   cleanupInflight,
   createInflight,
+  getCompletedInflightByReplayId,
   getInflight,
+  type CompletedInflightState,
 } from '../../chat/inflightRegistry.js';
 import type {
   ChatAnalysisEvent,
@@ -63,12 +65,24 @@ import {
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
+const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
 const paramsSchema = z
   .object({
     question: z.string().min(1),
     conversationId: z.string().min(1).optional(),
+    replayId: z.string().min(1).max(128).regex(REPLAY_ID_REGEX).optional(),
     provider: z.enum(['codex', 'copilot', 'lmstudio']).optional(),
     model: z.string().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.replayId && !value.conversationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['replayId'],
+        message:
+          'replayId requires conversationId so follow-up retries stay scoped to one conversation.',
+      });
+    }
   })
   .strict();
 
@@ -98,6 +112,51 @@ export type CodebaseQuestionResult = {
   modelId: string;
   segments: Segment[];
 };
+
+function buildReplayResult(params: {
+  conversationId: string;
+  completedReplay: CompletedInflightState;
+}): { content: [{ type: 'text'; text: string }] } {
+  const payload: CodebaseQuestionResult = {
+    conversationId: params.conversationId,
+    modelId: params.completedReplay.model ?? 'unknown',
+    segments: [
+      {
+        type: 'answer',
+        text: params.completedReplay.assistantText ?? '',
+      },
+    ],
+  };
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
+  };
+}
+
+function getCompletedReplayResult(params: {
+  conversationId?: string;
+  replayId?: string;
+}): { content: [{ type: 'text'; text: string }] } | null {
+  if (!params.conversationId || !params.replayId) return null;
+  const completedReplay = getCompletedInflightByReplayId({
+    conversationId: params.conversationId,
+    replayId: params.replayId,
+  });
+  if (!completedReplay) return null;
+  return buildReplayResult({
+    conversationId: params.conversationId,
+    completedReplay,
+  });
+}
+
+function makeActiveReplayKey(conversationId: string, replayId: string) {
+  return `${conversationId}::${replayId}`;
+}
+
+const activeReplayRuns = new Map<
+  string,
+  Promise<{ content: [{ type: 'text'; text: string }] }>
+>();
 
 function logSummaryContractRead(params: {
   conversationId: string;
@@ -284,6 +343,53 @@ export async function runCodebaseQuestion(
   deps: Partial<CodebaseQuestionDeps> = {},
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const parsed = validateParams(params);
+  const replayId = parsed.replayId;
+  const completedReplay = getCompletedReplayResult({
+    conversationId: parsed.conversationId,
+    replayId,
+  });
+  if (completedReplay) {
+    return completedReplay;
+  }
+
+  const replayKey =
+    parsed.conversationId && replayId
+      ? makeActiveReplayKey(parsed.conversationId, replayId)
+      : null;
+  if (replayKey) {
+    const activeReplay = activeReplayRuns.get(replayKey);
+    if (activeReplay) {
+      return await activeReplay;
+    }
+  }
+
+  const runPromise = executeCodebaseQuestion(parsed, deps);
+  if (!replayKey) {
+    return await runPromise;
+  }
+
+  activeReplayRuns.set(replayKey, runPromise);
+  try {
+    return await runPromise;
+  } finally {
+    if (activeReplayRuns.get(replayKey) === runPromise) {
+      activeReplayRuns.delete(replayKey);
+    }
+  }
+}
+
+async function executeCodebaseQuestion(
+  parsed: CodebaseQuestionParams,
+  deps: Partial<CodebaseQuestionDeps>,
+): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  const replayId = parsed.replayId;
+  const completedReplay = getCompletedReplayResult({
+    conversationId: parsed.conversationId,
+    replayId,
+  });
+  if (completedReplay) {
+    return completedReplay;
+  }
   const question = parsed.question;
   const conversationId = parsed.conversationId;
   const resolvedDefaults = resolveChatDefaults({
@@ -562,6 +668,37 @@ export async function runCodebaseQuestion(
       codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'],
   } as ThreadOptions;
 
+  const resolvedConversationId =
+    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
+  const lateCompletedReplay = getCompletedReplayResult({
+    conversationId: resolvedConversationId,
+    replayId,
+  });
+  if (lateCompletedReplay) {
+    return lateCompletedReplay;
+  }
+
+  const inflightId = replayId
+    ? `mcp-replay-${replayId}`
+    : crypto.randomUUID();
+
+  const existingFlags =
+    existingConversation && existingConversation._id === resolvedConversationId
+      ? (existingConversation.flags as Record<string, unknown> | undefined)
+      : undefined;
+  const conversationFlags =
+    executionProvider === 'codex'
+      ? { ...(existingFlags ?? {}), ...threadOpts }
+      : sanitizeFlagsForProvider(executionProvider, existingFlags);
+
+  await ensureConversation(
+    resolvedConversationId,
+    executionProvider,
+    executionModel,
+    question.trim().slice(0, 80) || 'Untitled conversation',
+    conversationFlags,
+  );
+
   let chat: ChatInterface;
   const resolvedChatFactory = deps.chatFactory ?? getChatInterface;
   try {
@@ -585,29 +722,14 @@ export async function runCodebaseQuestion(
   chat.on('thread', (ev: ChatThreadEvent) => responder.handle(ev));
   chat.on('error', (ev) => responder.handle(ev));
 
-  const resolvedConversationId =
-    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
-
-  const inflightId = crypto.randomUUID();
-
-  const existingFlags =
-    existingConversation && existingConversation._id === resolvedConversationId
-      ? (existingConversation.flags as Record<string, unknown> | undefined)
-      : undefined;
-  const conversationFlags =
-    executionProvider === 'codex'
-      ? { ...(existingFlags ?? {}), ...threadOpts }
-      : sanitizeFlagsForProvider(executionProvider, existingFlags);
-
-  await ensureConversation(
-    resolvedConversationId,
-    executionProvider,
-    executionModel,
-    question.trim().slice(0, 80) || 'Untitled conversation',
-    conversationFlags,
-  );
-
-  createInflight({ conversationId: resolvedConversationId, inflightId });
+  createInflight({
+    conversationId: resolvedConversationId,
+    inflightId,
+    replayId,
+    provider: executionProvider,
+    model: executionModel,
+    source: 'MCP',
+  });
   const bridge = attachChatStreamBridge({
     conversationId: resolvedConversationId,
     inflightId,
@@ -711,6 +833,11 @@ export function codebaseQuestionDefinition() {
         conversationId: {
           type: 'string',
           description: 'Optional conversation/thread id for follow-up turns.',
+        },
+        replayId: {
+          type: 'string',
+          description:
+            'Optional caller-supplied replay identity for one logical follow-up retry. Requires conversationId and must be reused verbatim on retries that should not duplicate provider work.',
         },
         provider: {
           type: 'string',

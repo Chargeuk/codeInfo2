@@ -252,3 +252,105 @@ test('codebase_question validation accepts provider copilot without widening the
     /Invalid params/u,
   );
 });
+
+test('codebase_question validation accepts a conversation-scoped replayId for one logical follow-up retry', () => {
+  assert.deepEqual(
+    validateParams({
+      question: 'retry this follow-up',
+      conversationId: 'conv-replay-1',
+      replayId: 'retry-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    }),
+    {
+      question: 'retry this follow-up',
+      conversationId: 'conv-replay-1',
+      replayId: 'retry-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+  );
+});
+
+test('codebase_question validation rejects replayId without conversationId before provider work starts', async () => {
+  let providerWorkStarted = 0;
+  setToolDeps({
+    chatFactory: () => {
+      providerWorkStarted += 1;
+      throw new Error('provider work should not start');
+    },
+    clientFactory: makeLmStudioClientFactory(),
+    codexFactory: makeCodexFactory,
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 203,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'retry without a conversation?',
+          replayId: 'retry-1',
+        },
+      },
+    });
+    assert.ok(body.error);
+    assert.equal(body.error.code, -32602);
+    assert.equal(body.error.message, 'Invalid params');
+    assert.equal(providerWorkStarted, 0);
+  } finally {
+    resetToolDeps();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
+test('codebase_question validation rejects malformed replayId characters before provider work starts', async () => {
+  let providerWorkStarted = 0;
+  setToolDeps({
+    chatFactory: () => {
+      providerWorkStarted += 1;
+      throw new Error('provider work should not start');
+    },
+    clientFactory: makeLmStudioClientFactory(),
+    codexFactory: makeCodexFactory,
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 204,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'retry with malformed replay id?',
+          conversationId: 'conv-replay-2',
+          replayId: 'retry value with spaces',
+        },
+      },
+    });
+    assert.ok(body.error);
+    assert.equal(body.error.code, -32602);
+    assert.equal(body.error.message, 'Invalid params');
+    assert.equal(providerWorkStarted, 0);
+  } finally {
+    resetToolDeps();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});

@@ -23,6 +23,7 @@ export type ToolEvent =
 
 export type InflightState = {
   inflightId: string;
+  replayId?: string;
   provider?: string;
   model?: string;
   source?: 'REST' | 'MCP';
@@ -48,6 +49,7 @@ export type PendingConversationCancel = {
 
 export type CompletedInflightState = {
   inflightId: string;
+  replayId?: string;
   provider?: string;
   model?: string;
   source?: 'REST' | 'MCP';
@@ -68,11 +70,16 @@ const pendingCancelByConversationId = new Map<
   PendingConversationCancel
 >();
 const completedInflightByKey = new Map<string, CompletedInflightState>();
+const completedInflightKeyByReplayKey = new Map<string, string>();
 const completedInflightOrder: string[] = [];
 const MAX_COMPLETED_INFLIGHT_ENTRIES = 1000;
 
 function makeCompletedInflightKey(conversationId: string, inflightId: string) {
   return `${conversationId}::${inflightId}`;
+}
+
+function makeCompletedReplayKey(conversationId: string, replayId: string) {
+  return `${conversationId}::${replayId}`;
 }
 
 function cloneCompletedInflightState(
@@ -100,6 +107,7 @@ function rememberCompletedInflight(params: {
   );
   const snapshot: CompletedInflightState = {
     inflightId: params.state.inflightId,
+    replayId: params.state.replayId,
     provider: params.state.provider,
     model: params.state.model,
     source: params.state.source,
@@ -122,10 +130,27 @@ function rememberCompletedInflight(params: {
     completedInflightOrder.push(key);
   }
   completedInflightByKey.set(key, snapshot);
+  if (snapshot.replayId) {
+    completedInflightKeyByReplayKey.set(
+      makeCompletedReplayKey(params.conversationId, snapshot.replayId),
+      key,
+    );
+  }
 
   while (completedInflightOrder.length > MAX_COMPLETED_INFLIGHT_ENTRIES) {
     const oldestKey = completedInflightOrder.shift();
     if (!oldestKey) break;
+    const evicted = completedInflightByKey.get(oldestKey);
+    if (evicted?.replayId) {
+      const separatorIndex = oldestKey.indexOf('::');
+      const conversationId =
+        separatorIndex >= 0 ? oldestKey.slice(0, separatorIndex) : null;
+      if (conversationId) {
+        completedInflightKeyByReplayKey.delete(
+          makeCompletedReplayKey(conversationId, evicted.replayId),
+        );
+      }
+    }
     completedInflightByKey.delete(oldestKey);
   }
 }
@@ -148,9 +173,22 @@ export function getCompletedInflight(params: {
   return snapshot ? cloneCompletedInflightState(snapshot) : null;
 }
 
+export function getCompletedInflightByReplayId(params: {
+  conversationId: string;
+  replayId: string;
+}): CompletedInflightState | null {
+  const inflightKey = completedInflightKeyByReplayKey.get(
+    makeCompletedReplayKey(params.conversationId, params.replayId),
+  );
+  if (!inflightKey) return null;
+  const snapshot = completedInflightByKey.get(inflightKey);
+  return snapshot ? cloneCompletedInflightState(snapshot) : null;
+}
+
 export function createInflight(params: {
   conversationId: string;
   inflightId: string;
+  replayId?: string;
   provider?: string;
   model?: string;
   source?: 'REST' | 'MCP';
@@ -161,6 +199,7 @@ export function createInflight(params: {
   const controller = new AbortController();
   const state: InflightState = {
     inflightId: params.inflightId,
+    replayId: params.replayId,
     provider: params.provider,
     model: params.model,
     source: params.source,

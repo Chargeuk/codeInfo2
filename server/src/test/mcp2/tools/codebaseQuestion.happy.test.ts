@@ -198,6 +198,33 @@ class CapturingChat extends ChatInterface {
   }
 }
 
+class ReplayBarrierChat extends ChatInterface {
+  runs = 0;
+
+  async execute(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ): Promise<void> {
+    void flags;
+    void model;
+    this.runs += 1;
+    this.emit('thread', {
+      type: 'thread',
+      threadId: conversationId,
+    });
+    this.emit('final', {
+      type: 'final',
+      content: `Replay answer ${this.runs}: ${message}`,
+    });
+    this.emit('complete', {
+      type: 'complete',
+      threadId: conversationId,
+    });
+  }
+}
+
 async function postJson(port: number, body: unknown) {
   const payload = JSON.stringify(body);
   return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
@@ -409,6 +436,64 @@ test('codebase_question reuses shared provider defaults when provider copilot is
     else process.env.CODEINFO_COPILOT_HOME = originalHome;
     await tempHome.cleanup();
   }
+});
+
+test('codebase_question returns one stable replay result for the same logical follow-up while a different replayId stays on the fresh path', async () => {
+  const chat = new ReplayBarrierChat();
+  const deps = {
+    chatFactory: () => chat,
+    copilotReadinessResolver: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready' as const,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token' as const,
+    }),
+  };
+
+  const firstResult = await runCodebaseQuestion(
+    {
+      question: 'first logical follow-up',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const firstPayload = JSON.parse(firstResult.content[0].text);
+
+  const sameReplayResult = await runCodebaseQuestion(
+    {
+      question: 'contradictory stale retry',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const sameReplayPayload = JSON.parse(sameReplayResult.content[0].text);
+
+  assert.equal(chat.runs, 1);
+  assert.deepEqual(sameReplayPayload, firstPayload);
+
+  const freshReplayResult = await runCodebaseQuestion(
+    {
+      question: 'fresh logical follow-up',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-2',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const freshReplayPayload = JSON.parse(freshReplayResult.content[0].text);
+
+  assert.equal(chat.runs, 2);
+  assert.equal(freshReplayPayload.conversationId, 'mcp-replay-happy-1');
+  assert.equal(freshReplayPayload.segments[0].text, 'Replay answer 2: fresh logical follow-up');
 });
 
 test('codebase_question normalizes implicit Copilot defaults and omits reasoning for models that do not support it', async () => {

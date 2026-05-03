@@ -41,6 +41,13 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("folder browsing", text)
         self.assertIn("healthchecks, env dumps, or container-inspect output", text)
 
+        checklist_text = read_text(
+            "codeinfo_markdown/review_evidence_gate/proof_and_risk/05-test-proof-and-adversarial-checklist.md"
+        )
+        self.assertIn("non-default representative value", checklist_text)
+        self.assertIn("validator, discovery route, provider flag sanitizer, execution route, or provider interface", checklist_text)
+        self.assertIn("runtime-config overlay or an explicit contract narrowing", checklist_text)
+
     def test_blind_spot_command_includes_changed_hunk_runtime_scan(self) -> None:
         command = json.loads(
             read_text("codex_agents/review_agent/commands/review_blind_spot_challenge.json")
@@ -63,6 +70,10 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("lost preserved identifiers", text)
         self.assertIn("malformed TOML", text)
         self.assertIn("non-POSIX features such as `local`", text)
+        self.assertIn("silently dropped, narrowed, or translated differently", text)
+        self.assertIn("validator, discovery route, provider flag sanitizer, execution route, or provider interface", text)
+        self.assertIn("non-default enum-like provider flag value, such as `cached`", text)
+        self.assertIn("Do not use this check as permission to reopen unrelated env, compose, or startup cleanup", text)
 
     def test_disposition_and_tasking_prompts_gate_cleanup_only_runtime_rewrites(self) -> None:
         classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")

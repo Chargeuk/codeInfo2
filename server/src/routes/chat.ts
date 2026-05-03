@@ -397,10 +397,11 @@ export function createChatRouter({
         ? {
             sandboxMode: effectiveAgentFlags.sandboxMode,
             networkAccessEnabled: effectiveAgentFlags.networkAccessEnabled,
-            webSearchEnabled:
-              effectiveAgentFlags.webSearchMode === 'disabled' ? false : true,
+            webSearchMode: effectiveAgentFlags.webSearchMode,
             approvalPolicy: effectiveAgentFlags.approvalPolicy,
             modelReasoningEffort: effectiveAgentFlags.modelReasoningEffort,
+            modelReasoningSummary: effectiveAgentFlags.modelReasoningSummary,
+            modelVerbosity: effectiveAgentFlags.modelVerbosity,
           }
         : {};
     console.info(TASK7_LOG_MARKER, {

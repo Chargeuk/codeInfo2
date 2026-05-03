@@ -707,6 +707,51 @@ test('codex chat uses chat runtime config file (not base behavior keys)', async 
   }
 });
 
+test('chat route overlays codex reasoning summary and verbosity into runtime config', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  let capturedOptions: CodexOptions | undefined;
+  const codexFactory = (options?: CodexOptions) => {
+    capturedOptions = options;
+    return new MockCodex('thread-chat-overrides');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: 'conv-codex-chat-overrides',
+        agentFlags: {
+          modelReasoningSummary: 'concise',
+          modelVerbosity: 'high',
+        },
+      }),
+    )
+    .expect(202);
+
+  const deadline = Date.now() + 3000;
+  while (!capturedOptions && Date.now() < deadline) {
+    await sleep(25);
+  }
+
+  assert(capturedOptions, 'expected codex options to be captured');
+  const config = capturedOptions.config as Record<string, unknown> | undefined;
+  assert.equal(config?.model_reasoning_summary, 'concise');
+  assert.equal(config?.model_verbosity, 'high');
+});
+
 test('codex chat emits deterministic T06 error when chat runtime config is missing', async () => {
   setCodexDetection({
     available: true,

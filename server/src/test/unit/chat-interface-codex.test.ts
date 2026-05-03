@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
+import type {
+  CodexOptions,
+  ThreadOptions as CodexThreadOptions,
+} from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import type {
   ChatEvent,
@@ -22,7 +25,7 @@ type MockThread = {
   runStreamed: () => Promise<{ events: AsyncGenerator<unknown> }>;
 };
 
-type MockCodexFactory = () => {
+type MockCodexFactory = (options?: CodexOptions) => {
   startThread: (opts?: CodexThreadOptions) => MockThread;
   resumeThread: (threadId: string, opts?: CodexThreadOptions) => MockThread;
 };
@@ -390,7 +393,7 @@ describe('ChatInterfaceCodex', () => {
     });
   });
 
-  it('passes validated codex flags into thread options', async () => {
+  it('passes validated codex thread-option flags into thread options', async () => {
     resetMemory();
     setCodexDetection({
       available: true,
@@ -424,7 +427,7 @@ describe('ChatInterfaceCodex', () => {
         codexFlags: {
           sandboxMode: 'danger-full-access',
           networkAccessEnabled: false,
-          webSearchEnabled: false,
+          webSearchMode: 'cached',
           approvalPolicy: 'never',
           modelReasoningEffort: 'medium',
         },
@@ -435,9 +438,60 @@ describe('ChatInterfaceCodex', () => {
 
     assert.equal(lastOptions?.sandboxMode, 'danger-full-access');
     assert.equal(lastOptions?.networkAccessEnabled, false);
-    assert.equal(lastOptions?.webSearchEnabled, false);
+    assert.equal(lastOptions?.webSearchMode, 'cached');
     assert.equal(lastOptions?.approvalPolicy, 'never');
     assert.equal(lastOptions?.modelReasoningEffort, 'medium');
+  });
+
+  it('applies reasoning summary and verbosity as runtime config overrides', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    let capturedOptions: CodexOptions | undefined;
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-runtime-overrides' };
+      yield { type: 'turn.completed' };
+    };
+
+    const thread = {
+      id: 'tid-runtime-overrides',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory: MockCodexFactory = (options?: CodexOptions) => {
+      capturedOptions = options;
+      return {
+        startThread: () => thread,
+        resumeThread: () => thread,
+      };
+    };
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    await chat.run(
+      'Hello',
+      {
+        threadId: null,
+        runtimeConfig: {
+          model: 'gpt-5.3-codex-spark',
+        },
+        codexFlags: {
+          modelReasoningSummary: 'concise',
+          modelVerbosity: 'high',
+        },
+      },
+      'conv-runtime-overrides',
+      'gpt-5',
+    );
+
+    const config = capturedOptions?.config as
+      | Record<string, unknown>
+      | undefined;
+    assert.equal(config?.model, 'gpt-5.3-codex-spark');
+    assert.equal(config?.model_reasoning_summary, 'concise');
+    assert.equal(config?.model_verbosity, 'high');
   });
 
   it('leaves missing codex flags undefined in thread options', async () => {

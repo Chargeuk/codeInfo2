@@ -18,7 +18,7 @@ type CodexRunFlags = {
   workingDirectoryOverride?: string;
   envOverrides?: NodeJS.ProcessEnv;
   threadId?: string | null;
-  codexFlags?: Partial<CodexThreadOptions>;
+  codexFlags?: CodexExecutionFlags;
   codexHome?: string;
   disableSystemContext?: boolean;
   systemPrompt?: string;
@@ -28,6 +28,21 @@ type CodexRunFlags = {
   signal?: AbortSignal;
   skipPersistence?: boolean;
   source?: 'REST' | 'MCP';
+};
+
+type CodexExecutionFlags = Partial<
+  Pick<
+    CodexThreadOptions,
+    | 'sandboxMode'
+    | 'networkAccessEnabled'
+    | 'webSearchMode'
+    | 'webSearchEnabled'
+    | 'approvalPolicy'
+    | 'modelReasoningEffort'
+  >
+> & {
+  modelReasoningSummary?: 'auto' | 'concise' | 'detailed' | 'none';
+  modelVerbosity?: 'low' | 'medium' | 'high';
 };
 
 type CodexToolCallItem = {
@@ -55,6 +70,30 @@ type CodexUsagePayload = {
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const mergeRuntimeConfigOverrides = (
+  baseConfig: CodexOptions['config'],
+  overrides: {
+    model_reasoning_summary?: CodexExecutionFlags['modelReasoningSummary'];
+    model_verbosity?: CodexExecutionFlags['modelVerbosity'];
+  },
+): CodexOptions['config'] => {
+  const entries = Object.entries(overrides).filter(
+    ([, value]) => value !== undefined,
+  );
+  if (entries.length === 0) return baseConfig;
+
+  const merged: Record<string, unknown> = isRecord(baseConfig)
+    ? { ...baseConfig }
+    : {};
+  for (const [key, value] of entries) {
+    merged[key] = value;
+  }
+  return merged as CodexOptions['config'];
+};
 
 const mapCodexUsage = (usage: unknown): TurnUsageMetadata | undefined => {
   if (!usage || typeof usage !== 'object') return undefined;
@@ -128,6 +167,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       envOverrides,
       runtimeConfig,
     } = (flags ?? {}) as CodexRunFlags;
+    const effectiveCodexFlags = codexFlags ?? {};
     const detection = codexHome
       ? refreshCodexDetection({ codexHome })
       : getCodexDetection();
@@ -145,6 +185,11 @@ export class ChatInterfaceCodex extends ChatInterface {
       process.env.CODEINFO_CODEX_WORKDIR ??
       '/data';
 
+    const effectiveRuntimeConfig = mergeRuntimeConfigOverrides(runtimeConfig, {
+      model_reasoning_summary: effectiveCodexFlags.modelReasoningSummary,
+      model_verbosity: effectiveCodexFlags.modelVerbosity,
+    });
+
     const threadOptions: CodexThreadOptions = useConfigDefaults
       ? {
           workingDirectory: codexWorkingDirectory,
@@ -154,11 +199,12 @@ export class ChatInterfaceCodex extends ChatInterface {
           model,
           workingDirectory: codexWorkingDirectory,
           skipGitRepoCheck: true,
-          sandboxMode: codexFlags?.sandboxMode,
-          networkAccessEnabled: codexFlags?.networkAccessEnabled,
-          webSearchEnabled: codexFlags?.webSearchEnabled,
-          approvalPolicy: codexFlags?.approvalPolicy,
-          modelReasoningEffort: codexFlags?.modelReasoningEffort,
+          sandboxMode: effectiveCodexFlags.sandboxMode,
+          networkAccessEnabled: effectiveCodexFlags.networkAccessEnabled,
+          webSearchMode: effectiveCodexFlags.webSearchMode,
+          webSearchEnabled: effectiveCodexFlags.webSearchEnabled,
+          approvalPolicy: effectiveCodexFlags.approvalPolicy,
+          modelReasoningEffort: effectiveCodexFlags.modelReasoningEffort,
         };
 
     const undefinedFlags: string[] = [];
@@ -166,11 +212,18 @@ export class ChatInterfaceCodex extends ChatInterface {
       if (value === undefined) undefinedFlags.push(label);
     };
 
-    addUndefinedFlag('sandboxMode', codexFlags?.sandboxMode);
-    addUndefinedFlag('networkAccessEnabled', codexFlags?.networkAccessEnabled);
-    addUndefinedFlag('webSearchEnabled', codexFlags?.webSearchEnabled);
-    addUndefinedFlag('approvalPolicy', codexFlags?.approvalPolicy);
-    addUndefinedFlag('modelReasoningEffort', codexFlags?.modelReasoningEffort);
+    addUndefinedFlag('sandboxMode', effectiveCodexFlags.sandboxMode);
+    addUndefinedFlag(
+      'networkAccessEnabled',
+      effectiveCodexFlags.networkAccessEnabled,
+    );
+    addUndefinedFlag('webSearchMode', effectiveCodexFlags.webSearchMode);
+    addUndefinedFlag('webSearchEnabled', effectiveCodexFlags.webSearchEnabled);
+    addUndefinedFlag('approvalPolicy', effectiveCodexFlags.approvalPolicy);
+    addUndefinedFlag(
+      'modelReasoningEffort',
+      effectiveCodexFlags.modelReasoningEffort,
+    );
 
     baseLogger.info(
       {
@@ -181,7 +234,11 @@ export class ChatInterfaceCodex extends ChatInterface {
     );
 
     const codex = this.codexFactory(
-      buildCodexOptions({ codexHome, runtimeConfig, envOverrides }),
+      buildCodexOptions({
+        codexHome,
+        runtimeConfig: effectiveRuntimeConfig,
+        envOverrides,
+      }),
     );
 
     const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT;

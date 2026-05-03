@@ -458,8 +458,8 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     'default network access should match env defaults',
   );
   assert.equal(
-    mockCodex.lastStartOptions?.webSearchEnabled,
-    codexDefaults.webSearchEnabled,
+    mockCodex.lastStartOptions?.webSearchMode,
+    codexDefaults.webSearchEnabled ? 'live' : 'disabled',
     'default web search should match env defaults',
   );
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
@@ -946,7 +946,7 @@ test('codex chat forwards networkAccessEnabled flag to codex thread', async () =
   );
 });
 
-test('codex chat forwards webSearchMode flag to codex thread', async () => {
+test('codex chat preserves cached webSearchMode flag on the codex thread', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -968,15 +968,15 @@ test('codex chat forwards webSearchMode flag to codex thread', async () => {
     .post('/chat')
     .send(
       buildCodexBody({
-        agentFlags: { webSearchMode: 'disabled' },
+        agentFlags: { webSearchMode: 'cached' },
       }),
     )
     .expect(202);
 
   assert.equal(
-    mockCodex.lastStartOptions?.webSearchEnabled,
-    false,
-    'explicit webSearchMode should be translated for Codex',
+    mockCodex.lastStartOptions?.webSearchMode,
+    'cached',
+    'explicit webSearchMode should be preserved for Codex',
   );
 });
 

@@ -26,6 +26,7 @@ import {
 import { ChatInterface } from './ChatInterface.js';
 
 const TASK7_LOG_MARKER = 'story.0000051.task07.chat_turn_completed';
+const DEFAULT_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC = 7200;
 
 type CopilotRunFlags = {
   agentFlags?: Record<string, unknown>;
@@ -110,6 +111,19 @@ const normalizeTiming = (
       ? { tokensPerSecond: outputTokens / totalTimeSec }
       : {}),
   };
+};
+
+const resolveCopilotSendAndWaitTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+): number => {
+  const rawValue = env.CODEINFO_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC?.trim();
+  const parsedSeconds =
+    rawValue && rawValue.length > 0 ? Number(rawValue) : NaN;
+  const effectiveSeconds =
+    Number.isFinite(parsedSeconds) && parsedSeconds > 0
+      ? parsedSeconds
+      : DEFAULT_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC;
+  return effectiveSeconds * 1000;
 };
 
 export class ChatInterfaceCopilot extends ChatInterface {
@@ -411,7 +425,10 @@ export class ChatInterfaceCopilot extends ChatInterface {
         this.emitEvent({ type: 'thread', threadId: conversationId });
       }
 
-      await session.sendAndWait({ prompt: message });
+      await session.sendAndWait(
+        { prompt: message },
+        resolveCopilotSendAndWaitTimeoutMs(),
+      );
     } finally {
       await session?.disconnect().catch(() => undefined);
       if (started) {

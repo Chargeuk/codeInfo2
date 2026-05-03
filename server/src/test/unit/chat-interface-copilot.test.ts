@@ -32,6 +32,10 @@ const createChat = (harness: MockCopilotSdkHarness) =>
     copilotLifecycle: harness.createLifecycle(),
   }) as ChatInterfaceCopilot;
 
+test.afterEach(() => {
+  delete process.env.CODEINFO_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC;
+});
+
 test('ChatInterfaceCopilot create-session path maps streamed events into ChatInterface events', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-create-session',
@@ -122,6 +126,7 @@ test('ChatInterfaceCopilot create-session config allows permissions by default',
     'ListIngestedRepositories',
     'VectorSearch',
   ]);
+  assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 7_200_000);
 });
 
 test('ChatInterfaceCopilot create-session omits SDK tool-registration inputs when toolAccess is off', async () => {
@@ -220,4 +225,58 @@ test('ChatInterfaceCopilot resume-session omits SDK tool-registration inputs whe
     harness.getState().lastResumeSession?.config.availableTools,
     undefined,
   );
+});
+
+test('ChatInterfaceCopilot converts timeout seconds from env into sendAndWait milliseconds', async () => {
+  process.env.CODEINFO_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC = '600';
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-timeout-seconds',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+
+  await chat.run(
+    'Use configured timeout',
+    { provider: 'copilot', skipPersistence: true, resumeConversation: false },
+    'copilot-conversation-timeout',
+    'copilot-gpt-5',
+  );
+
+  assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 600_000);
+});
+
+test('ChatInterfaceCopilot falls back to the default timeout when env is invalid', async () => {
+  process.env.CODEINFO_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC = 'abc';
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-timeout-invalid',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+
+  await chat.run(
+    'Use fallback timeout',
+    { provider: 'copilot', skipPersistence: true, resumeConversation: false },
+    'copilot-conversation-timeout-invalid',
+    'copilot-gpt-5',
+  );
+
+  assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 7_200_000);
+});
+
+test('ChatInterfaceCopilot falls back to the default timeout when env is non-positive', async () => {
+  process.env.CODEINFO_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC = '0';
+  const harness = createMockCopilotSdkHarness({
+    name: 'copilot-timeout-zero',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+  const chat = createChat(harness);
+
+  await chat.run(
+    'Use non-positive fallback timeout',
+    { provider: 'copilot', skipPersistence: true, resumeConversation: false },
+    'copilot-conversation-timeout-zero',
+    'copilot-gpt-5',
+  );
+
+  assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 7_200_000);
 });

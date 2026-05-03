@@ -80,6 +80,31 @@ function buildLegacyBootstrapProviders(): ChatProviderInfo[] {
   );
 }
 
+function pickProvider(
+  list: ChatProviderInfo[],
+  options?: {
+    currentProvider?: ChatProviderId;
+    preferredProvider?: ChatProviderId;
+  },
+): ChatProviderId | undefined {
+  if (
+    options?.currentProvider &&
+    list.some((provider) => provider.id === options.currentProvider)
+  ) {
+    return options.currentProvider;
+  }
+
+  if (
+    options?.preferredProvider &&
+    list.some((provider) => provider.id === options.preferredProvider)
+  ) {
+    return options.preferredProvider;
+  }
+
+  const firstAvailable = list.find((provider) => provider.available);
+  return firstAvailable?.id ?? list[0]?.id;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -428,17 +453,6 @@ export function useChatModel() {
     providerRef.current = providerState;
   }, [providerState]);
 
-  const pickProvider = useCallback(
-    (list: ChatProviderInfo[]) => {
-      if (providerState && list.some((p) => p.id === providerState)) {
-        return providerState;
-      }
-      const firstAvailable = list.find((p) => p.available);
-      return firstAvailable?.id ?? list[0]?.id;
-    },
-    [providerState],
-  );
-
   const setProvider = useCallback(
     (
       nextValue:
@@ -557,7 +571,10 @@ export function useChatModel() {
         list.some((provider) => provider.id === data.selectedProvider)
           ? data.selectedProvider
           : undefined;
-      const chosen = preferredProvider ?? pickProvider(list);
+      const chosen = pickProvider(list, {
+        currentProvider: providerRef.current,
+        preferredProvider,
+      });
       bootstrapSelectedModelRef.current =
         preferredProvider &&
         chosen === preferredProvider &&
@@ -590,7 +607,7 @@ export function useChatModel() {
         providerControllerRef.current = null;
       }
     }
-  }, [pickProvider, setProvider, setSelected]);
+  }, [setProvider, setSelected]);
 
   const refreshModels = useCallback(
     async (targetProvider?: ChatProviderId | string) => {

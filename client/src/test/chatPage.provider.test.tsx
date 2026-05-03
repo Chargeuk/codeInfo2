@@ -194,6 +194,168 @@ describe('Chat provider selection (WS transport)', () => {
     await waitFor(() => expect(modelSelect).toHaveTextContent(/gpt-5 mini/i));
   });
 
+  it('keeps an explicit provider change after bootstrapping from the server-selected default', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+            selectedProvider: 'copilot',
+            selectedModel: 'gpt-5-mini',
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        const providerId = new URL(href, 'http://localhost').searchParams.get(
+          'provider',
+        );
+
+        if (providerId === 'codex') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              defaultModel: 'gpt-5.3-codex',
+              codexDefaults: {
+                sandboxMode: 'workspace-write',
+                approvalPolicy: 'on-request',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchMode: 'live',
+              },
+              codexWarnings: [],
+              providerInfo: {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+                defaultModel: 'gpt-5.3-codex',
+              },
+              models: [
+                {
+                  key: 'gpt-5.3-codex',
+                  displayName: 'GPT-5.3 Codex',
+                  type: 'codex',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'copilot',
+            available: true,
+            toolsAvailable: true,
+            defaultModel: 'gpt-5-mini',
+            models: [
+              {
+                key: 'gpt-5-mini',
+                displayName: 'GPT-5 mini',
+                type: 'copilot',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.endsWith('/agents')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ agents: [] }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/loading chat providers and models/i),
+      ).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /github copilot/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5 mini/i,
+      ),
+    );
+
+    await user.click(screen.getByRole('combobox', { name: /provider/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /^OpenAI Codex$/i }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/loading chat providers and models/i),
+      ).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /openai codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5\.3 codex/i,
+      ),
+    );
+  });
+
   it('keeps the Copilot config reasoning default for the default Copilot provider-model pair', async () => {
     mockChatProvidersFetch({
       providers: [

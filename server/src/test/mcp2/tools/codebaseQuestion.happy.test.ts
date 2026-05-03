@@ -5,12 +5,15 @@ import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import type { ModelInfo } from '@github/copilot-sdk';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
+import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
+import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
 
 type ThreadEvent = {
   type: string;
@@ -104,6 +107,104 @@ class MockCodex {
   }
 }
 
+class BlockingReplayThread {
+  id: string;
+  private answerText: string;
+  private onStarted: () => void;
+  private releasePromise: Promise<void>;
+
+  constructor(params: {
+    id: string;
+    answerText: string;
+    onStarted: () => void;
+    releasePromise: Promise<void>;
+  }) {
+    this.id = params.id;
+    this.answerText = params.answerText;
+    this.onStarted = params.onStarted;
+    this.releasePromise = params.releasePromise;
+  }
+
+  async runStreamed() {
+    const threadId = this.id;
+    const answerText = this.answerText;
+    const onStarted = this.onStarted;
+    const releasePromise = this.releasePromise;
+    async function* generator(): AsyncGenerator<ThreadEvent> {
+      yield { type: 'thread.started', thread_id: threadId };
+      onStarted();
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: answerText },
+      };
+      await releasePromise;
+      yield { type: 'turn.completed', thread_id: threadId };
+    }
+
+    return { events: generator() };
+  }
+}
+
+class DivergentReplayCodex extends MockCodex {
+  runs = 0;
+  private readonly providerThreadId: string;
+  private waitForStartPromise: Promise<void> | null = null;
+  private resolveStarted: (() => void) | null = null;
+  private releaseCurrentRun: (() => void) | null = null;
+
+  constructor(providerThreadId = 'provider-thread-xyz') {
+    super(providerThreadId);
+    this.providerThreadId = providerThreadId;
+  }
+
+  override resumeThread(threadId: string, opts?: unknown) {
+    this.lastResumeId = threadId;
+    this.lastResumeOptions = opts;
+    this.runs += 1;
+    return this.createThread();
+  }
+
+  async waitForRunStart() {
+    while (!this.waitForStartPromise) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    await this.waitForStartPromise;
+  }
+
+  releaseRun() {
+    if (!this.releaseCurrentRun) {
+      throw new Error('releaseRun called before a run started');
+    }
+    this.releaseCurrentRun();
+  }
+
+  private createThread() {
+    const shouldBlock = this.runs === 1;
+    let releasePromise = Promise.resolve();
+    this.waitForStartPromise = new Promise<void>((resolve) => {
+      this.resolveStarted = resolve;
+    });
+    if (shouldBlock) {
+      let resolveRelease: (() => void) | null = null;
+      releasePromise = new Promise<void>((resolve) => {
+        resolveRelease = resolve;
+      });
+      this.releaseCurrentRun = resolveRelease;
+    } else {
+      this.releaseCurrentRun = () => {};
+    }
+
+    return new BlockingReplayThread({
+      id: this.providerThreadId,
+      answerText: `Codex replay answer ${this.runs}`,
+      onStarted: () => {
+        this.resolveStarted?.();
+      },
+      releasePromise,
+    });
+  }
+}
+
 type JsonRpcHttpResponse = {
   id?: number | string | null;
   result?: {
@@ -155,6 +256,28 @@ async function withTempCodexHome(params: {
   };
 }
 
+async function withTempCopilotHome(chatToml: string): Promise<{
+  copilotHome: string;
+  cleanup: () => Promise<void>;
+}> {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task8-copilot-'),
+  );
+  const copilotHome = path.join(root, 'copilot');
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    chatToml,
+    'utf8',
+  );
+  return {
+    copilotHome,
+    cleanup: async () => {
+      await fs.rm(root, { recursive: true, force: true });
+    },
+  };
+}
+
 class CapturingChat extends ChatInterface {
   lastFlags?: Record<string, unknown>;
 
@@ -170,6 +293,33 @@ class CapturingChat extends ChatInterface {
     this.emit('thread', { type: 'thread', threadId: 'captured-thread' });
     this.emit('final', { type: 'final', content: 'Captured answer' });
     this.emit('complete', { type: 'complete', threadId: 'captured-thread' });
+  }
+}
+
+class ReplayBarrierChat extends ChatInterface {
+  runs = 0;
+
+  async execute(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ): Promise<void> {
+    void flags;
+    void model;
+    this.runs += 1;
+    this.emit('thread', {
+      type: 'thread',
+      threadId: conversationId,
+    });
+    this.emit('final', {
+      type: 'final',
+      content: `Replay answer ${this.runs}: ${message}`,
+    });
+    this.emit('complete', {
+      type: 'complete',
+      threadId: conversationId,
+    });
   }
 }
 
@@ -210,6 +360,43 @@ async function postJson(port: number, body: unknown) {
   });
 }
 
+async function runCodebaseQuestion(
+  args: Record<string, unknown>,
+  deps?: Parameters<typeof setToolDeps>[0],
+) {
+  if (deps) {
+    setToolDeps({
+      clientFactory: makeLmStudioClientFactory(),
+      ...deps,
+    });
+  }
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: args,
+      },
+    });
+
+    assert.ok(response.result);
+    return response.result;
+  } finally {
+    resetToolDeps();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+}
+
 test('codebase_question returns answer-only payloads and preserves conversationId', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
@@ -222,10 +409,11 @@ test('codebase_question returns answer-only payloads and preserves conversationI
   });
   const tempHome = await withTempCodexHome({
     chatToml: [
+      'model = "gpt-5.3-codex-spark"',
       'sandbox_mode = "workspace-write"',
       'approval_policy = "on-request"',
       'model_reasoning_effort = "minimal"',
-      'web_search = "disabled"',
+      'web_search_mode = "disabled"',
       '',
     ].join('\n'),
   });
@@ -312,6 +500,291 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
+  }
+});
+
+test('codebase_question reuses shared provider defaults when provider copilot is selected', async () => {
+  const originalHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempHome = await withTempCopilotHome(
+    ['model = "copilot-default-model"', 'tool_access = "off"', ''].join('\n'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+  const chat = new CapturingChat();
+
+  try {
+    const result = await runCodebaseQuestion(
+      { question: 'copilot defaults?', provider: 'copilot' },
+      {
+        chatFactory: () => chat,
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['copilot-default-model'],
+          modelsRaw: [],
+          authSource: 'env-token',
+        }),
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'copilot-default-model');
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
+    else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    await tempHome.cleanup();
+  }
+});
+
+test('codebase_question replays one stable Copilot follow-up result for the same caller-visible replayId while a different replayId stays on the fresh path', async () => {
+  const chat = new ReplayBarrierChat();
+  const deps = {
+    chatFactory: () => chat,
+    copilotReadinessResolver: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready' as const,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token' as const,
+    }),
+  };
+
+  const firstResult = await runCodebaseQuestion(
+    {
+      question: 'first logical follow-up',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const firstPayload = JSON.parse(firstResult.content[0].text);
+
+  const sameReplayResult = await runCodebaseQuestion(
+    {
+      question: 'contradictory stale retry',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const sameReplayPayload = JSON.parse(sameReplayResult.content[0].text);
+
+  assert.equal(chat.runs, 1);
+  assert.deepEqual(sameReplayPayload, firstPayload);
+
+  const freshReplayResult = await runCodebaseQuestion(
+    {
+      question: 'fresh logical follow-up',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-2',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const freshReplayPayload = JSON.parse(freshReplayResult.content[0].text);
+
+  assert.equal(chat.runs, 2);
+  assert.equal(freshReplayPayload.conversationId, 'mcp-replay-happy-1');
+  assert.equal(
+    freshReplayPayload.segments[0].text,
+    'Replay answer 2: fresh logical follow-up',
+  );
+});
+
+test('codebase_question keeps caller conversationId stable across Codex replay windows even when provider thread ids differ', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  resetStore();
+  const divergentCodex = new DivergentReplayCodex('provider-thread-xyz');
+  setToolDeps({
+    codexFactory: () => divergentCodex,
+    clientFactory: makeLmStudioClientFactory(),
+  });
+  const tempHome = await withTempCodexHome({
+    chatToml: [
+      'model = "gpt-5.3-codex-spark"',
+      'sandbox_mode = "workspace-write"',
+      'approval_policy = "on-request"',
+      'model_reasoning_effort = "minimal"',
+      'web_search_mode = "disabled"',
+      '',
+    ].join('\n'),
+  });
+  process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.Codex_network_access_enabled = 'false';
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const firstCallPromise = postJson(port, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'first logical follow-up',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-1',
+          provider: 'codex',
+        },
+      },
+    });
+
+    await divergentCodex.waitForRunStart();
+
+    const sameReplayPromise = postJson(port, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'stale retry should not win',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-1',
+          provider: 'codex',
+        },
+      },
+    });
+
+    assert.equal(divergentCodex.runs, 1);
+    divergentCodex.releaseRun();
+
+    const firstCall = await firstCallPromise;
+    const sameReplayCall = await sameReplayPromise;
+
+    assert.ok(firstCall.result);
+    assert.ok(sameReplayCall.result);
+    const firstPayload = JSON.parse(firstCall.result.content[0].text);
+    const sameReplayPayload = JSON.parse(sameReplayCall.result.content[0].text);
+
+    assert.equal(firstPayload.conversationId, 'caller-follow-up-1');
+    assert.equal(sameReplayPayload.conversationId, 'caller-follow-up-1');
+    assert.deepEqual(sameReplayPayload, firstPayload);
+    assert.equal(divergentCodex.lastResumeId, 'caller-follow-up-1');
+
+    const afterCleanupCall = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'late stale retry should still replay',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-1',
+          provider: 'codex',
+        },
+      },
+    });
+
+    assert.ok(afterCleanupCall.result);
+    const afterCleanupPayload = JSON.parse(
+      afterCleanupCall.result.content[0].text,
+    );
+    assert.equal(afterCleanupPayload.conversationId, 'caller-follow-up-1');
+    assert.deepEqual(afterCleanupPayload, firstPayload);
+
+    const freshReplayCall = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'fresh logical follow-up',
+          conversationId: 'caller-follow-up-1',
+          replayId: 'replay-2',
+          provider: 'codex',
+        },
+      },
+    });
+
+    assert.ok(freshReplayCall.result);
+    const freshReplayPayload = JSON.parse(
+      freshReplayCall.result.content[0].text,
+    );
+    assert.equal(divergentCodex.runs, 2);
+    assert.equal(freshReplayPayload.conversationId, 'caller-follow-up-1');
+    assert.equal(freshReplayPayload.segments[0].text, 'Codex replay answer 2');
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    delete process.env.Codex_network_access_enabled;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
+test('codebase_question normalizes implicit Copilot defaults and omits reasoning for models that do not support it', async () => {
+  const originalHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempHome = await withTempCopilotHome(
+    ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
+  const harness = createMockCopilotSdkHarness({
+    name: 'mcp-copilot-normalized-default',
+    models: [
+      {
+        id: 'gpt-5-mini',
+        name: 'GPT-5 Mini',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const result = await runCodebaseQuestion(
+      { question: 'copilot normalized default?', provider: 'copilot' },
+      {
+        chatFactory: (provider) => {
+          assert.equal(provider, 'copilot');
+          return new ChatInterfaceCopilot(harness.createLifecycle());
+        },
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['gpt-5-mini'],
+          modelsRaw: [
+            {
+              id: 'gpt-5-mini',
+              name: 'GPT-5 Mini',
+            } as ModelInfo,
+          ],
+          authSource: 'env-token',
+        }),
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'gpt-5-mini');
+    assert.equal(
+      harness.getState().lastCreateSessionConfig?.model,
+      'gpt-5-mini',
+    );
+    assert.equal(
+      harness.getState().lastCreateSessionConfig?.reasoningEffort,
+      undefined,
+    );
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
+    else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    await tempHome.cleanup();
   }
 });
 
@@ -442,7 +915,7 @@ test('vector summary match uses the lowest distance', () => {
   assert.equal(summaries[0].files[0].embeddingModel, 'text-embedding-3-small');
 });
 
-test('codebase_question parity fixture aligns MCP defaults with REST resolver expectations', async () => {
+test('codebase_question marker emits the shared warning_count and warnings fields while matching the REST defaults vocabulary', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
   const originalChatDefaultProvider =
@@ -489,7 +962,10 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
     });
     const latest = markerLogs.at(-1);
     const context = latest?.context as
-      | { defaults?: { webSearchEnabled?: boolean } }
+      | {
+          defaults?: { webSearchEnabled?: boolean };
+          warningCount?: number;
+        }
       | undefined;
     assert.ok(context?.defaults);
     assert.equal(context.defaults?.webSearchEnabled, true);
@@ -503,11 +979,18 @@ test('codebase_question parity fixture aligns MCP defaults with REST resolver ex
       | {
           model_source?: string;
           codex_model_source?: string;
+          warning_count?: number;
+          warnings?: string[];
         }
       | undefined;
     assert.ok(story47Context);
     assert.equal(story47Context?.model_source, 'fallback');
     assert.equal(story47Context?.codex_model_source, 'hardcoded');
+    assert.equal(story47Context?.warning_count, context.warningCount);
+    assert.deepEqual(story47Context?.warnings, [
+      'codex/chat/config.toml uses legacy approval_policy "on-failure"; normalized to "on-request".',
+      'codex/chat/config.toml uses legacy web_search; normalized to web_search_mode.',
+    ]);
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;

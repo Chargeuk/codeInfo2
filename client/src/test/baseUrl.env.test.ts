@@ -169,6 +169,29 @@ describe('baseUrl env rename', () => {
     expect(hasBlockingApiBaseUrlConfigIssue()).toBe(false);
   });
 
+  it('resolves the checked-in main-stack browser directive to a host-browser-reachable api base url', () => {
+    process.env.VITE_CODEINFO_API_URL = 'USE_BROWSER_HOST:5010';
+
+    expect(getApiBaseUrl()).toBe('http://localhost:5010');
+    expect(getApiBaseUrl()).not.toContain('host.docker.internal');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([]);
+    expect(hasBlockingApiBaseUrlConfigIssue()).toBe(false);
+  });
+
+  it('lets the checked-in runtime directive replace a raw host.docker.internal fallback during browser proof flows', () => {
+    (
+      globalThis as typeof globalThis & {
+        __CODEINFO_CONFIG__?: { apiBaseUrl?: string };
+      }
+    ).__CODEINFO_CONFIG__ = { apiBaseUrl: 'USE_BROWSER_HOST:5010' };
+    process.env.VITE_CODEINFO_API_URL = 'http://host.docker.internal:5010';
+
+    expect(getApiBaseUrl()).toBe('http://localhost:5010');
+    expect(getApiBaseUrl()).not.toContain('host.docker.internal');
+    expect(getClientRuntimeConfigDiagnostics()).toEqual([]);
+    expect(hasBlockingApiBaseUrlConfigIssue()).toBe(false);
+  });
+
   it('surfaces malformed env directives through a blocking api base url issue instead of browser-origin success', () => {
     process.env.VITE_CODEINFO_API_URL = 'USE_BROWSER_HOST:not-a-port';
 

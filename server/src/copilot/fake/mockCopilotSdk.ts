@@ -49,6 +49,7 @@ type MockCopilotHarnessState = {
   stopCount: number;
   lastCreateSessionConfig?: SessionConfig;
   lastResumeSession?: { sessionId: string; config: ResumeSessionConfig };
+  lastSendAndWaitTimeoutMs?: number;
   createRegisterHooksCount: number;
   resumeRegisterHooksCount: number;
   createRegisterToolsCount: number;
@@ -277,7 +278,11 @@ class MockCopilotSession {
     return this.sessionId;
   }
 
-  async sendAndWait(): Promise<AssistantMessageEvent | undefined> {
+  async sendAndWait(
+    _options?: { prompt?: string },
+    timeoutMs?: number,
+  ): Promise<AssistantMessageEvent | undefined> {
+    this.state.lastSendAndWaitTimeoutMs = timeoutMs;
     if (this.scenario.sendError) throw this.scenario.sendError;
     if (this.scenario.sendDelayMs) {
       await new Promise((resolve) =>
@@ -334,6 +339,7 @@ export type MockCopilotSdkHarness = {
   createClientFactory(): CopilotRuntimeFactory;
   createLifecycle(): CopilotLifecycle;
   getState(): Readonly<MockCopilotHarnessState>;
+  waitForCreateSessionConfig(timeoutMs?: number): Promise<SessionConfig>;
 };
 
 /**
@@ -359,6 +365,7 @@ export function createMockCopilotSdkHarness(
     resumeRegisterToolsCount: 0,
     selectedScenario: scenario.name,
   };
+  const createSessionWaiters = new Set<(config: SessionConfig) => void>();
 
   append({
     level: 'info',
@@ -372,6 +379,10 @@ export function createMockCopilotSdkHarness(
 
   const createSession = async (config: SessionConfig) => {
     state.lastCreateSessionConfig = config;
+    for (const resolve of createSessionWaiters) {
+      resolve(config);
+    }
+    createSessionWaiters.clear();
     if (scenario.createSessionError) throw scenario.createSessionError;
     return new MockCopilotSession(
       config.sessionId ?? 'mock-create-session',
@@ -430,5 +441,24 @@ export function createMockCopilotSdkHarness(
         clientFactory: clientFactory,
       }),
     getState: () => state,
+    waitForCreateSessionConfig(timeoutMs = 2000) {
+      if (state.lastCreateSessionConfig) {
+        return Promise.resolve(state.lastCreateSessionConfig);
+      }
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          createSessionWaiters.delete(handleResolve);
+          reject(new Error('Timed out waiting for createSession config'));
+        }, timeoutMs);
+
+        const handleResolve = (config: SessionConfig) => {
+          clearTimeout(timeout);
+          createSessionWaiters.delete(handleResolve);
+          resolve(config);
+        };
+
+        createSessionWaiters.add(handleResolve);
+      });
+    },
   };
 }

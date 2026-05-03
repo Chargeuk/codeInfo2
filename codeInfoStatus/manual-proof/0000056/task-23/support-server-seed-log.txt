@@ -1,0 +1,1 @@
+10:server-1  | story.0000056.task04.copilot_seed_import {"status":"seed_copy_failed","runtimeHome":"/app/copilot","seedHome":"/seed/copilot","copiedArtifacts":[],"skippedArtifacts":[],"error":"copilot seed artifact cannot be a symlink: /seed/copilot/session-state"}

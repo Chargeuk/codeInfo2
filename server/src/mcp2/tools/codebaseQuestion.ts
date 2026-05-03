@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 
+import type { ModelInfo } from '@github/copilot-sdk';
 import { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
+import { normalizeImplicitCopilotRequestedModel } from '../../chat/copilotModelSupport.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
@@ -13,7 +15,9 @@ import {
 import {
   cleanupInflight,
   createInflight,
+  getCompletedInflightByReplayId,
   getInflight,
+  type CompletedInflightState,
 } from '../../chat/inflightRegistry.js';
 import type {
   ChatAnalysisEvent,
@@ -26,6 +30,8 @@ import type {
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
+  buildUnavailableRuntimeProviderState,
+  buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
@@ -48,6 +54,7 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
+import { resolveCopilotReadiness } from '../../providers/copilotReadiness.js';
 import { isCodexAvailable } from '../codexAvailability.js';
 import {
   ArchivedConversationError,
@@ -58,14 +65,26 @@ import {
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
+const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
 const paramsSchema = z
   .object({
     question: z.string().min(1),
     conversationId: z.string().min(1).optional(),
-    provider: z.enum(['codex', 'lmstudio']).optional(),
+    replayId: z.string().min(1).max(128).regex(REPLAY_ID_REGEX).optional(),
+    provider: z.enum(['codex', 'copilot', 'lmstudio']).optional(),
     model: z.string().min(1).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.replayId && !value.conversationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['replayId'],
+        message:
+          'replayId requires conversationId so follow-up retries stay scoped to one conversation.',
+      });
+    }
+  });
 
 export type CodebaseQuestionParams = z.infer<typeof paramsSchema>;
 
@@ -93,6 +112,51 @@ export type CodebaseQuestionResult = {
   modelId: string;
   segments: Segment[];
 };
+
+function buildReplayResult(params: {
+  conversationId: string;
+  completedReplay: CompletedInflightState;
+}): { content: [{ type: 'text'; text: string }] } {
+  const payload: CodebaseQuestionResult = {
+    conversationId: params.conversationId,
+    modelId: params.completedReplay.model ?? 'unknown',
+    segments: [
+      {
+        type: 'answer',
+        text: params.completedReplay.assistantText ?? '',
+      },
+    ],
+  };
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
+  };
+}
+
+function getCompletedReplayResult(params: {
+  conversationId?: string;
+  replayId?: string;
+}): { content: [{ type: 'text'; text: string }] } | null {
+  if (!params.conversationId || !params.replayId) return null;
+  const completedReplay = getCompletedInflightByReplayId({
+    conversationId: params.conversationId,
+    replayId: params.replayId,
+  });
+  if (!completedReplay) return null;
+  return buildReplayResult({
+    conversationId: params.conversationId,
+    completedReplay,
+  });
+}
+
+function makeActiveReplayKey(conversationId: string, replayId: string) {
+  return `${conversationId}::${replayId}`;
+}
+
+const activeReplayRuns = new Map<
+  string,
+  Promise<{ content: [{ type: 'text'; text: string }] }>
+>();
 
 function logSummaryContractRead(params: {
   conversationId: string;
@@ -143,6 +207,7 @@ export type CodebaseQuestionDeps = {
   };
   chatFactory?: typeof getChatInterface;
   chatRuntimeConfigResolver?: typeof resolveChatRuntimeConfig;
+  copilotReadinessResolver?: typeof resolveCopilotReadiness;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
@@ -278,6 +343,53 @@ export async function runCodebaseQuestion(
   deps: Partial<CodebaseQuestionDeps> = {},
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const parsed = validateParams(params);
+  const replayId = parsed.replayId;
+  const completedReplay = getCompletedReplayResult({
+    conversationId: parsed.conversationId,
+    replayId,
+  });
+  if (completedReplay) {
+    return completedReplay;
+  }
+
+  const replayKey =
+    parsed.conversationId && replayId
+      ? makeActiveReplayKey(parsed.conversationId, replayId)
+      : null;
+  if (replayKey) {
+    const activeReplay = activeReplayRuns.get(replayKey);
+    if (activeReplay) {
+      return await activeReplay;
+    }
+  }
+
+  const runPromise = executeCodebaseQuestion(parsed, deps);
+  if (!replayKey) {
+    return await runPromise;
+  }
+
+  activeReplayRuns.set(replayKey, runPromise);
+  try {
+    return await runPromise;
+  } finally {
+    if (activeReplayRuns.get(replayKey) === runPromise) {
+      activeReplayRuns.delete(replayKey);
+    }
+  }
+}
+
+async function executeCodebaseQuestion(
+  parsed: CodebaseQuestionParams,
+  deps: Partial<CodebaseQuestionDeps>,
+): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  const replayId = parsed.replayId;
+  const completedReplay = getCompletedReplayResult({
+    conversationId: parsed.conversationId,
+    replayId,
+  });
+  if (completedReplay) {
+    return completedReplay;
+  }
   const question = parsed.question;
   const conversationId = parsed.conversationId;
   const resolvedDefaults = resolveChatDefaults({
@@ -288,6 +400,8 @@ export async function runCodebaseQuestion(
         : undefined,
   });
   const requestedProvider = resolvedDefaults.provider;
+  const explicitProviderSelected =
+    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0;
   const codexRequestedDefaults =
     requestedProvider === 'codex' &&
     !(typeof parsed.model === 'string' && parsed.model.trim().length > 0)
@@ -331,7 +445,6 @@ export async function runCodebaseQuestion(
     ...codexCapabilities.warnings,
     ...resolvedDefaults.warnings,
   ];
-  const codexWarningFields = extractWarningFields(codexWarnings);
   const codexState = {
     available: codexAvailable,
     models: codexCapabilities.models.map((entry) => entry.model),
@@ -341,43 +454,76 @@ export async function runCodebaseQuestion(
   const baseUrl =
     process.env.CODEINFO_LMSTUDIO_BASE_URL ??
     'http://host.docker.internal:1234';
-  let lmstudioModels: string[] = [];
-  let lmstudioReason: string | undefined;
-  if (!BASE_URL_REGEX.test(baseUrl)) {
-    lmstudioReason = 'lmstudio unavailable';
-  } else {
-    try {
-      const factory =
-        deps.clientFactory ??
-        ((url: string) => new LMStudioClient({ baseUrl: url }));
-      const lmClient = factory(toWebSocketUrl(baseUrl));
-      const listed = await lmClient.system.listDownloadedModels();
-      lmstudioModels = listed
-        .filter(isChatModel)
-        .map((entry) => entry.modelKey)
-        .filter((value) => typeof value === 'string' && value.trim().length);
-      if (lmstudioModels.length === 0) {
-        lmstudioReason = 'lmstudio unavailable';
+  let lmstudioState = buildUnavailableRuntimeProviderState(
+    explicitProviderSelected && requestedProvider !== 'lmstudio'
+      ? 'lmstudio probe skipped for explicit provider request'
+      : 'lmstudio unavailable',
+  );
+  if (!explicitProviderSelected || requestedProvider === 'lmstudio') {
+    if (!BASE_URL_REGEX.test(baseUrl)) {
+      lmstudioState = buildUnavailableRuntimeProviderState(
+        'lmstudio unavailable',
+      );
+    } else {
+      try {
+        const factory =
+          deps.clientFactory ??
+          ((url: string) => new LMStudioClient({ baseUrl: url }));
+        const lmClient = factory(toWebSocketUrl(baseUrl));
+        const listed = await lmClient.system.listDownloadedModels();
+        const lmstudioModels = listed
+          .filter(isChatModel)
+          .map((entry) => entry.modelKey)
+          .filter((value) => typeof value === 'string' && value.trim().length);
+        lmstudioState =
+          lmstudioModels.length > 0
+            ? {
+                available: true,
+                models: lmstudioModels,
+              }
+            : buildUnavailableRuntimeProviderState('lmstudio unavailable');
+      } catch {
+        lmstudioState = buildUnavailableRuntimeProviderState(
+          'lmstudio unavailable',
+        );
       }
-    } catch {
-      lmstudioReason = 'lmstudio unavailable';
     }
   }
 
+  const copilotReadiness =
+    !explicitProviderSelected || requestedProvider === 'copilot'
+      ? await (deps.copilotReadinessResolver ?? resolveCopilotReadiness)({
+          toolsAvailable: true,
+          env: process.env,
+        })
+      : {
+          available: false,
+          toolsAvailable: true,
+          reason: 'copilot probe skipped for explicit provider request',
+          blockingStage: 'connectivity' as const,
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated' as const,
+        };
+  const normalizedRequestedModel =
+    requestedProvider === 'copilot'
+      ? normalizeImplicitCopilotRequestedModel({
+          models: copilotReadiness.modelsRaw as ModelInfo[],
+          requestedModel,
+          requestedModelSource: resolvedDefaults.modelSource,
+        })
+      : requestedModel;
+
   const runtimeSelection = resolveRuntimeProviderSelection({
     requestedProvider,
-    requestedModel,
+    requestedModel: normalizedRequestedModel,
     codex: codexState,
     copilot: {
-      available: false,
-      models: [],
-      reason: 'copilot unavailable',
+      available: copilotReadiness.available,
+      models: copilotReadiness.models,
+      reason: copilotReadiness.reason,
     },
-    lmstudio: {
-      available: lmstudioModels.length > 0,
-      models: lmstudioModels,
-      reason: lmstudioReason,
-    },
+    lmstudio: lmstudioState,
   });
   append({
     level: 'info',
@@ -395,7 +541,7 @@ export async function runCodebaseQuestion(
       decision: runtimeSelection.decision,
       requestedReason: runtimeSelection.requestedReason,
       fallbackReason: runtimeSelection.fallbackReason,
-      lmstudioModelCount: lmstudioModels.length,
+      lmstudioModelCount: lmstudioState.models.length,
     },
   });
   append({
@@ -416,24 +562,23 @@ export async function runCodebaseQuestion(
     message: STORY_47_TASK_1_LOG_MARKER,
     timestamp: new Date().toISOString(),
     source: 'server',
-    context: {
+    context: buildDefaultsAppliedMarkerPayload({
       surface: 'mcp2.codebase_question',
-      requested_provider: runtimeSelection.requestedProvider,
-      requested_model: runtimeSelection.requestedModel,
-      resolved_model: runtimeSelection.executionModel,
-      model_source:
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      resolvedModel: runtimeSelection.executionModel,
+      modelSource:
         requestedProvider === 'codex'
           ? toChatResolutionSource(
               codexRequestedDefaults?.sources.model ?? 'hardcoded',
             )
           : resolvedDefaults.modelSource,
-      codex_model_source:
+      codexModelSource:
         requestedProvider === 'codex'
           ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
           : undefined,
-      success: true,
-      warning_fields: codexWarningFields,
-    },
+      warnings: codexWarnings,
+    }),
   });
   append({
     level: 'info',
@@ -446,37 +591,43 @@ export async function runCodebaseQuestion(
       executionProvider: runtimeSelection.executionProvider,
       executionModel: runtimeSelection.executionModel,
       warningCount: codexWarnings.length,
-      warningFields: codexWarningFields,
+      warningFields: extractWarningFields(codexWarnings),
       defaults: codexCapabilities.defaults,
     },
   });
-  console.info(STORY_47_TASK_1_LOG_MARKER, {
-    surface: 'mcp2.codebase_question',
-    requested_provider: runtimeSelection.requestedProvider,
-    requested_model: runtimeSelection.requestedModel,
-    resolved_model: runtimeSelection.executionModel,
-    model_source:
-      requestedProvider === 'codex'
-        ? toChatResolutionSource(
-            codexRequestedDefaults?.sources.model ?? 'hardcoded',
-          )
-        : resolvedDefaults.modelSource,
-    codex_model_source:
-      requestedProvider === 'codex'
-        ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
-        : undefined,
-    success: true,
-    warning_fields: codexWarningFields,
-  });
+  console.info(
+    STORY_47_TASK_1_LOG_MARKER,
+    buildDefaultsAppliedMarkerPayload({
+      surface: 'mcp2.codebase_question',
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      resolvedModel: runtimeSelection.executionModel,
+      modelSource:
+        requestedProvider === 'codex'
+          ? toChatResolutionSource(
+              codexRequestedDefaults?.sources.model ?? 'hardcoded',
+            )
+          : resolvedDefaults.modelSource,
+      codexModelSource:
+        requestedProvider === 'codex'
+          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+          : undefined,
+      warnings: codexWarnings,
+    }),
+  );
   console.info(TASK8_LOG_MARKER, {
     surface: 'mcp2.codebase_question',
     requestedProvider: runtimeSelection.requestedProvider,
     executionProvider: runtimeSelection.executionProvider,
     executionModel: runtimeSelection.executionModel,
     warningCount: codexWarnings.length,
-    warningFields: codexWarningFields,
+    warningFields: extractWarningFields(codexWarnings),
     defaults: codexCapabilities.defaults,
   });
+
+  if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
+    throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
+  }
 
   if (runtimeSelection.unavailable) {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
@@ -519,6 +670,35 @@ export async function runCodebaseQuestion(
       codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'],
   } as ThreadOptions;
 
+  const resolvedConversationId =
+    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
+  const lateCompletedReplay = getCompletedReplayResult({
+    conversationId: resolvedConversationId,
+    replayId,
+  });
+  if (lateCompletedReplay) {
+    return lateCompletedReplay;
+  }
+
+  const inflightId = replayId ? `mcp-replay-${replayId}` : crypto.randomUUID();
+
+  const existingFlags =
+    existingConversation && existingConversation._id === resolvedConversationId
+      ? (existingConversation.flags as Record<string, unknown> | undefined)
+      : undefined;
+  const conversationFlags =
+    executionProvider === 'codex'
+      ? { ...(existingFlags ?? {}), ...threadOpts }
+      : sanitizeFlagsForProvider(executionProvider, existingFlags);
+
+  await ensureConversation(
+    resolvedConversationId,
+    executionProvider,
+    executionModel,
+    question.trim().slice(0, 80) || 'Untitled conversation',
+    conversationFlags,
+  );
+
   let chat: ChatInterface;
   const resolvedChatFactory = deps.chatFactory ?? getChatInterface;
   try {
@@ -542,29 +722,14 @@ export async function runCodebaseQuestion(
   chat.on('thread', (ev: ChatThreadEvent) => responder.handle(ev));
   chat.on('error', (ev) => responder.handle(ev));
 
-  const resolvedConversationId =
-    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
-
-  const inflightId = crypto.randomUUID();
-
-  const existingFlags =
-    existingConversation && existingConversation._id === resolvedConversationId
-      ? (existingConversation.flags as Record<string, unknown> | undefined)
-      : undefined;
-  const conversationFlags =
-    executionProvider === 'codex'
-      ? { ...(existingFlags ?? {}), ...threadOpts }
-      : sanitizeFlagsForProvider(executionProvider, existingFlags);
-
-  await ensureConversation(
-    resolvedConversationId,
-    executionProvider,
-    executionModel,
-    question.trim().slice(0, 80) || 'Untitled conversation',
-    conversationFlags,
-  );
-
-  createInflight({ conversationId: resolvedConversationId, inflightId });
+  createInflight({
+    conversationId: resolvedConversationId,
+    inflightId,
+    replayId,
+    provider: executionProvider,
+    model: executionModel,
+    source: 'MCP',
+  });
   const bridge = attachChatStreamBridge({
     conversationId: resolvedConversationId,
     inflightId,
@@ -597,6 +762,14 @@ export async function runCodebaseQuestion(
           provider: executionProvider,
           baseUrl,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
+          ...(executionProvider === 'copilot'
+            ? {
+                copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
+                resumeConversation:
+                  existingConversation?.provider === 'copilot' &&
+                  existingConversation.model === executionModel,
+              }
+            : {}),
           source: 'MCP',
         },
         resolvedConversationId,
@@ -614,6 +787,9 @@ export async function runCodebaseQuestion(
   const payload: CodebaseQuestionResult = responder.toResult(
     executionModel,
     resolvedConversationId,
+    {
+      preferFallbackConversationId: typeof conversationId === 'string',
+    },
   );
   logSummaryContractRead({
     conversationId: resolvedConversationId,
@@ -661,16 +837,21 @@ export function codebaseQuestionDefinition() {
           type: 'string',
           description: 'Optional conversation/thread id for follow-up turns.',
         },
+        replayId: {
+          type: 'string',
+          description:
+            'Optional caller-supplied replay identity for one logical follow-up retry. Requires conversationId and must be reused verbatim on retries that should not duplicate provider work.',
+        },
         provider: {
           type: 'string',
-          enum: ['codex', 'lmstudio'],
+          enum: ['codex', 'copilot', 'lmstudio'],
           description:
             'Optional chat provider to use; defaults to codex when omitted.',
         },
         model: {
           type: 'string',
           description:
-            'Optional model id for the selected provider. For codex, defaults to gpt-5.3-codex. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.',
+            "Optional model id for the selected provider. For codex and Copilot, defaults come from that provider's chat/config.toml. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.",
         },
       },
     },

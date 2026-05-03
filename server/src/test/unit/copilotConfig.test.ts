@@ -4,12 +4,16 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  CopilotManagedJsonArtifactError,
   buildCopilotClientOptions,
   ensureCopilotAuthHomeCompatibility,
   ensureCopilotPlaintextTokenStorage,
+  getCopilotChatConfigPathForHome,
   getCopilotConfigDirForHome,
+  getCopilotSettingsPathForHome,
   getCopilotStatePathForHome,
   inspectCopilotAuthLocations,
+  readCopilotManagedJsonObject,
   resolveCopilotHome,
 } from '../../config/copilotConfig.js';
 
@@ -18,11 +22,30 @@ test('resolves CODEINFO_COPILOT_HOME and derives the config path centrally', () 
     CODEINFO_COPILOT_HOME: './ignored',
   });
   const configDir = getCopilotConfigDirForHome(home);
+  const chatConfigPath = getCopilotChatConfigPathForHome(home);
+  const settingsPath = getCopilotSettingsPathForHome(home);
   const authPath = getCopilotStatePathForHome(home, 'auth.json');
 
   assert.equal(home, path.resolve('./tmp/copilot-home'));
   assert.equal(configDir, home);
+  assert.equal(chatConfigPath, path.join(home, 'chat', 'config.toml'));
+  assert.equal(settingsPath, path.join(home, 'settings.json'));
   assert.equal(authPath, path.join(home, 'auth.json'));
+});
+
+test('keeps the seeded Copilot chat defaults path separate from the runtime configDir', () => {
+  const home = resolveCopilotHome('./tmp/copilot-home', {
+    CODEINFO_COPILOT_HOME: './ignored',
+  });
+
+  assert.equal(
+    getCopilotConfigDirForHome(home),
+    path.resolve('./tmp/copilot-home'),
+  );
+  assert.equal(
+    getCopilotChatConfigPathForHome(home),
+    path.join(path.resolve('./tmp/copilot-home'), 'chat', 'config.toml'),
+  );
 });
 
 test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath together', () => {
@@ -94,7 +117,22 @@ test('can still create a ~/.copilot compatibility symlink as fallback when no ex
   }
 });
 
-test('enables plaintext token storage without overwriting existing config keys', async () => {
+test('readCopilotManagedJsonObject returns missing for absent artifacts', async () => {
+  const artifactPath = path.join(
+    process.cwd(),
+    'tmp-copilot-config-missing',
+    'settings.json',
+  );
+
+  const result = await readCopilotManagedJsonObject(artifactPath);
+
+  assert.deepEqual(result, {
+    status: 'missing',
+    artifactPath,
+  });
+});
+
+test('readCopilotManagedJsonObject accepts commented JSONC objects', async () => {
   const tempRoot = await fs.promises.mkdtemp(
     path.join(process.cwd(), 'tmp-copilot-config-'),
   );
@@ -103,45 +141,122 @@ test('enables plaintext token storage without overwriting existing config keys',
     const configPath = path.join(tempRoot, 'config.json');
     await fs.promises.writeFile(
       configPath,
-      JSON.stringify({ firstLaunchAt: '2026-03-23T00:00:00.000Z' }, null, 2),
+      '{\n  // Copilot-managed compatibility metadata\n  "store_token_plaintext": true,\n}\n',
       'utf8',
     );
 
-    const result = await ensureCopilotPlaintextTokenStorage(tempRoot);
-    const parsed = JSON.parse(await fs.promises.readFile(configPath, 'utf8'));
+    const result = await readCopilotManagedJsonObject(configPath);
 
-    assert.equal(result.changed, true);
-    assert.equal(result.configPath, configPath);
-    assert.equal(parsed.firstLaunchAt, '2026-03-23T00:00:00.000Z');
-    assert.equal(parsed.store_token_plaintext, true);
+    assert.equal(result.status, 'present');
+    assert.equal(result.artifactPath, configPath);
+    assert.equal(result.value.store_token_plaintext, true);
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test('rejects malformed existing config deterministically without leaving temp files behind', async () => {
+test('readCopilotManagedJsonObject rejects malformed and non-object JSON deterministically', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-config-'),
+  );
+
+  try {
+    const malformedPath = path.join(tempRoot, 'settings.json');
+    await fs.promises.writeFile(
+      malformedPath,
+      '{"storeTokenPlaintext":',
+      'utf8',
+    );
+
+    await assert.rejects(
+      readCopilotManagedJsonObject(malformedPath),
+      (error: unknown) =>
+        error instanceof CopilotManagedJsonArtifactError &&
+        error.message === 'copilot settings.json is malformed',
+    );
+
+    await fs.promises.writeFile(malformedPath, '[]', 'utf8');
+    await assert.rejects(
+      readCopilotManagedJsonObject(malformedPath),
+      /copilot settings\.json is malformed/u,
+    );
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('enables plaintext token storage without overwriting existing settings keys', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-config-'),
+  );
+
+  try {
+    const settingsPath = path.join(tempRoot, 'settings.json');
+    await fs.promises.writeFile(
+      settingsPath,
+      JSON.stringify({ firstLaunchAt: '2026-03-23T00:00:00.000Z' }, null, 2),
+      'utf8',
+    );
+
+    const result = await ensureCopilotPlaintextTokenStorage(tempRoot);
+    const parsed = JSON.parse(await fs.promises.readFile(settingsPath, 'utf8'));
+
+    assert.equal(result.changed, true);
+    assert.equal(result.settingsPath, settingsPath);
+    assert.equal(parsed.firstLaunchAt, '2026-03-23T00:00:00.000Z');
+    assert.equal(parsed.storeTokenPlaintext, true);
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('migrates a commented legacy config fallback into settings.json without rewriting config.json', async () => {
   const tempRoot = await fs.promises.mkdtemp(
     path.join(process.cwd(), 'tmp-copilot-config-'),
   );
 
   try {
     const configPath = path.join(tempRoot, 'config.json');
+    const legacyConfig =
+      '{\n  // Copilot-managed compatibility metadata\n  "store_token_plaintext": true,\n}\n';
+    await fs.promises.writeFile(configPath, legacyConfig, 'utf8');
+
+    const result = await ensureCopilotPlaintextTokenStorage(tempRoot);
+    const settingsPath = path.join(tempRoot, 'settings.json');
+    const parsed = JSON.parse(await fs.promises.readFile(settingsPath, 'utf8'));
+
+    assert.equal(result.changed, true);
+    assert.equal(result.settingsPath, settingsPath);
+    assert.equal(parsed.storeTokenPlaintext, true);
+    assert.equal(await fs.promises.readFile(configPath, 'utf8'), legacyConfig);
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('rejects malformed existing settings deterministically without leaving temp files behind', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-config-'),
+  );
+
+  try {
+    const settingsPath = path.join(tempRoot, 'settings.json');
     await fs.promises.writeFile(
-      configPath,
-      '{"store_token_plaintext":',
+      settingsPath,
+      '{"storeTokenPlaintext":',
       'utf8',
     );
 
     await assert.rejects(
       ensureCopilotPlaintextTokenStorage(tempRoot),
-      /copilot config\.json is malformed/u,
+      /copilot settings\.json is malformed/u,
     );
 
     const entries = await fs.promises.readdir(tempRoot);
-    assert.deepEqual(entries, ['config.json']);
+    assert.deepEqual(entries, ['settings.json']);
     assert.equal(
-      await fs.promises.readFile(configPath, 'utf8'),
-      '{"store_token_plaintext":',
+      await fs.promises.readFile(settingsPath, 'utf8'),
+      '{"storeTokenPlaintext":',
     );
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });

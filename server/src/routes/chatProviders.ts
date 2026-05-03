@@ -1,16 +1,19 @@
 import {
   ORDERED_CHAT_PROVIDER_CONTRACT,
   ORDERED_CHAT_PROVIDER_IDS,
-  type ChatProviderInfo,
 } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
+import {
+  normalizeImplicitCopilotRequestedModel,
+  resolveCopilotDefaultModel,
+} from '../chat/copilotModelSupport.js';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
-  ORDERED_CHAT_PROVIDERS,
+  buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
@@ -26,6 +29,15 @@ import {
   type CopilotReadinessRuntime,
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  buildCodexAgentFlags,
+  buildCodexCompatibilityDefaults,
+  buildCopilotAgentFlags,
+  buildLmStudioAgentFlags,
+  buildProviderInfo,
+  buildProvidersResponse,
+  toCompatibilityCodexWarnings,
+} from './chatDiscovery.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
@@ -100,7 +112,21 @@ export function createChatProvidersRouter({
     const requestedModel =
       requestedDefaults.provider === 'codex'
         ? (codexRequestedDefaults?.values.model ?? requestedDefaults.model)
-        : requestedDefaults.model;
+        : requestedDefaults.provider === 'copilot'
+          ? normalizeImplicitCopilotRequestedModel({
+              models: copilot.modelsRaw,
+              requestedModel: requestedDefaults.model,
+              requestedModelSource: requestedDefaults.modelSource,
+            })
+          : requestedDefaults.model;
+    const copilotModelMetadata = resolveCopilotDefaultModel({
+      models: copilot.modelsRaw,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    });
+    const copilotAgentFlags = buildCopilotAgentFlags({
+      models: copilot.modelsRaw,
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    });
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
       requestedModel,
@@ -121,38 +147,86 @@ export function createChatProvidersRouter({
       },
     });
 
-    const providerMap: Record<ChatDefaultProvider, ChatProviderInfo> = {
-      copilot: {
-        id: 'copilot',
-        label: 'GitHub Copilot',
+    const codexWarnings = [...capabilities.warnings];
+    if (
+      capabilities.defaults.webSearchEnabled &&
+      !(codex.available && mcp.available)
+    ) {
+      codexWarnings.push(
+        'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
+      );
+    }
+    const codexConfigWarnings: string[] = [];
+    const codexDefaults = buildCodexCompatibilityDefaults({
+      capabilities,
+      codexHome: process.env.CODEX_HOME,
+      warnings: codexConfigWarnings,
+    });
+    codexWarnings.push(...codexConfigWarnings);
+    const lmstudioAgentFlags = buildLmStudioAgentFlags({});
+    const providerMap = {
+      copilot: buildProviderInfo({
+        provider: 'copilot',
         available: copilot.available,
         toolsAvailable: copilot.toolsAvailable,
         reason: copilot.reason,
-      },
-      lmstudio: {
-        id: 'lmstudio',
-        label: 'LM Studio',
+        copilotHome: process.env.CODEINFO_COPILOT_HOME,
+        warnings: [
+          ...(copilot.reason ? [copilot.reason] : []),
+          ...copilotAgentFlags.warnings,
+        ],
+        modelMetadata: {
+          defaultModel: copilotModelMetadata.defaultModel,
+          defaultModelSource: copilotModelMetadata.defaultModelSource,
+          warnings: copilotModelMetadata.warnings,
+        },
+        agentFlags: copilotAgentFlags.agentFlags,
+      }),
+      lmstudio: buildProviderInfo({
+        provider: 'lmstudio',
         available: lmstudioModels.length > 0,
         toolsAvailable: lmstudioModels.length > 0,
         reason: lmstudioReason,
-      },
-      codex: {
-        id: 'codex',
-        label: 'OpenAI Codex',
+        lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+        warnings: [
+          ...(lmstudioReason ? [lmstudioReason] : []),
+          ...lmstudioAgentFlags.warnings,
+        ],
+        agentFlags: lmstudioAgentFlags.agentFlags,
+      }),
+      codex: buildProviderInfo({
+        provider: 'codex',
         available: codex.available,
         toolsAvailable: codex.available && mcp.available,
         reason: codex.reason ?? (mcp.available ? undefined : mcp.reason),
+        codexHome: process.env.CODEX_HOME,
+        warnings: codexWarnings,
+        agentFlags: buildCodexAgentFlags({
+          capabilities,
+          codexHome: process.env.CODEX_HOME,
+          defaults: codexDefaults,
+        }),
+        compatibility: {
+          codexDefaults,
+          codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
+        },
+      }),
+    } satisfies Record<
+      ChatDefaultProvider,
+      ReturnType<typeof buildProviderInfo>
+    >;
+    const response = buildProvidersResponse({
+      providerMap,
+      selectedProvider: runtimeSelection.executionProvider,
+      selectedModel: runtimeSelection.executionModel,
+      fallbackApplied: runtimeSelection.fallbackApplied,
+      compatibility: {
+        codexDefaults,
+        codexWarnings: toCompatibilityCodexWarnings(codexWarnings),
       },
-    };
-    const orderedIds: ChatDefaultProvider[] = [
-      runtimeSelection.executionProvider,
-      ...ORDERED_CHAT_PROVIDERS.filter(
-        (id) => id !== runtimeSelection.executionProvider,
-      ),
-    ];
-    const providers: ChatProviderInfo[] = orderedIds.map(
-      (id) => providerMap[id],
-    );
+      codexDefaults,
+      codexWarnings,
+    });
 
     append({
       level: 'info',
@@ -193,47 +267,37 @@ export function createChatProvidersRouter({
       },
       'chat providers resolved',
     );
-
-    const codexWarnings = [...capabilities.warnings];
-    if (
-      capabilities.defaults.webSearchEnabled &&
-      !(codex.available && mcp.available)
-    ) {
-      codexWarnings.push(
-        'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
-      );
-    }
-    console.info(STORY_47_TASK_1_LOG_MARKER, {
-      surface: '/chat/providers',
-      requested_provider: runtimeSelection.requestedProvider,
-      requested_model: runtimeSelection.requestedModel,
-      resolved_model: runtimeSelection.executionModel,
-      ordered_provider_contract: ORDERED_CHAT_PROVIDER_CONTRACT,
-      model_source:
-        requestedDefaults.provider === 'codex'
-          ? toChatResolutionSource(
-              codexRequestedDefaults?.sources.model ?? 'hardcoded',
-            )
-          : requestedDefaults.modelSource,
-      codex_model_source:
-        requestedDefaults.provider === 'codex'
-          ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
-          : undefined,
-      success: true,
-      warning_count: codexWarnings.length,
-    });
+    console.info(
+      STORY_47_TASK_1_LOG_MARKER,
+      buildDefaultsAppliedMarkerPayload({
+        surface: '/chat/providers',
+        requestedProvider: runtimeSelection.requestedProvider,
+        requestedModel: runtimeSelection.requestedModel,
+        resolvedModel: runtimeSelection.executionModel,
+        modelSource:
+          requestedDefaults.provider === 'codex'
+            ? toChatResolutionSource(
+                codexRequestedDefaults?.sources.model ?? 'hardcoded',
+              )
+            : requestedDefaults.modelSource,
+        codexModelSource:
+          requestedDefaults.provider === 'codex'
+            ? (codexRequestedDefaults?.sources.model ?? 'hardcoded')
+            : undefined,
+        warnings: codexWarnings,
+        extras: {
+          ordered_provider_contract: ORDERED_CHAT_PROVIDER_CONTRACT,
+        },
+      }),
+    );
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat/providers',
       provider: 'codex',
       warningCount: codexWarnings.length,
-      defaults: capabilities.defaults,
+      defaults: codexDefaults,
     });
 
-    res.json({
-      providers,
-      codexDefaults: capabilities.defaults,
-      codexWarnings,
-    });
+    res.json(response);
   });
 
   return router;

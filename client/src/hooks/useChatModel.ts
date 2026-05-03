@@ -4,7 +4,9 @@ import {
   isChatProviderId,
 } from '@codeinfo2/common';
 import type {
+  ChatAgentFlagDescriptor,
   ChatModelInfo,
+  ChatModelFlagOverride,
   ChatModelsResponse,
   CodexDefaults,
   ChatProviderInfo,
@@ -78,6 +80,31 @@ function buildLegacyBootstrapProviders(): ChatProviderInfo[] {
   );
 }
 
+function pickProvider(
+  list: ChatProviderInfo[],
+  options?: {
+    currentProvider?: ChatProviderId;
+    preferredProvider?: ChatProviderId;
+  },
+): ChatProviderId | undefined {
+  if (
+    options?.currentProvider &&
+    list.some((provider) => provider.id === options.currentProvider)
+  ) {
+    return options.currentProvider;
+  }
+
+  if (
+    options?.preferredProvider &&
+    list.some((provider) => provider.id === options.preferredProvider)
+  ) {
+    return options.preferredProvider;
+  }
+
+  const firstAvailable = list.find((provider) => provider.available);
+  return firstAvailable?.id ?? list[0]?.id;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -130,11 +157,14 @@ function isChatProviderInfo(value: unknown): value is ChatProviderInfo {
   );
 }
 
-function parseProvidersResponse(
-  payload: unknown,
-):
+function parseProvidersResponse(payload: unknown):
   | { kind: 'legacy'; models: ChatModelInfo[] }
-  | { kind: 'current'; providers: ChatProviderInfo[] } {
+  | {
+      kind: 'current';
+      providers: ChatProviderInfo[];
+      selectedProvider?: ChatProviderId;
+      selectedModel?: string;
+    } {
   if (Array.isArray(payload)) {
     if (!payload.every(isChatModelInfo)) {
       throw new Error('Malformed chat providers response');
@@ -154,9 +184,35 @@ function parseProvidersResponse(
     throw new Error('Malformed chat providers response');
   }
 
+  const selectedProvider =
+    payload.selectedProvider === undefined
+      ? undefined
+      : typeof payload.selectedProvider === 'string' &&
+          isChatProviderId(payload.selectedProvider)
+        ? payload.selectedProvider
+        : undefined;
+  if (
+    payload.selectedProvider !== undefined &&
+    selectedProvider === undefined
+  ) {
+    throw new Error('Malformed chat providers response');
+  }
+
+  const selectedModel =
+    payload.selectedModel === undefined
+      ? undefined
+      : typeof payload.selectedModel === 'string'
+        ? payload.selectedModel
+        : undefined;
+  if (payload.selectedModel !== undefined && selectedModel === undefined) {
+    throw new Error('Malformed chat providers response');
+  }
+
   return {
     kind: 'current',
     providers: payload.providers,
+    selectedProvider,
+    selectedModel,
   };
 }
 
@@ -188,6 +244,151 @@ function parseModelsResponse(payload: unknown): ChatModelsResponse {
   return payload as ChatModelsResponse;
 }
 
+function mergeAgentFlagDescriptors(
+  base: ChatAgentFlagDescriptor[] | undefined,
+  overrides: ChatModelFlagOverride[] | undefined,
+  options?: {
+    provider?: ChatProviderId;
+    serverSelectedProvider?: ChatProviderId;
+    selectedModel?: string;
+    providerDefaultModel?: string;
+  },
+): ChatAgentFlagDescriptor[] {
+  if (!base || base.length === 0) {
+    return [];
+  }
+
+  const overrideMap = new Map(
+    (overrides ?? []).map((entry) => [entry.key, entry] as const),
+  );
+
+  return base.map((descriptor) => {
+    const override = overrideMap.get(descriptor.key);
+    if (!override) {
+      return { ...descriptor };
+    }
+
+    const keepCopilotProviderResolvedDefault =
+      shouldPreserveCopilotReasoningDefault({
+        provider: options?.provider,
+        serverSelectedProvider: options?.serverSelectedProvider,
+        descriptorKey: descriptor.key,
+        providerDefaultModel: options?.providerDefaultModel,
+        selectedModel: options?.selectedModel,
+      });
+
+    return {
+      ...descriptor,
+      ...(!keepCopilotProviderResolvedDefault &&
+      override.resolvedDefault !== undefined
+        ? { resolvedDefault: override.resolvedDefault }
+        : {}),
+      ...(override.supportedValues !== undefined
+        ? { supportedValues: override.supportedValues }
+        : {}),
+      ...(override.min !== undefined ? { min: override.min } : {}),
+      ...(override.max !== undefined ? { max: override.max } : {}),
+      ...(override.integer !== undefined ? { integer: override.integer } : {}),
+    };
+  });
+}
+
+export function shouldPreserveCopilotReasoningDefault(params: {
+  provider?: ChatProviderId;
+  serverSelectedProvider?: ChatProviderId;
+  descriptorKey: string;
+  providerDefaultModel?: string;
+  selectedModel?: string;
+}): boolean {
+  return (
+    params.provider === 'copilot' &&
+    params.serverSelectedProvider === 'copilot' &&
+    params.descriptorKey === 'modelReasoningEffort' &&
+    typeof params.providerDefaultModel === 'string' &&
+    params.providerDefaultModel.length > 0 &&
+    params.selectedModel === params.providerDefaultModel
+  );
+}
+
+function buildLegacyCodexAgentFlags(params: {
+  defaults: CodexDefaults;
+  models: ChatModelInfo[];
+}): ChatAgentFlagDescriptor[] {
+  const reasoningValues = normalizeReasoningCapabilityStrings(
+    params.models.flatMap((model) => model.supportedReasoningEfforts ?? []),
+  );
+
+  return [
+    {
+      key: 'sandboxMode',
+      label: 'Sandbox Mode',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'danger-full-access',
+      resolvedDefault: params.defaults.sandboxMode,
+      supportedValues: [
+        { value: 'workspace-write', label: 'Workspace write' },
+        { value: 'read-only', label: 'Read-only' },
+        { value: 'danger-full-access', label: 'Danger full access' },
+      ],
+    },
+    {
+      key: 'approvalPolicy',
+      label: 'Approval Policy',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'on-failure',
+      resolvedDefault:
+        params.defaults.approvalPolicy === 'on-failure'
+          ? 'on-request'
+          : params.defaults.approvalPolicy,
+      supportedValues: [
+        { value: 'never', label: 'Never (auto-approve)' },
+        { value: 'on-request', label: 'On request' },
+        { value: 'untrusted', label: 'Untrusted' },
+      ],
+    },
+    {
+      key: 'modelReasoningEffort',
+      label: 'Reasoning Effort',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'high',
+      resolvedDefault: params.defaults.modelReasoningEffort,
+      supportedValues:
+        reasoningValues.length > 0
+          ? reasoningValues.map((value) => ({
+              value,
+              label: value.charAt(0).toUpperCase() + value.slice(1),
+            }))
+          : [{ value: params.defaults.modelReasoningEffort, label: 'High' }],
+    },
+    {
+      key: 'networkAccessEnabled',
+      label: 'Network Access',
+      controlType: 'boolean',
+      editable: true,
+      seedDefault: true,
+      resolvedDefault: params.defaults.networkAccessEnabled,
+    },
+    {
+      key: 'webSearchMode',
+      label: 'Web Search',
+      controlType: 'select',
+      editable: true,
+      seedDefault: 'live',
+      resolvedDefault:
+        params.defaults.webSearchMode ??
+        (params.defaults.webSearchEnabled ? 'live' : 'disabled'),
+      supportedValues: [
+        { value: 'disabled', label: 'Disabled' },
+        { value: 'cached', label: 'Cached' },
+        { value: 'live', label: 'Live' },
+      ],
+    },
+  ];
+}
+
 function normalizeProviders(list: ChatProviderInfo[]): ChatProviderInfo[] {
   const provided = new Map<ChatProviderId, ChatProviderInfo>();
 
@@ -213,8 +414,18 @@ export function useChatModel() {
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
   const providerRef = useRef<ChatProviderId | undefined>(undefined);
+  const bootstrapSelectedModelRef = useRef<{
+    provider: ChatProviderId;
+    model: string;
+  } | null>(null);
+  const hydratedModelsProviderRef = useRef<ChatProviderId | undefined>(
+    undefined,
+  );
 
   const [providers, setProviders] = useState<ChatProviderInfo[]>([]);
+  const [serverSelectedProvider, setServerSelectedProvider] = useState<
+    ChatProviderId | undefined
+  >(undefined);
   const [providerState, setProviderState] = useState<
     ChatProviderId | undefined
   >(undefined);
@@ -230,6 +441,9 @@ export function useChatModel() {
   const [available, setAvailable] = useState<boolean>(true);
   const [toolsAvailable, setToolsAvailable] = useState<boolean>(true);
   const [providerReason, setProviderReason] = useState<string | undefined>();
+  const [providerInfo, setProviderInfo] = useState<
+    ChatProviderInfo | undefined
+  >(undefined);
   const [codexDefaults, setCodexDefaults] = useState<
     CodexDefaults | undefined
   >();
@@ -238,17 +452,6 @@ export function useChatModel() {
   useEffect(() => {
     providerRef.current = providerState;
   }, [providerState]);
-
-  const pickProvider = useCallback(
-    (list: ChatProviderInfo[]) => {
-      if (providerState && list.some((p) => p.id === providerState)) {
-        return providerState;
-      }
-      const firstAvailable = list.find((p) => p.available);
-      return firstAvailable?.id ?? list[0]?.id;
-    },
-    [providerState],
-  );
 
   const setProvider = useCallback(
     (
@@ -336,6 +539,7 @@ export function useChatModel() {
       // Legacy compatibility: some callers still return the models array directly.
       if (data.kind === 'legacy') {
         legacyBootstrapRef.current = true;
+        setServerSelectedProvider(undefined);
         const legacyModels = data.models;
         const list = buildLegacyBootstrapProviders();
         setProviders(list);
@@ -361,7 +565,26 @@ export function useChatModel() {
       legacyBootstrapRef.current = false;
       const list = normalizeProviders(data.providers);
       setProviders(list);
-      const chosen = pickProvider(list);
+      setServerSelectedProvider(data.selectedProvider);
+      const preferredProvider =
+        data.selectedProvider &&
+        list.some((provider) => provider.id === data.selectedProvider)
+          ? data.selectedProvider
+          : undefined;
+      const chosen = pickProvider(list, {
+        currentProvider: providerRef.current,
+        preferredProvider,
+      });
+      bootstrapSelectedModelRef.current =
+        preferredProvider &&
+        chosen === preferredProvider &&
+        data.selectedModel &&
+        data.selectedModel.trim().length > 0
+          ? {
+              provider: preferredProvider,
+              model: data.selectedModel.trim(),
+            }
+          : null;
       setProvider(chosen, { source: 'provider-bootstrap' });
       const match = list.find((p) => p.id === chosen);
       setProviderReason(match?.reason);
@@ -369,6 +592,7 @@ export function useChatModel() {
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const message = (err as Error).message;
+      setServerSelectedProvider(undefined);
       setProviders(buildUnavailableProviders(message));
       setProviderReason(message);
       setAvailable(false);
@@ -383,7 +607,7 @@ export function useChatModel() {
         providerControllerRef.current = null;
       }
     }
-  }, [pickProvider, setProvider, setSelected]);
+  }, [setProvider, setSelected]);
 
   const refreshModels = useCallback(
     async (targetProvider?: ChatProviderId | string) => {
@@ -443,10 +667,39 @@ export function useChatModel() {
                   normalizedDefault = normalizedSupported[0];
                 }
 
+                if (normalizedSupported.length === 0 && !normalizedDefault) {
+                  console.error(
+                    '[DEV-0000037][T17] event=codex_reasoning_capabilities_invalid result=error',
+                    {
+                      provider: effectiveProvider,
+                      modelKey: model.key,
+                    },
+                  );
+                }
+
+                const legacyReasoningOverride =
+                  normalizedSupported.length > 0
+                    ? [
+                        {
+                          key: 'modelReasoningEffort' as const,
+                          supportedValues: normalizedSupported.map((value) => ({
+                            value,
+                            label:
+                              value.charAt(0).toUpperCase() + value.slice(1),
+                          })),
+                          resolvedDefault: normalizedDefault,
+                        },
+                      ]
+                    : [];
+
                 return {
                   ...model,
                   supportedReasoningEfforts: normalizedSupported,
                   defaultReasoningEffort: normalizedDefault,
+                  flagOverrides:
+                    model.flagOverrides && model.flagOverrides.length > 0
+                      ? model.flagOverrides
+                      : legacyReasoningOverride,
                 };
               })
             : rawModels;
@@ -460,11 +713,22 @@ export function useChatModel() {
         setAvailable(Boolean(data.available));
         setToolsAvailable(Boolean(data.toolsAvailable));
         setProviderReason(data.reason);
+        hydratedModelsProviderRef.current = effectiveProvider;
+        const resolvedProviderInfo =
+          data.providerInfo ??
+          data.providers?.find((entry) => entry.id === effectiveProvider);
+        setProviderInfo(resolvedProviderInfo);
         setCodexDefaults(
-          effectiveProvider === 'codex' ? data.codexDefaults : undefined,
+          effectiveProvider === 'codex'
+            ? (data.codexDefaults ??
+                resolvedProviderInfo?.compatibility?.codexDefaults)
+            : undefined,
         );
         setCodexWarnings(
-          effectiveProvider === 'codex' ? data.codexWarnings : undefined,
+          effectiveProvider === 'codex'
+            ? (data.codexWarnings ??
+                resolvedProviderInfo?.compatibility?.codexWarnings)
+            : undefined,
         );
         setModels(models);
         setSelected(
@@ -472,10 +736,34 @@ export function useChatModel() {
             if (prev && models.some((m) => m.key === prev)) {
               return prev;
             }
-            return models[0]?.key;
+            const bootstrapSelectedModel =
+              bootstrapSelectedModelRef.current?.provider === effectiveProvider
+                ? bootstrapSelectedModelRef.current.model
+                : undefined;
+            if (
+              bootstrapSelectedModel &&
+              models.some((model) => model.key === bootstrapSelectedModel)
+            ) {
+              return bootstrapSelectedModel;
+            }
+            const resolvedDefaultModel =
+              typeof data.defaultModel === 'string' &&
+              models.some((model) => model.key === data.defaultModel)
+                ? data.defaultModel
+                : typeof resolvedProviderInfo?.defaultModel === 'string' &&
+                    models.some(
+                      (model) =>
+                        model.key === resolvedProviderInfo.defaultModel,
+                    )
+                  ? resolvedProviderInfo.defaultModel
+                  : undefined;
+            return resolvedDefaultModel ?? models[0]?.key;
           },
           { source: 'model-bootstrap' },
         );
+        if (bootstrapSelectedModelRef.current?.provider === effectiveProvider) {
+          bootstrapSelectedModelRef.current = null;
+        }
         setStatus('success');
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
@@ -483,6 +771,8 @@ export function useChatModel() {
         setAvailable(false);
         setToolsAvailable(false);
         setProviderReason(message);
+        hydratedModelsProviderRef.current = undefined;
+        setProviderInfo(undefined);
         setCodexDefaults(undefined);
         setCodexWarnings(undefined);
         setModels([]);
@@ -512,6 +802,23 @@ export function useChatModel() {
     const selectedProvider = providerState
       ? providers.find((entry) => entry.id === providerState)
       : undefined;
+
+    if (
+      providerState &&
+      hydratedModelsProviderRef.current &&
+      hydratedModelsProviderRef.current !== providerState
+    ) {
+      hydratedModelsProviderRef.current = undefined;
+      setModels([]);
+      setSelected(undefined, { source: 'model-fallback' });
+      setProviderInfo(undefined);
+      setCodexDefaults(undefined);
+      setCodexWarnings(undefined);
+      setProviderReason(selectedProvider?.reason);
+      setAvailable(Boolean(selectedProvider?.available));
+      setToolsAvailable(Boolean(selectedProvider?.toolsAvailable));
+    }
+
     if (
       providerState &&
       !legacyBootstrapRef.current &&
@@ -520,7 +827,7 @@ export function useChatModel() {
     ) {
       void refreshModels(providerState);
     }
-  }, [providerState, providerStatus, providers, refreshModels]);
+  }, [providerState, providerStatus, providers, refreshModels, setSelected]);
 
   const flags = useMemo(() => {
     const isLoading =
@@ -556,15 +863,49 @@ export function useChatModel() {
     };
   }, [models, providerState, selected]);
 
+  const selectedModel = useMemo(
+    () => models.find((model) => model.key === selected),
+    [models, selected],
+  );
+
+  const agentFlags = useMemo(() => {
+    const baseFlags =
+      providerInfo?.agentFlags ??
+      (providerState === 'codex' && codexDefaults
+        ? buildLegacyCodexAgentFlags({
+            defaults: codexDefaults,
+            models,
+          })
+        : undefined);
+
+    return mergeAgentFlagDescriptors(baseFlags, selectedModel?.flagOverrides, {
+      provider: providerState,
+      serverSelectedProvider,
+      selectedModel: selected,
+      providerDefaultModel: providerInfo?.defaultModel,
+    });
+  }, [
+    codexDefaults,
+    models,
+    providerInfo?.agentFlags,
+    providerInfo?.defaultModel,
+    providerState,
+    selected,
+    selectedModel?.flagOverrides,
+    serverSelectedProvider,
+  ]);
+
   return {
     providers,
     provider: providerState,
     setProvider,
     providerStatus,
+    providerInfo,
     providerErrorMessage,
     providerReason,
     available,
     toolsAvailable,
+    agentFlags,
     codexDefaults,
     codexWarnings,
     models,

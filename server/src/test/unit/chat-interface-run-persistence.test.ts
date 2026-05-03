@@ -24,6 +24,8 @@ import {
   setWorkingFolderStatForTests,
 } from '../../workingFolders/state.js';
 
+const originalLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
+
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
   description: null,
@@ -119,11 +121,13 @@ const withReadyState = async (
 ) => {
   const originalEnv = process.env.NODE_ENV;
   const originalReady = mongoose.connection.readyState;
+  const previousLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   Object.defineProperty(mongoose.connection, 'readyState', {
     value: readyState,
     configurable: true,
   });
   process.env.NODE_ENV = nodeEnv;
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://127.0.0.1:1234';
   try {
     await fn();
   } finally {
@@ -132,6 +136,11 @@ const withReadyState = async (
       configurable: true,
     });
     process.env.NODE_ENV = originalEnv;
+    if (previousLmStudioBaseUrl === undefined) {
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    } else {
+      process.env.CODEINFO_LMSTUDIO_BASE_URL = previousLmStudioBaseUrl;
+    }
   }
 };
 
@@ -140,6 +149,11 @@ describe('ChatInterface.run persistence', () => {
     setWorkingFolderStatForTests(undefined);
     memoryConversations.clear();
     memoryTurns.clear();
+    if (originalLmStudioBaseUrl === undefined) {
+      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    } else {
+      process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmStudioBaseUrl;
+    }
   });
 
   test('persists user turn then executes when Mongo is available', async () => {
@@ -405,6 +419,60 @@ describe('ChatInterface.run persistence', () => {
     }
   });
 
+  test('a successful chat run persists stable agentFlags keys on the owning conversation', async () => {
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    await withReadyState(0, 'test', async () => {
+      const res = await request(app)
+        .post('/chat')
+        .send({
+          provider: 'lmstudio',
+          model: 'lmstudio-test',
+          message: 'hello',
+          conversationId: 'chat-agent-flags-save',
+          agentFlags: {
+            temperature: 0.7,
+            maxTokens: 1234,
+            contextOverflowPolicy: 'rollingWindow',
+            toolAccess: 'off',
+          },
+        });
+
+      assert.equal(res.status, 202);
+    });
+
+    try {
+      assert.deepEqual(
+        memoryConversations.get('chat-agent-flags-save')?.flags?.agentFlags,
+        {
+          temperature: 0.7,
+          maxTokens: 1234,
+          contextOverflowPolicy: 'rollingWindow',
+          toolAccess: 'off',
+        },
+      );
+    } finally {
+      memoryConversations.delete('chat-agent-flags-save');
+      memoryTurns.delete('chat-agent-flags-save');
+    }
+  });
+
   test('an invalid saved chat working folder is cleared before the chat restore path uses it', async () => {
     let clearedConversationId: string | undefined;
     const restored = await restoreSavedWorkingFolder({
@@ -547,6 +615,74 @@ describe('ChatInterface.run persistence', () => {
     } finally {
       memoryConversations.delete('chat-working-folder-clear');
       memoryTurns.delete('chat-working-folder-clear');
+    }
+  });
+
+  test('non-Codex persistence paths clear stale Codex threadId state before the next execution context is saved', async () => {
+    memoryConversations.set('chat-threadid-clear', {
+      _id: 'chat-threadid-clear',
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      title: 'Thread cleanup conversation',
+      source: 'REST',
+      flags: {
+        threadId: 'codex-thread-1',
+        agentFlags: {
+          sandboxMode: 'workspace-write',
+        },
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    try {
+      await withReadyState(0, 'test', async () => {
+        const res = await request(app)
+          .post('/chat')
+          .send({
+            provider: 'lmstudio',
+            model: 'lmstudio-test',
+            message: 'hello',
+            conversationId: 'chat-threadid-clear',
+            agentFlags: {
+              toolAccess: 'off',
+            },
+          });
+
+        assert.equal(res.status, 202);
+      });
+
+      assert.deepEqual(memoryConversations.get('chat-threadid-clear')?.flags, {
+        agentFlags: {
+          contextOverflowPolicy: 'truncateMiddle',
+          maxTokens: 4096,
+          temperature: 0.2,
+          toolAccess: 'off',
+        },
+      });
+    } finally {
+      memoryConversations.delete('chat-threadid-clear');
+      memoryTurns.delete('chat-threadid-clear');
     }
   });
 

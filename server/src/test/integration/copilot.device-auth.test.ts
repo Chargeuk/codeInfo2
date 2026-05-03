@@ -7,7 +7,11 @@ import { describe, mock, test } from 'node:test';
 import express from 'express';
 import supertest from 'supertest';
 
-import { ensureCopilotAuthFileStore } from '../../config/copilotConfig.js';
+import {
+  ensureCopilotAuthFileStore,
+  ensureCopilotPlaintextTokenStorage,
+} from '../../config/copilotConfig.js';
+import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { query, resetStore } from '../../logStore.js';
 import { createCopilotDeviceAuthRouter } from '../../routes/copilotDeviceAuth.js';
 import {
@@ -31,6 +35,48 @@ import {
 } from '../support/mockCopilotDeviceAuth.js';
 
 const TASK9_LOG_MARKER = 'story.0000051.task09.device_auth_state_emitted';
+
+async function writeSeedArtifacts(seedHome: string) {
+  await fs.mkdir(path.join(seedHome, 'session-state'), { recursive: true });
+  await fs.writeFile(
+    path.join(seedHome, 'config.json'),
+    '{"store_token_plaintext": true}\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(seedHome, 'settings.json'),
+    '{"storeTokenPlaintext": true}\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(seedHome, 'session-state', 'session.json'),
+    '{"seeded": true}\n',
+    'utf8',
+  );
+}
+
+function currentRuntimeEnv(baseEnv: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const uid = process.getuid?.();
+  const gid = process.getgid?.();
+  if (uid === undefined || gid === undefined) {
+    throw new Error('current runtime identity unavailable on this platform');
+  }
+  return {
+    ...baseEnv,
+    CODEINFO_RUNTIME_UID: String(uid),
+    CODEINFO_RUNTIME_GID: String(gid),
+  };
+}
+
+async function lockDownRuntimeArtifacts(runtimeHome: string) {
+  await fs.chmod(path.join(runtimeHome, 'config.json'), 0o000);
+  await fs.chmod(path.join(runtimeHome, 'settings.json'), 0o000);
+  await fs.chmod(
+    path.join(runtimeHome, 'session-state', 'session.json'),
+    0o000,
+  );
+  await fs.chmod(path.join(runtimeHome, 'session-state'), 0o000);
+}
 
 function buildApp(deps?: Parameters<typeof createCopilotDeviceAuthRouter>[0]) {
   const app = express();
@@ -122,7 +168,7 @@ function depsFromHarness(
     }),
     ensureCopilotPlaintextTokenStorage: async () => ({
       changed: false,
-      configPath: '/tmp/copilot-home/config.json',
+      settingsPath: '/tmp/copilot-home/settings.json',
     }),
     ensureCopilotAuthHomeCompatibility: async () => ({
       action: 'none',
@@ -269,7 +315,7 @@ describe('POST /copilot/device-auth integration behavior', () => {
     assert.equal(runCopilotDeviceAuth.mock.calls.length, 2);
   });
 
-  test('keychain-unavailable fallback still works through writable CODEINFO_COPILOT_HOME config storage', async () => {
+  test('keychain-unavailable fallback still works through writable CODEINFO_COPILOT_HOME settings storage', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-device-auth-'),
     );
@@ -284,15 +330,15 @@ describe('POST /copilot/device-auth integration behavior', () => {
           getCopilotConfigDirForHome: (home: string) => home,
           ensureCopilotAuthFileStore,
           ensureCopilotPlaintextTokenStorage: async (home: string) => {
-            const configPath = path.join(home, 'config.json');
+            const settingsPath = path.join(home, 'settings.json');
             await fs.writeFile(
-              configPath,
-              JSON.stringify({ store_token_plaintext: true }, null, 2),
+              settingsPath,
+              JSON.stringify({ storeTokenPlaintext: true }, null, 2),
               'utf8',
             );
             return {
               changed: true,
-              configPath,
+              settingsPath,
             };
           },
         }),
@@ -301,13 +347,59 @@ describe('POST /copilot/device-auth integration behavior', () => {
       const res = await supertest(app).post('/copilot/device-auth').send({});
       assert.equal(res.status, 200);
       assert.equal(res.body.state, 'verification_ready');
-      await fs.access(path.join(tempRoot, 'config.json'));
+      await fs.access(path.join(tempRoot, 'settings.json'));
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
 
-  test('plaintext token storage bootstrap failures surface the shared unavailable-before-start contract', async () => {
+  test('commented config.json does not block preflight when settings.json is missing', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-device-auth-jsonc-'),
+    );
+    const harness = createMockCopilotDeviceAuthHarness(
+      createVerificationReadyScenario(),
+    );
+    const runCopilotDeviceAuth = mock.fn(async () =>
+      toDeviceAuthResult(await harness.startDeviceAuth()),
+    );
+
+    try {
+      await fs.writeFile(
+        path.join(tempRoot, 'config.json'),
+        '{\n  // Copilot-managed compatibility metadata\n  "store_token_plaintext": true,\n}\n',
+        'utf8',
+      );
+
+      const res = await supertest(
+        buildApp(
+          depsFromHarness(harness, {
+            getCopilotHome: () => tempRoot,
+            getCopilotConfigDirForHome: (home: string) => home,
+            ensureCopilotAuthFileStore,
+            ensureCopilotPlaintextTokenStorage,
+            runCopilotDeviceAuth,
+          }),
+        ),
+      )
+        .post('/copilot/device-auth')
+        .send({});
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.state, 'verification_ready');
+      assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
+      assert.deepEqual(
+        JSON.parse(
+          await fs.readFile(path.join(tempRoot, 'settings.json'), 'utf8'),
+        ),
+        { storeTokenPlaintext: true },
+      );
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('settings bootstrap failures surface the shared unavailable-before-start contract', async () => {
     const harness = createMockCopilotDeviceAuthHarness(
       createVerificationReadyScenario(),
     );
@@ -319,7 +411,7 @@ describe('POST /copilot/device-auth integration behavior', () => {
       buildApp(
         depsFromHarness(harness, {
           ensureCopilotPlaintextTokenStorage: async () => {
-            throw new Error('EACCES: config.json');
+            throw new Error('EACCES: settings.json');
           },
           runCopilotDeviceAuth,
         }),
@@ -335,6 +427,60 @@ describe('POST /copilot/device-auth integration behavior', () => {
       reason: 'copilot config persistence unavailable',
     });
     assert.equal(runCopilotDeviceAuth.mock.calls.length, 0);
+  });
+
+  test('main-stack-style seeded runtime homes proceed past preflight instead of failing unavailable-before-start', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'copilot-device-auth-seed-'),
+    );
+    const seedHome = path.join(tempRoot, 'seed-home');
+    const runtimeHome = path.join(tempRoot, 'runtime-home');
+    const harness = createMockCopilotDeviceAuthHarness(
+      createVerificationReadyScenario(),
+    );
+
+    try {
+      await writeSeedArtifacts(seedHome);
+      const seedResult = await importCopilotSeedIntoRuntimeHome({
+        runtimeHome,
+        seedHome,
+        env: currentRuntimeEnv(),
+      });
+      assert.equal(seedResult.status, 'seed_applied');
+      await lockDownRuntimeArtifacts(runtimeHome);
+      const normalizationResult = await importCopilotSeedIntoRuntimeHome({
+        runtimeHome,
+        seedHome,
+        env: currentRuntimeEnv(),
+      });
+      assert.equal(
+        normalizationResult.status,
+        'seed_skipped_runtime_already_initialized',
+      );
+
+      const res = await supertest(
+        buildApp(
+          depsFromHarness(harness, {
+            getCopilotHome: () => runtimeHome,
+            getCopilotConfigDirForHome: (home: string) => home,
+            ensureCopilotAuthFileStore,
+            ensureCopilotPlaintextTokenStorage,
+            env: currentRuntimeEnv({
+              CODEINFO_COPILOT_HOME: runtimeHome,
+              CODEINFO_COPILOT_SEED_HOME: seedHome,
+            }),
+          }),
+        ),
+      )
+        .post('/copilot/device-auth')
+        .send({});
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.provider, 'copilot');
+      assert.equal(res.body.state, 'verification_ready');
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
   });
 
   test('route honors CODEINFO_COPILOT_CLI_PATH when PATH discovery is unavailable', async () => {

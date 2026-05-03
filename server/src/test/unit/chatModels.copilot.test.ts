@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test, { afterEach, beforeEach, mock } from 'node:test';
 
 import type { ModelInfo } from '@github/copilot-sdk';
@@ -172,6 +175,10 @@ test('chat models route rejects malformed provider query values deterministicall
 });
 
 test('copilot models route maps only verified shared-contract fields and logs ignored extras', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-copilot-home-'),
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
   const markerPayloads: Array<Record<string, unknown>> = [];
   mock.method(baseLogger, 'info', (first: unknown, second: unknown) => {
     if (second === TASK6_LOG_MARKER && first && typeof first === 'object') {
@@ -217,8 +224,26 @@ test('copilot models route maps only verified shared-contract fields and logs ig
         type: 'copilot',
         supportedReasoningEfforts: ['low', 'medium', 'high'],
         defaultReasoningEffort: 'medium',
+        flagOverrides: [
+          {
+            key: 'modelReasoningEffort',
+            resolvedDefault: 'medium',
+            supportedValues: [
+              { value: 'low', label: 'Low' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'high', label: 'High' },
+            ],
+          },
+        ],
       },
     ]);
+    assert.equal(res.body.providerInfo.id, 'copilot');
+    assert.equal(res.body.defaultModel, 'copilot-gpt-5');
+    assert.equal(res.body.defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      res.body.agentFlags.map((entry: { key: string }) => entry.key),
+      ['modelReasoningEffort', 'toolAccess'],
+    );
     assert.equal(
       'capabilities' in (res.body.models[0] as Record<string, unknown>),
       false,
@@ -235,5 +260,166 @@ test('copilot models route maps only verified shared-contract fields and logs ig
     assert.equal(marker.ignoredUnsupportedFields, true);
   } finally {
     await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('copilot models route normalizes stale configured defaults to a live runnable model and avoids fake reasoning defaults on unsupported models', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-copilot-normalized-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    ['model = "copilot-gpt-5"', 'reasoning_effort = "high"', ''].join('\n'),
+    'utf8',
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'gpt-5-mini',
+        name: 'GPT-5 Mini',
+      } as ModelInfo,
+      {
+        id: 'gpt-5',
+        name: 'GPT-5',
+        supportedReasoningEfforts: ['low', 'medium', 'high'],
+        defaultReasoningEffort: 'medium',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.defaultModel, 'gpt-5-mini');
+    assert.equal(res.body.providerInfo.defaultModel, 'gpt-5-mini');
+    assert.equal(res.body.models[0]?.key, 'gpt-5-mini');
+    assert.equal(
+      'supportedReasoningEfforts' in
+        (res.body.models[0] as Record<string, unknown>),
+      false,
+    );
+    assert.equal(
+      'defaultReasoningEffort' in
+        (res.body.models[0] as Record<string, unknown>),
+      false,
+    );
+    assert.deepEqual(res.body.models[0]?.flagOverrides, []);
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /normalized to "gpt-5-mini"/u,
+    );
+  } finally {
+    await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('copilot models route degrades malformed chat defaults to warnings instead of failing discovery', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-copilot-malformed-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'copilot');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.defaultModel, 'copilot-gpt-5');
+    assert.equal(res.body.defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      res.body.agentFlags.map(
+        (entry: { key: string; resolvedDefault: unknown }) => ({
+          key: entry.key,
+          resolvedDefault: entry.resolvedDefault,
+        }),
+      ),
+      [
+        { key: 'modelReasoningEffort', resolvedDefault: 'medium' },
+        { key: 'toolAccess', resolvedDefault: 'on' },
+      ],
+    );
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /default model resolution/i,
+    );
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /agentFlags resolution/i,
+    );
+  } finally {
+    await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('copilot models route clamps unsupported configured defaults to the runtime-supported Copilot defaults', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-models-copilot-unsupported-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    ['reasoning_effort = "turbo"', 'tool_access = "maybe"', ''].join('\n'),
+    'utf8',
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+        supportedReasoningEfforts: ['low', 'medium', 'high'],
+        defaultReasoningEffort: 'medium',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'copilot');
+    assert.deepEqual(
+      res.body.agentFlags.map(
+        (entry: { key: string; resolvedDefault: unknown }) => ({
+          key: entry.key,
+          resolvedDefault: entry.resolvedDefault,
+        }),
+      ),
+      [
+        { key: 'modelReasoningEffort', resolvedDefault: 'medium' },
+        { key: 'toolAccess', resolvedDefault: 'on' },
+      ],
+    );
+    assert.equal(res.body.warnings?.length ?? 0, 0);
+  } finally {
+    await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });

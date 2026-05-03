@@ -14,6 +14,7 @@ import {
   type CopilotLifecycleOptions,
 } from '../chat/copilotLifecycle.js';
 import {
+  CopilotManagedJsonArtifactError,
   ensureCopilotAuthHomeCompatibility,
   ensureCopilotAuthFileStore,
   ensureCopilotPlaintextTokenStorage,
@@ -77,6 +78,27 @@ function logCopilotAuthDiagnostics(
   context: Record<string, unknown>,
 ): void {
   baseLogger.info(context, tag);
+}
+
+function isMalformedSettingsArtifactError(error: unknown): boolean {
+  return (
+    (error instanceof CopilotManagedJsonArtifactError &&
+      error.artifactName === 'settings.json') ||
+    (error instanceof Error &&
+      error.message === 'copilot settings.json is malformed')
+  );
+}
+
+function buildCopilotPreflightContext(params: {
+  env: NodeJS.ProcessEnv | undefined;
+  targetCopilotHome: string;
+  targetConfigDir: string;
+}) {
+  return {
+    runtimeHome: params.targetCopilotHome,
+    runtimeConfigDir: params.targetConfigDir,
+    seedHome: params.env?.CODEINFO_COPILOT_SEED_HOME,
+  };
 }
 
 function resolveCopilotCli(env: NodeJS.ProcessEnv = process.env): {
@@ -309,7 +331,7 @@ export function createCopilotDeviceAuthRouter(
     let plaintextStorage:
       | {
           changed: boolean;
-          configPath: string;
+          settingsPath: string;
         }
       | undefined;
     try {
@@ -317,25 +339,45 @@ export function createCopilotDeviceAuthRouter(
         deps.ensureCopilotPlaintextTokenStorage ??
         ensureCopilotPlaintextTokenStorage
       )(targetCopilotHome);
-    } catch {
+    } catch (error) {
+      logCopilotAuthDiagnostics('story.0000056.task04.copilot_auth_preflight', {
+        stage: 'plaintext_storage',
+        error: error instanceof Error ? error.message : String(error),
+        ...buildCopilotPreflightContext({
+          env: deps.env,
+          targetCopilotHome,
+          targetConfigDir,
+        }),
+      });
       return res
         .status(200)
         .json(
           createCopilotUnavailableBeforeStartResponse(
-            'copilot config persistence unavailable',
+            isMalformedSettingsArtifactError(error)
+              ? (error as Error).message
+              : 'copilot config persistence unavailable',
           ),
         );
     }
 
     logCopilotAuthDiagnostics('DEV-0000051:T9:copilot_auth_storage_mode', {
       changed: plaintextStorage.changed,
-      configPath: plaintextStorage.configPath,
+      settingsPath: plaintextStorage.settingsPath,
       storageMode: 'plaintext',
     });
 
     try {
       await deps.ensureCopilotAuthFileStore(targetConfigDir);
-    } catch {
+    } catch (error) {
+      logCopilotAuthDiagnostics('story.0000056.task04.copilot_auth_preflight', {
+        stage: 'runtime_store',
+        error: error instanceof Error ? error.message : String(error),
+        ...buildCopilotPreflightContext({
+          env: deps.env,
+          targetCopilotHome,
+          targetConfigDir,
+        }),
+      });
       return res
         .status(200)
         .json(

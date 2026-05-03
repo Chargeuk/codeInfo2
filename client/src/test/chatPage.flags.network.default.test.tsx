@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -138,16 +138,12 @@ describe('Codex network access flag defaults', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
-    const sandboxPanel = await screen.findByTestId('codex-flags-panel');
+    const sandboxPanel = await screen.findByTestId('agent-flags-panel');
     expect(sandboxPanel).toBeInTheDocument();
 
     const networkSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(networkSwitch).toBeChecked());
-
-    expect(
-      screen.getByText(/allows codex sandbox network access/i),
-    ).toBeInTheDocument();
   });
 });

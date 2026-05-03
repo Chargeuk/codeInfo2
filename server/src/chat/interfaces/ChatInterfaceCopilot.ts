@@ -1,6 +1,7 @@
 import {
   approveAll,
   type CopilotSession,
+  type ModelInfo,
   type PermissionHandler,
   type ResumeSessionConfig,
   type SessionConfig,
@@ -17,15 +18,23 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { CopilotLifecycle } from '../copilotLifecycle.js';
+import { copilotModelSupportsReasoningEffort } from '../copilotModelSupport.js';
+import {
+  resolveCopilotRuntimeAgentFlags,
+  type CopilotRuntimeAgentFlags,
+} from '../providerRuntimeFlags.js';
 import { ChatInterface } from './ChatInterface.js';
 
 const TASK7_LOG_MARKER = 'story.0000051.task07.chat_turn_completed';
+const DEFAULT_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC = 7200;
 
 type CopilotRunFlags = {
+  agentFlags?: Record<string, unknown>;
   systemPrompt?: string;
   workingDirectoryOverride?: string;
   history?: TurnSummary[];
   resumeConversation?: boolean;
+  copilotModels?: ModelInfo[];
 };
 
 type CopilotSessionLike = Pick<
@@ -48,7 +57,12 @@ type ChatInterfaceCopilotOptions = {
   toolsFactory?: (
     phase: SessionPhase,
     flags: CopilotRunFlags,
-  ) => Tool[] | undefined;
+  ) =>
+    | {
+        tools: Tool[];
+        toolNames: string[];
+      }
+    | undefined;
   permissionHandler?: PermissionHandler;
 };
 
@@ -99,6 +113,19 @@ const normalizeTiming = (
   };
 };
 
+const resolveCopilotSendAndWaitTimeoutMs = (
+  env: NodeJS.ProcessEnv = process.env,
+): number => {
+  const rawValue = env.CODEINFO_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC?.trim();
+  const parsedSeconds =
+    rawValue && rawValue.length > 0 ? Number(rawValue) : NaN;
+  const effectiveSeconds =
+    Number.isFinite(parsedSeconds) && parsedSeconds > 0
+      ? parsedSeconds
+      : DEFAULT_COPILOT_SEND_AND_WAIT_TIMEOUT_SEC;
+  return effectiveSeconds * 1000;
+};
+
 export class ChatInterfaceCopilot extends ChatInterface {
   private readonly hooksFactory: NonNullable<
     ChatInterfaceCopilotOptions['hooksFactory']
@@ -124,6 +151,23 @@ export class ChatInterfaceCopilot extends ChatInterface {
     this.permissionHandler = options.permissionHandler ?? approveAll;
   }
 
+  private resolveSessionFlags(flags: CopilotRunFlags): {
+    runtimeFlags: CopilotRuntimeAgentFlags;
+    toolConfig?: ReturnType<
+      NonNullable<ChatInterfaceCopilotOptions['toolsFactory']>
+    >;
+  } {
+    const phase: SessionPhase = flags.resumeConversation ? 'resume' : 'create';
+    const runtimeFlags = resolveCopilotRuntimeAgentFlags(flags.agentFlags);
+    return {
+      runtimeFlags,
+      toolConfig:
+        runtimeFlags.toolAccess === 'off'
+          ? undefined
+          : this.toolsFactory(phase, flags),
+    };
+  }
+
   buildCreateSessionConfig(
     conversationId: string,
     model: string,
@@ -131,14 +175,22 @@ export class ChatInterfaceCopilot extends ChatInterface {
     onEvent?: SessionEventHandler,
   ): SessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
+    const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
+    const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
+      ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
+      : true;
     return {
       sessionId: conversationId,
       model,
       configDir: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
-      tools: this.toolsFactory('create', typedFlags),
+      tools: toolConfig?.tools,
+      availableTools: toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
+      ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
+        ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
+        : {}),
       ...(typedFlags.systemPrompt
         ? {
             systemMessage: {
@@ -159,13 +211,21 @@ export class ChatInterfaceCopilot extends ChatInterface {
     onEvent?: SessionEventHandler,
   ): ResumeSessionConfig {
     const typedFlags = (flags ?? {}) as CopilotRunFlags;
+    const { runtimeFlags, toolConfig } = this.resolveSessionFlags(typedFlags);
+    const reasoningEffortSupported = Array.isArray(typedFlags.copilotModels)
+      ? copilotModelSupportsReasoningEffort(typedFlags.copilotModels, model)
+      : true;
     return {
       model,
       configDir: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),
-      tools: this.toolsFactory('resume', typedFlags),
+      tools: toolConfig?.tools,
+      availableTools: toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
+      ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
+        ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
+        : {}),
       ...(typedFlags.systemPrompt
         ? {
             systemMessage: {
@@ -219,6 +279,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
     let started = false;
     let session: CopilotSessionLike | undefined;
     const toolNameByCallId = new Map<string, string>();
+    let sawProviderThreadEvent = false;
 
     const logTerminal = (status: 'completed' | 'stopped' | 'failed') => {
       if (terminalLogged) return;
@@ -248,6 +309,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       switch (event.type) {
         case 'session.start':
         case 'session.resume':
+          sawProviderThreadEvent = true;
           this.emitEvent({ type: 'thread', threadId: conversationId });
           return;
         case 'assistant.message_delta':
@@ -359,12 +421,14 @@ export class ChatInterfaceCopilot extends ChatInterface {
               onEvent,
             );
 
-      session.registerPermissionHandler(this.permissionHandler);
-      session.registerHooks(this.hooksFactory(phase, typedFlags));
-      session.registerTools(this.toolsFactory(phase, typedFlags));
-      this.emitEvent({ type: 'thread', threadId: conversationId });
+      if (!sawProviderThreadEvent) {
+        this.emitEvent({ type: 'thread', threadId: conversationId });
+      }
 
-      await session.sendAndWait({ prompt: message });
+      await session.sendAndWait(
+        { prompt: message },
+        resolveCopilotSendAndWaitTimeoutMs(),
+      );
     } finally {
       await session?.disconnect().catch(() => undefined);
       if (started) {

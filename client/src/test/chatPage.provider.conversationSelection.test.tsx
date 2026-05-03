@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -80,6 +81,16 @@ function mockApi() {
             provider: 'lmstudio',
             available: true,
             toolsAvailable: true,
+            defaultModel: 'model-1',
+            defaultModelSource: 'config',
+            providerInfo: {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+              defaultModel: 'model-1',
+              defaultModelSource: 'config',
+            },
             models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
           }),
         }) as unknown as Response;
@@ -372,5 +383,426 @@ describe('Chat page sidebar conversation selection', () => {
     expect(screen.getByTestId('chat-input')).toBeEnabled();
     expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+  });
+
+  it('restores the selected conversation over an unsent provider draft without merging hidden draft flags', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      async (url: RequestInfo | URL, opts?: RequestInit) => {
+        const href = typeof url === 'string' ? url : url.toString();
+
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ status: 'ok', mongoConnected: true }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'copilot',
+                  label: 'GitHub Copilot',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (
+          href.includes('/chat/models') &&
+          href.includes('provider=copilot')
+        ) {
+          const copilotAgentFlags = [
+            {
+              key: 'toolAccess',
+              label: 'Tool Access',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'on',
+              resolvedDefault: 'on',
+              supportedValues: [
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ],
+            },
+          ];
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'copilot',
+              available: true,
+              toolsAvailable: true,
+              providerInfo: {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+                agentFlags: copilotAgentFlags,
+              },
+              agentFlags: copilotAgentFlags,
+              models: [
+                {
+                  key: 'copilot-chat',
+                  displayName: 'Copilot Chat',
+                  type: 'chat',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/chat/models') && href.includes('provider=codex')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              providerInfo: {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+                agentFlags: [
+                  {
+                    key: 'sandboxMode',
+                    label: 'Sandbox Mode',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'workspace-write',
+                    resolvedDefault: 'workspace-write',
+                    supportedValues: [
+                      { value: 'workspace-write', label: 'Workspace write' },
+                      { value: 'read-only', label: 'Read-only' },
+                      {
+                        value: 'danger-full-access',
+                        label: 'Danger full access',
+                      },
+                    ],
+                  },
+                  {
+                    key: 'approvalPolicy',
+                    label: 'Approval Policy',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'on-request',
+                    resolvedDefault: 'on-request',
+                    supportedValues: [
+                      { value: 'never', label: 'Never (auto-approve)' },
+                      { value: 'on-request', label: 'On request' },
+                      { value: 'untrusted', label: 'Untrusted' },
+                    ],
+                  },
+                  {
+                    key: 'modelReasoningEffort',
+                    label: 'Reasoning Effort',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'high',
+                    resolvedDefault: 'high',
+                    supportedValues: [{ value: 'high', label: 'High' }],
+                  },
+                  {
+                    key: 'networkAccessEnabled',
+                    label: 'Network Access',
+                    controlType: 'boolean',
+                    editable: true,
+                    seedDefault: true,
+                    resolvedDefault: true,
+                  },
+                  {
+                    key: 'webSearchMode',
+                    label: 'Web Search',
+                    controlType: 'select',
+                    editable: true,
+                    seedDefault: 'live',
+                    resolvedDefault: 'live',
+                    supportedValues: [
+                      { value: 'disabled', label: 'Disabled' },
+                      { value: 'cached', label: 'Cached' },
+                      { value: 'live', label: 'Live' },
+                    ],
+                  },
+                ],
+              },
+              agentFlags: [
+                {
+                  key: 'sandboxMode',
+                  label: 'Sandbox Mode',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'workspace-write',
+                  resolvedDefault: 'workspace-write',
+                  supportedValues: [
+                    { value: 'workspace-write', label: 'Workspace write' },
+                    { value: 'read-only', label: 'Read-only' },
+                    {
+                      value: 'danger-full-access',
+                      label: 'Danger full access',
+                    },
+                  ],
+                },
+                {
+                  key: 'approvalPolicy',
+                  label: 'Approval Policy',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'on-request',
+                  resolvedDefault: 'on-request',
+                  supportedValues: [
+                    { value: 'never', label: 'Never (auto-approve)' },
+                    { value: 'on-request', label: 'On request' },
+                    { value: 'untrusted', label: 'Untrusted' },
+                  ],
+                },
+                {
+                  key: 'modelReasoningEffort',
+                  label: 'Reasoning Effort',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'high',
+                  resolvedDefault: 'high',
+                  supportedValues: [{ value: 'high', label: 'High' }],
+                },
+                {
+                  key: 'networkAccessEnabled',
+                  label: 'Network Access',
+                  controlType: 'boolean',
+                  editable: true,
+                  seedDefault: true,
+                  resolvedDefault: true,
+                },
+                {
+                  key: 'webSearchMode',
+                  label: 'Web Search',
+                  controlType: 'select',
+                  editable: true,
+                  seedDefault: 'live',
+                  resolvedDefault: 'live',
+                  supportedValues: [
+                    { value: 'disabled', label: 'Disabled' },
+                    { value: 'cached', label: 'Cached' },
+                    { value: 'live', label: 'Live' },
+                  ],
+                },
+              ],
+              codexDefaults: {
+                sandboxMode: 'workspace-write',
+                approvalPolicy: 'on-failure',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: true,
+              },
+              codexWarnings: [],
+              models: [
+                {
+                  key: 'gpt-5.1-codex-max',
+                  displayName: 'gpt-5.1-codex-max',
+                  type: 'codex',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/conversations/') && href.includes('/turns')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: codexConversationId,
+                  role: 'user',
+                  content: 'hello codex',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-12-09T12:00:00.000Z',
+                },
+                {
+                  conversationId: codexConversationId,
+                  role: 'assistant',
+                  content: 'codex reply',
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  toolCalls: null,
+                  status: 'ok',
+                  createdAt: '2025-12-09T12:00:01.000Z',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: codexConversationId,
+                  title: 'Codex conversation',
+                  provider: 'codex',
+                  model: 'gpt-5.1-codex-max',
+                  lastMessageAt: '2025-12-09T12:00:02.000Z',
+                  archived: false,
+                },
+              ],
+              nextCursor: undefined,
+            }),
+          }) as unknown as Response;
+        }
+
+        if (href.includes('/chat') && opts?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              conversationId: 'draft-conversation',
+              inflightId: 'i1',
+              provider: 'copilot',
+              model: 'copilot-chat',
+            }),
+          }) as unknown as Response;
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        }) as unknown as Response;
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const conversationRow = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(conversationRow);
+    });
+
+    expect(await screen.findByText('codex reply')).toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
+    expect(
+      screen.getByRole('combobox', { name: /sandbox mode/i }),
+    ).toBeInTheDocument();
+
+    await selectProvider(user, /^GitHub Copilot$/i);
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /GitHub Copilot/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /Copilot Chat/i,
+      ),
+    );
+    expect(screen.queryByText('codex reply')).not.toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: /tool access/i }),
+      ).toHaveTextContent(/on/i),
+    );
+    await user.click(screen.getByRole('combobox', { name: /tool access/i }));
+    await user.click(await screen.findByRole('option', { name: /^Off$/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('tool-access-select')).toHaveTextContent(
+        /off/i,
+      ),
+    );
+
+    await act(async () => {
+      await user.click(screen.getByTestId('conversation-row'));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    expect(await screen.findByText('codex reply')).toBeInTheDocument();
+    await ensureAgentFlagsPanelExpanded(user);
+    expect(
+      screen.getByRole('combobox', { name: /sandbox mode/i }),
+    ).toHaveTextContent(/workspace write/i);
+    expect(
+      screen.queryByRole('combobox', { name: /tool access/i }),
+    ).not.toBeInTheDocument();
+  }, 10000);
+
+  it('reloads LM Studio models and replaces a persisted Codex model label when the next-send provider changes after a stale LM Studio default response', async () => {
+    const user = userEvent.setup();
+    mockApi();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const codexRowTitle = await screen.findByText('Codex conversation');
+    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
+    if (!codexRow) {
+      throw new Error('Codex conversation row not found');
+    }
+
+    await act(async () => {
+      await user.click(codexRow);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5\.1-codex-max/i,
+      ),
+    );
+
+    await selectProvider(user, /^LM Studio$/i);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /LM Studio/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some(([url]) =>
+          String(url).includes('/chat/models?provider=lmstudio'),
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(/LM Model/i),
+    );
+    expect(screen.getByTestId('model-select')).not.toHaveTextContent(
+      /gpt-5\.1-codex-max/i,
+    );
   });
 });

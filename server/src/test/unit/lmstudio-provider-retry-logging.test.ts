@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
+import type { LMStudioClient } from '@lmstudio/sdk';
+import { ChatInterfaceLMStudio } from '../../chat/interfaces/ChatInterfaceLMStudio.js';
 import {
   createLmStudioEmbeddingProvider,
   LmStudioEmbeddingError,
@@ -160,4 +165,166 @@ test('rejects whitespace-only LM Studio input with the same bad-request error', 
   });
   assert.equal(logs.length, 1);
   assert.equal(logs[0]?.context?.rawInputClassification, 'whitespace_only');
+});
+
+test('LM Studio chat runtime labels real invalid runtime flag input with the bounded invalid-flags marker', async () => {
+  const runInvalidFlags = async (agentFlags: Record<string, unknown>) => {
+    resetStore();
+    const chat = new ChatInterfaceLMStudio(
+      () => {
+        throw new Error('client should not be created');
+      },
+      () => ({ tools: [] }),
+    );
+    const errors: string[] = [];
+    chat.on('error', (event) => errors.push(event.message));
+
+    await chat.execute(
+      'hello',
+      {
+        requestId: 'lmstudio-runtime-invalid',
+        baseUrl: 'http://127.0.0.1:1234',
+        agentFlags,
+      },
+      'lmstudio-runtime-invalid-conversation',
+      'lmstudio-model',
+    );
+
+    const logs = query({
+      text: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
+    });
+
+    return {
+      error: errors.at(-1) ?? '',
+      log: logs.at(-1),
+    };
+  };
+
+  const unlimited = await runInvalidFlags({ maxTokens: false });
+  assert.match(unlimited.error, /agentFlags\.maxTokens must be a number/u);
+  assert.match(
+    String(unlimited.log?.context?.error ?? ''),
+    /agentFlags\.maxTokens must be a number/u,
+  );
+
+  const outOfRange = await runInvalidFlags({ temperature: 3 });
+  assert.match(outOfRange.error, /agentFlags\.temperature must be at most 2/u);
+  assert.match(
+    String(outOfRange.log?.context?.error ?? ''),
+    /agentFlags\.temperature must be at most 2/u,
+  );
+});
+
+test('LM Studio chat runtime does not reuse the invalid-flags marker for a post-parse execution failure', async () => {
+  resetStore();
+  const chat = new ChatInterfaceLMStudio(
+    () =>
+      ({
+        llm: {
+          model: async () => ({
+            act: async () => {
+              throw new Error('lmstudio execution failed after flags parsed');
+            },
+          }),
+        },
+      }) as unknown as LMStudioClient,
+    () => ({ tools: [] }),
+  );
+  const errors: string[] = [];
+  chat.on('error', (event) => errors.push(event.message));
+
+  await chat.execute(
+    'hello',
+    {
+      requestId: 'lmstudio-runtime-post-parse-failure',
+      baseUrl: 'http://127.0.0.1:1234',
+      agentFlags: {
+        temperature: 0.7,
+        maxTokens: 128,
+      },
+      history: [],
+    },
+    'lmstudio-runtime-post-parse-conversation',
+    'lmstudio-model',
+  );
+
+  assert.match(
+    errors.at(-1) ?? '',
+    /lmstudio execution failed after flags parsed/u,
+  );
+  const invalidLogs = query({
+    text: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
+  });
+  assert.equal(invalidLogs.length, 0);
+});
+
+test('LM Studio chat runtime falls back to the bounded defaults when provider-local config widens temperature or maxTokens', async () => {
+  const originalHome = process.env.CODEINFO_LMSTUDIO_HOME;
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task10-lmstudio-runtime-'),
+  );
+  const lmstudioHome = path.join(tempRoot, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    [
+      'temperature = 4',
+      'max_tokens = 0',
+      'context_overflow_policy = "rollingWindow"',
+      'tool_access = "off"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  process.env.CODEINFO_LMSTUDIO_HOME = lmstudioHome;
+
+  const captured: Record<string, unknown>[] = [];
+  try {
+    const chat = new ChatInterfaceLMStudio(
+      () =>
+        ({
+          llm: {
+            model: async () => ({
+              act: async (
+                _chat: unknown,
+                tools: ReadonlyArray<unknown>,
+                opts: Record<string, unknown>,
+              ) => {
+                captured.push({
+                  tools,
+                  temperature: opts.temperature,
+                  maxTokens: opts.maxTokens,
+                  contextOverflowPolicy: opts.contextOverflowPolicy,
+                });
+              },
+            }),
+          },
+        }) as unknown as LMStudioClient,
+      () => ({ tools: [{ name: 'VectorSearch' }] }),
+    );
+
+    await chat.execute(
+      'hello',
+      {
+        requestId: 'lmstudio-runtime-bounded-defaults',
+        baseUrl: 'http://127.0.0.1:1234',
+        history: [],
+      },
+      'lmstudio-runtime-bounded-defaults-conversation',
+      'lmstudio-model',
+    );
+
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0]?.temperature, 0.2);
+    assert.equal(captured[0]?.maxTokens, 4096);
+    assert.equal(captured[0]?.contextOverflowPolicy, 'rollingWindow');
+    assert.equal(
+      (captured[0]?.tools as ReadonlyArray<unknown> | undefined)?.length,
+      0,
+    );
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_LMSTUDIO_HOME;
+    else process.env.CODEINFO_LMSTUDIO_HOME = originalHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
 });

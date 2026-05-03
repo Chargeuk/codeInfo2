@@ -207,6 +207,105 @@ describe('Chat page stop control', () => {
     expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument();
   });
 
+  it('locks model changes and new-conversation resets when the selected conversation is stopping without an inflight id yet', async () => {
+    let resolveChatStart: ((value: Response) => void) | null = null;
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation one',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+          {
+            conversationId: 'c2',
+            title: 'Conversation two',
+            provider: 'codex',
+            model: 'gpt-5-codex',
+            lastMessageAt: '2025-01-02T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: {
+        items: [],
+        nextCursor: null,
+      },
+      chatFetch: () =>
+        new Promise<Response>((resolve) => {
+          resolveChatStart = resolve;
+        }),
+    });
+    const user = userEvent.setup();
+
+    renderChatPage();
+
+    const row = await screen.findByText('Conversation one');
+    await act(async () => {
+      await user.click(row);
+    });
+
+    await startChatTurn(user, 'Hello');
+    await waitFor(() => expect(resolveChatStart).not.toBeNull());
+    await act(async () => {
+      await user.click(await screen.findByTestId('chat-stop'));
+    });
+
+    expect(screen.getByLabelText('Provider')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByLabelText('Model')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(
+      screen.getByRole('button', { name: /new conversation/i }),
+    ).toBeDisabled();
+    const conversationRows = screen.getAllByTestId('conversation-row');
+    expect(conversationRows[0]).toHaveAttribute('aria-disabled', 'true');
+    expect(conversationRows[1]).toHaveAttribute('aria-disabled', 'true');
+
+    expect(screen.getByText('Conversation one')).toBeInTheDocument();
+    expect(screen.getByLabelText('Provider')).toHaveTextContent('LM Studio');
+
+    const providerHiddenInput = screen
+      .getByTestId('provider-select')
+      .parentElement?.querySelector('input');
+    expect(providerHiddenInput).not.toBeNull();
+    fireEvent.change(providerHiddenInput as HTMLInputElement, {
+      target: { value: 'codex' },
+    });
+    expect(screen.getByLabelText('Provider')).toHaveTextContent('LM Studio');
+    expect(screen.queryByText('OpenAI Codex')).not.toBeInTheDocument();
+    expect(screen.getByText('Conversation one')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveChatStart?.(
+        new Response(
+          JSON.stringify({
+            status: 'started',
+            conversationId: 'c1',
+            inflightId: 'i1',
+            provider: 'lmstudio',
+            model: 'm1',
+          }),
+          {
+            status: 202,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    });
+
+    expect(harness.chatBodies).toHaveLength(1);
+  });
+
   it('sends cancel_inflight with conversationId and no inflightId during the startup race', async () => {
     let resolveChatStart: ((value: Response) => void) | null = null;
     const harness = setupChatWsHarness({
@@ -368,7 +467,7 @@ describe('Chat page stop control', () => {
     expect(harness.chatBodies).toHaveLength(0);
   });
 
-  it('recovers cleanly if the active conversation changes while stopping is still pending', async () => {
+  it('recovers cleanly when stop-lock ignores sidebar retarget attempts during pending cancellation', async () => {
     const harness = setupChatWsHarness({
       mockFetch,
       conversations: {
@@ -436,14 +535,10 @@ describe('Chat page stop control', () => {
     if (!secondConversation) {
       throw new Error('Missing Conversation two row');
     }
-    await act(async () => {
-      await user.click(secondConversation);
-    });
+    expect(secondConversation).toHaveAttribute('aria-disabled', 'true');
 
-    await waitFor(() =>
-      expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument(),
-    );
-    expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chat-stop')).toBeDisabled();
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Stopping');
 
     harness.emitCancelAck({
       conversationId: 'c1',
@@ -451,6 +546,10 @@ describe('Chat page stop control', () => {
       result: 'noop',
     });
 
+    await waitFor(() =>
+      expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument(),
     );

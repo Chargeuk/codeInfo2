@@ -23,6 +23,7 @@ export type ToolEvent =
 
 export type InflightState = {
   inflightId: string;
+  replayId?: string;
   provider?: string;
   model?: string;
   source?: 'REST' | 'MCP';
@@ -46,11 +47,113 @@ export type PendingConversationCancel = {
   boundInflightId?: string;
 };
 
+export type CompletedInflightState = {
+  inflightId: string;
+  replayId?: string;
+  provider?: string;
+  model?: string;
+  source?: 'REST' | 'MCP';
+  userTurn?: { content: string; createdAt: string };
+  finalStatus?: 'ok' | 'stopped' | 'failed';
+  persisted?: { user: boolean; assistant: boolean };
+  persistedTurnIds?: { user?: string; assistant?: string };
+  assistantText: string;
+  assistantThink: string;
+  toolEvents: ToolEvent[];
+  startedAt: string;
+  completedAt?: string;
+};
+
 const inflightByConversationId = new Map<string, InflightState>();
 const pendingCancelByConversationId = new Map<
   string,
   PendingConversationCancel
 >();
+const completedInflightByKey = new Map<string, CompletedInflightState>();
+const completedInflightKeyByReplayKey = new Map<string, string>();
+const completedInflightOrder: string[] = [];
+const MAX_COMPLETED_INFLIGHT_ENTRIES = 1000;
+
+function makeCompletedInflightKey(conversationId: string, inflightId: string) {
+  return `${conversationId}::${inflightId}`;
+}
+
+function makeCompletedReplayKey(conversationId: string, replayId: string) {
+  return `${conversationId}::${replayId}`;
+}
+
+function cloneCompletedInflightState(
+  state: CompletedInflightState,
+): CompletedInflightState {
+  return {
+    ...state,
+    userTurn: state.userTurn ? { ...state.userTurn } : undefined,
+    persisted: state.persisted ? { ...state.persisted } : undefined,
+    persistedTurnIds: state.persistedTurnIds
+      ? { ...state.persistedTurnIds }
+      : undefined,
+    toolEvents: [...state.toolEvents],
+  };
+}
+
+function rememberCompletedInflight(params: {
+  conversationId: string;
+  state: InflightState;
+  completedAt?: string;
+}) {
+  const key = makeCompletedInflightKey(
+    params.conversationId,
+    params.state.inflightId,
+  );
+  const snapshot: CompletedInflightState = {
+    inflightId: params.state.inflightId,
+    replayId: params.state.replayId,
+    provider: params.state.provider,
+    model: params.state.model,
+    source: params.state.source,
+    userTurn: params.state.userTurn ? { ...params.state.userTurn } : undefined,
+    finalStatus: params.state.finalStatus,
+    persisted: params.state.persisted
+      ? { ...params.state.persisted }
+      : undefined,
+    persistedTurnIds: params.state.persistedTurnIds
+      ? { ...params.state.persistedTurnIds }
+      : undefined,
+    assistantText: params.state.assistantText,
+    assistantThink: params.state.assistantThink,
+    toolEvents: [...params.state.toolEvents],
+    startedAt: params.state.startedAt,
+    completedAt: params.completedAt,
+  };
+
+  if (!completedInflightByKey.has(key)) {
+    completedInflightOrder.push(key);
+  }
+  completedInflightByKey.set(key, snapshot);
+  if (snapshot.replayId) {
+    completedInflightKeyByReplayKey.set(
+      makeCompletedReplayKey(params.conversationId, snapshot.replayId),
+      key,
+    );
+  }
+
+  while (completedInflightOrder.length > MAX_COMPLETED_INFLIGHT_ENTRIES) {
+    const oldestKey = completedInflightOrder.shift();
+    if (!oldestKey) break;
+    const evicted = completedInflightByKey.get(oldestKey);
+    if (evicted?.replayId) {
+      const separatorIndex = oldestKey.indexOf('::');
+      const conversationId =
+        separatorIndex >= 0 ? oldestKey.slice(0, separatorIndex) : null;
+      if (conversationId) {
+        completedInflightKeyByReplayKey.delete(
+          makeCompletedReplayKey(conversationId, evicted.replayId),
+        );
+      }
+    }
+    completedInflightByKey.delete(oldestKey);
+  }
+}
 
 export function hasInflight(conversationId: string): boolean {
   return inflightByConversationId.has(conversationId);
@@ -60,9 +163,32 @@ export function getInflight(conversationId: string): InflightState | undefined {
   return inflightByConversationId.get(conversationId);
 }
 
+export function getCompletedInflight(params: {
+  conversationId: string;
+  inflightId: string;
+}): CompletedInflightState | null {
+  const snapshot = completedInflightByKey.get(
+    makeCompletedInflightKey(params.conversationId, params.inflightId),
+  );
+  return snapshot ? cloneCompletedInflightState(snapshot) : null;
+}
+
+export function getCompletedInflightByReplayId(params: {
+  conversationId: string;
+  replayId: string;
+}): CompletedInflightState | null {
+  const inflightKey = completedInflightKeyByReplayKey.get(
+    makeCompletedReplayKey(params.conversationId, params.replayId),
+  );
+  if (!inflightKey) return null;
+  const snapshot = completedInflightByKey.get(inflightKey);
+  return snapshot ? cloneCompletedInflightState(snapshot) : null;
+}
+
 export function createInflight(params: {
   conversationId: string;
   inflightId: string;
+  replayId?: string;
   provider?: string;
   model?: string;
   source?: 'REST' | 'MCP';
@@ -73,6 +199,7 @@ export function createInflight(params: {
   const controller = new AbortController();
   const state: InflightState = {
     inflightId: params.inflightId,
+    replayId: params.replayId,
     provider: params.provider,
     model: params.model,
     source: params.source,
@@ -374,6 +501,13 @@ export function cleanupInflight(params: {
   const state = inflightByConversationId.get(params.conversationId);
   if (!state) return;
   if (params.inflightId && state.inflightId !== params.inflightId) return;
+  if (state.finalStatus) {
+    rememberCompletedInflight({
+      conversationId: params.conversationId,
+      state,
+      completedAt: state.assistantCreatedAt ?? new Date().toISOString(),
+    });
+  }
   inflightByConversationId.delete(params.conversationId);
   const pending = pendingCancelByConversationId.get(params.conversationId);
   if (pending?.boundInflightId === state.inflightId) {
@@ -420,6 +554,11 @@ export function markInflightFinal(params: {
   }
   state.finalStatus = params.status;
   state.assistantCreatedAt = params.finalizedAt ?? new Date().toISOString();
+  rememberCompletedInflight({
+    conversationId: params.conversationId,
+    state,
+    completedAt: state.assistantCreatedAt,
+  });
   return { ok: true, alreadyFinalized: false };
 }
 
@@ -440,6 +579,13 @@ export function markInflightPersisted(params: {
       state.persistedTurnIds = {};
     }
     state.persistedTurnIds[params.role] = params.turnId;
+  }
+  if (state.finalStatus) {
+    rememberCompletedInflight({
+      conversationId: params.conversationId,
+      state,
+      completedAt: state.assistantCreatedAt,
+    });
   }
   return { ok: true };
 }

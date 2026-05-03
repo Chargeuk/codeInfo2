@@ -57,6 +57,16 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Treat `must_fix` findings as findings that must be resolved in this story, not as automatically task-required. A `must_fix` finding may still be classified as minor-batchable when it satisfies every minor-batchable rule below.
 - Treat `should_fix` findings as minor-batchable when every minor-batchable rule below is satisfied. Otherwise classify them as task-required.
 - Treat `optional_simplification` findings as rejected or non-actionable unless the finding is concrete, localized, low-risk, and explicitly worth fixing in the current story. If it is worth fixing and satisfies every minor-batchable rule, classify it as minor-batchable. Otherwise classify it as task-required only when the review artifact makes it blocking.
+- Parse `Scope Impact` as an optional narrowing hint, not as required structural input.
+- Valid `Scope Impact` values are `behavioral_regression`, `correctness_bug`, `proof_gap`, `cleanup_preference`, and `unknown_scope_impact`.
+- If `Scope Impact` is missing, malformed, or not one of the expected values, normalize it to `unknown_scope_impact`, continue classification normally, and record that normalization in `classification_notes`.
+- Only when a finding explicitly says `Scope Impact: cleanup_preference` should that value narrow the review response.
+- When a finding explicitly says `Scope Impact: cleanup_preference`, treat it as rejected or non-actionable unless the review artifact also shows one of:
+  - a reproduced user-visible or operational failure on the current head;
+  - an explicit active-story requirement for that cleanup;
+  - an explicit user-approved scope expansion for that cleanup.
+- When a finding would alter a known-working runtime contract such as env loading, compose ownership, startup paths, mounted-path mapping, or working-folder selection, do not route it into task-up or minor-fix solely for portability neatness when its normalized `Scope Impact` is `cleanup_preference`. If the current head is not proven broken, preserve it as rejected or non-actionable and record the reason in `classification_notes`.
+- When the normalized `Scope Impact` is `unknown_scope_impact`, do not suppress, defer, or discard the finding on that basis alone. Continue using severity, repository ownership, boundedness, and evidence quality to decide whether it is actionable.
 - Treat incomplete-review outcomes, missing required artifacts, unreadable artifacts, stale scope, or ambiguous review basis as `incomplete_review_blockers`.
 - When the findings artifact and handoff counts disagree, trust the findings artifact and record the mismatch in `classification_notes`.
 

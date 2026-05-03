@@ -70,6 +70,7 @@ class MockCodex {
   id: string;
   lastStartOptions?: CodexThreadOptions;
   lastResumeOptions?: CodexThreadOptions;
+  lastResumeThreadId?: string;
 
   constructor(id = 'thread-mock') {
     this.id = id;
@@ -81,6 +82,7 @@ class MockCodex {
   }
 
   resumeThread(threadId: string, opts?: CodexThreadOptions) {
+    this.lastResumeThreadId = threadId;
     this.lastResumeOptions = opts;
     return new MockThread(threadId);
   }
@@ -433,7 +435,7 @@ test('codex chat accepts non-standard reasoning effort when provided by shared c
     .send(
       buildCodexBody({
         model: 'future-model',
-        modelReasoningEffort: 'turbo',
+        agentFlags: { modelReasoningEffort: 'turbo' },
         conversationId: 'future-model-conv',
       }),
     );
@@ -496,7 +498,7 @@ test('codex chat rejects reasoning effort not supported by shared capability res
     .send(
       buildCodexBody({
         model: 'strict-model',
-        modelReasoningEffort: 'high',
+        agentFlags: { modelReasoningEffort: 'high' },
         conversationId: 'strict-model-conv',
       }),
     );
@@ -703,6 +705,51 @@ test('codex chat uses chat runtime config file (not base behavior keys)', async 
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
+});
+
+test('chat route overlays codex reasoning summary and verbosity into runtime config', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  let capturedOptions: CodexOptions | undefined;
+  const codexFactory = (options?: CodexOptions) => {
+    capturedOptions = options;
+    return new MockCodex('thread-chat-overrides');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: 'conv-codex-chat-overrides',
+        agentFlags: {
+          modelReasoningSummary: 'concise',
+          modelVerbosity: 'high',
+        },
+      }),
+    )
+    .expect(202);
+
+  const deadline = Date.now() + 3000;
+  while (!capturedOptions && Date.now() < deadline) {
+    await sleep(25);
+  }
+
+  assert(capturedOptions, 'expected codex options to be captured');
+  const config = capturedOptions.config as Record<string, unknown> | undefined;
+  assert.equal(config?.model_reasoning_summary, 'concise');
+  assert.equal(config?.model_verbosity, 'high');
 });
 
 test('codex chat emits deterministic T06 error when chat runtime config is missing', async () => {
@@ -1024,6 +1071,53 @@ test('codex chat resumes existing thread when threadId supplied', async () => {
   assert.equal(mockCodex.lastResumeOptions?.model, 'gpt-5.1-codex-max');
 });
 
+test('codex chat preserves persisted thread when resuming the same conversation without request threadId', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const conversationId = 'conv-codex-persisted-thread';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Persisted thread conversation',
+    source: 'REST',
+    flags: { threadId: 'thread-persisted' },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as never);
+
+  const mockCodex = new MockCodex('thread-persisted');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ conversationId }))
+    .expect(202);
+
+  await waitForAssistantTurn(conversationId);
+
+  assert.equal(mockCodex.lastResumeThreadId, 'thread-persisted');
+  assert.equal(mockCodex.lastStartOptions, undefined);
+  assert.equal(
+    memoryConversations.get(conversationId)?.flags?.threadId,
+    'thread-persisted',
+  );
+});
+
 test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
   setCodexDetection({
     available: true,
@@ -1070,7 +1164,7 @@ test('codex chat rejects when detection is unavailable', async () => {
   assert.ok(String(resUnavailable.body.message).length > 0);
 });
 
-test('codex request falls back once to lmstudio when codex is unavailable', async () => {
+test('explicit codex request returns PROVIDER_UNAVAILABLE when codex is unavailable', async () => {
   const app = express();
   app.use(express.json());
   app.use(
@@ -1082,15 +1176,11 @@ test('codex request falls back once to lmstudio when codex is unavailable', asyn
   );
 
   const response = await request(app).post('/chat').send(buildCodexBody());
-  assert.equal(response.status, 202);
-  assert.equal(response.body.provider, 'lmstudio');
-  assert.equal(response.body.model, 'model-1');
-
-  const turns = await waitForAssistantTurn(response.body.conversationId);
-  assert.ok(turns.some((turn) => turn.role === 'assistant'));
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
-test('lmstudio request falls back once to codex when lmstudio is unavailable', async () => {
+test('explicit lmstudio request returns PROVIDER_UNAVAILABLE when lmstudio is unavailable', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -1113,8 +1203,8 @@ test('lmstudio request falls back once to codex when lmstudio is unavailable', a
   const response = await request(app)
     .post('/chat')
     .send(buildCodexBody({ provider: 'lmstudio', model: 'model-1' }));
-  assert.equal(response.status, 202);
-  assert.equal(response.body.provider, 'codex');
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
 test('lmstudio request returns PROVIDER_UNAVAILABLE when both providers are unavailable', async () => {

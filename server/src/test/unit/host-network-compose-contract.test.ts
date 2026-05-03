@@ -46,11 +46,22 @@ test('root compose inventory for Task 11 remains scoped to the checked-in files'
   ]);
 });
 
-test('main keeps product/runtime overlays image-baked while mounting read-only harness workflow assets, and local still exposes the live dev overlay mounts', () => {
+test('main stays image-baked while local host-network compose exposes the live dev overlay mounts', () => {
+  const dockerfile = readRepoFile('server/Dockerfile');
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
 
+  assert.match(
+    dockerfile,
+    /RUN mkdir -p \/app\/codex \/app\/copilot \/app\/lmstudio && chmod 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
+  );
+  assert.match(dockerfile, /ENV CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
+
   const mainServer = getServiceBlock(mainCompose, 'server');
+  assert.match(
+    mainServer,
+    /env_file:\n\s+- server\/\.env\n\s+- server\/\.env\.local/u,
+  );
   assert.match(mainServer, /network_mode: host/u);
   assert.doesNotMatch(mainServer, /\n\s+ports:/u);
   assert.doesNotMatch(mainServer, /\n\s+networks:/u);
@@ -66,7 +77,18 @@ test('main keeps product/runtime overlays image-baked while mounting read-only h
     mainServer,
     /CODEINFO_PLAYWRIGHT_MCP_URL=http:\/\/host\.docker\.internal:8932\/mcp/u,
   );
+  assert.match(
+    mainServer,
+    /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
+  );
+  assert.match(mainServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
+  assert.match(
+    mainServer,
+    /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
+  );
+  assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+  assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
@@ -79,6 +101,10 @@ test('main keeps product/runtime overlays image-baked while mounting read-only h
   );
 
   const localServer = getServiceBlock(localCompose, 'server');
+  assert.match(
+    localServer,
+    /env_file:\n\s+- server\/\.env\n\s+- server\/\.env\.local/u,
+  );
   assert.match(localServer, /network_mode: host/u);
   assert.doesNotMatch(localServer, /\n\s+ports:/u);
   assert.doesNotMatch(localServer, /\n\s+networks:/u);
@@ -92,9 +118,14 @@ test('main keeps product/runtime overlays image-baked while mounting read-only h
   assert.match(localServer, /\.\/flows:\/app\/flows/u);
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
+  assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(
     localServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:5510\/health'\]/u,
+  );
+  assert.match(
+    localServer,
+    /\$\{CODEINFO_HOST_INGEST_DIR\}:\$\{CODEINFO_CODEX_WORKDIR\}/u,
   );
   assert.match(
     localServer,
@@ -113,7 +144,7 @@ test('main keeps product/runtime overlays image-baked while mounting read-only h
   );
 });
 
-test('e2e server host-network contract removes mutable checked-in runtime-tree mounts while keeping read-only harness workflow asset mounts', () => {
+test('e2e server host-network contract removes checked-in runtime-tree mounts', () => {
   const e2eCompose = readRepoFile('docker-compose.e2e.yml');
   const e2eServer = getServiceBlock(e2eCompose, 'server');
 
@@ -125,11 +156,9 @@ test('e2e server host-network contract removes mutable checked-in runtime-tree m
   assert.doesNotMatch(e2eServer, /\.\/codex:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex_agents:/u);
   assert.match(e2eServer, /\.\/scripts:\/app\/scripts:ro/u);
-  assert.match(
-    e2eServer,
-    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
-  );
+  assert.match(e2eServer, /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u);
   assert.match(e2eServer, /CODEINFO_SERVER_PORT=6010/u);
+  assert.match(e2eServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(
     e2eServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,

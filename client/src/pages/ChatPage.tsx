@@ -1,3 +1,8 @@
+import {
+  type ChatAgentFlagDescriptor,
+  type ChatAgentFlagKey,
+  type ChatAgentFlagValue,
+} from '@codeinfo2/common';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
   Container,
@@ -27,7 +32,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
+import AgentFlagsPanel from '../components/chat/AgentFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import {
@@ -41,10 +46,8 @@ import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
+  type ChatAgentFlagDraft,
   ChatMessage,
-  ApprovalPolicy,
-  ModelReasoningEffort,
-  SandboxMode,
   ToolCall,
 } from '../hooks/useChatStream';
 import useChatWs, {
@@ -60,14 +63,91 @@ import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
 import { isDevEnv } from '../utils/isDevEnv';
 
-const DEV_0000037_T16_PREFIX = '[DEV-0000037][T16]';
-const DEV_0000037_T17_PREFIX = '[DEV-0000037][T17]';
-
 const selectDisplayTestId = (
   value: string,
 ): HTMLAttributes<HTMLDivElement> & { 'data-testid': string } => ({
   'data-testid': value,
 });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const normalizeAgentFlagValue = (
+  descriptor: ChatAgentFlagDescriptor,
+  value: unknown,
+): ChatAgentFlagValue | undefined => {
+  if (descriptor.controlType === 'boolean') {
+    return typeof value === 'boolean' ? value : undefined;
+  }
+
+  if (descriptor.controlType === 'number') {
+    const nextValue =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim().length > 0
+          ? Number(value)
+          : NaN;
+    if (!Number.isFinite(nextValue)) {
+      return undefined;
+    }
+    if (descriptor.integer && !Number.isInteger(nextValue)) {
+      return undefined;
+    }
+    if (typeof descriptor.min === 'number' && nextValue < descriptor.min) {
+      return undefined;
+    }
+    if (typeof descriptor.max === 'number' && nextValue > descriptor.max) {
+      return undefined;
+    }
+    return nextValue;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (
+    descriptor.supportedValues &&
+    !descriptor.supportedValues.some((entry) => entry.value === trimmed)
+  ) {
+    return undefined;
+  }
+
+  return trimmed;
+};
+
+const buildAgentFlagDraft = (
+  descriptors: ChatAgentFlagDescriptor[],
+  preferredValues?: Record<string, unknown>,
+): ChatAgentFlagDraft => {
+  const nextDraft: ChatAgentFlagDraft = {};
+
+  descriptors.forEach((descriptor) => {
+    const preferredValue =
+      preferredValues && Object.hasOwn(preferredValues, descriptor.key)
+        ? preferredValues[descriptor.key]
+        : undefined;
+    nextDraft[descriptor.key] =
+      normalizeAgentFlagValue(descriptor, preferredValue) ??
+      descriptor.resolvedDefault;
+  });
+
+  return nextDraft;
+};
+
+const readConversationAgentFlags = (
+  flags: unknown,
+): Record<string, unknown> | undefined => {
+  if (!isRecord(flags) || !isRecord(flags.agentFlags)) {
+    return undefined;
+  }
+  return flags.agentFlags;
+};
 
 export default function ChatPage() {
   const theme = useTheme();
@@ -99,32 +179,18 @@ export default function ChatPage() {
     models,
     selected,
     setSelected,
+    agentFlags: availableAgentFlags,
     errorMessage,
     providerErrorMessage,
-    codexDefaults,
     codexWarnings,
-    selectedModelCapabilities,
     isLoading,
     isError,
     isEmpty,
     refreshModels,
     refreshProviders,
   } = useChatModel();
-  const [sandboxMode, setSandboxMode] = useState<SandboxMode>(
-    codexDefaults?.sandboxMode ?? 'danger-full-access',
-  );
-  const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
-    codexDefaults?.approvalPolicy ?? 'on-failure',
-  );
-  const [modelReasoningEffort, setModelReasoningEffort] =
-    useState<ModelReasoningEffort>(
-      codexDefaults?.modelReasoningEffort ?? 'high',
-    );
-  const [networkAccessEnabled, setNetworkAccessEnabled] = useState<boolean>(
-    codexDefaults?.networkAccessEnabled ?? true,
-  );
-  const [webSearchEnabled, setWebSearchEnabled] = useState<boolean>(
-    codexDefaults?.webSearchEnabled ?? true,
+  const [agentFlagsDraft, setAgentFlagsDraft] = useState<ChatAgentFlagDraft>(
+    {},
   );
   const {
     messages,
@@ -138,19 +204,7 @@ export default function ChatPage() {
     hydrateHistory,
     hydrateInflightSnapshot,
     handleWsEvent,
-  } = useChatStream(
-    selected,
-    provider,
-    {
-      sandboxMode,
-      approvalPolicy,
-      modelReasoningEffort,
-      networkAccessEnabled,
-      webSearchEnabled,
-    },
-    codexDefaults,
-    selectedModelCapabilities,
-  );
+  } = useChatStream(selected, provider, agentFlagsDraft);
 
   const {
     conversations,
@@ -187,7 +241,6 @@ export default function ChatPage() {
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
   const codexDocsLoggedRef = useRef(false);
-  const codexDynamicReasoningStateKeyRef = useRef<string | null>(null);
   const [input, setInput] = useState('');
   const [workingFolder, setWorkingFolder] = useState('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
@@ -461,34 +514,27 @@ export default function ChatPage() {
     };
   }, [handleWsEvent, syncServerVisibleInflightId]);
   const providerIsCodex = provider === 'codex';
-  const codexDefaultsReady = providerIsCodex && Boolean(codexDefaults);
   const codexWarningList = useMemo(
     () => (providerIsCodex ? (codexWarnings ?? []) : []),
     [codexWarnings, providerIsCodex],
   );
   const showCodexWarnings = codexWarningList.length > 0;
-  const codexDefaultsInitializedRef = useRef(false);
-  const codexCapabilityStateKeyRef = useRef<string | null>(null);
   const codexWarningsRef = useRef('');
-  const pendingCodexDefaultsReasonRef = useRef<
-    null | 'provider-change' | 'new-conversation'
-  >(null);
-  const applyCodexDefaults = useCallback(
-    (reason: 'initial' | 'provider-change' | 'new-conversation') => {
-      if (!codexDefaults) return false;
-      setSandboxMode(codexDefaults.sandboxMode);
-      setApprovalPolicy(codexDefaults.approvalPolicy);
-      setModelReasoningEffort(codexDefaults.modelReasoningEffort);
-      setNetworkAccessEnabled(codexDefaults.networkAccessEnabled);
-      setWebSearchEnabled(codexDefaults.webSearchEnabled);
-      if (reason === 'initial') {
-        console.info('[codex-ui-defaults] initialized', { codexDefaults });
-      } else {
-        console.info('[codex-ui-defaults] reset', { reason, codexDefaults });
-      }
-      return true;
-    },
-    [codexDefaults],
+  const agentFlagsAppliedStateRef = useRef<string | null>(null);
+  const activeAgentFlagsStateKey = useMemo(
+    () =>
+      JSON.stringify(
+        availableAgentFlags.map((descriptor) => ({
+          key: descriptor.key,
+          resolvedDefault: descriptor.resolvedDefault,
+          supportedValues:
+            descriptor.supportedValues?.map((entry) => entry.value) ?? [],
+          min: descriptor.min,
+          max: descriptor.max,
+          integer: descriptor.integer,
+        })),
+      ),
+    [availableAgentFlags],
   );
   const codexProvider = useMemo(
     () => providers.find((p) => p.id === 'codex'),
@@ -515,6 +561,7 @@ export default function ChatPage() {
   const providerLocked = Boolean(
     selectedConversation && isStopping && !inflightSnapshot?.inflightId,
   );
+  const nextSendContextLocked = providerLocked;
   const showStop = isSending || isStopping;
   const chatWorkingFolderLocked =
     isSending ||
@@ -665,14 +712,6 @@ export default function ChatPage() {
   }, [isLoading, models.length, providers.length]);
 
   useEffect(() => {
-    if (providerIsCodex) return;
-    codexDefaultsInitializedRef.current = false;
-    codexCapabilityStateKeyRef.current = null;
-    pendingCodexDefaultsReasonRef.current = null;
-    codexWarningsRef.current = '';
-  }, [providerIsCodex]);
-
-  useEffect(() => {
     if (!showCodexWarnings) {
       codexWarningsRef.current = '';
       return;
@@ -684,92 +723,37 @@ export default function ChatPage() {
   }, [codexWarningList, showCodexWarnings]);
 
   useEffect(() => {
-    if (!providerIsCodex || !codexDefaults) return;
-    if (codexDefaultsInitializedRef.current) return;
-    const pendingReason = pendingCodexDefaultsReasonRef.current;
-    const applied = applyCodexDefaults(pendingReason ?? 'initial');
-    if (applied) {
-      codexDefaultsInitializedRef.current = true;
-      pendingCodexDefaultsReasonRef.current = null;
-    }
-  }, [applyCodexDefaults, codexDefaults, providerIsCodex]);
-
-  useEffect(() => {
-    if (!providerIsCodex || !selectedModelCapabilities || !selected) return;
-
-    const supportedReasoningEfforts =
-      selectedModelCapabilities.supportedReasoningEfforts;
-    const defaultReasoningEffort =
-      selectedModelCapabilities.defaultReasoningEffort;
-
-    if (
-      supportedReasoningEfforts.length === 0 ||
-      !defaultReasoningEffort ||
-      !supportedReasoningEfforts.includes(defaultReasoningEffort)
-    ) {
-      console.error(
-        `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=error reason=invalid_model_capabilities model=${selected}`,
-      );
+    if (availableAgentFlags.length === 0) {
+      if (Object.keys(agentFlagsDraft).length > 0) {
+        setAgentFlagsDraft({});
+      }
+      agentFlagsAppliedStateRef.current = null;
       return;
     }
 
-    if (!supportedReasoningEfforts.includes(modelReasoningEffort)) {
-      setModelReasoningEffort(defaultReasoningEffort);
-      console.info(
-        `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=success`,
-      );
-      codexCapabilityStateKeyRef.current = null;
-      return;
-    }
-
-    const key = `${selected}:${defaultReasoningEffort}:${modelReasoningEffort}:${supportedReasoningEfforts.join('|')}`;
-    if (codexCapabilityStateKeyRef.current === key) {
-      return;
-    }
-    codexCapabilityStateKeyRef.current = key;
-    console.info(
-      `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=success`,
+    const restoredFlags = readConversationAgentFlags(
+      selectedConversation?.flags,
     );
-  }, [
-    modelReasoningEffort,
-    providerIsCodex,
-    selected,
-    selectedModelCapabilities,
-  ]);
+    const stateKey = selectedConversation?.conversationId
+      ? `conversation:${selectedConversation.conversationId}:${provider ?? 'none'}:${selected ?? 'none'}:${activeAgentFlagsStateKey}`
+      : `draft:${activeConversationId ?? conversationId}:${provider ?? 'none'}:${selected ?? 'none'}:${activeAgentFlagsStateKey}`;
 
-  useEffect(() => {
-    if (!providerIsCodex || !selectedModelCapabilities || !selected) return;
-
-    const supportedReasoningEfforts =
-      selectedModelCapabilities.supportedReasoningEfforts;
-    const defaultReasoningEffort =
-      selectedModelCapabilities.defaultReasoningEffort;
-
-    if (
-      supportedReasoningEfforts.length === 0 ||
-      !defaultReasoningEffort ||
-      !supportedReasoningEfforts.includes(defaultReasoningEffort)
-    ) {
-      console.error(
-        `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=error reason=invalid_model_capabilities model=${selected}`,
-      );
-      codexDynamicReasoningStateKeyRef.current = null;
+    if (agentFlagsAppliedStateRef.current === stateKey) {
       return;
     }
 
-    const key = `${selected}:${modelReasoningEffort}:${supportedReasoningEfforts.join('|')}`;
-    if (codexDynamicReasoningStateKeyRef.current === key) {
-      return;
-    }
-    codexDynamicReasoningStateKeyRef.current = key;
-    console.info(
-      `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
-    );
+    setAgentFlagsDraft(buildAgentFlagDraft(availableAgentFlags, restoredFlags));
+    agentFlagsAppliedStateRef.current = stateKey;
   }, [
-    modelReasoningEffort,
-    providerIsCodex,
+    activeAgentFlagsStateKey,
+    activeConversationId,
+    agentFlagsDraft,
+    availableAgentFlags,
+    conversationId,
+    provider,
     selected,
-    selectedModelCapabilities,
+    selectedConversation?.conversationId,
+    selectedConversation?.flags,
   ]);
 
   const selectedConversationModelSyncKey = selectedConversation
@@ -912,6 +896,12 @@ export default function ChatPage() {
     nextProvider?: string;
   }) => {
     const resetReason = options?.reason ?? 'new-conversation';
+    if (
+      nextSendContextLocked &&
+      (resetReason === 'new-conversation' || resetReason === 'model-change')
+    ) {
+      return;
+    }
     const olderConversationRemainedInflight = Boolean(
       activeConversationId &&
         (inflightSnapshot?.inflightId ||
@@ -928,6 +918,7 @@ export default function ChatPage() {
     lastSentRef.current = '';
     inputRef.current?.focus();
     syncServerVisibleInflightId(null);
+    agentFlagsAppliedStateRef.current = null;
     if (resetReason === 'new-conversation') {
       log('info', 'DEV-0000046:T8:new-conversation-local-reset', {
         previousConversationId: activeConversationId ?? null,
@@ -936,22 +927,23 @@ export default function ChatPage() {
         cancelSent: false,
       });
     }
-    const targetProvider = options?.nextProvider ?? provider;
-    if (targetProvider === 'codex' && resetReason !== 'model-change') {
-      const applied = applyCodexDefaults(resetReason);
-      if (!applied) {
-        pendingCodexDefaultsReasonRef.current = resetReason;
-      }
-    }
   };
 
   const handleProviderChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (nextSendContextLocked) {
+      return;
+    }
+
     const nextProvider = event.target.value;
     const previousProvider = provider ?? null;
     const currentConversationId = activeConversationId ?? null;
     handleNewConversation({ reason: 'provider-change', nextProvider });
+    setSelected(undefined, {
+      nextSendOnly: true,
+      source: 'model-fallback',
+    });
     setProvider(nextProvider, {
       nextSendOnly: true,
       source: 'provider-change',
@@ -967,6 +959,10 @@ export default function ChatPage() {
   const handleModelChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
+    if (nextSendContextLocked) {
+      return;
+    }
+
     const nextModel = event.target.value;
     if (!nextModel || nextModel === selected) {
       return;
@@ -986,6 +982,20 @@ export default function ChatPage() {
       cancelSent: false,
     });
   };
+
+  const handleAgentFlagChange = useCallback(
+    (key: ChatAgentFlagKey, value: ChatAgentFlagValue | undefined) => {
+      setAgentFlagsDraft((current) => {
+        if (value === undefined) {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        }
+        return { ...current, [key]: value };
+      });
+    },
+    [],
+  );
 
   const handleDeviceAuthOpen = () => {
     deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_button_click');
@@ -1024,6 +1034,7 @@ export default function ChatPage() {
   };
 
   const handleSelectConversation = (conversation: string) => {
+    if (nextSendContextLocked) return;
     if (conversation === activeConversationId) return;
     const previousConversationId = activeConversationId;
     console.info('[chat-history] handleSelect', {
@@ -1378,6 +1389,7 @@ export default function ChatPage() {
                   filterState={filterState}
                   mongoConnected={mongoConnected}
                   disabled={persistenceUnavailable || persistenceLoading}
+                  selectionDisabled={nextSendContextLocked}
                   onSelect={handleSelectConversation}
                   onFilterChange={setFilterState}
                   onArchive={handleArchive}
@@ -1518,7 +1530,8 @@ export default function ChatPage() {
                             isLoading ||
                             isError ||
                             isEmpty ||
-                            !providerAvailable
+                            !providerAvailable ||
+                            nextSendContextLocked
                           }
                           sx={{ minWidth: 260, flex: 1 }}
                           SelectProps={{ displayEmpty: true }}
@@ -1551,7 +1564,7 @@ export default function ChatPage() {
                               color="secondary"
                               size="small"
                               onClick={() => handleNewConversation()}
-                              disabled={isLoading}
+                              disabled={isLoading || nextSendContextLocked}
                               fullWidth
                             >
                               New conversation
@@ -1595,25 +1608,14 @@ export default function ChatPage() {
                           </Stack>
                         </Alert>
                       )}
-                      {providerIsCodex && (
-                        <CodexFlagsPanel
-                          sandboxMode={sandboxMode}
-                          onSandboxModeChange={(value) => setSandboxMode(value)}
-                          approvalPolicy={approvalPolicy}
-                          onApprovalPolicyChange={setApprovalPolicy}
-                          modelReasoningEffort={modelReasoningEffort}
-                          onModelReasoningEffortChange={setModelReasoningEffort}
-                          reasoningEffortOptions={
-                            selectedModelCapabilities?.supportedReasoningEfforts ??
-                            []
-                          }
-                          networkAccessEnabled={networkAccessEnabled}
-                          onNetworkAccessEnabledChange={setNetworkAccessEnabled}
-                          webSearchEnabled={webSearchEnabled}
-                          onWebSearchEnabledChange={setWebSearchEnabled}
-                          disabled={controlsDisabled || !codexDefaultsReady}
+                      {availableAgentFlags.length > 0 ? (
+                        <AgentFlagsPanel
+                          descriptors={availableAgentFlags}
+                          values={agentFlagsDraft}
+                          onChange={handleAgentFlagChange}
+                          disabled={controlsDisabled}
                         />
-                      )}
+                      ) : null}
 
                       {showCodexUnavailable ? (
                         <Alert

@@ -130,3 +130,61 @@ test('copilot lifecycle propagates startup errors from the injected runtime', as
 
   await assert.rejects(() => lifecycle.start(), /copilot failed to start/u);
 });
+
+test('copilot lifecycle injects configDir without dropping create-session tool and permission config', async () => {
+  let capturedConfig: import('@github/copilot-sdk').SessionConfig | undefined;
+  const lifecycle = new CopilotLifecycle({
+    clientFactory: () =>
+      createRuntimeStub({
+        createSession: async (config) => {
+          capturedConfig = config;
+          return { sessionId: 'created-session' } as never;
+        },
+      }),
+  });
+
+  const onPermissionRequest = async () => ({ kind: 'approve-once' as const });
+  await lifecycle.createSession({
+    model: 'copilot-gpt-5',
+    reasoningEffort: 'high',
+    tools: [{ name: 'VectorSearch', handler: async () => 'ok' }],
+    availableTools: ['VectorSearch'],
+    onPermissionRequest,
+  });
+
+  assert.equal(capturedConfig?.configDir, lifecycle.configDir);
+  assert.equal(capturedConfig?.reasoningEffort, 'high');
+  assert.deepEqual(capturedConfig?.availableTools, ['VectorSearch']);
+  assert.equal(capturedConfig?.onPermissionRequest, onPermissionRequest);
+});
+
+test('copilot lifecycle preserves resume-session tool and permission config while injecting configDir', async () => {
+  let capturedResume:
+    | import('@github/copilot-sdk').ResumeSessionConfig
+    | undefined;
+  const lifecycle = new CopilotLifecycle({
+    clientFactory: () =>
+      createRuntimeStub({
+        resumeSession: async (_sessionId, config) => {
+          capturedResume = config;
+          return { sessionId: 'resumed-session' } as never;
+        },
+      }),
+  });
+
+  const onPermissionRequest = async () => ({ kind: 'approve-once' as const });
+  await lifecycle.resumeSession('resume-session-1', {
+    model: 'copilot-gpt-5',
+    reasoningEffort: 'medium',
+    tools: [{ name: 'ListIngestedRepositories', handler: async () => 'ok' }],
+    availableTools: ['ListIngestedRepositories'],
+    onPermissionRequest,
+  });
+
+  assert.equal(capturedResume?.configDir, lifecycle.configDir);
+  assert.equal(capturedResume?.reasoningEffort, 'medium');
+  assert.deepEqual(capturedResume?.availableTools, [
+    'ListIngestedRepositories',
+  ]);
+  assert.equal(capturedResume?.onPermissionRequest, onPermissionRequest);
+});

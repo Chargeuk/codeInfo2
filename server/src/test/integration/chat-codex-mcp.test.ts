@@ -127,7 +127,12 @@ class MockThread {
       yield {
         type: 'turn.completed',
         thread_id: threadId,
-        usage: { input_tokens: 5, cached_input_tokens: 0, output_tokens: 3 },
+        usage: {
+          input_tokens: 5,
+          cached_input_tokens: 0,
+          output_tokens: 3,
+          reasoning_output_tokens: 0,
+        },
       } as ThreadEvent;
     }
 
@@ -453,8 +458,8 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     'default network access should match env defaults',
   );
   assert.equal(
-    mockCodex.lastStartOptions?.webSearchEnabled,
-    codexDefaults.webSearchEnabled,
+    mockCodex.lastStartOptions?.webSearchMode,
+    codexDefaults.webSearchEnabled ? 'live' : 'disabled',
     'default web search should match env defaults',
   );
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
@@ -695,7 +700,11 @@ test('codex chat forwards non-default sandbox mode to codex thread', async () =>
 
   await request(app)
     .post('/chat')
-    .send(buildCodexBody({ sandboxMode: 'danger-full-access' }))
+    .send(
+      buildCodexBody({
+        agentFlags: { sandboxMode: 'danger-full-access' },
+      }),
+    )
     .expect(202);
 
   assert.equal(
@@ -855,7 +864,11 @@ test('codex chat forwards xhigh modelReasoningEffort flag to codex thread', asyn
 
   await request(app)
     .post('/chat')
-    .send(buildCodexBody({ modelReasoningEffort: 'xhigh' }))
+    .send(
+      buildCodexBody({
+        agentFlags: { modelReasoningEffort: 'xhigh' },
+      }),
+    )
     .expect(202);
 
   assert.equal(
@@ -885,7 +898,11 @@ test('codex chat forwards approvalPolicy flag to codex thread', async () => {
 
   await request(app)
     .post('/chat')
-    .send(buildCodexBody({ approvalPolicy: 'on-request' }))
+    .send(
+      buildCodexBody({
+        agentFlags: { approvalPolicy: 'on-request' },
+      }),
+    )
     .expect(202);
 
   assert.equal(
@@ -915,7 +932,11 @@ test('codex chat forwards networkAccessEnabled flag to codex thread', async () =
 
   await request(app)
     .post('/chat')
-    .send(buildCodexBody({ networkAccessEnabled: false }))
+    .send(
+      buildCodexBody({
+        agentFlags: { networkAccessEnabled: false },
+      }),
+    )
     .expect(202);
 
   assert.equal(
@@ -925,7 +946,7 @@ test('codex chat forwards networkAccessEnabled flag to codex thread', async () =
   );
 });
 
-test('codex chat forwards webSearchEnabled flag to codex thread', async () => {
+test('codex chat preserves cached webSearchMode flag on the codex thread', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -945,17 +966,21 @@ test('codex chat forwards webSearchEnabled flag to codex thread', async () => {
 
   await request(app)
     .post('/chat')
-    .send(buildCodexBody({ webSearchEnabled: false }))
+    .send(
+      buildCodexBody({
+        agentFlags: { webSearchMode: 'cached' },
+      }),
+    )
     .expect(202);
 
   assert.equal(
-    mockCodex.lastStartOptions?.webSearchEnabled,
-    false,
-    'explicit webSearchEnabled should be forwarded',
+    mockCodex.lastStartOptions?.webSearchMode,
+    'cached',
+    'explicit webSearchMode should be preserved for Codex',
   );
 });
 
-test('lmstudio requests ignore codex-only sandbox flag but log a warning', async () => {
+test('lmstudio requests reject stale codex-only flags after Task 3 validation tightening', async () => {
   const originalBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   try {
@@ -981,7 +1006,7 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
       }),
     );
 
-    await request(app)
+    const response = await request(app)
       .post('/chat')
       .send({
         provider: 'lmstudio',
@@ -989,46 +1014,19 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
         conversationId: 'conv-lmstudio-ignore-codex-flags',
         message: 'hello',
         sandboxMode: 'read-only',
-        networkAccessEnabled: false,
-        webSearchEnabled: false,
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'medium',
       })
-      .expect(202);
+      .expect(400);
 
-    const warnings = query({
-      level: ['warn'],
-      source: ['server'],
-    });
-    const warningText = warnings
-      .map((entry) => `${entry.message} ${JSON.stringify(entry.context ?? {})}`)
-      .join(' ');
-    assert.ok(
-      warningText.includes('sandboxMode'),
-      'should log a warning when sandboxMode is ignored for lmstudio',
-    );
-    assert.ok(
-      warningText.includes('networkAccessEnabled'),
-      'should log a warning when networkAccessEnabled is ignored for lmstudio',
-    );
-    assert.ok(
-      warningText.includes('webSearchEnabled'),
-      'should log a warning when webSearchEnabled is ignored for lmstudio',
-    );
-    assert.ok(
-      warningText.includes('approvalPolicy'),
-      'should log a warning when approvalPolicy is ignored for lmstudio',
-    );
-    assert.ok(
-      warningText.includes('modelReasoningEffort'),
-      'should log a warning when modelReasoningEffort is ignored for lmstudio',
+    assert.match(
+      String(response.body?.message ?? ''),
+      /legacy top-level chat flag "sandboxMode".*agentFlags\.sandboxMode/i,
     );
   } finally {
     process.env.CODEINFO_LMSTUDIO_BASE_URL = originalBaseUrl;
   }
 });
 
-test('fallback from codex to lmstudio updates stored provider/model and clears stale threadId', async () => {
+test('explicit codex requests fail instead of silently falling back and do not mutate stale thread state', async () => {
   const originalBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   const conversationId = 'conv-fallback-thread-safety';
@@ -1085,19 +1083,15 @@ test('fallback from codex to lmstudio updates stored provider/model and clears s
         conversationId,
         message: 'hi',
       })
-      .expect(202);
+      .expect(503);
 
-    assert.equal(response.body.provider, 'lmstudio');
-    assert.equal(response.body.model, 'llama-3');
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 
     const stored = memoryConversations.get(conversationId);
     assert.ok(stored);
-    assert.equal(stored?.provider, 'lmstudio');
-    assert.equal(stored?.model, 'llama-3');
-    assert.equal(
-      Object.prototype.hasOwnProperty.call(stored?.flags ?? {}, 'threadId'),
-      false,
-    );
+    assert.equal(stored?.provider, 'codex');
+    assert.equal(stored?.model, 'gpt-5.3-codex');
+    assert.equal(stored?.flags?.threadId, 'thread-stale');
   } finally {
     process.env.CODEINFO_LMSTUDIO_BASE_URL = originalBaseUrl;
   }
@@ -1196,7 +1190,18 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
         }
       | undefined;
     assert.ok(markerContext?.defaults);
-    assert.deepEqual(markerContext?.defaults, restModels.body.codexDefaults);
+    const restCodexDefaults = restModels.body.codexDefaults as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(markerContext?.defaults, {
+      sandboxMode: restCodexDefaults.sandboxMode,
+      approvalPolicy: restCodexDefaults.approvalPolicy,
+      modelReasoningEffort: restCodexDefaults.modelReasoningEffort,
+      networkAccessEnabled: restCodexDefaults.networkAccessEnabled,
+      webSearchEnabled: restCodexDefaults.webSearchEnabled,
+      webSearchMode: restCodexDefaults.webSearchMode,
+    });
     assert.deepEqual(
       restProviders.body.codexDefaults,
       restModels.body.codexDefaults,

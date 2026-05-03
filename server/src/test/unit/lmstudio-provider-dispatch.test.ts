@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ChatInterfaceLMStudio } from '../../chat/interfaces/ChatInterfaceLMStudio.js';
 import {
   createLmStudioEmbeddingProvider,
   LmStudioEmbeddingError,
@@ -80,4 +81,160 @@ test('LM Studio single-input embedding requests can run concurrently through the
 
   assert.deepEqual(firstResult, [[5]]);
   assert.deepEqual(secondResult, [[6]]);
+});
+
+test('LM Studio chat runtime rejects blank or whitespace-only agent flag values before opening a client connection', async () => {
+  let clientFactoryCalls = 0;
+  const chat = new ChatInterfaceLMStudio(
+    () => {
+      clientFactoryCalls += 1;
+      throw new Error('client should not be created');
+    },
+    () => ({ tools: [] }),
+  );
+  const errors: string[] = [];
+  chat.on('error', (event) => errors.push(event.message));
+
+  await chat.execute(
+    'hello',
+    {
+      baseUrl: 'http://127.0.0.1:1234',
+      agentFlags: {
+        contextOverflowPolicy: '   ',
+      },
+    },
+    'lmstudio-chat-blank-flag',
+    'lmstudio-model',
+  );
+
+  assert.equal(clientFactoryCalls, 0);
+  assert.match(
+    errors.at(-1) ?? '',
+    /agentFlags\.contextOverflowPolicy must be one of/u,
+  );
+});
+
+test('LM Studio chat runtime rejects non-numeric and non-integer numeric agent flag values instead of coercing them', async () => {
+  const runAndCollectError = async (agentFlags: Record<string, unknown>) => {
+    let clientFactoryCalls = 0;
+    const chat = new ChatInterfaceLMStudio(
+      () => {
+        clientFactoryCalls += 1;
+        throw new Error('client should not be created');
+      },
+      () => ({ tools: [] }),
+    );
+    const errors: string[] = [];
+    chat.on('error', (event) => errors.push(event.message));
+
+    await chat.execute(
+      'hello',
+      {
+        baseUrl: 'http://127.0.0.1:1234',
+        agentFlags,
+      },
+      'lmstudio-chat-invalid-number',
+      'lmstudio-model',
+    );
+
+    return {
+      clientFactoryCalls,
+      error: errors.at(-1) ?? '',
+    };
+  };
+
+  const nonNumeric = await runAndCollectError({ maxTokens: '4096' });
+  assert.equal(nonNumeric.clientFactoryCalls, 0);
+  assert.match(nonNumeric.error, /agentFlags\.maxTokens must be a number/u);
+
+  const nonInteger = await runAndCollectError({ maxTokens: 1.5 });
+  assert.equal(nonInteger.clientFactoryCalls, 0);
+  assert.match(nonInteger.error, /agentFlags\.maxTokens must be an integer/u);
+});
+
+test('LM Studio chat runtime short-circuits already-aborted runs before loading history or opening a client', async () => {
+  let loadHistoryCalls = 0;
+  let clientFactoryCalls = 0;
+
+  class TrackingLmStudioChat extends ChatInterfaceLMStudio {
+    protected override async loadHistory() {
+      loadHistoryCalls += 1;
+      return [];
+    }
+  }
+
+  const chat = new TrackingLmStudioChat(
+    () => {
+      clientFactoryCalls += 1;
+      throw new Error('client should not be created');
+    },
+    () => ({ tools: [] }),
+  );
+  const controller = new AbortController();
+  controller.abort();
+
+  await assert.rejects(
+    () =>
+      chat.execute(
+        'hello',
+        {
+          signal: controller.signal,
+          baseUrl: 'http://127.0.0.1:1234',
+        },
+        'lmstudio-chat-preaborted',
+        'lmstudio-model',
+      ),
+    (error: unknown) => {
+      assert.equal((error as Error | undefined)?.name, 'AbortError');
+      return true;
+    },
+  );
+
+  assert.equal(loadHistoryCalls, 0);
+  assert.equal(clientFactoryCalls, 0);
+});
+
+test('LM Studio chat runtime accepts parsed runtime flags before a later execution failure and surfaces the normal error path', async () => {
+  const capturedOptions: Record<string, unknown>[] = [];
+  const chat = new ChatInterfaceLMStudio(
+    () =>
+      ({
+        llm: {
+          model: async () => ({
+            act: async (
+              _chat: unknown,
+              _tools: ReadonlyArray<unknown>,
+              opts: Record<string, unknown>,
+            ) => {
+              capturedOptions.push(opts);
+              throw new Error('lmstudio dispatch failed after parse');
+            },
+          }),
+        },
+      }) as never,
+    () => ({ tools: [] }),
+  );
+  const errors: string[] = [];
+  chat.on('error', (event) => errors.push(event.message));
+
+  await chat.execute(
+    'hello',
+    {
+      baseUrl: 'http://127.0.0.1:1234',
+      history: [],
+      agentFlags: {
+        temperature: 0.4,
+        maxTokens: 128,
+        contextOverflowPolicy: 'rollingWindow',
+      },
+    },
+    'lmstudio-chat-post-parse-dispatch',
+    'lmstudio-model',
+  );
+
+  assert.equal(capturedOptions.length, 1);
+  assert.equal(capturedOptions[0]?.temperature, 0.4);
+  assert.equal(capturedOptions[0]?.maxTokens, 128);
+  assert.equal(capturedOptions[0]?.contextOverflowPolicy, 'rollingWindow');
+  assert.match(errors.at(-1) ?? '', /lmstudio dispatch failed after parse/u);
 });

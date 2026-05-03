@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 
+import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { Router, json } from 'express';
@@ -10,8 +11,10 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
+import { buildConversationFlags } from '../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
+import { normalizeImplicitCopilotRequestedModel } from '../chat/copilotModelSupport.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
   abortInflight,
@@ -20,6 +23,7 @@ import {
   cleanupInflight,
   consumePendingConversationCancel,
   createInflight,
+  getCompletedInflight,
   getInflight,
 } from '../chat/inflightRegistry.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
@@ -35,6 +39,7 @@ import {
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  buildUnavailableRuntimeProviderState,
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
@@ -124,16 +129,22 @@ const isChatModel = (model: { type?: string; architecture?: string }) => {
   return kind !== 'embedding' && kind !== 'vector';
 };
 
-const sanitizeFlagsForProvider = (
-  provider: ChatDefaultProvider,
-  flags: Record<string, unknown> | undefined,
-) => {
-  const current = { ...(flags ?? {}) };
-  if (provider !== 'codex') {
-    delete current.threadId;
-  }
-  return current;
-};
+function buildCompletedReplayResponse(params: {
+  conversationId: string;
+  inflightId: string;
+  finalStatus?: 'ok' | 'stopped' | 'failed';
+}) {
+  return {
+    status: 'error' as const,
+    code: 'INFLIGHT_ALREADY_COMPLETED' as const,
+    message:
+      'This inflightId has already completed for the conversation and cannot be replayed.',
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    replayed: true,
+    finalStatus: params.finalStatus ?? 'ok',
+  };
+}
 
 export function createChatRouter({
   clientFactory,
@@ -216,7 +227,7 @@ export function createChatRouter({
       threadId,
       inflightId: requestedInflightId,
       working_folder: requestedWorkingFolder,
-      codexFlags,
+      agentFlags,
       warnings,
       defaultsResolution,
     } = validatedBody;
@@ -265,7 +276,28 @@ export function createChatRouter({
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
+    const explicitProviderSelected =
+      defaultsResolution.providerSource === 'request';
     const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+
+    if (
+      typeof requestedInflightId === 'string' &&
+      requestedInflightId.length > 0
+    ) {
+      const completedReplay = getCompletedInflight({
+        conversationId,
+        inflightId: requestedInflightId,
+      });
+      if (completedReplay) {
+        return res.status(409).json(
+          buildCompletedReplayResponse({
+            conversationId,
+            inflightId: requestedInflightId,
+            finalStatus: completedReplay.finalStatus,
+          }),
+        );
+      }
+    }
     const safeBase = scrubBaseUrl(baseUrl);
 
     const codexDetection = getCodexDetection();
@@ -279,53 +311,99 @@ export function createChatRouter({
     };
     const mcp = await getMcpStatus();
 
-    let lmstudioModels: string[] = [];
-    let lmstudioReason: string | undefined;
-    let lmstudioAvailable = false;
-    if (!BASE_URL_REGEX.test(baseUrl)) {
-      lmstudioReason = 'lmstudio unavailable';
-    } else {
-      try {
-        const client = clientFactory(toWebSocketUrl(baseUrl));
-        const models = await client.system.listDownloadedModels();
-        lmstudioModels = models
-          .filter(isChatModel)
-          .map((entry) => entry.modelKey)
-          .filter((value) => typeof value === 'string' && value.trim().length);
-        if (lmstudioModels.length > 0) {
-          lmstudioAvailable = true;
-        } else {
-          lmstudioReason = 'lmstudio unavailable';
+    let lmstudioState = buildUnavailableRuntimeProviderState(
+      explicitProviderSelected && requestedProvider !== 'lmstudio'
+        ? 'lmstudio probe skipped for explicit provider request'
+        : 'lmstudio unavailable',
+    );
+    if (!explicitProviderSelected || requestedProvider === 'lmstudio') {
+      if (!BASE_URL_REGEX.test(baseUrl)) {
+        lmstudioState = buildUnavailableRuntimeProviderState(
+          'lmstudio unavailable',
+        );
+      } else {
+        try {
+          const client = clientFactory(toWebSocketUrl(baseUrl));
+          const models = await client.system.listDownloadedModels();
+          const lmstudioModels = models
+            .filter(isChatModel)
+            .map((entry) => entry.modelKey)
+            .filter(
+              (value) => typeof value === 'string' && value.trim().length,
+            );
+          lmstudioState =
+            lmstudioModels.length > 0
+              ? {
+                  available: true,
+                  models: lmstudioModels,
+                }
+              : buildUnavailableRuntimeProviderState('lmstudio unavailable');
+        } catch {
+          lmstudioState = buildUnavailableRuntimeProviderState(
+            'lmstudio unavailable',
+          );
         }
-      } catch {
-        lmstudioReason = 'lmstudio unavailable';
       }
     }
-    const copilotReadiness = await resolveCopilotReadiness({
-      createRuntime: copilotLifecycleFactory,
-      env: process.env,
-      toolsAvailable: mcp.available,
-      toolsReason: mcp.reason,
-    });
+    const copilotReadiness =
+      !explicitProviderSelected || requestedProvider === 'copilot'
+        ? await resolveCopilotReadiness({
+            createRuntime: copilotLifecycleFactory,
+            env: process.env,
+            toolsAvailable: mcp.available,
+            toolsReason: mcp.reason,
+          })
+        : {
+            available: false,
+            toolsAvailable: mcp.available,
+            reason: 'copilot probe skipped for explicit provider request',
+            blockingStage: 'connectivity' as const,
+            models: [],
+            modelsRaw: [],
+            authSource: 'unauthenticated' as const,
+          };
+    const normalizedRequestedModel =
+      requestedProvider === 'copilot'
+        ? normalizeImplicitCopilotRequestedModel({
+            models: copilotReadiness.modelsRaw as ModelInfo[],
+            requestedModel,
+            requestedModelSource: defaultsResolution.modelSource,
+          })
+        : requestedModel;
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider,
-      requestedModel,
+      requestedModel: normalizedRequestedModel,
       codex: codexState,
       copilot: {
         available: copilotReadiness.available,
         models: copilotReadiness.models,
         reason: copilotReadiness.reason,
       },
-      lmstudio: {
-        available: lmstudioAvailable,
-        models: lmstudioModels,
-        reason: lmstudioReason,
-      },
+      lmstudio: lmstudioState,
     });
 
     const executionProvider = runtimeSelection.executionProvider;
     const executionModel = runtimeSelection.executionModel;
-    const effectiveCodexFlags = executionProvider === 'codex' ? codexFlags : {};
+    if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
+      return res.status(503).json({
+        status: 'error',
+        code: 'PROVIDER_UNAVAILABLE',
+        message: runtimeSelection.requestedReason ?? 'provider unavailable',
+      });
+    }
+    const effectiveAgentFlags = { ...agentFlags };
+    const effectiveCodexFlags =
+      executionProvider === 'codex'
+        ? {
+            sandboxMode: effectiveAgentFlags.sandboxMode,
+            networkAccessEnabled: effectiveAgentFlags.networkAccessEnabled,
+            webSearchMode: effectiveAgentFlags.webSearchMode,
+            approvalPolicy: effectiveAgentFlags.approvalPolicy,
+            modelReasoningEffort: effectiveAgentFlags.modelReasoningEffort,
+            modelReasoningSummary: effectiveAgentFlags.modelReasoningSummary,
+            modelVerbosity: effectiveAgentFlags.modelVerbosity,
+          }
+        : {};
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat',
       provider: executionProvider,
@@ -371,7 +449,7 @@ export function createChatRouter({
       decision: runtimeSelection.decision,
       requestedReason: runtimeSelection.requestedReason,
       fallbackReason: runtimeSelection.fallbackReason,
-      lmstudioModelCount: lmstudioModels.length,
+      lmstudioModelCount: lmstudioState.models.length,
       baseUrl: safeBase,
     };
     append({
@@ -422,7 +500,8 @@ export function createChatRouter({
 
     let existingConversation = await loadExistingConversation();
     const shouldResumeCopilotSession =
-      existingConversation?.provider === 'copilot';
+      existingConversation?.provider === 'copilot' &&
+      existingConversation.model === executionModel;
     let effectiveWorkingFolder = requestedWorkingFolder;
     try {
       if (!effectiveWorkingFolder && existingConversation) {
@@ -458,19 +537,29 @@ export function createChatRouter({
     }
 
     const ensureConversation = async (): Promise<Conversation | null> => {
-      const buildConversationFlags = (
+      const buildRuntimeConversationFlags = (
         currentFlags: Record<string, unknown> | undefined,
+        currentProvider?: Conversation['provider'],
+        currentModel?: Conversation['model'],
       ) => {
-        const nextFlags =
-          executionProvider === 'codex'
-            ? { ...(currentFlags ?? {}), ...effectiveCodexFlags }
-            : sanitizeFlagsForProvider(executionProvider, currentFlags);
-        if (effectiveWorkingFolder) {
-          nextFlags.workingFolder = effectiveWorkingFolder;
-        } else {
-          delete nextFlags.workingFolder;
-        }
-        return nextFlags;
+        const persistedThreadId =
+          threadId ??
+          (executionProvider === 'codex' &&
+          currentProvider === 'codex' &&
+          currentModel === executionModel &&
+          typeof currentFlags?.threadId === 'string' &&
+          currentFlags.threadId.trim()
+            ? currentFlags.threadId.trim()
+            : null);
+
+        return buildConversationFlags({
+          provider: executionProvider,
+          currentFlags,
+          agentFlags: effectiveAgentFlags,
+          workingFolder: effectiveWorkingFolder,
+          threadId: persistedThreadId,
+          preserveFlowState: false,
+        });
       };
 
       if (shouldUseMemoryPersistence()) {
@@ -487,7 +576,7 @@ export function createChatRouter({
             model: executionModel,
             title: message.trim().slice(0, 80) || 'Untitled conversation',
             source: 'REST',
-            flags: buildConversationFlags(undefined),
+            flags: buildRuntimeConversationFlags(undefined),
             lastMessageAt: now,
             archivedAt: null,
             createdAt: now,
@@ -501,7 +590,11 @@ export function createChatRouter({
           ...existing,
           provider: executionProvider,
           model: executionModel,
-          flags: buildConversationFlags(existing.flags),
+          flags: buildRuntimeConversationFlags(
+            existing.flags,
+            existing.provider,
+            existing.model,
+          ),
           source: existing.source ?? 'REST',
           lastMessageAt: now,
           updatedAt: now,
@@ -524,7 +617,7 @@ export function createChatRouter({
           model: executionModel,
           title: message.trim().slice(0, 80) || 'Untitled conversation',
           source: 'REST',
-          flags: buildConversationFlags(undefined),
+          flags: buildRuntimeConversationFlags(undefined),
           lastMessageAt: now,
         });
         const created = (await ConversationModel.findById(conversationId)
@@ -537,7 +630,11 @@ export function createChatRouter({
         conversationId,
         provider: executionProvider,
         model: executionModel,
-        flags: buildConversationFlags(existing.flags),
+        flags: buildRuntimeConversationFlags(
+          existing.flags,
+          existing.provider,
+          existing.model,
+        ),
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)
@@ -557,7 +654,7 @@ export function createChatRouter({
     warnings.forEach((warning) => {
       append({
         level: 'warn',
-        message: 'chat codex flag ignored',
+        message: 'chat validation warning',
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
@@ -565,7 +662,7 @@ export function createChatRouter({
       });
       baseLogger.warn(
         { requestId, provider: executionProvider, warning },
-        'chat flag ignored',
+        'chat validation warning',
       );
     });
 
@@ -600,6 +697,39 @@ export function createChatRouter({
     }
 
     if (!tryAcquireConversationLock(conversationId)) {
+      if (
+        typeof requestedInflightId === 'string' &&
+        requestedInflightId.length > 0
+      ) {
+        const activeInflight = getInflight(conversationId);
+        if (
+          activeInflight?.inflightId === requestedInflightId &&
+          activeInflight.finalStatus
+        ) {
+          return res.status(409).json(
+            buildCompletedReplayResponse({
+              conversationId,
+              inflightId: requestedInflightId,
+              finalStatus: activeInflight.finalStatus,
+            }),
+          );
+        }
+
+        const completedReplay = getCompletedInflight({
+          conversationId,
+          inflightId: requestedInflightId,
+        });
+        if (completedReplay) {
+          return res.status(409).json(
+            buildCompletedReplayResponse({
+              conversationId,
+              inflightId: requestedInflightId,
+              finalStatus: completedReplay.finalStatus,
+            }),
+          );
+        }
+      }
+
       return res.status(409).json({
         status: 'error',
         code: 'RUN_IN_PROGRESS',
@@ -629,6 +759,21 @@ export function createChatRouter({
       typeof requestedInflightId === 'string' && requestedInflightId.length > 0
         ? requestedInflightId
         : crypto.randomUUID();
+
+    const completedReplay = getCompletedInflight({
+      conversationId,
+      inflightId,
+    });
+    if (completedReplay) {
+      releaseConversationLockFn(conversationId, runToken);
+      return res.status(409).json(
+        buildCompletedReplayResponse({
+          conversationId,
+          inflightId,
+          finalStatus: completedReplay.finalStatus,
+        }),
+      );
+    }
 
     createInflight({
       conversationId,
@@ -745,7 +890,11 @@ export function createChatRouter({
         if (executionProvider === 'codex') {
           const activeThreadId =
             threadId ??
-            (ensuredConversation.flags?.threadId as string | undefined) ??
+            (ensuredConversation.provider === 'codex' &&
+            ensuredConversation.model === executionModel
+              ? ((ensuredConversation.flags?.threadId as string | undefined) ??
+                null)
+              : null) ??
             null;
 
           await chat.run(
@@ -781,6 +930,7 @@ export function createChatRouter({
             requestId,
             baseUrl,
             inflightId,
+            agentFlags: effectiveAgentFlags,
             ...(effectiveWorkingFolder
               ? { runtime: { workingFolder: effectiveWorkingFolder } }
               : {}),
@@ -788,7 +938,10 @@ export function createChatRouter({
             signal: getInflight(conversationId)?.abortController.signal,
             history: historyForRun,
             ...(executionProvider === 'copilot'
-              ? { resumeConversation: shouldResumeCopilotSession }
+              ? {
+                  copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
+                  resumeConversation: shouldResumeCopilotSession,
+                }
               : {}),
             source: 'REST',
           },

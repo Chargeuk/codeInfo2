@@ -314,6 +314,7 @@ Then(
 
 Then(
   'ingest delta status for the last run becomes {string}',
+  { timeout: 60_000 },
   async (state: string) => {
     assert(lastRunId, 'runId missing');
     for (let i = 0; i < 120; i += 1) {

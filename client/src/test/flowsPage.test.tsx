@@ -386,7 +386,7 @@ describe('Flows page basics', () => {
     expect(screen.queryByText('Stale content')).not.toBeInTheDocument();
   });
 
-  it('keeps flow conversations visible when conversation_upsert omits flowName', async () => {
+  it('drops stale flow conversations when conversation_upsert omits flowName', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
@@ -452,7 +452,9 @@ describe('Flows page basics', () => {
       },
     });
 
-    await screen.findByText('Flow: daily updated');
+    await waitFor(() =>
+      expect(screen.queryByText('Flow: daily updated')).not.toBeInTheDocument(),
+    );
   });
 
   it('does not leak shared expansion state between flow conversations', async () => {

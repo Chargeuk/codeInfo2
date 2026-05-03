@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
 import type { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
 
 import express from 'express';
 import supertest from 'supertest';
 
+import {
+  ensureCopilotAuthFileStore,
+  ensureCopilotPlaintextTokenStorage,
+} from '../../config/copilotConfig.js';
 import { createCopilotDeviceAuthRouter } from '../../routes/copilotDeviceAuth.js';
 import {
   createCopilotCompletionPendingResponse,
@@ -63,7 +69,7 @@ function withDeps(
     }),
     ensureCopilotPlaintextTokenStorage: async () => ({
       changed: false,
-      configPath: '/tmp/copilot-home/config.json',
+      settingsPath: '/tmp/copilot-home/settings.json',
     }),
     ensureCopilotAuthHomeCompatibility: async () => ({
       action: 'none',
@@ -184,7 +190,7 @@ describe('POST /copilot/device-auth unit behavior', () => {
     assert.equal(runCopilotDeviceAuth.mock.calls.length, 0);
   });
 
-  test('missing-cli and config bootstrap failures surface clear unavailable-before-start reasons', async () => {
+  test('missing-cli and settings bootstrap failures surface clear unavailable-before-start reasons', async () => {
     const cliMissingRes = await supertest(
       buildApp(
         withDeps({
@@ -231,7 +237,7 @@ describe('POST /copilot/device-auth unit behavior', () => {
       buildApp(
         withDeps({
           ensureCopilotPlaintextTokenStorage: async () => {
-            throw new Error('EACCES: config.json');
+            throw new Error('EACCES: settings.json');
           },
         }),
       ),
@@ -246,11 +252,11 @@ describe('POST /copilot/device-auth unit behavior', () => {
       reason: 'copilot config persistence unavailable',
     });
 
-    const malformedConfigRes = await supertest(
+    const malformedSettingsRes = await supertest(
       buildApp(
         withDeps({
           ensureCopilotPlaintextTokenStorage: async () => {
-            throw new Error('copilot config.json is malformed');
+            throw new Error('copilot settings.json is malformed');
           },
         }),
       ),
@@ -258,12 +264,59 @@ describe('POST /copilot/device-auth unit behavior', () => {
       .post('/copilot/device-auth')
       .send({});
 
-    assert.equal(malformedConfigRes.status, 200);
-    assert.deepEqual(malformedConfigRes.body, {
+    assert.equal(malformedSettingsRes.status, 200);
+    assert.deepEqual(malformedSettingsRes.body, {
       provider: 'copilot',
       state: 'unavailable_before_start',
-      reason: 'copilot config persistence unavailable',
+      reason: 'copilot settings.json is malformed',
     });
+  });
+
+  test('commented config.json does not block auth when settings.json must be bootstrapped', async () => {
+    const tempRoot = await fs.promises.mkdtemp(
+      path.join(process.cwd(), 'tmp-copilot-device-auth-'),
+    );
+
+    try {
+      await fs.promises.writeFile(
+        path.join(tempRoot, 'config.json'),
+        '{\n  // Copilot-managed compatibility metadata\n  "store_token_plaintext": true,\n}\n',
+        'utf8',
+      );
+
+      const runCopilotDeviceAuth = mock.fn(async () =>
+        buildDeviceAuthResult(verificationReadyResult()),
+      );
+
+      const res = await supertest(
+        buildApp(
+          withDeps({
+            getCopilotHome: () => tempRoot,
+            getCopilotConfigDirForHome: (home: string) => home,
+            ensureCopilotAuthFileStore,
+            ensureCopilotPlaintextTokenStorage,
+            runCopilotDeviceAuth,
+          }),
+        ),
+      )
+        .post('/copilot/device-auth')
+        .send({});
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.state, 'verification_ready');
+      assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
+      assert.deepEqual(
+        JSON.parse(
+          await fs.promises.readFile(
+            path.join(tempRoot, 'settings.json'),
+            'utf8',
+          ),
+        ),
+        { storeTokenPlaintext: true },
+      );
+    } finally {
+      await fs.promises.rm(tempRoot, { recursive: true, force: true });
+    }
   });
 
   test('CODEINFO_COPILOT_CLI_PATH keeps the route available when PATH lookup is unavailable', async () => {

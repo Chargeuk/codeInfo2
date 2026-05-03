@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -64,6 +66,73 @@ test('server entrypoint derives T01 booleans from build metadata and emits T02 f
 
   for (const marker of requiredMarkers) {
     assert.match(content, new RegExp(escapeRegExp(marker)));
+  }
+});
+
+test('server entrypoint stays POSIX-sh compatible around Copilot seed import locals', () => {
+  const content = readRepoFile('server', 'entrypoint.sh');
+
+  assert.match(content, /^#!\/usr\/bin\/env sh$/m);
+  assert.doesNotMatch(
+    content,
+    /^\s*local\s+/m,
+    'server entrypoint should not use bash-only local declarations under a sh shebang',
+  );
+});
+
+test('server entrypoint degrades malformed Copilot seed helper stdout into a warning', async () => {
+  const content = readRepoFile('server', 'entrypoint.sh');
+  const functionMatch = content.match(
+    /run_copilot_seed_import\(\) \{[\s\S]*?\n\}\n\nif \[ -x "\$CHROME_BIN" \]; then/u,
+  );
+  assert(
+    functionMatch,
+    'expected to locate run_copilot_seed_import in entrypoint',
+  );
+
+  const functionSource = functionMatch[0].replace(
+    /\n\nif \[ -x "\$CHROME_BIN" \]; then$/u,
+    '\n',
+  );
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'entrypoint-seed-'));
+  const fakeBinDir = path.join(tempRoot, 'bin');
+  fs.mkdirSync(fakeBinDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(fakeBinDir, 'node'),
+    "#!/usr/bin/env sh\nprintf '%s\\n' 'not-json-helper-output'\n",
+    'utf8',
+  );
+  fs.chmodSync(path.join(fakeBinDir, 'node'), 0o755);
+
+  const shellScript = [
+    'set -e',
+    functionSource,
+    'run_copilot_seed_import >/tmp/entrypoint-seed-stdout.txt 2>/tmp/entrypoint-seed-stderr.txt',
+    'printf "%s\\n" survived',
+  ].join('\n');
+
+  const result = spawnSync('sh', ['-c', shellScript], {
+    env: {
+      ...process.env,
+      PATH: `${fakeBinDir}:${process.env.PATH ?? ''}`,
+      CODEINFO_COPILOT_HOME: '/app/copilot',
+      CODEINFO_COPILOT_SEED_HOME: '/seed/copilot',
+    },
+    encoding: 'utf8',
+  });
+
+  try {
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /survived/u);
+    const stderr = fs.readFileSync('/tmp/entrypoint-seed-stderr.txt', 'utf8');
+    assert.match(stderr, /"status":"seed_copy_failed"/u);
+    assert.match(stderr, /Malformed Copilot seed bootstrap output/u);
+    assert.match(stderr, /not-json-helper-output/u);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    fs.rmSync('/tmp/entrypoint-seed-stdout.txt', { force: true });
+    fs.rmSync('/tmp/entrypoint-seed-stderr.txt', { force: true });
   }
 });
 

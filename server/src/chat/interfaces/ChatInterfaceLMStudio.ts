@@ -15,6 +15,10 @@ import type {
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
 import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
 import {
+  ProviderRuntimeFlagError,
+  resolveLmStudioRuntimeAgentFlags,
+} from '../providerRuntimeFlags.js';
+import {
   ChatInterface,
   type ChatCompleteEvent,
   type ChatErrorEvent,
@@ -142,6 +146,7 @@ const getContentItems = (message: unknown): LMContentItem[] => {
 };
 
 type LmStudioRunFlags = {
+  agentFlags?: Record<string, unknown>;
   requestId?: string;
   baseUrl?: string;
   signal?: AbortSignal;
@@ -167,6 +172,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     model: string,
   ): Promise<void> {
     const { requestId, baseUrl, signal } = (flags ?? {}) as LmStudioRunFlags;
+    signal?.throwIfAborted();
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
@@ -474,6 +480,50 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       pendingSyntheticResults.delete(callId);
     };
 
+    const emitInvalidRuntimeFlags = (err: ProviderRuntimeFlagError) => {
+      append({
+        level: 'error',
+        message: 'story.0000056.task04.lmstudio_runtime_flags_invalid',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          conversationId,
+          model,
+          baseUrl: safeBase,
+          error: err.message,
+        },
+      });
+      baseLogger.error(
+        {
+          requestId,
+          conversationId,
+          model,
+          baseUrl: safeBase,
+          err,
+        },
+        'story.0000056.task04.lmstudio_runtime_flags_invalid',
+      );
+      const errorEvent: ChatErrorEvent = {
+        type: 'error',
+        message: err.message,
+      };
+      emitTerminal(errorEvent);
+    };
+
+    let runtimeFlags;
+    try {
+      runtimeFlags = resolveLmStudioRuntimeAgentFlags(
+        (flags as LmStudioRunFlags)?.agentFlags,
+      );
+    } catch (err) {
+      if (err instanceof ProviderRuntimeFlagError) {
+        emitInvalidRuntimeFlags(err);
+        return;
+      }
+      throw err;
+    }
+
     try {
       const client = this.clientFactory(wsBase);
       const modelClient = await client.llm.model(model);
@@ -483,6 +533,9 @@ export class ChatInterfaceLMStudio extends ChatInterface {
           unknown
         > = {
         allowParallelToolExecution: false,
+        temperature: runtimeFlags.temperature,
+        maxTokens: runtimeFlags.maxTokens,
+        contextOverflowPolicy: runtimeFlags.contextOverflowPolicy,
         signal: controller.signal,
         onPredictionCompleted: (predictionResult) => {
           const mapped = mapLmStudioStats(
@@ -790,11 +843,13 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         },
       };
 
+      const enabledTools =
+        runtimeFlags.toolAccess === 'off'
+          ? []
+          : [...(lmStudioTools as readonly unknown[])];
       const prediction = modelClient.act(
         chat,
-        [...(lmStudioTools as readonly unknown[])] as Parameters<
-          typeof modelClient.act
-        >[1],
+        enabledTools as Parameters<typeof modelClient.act>[1],
         actOptions as LLMActionOpts,
       );
 

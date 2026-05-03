@@ -73,6 +73,31 @@ const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForScenario: string | null = null;
 let namedCopilotScenarioServer: StartedNamedCopilotScenarioServer | null = null;
 
+async function removeDirectoryWithRetry(
+  targetPath: string,
+  attempts = 3,
+): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await fs.rm(targetPath, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (
+        attempt === attempts ||
+        !(
+          error instanceof Error &&
+          'code' in error &&
+          (error.code === 'ENOTEMPTY' || error.code === 'EBUSY')
+        )
+      ) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, attempt * 100));
+    }
+  }
+}
+
 function createUnavailableCopilotLifecycle() {
   return createMockCopilotSdkHarness({
     name: 'cucumber-chat-stream-copilot-auth-required',
@@ -197,7 +222,7 @@ After(async () => {
     process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
   }
   if (tempCodexHomeForScenario) {
-    await fs.rm(tempCodexHomeForScenario, { recursive: true, force: true });
+    await removeDirectoryWithRetry(tempCodexHomeForScenario);
     tempCodexHomeForScenario = null;
   }
 });

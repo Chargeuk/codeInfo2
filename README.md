@@ -97,7 +97,7 @@ Use this section only when your network requires internal registries and/or corp
 Workflow env-file rules:
 
 ```text
-compose -> edit server/.env.local
+compose -> edit server/.env.local for host-only overrides; compose-owned container runtime overrides stay in docker-compose.yml
 compose:local -> edit server/.env.local and client/.env.local
 e2e -> edit .env.e2e
 ```
@@ -132,7 +132,7 @@ Corporate certificate directory requirements:
 
 ## MongoDB (conversation history)
 
-- Conversation persistence depends on MongoDB. Default URI: `CODEINFO_MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true`.
+- Conversation persistence depends on MongoDB. Compose-owned container runtime defaults come from `docker-compose.yml` and point the server container at `mongodb://host.docker.internal:27517/db?directConnection=true`; host-only non-compose overrides belong in `server/.env.local`.
 - `docker-compose.yml` includes a Mongo 8 replica-set service bound to host port 27517 and passes the same URI into the server container; local dev can reuse the same URI when running the server without Compose.
 - If Mongo is unreachable the server keeps running but reports `mongoConnected=false`; the client surfaces a banner and disables archive controls while allowing stateless chat.
 
@@ -160,8 +160,9 @@ Corporate certificate directory requirements:
 - Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
 - Codex home: `CODEINFO_CODEX_HOME=./codex`; the runtime seeds the canonical base template on first start. `docker-compose.local.yml` live-mounts repo `./codex` to `/app/codex` for local editing, while the main and e2e stacks use the image-prepared `/app/codex` home and still seed `config.toml` at startup when it is missing.
+- `CODEINFO_CODEX_WORKDIR` is no longer a checked-in developer-home path. The tracked `server/.env` keeps only a template placeholder, `docker-compose.yml` and `docker-compose.local.yml` now set the container runtime workdir explicitly to `/data`, and any host-only override belongs in `server/.env.local`.
 - Copilot runtime home: `CODEINFO_COPILOT_HOME=../copilot` in checked-in server development defaults, with `/app/copilot` reserved as the container override path for compose-backed runtimes and e2e. The optional `CODEINFO_COPILOT_CLI_PATH` override can point the SDK at an explicit `copilot` binary when `PATH` discovery is not reliable; if it is unset, the runtime keeps the default `PATH` lookup.
-- Docker Copilot persistence: the local compose stack now bootstraps a gitignored repo-root `./copilot` folder, seeds `copilot/config.json` with plaintext token storage when missing, and bind-mounts that folder to `/app/copilot` so local auth survives restarts in the same visible way as `./codex`. The main and e2e compose stacks still use the Docker-managed `copilot-data` named-volume contract at `/app/copilot`. Published application ports stay unchanged.
+- Docker Copilot persistence: the local compose stack bind-mounts the gitignored repo-root `./copilot` folder directly to `/app/copilot`, so local auth survives restarts in the same visible way as `./codex`. The wrapper now seeds repo-owned plaintext-token persistence in `copilot/settings.json` with `storeTokenPlaintext: true` only when that file is missing; it no longer writes this setting into Copilot-managed `config.json`. The main and e2e compose stacks keep the Docker-managed `copilot-data` named volume at `/app/copilot`, add a read-only `./copilot:/seed/copilot:ro` seed mount, and repair missing auth-bearing peers in the writable runtime home when `config.json`, `settings.json`, or session-state data is only partially present there. Once the full auth-bearing runtime set is already present, startup skips seeding instead of overwriting that complete runtime home. Operators should not need to delete the runtime volume for normal startup, though a one-off volume reset can still be useful during local diagnosis. Copilot-managed JSON artifacts may contain JSONC comments, and the device-auth bootstrap now tolerates that compatibility format instead of failing before login. Published application ports stay unchanged.
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Shared auth contract: `POST /codex/device-auth` still requires `{}` and now returns provider-auth states instead of a raw-output-only success payload. The Codex path can return `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, or `unavailable_before_start`, with `verificationUrl`, `userCode`, and optional `displayOutput` included only when relevant.
 - Copilot auth contract: `POST /copilot/device-auth` uses the same strict `{}` request and the same shared provider-auth states. It returns verification details early, reuses the same route as the refresh path after the browser step, short-circuits to `already_authenticated` when env-token or logged-in-user auth is already available, and keeps Copilot-home persistence under `CODEINFO_COPILOT_HOME`.
@@ -179,26 +180,36 @@ Corporate certificate directory requirements:
 - The runtime resolves `CODEINFO_COPILOT_HOME` in the same style as `CODEINFO_CODEX_HOME`:
   - checked-in development default: `server/.env` uses `../copilot`
   - local compose runtime override: `/app/copilot` backed by repo-root `./copilot`
-  - main and e2e compose runtimes: `/app/copilot` backed by the named-volume contract `copilot-data`
+  - main and e2e compose runtimes: `/app/copilot` backed by the named-volume contract `copilot-data`, with optional one-time auth seeding from `./copilot:/seed/copilot:ro`
 - The optional `CODEINFO_COPILOT_CLI_PATH` override can point the SDK at an explicit `copilot` binary. If it is unset, the runtime keeps normal `PATH` discovery.
 - Copilot readiness is surfaced through `/chat/providers` and `/chat/models`, not through `/health`. Missing CLI, missing auth, or missing model discovery keep Copilot visible with a stable disabled reason instead of failing server startup.
 - Shared auth now uses the `Choose Authentication` dialog for both Codex and Copilot. `POST /copilot/device-auth` uses the same provider-auth state vocabulary as Codex and returns device-flow verification details early so the browser step can finish outside the container.
 - Checked-in env files never hard-code Copilot credentials. Runtime auth precedence still honors `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, and authenticated `gh` fallback before device auth is required.
 
-## REST Codex defaults behavior
+## Chat defaults and Agent Flags behavior
 
-- REST chat capability surfaces now use one shared Codex-default resolver path.
-- Covered fields are `sandbox_mode`, `approval_policy`, `model_reasoning_effort`, `model`, and `web_search`.
-- Resolution precedence is deterministic per field:
-  - request override -> `codex/chat/config.toml` -> legacy env fallback -> hardcoded safe fallback.
-- The `model` from `codex/chat/config.toml` is treated as the Codex chat default model and is unioned into the available Codex model list when `Codex_model_list` does not already contain it.
-- The shared Codex-aware read path is used by `/chat/models`, `/chat/providers`, `/chat` request validation, and MCP `codebase_question`, and those callers reread `codex/chat/config.toml` on each request instead of caching a snapshot.
-- `web_search` handling is canonical-first:
-  - canonical `web_search` wins over alias keys;
-  - alias bool values normalize to canonical modes (`true -> live`, `false -> disabled`).
-- `/chat/models?provider=codex` and `/chat/providers` return resolver-backed `codexDefaults` and `codexWarnings`.
-- `/chat` request validation applies the same resolver-backed defaults when Codex flags are omitted.
-- The existing React 19 + MUI chat selector path stays unchanged: the client keeps consuming `/chat/providers` and `/chat/models`, and the controlled `TextField select` + `MenuItem` inputs rerender from server-fed state without a Story 47 payload change.
+- `CODEINFO_CHAT_DEFAULT_PROVIDER` remains the single top-level chat default selector. The server resolves the default provider in shared order `codex`, then `copilot`, then `lmstudio`, and only falls automatically when the selected default provider is unavailable or misconfigured.
+- `CODEINFO_CHAT_DEFAULT_MODEL` is no longer part of the normal operator contract. The default model now comes from the selected provider's repo-local `chat/config.toml` file:
+  - `codex/chat/config.toml`
+  - `copilot/chat/config.toml`
+  - `lmstudio/chat/config.toml`
+- Those provider-local files are product-owned chat-default contracts, not a claim that every provider natively reads the same file itself. The server reads one normalized TOML shape, translates it into provider runtime settings, and rereads the files on each relevant request instead of caching a startup snapshot.
+- Startup bootstrap seeds the provider-local chat config folders automatically. The repo keeps those local provider folders out of git and out of Docker build context, including the LM Studio defaults folder.
+- The provider-local config is now the source of truth for:
+  - the default model for that provider
+  - the provider's supported default Agent Flag values
+  - fallback behavior when the default provider is unavailable
+- Automatic fallback is provider-first and config-backed. When the default provider cannot supply a valid model, the server tries the next available provider and uses that fallback provider's own `chat/config.toml` model instead of reviving a hidden shared model env path.
+- Explicit user choice stays trustworthy. If the user explicitly selects Codex, Copilot, or LM Studio and that provider's local config is broken, the request fails clearly instead of silently switching to another provider.
+- `CODEINFO_LMSTUDIO_BASE_URL` is now treated as a runtime-local endpoint override, not a checked-in product default. Compose-owned server containers get an explicit `host.docker.internal` value from their compose `environment:` blocks, while host-only or workstation-specific LM Studio endpoints belong in `server/.env.local`.
+- Discovery now exposes one combined provider-model-Agent-Flags contract. `/chat/providers` and `/chat/models` return provider availability, runtime model data, provider-neutral Agent Flag descriptors, and provider/model-specific capability narrowing in one server-fed shape.
+- The browser chat page renders a provider-neutral `Agent Flags` panel from that descriptor contract. The page shows only the controls supported by the selected provider and model, seeds visible values from the resolved defaults in the provider-local config, and sends later edits back on normal chat requests as nested `agentFlags`.
+- The normal chat request contract keeps the existing transport fields (`provider`, `model`, `message`, `conversationId`, optional `inflightId`, `threadId`, and `working_folder`) and now carries provider-specific runtime options under one provider-neutral `agentFlags` object.
+- Provider-specific first-pass Agent Flags are intentionally different:
+  - Codex: sandbox mode, approval policy, reasoning effort, reasoning summary, verbosity, network access, and `webSearchMode`
+  - Copilot: reasoning effort plus a simple `toolAccess` `On`/`Off` control
+  - LM Studio: provider-native generation/tool options such as temperature, max tokens, context overflow policy, and tool access
+- MCP `codebase_question` now shares the same provider-selection and defaults contract as the normal chat path, including Copilot parity on provider selection and model/default resolution, while still keeping Agent Flags out of the MCP request shape itself.
 
 ## Story 47 Verification Markers
 

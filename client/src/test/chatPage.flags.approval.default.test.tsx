@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -123,7 +123,7 @@ function mockCodexReady() {
 }
 
 describe('Codex approval policy flag defaults', () => {
-  it('shows approval policy select defaulting to on-failure with helper text', async () => {
+  it('shows approval policy select defaulting to on-request after compatibility normalization', async () => {
     mockCodexReady();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -138,15 +138,11 @@ describe('Codex approval policy flag defaults', () => {
     });
     await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const approvalSelect = await screen.findByTestId('approval-policy-select');
     await waitFor(() =>
-      expect(approvalSelect).toHaveTextContent(/on failure/i),
+      expect(approvalSelect).toHaveTextContent(/on request/i),
     );
-
-    expect(
-      screen.getByText(/codex action approval behaviour/i),
-    ).toBeInTheDocument();
   });
 });

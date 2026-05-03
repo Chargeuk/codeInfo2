@@ -24,6 +24,8 @@ Finish the current story review using ONLY the stored review handoff and the art
 - These review artifacts may live under ignored scratch paths such as `codeInfoTmp/reviews/` and must not be committed.
 - Treat `codeInfoTmp/reviews/<story-number>-current-review.json` as transient review handoff state, `codeInfoTmp/reviews/<story-number>-external-review-input.md` as transient review input, and `codeInfoTmp/reviews/<review-pass-id>-blind-spot-challenge.md` as optional additive context rather than required durable artifacts.
 - Do not add revert tasks, scope-cleanup tasks, or workflow-correctness tasks for those files unless the follow-up is directly addressing one of those explicit hygiene/security issues.
+- Do not reopen the story or create review-fix tasks solely from a finding whose exact `Scope Impact` is `cleanup_preference`, unless the review artifacts show a reproduced current-head failure, the active story explicitly asked for the cleanup, or the user explicitly approved that scope expansion.
+- If `Scope Impact` is missing, malformed, or unrecognized, treat it as `unknown_scope_impact`, continue disposition normally, and do not suppress the finding on that basis alone.
 - This is the only review step allowed to mutate plans.
 - This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
 
@@ -93,6 +95,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 15. Tiny unrelated low-risk findings in the same repository may be absorbed only into another newly created review-fix task from this same appended review-created block when they do not require materially different ownership or proof and do not make that task vague, bloated, or difficult to execute.
 16. If several tiny unrelated low-risk findings have no natural parent task inside this same appended review-created block, group them into one newly created cleanup task inside that block instead of creating one task per finding.
 17. Never use minor-fix absorption or cleanup grouping to create a junk-drawer task. If the combined task loses a clear stopping point, seam, or proof story, split it back apart.
+    17a. Findings whose exact `Scope Impact` is `cleanup_preference` must not be absorbed into another actionable review-created task or grouped into a cleanup task unless the review artifacts show a reproduced defect, the active story explicitly asked for the cleanup, or the user explicitly approved that scope expansion.
 18. Every new review-created task MUST include durable finding coverage in the plan itself, such as an `Addresses Findings` section or equivalent inline wording, that names the endorsed finding labels, summaries, or severities it closes.
 19. The fresh final re-test or revalidation task after a findings-present review block MUST explicitly own full relevant regression proof for the current review-created findings block. It must name the affected repositories and the repository-supported broad build, test, browser, Compose, Docker, smoke, or wrapper proof it owns, or state why a category is not applicable.
 20. If a finding is in an allowed support file, any follow-up task for that file may only request spelling, grammar, wording, or the explicit hygiene/security cleanup needed to remove the secret or artifact problem.
@@ -137,6 +140,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 40. When the findings artifact communicates no actionable findings after a complete review, re-open the plan after editing and verify that the no-findings path for the current `review_pass_id` is now present on disk as the required `Post-Implementation Code Review` section.
 41. If a findings-present repair cannot honestly be made concrete in one pass, add bounded diagnostic review-fix tasks instead of leaving the plan unchanged. The flow must continue with executable task ownership rather than with un-tasked findings.
 42. If the findings artifact is missing, unreadable, or ambiguous even after safe inference from the handoff and referenced artifacts, add a bounded incomplete-review follow-up task that names the missing context, the artifacts inspected, and the minimum evidence needed to complete the review. Do not create a no-findings close-out in that case.
+43. If a runtime-config or local-stack cleanup whose exact `Scope Impact` is `cleanup_preference` would change known-working behavior and the artifacts do not prove a current defect, do not convert that cleanup into a review-created task. Preserve it as non-actionable or leave it for explicit user-approved follow-up instead.
 
 </disposition_rules>
 

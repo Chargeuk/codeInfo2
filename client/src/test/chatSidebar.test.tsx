@@ -114,7 +114,7 @@ function filterConversations(
 }
 
 describe('ConversationList control gating', () => {
-  it('renders a run clue for parent and child flow conversations only', () => {
+  it('renders a run clue only for legitimate parent and child flow conversations', () => {
     render(
       <ConversationList
         {...createBaseProps({
@@ -126,6 +126,7 @@ describe('ConversationList control gating', () => {
               model: 'gpt-5',
               lastMessageAt: '2025-01-02T00:00:00Z',
               archived: false,
+              flowName: 'daily',
               flags: { flow: { executionId: 'parent01-12345678' } },
             },
             {
@@ -145,6 +146,10 @@ describe('ConversationList control gating', () => {
               model: 'm1',
               lastMessageAt: '2025-01-03T00:00:00Z',
               archived: false,
+              flags: {
+                flow: { executionId: 'staleparent-12345678' },
+                flowChild: { executionId: 'stalechild-87654321' },
+              },
             },
           ],
         })}
@@ -248,6 +253,25 @@ describe('ConversationList control gating', () => {
 
     await user.click(screen.getByTestId('conversation-restore'));
     expect(onRestore).toHaveBeenCalledWith('c2');
+  });
+
+  it('freezes sibling sidebar mutations when selectionDisabled is true', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          selectionDisabled: true,
+          conversations: baseConversations,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('conversation-archive')).toBeDisabled();
+    expect(screen.getByTestId('conversation-restore')).toBeDisabled();
+    expect(screen.getByTestId('conversation-select-all')).toBeDisabled();
+    expect(screen.getAllByTestId('conversation-select')).toHaveLength(2);
+    for (const checkbox of screen.getAllByTestId('conversation-select')) {
+      expect(checkbox).toBeDisabled();
+    }
   });
 
   it('shows the error state and invokes retry', async () => {

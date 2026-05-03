@@ -18,6 +18,7 @@ __pycache__/
 *.py[cod]
 codex/
 copilot/
+lmstudio/
 !server/src/codex/
 !server/src/codex/**
 !server/src/copilot/
@@ -26,6 +27,8 @@ copilot/
 !server/src/copilot/fake/mockCopilotDeviceAuth.ts
 !server/src/copilot/fake/mockCopilotSdk.ts
 !server/src/copilot/fake/runtimeSeam.ts
+!server/src/lmstudio/
+!server/src/lmstudio/**
 !client/src/components/codex/
 !client/src/components/codex/**
 codex_agents/**/auth.json
@@ -36,6 +39,7 @@ certs/task6-valid/*.key
 
 server/tmp-flows-*/
 codeInfoTmp/
+codeInfoStatus/flow-state/current-plan.json
 codeInfoStatus/flow-state/current-task.json
 codeInfoStatus/flow-state/minor-review-fix-result.json
 codeInfoStatus/flow-state/review-disposition-state.json

@@ -91,11 +91,38 @@ class ScriptedChat extends ChatInterface {
   ): Promise<void> {
     void _model;
     const signal = (flags as { signal?: AbortSignal }).signal;
+    if (signal?.aborted) {
+      this.emit('error', { type: 'error', message: 'aborted' });
+      return;
+    }
     // Provide a stable thread id for turn_final in tests.
     this.emit('thread', { type: 'thread', threadId: conversationId });
     await this.script(this, signal);
   }
 }
+
+test('ScriptedChat rejects already-aborted state before transcript events', async () => {
+  const controller = new AbortController();
+  const events: string[] = [];
+  let scriptRan = false;
+  controller.abort();
+
+  const chat = new ScriptedChat(async () => {
+    scriptRan = true;
+  });
+  chat.on('error', () => events.push('error'));
+  chat.on('thread', () => events.push('thread'));
+
+  await chat.execute(
+    'hello',
+    { signal: controller.signal },
+    'ws-stream-preaborted-conv',
+    'model',
+  );
+
+  assert.equal(scriptRan, false);
+  assert.deepEqual(events, ['error']);
+});
 
 function buildChatFactory(params: {
   withAnalysis?: boolean;
@@ -200,6 +227,18 @@ async function stopServer(server: {
   await new Promise<void>((resolve) =>
     server.httpServer.close(() => resolve()),
   );
+}
+
+async function waitForInflightCleared(
+  conversationId: string,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getInflight(conversationId) === undefined) return;
+    await delay(25);
+  }
+  throw new Error(`Timed out waiting for inflight cleanup: ${conversationId}`);
 }
 
 beforeEach(() => {
@@ -883,7 +922,7 @@ test('duplicate websocket stop requests emit one terminal outcome for the same r
     });
 
     assert.equal(final.status, 'stopped');
-    await delay(200);
+    await waitForInflightCleared(conversationId);
     assert.equal(seenFinals.length, 1);
   } finally {
     ws.off('message', onMessage);
@@ -1069,7 +1108,7 @@ test('unsubscribe_conversation does not cancel run; turns still persist', async 
   }
 });
 
-test('inflight registry entry removed after turn_final', async () => {
+test('stream teardown clears inflight runtime state exactly at the turn_final boundary', async () => {
   const server = await startServer({
     chatFactory: buildChatFactory({
       withAnalysis: true,
@@ -1171,7 +1210,7 @@ test('late assistant update after finalization does not emit duplicate assistant
       );
     });
     assert.equal(assistantDeltaEvents.length, 2);
-    await delay(100);
+    await waitForInflightCleared(conversationId);
     assert.equal(seenFinals.length, 1);
     assert.equal(getInflight(conversationId), undefined);
   } finally {

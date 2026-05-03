@@ -1,15 +1,37 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
+import express from 'express';
 import mongoose from 'mongoose';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import { ChatInterfaceLMStudio } from '../../chat/interfaces/ChatInterfaceLMStudio.js';
-import { memoryTurns } from '../../chat/memoryPersistence.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+import { createChatRouter } from '../../routes/chat.js';
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 let originalEnv: string | undefined;
 const originalReady = mongoose.connection.readyState;
+const originalLmStudioBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
 
 class MockCodexThread {
   async runStreamed(): Promise<{ events: AsyncGenerator<unknown> }> {
@@ -70,6 +92,7 @@ beforeEach(() => {
     configurable: true,
   });
   process.env.NODE_ENV = 'test';
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://127.0.0.1:1234';
 });
 
 afterEach(() => {
@@ -82,7 +105,13 @@ afterEach(() => {
   } else {
     process.env.NODE_ENV = originalEnv;
   }
+  if (originalLmStudioBaseUrl === undefined) {
+    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+  } else {
+    process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmStudioBaseUrl;
+  }
   memoryTurns.clear();
+  memoryConversations.clear();
 });
 
 describe('assistant persistence via ChatInterface base', () => {
@@ -379,5 +408,121 @@ describe('assistant persistence via ChatInterface base', () => {
     assert.deepEqual(assistant.timing, {
       totalTimeSec: 0.75,
     });
+  });
+
+  test('same-conversation agentFlags edits stay on the current conversation after persistence migration', async () => {
+    class RouteChat extends ChatInterfaceLMStudio {
+      constructor() {
+        const mockClient: LMStudioClient = {
+          llm: {
+            model: () =>
+              ({
+                act: async (
+                  _chat: unknown,
+                  _tools: ReadonlyArray<unknown>,
+                  opts: Record<string, unknown>,
+                ) => {
+                  const callbacks = opts as {
+                    onPredictionFragment?: (fragment: {
+                      content?: string;
+                    }) => void;
+                    onMessage?: (message: unknown) => void;
+                  };
+                  callbacks.onPredictionFragment?.({ content: 'Hello' });
+                  callbacks.onMessage?.({
+                    role: 'assistant',
+                    content: [{ type: 'text', text: 'Hello world' }],
+                  });
+                },
+              }) as unknown as ReturnType<LMStudioClient['llm']['model']>,
+          },
+        } as unknown as LMStudioClient;
+
+        super(
+          () => mockClient,
+          () => ({
+            tools: [],
+          }),
+        );
+      }
+    }
+
+    memoryConversations.set('same-conversation-agent-flags', {
+      _id: 'same-conversation-agent-flags',
+      provider: 'lmstudio',
+      model: 'lmstudio-test',
+      title: 'Existing conversation',
+      source: 'REST',
+      flags: {
+        agentFlags: {
+          toolAccess: 'on',
+          temperature: 0.2,
+        },
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastMessageAt: new Date(),
+      archivedAt: null,
+    });
+
+    const app = express();
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [{ modelKey: 'lmstudio-test' }],
+            },
+          }) as never,
+        chatFactory: () => new RouteChat(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(process.cwd())],
+          lockedModelId: null,
+        }),
+      }),
+    );
+
+    const supertest = await import('supertest');
+    const originalReadyState = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 0,
+      configurable: true,
+    });
+
+    try {
+      const response = await supertest
+        .default(app)
+        .post('/chat')
+        .send({
+          provider: 'lmstudio',
+          model: 'lmstudio-test',
+          conversationId: 'same-conversation-agent-flags',
+          message: 'edit flags only',
+          agentFlags: {
+            toolAccess: 'off',
+            temperature: 0.7,
+          },
+        });
+
+      assert.equal(response.status, 202);
+      assert.equal(memoryConversations.size, 1);
+      assert.deepEqual(
+        memoryConversations.get('same-conversation-agent-flags')?.flags,
+        {
+          agentFlags: {
+            contextOverflowPolicy: 'truncateMiddle',
+            maxTokens: 4096,
+            toolAccess: 'off',
+            temperature: 0.7,
+          },
+        },
+      );
+    } finally {
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReadyState,
+        configurable: true,
+      });
+    }
   });
 });

@@ -177,7 +177,7 @@ test('codex env model list parsing surfaces defaults and warnings', async () => 
   }
 });
 
-test('chat models marker normalizes model_source and retains raw codex_model_source', async () => {
+test('chat models marker emits the shared warning_count and warnings fields with the same values as the REST defaults surface', async () => {
   await setCodexHome();
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
@@ -197,7 +197,7 @@ test('chat models marker normalizes model_source and retains raw codex_model_sou
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
-    await request(server.httpServer)
+    const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
 
@@ -206,6 +206,8 @@ test('chat models marker normalizes model_source and retains raw codex_model_sou
     assert.equal(marker.surface, '/chat/models');
     assert.equal(marker.model_source, 'fallback');
     assert.equal(marker.codex_model_source, 'hardcoded');
+    assert.equal(marker.warning_count, res.body.codexWarnings.length);
+    assert.deepEqual(marker.warnings, res.body.codexWarnings);
   } finally {
     console.info = originalInfo;
     await stopServer(server);
@@ -296,6 +298,7 @@ test('codex models include defaultReasoningEffort present in supportedReasoningE
 });
 
 test('chat models payload is derived from shared capability resolver fixture', async () => {
+  await setCodexHome('model = "fixture-home-model"\n');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -309,6 +312,7 @@ test('chat models payload is derived from shared capability resolver fixture', a
       modelReasoningEffort: 'minimal',
       networkAccessEnabled: true,
       webSearchEnabled: true,
+      webSearchMode: 'live',
     },
     models: [
       {
@@ -348,8 +352,22 @@ test('chat models payload is derived from shared capability resolver fixture', a
         type: 'codex',
         supportedReasoningEfforts: ['minimal', 'high'],
         defaultReasoningEffort: 'minimal',
+        flagOverrides: [
+          {
+            key: 'modelReasoningEffort',
+            resolvedDefault: 'minimal',
+            supportedValues: [
+              { value: 'minimal', label: 'Minimal' },
+              { value: 'high', label: 'High' },
+            ],
+          },
+        ],
       },
     ]);
+    assert.equal(res.body.providerInfo.id, 'codex');
+    assert.equal(res.body.defaultModel, 'fixture-home-model');
+    assert.equal(res.body.defaultModelSource, 'config');
+    assert.equal(res.body.compatibility.codexDefaults.webSearchMode, 'live');
   } finally {
     await stopServer(server);
   }
@@ -456,6 +474,7 @@ test('chat models codexDefaults and warnings come from shared resolver precedenc
     assert.equal(res.body.codexDefaults.modelReasoningEffort, 'medium');
     assert.equal(res.body.codexDefaults.networkAccessEnabled, false);
     assert.equal(res.body.codexDefaults.webSearchEnabled, false);
+    assert.equal(res.body.codexDefaults.webSearchMode, 'disabled');
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
     await stopServer(server);
@@ -469,8 +488,11 @@ test('chat models parity fixture remains deterministic across resolver-backed de
       sandboxMode: 'workspace-write',
       approvalPolicy: 'on-request',
       modelReasoningEffort: 'medium',
+      modelReasoningSummary: 'auto',
+      modelVerbosity: 'medium',
       networkAccessEnabled: false,
       webSearchEnabled: false,
+      webSearchMode: 'disabled',
     },
     models: [
       {
@@ -508,6 +530,63 @@ test('chat models parity fixture remains deterministic across resolver-backed de
       .expect(200);
     assert.deepEqual(res.body.codexDefaults, fixture.defaults);
     assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
+    assert.equal(
+      res.body.providerInfo.compatibility.codexDefaults.webSearchMode,
+      'disabled',
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models expose the Story 56 provider-neutral Agent Flags and workspace-write-scoped compatibility details', async () => {
+  await setCodexHome(
+    [
+      'model = "gpt-5.3-codex"',
+      'model_reasoning_effort = "high"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "workspace-write"',
+      'model_reasoning_summary = "detailed"',
+      'model_verbosity = "low"',
+      'web_search_mode = "cached"',
+      '',
+    ].join('\n'),
+  );
+  env.set('Codex_model_list', 'alpha');
+  env.set('Codex_network_access_enabled', 'false');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    const flags = res.body.agentFlags as Array<Record<string, unknown>>;
+    const network = flags.find((entry) => entry.key === 'networkAccessEnabled');
+    const summary = flags.find(
+      (entry) => entry.key === 'modelReasoningSummary',
+    );
+    const verbosity = flags.find((entry) => entry.key === 'modelVerbosity');
+    const webSearch = flags.find((entry) => entry.key === 'webSearchMode');
+
+    assert.equal(res.body.providerInfo.defaultModel, 'gpt-5.3-codex');
+    assert.equal(res.body.providerInfo.defaultModelSource, 'config');
+    assert.equal(res.body.codexDefaults.sandboxMode, 'workspace-write');
+    assert.equal(res.body.codexDefaults.networkAccessEnabled, false);
+    assert.equal(res.body.codexDefaults.webSearchMode, 'cached');
+    assert.ok(network);
+    assert.equal(network.resolvedDefault, false);
+    assert.ok(summary);
+    assert.equal(summary.resolvedDefault, 'detailed');
+    assert.ok(verbosity);
+    assert.equal(verbosity.resolvedDefault, 'low');
+    assert.ok(webSearch);
+    assert.equal(webSearch.resolvedDefault, 'cached');
   } finally {
     await stopServer(server);
   }
@@ -731,6 +810,211 @@ test('non-codex provider omits codex defaults fields', async () => {
   }
 });
 
+test('lmstudio models prioritize the configured default model from CODEINFO_LMSTUDIO_HOME', async () => {
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    'model = "model-b"\n',
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([
+        {
+          modelKey: 'model-a',
+          displayName: 'Model A',
+          type: 'llm',
+        },
+        {
+          modelKey: 'model-b',
+          displayName: 'Model B',
+          type: 'llm',
+        },
+      ]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.deepEqual(modelKeys, ['model-b', 'model-a']);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('lmstudio discovery normalizes a stale configured default to a live model entry', async () => {
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-stale-default-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    'model = "model-1"\n',
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([
+        {
+          modelKey: 'model-a',
+          displayName: 'Model A',
+          type: 'llm',
+        },
+        {
+          modelKey: 'model-b',
+          displayName: 'Model B',
+          type: 'llm',
+        },
+      ]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.deepEqual(modelKeys, ['model-a', 'model-b']);
+    assert.equal(res.body.defaultModel, 'model-a');
+    assert.equal(res.body.providerInfo.defaultModel, 'model-a');
+    assert.notEqual(res.body.defaultModel, 'model-1');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('lmstudio discovery surfaces only bounded resolved defaults from provider-local config', async () => {
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-bounded-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    [
+      'model = "model-a"',
+      'temperature = 4',
+      'max_tokens = 0',
+      'context_overflow_policy = "rollingWindow"',
+      'tool_access = "off"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([
+        {
+          modelKey: 'model-a',
+          displayName: 'Model A',
+          type: 'llm',
+        },
+      ]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    const agentFlags = res.body.agentFlags as Array<Record<string, unknown>>;
+    const temperature = agentFlags.find((entry) => entry.key === 'temperature');
+    const maxTokens = agentFlags.find((entry) => entry.key === 'maxTokens');
+    const contextOverflowPolicy = agentFlags.find(
+      (entry) => entry.key === 'contextOverflowPolicy',
+    );
+    const toolAccess = agentFlags.find((entry) => entry.key === 'toolAccess');
+
+    assert.equal(temperature?.resolvedDefault, 0.2);
+    assert.equal(maxTokens?.resolvedDefault, 4096);
+    assert.equal(contextOverflowPolicy?.resolvedDefault, 'rollingWindow');
+    assert.equal(toolAccess?.resolvedDefault, 'off');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('lmstudio models route degrades malformed chat defaults to warnings instead of failing discovery', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-malformed-'),
+  );
+  tempDirs.push(root);
+  const lmstudioHome = path.join(root, 'lmstudio');
+  await fs.mkdir(path.join(lmstudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(lmstudioHome, 'chat', 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+  env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'lmstudio');
+    assert.equal(res.body.available, true);
+    assert.equal(res.body.defaultModel, 'model-1');
+    assert.equal(res.body.defaultModelSource, 'hardcoded');
+    assert.deepEqual(
+      res.body.agentFlags.map(
+        (entry: { key: string; resolvedDefault: unknown }) => ({
+          key: entry.key,
+          resolvedDefault: entry.resolvedDefault,
+        }),
+      ),
+      [
+        { key: 'temperature', resolvedDefault: 0.2 },
+        { key: 'maxTokens', resolvedDefault: 4096 },
+        { key: 'contextOverflowPolicy', resolvedDefault: 'truncateMiddle' },
+        { key: 'toolAccess', resolvedDefault: 'on' },
+      ],
+    );
+    assert.match(
+      (res.body.warnings ?? []).join('\n'),
+      /agentFlags resolution/i,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
@@ -904,6 +1188,7 @@ test('codex payload includes non-standard reasoning effort values from shared ca
       modelReasoningEffort: 'high',
       networkAccessEnabled: true,
       webSearchEnabled: true,
+      webSearchMode: 'live',
     },
     models: [
       {
@@ -1049,7 +1334,7 @@ test('lmstudio models mark provider unavailable when no chat-capable model is re
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
-      .expect(200);
+      .expect(503);
 
     assert.equal(res.body.provider, 'lmstudio');
     assert.equal(res.body.available, false);

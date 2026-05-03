@@ -61,17 +61,17 @@ test('logs deterministic error for non-stable prerelease version', () => {
   );
 });
 
-test('accepts exact required pinned stable version 0.107.0', () => {
-  const result = validateAndLogCodexSdkUpgrade('0.107.0');
+test('accepts exact required pinned stable version 0.125.0', () => {
+  const result = validateAndLogCodexSdkUpgrade('0.125.0');
   assert.equal(result, true);
 });
 
 test('rejects higher stable version than required', () => {
-  const result = validateAndLogCodexSdkUpgrade('0.108.0');
+  const result = validateAndLogCodexSdkUpgrade('0.126.0');
   assert.equal(result, false);
 });
 
 test('rejects lower stable version than required', () => {
-  const result = validateAndLogCodexSdkUpgrade('0.106.0');
+  const result = validateAndLogCodexSdkUpgrade('0.124.0');
   assert.equal(result, false);
 });

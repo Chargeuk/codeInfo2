@@ -4,14 +4,24 @@ import type {
   ModelReasoningEffort,
   SandboxMode,
 } from '@openai/codex-sdk';
+import { isSupportedAgentFlagKey } from '../chat/agentFlags.js';
+import {
+  loadProviderConfigForAgentFlags,
+  parseOptionalConfigString,
+  ProviderRuntimeFlagError,
+  resolveCopilotRuntimeAgentFlags,
+  resolveLmStudioRuntimeAgentFlags,
+} from '../chat/providerRuntimeFlags.js';
 import {
   getCodexCapabilityForModel,
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
 } from '../codex/capabilityResolver.js';
 import {
+  buildDefaultsAppliedMarkerPayload,
   resolveChatDefaults,
   resolveCodexChatDefaults,
+  ChatDefaultsResolutionError,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
   toCodexDefaultSource,
@@ -30,11 +40,7 @@ export type ChatRequestBody = {
   provider?: unknown;
   threadId?: unknown;
   inflightId?: unknown;
-  sandboxMode?: unknown;
-  networkAccessEnabled?: unknown;
-  webSearchEnabled?: unknown;
-  approvalPolicy?: unknown;
-  modelReasoningEffort?: unknown;
+  agentFlags?: unknown;
   working_folder?: unknown;
 };
 
@@ -46,13 +52,7 @@ export type ValidatedChatRequest = {
   threadId?: string;
   inflightId?: string;
   working_folder?: string;
-  codexFlags: {
-    sandboxMode?: SandboxMode;
-    networkAccessEnabled?: boolean;
-    webSearchEnabled?: boolean;
-    approvalPolicy?: ApprovalMode;
-    modelReasoningEffort?: ModelReasoningEffort;
-  };
+  agentFlags: Record<string, unknown>;
   warnings: string[];
   defaultsResolution: {
     providerSource: 'request' | 'config' | 'env' | 'fallback';
@@ -122,7 +122,6 @@ export const sandboxModes: SandboxMode[] = [
 export const approvalPolicies: ApprovalMode[] = [
   'never',
   'on-request',
-  'on-failure',
   'untrusted',
 ] as ApprovalMode[];
 
@@ -133,9 +132,198 @@ export const modelReasoningEfforts = [
   'high',
   'xhigh',
 ] as const satisfies readonly ModelReasoningEffort[];
+export const codexReasoningSummaries = [
+  'auto',
+  'concise',
+  'detailed',
+  'none',
+] as const;
+export const codexVerbosityLevels = ['low', 'medium', 'high'] as const;
+export const codexWebSearchModes = ['disabled', 'cached', 'live'] as const;
+const LEGACY_TOP_LEVEL_FLAG_KEYS = [
+  'sandboxMode',
+  'networkAccessEnabled',
+  'webSearchEnabled',
+  'approvalPolicy',
+  'modelReasoningEffort',
+] as const;
 
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 const PROVIDER_VALIDATION_MESSAGE = `provider must be one of: ${ORDERED_CHAT_PROVIDER_IDS.join(', ')}`;
+const DEFAULT_CODEX_REASONING_SUMMARY = 'auto';
+const DEFAULT_CODEX_VERBOSITY = 'medium';
+
+const parseBoolean = (value: unknown, field: string): boolean => {
+  if (typeof value !== 'boolean') {
+    throw new ChatValidationError(`${field} must be a boolean`);
+  }
+  return value;
+};
+
+const parseChoice = <T extends string>(
+  value: unknown,
+  field: string,
+  choices: readonly T[],
+): T => {
+  if (typeof value !== 'string') {
+    throw new ChatValidationError(
+      `${field} must be one of: ${choices.join(', ')}`,
+    );
+  }
+  const trimmed = value.trim();
+  if (!trimmed || !choices.includes(trimmed as T)) {
+    throw new ChatValidationError(
+      `${field} must be one of: ${choices.join(', ')}`,
+    );
+  }
+  return trimmed as T;
+};
+
+const normalizeAgentFlagsObject = (
+  rawAgentFlags: unknown,
+): Record<string, unknown> => {
+  if (rawAgentFlags === undefined) return {};
+  if (!isPlainObject(rawAgentFlags)) {
+    throw new ChatValidationError('agentFlags must be an object');
+  }
+  return rawAgentFlags;
+};
+
+const validateNoLegacyTopLevelFlags = (body: Record<string, unknown>) => {
+  for (const key of LEGACY_TOP_LEVEL_FLAG_KEYS) {
+    if (body[key] !== undefined) {
+      throw new ChatValidationError(
+        `legacy top-level chat flag "${key}" is no longer supported; use agentFlags.${key}`,
+      );
+    }
+  }
+};
+
+const validateNoUnsupportedAgentFlags = (
+  provider: Provider,
+  agentFlags: Record<string, unknown>,
+) => {
+  for (const key of Object.keys(agentFlags)) {
+    if (!isSupportedAgentFlagKey(provider, key)) {
+      throw new ChatValidationError(
+        `agentFlags.${key} is not supported for provider "${provider}"`,
+      );
+    }
+  }
+};
+
+const resolveCopilotAgentFlags = (
+  rawAgentFlags: Record<string, unknown>,
+): Record<string, unknown> => {
+  validateNoUnsupportedAgentFlags('copilot', rawAgentFlags);
+  try {
+    return resolveCopilotRuntimeAgentFlags(rawAgentFlags);
+  } catch (error) {
+    if (error instanceof ProviderRuntimeFlagError) {
+      throw new ChatValidationError(error.message);
+    }
+    throw error;
+  }
+};
+
+const resolveLmStudioAgentFlags = (
+  rawAgentFlags: Record<string, unknown>,
+): Record<string, unknown> => {
+  validateNoUnsupportedAgentFlags('lmstudio', rawAgentFlags);
+  try {
+    return resolveLmStudioRuntimeAgentFlags(rawAgentFlags);
+  } catch (error) {
+    if (error instanceof ProviderRuntimeFlagError) {
+      throw new ChatValidationError(error.message);
+    }
+    throw error;
+  }
+};
+
+const resolveCodexAgentFlags = async (params: {
+  rawAgentFlags: Record<string, unknown>;
+  model: string;
+  codexCapabilities: CodexCapabilityResolution;
+  selectedModelCapability?:
+    | ReturnType<typeof getCodexCapabilityForModel>
+    | undefined;
+}): Promise<Record<string, unknown>> => {
+  validateNoUnsupportedAgentFlags('codex', params.rawAgentFlags);
+  const defaults = await resolveCodexChatDefaults({
+    codexHome: process.env.CODEX_HOME,
+  });
+  const config = loadProviderConfigForAgentFlags('codex');
+  const supportedReasoningEfforts =
+    params.selectedModelCapability?.supportedReasoningEfforts ??
+    modelReasoningEfforts;
+
+  return {
+    sandboxMode:
+      params.rawAgentFlags.sandboxMode !== undefined
+        ? parseChoice(
+            params.rawAgentFlags.sandboxMode,
+            'agentFlags.sandboxMode',
+            sandboxModes,
+          )
+        : defaults.values.sandboxMode,
+    approvalPolicy:
+      params.rawAgentFlags.approvalPolicy !== undefined
+        ? parseChoice(
+            params.rawAgentFlags.approvalPolicy,
+            'agentFlags.approvalPolicy',
+            approvalPolicies,
+          )
+        : defaults.values.approvalPolicy === 'on-failure'
+          ? 'on-request'
+          : defaults.values.approvalPolicy,
+    modelReasoningEffort:
+      params.rawAgentFlags.modelReasoningEffort !== undefined
+        ? parseChoice(
+            params.rawAgentFlags.modelReasoningEffort,
+            'agentFlags.modelReasoningEffort',
+            supportedReasoningEfforts,
+          )
+        : (params.selectedModelCapability?.defaultReasoningEffort ??
+          defaults.values.modelReasoningEffort),
+    modelReasoningSummary:
+      params.rawAgentFlags.modelReasoningSummary !== undefined
+        ? parseChoice(
+            params.rawAgentFlags.modelReasoningSummary,
+            'agentFlags.modelReasoningSummary',
+            codexReasoningSummaries,
+          )
+        : (parseOptionalConfigString(
+            config.model_reasoning_summary,
+            codexReasoningSummaries,
+          ) ?? DEFAULT_CODEX_REASONING_SUMMARY),
+    modelVerbosity:
+      params.rawAgentFlags.modelVerbosity !== undefined
+        ? parseChoice(
+            params.rawAgentFlags.modelVerbosity,
+            'agentFlags.modelVerbosity',
+            codexVerbosityLevels,
+          )
+        : (parseOptionalConfigString(
+            config.model_verbosity,
+            codexVerbosityLevels,
+          ) ?? DEFAULT_CODEX_VERBOSITY),
+    networkAccessEnabled:
+      params.rawAgentFlags.networkAccessEnabled !== undefined
+        ? parseBoolean(
+            params.rawAgentFlags.networkAccessEnabled,
+            'agentFlags.networkAccessEnabled',
+          )
+        : params.codexCapabilities.defaults.networkAccessEnabled,
+    webSearchMode:
+      params.rawAgentFlags.webSearchMode !== undefined
+        ? parseChoice(
+            params.rawAgentFlags.webSearchMode,
+            'agentFlags.webSearchMode',
+            codexWebSearchModes,
+          )
+        : defaults.values.webSearch,
+  };
+};
 
 export async function validateChatRequest(
   body: ChatRequestBody | unknown,
@@ -149,6 +337,8 @@ export async function validateChatRequest(
   if (!isPlainObject(body)) {
     throw new ChatValidationError('request body must be an object');
   }
+
+  validateNoLegacyTopLevelFlags(body);
 
   if (body.messages !== undefined) {
     throw new ChatValidationError(
@@ -195,10 +385,18 @@ export async function validateChatRequest(
     requestedProvider = normalizedProvider as Provider;
   }
 
-  const resolvedDefaults = resolveChatDefaults({
-    requestProvider: requestedProvider as ChatDefaultProvider | undefined,
-    requestModel: requestedModel,
-  });
+  let resolvedDefaults;
+  try {
+    resolvedDefaults = resolveChatDefaults({
+      requestProvider: requestedProvider as ChatDefaultProvider | undefined,
+      requestModel: requestedModel,
+    });
+  } catch (error) {
+    if (error instanceof ChatDefaultsResolutionError) {
+      throw new ChatValidationError(error.message);
+    }
+    throw error;
+  }
   const provider: Provider = resolvedDefaults.provider;
   const codexRequestedDefaults =
     provider === 'codex' && requestedModel === undefined
@@ -223,6 +421,14 @@ export async function validateChatRequest(
     typeof body.threadId === 'string' && body.threadId.length > 0
       ? body.threadId
       : undefined;
+  if (body.threadId !== undefined && threadId === undefined) {
+    throw new ChatValidationError('threadId must be a non-empty string');
+  }
+  if (threadId && provider !== 'codex') {
+    throw new ChatValidationError(
+      `threadId is not supported for provider "${provider}"`,
+    );
+  }
 
   const inflightId =
     typeof body.inflightId === 'string' && body.inflightId.length > 0
@@ -264,8 +470,7 @@ export async function validateChatRequest(
     );
   }
 
-  const codexFlags: ValidatedChatRequest['codexFlags'] = {};
-  const defaultedFlags: Array<keyof ValidatedChatRequest['codexFlags']> = [];
+  const rawAgentFlags = normalizeAgentFlagsObject(body.agentFlags);
   const codexCapabilities =
     provider === 'codex'
       ? await (options?.codexCapabilityResolver ?? resolveCodexCapabilities)({
@@ -279,144 +484,45 @@ export async function validateChatRequest(
   if (codexCapabilities?.warnings.length) {
     warnings.push(...codexCapabilities.warnings);
   }
+  const agentFlags =
+    provider === 'codex'
+      ? await resolveCodexAgentFlags({
+          rawAgentFlags,
+          model,
+          codexCapabilities:
+            codexCapabilities ??
+            (await resolveCodexCapabilities({ consumer: 'chat_validation' })),
+          selectedModelCapability,
+        })
+      : provider === 'copilot'
+        ? resolveCopilotAgentFlags(rawAgentFlags)
+        : resolveLmStudioAgentFlags(rawAgentFlags);
 
-  // Example payloads for juniors:
-  // { provider: 'codex', model: 'gpt-5.1-codex', messages: [{ role: 'user', content: 'Hi' }], sandboxMode: 'danger-full-access', networkAccessEnabled: false, webSearchEnabled: false, approvalPolicy: 'never', modelReasoningEffort: 'medium' }
-  // { provider: 'lmstudio', model: 'llama-3', messages: [{ role: 'user', content: 'Hi' }], sandboxMode: 'read-only', networkAccessEnabled: true, webSearchEnabled: true, approvalPolicy: 'on-failure', modelReasoningEffort: 'high' } // Codex flags are ignored with warnings
-
-  const sandboxMode = body.sandboxMode;
-  if (sandboxMode !== undefined) {
-    if (
-      typeof sandboxMode !== 'string' ||
-      !sandboxModes.includes(sandboxMode as SandboxMode)
-    ) {
-      throw new ChatValidationError(
-        `sandboxMode must be one of: ${sandboxModes.join(', ')}`,
-      );
-    }
-    if (provider !== 'codex') {
-      warnings.push(
-        `sandboxMode is Codex-only and was ignored for provider "${provider}"`,
-      );
-    } else {
-      codexFlags.sandboxMode = sandboxMode as SandboxMode;
-    }
-  } else if (provider === 'codex') {
-    codexFlags.sandboxMode = codexCapabilities?.defaults.sandboxMode;
-    defaultedFlags.push('sandboxMode');
-  }
-
-  const networkAccessEnabled = body.networkAccessEnabled;
-  if (networkAccessEnabled !== undefined) {
-    if (typeof networkAccessEnabled !== 'boolean') {
-      throw new ChatValidationError('networkAccessEnabled must be a boolean');
-    }
-    if (provider !== 'codex') {
-      warnings.push(
-        `networkAccessEnabled is Codex-only and was ignored for provider "${provider}"`,
-      );
-    } else {
-      codexFlags.networkAccessEnabled = networkAccessEnabled;
-    }
-  } else if (provider === 'codex') {
-    codexFlags.networkAccessEnabled =
-      codexCapabilities?.defaults.networkAccessEnabled;
-    defaultedFlags.push('networkAccessEnabled');
-  }
-
-  const webSearchEnabled = body.webSearchEnabled;
-  if (webSearchEnabled !== undefined) {
-    if (typeof webSearchEnabled !== 'boolean') {
-      throw new ChatValidationError('webSearchEnabled must be a boolean');
-    }
-    if (provider !== 'codex') {
-      warnings.push(
-        `webSearchEnabled is Codex-only and was ignored for provider "${provider}"`,
-      );
-    } else {
-      codexFlags.webSearchEnabled = webSearchEnabled;
-    }
-  } else if (provider === 'codex') {
-    codexFlags.webSearchEnabled = codexCapabilities?.defaults.webSearchEnabled;
-    defaultedFlags.push('webSearchEnabled');
-  }
-
-  const approvalPolicy = body.approvalPolicy;
-  if (approvalPolicy !== undefined) {
-    if (
-      typeof approvalPolicy !== 'string' ||
-      !approvalPolicies.includes(approvalPolicy as ApprovalMode)
-    ) {
-      throw new ChatValidationError(
-        `approvalPolicy must be one of: ${approvalPolicies.join(', ')}`,
-      );
-    }
-    if (provider !== 'codex') {
-      warnings.push(
-        `approvalPolicy is Codex-only and was ignored for provider "${provider}"`,
-      );
-    } else {
-      codexFlags.approvalPolicy = approvalPolicy as ApprovalMode;
-    }
-  } else if (provider === 'codex') {
-    codexFlags.approvalPolicy = codexCapabilities?.defaults.approvalPolicy;
-    defaultedFlags.push('approvalPolicy');
-  }
-
-  const modelReasoningEffort = body.modelReasoningEffort;
-  if (modelReasoningEffort !== undefined) {
-    const supportedReasoningEfforts =
-      selectedModelCapability?.supportedReasoningEfforts ??
-      modelReasoningEfforts;
-    if (
-      typeof modelReasoningEffort !== 'string' ||
-      !supportedReasoningEfforts.includes(
-        modelReasoningEffort as ModelReasoningEffort,
-      )
-    ) {
-      throw new ChatValidationError(
-        `modelReasoningEffort must be one of: ${supportedReasoningEfforts.join(', ')}`,
-      );
-    }
-    if (provider !== 'codex') {
-      warnings.push(
-        `modelReasoningEffort is Codex-only and was ignored for provider "${provider}"`,
-      );
-    } else {
-      codexFlags.modelReasoningEffort =
-        modelReasoningEffort as ModelReasoningEffort;
-    }
-  } else if (provider === 'codex') {
-    codexFlags.modelReasoningEffort =
-      (selectedModelCapability?.defaultReasoningEffort ??
-        codexCapabilities?.defaults
-          .modelReasoningEffort) as ModelReasoningEffort;
-    defaultedFlags.push('modelReasoningEffort');
-  }
-
-  if (provider === 'codex' && defaultedFlags.length > 0) {
-    baseLogger.info(
-      { defaultedFlags },
-      '[codex-validate] applied resolver defaults',
-    );
-  }
-  console.info(STORY_47_TASK_1_LOG_MARKER, {
-    surface: 'chat_validation',
-    requested_provider: requestedProvider ?? provider,
-    requested_model: requestedModel ?? model,
-    resolved_model: model,
-    model_source: modelSource,
-    codex_model_source:
-      provider === 'codex' ? toCodexDefaultSource(modelSource) : undefined,
-    success: true,
-    warning_count: warnings.length,
-    defaultedFlags,
-  });
+  console.info(
+    STORY_47_TASK_1_LOG_MARKER,
+    buildDefaultsAppliedMarkerPayload({
+      surface: 'chat_validation',
+      requestedProvider: (requestedProvider ?? provider) as ChatDefaultProvider,
+      requestedModel: requestedModel ?? model,
+      resolvedModel: model,
+      modelSource,
+      codexModelSource:
+        provider === 'codex' ? toCodexDefaultSource(modelSource) : undefined,
+      warnings,
+      extras: {
+        defaultedFlags: Object.keys(agentFlags).filter(
+          (key) => rawAgentFlags[key] === undefined,
+        ),
+      },
+    }),
+  );
   console.info(TASK7_LOG_MARKER, {
     surface: 'chat_validation',
     provider,
     warningCount: warnings.length,
-    defaultedFlags,
+    defaultedFlags: Object.keys(agentFlags).filter(
+      (key) => rawAgentFlags[key] === undefined,
+    ),
     resolvedModel: model,
   });
 
@@ -428,7 +534,7 @@ export async function validateChatRequest(
     threadId,
     inflightId,
     working_folder,
-    codexFlags,
+    agentFlags,
     warnings,
     defaultsResolution: {
       providerSource: resolvedDefaults.providerSource,

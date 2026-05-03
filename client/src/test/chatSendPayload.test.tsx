@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChatPage from '../pages/ChatPage';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -208,17 +209,13 @@ test('chat send payload includes working_folder when selected', async () => {
   expect((chatBody as ChatBody).working_folder).toBe('/repo/selected');
 });
 
-test('chat send payload omits Codex-only flags when Copilot is selected', async () => {
+test('chat send payload keeps the Copilot request provider-neutral without legacy top-level Codex fields', async () => {
   type ChatBody = {
     conversationId?: string;
     message?: string;
     provider?: string;
     model?: string;
-    sandboxMode?: string;
-    approvalPolicy?: string;
-    modelReasoningEffort?: string;
-    networkAccessEnabled?: boolean;
-    webSearchEnabled?: boolean;
+    agentFlags?: Record<string, unknown>;
   };
   const user = userEvent.setup();
   let chatBody: ChatBody | null = null;
@@ -258,10 +255,45 @@ test('chat send payload omits Codex-only flags when Copilot is selected', async 
           'provider',
         );
         if (providerId === 'copilot') {
+          const copilotAgentFlags = [
+            {
+              key: 'modelReasoningEffort',
+              label: 'Reasoning Effort',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'medium',
+              resolvedDefault: 'medium',
+              supportedValues: [
+                { value: 'low', label: 'Low' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'high', label: 'High' },
+              ],
+            },
+            {
+              key: 'toolAccess',
+              label: 'Tool Access',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'on',
+              resolvedDefault: 'on',
+              supportedValues: [
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ],
+            },
+          ];
           return mockJsonResponse({
             provider: 'copilot',
             available: true,
             toolsAvailable: true,
+            providerInfo: {
+              id: 'copilot',
+              label: 'GitHub Copilot',
+              available: true,
+              toolsAvailable: true,
+              agentFlags: copilotAgentFlags,
+            },
+            agentFlags: copilotAgentFlags,
             models: [
               {
                 key: 'copilot-chat',
@@ -275,6 +307,134 @@ test('chat send payload omits Codex-only flags when Copilot is selected', async 
           provider: 'codex',
           available: true,
           toolsAvailable: true,
+          providerInfo: {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+            agentFlags: [
+              {
+                key: 'sandboxMode',
+                label: 'Sandbox Mode',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'workspace-write',
+                resolvedDefault: 'workspace-write',
+                supportedValues: [
+                  { value: 'workspace-write', label: 'Workspace write' },
+                  { value: 'read-only', label: 'Read-only' },
+                  {
+                    value: 'danger-full-access',
+                    label: 'Danger full access',
+                  },
+                ],
+              },
+              {
+                key: 'approvalPolicy',
+                label: 'Approval Policy',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'on-request',
+                resolvedDefault: 'on-request',
+                supportedValues: [
+                  { value: 'never', label: 'Never (auto-approve)' },
+                  { value: 'on-request', label: 'On request' },
+                  { value: 'untrusted', label: 'Untrusted' },
+                ],
+              },
+              {
+                key: 'modelReasoningEffort',
+                label: 'Reasoning Effort',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'high',
+                resolvedDefault: 'high',
+                supportedValues: [{ value: 'high', label: 'High' }],
+              },
+              {
+                key: 'networkAccessEnabled',
+                label: 'Network Access',
+                controlType: 'boolean',
+                editable: true,
+                seedDefault: true,
+                resolvedDefault: true,
+              },
+              {
+                key: 'webSearchMode',
+                label: 'Web Search',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'live',
+                resolvedDefault: 'live',
+                supportedValues: [
+                  { value: 'disabled', label: 'Disabled' },
+                  { value: 'cached', label: 'Cached' },
+                  { value: 'live', label: 'Live' },
+                ],
+              },
+            ],
+          },
+          agentFlags: [
+            {
+              key: 'sandboxMode',
+              label: 'Sandbox Mode',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'workspace-write',
+              resolvedDefault: 'workspace-write',
+              supportedValues: [
+                { value: 'workspace-write', label: 'Workspace write' },
+                { value: 'read-only', label: 'Read-only' },
+                {
+                  value: 'danger-full-access',
+                  label: 'Danger full access',
+                },
+              ],
+            },
+            {
+              key: 'approvalPolicy',
+              label: 'Approval Policy',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'on-request',
+              resolvedDefault: 'on-request',
+              supportedValues: [
+                { value: 'never', label: 'Never (auto-approve)' },
+                { value: 'on-request', label: 'On request' },
+                { value: 'untrusted', label: 'Untrusted' },
+              ],
+            },
+            {
+              key: 'modelReasoningEffort',
+              label: 'Reasoning Effort',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'high',
+              resolvedDefault: 'high',
+              supportedValues: [{ value: 'high', label: 'High' }],
+            },
+            {
+              key: 'networkAccessEnabled',
+              label: 'Network Access',
+              controlType: 'boolean',
+              editable: true,
+              seedDefault: true,
+              resolvedDefault: true,
+            },
+            {
+              key: 'webSearchMode',
+              label: 'Web Search',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'live',
+              resolvedDefault: 'live',
+              supportedValues: [
+                { value: 'disabled', label: 'Disabled' },
+                { value: 'cached', label: 'Cached' },
+                { value: 'live', label: 'Live' },
+              ],
+            },
+          ],
           codexDefaults: {
             sandboxMode: 'workspace-write',
             approvalPolicy: 'on-failure',
@@ -338,9 +498,292 @@ test('chat send payload omits Codex-only flags when Copilot is selected', async 
 
   expect(submittedBody.provider).toBe('copilot');
   expect(submittedBody.model).toBe('copilot-chat');
+  expect(submittedBody.agentFlags).toEqual({
+    modelReasoningEffort: 'medium',
+    toolAccess: 'on',
+  });
   expect(submittedBody).not.toHaveProperty('sandboxMode');
   expect(submittedBody).not.toHaveProperty('approvalPolicy');
   expect(submittedBody).not.toHaveProperty('modelReasoningEffort');
   expect(submittedBody).not.toHaveProperty('networkAccessEnabled');
   expect(submittedBody).not.toHaveProperty('webSearchEnabled');
 });
+
+test('chat send payload omits hidden incompatible Codex values after switching to Copilot', async () => {
+  type ChatBody = {
+    conversationId?: string;
+    message?: string;
+    provider?: string;
+    model?: string;
+    agentFlags?: Record<string, unknown>;
+  };
+  const user = userEvent.setup();
+  let chatBody: ChatBody | null = null;
+
+  mockFetch.mockImplementation(
+    asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (url.includes('/chat/providers')) {
+        return mockJsonResponse({
+          providers: [
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'copilot',
+              label: 'GitHub Copilot',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        });
+      }
+      if (url.includes('/chat/models')) {
+        const providerId = new URL(url, 'http://localhost').searchParams.get(
+          'provider',
+        );
+        if (providerId === 'copilot') {
+          const copilotAgentFlags = [
+            {
+              key: 'modelReasoningEffort',
+              label: 'Reasoning Effort',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'medium',
+              resolvedDefault: 'medium',
+              supportedValues: [
+                { value: 'low', label: 'Low' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'high', label: 'High' },
+              ],
+            },
+            {
+              key: 'toolAccess',
+              label: 'Tool Access',
+              controlType: 'select',
+              editable: true,
+              seedDefault: 'on',
+              resolvedDefault: 'on',
+              supportedValues: [
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ],
+            },
+          ];
+          return mockJsonResponse({
+            provider: 'copilot',
+            available: true,
+            toolsAvailable: true,
+            providerInfo: {
+              id: 'copilot',
+              label: 'GitHub Copilot',
+              available: true,
+              toolsAvailable: true,
+              agentFlags: copilotAgentFlags,
+            },
+            agentFlags: copilotAgentFlags,
+            models: [
+              {
+                key: 'copilot-chat',
+                displayName: 'Copilot Chat',
+                type: 'chat',
+              },
+            ],
+          });
+        }
+        return mockJsonResponse({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          providerInfo: {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+            agentFlags: [
+              {
+                key: 'sandboxMode',
+                label: 'Sandbox Mode',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'workspace-write',
+                resolvedDefault: 'workspace-write',
+                supportedValues: [
+                  { value: 'workspace-write', label: 'Workspace write' },
+                  { value: 'read-only', label: 'Read-only' },
+                  {
+                    value: 'danger-full-access',
+                    label: 'Danger full access',
+                  },
+                ],
+              },
+              {
+                key: 'approvalPolicy',
+                label: 'Approval Policy',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'on-request',
+                resolvedDefault: 'on-request',
+                supportedValues: [
+                  { value: 'never', label: 'Never (auto-approve)' },
+                  { value: 'on-request', label: 'On request' },
+                  { value: 'untrusted', label: 'Untrusted' },
+                ],
+              },
+              {
+                key: 'modelReasoningEffort',
+                label: 'Reasoning Effort',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'high',
+                resolvedDefault: 'high',
+                supportedValues: [{ value: 'high', label: 'High' }],
+              },
+              {
+                key: 'networkAccessEnabled',
+                label: 'Network Access',
+                controlType: 'boolean',
+                editable: true,
+                seedDefault: true,
+                resolvedDefault: true,
+              },
+              {
+                key: 'webSearchMode',
+                label: 'Web Search',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'live',
+                resolvedDefault: 'live',
+                supportedValues: [
+                  { value: 'disabled', label: 'Disabled' },
+                  { value: 'cached', label: 'Cached' },
+                  { value: 'live', label: 'Live' },
+                ],
+              },
+            ],
+          },
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: true,
+          },
+          codexWarnings: [],
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+            },
+          ],
+        });
+      }
+      if (url.includes('/chat')) {
+        chatBody =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as ChatBody)
+            : null;
+        return new Response(
+          streamFromFrames([
+            'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
+            'data: {"type":"complete"}\n\n',
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.includes('/conversations')) {
+        return mockJsonResponse({ items: [], nextCursor: null });
+      }
+      return mockJsonResponse({});
+    }),
+  );
+
+  render(<ChatPage />);
+
+  const providerSelect = await screen.findByRole('combobox', {
+    name: /provider/i,
+  });
+  await user.click(providerSelect);
+  await user.click(
+    await screen.findByRole('option', { name: /^OpenAI Codex$/i }),
+  );
+
+  await ensureAgentFlagsPanelExpanded(user);
+  const sandboxSelect = await screen.findByRole('combobox', {
+    name: /sandbox mode/i,
+  });
+  await user.click(sandboxSelect);
+  await user.click(
+    await screen.findByRole('option', { name: /danger full access/i }),
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('sandbox-mode-select')).toHaveTextContent(
+      /danger full access/i,
+    ),
+  );
+
+  await user.click(screen.getByRole('combobox', { name: /provider/i }));
+  await user.click(
+    await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('provider-select')).toHaveTextContent(
+      /GitHub Copilot/i,
+    ),
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('model-select')).toHaveTextContent(
+      /Copilot Chat/i,
+    ),
+  );
+
+  await ensureAgentFlagsPanelExpanded(user);
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('combobox', { name: /sandbox mode/i }),
+    ).not.toBeInTheDocument(),
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('tool-access-select')).toHaveTextContent(/on/i),
+  );
+
+  const input = await screen.findByTestId('chat-input');
+  fireEvent.change(input, { target: { value: 'Hello Copilot after Codex' } });
+  await waitFor(() =>
+    expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
+  );
+  fireEvent.click(screen.getByTestId('chat-send'));
+
+  await waitFor(() => expect(chatBody).not.toBeNull());
+  if (!chatBody) {
+    throw new Error('Expected Copilot chat request body to be captured');
+  }
+
+  const submittedBody = chatBody as ChatBody;
+
+  expect(submittedBody.provider).toBe('copilot');
+  expect(submittedBody.model).toBe('copilot-chat');
+  expect(submittedBody.agentFlags).toEqual({
+    modelReasoningEffort: 'medium',
+    toolAccess: 'on',
+  });
+  expect(submittedBody.agentFlags).not.toHaveProperty('sandboxMode');
+  expect(submittedBody).not.toHaveProperty('sandboxMode');
+  expect(submittedBody).not.toHaveProperty('approvalPolicy');
+  expect(submittedBody).not.toHaveProperty('modelReasoningEffort');
+  expect(submittedBody).not.toHaveProperty('networkAccessEnabled');
+  expect(submittedBody).not.toHaveProperty('webSearchEnabled');
+}, 10000);

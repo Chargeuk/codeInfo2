@@ -162,6 +162,13 @@ Shortcut:
 3. Fix the failing container, config, or env issue.
 4. Re-run the same wrapper.
 
+## Local Stack Safety
+
+- If `docker-compose.local.yml` services are running, assume they may be hosting the current Codex or manual-testing session.
+- Do not run `npm run compose:local:down`, `docker compose -f docker-compose.local.yml down`, or otherwise stop or remove `codeinfo2-*-local` containers unless the user explicitly instructs you to do so.
+- Do not restart or clean up the local stack just because it appears stale. If a task seems to require switching away from the local stack, stop and ask first.
+- Reason: the local compose stack may be the live runtime backing the current agent session, browser tooling, or proof flow; taking it down can kill the session and interrupt work in progress.
+
 ## Test Workflow
 
 ### Wrapper-First Rule

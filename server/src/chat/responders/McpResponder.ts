@@ -37,7 +37,7 @@ export class McpResponder {
   private toolResults: ChatToolResultEvent[] = [];
   private thinkingText = '';
   private answerText = '';
-  private conversationId: string | null = null;
+  private providerThreadId: string | null = null;
   private errorMessage: string | null = null;
   private transientReconnectCount = 0;
   private transientReconnectLastMessage: string | null = null;
@@ -57,7 +57,7 @@ export class McpResponder {
         this.handleComplete(event);
         break;
       case 'thread':
-        this.conversationId = event.threadId;
+        this.providerThreadId = event.threadId;
         break;
       case 'error':
         this.handleError(event as ChatErrorEvent);
@@ -67,13 +67,20 @@ export class McpResponder {
     }
   }
 
-  toResult(modelId: string, fallbackConversationId: string | null) {
+  toResult(
+    modelId: string,
+    fallbackConversationId: string | null,
+    options?: { preferFallbackConversationId?: boolean },
+  ) {
     const answerSegmentPresent = this.segments.some((s) => s.type === 'answer');
     if (!answerSegmentPresent) {
       this.segments.push({ type: 'answer', text: this.answerText });
     }
 
-    const conversationId = this.conversationId ?? fallbackConversationId;
+    const conversationId =
+      options?.preferFallbackConversationId && fallbackConversationId
+        ? fallbackConversationId
+        : (this.providerThreadId ?? fallbackConversationId);
 
     if (this.errorMessage) {
       throw new Error(this.errorMessage);
@@ -125,7 +132,7 @@ export class McpResponder {
 
   private handleComplete(event: ChatCompleteEvent) {
     if (event.threadId) {
-      this.conversationId = event.threadId;
+      this.providerThreadId = event.threadId;
     }
   }
 

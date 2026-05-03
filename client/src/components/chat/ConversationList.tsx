@@ -53,6 +53,7 @@ type Props = {
   filterState: ConversationFilterState;
   mongoConnected?: boolean | null;
   disabled?: boolean;
+  selectionDisabled?: boolean;
   variant?: 'chat' | 'agents';
   onSelect: (conversationId: string) => void;
   onFilterChange: (state: ConversationFilterState) => void;
@@ -90,16 +91,18 @@ function formatTimestamp(value?: string) {
   return date.toLocaleString();
 }
 
-function readRunExecutionId(flags?: ConversationFlags) {
+function readRunExecutionId(conversation: ConversationListItem) {
   const parentExecutionId =
-    typeof flags?.flow?.executionId === 'string'
-      ? flags.flow.executionId.trim()
+    conversation.flowName &&
+    typeof conversation.flags?.flow?.executionId === 'string'
+      ? conversation.flags.flow.executionId.trim()
       : '';
   if (parentExecutionId.length > 0) return parentExecutionId;
 
   const childExecutionId =
-    typeof flags?.flowChild?.executionId === 'string'
-      ? flags.flowChild.executionId.trim()
+    conversation.agentName &&
+    typeof conversation.flags?.flowChild?.executionId === 'string'
+      ? conversation.flags.flowChild.executionId.trim()
       : '';
   return childExecutionId.length > 0 ? childExecutionId : undefined;
 }
@@ -119,6 +122,7 @@ export function ConversationList({
   filterState,
   mongoConnected,
   disabled,
+  selectionDisabled = false,
   variant = 'chat',
   onSelect,
   onFilterChange,
@@ -135,7 +139,8 @@ export function ConversationList({
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
   const showFilters = true;
   const showRowActions = true;
-  const bulkDisabled = Boolean(disabled || mongoConnected === false);
+  const mutationDisabled = Boolean(disabled || selectionDisabled);
+  const bulkDisabled = Boolean(mutationDisabled || mongoConnected === false);
   const sorted = useMemo(
     () =>
       [...conversations].sort((a, b) => {
@@ -517,7 +522,7 @@ export function ConversationList({
               {sorted.map((conversation) => {
                 const selected = selectedId === conversation.conversationId;
                 const runLabel = formatRunLabel(
-                  readRunExecutionId(conversation.flags),
+                  readRunExecutionId(conversation),
                 );
                 return (
                   <ListItem
@@ -550,7 +555,7 @@ export function ConversationList({
                                       });
                                     });
                                 }}
-                                disabled={disabled}
+                                disabled={mutationDisabled}
                                 data-testid="conversation-restore"
                                 aria-label="Restore conversation"
                               >
@@ -583,7 +588,7 @@ export function ConversationList({
                                       });
                                     });
                                 }}
-                                disabled={disabled}
+                                disabled={mutationDisabled}
                                 data-testid="conversation-archive"
                                 aria-label="Archive conversation"
                               >
@@ -598,7 +603,7 @@ export function ConversationList({
                     <ListItemButton
                       selected={selected}
                       onClick={() => onSelect(conversation.conversationId)}
-                      disabled={disabled}
+                      disabled={mutationDisabled}
                       data-testid="conversation-row"
                       style={{ paddingLeft: 12, paddingRight: 12 }}
                       sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}

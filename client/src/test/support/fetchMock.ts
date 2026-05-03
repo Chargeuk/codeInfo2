@@ -1,4 +1,6 @@
 import type {
+  ChatModelsResponse,
+  ChatProviderInfo,
   ProviderAuthProviderId,
   ProviderAuthResponseFor,
   ProviderAuthState,
@@ -35,6 +37,18 @@ export function mockTextResponse(
   init: ResponseInit = {},
 ): Response {
   return new Response(payload, init);
+}
+
+export function buildProviderDiscoveryPayload(providers: ChatProviderInfo[]): {
+  providers: ChatProviderInfo[];
+} {
+  return { providers };
+}
+
+export function buildModelsDiscoveryPayload(
+  payload: ChatModelsResponse,
+): ChatModelsResponse {
+  return payload;
 }
 
 export function asFetchImplementation(

@@ -997,7 +997,7 @@ test('duplicate stop requests for a chat run emit one terminal stopped event', a
     });
 
     assert.equal(final.status, 'stopped');
-    await delay(200);
+    await waitForRuntimeCleanup(conversationId);
     assert.equal(seenFinals.length, 1);
   } finally {
     ws.off('message', onMessage);
@@ -1137,6 +1137,115 @@ test('a new chat run can start on the same conversation after a confirmed stop',
     assert.equal(second.body.status, 'started');
     assert.notEqual(second.body.inflightId, firstInflightId);
   } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('replaying a completed caller-supplied inflightId returns one stable replay result before and after cleanup while a fresh inflightId still starts', async () => {
+  const conversationId = 'conv-chat-completed-replay';
+  const replayInflightId = 'replay-inflight-1';
+  let providerRuns = 0;
+  let allowFirstRunToFinish!: () => void;
+  const firstRunFinished = new Promise<void>((resolve) => {
+    allowFirstRunToFinish = resolve;
+  });
+
+  const server = await startServer(async () => undefined, {
+    chatFactory: () =>
+      new ScriptedChat(async (chat) => {
+        providerRuns += 1;
+        chat.emit('final', { type: 'final', content: 'done' });
+        chat.emit('complete', { type: 'complete', threadId: 'thread' });
+        if (providerRuns === 1) {
+          await firstRunFinished;
+        }
+      }),
+  });
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const first = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        inflightId: replayInflightId,
+        message: 'hello',
+      })
+      .expect(202);
+
+    assert.equal(first.body.status, 'started');
+    assert.equal(first.body.inflightId, replayInflightId);
+
+    const firstFinal = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === replayInflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(firstFinal.status, 'ok');
+
+    const immediateReplay = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        inflightId: replayInflightId,
+        message: 'hello again',
+      })
+      .expect(409);
+
+    assert.equal(immediateReplay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
+    assert.equal(immediateReplay.body.replayed, true);
+    assert.equal(immediateReplay.body.inflightId, replayInflightId);
+    assert.equal(providerRuns, 1);
+
+    allowFirstRunToFinish();
+    await waitForRuntimeCleanup(conversationId);
+
+    const cleanupReplay = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        inflightId: replayInflightId,
+        message: 'contradictory stale replay',
+      })
+      .expect(409);
+
+    assert.equal(cleanupReplay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
+    assert.equal(cleanupReplay.body.replayed, true);
+    assert.equal(cleanupReplay.body.inflightId, replayInflightId);
+    assert.equal(providerRuns, 1);
+
+    const fresh = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        inflightId: 'replay-inflight-2',
+        message: 'fresh send',
+      })
+      .expect(202);
+
+    assert.equal(fresh.body.status, 'started');
+    assert.equal(fresh.body.inflightId, 'replay-inflight-2');
+    assert.equal(providerRuns, 2);
+  } finally {
+    allowFirstRunToFinish();
     await closeWs(ws);
     await stopServer(server);
   }

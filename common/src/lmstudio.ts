@@ -36,6 +36,7 @@ export type ChatModelInfo = {
   supportedReasoningEfforts?: string[];
   // Required for Codex model entries in /chat/models payloads.
   defaultReasoningEffort?: string;
+  flagOverrides?: ChatModelFlagOverride[];
 };
 
 export const CODEX_MODEL_REASONING_EFFORTS = [
@@ -53,8 +54,72 @@ export type CodexDefaults = {
   sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access';
   approvalPolicy: 'untrusted' | 'on-request' | 'on-failure' | 'never';
   modelReasoningEffort: CodexModelReasoningEffort;
+  modelReasoningSummary?: 'auto' | 'concise' | 'detailed' | 'none';
+  modelVerbosity?: 'low' | 'medium' | 'high';
   networkAccessEnabled: boolean;
   webSearchEnabled: boolean;
+  webSearchMode?: 'disabled' | 'cached' | 'live';
+};
+
+export type ChatAgentFlagKey =
+  | 'sandboxMode'
+  | 'approvalPolicy'
+  | 'modelReasoningEffort'
+  | 'modelReasoningSummary'
+  | 'modelVerbosity'
+  | 'networkAccessEnabled'
+  | 'webSearchMode'
+  | 'toolAccess'
+  | 'temperature'
+  | 'maxTokens'
+  | 'contextOverflowPolicy';
+
+export type ChatAgentFlagValue = string | number | boolean;
+
+export type ChatAgentFlagControlType = 'select' | 'boolean' | 'number';
+
+export type ChatAgentFlagChoice = {
+  value: ChatAgentFlagValue;
+  label: string;
+};
+
+export type ChatModelFlagOverride = {
+  key: ChatAgentFlagKey;
+  resolvedDefault?: ChatAgentFlagValue;
+  supportedValues?: ChatAgentFlagChoice[];
+  min?: number;
+  max?: number;
+  integer?: boolean;
+};
+
+export type ChatAgentFlagDescriptor = {
+  key: ChatAgentFlagKey;
+  label: string;
+  controlType: ChatAgentFlagControlType;
+  editable: boolean;
+  description?: string;
+  seedDefault: ChatAgentFlagValue;
+  resolvedDefault: ChatAgentFlagValue;
+  supportedValues?: ChatAgentFlagChoice[];
+  min?: number;
+  max?: number;
+  integer?: boolean;
+};
+
+export type ChatAgentFlags = Partial<
+  Record<ChatAgentFlagKey, ChatAgentFlagValue>
+>;
+
+export type ChatProviderDefaultsSource =
+  | 'request'
+  | 'env'
+  | 'config'
+  | 'hardcoded'
+  | 'fallback';
+
+export type ChatProviderCompatibility = {
+  codexDefaults?: CodexDefaults;
+  codexWarnings?: string[];
 };
 
 export type ChatProviderInfo = {
@@ -63,6 +128,22 @@ export type ChatProviderInfo = {
   available: boolean;
   toolsAvailable: boolean;
   reason?: string;
+  defaultModel?: string;
+  defaultModelSource?: ChatProviderDefaultsSource;
+  warnings?: string[];
+  agentFlags?: ChatAgentFlagDescriptor[];
+  compatibility?: ChatProviderCompatibility;
+};
+
+export type ChatProvidersResponse = {
+  providers: ChatProviderInfo[];
+  selectedProvider?: ChatProviderId;
+  selectedModel?: string;
+  fallbackApplied?: boolean;
+  compatibility?: ChatProviderCompatibility;
+  // Compatibility add-ons while Task 5 still consumes the Codex-first shape.
+  codexDefaults?: CodexDefaults;
+  codexWarnings?: string[];
 };
 
 export type ChatModelsResponse = {
@@ -70,6 +151,13 @@ export type ChatModelsResponse = {
   available: boolean;
   toolsAvailable: boolean;
   models: ChatModelInfo[];
+  providerInfo?: ChatProviderInfo;
+  providers?: ChatProviderInfo[];
+  agentFlags?: ChatAgentFlagDescriptor[];
+  defaultModel?: string;
+  defaultModelSource?: ChatProviderDefaultsSource;
+  warnings?: string[];
+  compatibility?: ChatProviderCompatibility;
   codexDefaults?: CodexDefaults;
   codexWarnings?: string[];
   reason?: string;

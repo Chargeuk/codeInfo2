@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -174,7 +174,7 @@ describe('Codex network access flag payloads', () => {
     });
     await user.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
 
     const networkSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(networkSwitch).toBeChecked());
@@ -197,17 +197,17 @@ describe('Codex network access flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.networkAccessEnabled).toBe(false);
-    expect(codexBody).not.toHaveProperty('sandboxMode');
-    expect(codexBody).not.toHaveProperty('approvalPolicy');
-    expect(codexBody).not.toHaveProperty('modelReasoningEffort');
-    expect(codexBody).not.toHaveProperty('webSearchEnabled');
+    expect(codexBody.agentFlags).toEqual(
+      expect.objectContaining({
+        networkAccessEnabled: false,
+      }),
+    );
 
     await act(async () => {
       await user.click(newConversationButton);
     });
 
-    await ensureCodexFlagsPanelExpanded();
+    await ensureAgentFlagsPanelExpanded();
     const resetSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(resetSwitch).toBeChecked());
   }, 10000);

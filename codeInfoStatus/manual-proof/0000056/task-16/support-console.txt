@@ -1,0 +1,5 @@
+DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG reported apiBaseUrl http://localhost:5010 with apiBaseUrlMode browser_host.
+story.0000051.task11.provider_selection_applied reported provider bootstrap for codex, then provider-change to copilot with nextSendOnly true, then conversation-select back to codex, then provider-change to lmstudio with nextSendOnly true.
+story.0000051.task11.provider_selection_applied reported model bootstrap to auto for copilot and huihui-qwen3.5-9b-abliterated for lmstudio.
+DEV_0000048_T6_PICKER_SYNC and DEV-0000046:T12:hidden-run-rehydrated appeared while restoring the codex conversation before the LM Studio next-send switch.
+No browser console errors or failed network-request diagnostics were surfaced during the successful proof path.

@@ -37,7 +37,7 @@ This story also introduces a shared provider-neutral repository execution-contex
 
 When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
-This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced through existing warning-capable API or UI responses. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
+This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced in the agent list payload plus the selected agent's info or details surface. Equivalent flow-owned agent surfaces should reuse the same warning data when those surfaces already exist. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
 
 The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. Normal execution should follow the merged `config.toml` values plus the shared repository execution context where a working folder has been selected. For direct agent runs and flow-owned agent runs only, the runtime may also apply the configured provider-fallback recovery policy after the selected provider fails or an invalid `codeinfo_provider` is detected.
 
@@ -86,6 +86,8 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - If the originally failed provider also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, the runtime skips it and moves to the next configured provider.
 - If no configured fallback provider can execute the agent run, the run fails clearly.
 - Provider fallback emits both warning logs and warning-capable API or GUI warnings.
+- Agent fallback warnings appear in the agent list payload and in the selected agent's info or details surface.
+- Equivalent flow-owned agent warning surfaces reuse the same warning data when those surfaces already exist.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
 - Flow-owned agent execution uses the same shared repository execution-context contract as direct agent execution.
 - The current Codex-specific default-working-directory selection logic is removed from provider-specific execution code and replaced by the shared execution-context resolver.
@@ -99,6 +101,8 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - If both `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME` are set, `CODEINFO_AGENT_HOME` wins and the legacy alias is treated as a fallback only.
 - When both `codeinfo_agents` and `codex_agents` are present for the same lookup path, `codeinfo_agents` always wins.
 - When the same agent is found in both folders, the runtime logs a warning and also surfaces that warning through existing warning-capable API or UI responses.
+- Duplicate-agent warnings appear in the agent list payload and in the selected agent's info or details surface.
+- Equivalent flow-owned agent warning surfaces reuse the same duplicate-agent warning data when those surfaces already exist.
 - Cross-repository command lookup uses the same folder precedence contract as local agent discovery.
 - This story does not add new GUI-level agent provider overrides.
 - This story does not add new MCP-level agent provider overrides beyond the merged config behavior.
@@ -143,13 +147,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Later manual proof should cover at least one agent configured for each provider, plus one scenario where both `codeinfo_agents` and `codex_agents` exist so precedence can be observed honestly.
 - Later manual proof should include at least one command or flow path that resolves agent-owned files from another repository root, because folder precedence must match there as well.
 - When proving the `code_info` change later, prefer artifact capture that shows the actual request payload or observable provider-selection behavior so the omission contract is visible.
+- Later manual proof should show where users see fallback and duplicate-agent warnings in the agent list and in the selected agent's info or details surface, plus any equivalent flow-owned agent warning surface that already exists.
 
 ### Questions
-
-1. Where should users see agent fallback and duplicate-agent warnings?
-   - Why this is important: The story already says these warnings should reach the GUI and API, but it does not yet say which user-facing places must show them.
-   - Best Answer: Show them in the agent list payload and in the agent info/details surface for the selected agent, and use the same warning data for equivalent flow-owned agent surfaces when those already exist. In simple terms, users should see the warning both when choosing an agent and when looking at that agent's details.
-   - Where this answer came from: Direct repo review of this story file, especially the current “warning-capable API or GUI warnings” wording and the earlier decision to surface duplicate-agent warnings rather than keeping them in logs only.
 
 ## Decisions
 
@@ -244,6 +244,13 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Direct repo review of this story file, especially the acceptance criteria that currently say both “exists” and “continues cleanly if missing.”
    - Why it is the best answer: It resolves the contradiction, matches the rest of the story's repo-local behavior, and keeps adoption easier for repositories that have not created the file yet.
 
+14. Decision: agent fallback and duplicate-agent warnings should appear in the agent list payload and in the selected agent's info or details surface.
+   - The question being addressed: Where should users see agent fallback and duplicate-agent warnings?
+   - Why the question matters: The story already requires these warnings to reach the GUI and API, but users still need a clear and predictable place to see them.
+   - What the answer is: Show the warnings in the agent list payload and in the selected agent's info or details surface, and reuse the same warning data for equivalent flow-owned agent surfaces when those surfaces already exist.
+   - Where the answer came from: User direction in this planning round, plus direct repo review of this story file's earlier warning-visibility wording.
+   - Why it is the best answer: It lets users see the warning both when choosing an agent and when reviewing that agent's details, without inventing a brand-new warning surface just for this story.
+
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
@@ -264,7 +271,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Resolve `CODEINFO_AGENT_HOME` ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
-- Surface duplicate-agent precedence warnings through existing warning-capable API or UI paths as well as server logs so users can understand why a legacy copy was ignored.
+- Surface fallback and duplicate-agent warnings through the agent list payload and the selected agent's info or details surface, and reuse the same warning data for equivalent flow-owned agent surfaces when those surfaces already exist.
 - Update the `code_info` MCP schema text so both `provider` and `model` are documented as explicit override fields rather than normal caller-populated inputs.
 - Update repo-owned instruction surfaces that teach agents how to use `code_info` so they explicitly say to omit `provider` and `model` unless the user requests a provider-specific or model-specific run.
 - Add regression coverage for the MCP tool definition payload so future `tools/list` responses cannot silently drift back to Codex-biased or model-pinning wording.

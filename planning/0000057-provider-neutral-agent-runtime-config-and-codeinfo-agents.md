@@ -29,6 +29,8 @@ CodeInfo2 already supports three chat providers in the product: Codex, GitHub Co
 
 From a user's point of view, this creates two product problems. First, users can select Copilot or LM Studio in the chat product, but they cannot configure one agent to run on Copilot and another to run on LM Studio through the same first-class contract. Second, the folder and runtime naming still advertise the older Codex-only shape even though the product is now clearly broader than that.
 
+This story does not require a new backend service, a new frontend application, or a new operator-facing stack. The work stays inside the existing server runtime, the current provider adapters, the current compose and startup paths, and the existing chat, agent, and flow surfaces that already display warnings, disabled states, and execution metadata.
+
 This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values. If `codeinfo_config/config.toml` has not been created yet, the runtime should continue cleanly without trying to auto-create repository files at startup. Provider base config files that this story owns, including `copilot/config.toml` and `lmstudio/config.toml`, should be created during shared startup bootstrap rather than waiting for first use.
 
 For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, the product should warn when the user opens that affected agent rather than silently defaulting to Codex. If a configured fallback provider is actually usable for that run, the agent should remain runnable and the warning should explain which fallback will be used. If no usable fallback provider is available, the product should show a clear error and disable that agent, but the agent should remain visible in discovery surfaces so users can still inspect the warning and understand why it cannot run. This invalid-provider path should use the same fallback order and availability checks as provider-unavailable agent runs. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
@@ -40,6 +42,8 @@ When an agent explicitly selects a provider that is unavailable, this story shou
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced in the agent list payload plus the selected agent's info or details surface. Equivalent flow-owned agent warning surfaces should reuse the same warning data through the existing flow info or details surface when that surface already exists. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
 
 The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. Normal execution should follow the merged `config.toml` values plus the shared repository execution context where a working folder has been selected while a conversation is being established. After a conversation has successfully persisted the provider and model that actually executed, later turns in that same conversation should continue on those stored values instead of changing provider or model inside the existing conversation. Established conversations should also continue to use their stored `agentName` metadata instead of re-deriving agent identity from the current agent config on later turns. If that stored `agentName` no longer resolves, the later turn should fail clearly instead of substituting another agent. The stored conversation identity should come from the database, but the other agent-owned files referenced by that identity should still be resolved live at execution time rather than from a hidden snapshot. If the agent's config changes later, that updated config should affect only new conversations created after the change rather than rewriting the saved execution pair for an existing conversation. For direct agent runs and flow-owned agent runs only, the runtime may also apply the configured provider-fallback recovery policy after the selected provider fails or an invalid `codeinfo_provider` is detected, but only while determining the provider-and-model pair that the conversation will persist and continue with.
+
+This story also changes stateful behavior for selected agents and resumed conversations. Opening an existing conversation keeps that conversation pinned to its stored execution identity even if the user has since selected a different agent or the underlying agent config has changed. Starting a fresh conversation reevaluates the current agent config, provider availability, and fallback rules from scratch. If the currently selected agent has no usable provider, the selected-agent details surface should show the warning and disabled state clearly, and the run-start path must not submit stale hidden state from an older runnable selection.
 
 ### Acceptance Criteria
 
@@ -55,6 +59,7 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 - Named tables still merge by key, with higher-precedence entries replacing conflicting lower-precedence entries.
 - Agent configs can declare `codeinfo_provider = "codex" | "copilot" | "lmstudio"`.
 - If `codeinfo_provider` is absent from an agent config, the runtime defaults that agent to `codex`.
+- If `codeinfo_provider` is present but trims to an empty string, the runtime treats it the same as absent and defaults that agent to `codex`.
 - If `codeinfo_provider` is present but invalid, the product warns when the user opens that affected agent instead of silently defaulting to `codex`.
 - If `codeinfo_provider` is invalid but a configured fallback provider is actually usable for that run, the agent remains runnable and the warning includes the fallback provider that will be used.
 - If `codeinfo_provider` is invalid and no configured fallback provider is available, the product shows a clear error and disables that agent.
@@ -81,12 +86,15 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 - `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` defaults to `codex,copilot` in `server/.env`.
 - `lmstudio` is a valid `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` value but is not part of the default fallback list.
 - `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` is normalized by trimming entries, dropping blanks, removing duplicates, and ignoring unknown provider ids with warnings.
+- A blank or whitespace-only `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` counts as no configured value and falls back to the default order after normalization.
 - If `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` normalizes to no usable configured providers, agent execution falls back to the default order of `codex,copilot` rather than failing startup.
 - Provider fallback is a separate recovery step and does not change the normal agent runtime config precedence.
 - If the selected provider is available but the merged model is missing or invalid for that provider, runtime stays on that provider and resolves a fallback model there instead of entering cross-provider fallback.
 - Provider and model selection may vary only while establishing a conversation before the actual execution pair has been persisted.
 - Once a conversation has successfully persisted the provider and model that actually executed, later turns in that same conversation continue on that stored provider-and-model pair.
 - If an established conversation's stored provider or stored model later becomes unavailable, the later turn fails clearly inside that existing conversation instead of silently switching execution identity or auto-starting a new conversation.
+- Opening an existing conversation treats the stored provider, model, and `agentName` as authoritative execution state even if the current UI selection or current agent config now points somewhere else.
+- Starting a new conversation after an agent-config or provider-availability change reevaluates the current config, warning, and fallback state from scratch instead of inheriting the previous conversation's persisted execution pair.
 - A fallback provider counts as available only when it is actually usable for the current run, not merely because it is listed in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
 - If provider fallback runs, the model selection order is: the same model on the fallback provider when available, then the model defined in that fallback provider's chat config, then that fallback provider's default model.
 - If provider fallback runs, shared settings remain in effect and provider-specific settings the fallback provider cannot use are ignored with warnings rather than failing fallback for that reason alone.
@@ -95,8 +103,10 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 - If no configured fallback provider can execute the agent run, the run fails clearly.
 - Provider fallback emits both warning logs and warning-capable API or GUI warnings.
 - Agent fallback warnings appear in the agent list payload and in the selected agent's info or details surface.
+- Invalid `codeinfo_provider` warnings are detail-driven for runnable agents: the warning becomes visible when the user opens the selected agent, while the discovery list stays focused on selection and disabled-state cues rather than eagerly expanding every warning inline.
 - Equivalent flow-owned agent warning surfaces reuse the same warning data through the existing flow info or details surface when that surface already exists.
 - Agents disabled because no usable provider remains stay visible in the agent list and details surfaces rather than disappearing from discovery.
+- If the selected agent has no usable provider, the selected-agent details surface shows the disabled-plus-warning state and the run-start path excludes stale runnable-state assumptions from the submitted payload instead of trying to execute with the last known good selection.
 - After a fallback or model-repair run succeeds, the conversation and user-visible execution metadata show the provider and model that actually executed, and those stored values become the later-turn continuation target for that conversation.
 - If an established conversation already stores `agentName`, later turns continue to use that stored `agentName` instead of re-deriving agent identity from the current agent config.
 - If an established conversation's stored `agentName` no longer resolves, the later turn fails clearly instead of substituting a different agent.
@@ -112,7 +122,9 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 - The legacy `codex_agents` folder remains supported for backward compatibility.
 - `CODEINFO_AGENT_HOME` becomes the preferred neutral agent-home env var.
 - `CODEINFO_CODEX_AGENT_HOME` remains supported as a legacy alias to `CODEINFO_AGENT_HOME`.
+- Blank or whitespace-only `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME` values count as unset input.
 - If both `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME` are set, `CODEINFO_AGENT_HOME` wins and the legacy alias is treated as a fallback only.
+- The normal startup path remains the default reachability path for the new env naming and provider bootstrap rules: shared startup bootstrap, `server/.env`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` must not require one-off operator edits just to reach the new provider-neutral agent contract.
 - When both `codeinfo_agents` and `codex_agents` are present for the same lookup path, `codeinfo_agents` always wins.
 - When the same agent is found in both folders, the runtime logs a warning and also surfaces that warning through existing warning-capable API or UI responses.
 - Duplicate-agent warnings appear in the agent list payload and in the selected agent's info or details surface.
@@ -123,6 +135,7 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 - `code_info` remains repository-grounded when `provider` is omitted.
 - If `code_info` executes on Copilot or LM Studio, it receives equivalent repository context needed to answer local-repository questions through provider-appropriate runtime wiring, tools, or both.
 - Omitting `provider` from `code_info` must not degrade repository-local questions into a non-grounded fallback path when the repository is available to the harness.
+- If resume-time request state ever contradicts the stored conversation execution identity, the stored provider, model, and `agentName` remain authoritative; contradictory client-visible state must be ignored for execution and may only surface as logging or warning context.
 - Tests cover the layered merge precedence, `codeinfo_provider` defaulting, provider-specific agent execution, folder precedence, compatibility fallback to `codex_agents`, and provider-neutral repository execution-context behavior across agent, chat, and `code_info` surfaces.
 
 ### Out Of Scope
@@ -156,6 +169,9 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 
 ### Story Manual Testing Guidance
 
+- Later manual proof should prefer the normal human stack through `npm run compose:build` followed by `npm run compose:up`, because `docker-compose.yml` is the stack that mounts the working repository into the server container and reflects the real repository-grounded runtime contract.
+- Later manual proof should use `docker-compose.local.yml` only when the proof honestly requires its extra source bind mounts or Docker-socket behavior, not as the default runtime for this story.
+- Later automated browser proof can still rely on the e2e stack, but `docker-compose.e2e.yml` should not be treated as the main mounted working-repository proof path because it does not mount the selected host repository into the server container.
 - Later manual proof should cover at least one agent configured for each provider, plus one scenario where both `codeinfo_agents` and `codex_agents` exist so precedence can be observed honestly.
 - Later manual proof should include at least one command or flow path that resolves agent-owned files from another repository root, because folder precedence must match there as well.
 - Later manual proof should show where users see fallback and duplicate-agent warnings in the agent list and in the selected agent's info or details surface, plus the existing flow info or details warning surface used for equivalent flow-owned agent warnings when that surface exists.
@@ -331,37 +347,185 @@ The user's chosen scope for this story is intentionally config-driven. This stor
    - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/agents/discovery.ts`, `server/src/config/runtimeConfig.ts`, `server/src/agents/service.ts`, `server/src/routes/conversations.ts`, and `server/src/test/unit/conversations-router-agent-filter.test.ts`. External evidence in the official GitHub Copilot session-persistence docs, the official OpenAI conversation-state docs, and DeepWiki notes on `openai/openai-node`.
    - Why it is the best answer: It preserves the stored conversation identity, matches the repo's current live-discovery behavior, and avoids expanding this story into a much larger snapshotting feature.
 
+## Feasibility Proof Pass
+
+### 1. Provider-Neutral Runtime Layering And Bootstrap
+
+- Already existing capabilities:
+  - `server/src/config/runtimeConfig.ts` already reads, normalizes, and merges runtime TOML for chat and agent surfaces, and it already knows how to bootstrap chat config templates for `codex`, `copilot`, and `lmstudio`.
+  - `server/src/config/codexConfig.ts`, `server/src/config/copilotConfig.ts`, `server/src/config/copilotSeedBootstrap.ts`, `server/src/index.ts`, and `server/entrypoint.sh` already provide startup-owned home resolution and Copilot seed bootstrap behavior that this story can extend rather than replace.
+  - `server/src/config/chatDefaults.ts` and `server/src/routes/chat.ts` already resolve multi-provider chat defaults and provider readiness for Codex, Copilot, and LM Studio.
+- Missing prerequisite capabilities:
+  - Agent and flow runtime entrypoints still resolve agent config through a Codex-only seam: `server/src/agents/config.ts` accepts only `codexHome`, and `server/src/agents/service.ts` plus `server/src/flows/service.ts` still construct `getChatInterface('codex')`.
+  - The runtime resolver does not yet add an optional repo-local `codeinfo_config/config.toml` layer ahead of provider base config plus chat or agent runtime config.
+  - No runtime parser currently recognizes `codeinfo_provider` or `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
+- Assumptions currently invalid:
+  - It is not valid to assume the existing shared runtime resolver is already provider-neutral for agent or flow execution just because chat defaults already support three providers.
+  - It is not valid to assume provider fallback already exists for direct agents, flow-owned agents, or `code_info`; current provider fallback behavior is limited to chat-facing default selection paths.
+- Feasibility and sequencing note:
+  - This area is feasible because the repo already centralizes most chat-default and runtime-config logic. The safest sequence is to extend the shared runtime resolver first, then switch agent, flow, and `code_info` entrypoints onto that provider-neutral contract.
+
+### 2. Agent Discovery, Folder Ownership, And Environment Naming
+
+- Already existing capabilities:
+  - `server/src/agents/discovery.ts`, `server/src/agents/types.ts`, `server/src/routes/agents.ts`, and `server/src/mcpAgents/tools.ts` already expose a stable discovered-agent payload with `name`, optional `description`, optional `disabled`, and optional `warnings`.
+  - `server/src/agents/service.ts` and `server/src/agents/commandsLoader.ts` already resolve local and ingested command assets from existing repository roots.
+  - The current compose and runtime stack already inject `CODEINFO_CODEX_AGENT_HOME` into the server container.
+- Missing prerequisite capabilities:
+  - Discovery still hard-requires `CODEINFO_CODEX_AGENT_HOME` and reads only one root; there is no neutral `CODEINFO_AGENT_HOME` alias or `codeinfo_agents` precedence helper yet.
+  - Cross-repository command lookup in `server/src/agents/service.ts` still anchors directly to `codex_agents`.
+  - Duplicate-agent detection between `codeinfo_agents` and `codex_agents` does not exist yet.
+- Assumptions currently invalid:
+  - It is not valid to assume neutral agent-home naming or folder precedence already works across local discovery, ingested command lookup, and compose runtime wiring.
+- Feasibility and sequencing note:
+  - This area is feasible because discovery is already centralized. Centralize folder-root and env-var precedence in one helper before updating list, run, command, and flow surfaces so they cannot drift apart.
+
+### 3. Shared Repository Execution Context And Conversation Continuation
+
+- Already existing capabilities:
+  - `server/src/workingFolders/state.ts` already validates and restores `working_folder`, maps host paths into container-visible workdirs, and emits stable error codes such as `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`, `WORKING_FOLDER_UNAVAILABLE`, and `WORKING_FOLDER_REPOSITORY_UNAVAILABLE`.
+  - `server/src/routes/chat.ts`, `server/src/routes/agentsRun.ts`, and `server/src/flows/service.ts` already accept working-folder input and persist working-folder metadata on conversations.
+  - `server/src/mongo/conversation.ts` already persists `provider`, `model`, `agentName`, `flowName`, and mixed `flags`, including current use of `flags.threadId` and `flags.workingFolder`.
+  - `server/src/chat/interfaces/ChatInterfaceCopilot.ts` already supports `workingDirectoryOverride`, while `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` already accepts repository-oriented flags and persisted history.
+- Missing prerequisite capabilities:
+  - Chat, agents, flows, and `code_info` still do not share one provider-neutral execution-context helper that resolves repository metadata plus working-directory override exactly once.
+  - Flow-owned agent execution still resolves runtime as Codex-only and persists flow child provider state under a Codex-shaped assumption.
+  - The current plan needs explicit persistence guidance for how later-turn provider, model, and `agentName` continuation should extend the existing conversation shape without inventing a second storage model.
+- Assumptions currently invalid:
+  - It is not valid to assume flows or `code_info` already reuse the exact same provider-neutral working-folder logic as chat just because they accept similar repository inputs.
+  - It is not valid to assume provider-native continuation can silently switch providers or models mid-conversation without conflicting with the repo's persisted conversation contract.
+- Feasibility and sequencing note:
+  - This area is feasible because working-folder resolution and conversation persistence are already centralized enough to reuse. Land the shared execution-context helper before provider fallback and continuation logic so later-turn behavior stays consistent across surfaces.
+
+### 4. Proof Surfaces, Compose Delivery, And Runtime Wiring
+
+- Already existing capabilities:
+  - `package.json` and `AGENTS.md` already provide wrapper-first build, typecheck, compose, and test commands.
+  - `server/package.json` already supports `node:test` unit plus integration suites and Cucumber feature suites with Testcontainers helpers under `server/src/test/support/`.
+  - `client/src/test/**` already provides frontend unit coverage, and `playwright.config.ts` plus `e2e/**` already provide browser automation.
+  - `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` already define three distinct proof stacks.
+  - `docker-compose.yml` is the honest mounted working-repository contract: it binds `${CODEINFO_HOST_INGEST_DIR:-/tmp}` to `/data:ro`, sets `CODEINFO_CODEX_WORKDIR=/data`, sets `CODEINFO_CODEX_HOME=/app/codex`, seeds `CODEINFO_COPILOT_HOME=/app/copilot`, and exposes `CODEINFO_LMSTUDIO_HOME=/app/lmstudio`.
+- Missing prerequisite capabilities:
+  - No existing automated or manual proof currently demonstrates provider-neutral agent execution, duplicate-agent precedence, provider fallback, or pinned provider-and-model continuation across direct agents, flows, and `code_info`.
+  - Compose and entrypoint coverage do not yet assert propagation of the new neutral agent-home alias or the new provider-fallback env var.
+- Assumptions currently invalid:
+  - It is not valid to assume current e2e coverage proves provider-neutral runtime behavior; current Playwright routes mainly mock agent run payloads and happy-path browser interactions.
+  - It is not valid to assume `docker-compose.e2e.yml` can serve as the main mounted working-repository proof stack, because it does not mount the selected host repository into the server container.
+  - It is not valid to assume `docker-compose.local.yml` should replace the normal human stack by default; it adds extra source bind mounts and Docker socket behavior that the main stack does not require.
+- Feasibility and sequencing note:
+  - This area is feasible because the repo already has strong wrappers and harnesses. Keep `docker-compose.yml` as the default human-stack proof path for mounted working-repository behavior, keep Playwright e2e as automated browser proof, and add any fake-provider or seeded-auth seams only in test-owned harnesses or fixtures.
+
+## Message Contracts And Storage Shapes
+
+- Preserve the discovered-agent payload shape from `server/src/agents/types.ts` and `GET /agents`: `{ name, description?, disabled?, warnings? }`.
+- Preserve the started-run response shapes while adding provider-neutral behavior behind them:
+  - agent runs: `{ status, agentName, conversationId, inflightId, modelId }`
+  - flow runs: `{ status, flowName, conversationId, inflightId, modelId }`
+  - MCP agent tools continue returning `conversationId` and `modelId` in their tool-result payloads.
+- Copilot session creation and resume should stay inside the SDK's documented config surface that the repo already uses: `model`, `reasoningEffort`, `systemMessage`, `tools`, `availableTools`, `workingDirectory`, and `configDir`. Completion and streaming should keep mapping onto the provider event vocabulary the SDK documents and the repo already consumes: `session.start`, `session.resume`, `assistant.message_delta`, `tool.execution_start`, `tool.execution_complete`, `assistant.usage`, and `session.idle`.
+- LM Studio standard `model.respond(...)` and `model.act(...)` calls should keep using the documented prediction-option surface the repo already passes today: bounded `maxTokens`, `temperature`, and `contextOverflowPolicy` with `stopAtLimit | truncateMiddle | rollingWindow`, plus tool-callback and streaming hooks. Do not plan against an unbounded `maxTokens: false` path or a direct standard `workingDirectory` override on those normal model calls.
+- The installed Copilot SDK supports `reasoningEffort` values `low | medium | high | xhigh`, but the current repo-normalized Copilot agent-flag contract only exposes `low | medium | high`. Unless this story explicitly widens the shared provider-descriptor and test surface, preserve that narrower repo-facing contract instead of surfacing `xhigh` accidentally in one layer only.
+- The installed LM Studio SDK documents `temperature` in the normal prediction API as a `0..1` value. Story 57 should treat that documented domain as the safe contract for provider-neutral runtime planning and should not rely on temperatures above `1` unless a later live proof or upstream documentation update confirms broader support.
+- Preserve `working_folder` validation error codes and client-facing behavior that already exist in REST and MCP surfaces: `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`, `WORKING_FOLDER_UNAVAILABLE`, and `WORKING_FOLDER_REPOSITORY_UNAVAILABLE`.
+- Preserve the canonical conversation storage shape in `server/src/mongo/conversation.ts`: `_id`, `provider`, `model`, `title`, `agentName?`, `flowName?`, `source`, `flags`, `lastMessageAt`, and `archivedAt`.
+- Extend `Conversation.flags` for provider-neutral continuation and runtime metadata rather than inventing a second persistence table unless later repository evidence proves the current mixed-shape approach cannot support the story safely.
+- Keep `flags.threadId`, `flags.workingFolder`, and existing flow resume metadata compatible with current conversation reads and writes in chat, agents, flows, and `code_info`.
+
+## Lifecycle And State Ownership
+
+- Shared startup bootstrap owns creating provider base config files such as `copilot/config.toml` and `lmstudio/config.toml` when they are missing. Runtime merge helpers may read `codeinfo_config/config.toml` if it exists, but this story does not make runtime request paths create, rename, or delete repository-local config files.
+- Startup-owned config writers should follow the repo's existing staged-write or temp-file-plus-rename pattern for managed config artifacts so runtime readers do not observe partially written TOML or JSON. If bootstrap fails mid-write, keep the last readable target file, discard the staged artifact, and leave cleanup of temporary bootstrap artifacts with the startup-owned path that created them.
+- Agent discovery and command lookup own reading `codeinfo_agents` plus legacy `codex_agents`. This story does not auto-migrate, rename, or delete the legacy folder; compatibility is maintained by read-time precedence plus warnings.
+- Conversation establishment owns provider selection, fallback selection, model repair, working-folder resolution, and persistence of the actual execution identity. Once the first successful execution has written the real provider, model, and `agentName` into the existing conversation record, later turns read that saved identity instead of recomputing it from current config.
+- If the conversation record exists before fallback or model repair has finished, any pre-fallback provider or model value is only an in-progress placeholder. The writer side must replace that placeholder with the actual executed pair before later-turn continuation reads it as authoritative, and the reader side must not treat the placeholder pair as the final pinned execution identity.
+- Existing run-lock, inflight, cancel, and completion ownership stays with the current conversation and run lifecycle. Provider fallback or same-provider model repair must happen inside that existing run attempt rather than by silently creating a second visible conversation or a second lock owner.
+- Cancel, retry, and crash-recovery behavior stay inside the existing run lifecycle: cancelling during fallback or model repair cancels the same inflight run, retry starts a new run through the normal acquire path, and crash or teardown continues to rely on the repo's existing lock-release and inflight-cleanup ownership instead of adding a second cleanup mechanism for this story.
+- This story does not add a new cleanup worker, stale-conversation migration, or automatic deletion path. Existing conversation cleanup, archival, and lock-release behavior stays in the current repository-owned paths unless later implementation evidence proves one of those paths must be extended.
+
+## Log Or Proof Markers
+
+- Provider fallback or model-repair marker:
+  - Expected outcome: the started-run response, the streamed transcript, and the persisted conversation metadata all agree on the provider and model that actually executed, even when the originally requested provider or model could not run.
+- Duplicate-agent precedence marker:
+  - Expected outcome: the selected runtime root resolves from `codeinfo_agents` when both folder names exist, and the agent list plus the selected agent or flow details surface show the warning about the ignored legacy duplicate.
+- Established-conversation pinning marker:
+  - Expected outcome: a later turn on the same conversation reuses the stored provider, model, and `agentName`, and if that stored execution pair later becomes unavailable, the failure appears inside that same conversation instead of silently switching providers or starting a new conversation.
+
+## Test Harnesses
+
+- Backend proof should continue to use the repository wrapper-first workflow from `AGENTS.md`, with `npm run test:summary:server:unit` and `npm run test:summary:server:cucumber` as the normal top-level server proof commands.
+- Frontend proof should continue to use `npm run test:summary:client` for client unit coverage and `npm run test:summary:e2e` for automated browser proof.
+- `server/package.json` already uses Testcontainers-backed support files for backend integration and Cucumber suites; this story should extend those harnesses rather than invent parallel integration infrastructure.
+- `docker-compose.yml` is the default human-stack proof surface for working-repository and mounted-runtime behavior; later manual proof should prefer `npm run compose:build` followed by `npm run compose:up`.
+- `docker-compose.local.yml` should be reserved for cases that honestly need its extra source bind mounts or Docker-socket behavior, and `docker-compose.e2e.yml` should remain the browser-automation stack rather than the main mounted working-repository proof stack.
+- Any fallback-provider simulation, alternate auth state, duplicate-agent fixture, or seeded runtime state should live in test-only fixtures, compose wiring, or harness configuration rather than shipped production behavior.
+- Deterministic continuation and fallback proof should assert ordering through observable boundaries such as the started-run response, streamed transcript, persisted conversation metadata, and stable conversation id rather than fixed sleeps or absence-only checks.
+
+## Edge Cases And Failure Modes
+
+- Missing `codeinfo_config/config.toml` must remain non-fatal and must not cause repository files to be auto-created.
+- Missing, unreadable, or invalid provider `chat/config.toml` files currently degrade through warning-first default resolution; the new provider-neutral agent resolver should preserve that behavior where the story explicitly allows fallback instead of turning every optional config issue into a startup failure.
+- `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` needs an explicit normalization contract: trim whitespace, drop blanks, remove duplicates, ignore unknown provider ids with warnings, and fall back to the default order only when normalization leaves no usable configured providers.
+- Provider unavailability and provider-local model repair are separate failure classes: a missing model on an otherwise available provider should stay on that provider, while cross-provider fallback should run only when the selected provider cannot actually execute.
+- Startup-created provider config artifacts must be safe to observe while the app is running: readers should see either the old readable file or the new readable file, never a half-written managed config artifact.
+- Duplicate agents between `codeinfo_agents` and `codex_agents` must not silently shadow one another; discovery and details surfaces need explicit warning behavior when the new folder wins over the legacy copy.
+- Shared execution-context logic must preserve current `working_folder` error codes and mapped-path behavior across chat, agents, flows, and `code_info`.
+- Established conversations must stay pinned to the stored provider, model, and `agentName`; later unavailability should fail clearly inside that conversation rather than silently switching execution identity.
+- Switching from an existing conversation to a fresh conversation must not carry the old conversation's stored provider, model, or disabled-state assumptions into the new run path unless the newly resolved config independently chooses the same execution pair.
+- Contradictory mixed state, such as resuming an existing conversation while the current selected agent points to a different execution identity, must not silently mutate the stored conversation identity.
+- Placeholder provider or model values written before fallback completes must never become the authoritative continuation pair for later turns.
+- Provider fallback must tolerate incompatible provider-specific keys by filtering or warning on them rather than failing purely because a fallback provider cannot consume Codex-owned runtime settings.
+
 ## Implementation Ideas
 
-- Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
-- Treat `codeinfo_config/config.toml` as an optional read-if-present layer so startup falls back cleanly when repositories have not created the file yet.
-- Promote provider selection for agents into app-owned metadata by reading `codeinfo_provider` from the agent `config.toml` before the full merge runs.
-- Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper, and run that provider-base bootstrap during shared startup rather than waiting for first provider use.
-- Surface invalid `codeinfo_provider` warnings when the user opens the affected agent, include the fallback provider when one is available, and only disable the agent when no usable fallback provider exists.
-- Keep the merged runtime contract portable by treating `codeinfo_*` keys as repository-owned metadata that is removed before provider SDK construction.
-- Extract the current Codex default-working-directory resolution logic into a shared repository execution-context helper that resolves both selected-working-folder and no-working-folder cases, then returns provider-neutral runtime metadata plus any resolved runtime working-directory override.
-- Update agent discovery, agent execution, command lookup, and flow-owned agent execution together so provider and folder selection stay consistent across all agent surfaces.
-- Use that shared repository execution-context helper in the chat route, direct agent execution, flow-owned agent execution, and `code_info` execution so provider behavior cannot drift by surface.
-- Let provider implementations consume the shared repository execution context according to their own capabilities: Codex and Copilot should use the runtime working-directory override directly, while LM Studio may initially rely on repository metadata, provider-specific tools, or later working-directory-capable wiring.
-- Add targeted proof that Copilot chat and Copilot-backed agent execution actually receive and use the selected working folder, because that is the main current product gap.
-- Add a shared provider-fallback resolver for agent execution that reads `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, applies the configured provider order, and records warning metadata whenever a fallback provider is used.
-- Normalize `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` before availability checks by trimming entries, dropping blanks, removing duplicates, and warning on unknown providers, then fall back to the default order if nothing usable remains.
-- Keep that fallback resolver scoped to direct agent runs and flow-owned agent runs so normal chat continues to use its existing behavior.
-- Keep provider-local model repair separate from cross-provider fallback so a missing model on an otherwise available provider resolves to a fallback model on that same provider first.
-- Once a conversation has persisted its actual execution provider and model, route later turns directly onto that stored pair instead of re-resolving provider or model from config.
-- Validate the stored provider-and-model pair before each later turn and fail clearly inside the existing conversation if that saved pair is no longer runnable.
-- Reuse provider-model discovery so fallback acts as a separate recovery step: try the same model on the next provider first, then that provider's chat-config model, and finally that provider's default model before moving on or failing.
-- Filter provider-specific runtime settings before constructing the fallback provider so shared settings survive while incompatible provider-only settings are dropped with warnings.
-- Skip the originally failed provider if it also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` rather than retrying it inside the fallback loop.
-- Treat provider fallback and provider-local model repair as conversation-establishment behavior only, and stop re-running those selection steps after the conversation's actual execution pair has been persisted.
-- Keep established conversations pinned to their saved execution pair and stored `agentName` even if the underlying agent config later changes, and apply those config edits only when starting new conversations.
-- Re-resolve the saved `agentName` against the live agent list on each later turn, and fail with the existing missing-agent path if it no longer resolves.
-- Resolve agent-owned files live at execution time from the saved conversation identity instead of introducing per-conversation snapshots of agent content.
-- Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
-- Resolve `CODEINFO_AGENT_HOME` ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
-- Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
-- Surface fallback and duplicate-agent warnings through the agent list payload and the selected agent's info or details surface, and reuse the same warning data through the existing flow info or details surface for equivalent flow-owned agent warnings when that surface already exists.
-- Keep agents with no usable provider in discovery results with `disabled` plus warning metadata instead of removing them from the list.
-- Separate configured-provider selection from persisted execution metadata so a fallback or model-repair run can record the provider and model that actually executed without mutating the underlying agent config.
-- Treat inapplicable `codeinfo_provider` usage as a warning path so invalid placement is visible in logs without blocking the wider runtime contract.
-- Add targeted proof first around merge precedence and metadata stripping, then broader proof around provider-specific agent execution and folder-compatibility lookup.
+### Implementation Seams
+
+- Shared runtime-config layering seam:
+  - Add one shared helper that reads optional `codeinfo_config/config.toml`, then merges provider base config plus chat or agent runtime config in the documented precedence order. Keep `codeinfo_config/config.toml` read-only and treat blank metadata values as unset before merge decisions.
+- Provider-base bootstrap seam:
+  - Extend startup-owned config bootstrap so `copilot/config.toml` and `lmstudio/config.toml` are created through the same product-owned path as Codex base config, without waiting for first provider use.
+- Agent metadata parsing seam:
+  - Read `codeinfo_provider` from the agent `config.toml` before full provider-runtime construction, default blank or missing values to `codex`, and strip `codeinfo_*` metadata before passing provider config into any SDK or harness.
+- Neutral agent-home env seam:
+  - Introduce one env-resolution helper that trims `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME`, treats blank values as unset, and resolves the new name ahead of the legacy alias.
+- Folder precedence and duplicate detection seam:
+  - Centralize `codeinfo_agents` over `codex_agents` precedence in one reusable helper that is shared by discovery and cross-repository command lookup, and make duplicate detection return warning metadata instead of silently shadowing the legacy copy.
+- Shared execution-context seam:
+  - Extract the current Codex default-working-directory logic into one provider-neutral repository execution-context helper that resolves selected working folder, default execution root, runtime metadata, and any provider-facing working-directory override.
+- Chat consumer seam:
+  - Switch the chat route to consume the shared execution-context helper without changing normal chat-only provider selection behavior.
+- Direct agent and command consumer seam:
+  - Switch direct agent execution and command lookup onto the shared execution-context and neutral agent-home helpers so provider selection, folder precedence, and runtime metadata cannot drift from one another.
+- Flow-owned agent consumer seam:
+  - Switch flow-owned agent execution onto the same shared execution-context, provider selection, and warning paths used by direct agent runs, while keeping flow-owned warning surfaces separate from direct-agent UI surfaces.
+- `code_info` consumer seam:
+  - Route `code_info` through the same repository execution-context contract so repository grounding does not depend on a chat-only or Codex-only path when provider is omitted.
+- Agent fallback-order seam:
+  - Add one agent-only fallback resolver that trims and normalizes `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, skips the originally failed provider, records warning metadata, and stays scoped to direct agent runs plus flow-owned agent runs.
+- Provider-local model-repair seam:
+  - Keep missing-model recovery on the originally selected provider first, using same-model then provider-chat-config model then provider default model, before any cross-provider fallback begins.
+- Cross-provider fallback seam:
+  - When provider fallback is actually needed, carry forward shared runtime settings, drop incompatible provider-specific settings with warnings, and keep the entire recovery path inside the existing run-lock and inflight ownership model.
+- Conversation-establishment persistence seam:
+  - During the first successful run, persist the actual execution provider, model, `agentName`, and provider-owned continuation metadata into the existing conversation record without mutating the underlying agent config.
+- Later-turn continuation seam:
+  - On later turns, read the stored provider, model, and `agentName` from the existing conversation record, validate that saved execution pair, re-resolve live agent-owned files from that identity, and fail in place if the saved provider, model, or agent name no longer runs.
+- Warning and disabled-surface seam:
+  - Surface invalid-provider, fallback, and duplicate-agent warnings through the agent list payload and selected-agent details surface, reuse the same warning data for equivalent flow-owned agent details surfaces where they already exist, and keep unrunnable agents visible with `disabled` plus warnings instead of removing them from discovery.
+- Selected-agent and resume-state seam:
+  - Keep existing-conversation resume state authoritative over later UI selection changes, reevaluate state only on fresh conversation start, and exclude stale runnable-state assumptions from new-run payloads when the currently selected agent is disabled or warning-gated.
+- Default-path reachability seam:
+  - Update the normal startup and compose-owned paths so shared bootstrap, `server/.env`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` all honor the new neutral agent-home and provider-bootstrap rules without one-off operator edits.
+
+### Proof Seams
+
+- Merge-precedence and metadata-stripping proof seam:
+  - Prove layered merge order, blank-input normalization, and `codeinfo_*` metadata stripping independently from provider execution behavior.
+- Folder-precedence and duplicate-warning proof seam:
+  - Prove `codeinfo_agents` wins over `codex_agents`, duplicate warnings surface in the expected payloads, and cross-repository command lookup follows the same precedence helper.
+- Shared execution-context proof seam:
+  - Prove selected-working-folder and no-working-folder cases separately, including preserved `working_folder` error codes and Copilot working-directory consumption.
+- Fallback and model-repair proof seam:
+  - Prove provider-local model repair separately from cross-provider fallback, including normalized fallback-order handling, warning output, and actual executed provider-model persistence.
+- Established-conversation continuation proof seam:
+  - Prove later turns reuse the stored execution pair, keep config changes scoped to new conversations, and fail clearly inside the same conversation when the saved provider, model, or agent name no longer runs.

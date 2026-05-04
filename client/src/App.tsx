@@ -30,7 +30,7 @@ export default function App() {
         maxWidth={false}
         sx={{
           mt: 3,
-          pb: 4,
+          pb: 2,
           flex: 1,
           display: 'flex',
           flexDirection: 'column',

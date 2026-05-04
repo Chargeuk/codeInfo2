@@ -1169,7 +1169,7 @@ export default function FlowsPage() {
       data-testid="flows-page"
       sx={{
         pt: 3,
-        pb: 6,
+        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',

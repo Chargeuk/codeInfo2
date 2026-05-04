@@ -140,6 +140,7 @@ async function setCodexHome(chatToml?: string) {
     );
   }
   env.set('CODEX_HOME', codexHome);
+  env.set('CODEINFO_CODEX_HOME', codexHome);
 }
 
 async function setCopilotHome(chatToml?: string) {
@@ -718,7 +719,7 @@ test('providers route exposes shared resolver-backed codex defaults and warnings
     assert.deepEqual(res.body.codexDefaults, fixture.defaults);
     assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
     assert.equal(res.body.selectedProvider, 'codex');
-    assert.equal(res.body.selectedModel, 'gpt-5.3-codex');
+    assert.equal(res.body.selectedModel, 'fixture-model');
     assert.equal(res.body.providers[0].defaultModel, 'gpt-5.3-codex');
     assert.equal(res.body.providers[0].defaultModelSource, 'hardcoded');
     assert.deepEqual(

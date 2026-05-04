@@ -4,7 +4,7 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
@@ -14,6 +14,41 @@ import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
+
+const ENV_KEYS = [
+  'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_CHAT_DEFAULT_MODEL',
+  'CODEINFO_CODEX_HOME',
+  'CODEX_HOME',
+] as const;
+const originalEnv = new Map<string, string | undefined>();
+const defaultCodexHome = path.resolve(process.cwd(), '../codex');
+
+const setCodexHomes = (codexHome: string) => {
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+};
+
+beforeEach(() => {
+  originalEnv.clear();
+  for (const key of ENV_KEYS) {
+    originalEnv.set(key, process.env[key]);
+    delete process.env[key];
+  }
+  setCodexHomes(defaultCodexHome);
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const value = originalEnv.get(key);
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  originalEnv.clear();
+});
 
 type ThreadEvent = {
   type: string;
@@ -417,7 +452,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
       '',
     ].join('\n'),
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   process.env.Codex_network_access_enabled = 'false';
 
   const server = http.createServer(handleRpc);
@@ -617,7 +652,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
       '',
     ].join('\n'),
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   process.env.Codex_network_access_enabled = 'false';
 
   const server = http.createServer(handleRpc);
@@ -838,7 +873,7 @@ test('codebase_question returns an empty answer segment when no answer emitted',
   const tempHome = await withTempCodexHome({
     chatToml: 'web_search_request = false\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
 
   const server = http.createServer(handleRpc);
   server.listen(0);
@@ -934,7 +969,7 @@ test('codebase_question marker emits the shared warning_count and warnings field
       '',
     ].join('\n'),
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   const mockCodex = new MockCodex('thread-parity');
   setToolDeps({
     codexFactory: () => mockCodex,
@@ -1022,7 +1057,7 @@ test('codebase_question keeps an explicit request model override over the chat-c
   const tempHome = await withTempCodexHome({
     chatToml: 'model = "config-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   const mockCodex = new MockCodex('thread-override');
   setToolDeps({
     codexFactory: () => mockCodex,
@@ -1088,8 +1123,7 @@ test('codebase_question keeps inherited base runtime settings in the resolved Co
     ].join('\n'),
     chatToml: 'model = "chat-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
-  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   setToolDeps({
     clientFactory: makeLmStudioClientFactory(),
     chatFactory: () => capturingChat,
@@ -1166,8 +1200,7 @@ test('codebase_question receives the same inherited overlaid Context7 definition
     ].join('\n'),
     chatToml: 'model = "chat-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
-  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   setToolDeps({
     clientFactory: makeLmStudioClientFactory(),
     chatFactory: () => capturingChat,
@@ -1235,8 +1268,7 @@ test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key
     ].join('\n'),
     chatToml: 'model = "chat-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
-  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   setToolDeps({
     clientFactory: makeLmStudioClientFactory(),
     chatFactory: () => capturingChat,

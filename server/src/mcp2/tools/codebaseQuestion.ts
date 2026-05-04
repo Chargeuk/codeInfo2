@@ -442,8 +442,7 @@ async function executeCodebaseQuestion(
     codexHome: process.env.CODEX_HOME,
   });
   const codexWarnings = [
-    ...codexCapabilities.warnings,
-    ...resolvedDefaults.warnings,
+    ...new Set([...codexCapabilities.warnings, ...resolvedDefaults.warnings]),
   ];
   const codexState = {
     available: codexAvailable,

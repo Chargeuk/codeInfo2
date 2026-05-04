@@ -701,101 +701,57 @@ export function mergeProjectsFromBaseIntoRuntime(
   return merged;
 }
 
-function mergeNamedTables(baseValue: unknown, runtimeValue: unknown): unknown {
-  if (runtimeValue !== undefined && !isRecord(runtimeValue)) {
+function mergeConfigValue(baseValue: unknown, runtimeValue: unknown): unknown {
+  if (runtimeValue === undefined) {
+    return baseValue === undefined ? undefined : structuredClone(baseValue);
+  }
+  if (baseValue === undefined) {
     return structuredClone(runtimeValue);
   }
-  if (baseValue !== undefined && !isRecord(baseValue)) {
-    return structuredClone(baseValue);
+  if (Array.isArray(runtimeValue) || Array.isArray(baseValue)) {
+    return structuredClone(runtimeValue);
   }
-  const baseTable = isRecord(baseValue)
-    ? { ...(baseValue as Record<string, unknown>) }
-    : {};
-  const runtimeTable = isRecord(runtimeValue)
-    ? { ...(runtimeValue as Record<string, unknown>) }
-    : {};
-  const mergedTable = { ...baseTable, ...runtimeTable };
-  if (Object.keys(mergedTable).length === 0) {
-    return undefined;
+  if (isRecord(baseValue) && isRecord(runtimeValue)) {
+    const mergedRecord: Record<string, unknown> = {};
+    const keys = new Set([
+      ...Object.keys(baseValue),
+      ...Object.keys(runtimeValue),
+    ]);
+    for (const key of keys) {
+      const mergedEntry = mergeConfigValue(baseValue[key], runtimeValue[key]);
+      if (mergedEntry !== undefined) {
+        mergedRecord[key] = mergedEntry;
+      }
+    }
+    return mergedRecord;
   }
-  return mergedTable;
+  return structuredClone(runtimeValue);
 }
 
 export function mergeRuntimeConfigWithBaseConfig(
   baseConfig: RuntimeTomlConfig | undefined,
   runtimeConfig: RuntimeTomlConfig,
 ): RuntimeMergeResult {
-  const merged = cloneConfig(runtimeConfig);
+  const merged: RuntimeTomlConfig = {};
   const inheritedKeys: string[] = [];
   const runtimeOverrideKeys: string[] = [];
-
-  const recordOverride = (key: string) => {
-    if (
-      baseConfig &&
-      hasOwn(baseConfig, key) &&
-      hasOwn(runtimeConfig, key) &&
-      !runtimeOverrideKeys.includes(key)
-    ) {
-      runtimeOverrideKeys.push(key);
+  const keys = new Set<string>([
+    ...Object.keys(baseConfig ?? {}),
+    ...Object.keys(runtimeConfig),
+  ]);
+  for (const key of keys) {
+    const mergedValue = mergeConfigValue(baseConfig?.[key], runtimeConfig[key]);
+    if (mergedValue !== undefined) {
+      merged[key] = mergedValue;
     }
-  };
-
-  const inheritTopLevel = (key: string) => {
-    if (!baseConfig || !hasOwn(baseConfig, key)) {
-      return;
-    }
-    if (hasOwn(runtimeConfig, key)) {
-      recordOverride(key);
-      return;
-    }
-    merged[key] = cloneConfig({ [key]: baseConfig[key] })[key];
-    inheritedKeys.push(key);
-  };
-
-  const mergeTopLevelTable = (key: string) => {
-    const mergedTable = mergeNamedTables(baseConfig?.[key], runtimeConfig[key]);
-    if (mergedTable === undefined) {
-      delete merged[key];
-      return;
-    }
-    merged[key] = mergedTable;
     if (baseConfig && hasOwn(baseConfig, key) && !hasOwn(runtimeConfig, key)) {
       inheritedKeys.push(key);
-      return;
+      continue;
     }
-    if (
-      baseConfig &&
-      hasOwn(baseConfig, key) &&
-      hasOwn(runtimeConfig, key) &&
-      !runtimeOverrideKeys.includes(key)
-    ) {
+    if (baseConfig && hasOwn(baseConfig, key) && hasOwn(runtimeConfig, key)) {
       runtimeOverrideKeys.push(key);
     }
-  };
-
-  merged.projects = mergeNamedTables(
-    baseConfig?.projects,
-    runtimeConfig.projects,
-  );
-  if (merged.projects === undefined) {
-    delete merged.projects;
-  } else if (baseConfig && hasOwn(baseConfig, 'projects')) {
-    if (hasOwn(runtimeConfig, 'projects')) {
-      runtimeOverrideKeys.push('projects');
-    } else {
-      inheritedKeys.push('projects');
-    }
   }
-
-  mergeTopLevelTable('mcp_servers');
-  mergeTopLevelTable('tools');
-  mergeTopLevelTable('model_providers');
-  inheritTopLevel('personality');
-  inheritTopLevel('model_provider');
-
-  ['model', 'approval_policy', 'sandbox_mode', 'web_search'].forEach(
-    recordOverride,
-  );
 
   return { merged, inheritedKeys, runtimeOverrideKeys };
 }

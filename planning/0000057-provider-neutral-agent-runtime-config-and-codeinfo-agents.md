@@ -685,12 +685,12 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because Task 1 changes startup bootstrap, env contracts, and ignore rules that must still build cleanly through the repository’s supported Docker path. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 1 changes the shared server runtime-config foundation and bootstrap-owned startup code. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 1 proof homes are server unit and integration tests around runtime config, startup env parsing, and bootstrap ownership. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-4. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the normal server feature surface still survives the bootstrap and config-layering change. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-5. [ ] Run `npm run lint` for the final Task 1 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` for the final Task 1 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because Task 1 changes startup bootstrap, env contracts, and ignore rules that must still build cleanly through the repository’s supported Docker path. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 1 changes the shared server runtime-config foundation and bootstrap-owned startup code. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 1 proof homes are server unit and integration tests around runtime config, startup env parsing, and bootstrap ownership. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [x] Run `npm run test:summary:server:cucumber` from the repository root so the normal server feature surface still survives the bootstrap and config-layering change. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+5. [x] Run `npm run lint` for the final Task 1 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+6. [x] Run `npm run format:check` for the final Task 1 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -701,6 +701,11 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 - Added Task 1 proof-home coverage for repo-local layering, merge semantics, metadata stripping, agent-provider defaulting, provider base-config bootstrap cleanup, fallback-order env normalization, compose reachability for `codeinfo_config`, and sanitized persisted conversation flags.
 - Ran `npm run lint` for the Task 1 surface and fixed the new import-order warnings immediately; no broader lint violations remained after that cleanup.
 - Ran `npm run format:check`, then used the repo formatter to normalize the edited Task 1 surface plus the previously flagged Story 57 simple-story markdown before rerunning the check cleanly.
+- Automated proof: `npm run compose:build:summary` passed cleanly, including the Task 1 image-runtime asset contract for provider homes and compose reachability, so no compose-build repair was needed before continuing.
+- Automated proof: `npm run build:summary:server` passed cleanly with zero wrapper warnings, confirming the Task 1 runtime-config bootstrap and startup wiring still compile through the supported server build path.
+- Automated proof: `npm run test:summary:server:unit` initially failed in Task 1 runtime-layering, Codex-home, and provider-default surfaces; I repaired the shared merge contract, honored legacy `CODEX_HOME` in the resolver, deduped duplicate Codex warning markers, and tightened the affected test fixtures before rerunning the full wrapper cleanly with 1964 passing tests.
+- Automated proof: `npm run test:summary:server:cucumber` passed cleanly with 117 passing scenarios after the Task 1 runtime-layering repairs, so the existing server feature surface still survives the bootstrap and config precedence changes.
+- Automated proof: final `npm run lint` exited cleanly after the Task 1 repairs, and `npm run format:check` reported `All matched files use Prettier code style!`, leaving the Task 1 proof surface lint- and format-clean for audit.
 
 ### Task 2. Introduce the neutral agent-home and `codeinfo_agents` precedence helper
 

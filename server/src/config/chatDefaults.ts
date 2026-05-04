@@ -304,10 +304,10 @@ const resolveFieldWithPrecedence = <T>(params: {
   return { value: params.hardcoded, source: 'hardcoded' };
 };
 
-export const resolveCodexChatDefaults = async (params?: {
+export const resolveCodexChatDefaults = (params?: {
   codexHome?: string;
   overrides?: CodexChatDefaultOverrides;
-}): Promise<ResolvedCodexChatDefaults> => {
+}): ResolvedCodexChatDefaults => {
   const warnings: string[] = [];
   const { config, warnings: configWarnings } = readProviderConfigSafely({
     provider: 'codex',
@@ -597,7 +597,22 @@ const resolveProviderDefaultModel = (params: {
   codexHome?: string;
   copilotHome?: string;
   lmstudioHome?: string;
-}): { model: string; warnings: string[] } => {
+}): {
+  model: string;
+  modelSource: ResolutionSource;
+  warnings: string[];
+} => {
+  if (params.provider === 'codex') {
+    const resolved = resolveCodexChatDefaults({
+      codexHome: params.codexHome,
+    });
+    return {
+      model: resolved.values.model,
+      modelSource: toChatResolutionSource(resolved.sources.model),
+      warnings: resolved.warnings,
+    };
+  }
+
   const { config, warnings, configPath } = readProviderConfigSafely({
     provider: params.provider,
     codexHome: params.codexHome,
@@ -606,7 +621,7 @@ const resolveProviderDefaultModel = (params: {
   });
   const model = parseProviderChatModel(params.provider, config, warnings);
   if (model) {
-    return { model, warnings };
+    return { model, modelSource: 'config', warnings };
   }
   throw new ChatDefaultsResolutionError({
     provider: params.provider,
@@ -675,7 +690,7 @@ export const resolveChatDefaults = ({
             : provider === envProvider
               ? 'env'
               : 'fallback',
-        modelSource: 'config',
+        modelSource: resolvedModel.modelSource,
         warnings: [...warnings, ...resolvedModel.warnings],
       };
     } catch (error) {

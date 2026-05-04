@@ -21,6 +21,8 @@ const ENV_KEYS = [
   'Codex_network_access_enabled',
   'Codex_web_search_enabled',
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_CHAT_DEFAULT_MODEL',
+  'CODEINFO_CODEX_HOME',
   'CODEX_HOME',
 ] as const;
 
@@ -50,6 +52,7 @@ const setChatConfig = async (chatToml: string) => {
     'utf8',
   );
   process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
 };
 
 beforeEach(() => {
@@ -527,7 +530,7 @@ test('chat request validation accepts copilot as a legal provider with provider-
   assert.equal(result.provider, 'copilot');
   assert.equal(result.model, 'gpt-4o-mini');
   assert.deepEqual(result.agentFlags, {
-    modelReasoningEffort: 'medium',
+    modelReasoningEffort: 'high',
     toolAccess: 'on',
   });
 });

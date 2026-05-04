@@ -1473,83 +1473,92 @@ export default function ChatPage() {
                   <form onSubmit={handleSubmit}>
                     <Stack spacing={1.5}>
                       <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={2}
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={1.5}
                         alignItems="stretch"
                       >
-                        <TextField
-                          select
-                          size="small"
-                          id="chat-provider-select"
-                          label="Provider"
-                          value={provider ?? ''}
-                          onChange={handleProviderChange}
-                          disabled={
-                            providerStatus === 'loading' || providerLocked
-                          }
-                          sx={{ minWidth: 220 }}
-                          SelectProps={{ displayEmpty: true }}
-                          slotProps={{
-                            select: {
-                              SelectDisplayProps: {
-                                ...selectDisplayTestId('provider-select'),
-                              },
-                            },
-                          }}
+                        <Stack
+                          direction="row"
+                          spacing={1.5}
+                          sx={{ flex: 1, minWidth: 0 }}
                         >
-                          {providers.map((entry) => (
-                            <MenuItem
-                              key={entry.id}
-                              value={entry.id}
-                              disabled={!entry.available}
-                            >
-                              {entry.label}
-                              {!entry.available
-                                ? entry.reason
-                                  ? ` (unavailable: ${entry.reason})`
-                                  : ' (unavailable)'
-                                : ''}
-                            </MenuItem>
-                          ))}
-                        </TextField>
+                          <TextField
+                            select
+                            size="small"
+                            id="chat-provider-select"
+                            label="Provider"
+                            value={provider ?? ''}
+                            onChange={handleProviderChange}
+                            disabled={
+                              providerStatus === 'loading' || providerLocked
+                            }
+                            sx={{
+                              minWidth: { xs: 0, sm: 220 },
+                              flex: { xs: 1, sm: '0 0 220px' },
+                            }}
+                            SelectProps={{ displayEmpty: true }}
+                            slotProps={{
+                              select: {
+                                SelectDisplayProps: {
+                                  ...selectDisplayTestId('provider-select'),
+                                },
+                              },
+                            }}
+                          >
+                            {providers.map((entry) => (
+                              <MenuItem
+                                key={entry.id}
+                                value={entry.id}
+                                disabled={!entry.available}
+                              >
+                                {entry.label}
+                                {!entry.available
+                                  ? entry.reason
+                                    ? ` (unavailable: ${entry.reason})`
+                                    : ' (unavailable)'
+                                  : ''}
+                              </MenuItem>
+                            ))}
+                          </TextField>
 
-                        <TextField
-                          select
-                          size="small"
-                          id="chat-model-select"
-                          label="Model"
-                          value={selected ?? ''}
-                          onChange={handleModelChange}
-                          disabled={
-                            isLoading ||
-                            isError ||
-                            isEmpty ||
-                            !providerAvailable ||
-                            nextSendContextLocked
-                          }
-                          sx={{ minWidth: 260, flex: 1 }}
-                          SelectProps={{ displayEmpty: true }}
-                          slotProps={{
-                            select: {
-                              SelectDisplayProps: {
-                                ...selectDisplayTestId('model-select'),
+                          <TextField
+                            select
+                            size="small"
+                            id="chat-model-select"
+                            label="Model"
+                            value={selected ?? ''}
+                            onChange={handleModelChange}
+                            disabled={
+                              isLoading ||
+                              isError ||
+                              isEmpty ||
+                              !providerAvailable ||
+                              nextSendContextLocked
+                            }
+                            sx={{ minWidth: { xs: 0, sm: 260 }, flex: 1 }}
+                            SelectProps={{ displayEmpty: true }}
+                            slotProps={{
+                              select: {
+                                SelectDisplayProps: {
+                                  ...selectDisplayTestId('model-select'),
+                                },
                               },
-                            },
-                          }}
-                        >
-                          {models.map((model) => (
-                            <MenuItem key={model.key} value={model.key}>
-                              {model.displayName}
-                            </MenuItem>
-                          ))}
-                        </TextField>
+                            }}
+                          >
+                            {models.map((model) => (
+                              <MenuItem key={model.key} value={model.key}>
+                                {model.displayName}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </Stack>
 
                         <Stack
                           direction="row"
                           spacing={1}
                           alignItems="center"
                           justifyContent="flex-end"
-                          sx={{ minWidth: { xs: '100%', sm: 220 } }}
+                          sx={{ minWidth: { xs: '100%', md: 220 } }}
                         >
                           <Stack
                             direction="row"

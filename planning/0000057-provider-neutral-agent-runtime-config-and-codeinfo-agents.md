@@ -33,11 +33,13 @@ This story introduces a provider-neutral agent runtime contract built from layer
 
 For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
 
+This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. When a user or saved conversation selects a `workingFolder`, shared code should resolve that repository path once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata and should also include a resolved runtime working-directory override for providers that support it directly. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
+
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias.
 
-The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. The runtime should simply execute according to the merged `config.toml` values.
+The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. The runtime should simply execute according to the merged `config.toml` values plus the shared repository execution context where a working folder has been selected.
 
-One additional requirement is that the `code_info` MCP tool should stop biasing callers toward Codex. The tool definition should treat `provider` as an explicit override only, and agents should omit it unless the user has specifically asked for a provider. Omitted-provider behavior can still follow the server's normal default-provider resolution, but the tool contract itself should no longer encourage or imply a Codex-first caller habit.
+One additional requirement is that the `code_info` MCP tool should stop biasing callers toward Codex. The tool definition should treat `provider` as an explicit override only, and agents should omit it unless the user has specifically asked for a provider. Omitted-provider behavior can still follow the server's normal default-provider resolution, but the tool contract itself should no longer encourage or imply a Codex-first caller habit. In addition, omitted-provider or non-Codex execution must remain repository-grounded when the repository is available to the harness; provider neutrality is not complete if a non-Codex `code_info` execution loses repository context that the Codex path currently receives through working-directory or runtime wiring.
 
 ### Acceptance Criteria
 
@@ -58,8 +60,17 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - `codex/config.toml` remains supported as the Codex provider base config.
 - `copilot/config.toml` becomes a first-class provider base config resolved in the same product-owned way as Codex base config.
 - `lmstudio/config.toml` becomes a first-class provider base config resolved in the same product-owned way as Codex base config.
+- Shared code resolves a selected `workingFolder` once and passes a provider-neutral repository execution context into every chat run, agent run, and flow-owned agent run.
+- The shared repository execution context includes the selected repository path as runtime metadata.
+- The shared repository execution context includes a resolved runtime working-directory override for providers that support it directly.
+- Chat execution uses the shared repository execution-context contract for Codex, Copilot, and LM Studio.
 - Agent execution can run a Codex agent, a Copilot agent, or an LM Studio agent using the merged runtime config and the agent's selected provider.
+- Agent execution uses the same shared repository execution-context contract for Codex, Copilot, and LM Studio.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
+- Flow-owned agent execution uses the same shared repository execution-context contract as direct agent execution.
+- Codex consumes the shared runtime working-directory override.
+- Copilot consumes the shared runtime working-directory override.
+- LM Studio receives the shared repository execution context even if its provider-specific implementation does not use the same direct runtime working-directory mechanism as Codex or Copilot.
 - The preferred agent folder name becomes `codeinfo_agents`.
 - The legacy `codex_agents` folder remains supported for backward compatibility.
 - A legacy environment variable such as `CODEINFO_CODEX_AGENT_HOME` remains supported as an alias to the preferred neutral agent-home contract.
@@ -69,6 +80,9 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - This story does not add new MCP-level agent provider overrides beyond the merged config behavior.
 - The `code_info` MCP tool definition describes `provider` as an explicit optional override rather than as a defaulted Codex-oriented field.
 - Agents calling `code_info` omit `provider` unless the user explicitly asks for a provider-specific run.
+- `code_info` remains repository-grounded when `provider` is omitted.
+- If `code_info` executes on Copilot or LM Studio, it receives equivalent repository context needed to answer local-repository questions through provider-appropriate runtime wiring, tools, or both.
+- Omitting `provider` from `code_info` must not degrade repository-local questions into a non-grounded fallback path when the repository is available to the harness.
 - Tests cover the layered merge precedence, `codeinfo_provider` defaulting, provider-specific agent execution, folder precedence, compatibility fallback to `codex_agents`, and `code_info` caller-contract changes.
 
 ### Out Of Scope
@@ -77,8 +91,11 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - Adding new MCP request fields that override agent provider selection outside the merged config contract.
 - Turning chat runtime selection into an agent-style `codeinfo_provider` contract.
 - Requiring every provider SDK to natively consume the exact same raw TOML shape directly.
+- Requiring every provider to consume repository context through the exact same internal SDK fields or runtime mechanism.
+- Requiring LM Studio to implement an identical Codex-style working-directory model if equivalent repository-grounded behavior is achieved through provider-specific tools or runtime wiring.
 - Moving or redesigning provider authentication secrets or stored auth state beyond what is required for the new config layering.
 - Inventing a new manual override layer above `codeinfo_config/config.toml`, provider `config.toml`, and chat or agent runtime config.
+- Adding a second user-facing working-folder override model that differs between chat, agents, flows, or MCP tools.
 - Removing `codex_agents` support in this story.
 - Introducing new provider types beyond Codex, Copilot, and LM Studio.
 
@@ -102,7 +119,11 @@ None. `codeinfo_config/config.toml` remains out of source control, a legacy env 
 - Promote provider selection for agents into app-owned metadata by reading `codeinfo_provider` from the agent `config.toml` before the full merge runs.
 - Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper.
 - Keep the merged runtime contract portable by treating `codeinfo_*` keys as repository-owned metadata that is removed before provider SDK construction.
+- Introduce a shared repository execution-context helper that resolves the selected `workingFolder` once and returns provider-neutral runtime metadata plus any resolved runtime working-directory override.
 - Update agent discovery, agent execution, command lookup, and flow-owned agent execution together so provider and folder selection stay consistent across all agent surfaces.
+- Use that shared repository execution-context helper in the chat route, direct agent execution, flow-owned agent execution, and `code_info` execution so provider behavior cannot drift by surface.
+- Let provider implementations consume the shared repository execution context according to their own capabilities: Codex and Copilot should use the runtime working-directory override directly, while LM Studio may initially rely on repository metadata, provider-specific tools, or later working-directory-capable wiring.
+- Add targeted proof that Copilot chat and Copilot-backed agent execution actually receive and use the selected working folder, because that is the main current product gap.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
 - Update the `code_info` tool definition and its tests so the contract encourages omitted `provider` by default, while still allowing explicit provider selection when the user requests it.

@@ -21,6 +21,7 @@ logs
 codex/**
 copilot/**
 lmstudio/**
+codeinfo_config/**
 server/copilot/**
 codex_agents/**/sessions/**
 codex/**/auth.json

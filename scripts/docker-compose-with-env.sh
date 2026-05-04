@@ -209,6 +209,20 @@ repo_root_for_compose_wrapper() {
   cd "${script_dir}/.." && pwd
 }
 
+resolve_runtime_codeinfo_config_dir() {
+  local repo_root runtime_config_dir fallback_dir
+  repo_root="$(repo_root_for_compose_wrapper)"
+  runtime_config_dir="${repo_root}/codeinfo_config"
+  if [ -d "${runtime_config_dir}" ]; then
+    printf '%s\n' "${runtime_config_dir}"
+    return 0
+  fi
+
+  fallback_dir="${TMPDIR:-/tmp}/codeinfo2-empty-codeinfo-config"
+  mkdir -p "${fallback_dir}"
+  printf '%s\n' "${fallback_dir}"
+}
+
 ensure_optional_local_env_files_exist() {
   local repo_root env_local_path
   repo_root="$(repo_root_for_compose_wrapper)"
@@ -715,6 +729,7 @@ fi
 export CODEINFO_DOCKER_UID="${DOCKER_UID}"
 export CODEINFO_DOCKER_GID="${DOCKER_GID}"
 export CODEINFO_DOCKER_SOCK_GID="${SOCKET_GID}"
+export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="$(resolve_runtime_codeinfo_config_dir)"
 
 compose_args="$*"
 if [[ "${compose_args}" == *"--env-file .env.e2e"* ]]; then

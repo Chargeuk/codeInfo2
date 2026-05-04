@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { ChatProviderId } from '@codeinfo2/common';
 import type { CopilotClientOptions } from '@github/copilot-sdk';
 import { parse as parseJsonc, type ParseError } from 'jsonc-parser';
 
 export const DEFAULT_CODEINFO_COPILOT_HOME = './copilot';
+export const DEFAULT_CODEINFO_LMSTUDIO_HOME = './lmstudio';
 export const COPILOT_ENV_AUTH_KEYS = [
   'COPILOT_GITHUB_TOKEN',
   'GH_TOKEN',
@@ -116,6 +118,10 @@ export function getCopilotChatConfigPathForHome(copilotHome: string): string {
   return getCopilotStatePathForHome(copilotHome, 'chat', 'config.toml');
 }
 
+export function getCopilotConfigPathForHome(copilotHome: string): string {
+  return getCopilotStatePathForHome(copilotHome, 'config.toml');
+}
+
 export function getCopilotSettingsPathForHome(copilotHome: string): string {
   return getCopilotStatePathForHome(copilotHome, 'settings.json');
 }
@@ -126,6 +132,97 @@ export function getCopilotLegacyConfigPathForHome(copilotHome: string): string {
 
 export function getCopilotHome(env: NodeJS.ProcessEnv = process.env): string {
   return resolveCopilotHome(undefined, env);
+}
+
+export function resolveLmStudioHome(
+  overrideHome?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.resolve(
+    overrideHome ??
+      env.CODEINFO_LMSTUDIO_HOME ??
+      DEFAULT_CODEINFO_LMSTUDIO_HOME,
+  );
+}
+
+export function getLmStudioConfigPathForHome(lmstudioHome: string): string {
+  return path.join(path.resolve(lmstudioHome), 'config.toml');
+}
+
+const MANAGED_PROVIDER_BASE_CONFIG_TEMPLATE =
+  '# Managed by CodeInfo2 provider runtime bootstrap.\n';
+
+function buildManagedProviderBaseConfigTempPath(configPath: string): string {
+  return `${configPath}.${process.pid}.${Date.now()}.${Math.random()
+    .toString(16)
+    .slice(2)}.tmp`;
+}
+
+async function cleanupManagedProviderBaseConfigTempFile(
+  tempPath: string,
+): Promise<void> {
+  await fs.promises.rm(tempPath, { force: true }).catch(() => undefined);
+}
+
+async function ensureManagedProviderBaseConfigSeeded(params: {
+  provider: Exclude<ChatProviderId, 'codex'>;
+  providerHome: string;
+}): Promise<string> {
+  const configPath =
+    params.provider === 'copilot'
+      ? getCopilotConfigPathForHome(params.providerHome)
+      : getLmStudioConfigPathForHome(params.providerHome);
+
+  await fs.promises.mkdir(params.providerHome, { recursive: true });
+
+  try {
+    await fs.promises.access(configPath, fs.constants.F_OK);
+    return configPath;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  const tempPath = buildManagedProviderBaseConfigTempPath(configPath);
+  try {
+    await fs.promises.writeFile(
+      tempPath,
+      MANAGED_PROVIDER_BASE_CONFIG_TEMPLATE,
+      {
+        encoding: 'utf8',
+        flag: 'wx',
+      },
+    );
+    await fs.promises.rename(tempPath, configPath);
+    return configPath;
+  } catch (error) {
+    await cleanupManagedProviderBaseConfigTempFile(tempPath);
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      return configPath;
+    }
+    throw error;
+  }
+}
+
+export async function ensureCopilotBaseConfigSeeded(
+  overrideHome?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  return ensureManagedProviderBaseConfigSeeded({
+    provider: 'copilot',
+    providerHome: resolveCopilotHome(overrideHome, env),
+  });
+}
+
+export async function ensureLmStudioBaseConfigSeeded(
+  overrideHome?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  return ensureManagedProviderBaseConfigSeeded({
+    provider: 'lmstudio',
+    providerHome: resolveLmStudioHome(overrideHome, env),
+  });
 }
 
 export function getCopilotConfigDir(

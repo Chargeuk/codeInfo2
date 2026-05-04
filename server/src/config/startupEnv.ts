@@ -1,9 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ChatProviderId } from '@codeinfo2/common';
 import { parse } from 'dotenv';
 
 export const STARTUP_ENV_ORDER = ['server/.env', 'server/.env.local'] as const;
+export const DEFAULT_AGENT_PROVIDER_FALLBACK_ORDER = [
+  'codex',
+  'copilot',
+] as const satisfies readonly ChatProviderId[];
 export const SERVER_CODEINFO_ENV_NAMES = [
   'CODEINFO_SERVER_PORT',
   'CODEINFO_LMSTUDIO_BASE_URL',
@@ -37,6 +42,7 @@ export const SERVER_CODEINFO_ENV_NAMES = [
   'CODEINFO_LOG_FILE_ROTATE',
   'CODEINFO_COPILOT_HOME',
   'CODEINFO_COPILOT_CLI_PATH',
+  'CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER',
   'CODEINFO_OPENAI_INGEST_MAX_RETRIES',
 ] as const;
 
@@ -58,6 +64,12 @@ export type CodeinfoEnvResolution = {
   source: StartupEnvValueSource;
   defined: boolean;
   nonEmpty: boolean;
+};
+
+export type AgentProviderFallbackOrderResolution = {
+  normalizedProviders: ChatProviderId[];
+  warnings: string[];
+  usedDefault: boolean;
 };
 
 const resolveServerRoot = () => {
@@ -147,3 +159,50 @@ export const resolveCodeinfoEnvResolutions = ({
       nonEmpty: typeof rawValue === 'string' && rawValue.trim().length > 0,
     };
   });
+
+const isChatProviderId = (value: string): value is ChatProviderId =>
+  value === 'codex' || value === 'copilot' || value === 'lmstudio';
+
+export const resolveAgentProviderFallbackOrder = (
+  env: Record<string, string | undefined> = process.env,
+): AgentProviderFallbackOrderResolution => {
+  const rawValue = env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+  const warnings: string[] = [];
+  const normalizedProviders: ChatProviderId[] = [];
+  const seen = new Set<ChatProviderId>();
+
+  for (const entry of (rawValue ?? '').split(',')) {
+    const trimmed = entry.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (!isChatProviderId(trimmed)) {
+      warnings.push(
+        `Ignoring unknown CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER provider "${trimmed}"`,
+      );
+      continue;
+    }
+    if (seen.has(trimmed)) {
+      warnings.push(
+        `Ignoring duplicate CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER provider "${trimmed}"`,
+      );
+      continue;
+    }
+    seen.add(trimmed);
+    normalizedProviders.push(trimmed);
+  }
+
+  if (normalizedProviders.length > 0) {
+    return {
+      normalizedProviders,
+      warnings,
+      usedDefault: false,
+    };
+  }
+
+  return {
+    normalizedProviders: [...DEFAULT_AGENT_PROVIDER_FALLBACK_ORDER],
+    warnings,
+    usedDefault: true,
+  };
+};

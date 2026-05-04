@@ -61,7 +61,9 @@ services:
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ./copilot:/app/copilot
       - ./codex:/app/codex
+      - ./lmstudio:/app/lmstudio
       - ./codex_agents:/app/codex_agents
+      - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
       - ./scripts:/app/scripts:ro
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ./flows:/app/flows

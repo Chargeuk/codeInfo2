@@ -1,4 +1,7 @@
+import type { ChatProviderId } from '@codeinfo2/common';
 import {
+  extractRuntimeConfigAppMetadata,
+  readAndNormalizeRuntimeTomlConfig,
   RuntimeConfigResolutionError,
   resolveAgentRuntimeConfig,
   type RuntimeTomlConfig,
@@ -12,7 +15,12 @@ const T05_ERROR_LOG =
 export type AgentRuntimeExecutionConfig = {
   runtimeConfig: RuntimeTomlConfig;
   modelId?: string;
+  providerId: ChatProviderId;
+  requestedProviderId?: string;
 };
+
+const isChatProviderId = (value: string): value is ChatProviderId =>
+  value === 'codex' || value === 'copilot' || value === 'lmstudio';
 
 export async function resolveAgentRuntimeExecutionConfig(params: {
   configPath: string;
@@ -20,7 +28,22 @@ export async function resolveAgentRuntimeExecutionConfig(params: {
   codexHome?: string;
 }): Promise<AgentRuntimeExecutionConfig> {
   try {
+    const rawAgentConfig = await readAndNormalizeRuntimeTomlConfig(
+      params.configPath,
+      { required: true },
+    );
+    const requestedProviderId = rawAgentConfig
+      ? extractRuntimeConfigAppMetadata({
+          config: rawAgentConfig,
+          surface: 'agent',
+        }).codeinfoProvider
+      : undefined;
+    const providerId =
+      requestedProviderId && isChatProviderId(requestedProviderId)
+        ? requestedProviderId
+        : 'codex';
     const { config } = await resolveAgentRuntimeConfig({
+      provider: providerId,
       codexHome: params.codexHome,
       agentConfigPath: params.configPath,
     });
@@ -32,10 +55,14 @@ export async function resolveAgentRuntimeExecutionConfig(params: {
       entrypoint: params.entrypoint,
       configPath: params.configPath,
       hasModelId: Boolean(modelId),
+      providerId,
+      requestedProviderId,
     });
     return {
       runtimeConfig: config,
       modelId,
+      providerId,
+      requestedProviderId,
     };
   } catch (error) {
     const code =

@@ -43,7 +43,9 @@ services:
       - CODEINFO_FAKE_COPILOT_SCENARIO=${CODEINFO_FAKE_COPILOT_SCENARIO:-}
     volumes:
       - copilot-data:/app/copilot
+      - lmstudio-data:/app/lmstudio
       - ./copilot:/seed/copilot:ro
+      - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
       - ./scripts:/app/scripts:ro
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
@@ -170,3 +172,4 @@ networks:
 
 volumes:
   copilot-data:
+  lmstudio-data:

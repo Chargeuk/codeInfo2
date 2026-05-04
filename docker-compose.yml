@@ -49,7 +49,9 @@ services:
       - ./scripts:/app/scripts:ro
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - copilot-data:/app/copilot
+      - lmstudio-data:/app/lmstudio
       - ./copilot:/seed/copilot:ro
+      - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
       - ${CODEINFO_HOST_INGEST_DIR:-/tmp}:/data:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
@@ -199,6 +201,7 @@ networks:
 
 volumes:
   copilot-data:
+  lmstudio-data:
   chroma-data:
   mongo_data:
     external: false

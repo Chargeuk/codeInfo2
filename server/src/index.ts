@@ -21,6 +21,7 @@ import {
 import { resolveServerPort } from './config/serverPort.js';
 import {
   ensureStartupEnvLoaded,
+  resolveAgentProviderFallbackOrder,
   resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
@@ -84,6 +85,7 @@ const startupEnvLoad = ensureStartupEnvLoaded();
 const codeinfoEnvResolutions = resolveCodeinfoEnvResolutions({
   loadResult: startupEnvLoad,
 });
+const agentProviderFallbackOrder = resolveAgentProviderFallbackOrder();
 const copilotRuntimeConfig = buildCopilotClientOptions({
   env: process.env,
 });
@@ -163,6 +165,26 @@ append({
   source: 'server',
   context: {
     envs: codeinfoEnvResolutions,
+  },
+});
+baseLogger.info(
+  {
+    event: 'story.0000057.task1.agent_provider_fallback_order_loaded',
+    providers: agentProviderFallbackOrder.normalizedProviders,
+    usedDefault: agentProviderFallbackOrder.usedDefault,
+    warningCount: agentProviderFallbackOrder.warnings.length,
+  },
+  'story.0000057.task1.agent_provider_fallback_order_loaded',
+);
+append({
+  level: agentProviderFallbackOrder.warnings.length > 0 ? 'warn' : 'info',
+  message: 'story.0000057.task1.agent_provider_fallback_order_loaded',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    providers: agentProviderFallbackOrder.normalizedProviders,
+    usedDefault: agentProviderFallbackOrder.usedDefault,
+    warnings: agentProviderFallbackOrder.warnings,
   },
 });
 baseLogger.info(

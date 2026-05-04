@@ -29,6 +29,7 @@ import {
   getProviderChatConfigPath,
   loadProviderChatDefaultsSnapshotSync,
   loadRuntimeConfigSnapshot,
+  mergeRuntimeConfigLayers,
   mergeProjectsFromBaseIntoRuntime,
   mergeRuntimeConfigWithBaseConfig,
   minimizeBaseConfigToProjectsOnly,
@@ -2667,6 +2668,234 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
 
       assert.equal(snapshot.config?.model, 'kept-model');
       await fs.access(`${chatConfigPath}.partial.tmp`);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('treats codeinfo_config/config.toml as an optional lowest-precedence layer without creating it', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-layering-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+    const repoLocalConfigPath = path.join(
+      tempRoot,
+      'codeinfo_config',
+      'config.toml',
+    );
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.writeFile(
+        path.join(codexHome, 'config.toml'),
+        'personality = "base"\n',
+        'utf8',
+      );
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        'model = "gpt-5.3-codex"\n',
+        'utf8',
+      );
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(resolved.config.personality, 'base');
+      await assert.rejects(fs.access(repoLocalConfigPath), { code: 'ENOENT' });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies repo-local, provider-base, and agent precedence in order', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-order-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+    const repoLocalDir = path.join(tempRoot, 'codeinfo_config');
+    const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.mkdir(repoLocalDir, { recursive: true });
+      await fs.mkdir(path.dirname(agentConfigPath), { recursive: true });
+
+      await fs.writeFile(
+        path.join(repoLocalDir, 'config.toml'),
+        [
+          'model = "repo-model"',
+          'personality = "repo-personality"',
+          'cli_auth_credentials_store = "repo-store"',
+          '[mcp_servers.repo]',
+          'url = "http://repo.example"',
+          '[projects."/repo"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        path.join(codexHome, 'config.toml'),
+        [
+          'model = "provider-model"',
+          'personality = "provider-personality"',
+          '[mcp_servers.provider]',
+          'url = "http://provider.example"',
+          '[projects."/provider"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(
+        agentConfigPath,
+        [
+          'model = "agent-model"',
+          'personality = "agent-personality"',
+          '[mcp_servers.agent]',
+          'url = "http://agent.example"',
+          '[projects."/agent"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveAgentRuntimeConfig({
+        codexHome,
+        agentConfigPath,
+      });
+
+      assert.equal(resolved.config.model, 'agent-model');
+      assert.equal(resolved.config.personality, 'agent-personality');
+      assert.equal(resolved.config.cli_auth_credentials_store, 'repo-store');
+      assert.deepEqual(resolved.config.mcp_servers, {
+        repo: { url: 'http://repo.example' },
+        provider: { url: 'http://provider.example' },
+        agent: { url: 'http://agent.example' },
+      });
+      assert.deepEqual(resolved.config.projects, {
+        '/repo': { trust_level: 'trusted' },
+        '/provider': { trust_level: 'trusted' },
+        '/agent': { trust_level: 'trusted' },
+      });
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('replaces scalar and array values from lower-precedence layers', () => {
+    const merged = mergeRuntimeConfigLayers([
+      {
+        model: 'repo-model',
+        command_allowlist: ['repo-a', 'repo-b'],
+      },
+      {
+        model: 'provider-model',
+        command_allowlist: ['provider-a'],
+      },
+      {
+        model: 'agent-model',
+        command_allowlist: ['agent-a', 'agent-b'],
+      },
+    ]);
+
+    assert.equal(merged.merged.model, 'agent-model');
+    assert.deepEqual(merged.merged.command_allowlist, ['agent-a', 'agent-b']);
+  });
+
+  it('merges named tables by key while higher-precedence values replace conflicts', () => {
+    const merged = mergeRuntimeConfigLayers([
+      {
+        mcp_servers: {
+          shared: { url: 'http://repo.example' },
+          repoOnly: { url: 'http://repo-only.example' },
+        },
+      },
+      {
+        mcp_servers: {
+          shared: { url: 'http://provider.example' },
+          providerOnly: { url: 'http://provider-only.example' },
+        },
+      },
+      {
+        mcp_servers: {
+          shared: { url: 'http://agent.example' },
+        },
+      },
+    ]);
+
+    assert.deepEqual(merged.merged.mcp_servers, {
+      shared: { url: 'http://agent.example' },
+      repoOnly: { url: 'http://repo-only.example' },
+      providerOnly: { url: 'http://provider-only.example' },
+    });
+  });
+
+  it('strips app-owned codeinfo metadata before provider runtime config leaves the resolver', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-metadata-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+    const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.mkdir(path.dirname(agentConfigPath), { recursive: true });
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        agentConfigPath,
+        [
+          'model = "gpt-5.3-codex"',
+          'codeinfo_provider = "copilot"',
+          'codeinfo_hidden_note = "strip-me"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveAgentRuntimeConfig({
+        provider: 'copilot',
+        codexHome,
+        agentConfigPath,
+      });
+
+      assert.equal(resolved.appMetadata?.codeinfoProvider, 'copilot');
+      assert.equal('codeinfo_provider' in resolved.config, false);
+      assert.equal('codeinfo_hidden_note' in resolved.config, false);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('warns and ignores codeinfo_provider on non-agent config surfaces', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-chat-metadata-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        ['model = "gpt-5.3-codex"', 'codeinfo_provider = "copilot"', ''].join(
+          '\n',
+        ),
+        'utf8',
+      );
+
+      const resolved = await resolveChatRuntimeConfig({ codexHome });
+
+      assert.equal(resolved.appMetadata?.codeinfoProvider, undefined);
+      assert.equal('codeinfo_provider' in resolved.config, false);
+      assert.equal(
+        resolved.warnings.some((warning) =>
+          warning.message.includes(
+            'codeinfo_provider is only supported on agent runtime config',
+          ),
+        ),
+        true,
+      );
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

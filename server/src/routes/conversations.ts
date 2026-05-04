@@ -671,7 +671,9 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         model,
         title: title ?? 'Untitled conversation',
         source: source ?? 'REST',
-        flags,
+        flags: sanitizeConversationFlagsForProvider(provider, flags, {
+          preserveFlowState: true,
+        }),
         lastMessageAt: new Date(),
       });
       res.status(201).json({ conversationId });

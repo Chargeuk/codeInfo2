@@ -10,11 +10,19 @@ import { discoverAgents } from '../agents/discovery.js';
 import { append } from '../logStore.js';
 
 import {
+  ensureCodexConfigSeeded,
   getCodexChatConfigPathForHome,
   getCodexConfigPathForHome,
   resolveCodexHome,
 } from './codexConfig.js';
-import { resolveCopilotHome } from './copilotConfig.js';
+import {
+  ensureCopilotBaseConfigSeeded,
+  ensureLmStudioBaseConfigSeeded,
+  getCopilotConfigPathForHome,
+  getLmStudioConfigPathForHome,
+  resolveCopilotHome,
+  resolveLmStudioHome,
+} from './copilotConfig.js';
 import { resolveRequiredCodeinfoPlaceholderValue } from './mcpEndpoints.js';
 
 const T03_SUCCESS_LOG =
@@ -39,9 +47,13 @@ const T07_CHECKED_IN_MCP_CONTRACT_LOADED =
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
+export type RuntimeConfigAppMetadata = {
+  codeinfoProvider?: string;
+};
 export type RuntimeConfigValidationResult = {
   config: RuntimeTomlConfig;
   warnings: RuntimeConfigWarning[];
+  appMetadata?: RuntimeConfigAppMetadata;
 };
 export type RuntimeConfigSurface = 'agent' | 'chat';
 type RuntimeMergeResult = {
@@ -94,10 +106,14 @@ type ChatBootstrapBranch =
   | 'chat_dir_create_failed';
 
 export type RuntimeConfigSnapshot = {
-  codexHome: string;
+  provider: ChatProviderId;
+  providerHome: string;
+  codexHome?: string;
   baseConfigPath: string;
+  repoLocalConfigPath: string;
   chatConfigPath: string;
   agentConfigPath?: string;
+  repoLocalConfig?: RuntimeTomlConfig;
   baseConfig?: RuntimeTomlConfig;
   chatConfig?: RuntimeTomlConfig;
   agentConfig?: RuntimeTomlConfig;
@@ -118,6 +134,10 @@ const CODEINFO_ENV_PLACEHOLDER_PATTERN = /\$\{([A-Z0-9_]+)\}/g;
 const DIRECT_CODEINFO_ENV_PLACEHOLDERS = new Set([
   'CODEINFO_PLAYWRIGHT_MCP_URL',
 ]);
+const CODEINFO_CONFIG_DIRNAME = 'codeinfo_config';
+const CODEINFO_CONFIG_BASENAME = 'config.toml';
+const CODEINFO_PROVIDER_METADATA_KEY = 'codeinfo_provider';
+const CODEINFO_METADATA_PREFIX = 'codeinfo_';
 const REQUIRED_MCP_PLACEHOLDER_KEYS = new Set([
   'CODEINFO_SERVER_PORT',
   'CODEINFO_CHAT_MCP_PORT',
@@ -188,6 +208,54 @@ export function getProviderChatConfigPath(params: {
   return {
     providerHome,
     chatConfigPath: path.join(providerHome, 'chat', 'config.toml'),
+  };
+}
+
+export function getProviderBaseConfigPath(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): {
+  providerHome: string;
+  baseConfigPath: string;
+  repoLocalConfigPath: string;
+} {
+  if (params.provider === 'codex') {
+    const providerHome = resolveCodexHome(params.codexHome);
+    return {
+      providerHome,
+      baseConfigPath: getCodexConfigPathForHome(providerHome),
+      repoLocalConfigPath: path.join(
+        path.dirname(providerHome),
+        CODEINFO_CONFIG_DIRNAME,
+        CODEINFO_CONFIG_BASENAME,
+      ),
+    };
+  }
+
+  if (params.provider === 'copilot') {
+    const providerHome = resolveCopilotHome(params.copilotHome);
+    return {
+      providerHome,
+      baseConfigPath: getCopilotConfigPathForHome(providerHome),
+      repoLocalConfigPath: path.join(
+        path.dirname(providerHome),
+        CODEINFO_CONFIG_DIRNAME,
+        CODEINFO_CONFIG_BASENAME,
+      ),
+    };
+  }
+
+  const providerHome = resolveLmStudioHome(params.lmstudioHome);
+  return {
+    providerHome,
+    baseConfigPath: getLmStudioConfigPathForHome(providerHome),
+    repoLocalConfigPath: path.join(
+      path.dirname(providerHome),
+      CODEINFO_CONFIG_DIRNAME,
+      CODEINFO_CONFIG_BASENAME,
+    ),
   };
 }
 
@@ -732,6 +800,101 @@ export function mergeRuntimeConfigWithBaseConfig(
   return { merged, inheritedKeys, runtimeOverrideKeys };
 }
 
+export function mergeRuntimeConfigLayers(
+  layers: readonly (RuntimeTomlConfig | undefined)[],
+): RuntimeMergeResult {
+  const definedLayers = layers.filter(
+    (layer): layer is RuntimeTomlConfig => layer !== undefined,
+  );
+  if (definedLayers.length === 0) {
+    return {
+      merged: createNullPrototypeRecord(),
+      inheritedKeys: [],
+      runtimeOverrideKeys: [],
+    };
+  }
+
+  let merged = cloneConfig(definedLayers[0]);
+  const inheritedKeys = new Set<string>();
+  const runtimeOverrideKeys = new Set<string>();
+  for (const layer of definedLayers.slice(1)) {
+    const result = mergeRuntimeConfigWithBaseConfig(merged, layer);
+    merged = result.merged;
+    result.inheritedKeys.forEach((key) => inheritedKeys.add(key));
+    result.runtimeOverrideKeys.forEach((key) => runtimeOverrideKeys.add(key));
+  }
+
+  return {
+    merged,
+    inheritedKeys: [...inheritedKeys],
+    runtimeOverrideKeys: [...runtimeOverrideKeys],
+  };
+}
+
+export function extractRuntimeConfigAppMetadata(params: {
+  config: RuntimeTomlConfig;
+  surface: RuntimeConfigSurface;
+  warnings?: RuntimeConfigWarning[];
+  pathLabel?: string;
+}): RuntimeConfigAppMetadata {
+  const pathLabel = params.pathLabel ?? params.surface;
+  const warnings = params.warnings;
+  const metadata: RuntimeConfigAppMetadata = {};
+  const rawProvider = params.config[CODEINFO_PROVIDER_METADATA_KEY];
+
+  if (rawProvider === undefined) {
+    return metadata;
+  }
+
+  if (typeof rawProvider !== 'string') {
+    warnings?.push({
+      path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
+      message: `${CODEINFO_PROVIDER_METADATA_KEY} must be a string when present; ignoring non-string metadata value`,
+    });
+    return metadata;
+  }
+
+  const trimmedProvider = rawProvider.trim();
+  if (!trimmedProvider) {
+    return metadata;
+  }
+
+  if (params.surface !== 'agent') {
+    warnings?.push({
+      path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
+      message: `${CODEINFO_PROVIDER_METADATA_KEY} is only supported on agent runtime config and was ignored on ${params.surface}`,
+    });
+    return metadata;
+  }
+
+  metadata.codeinfoProvider = trimmedProvider;
+  return metadata;
+}
+
+function stripAppOwnedRuntimeMetadata(params: {
+  config: RuntimeTomlConfig;
+  surface: RuntimeConfigSurface;
+  warnings: RuntimeConfigWarning[];
+}): { config: RuntimeTomlConfig; appMetadata: RuntimeConfigAppMetadata } {
+  const appMetadata = extractRuntimeConfigAppMetadata({
+    config: params.config,
+    surface: params.surface,
+    warnings: params.warnings,
+    pathLabel: params.surface,
+  });
+  const sanitized = createNullPrototypeRecord();
+  for (const [key, value] of Object.entries(params.config)) {
+    if (key.startsWith(CODEINFO_METADATA_PREFIX)) {
+      continue;
+    }
+    sanitized[key] = value;
+  }
+  return {
+    config: sanitized,
+    appMetadata,
+  };
+}
+
 export function validateRuntimeConfig(
   input: RuntimeTomlConfig,
   params?: { pathLabel?: string },
@@ -1045,32 +1208,52 @@ export function loadProviderChatDefaultsSnapshotSync(params: {
 
 export async function resolveMergedAndValidatedRuntimeConfig(params: {
   surface: RuntimeConfigSurface;
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
   runtimeConfigPath: string;
 }): Promise<RuntimeConfigValidationResult> {
-  const codexHome = resolveCodexHome(params.codexHome);
-  const baseConfigPath = getCodexConfigPathForHome(codexHome);
+  const provider = params.provider ?? 'codex';
+  const { providerHome, baseConfigPath, repoLocalConfigPath } =
+    getProviderBaseConfigPath({
+      provider,
+      codexHome: params.codexHome,
+      copilotHome: params.copilotHome,
+      lmstudioHome: params.lmstudioHome,
+    });
   try {
-    const [baseConfig, runtimeConfig] = await Promise.all([
+    const [repoLocalConfig, baseConfig, runtimeConfig] = await Promise.all([
+      readAndNormalizeRuntimeTomlConfig(repoLocalConfigPath),
       readAndNormalizeRuntimeTomlConfig(baseConfigPath),
       readAndNormalizeRuntimeTomlConfig(params.runtimeConfigPath, {
         required: true,
       }),
     ]);
-    const mergeResult = mergeRuntimeConfigWithBaseConfig(
+    const mergeResult = mergeRuntimeConfigLayers([
+      repoLocalConfig,
       baseConfig,
       runtimeConfig!,
-    );
+    ]);
+    const metadataWarnings: RuntimeConfigWarning[] = [];
+    const stripped = stripAppOwnedRuntimeMetadata({
+      config: mergeResult.merged,
+      surface: params.surface,
+      warnings: metadataWarnings,
+    });
     const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
-      mergeResult.merged,
+      stripped.config,
     );
     const context7Result = normalizeContext7RuntimeConfig(placeholderResult);
     const validated = validateRuntimeConfig(context7Result.config, {
       pathLabel: params.surface,
     });
+    validated.warnings.unshift(...metadataWarnings);
+    validated.appMetadata = stripped.appMetadata;
     logValidationWarnings(validated.warnings);
     console.info(T04_RUNTIME_INHERITANCE_MARKER, {
       surface: params.surface,
+      provider,
       inherited_keys: mergeResult.inheritedKeys,
       runtime_override_keys: mergeResult.runtimeOverrideKeys,
       success: true,
@@ -1086,7 +1269,8 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
     });
     console.info(T04_SUCCESS_LOG, {
       surface: params.surface,
-      codexHome,
+      provider,
+      providerHome,
       runtimeConfigPath: params.runtimeConfigPath,
       warningCount: validated.warnings.length,
     });
@@ -1104,24 +1288,42 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
 }
 
 export async function resolveAgentRuntimeConfig(params: {
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
   agentConfigPath: string;
 }): Promise<RuntimeConfigValidationResult> {
   return resolveMergedAndValidatedRuntimeConfig({
     surface: 'agent',
+    provider: params.provider,
     codexHome: params.codexHome,
+    copilotHome: params.copilotHome,
+    lmstudioHome: params.lmstudioHome,
     runtimeConfigPath: params.agentConfigPath,
   });
 }
 
 export async function resolveChatRuntimeConfig(params?: {
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
 }): Promise<RuntimeConfigValidationResult> {
-  const codexHome = resolveCodexHome(params?.codexHome);
+  const provider = params?.provider ?? 'codex';
+  const { providerHome, chatConfigPath } = getProviderChatConfigPath({
+    provider,
+    codexHome: params?.codexHome,
+    copilotHome: params?.copilotHome,
+    lmstudioHome: params?.lmstudioHome,
+  });
   return resolveMergedAndValidatedRuntimeConfig({
     surface: 'chat',
-    codexHome,
-    runtimeConfigPath: getCodexChatConfigPathForHome(codexHome),
+    provider,
+    codexHome: provider === 'codex' ? providerHome : params?.codexHome,
+    copilotHome: provider === 'copilot' ? providerHome : params?.copilotHome,
+    lmstudioHome: provider === 'lmstudio' ? providerHome : params?.lmstudioHome,
+    runtimeConfigPath: chatConfigPath,
   });
 }
 
@@ -1321,6 +1523,11 @@ export async function ensureAllProviderChatConfigsBootstrapped(params?: {
   copilotHome?: string;
   lmstudioHome?: string;
 }): Promise<ProviderChatDefaultsSnapshot[]> {
+  ensureCodexConfigSeeded();
+  await Promise.all([
+    ensureCopilotBaseConfigSeeded(params?.copilotHome),
+    ensureLmStudioBaseConfigSeeded(params?.lmstudioHome),
+  ]);
   const providers: ChatProviderId[] = ['codex', 'copilot', 'lmstudio'];
   const results = await Promise.all(
     providers.map(async (provider) => {
@@ -1426,14 +1633,28 @@ export async function minimizeBaseConfigToProjectsOnly(params?: {
 }
 
 export async function loadRuntimeConfigSnapshot(params?: {
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
   bootstrapChatConfig?: boolean;
   agentName?: string;
   agentConfigPath?: string;
 }): Promise<RuntimeConfigSnapshot> {
-  const codexHome = resolveCodexHome(params?.codexHome);
-  const baseConfigPath = getCodexConfigPathForHome(codexHome);
-  const chatConfigPath = getCodexChatConfigPathForHome(codexHome);
+  const provider = params?.provider ?? 'codex';
+  const { providerHome, baseConfigPath, repoLocalConfigPath } =
+    getProviderBaseConfigPath({
+      provider,
+      codexHome: params?.codexHome,
+      copilotHome: params?.copilotHome,
+      lmstudioHome: params?.lmstudioHome,
+    });
+  const { chatConfigPath } = getProviderChatConfigPath({
+    provider,
+    codexHome: params?.codexHome,
+    copilotHome: params?.copilotHome,
+    lmstudioHome: params?.lmstudioHome,
+  });
   const bootstrapChatConfig = params?.bootstrapChatConfig ?? true;
 
   let agentConfigPath = params?.agentConfigPath;
@@ -1443,29 +1664,44 @@ export async function loadRuntimeConfigSnapshot(params?: {
 
   try {
     if (bootstrapChatConfig) {
-      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      await ensureProviderChatConfigBootstrapped({
+        provider,
+        codexHome: params?.codexHome,
+        copilotHome: params?.copilotHome,
+        lmstudioHome: params?.lmstudioHome,
+      });
     }
 
-    const [baseConfig, chatConfig, agentConfig] = await Promise.all([
-      readAndNormalizeRuntimeTomlConfig(baseConfigPath),
-      readAndNormalizeRuntimeTomlConfig(chatConfigPath),
-      agentConfigPath
-        ? readAndNormalizeRuntimeTomlConfig(agentConfigPath, { required: true })
-        : Promise.resolve(undefined),
-    ]);
+    const [repoLocalConfig, baseConfig, chatConfig, agentConfig] =
+      await Promise.all([
+        readAndNormalizeRuntimeTomlConfig(repoLocalConfigPath),
+        readAndNormalizeRuntimeTomlConfig(baseConfigPath),
+        readAndNormalizeRuntimeTomlConfig(chatConfigPath),
+        agentConfigPath
+          ? readAndNormalizeRuntimeTomlConfig(agentConfigPath, {
+              required: true,
+            })
+          : Promise.resolve(undefined),
+      ]);
 
     console.info(T03_SUCCESS_LOG, {
-      codexHome,
+      provider,
+      providerHome,
+      hasRepoLocalConfig: Boolean(repoLocalConfig),
       hasBaseConfig: Boolean(baseConfig),
       hasChatConfig: Boolean(chatConfig),
       hasAgentConfig: Boolean(agentConfig),
     });
 
     return {
-      codexHome,
+      provider,
+      providerHome,
+      ...(provider === 'codex' ? { codexHome: providerHome } : {}),
       baseConfigPath,
+      repoLocalConfigPath,
       chatConfigPath,
       agentConfigPath,
+      repoLocalConfig,
       baseConfig,
       chatConfig,
       agentConfig,

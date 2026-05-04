@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   loadStartupEnv,
+  resolveAgentProviderFallbackOrder,
   resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from '../../config/startupEnv.js';
@@ -243,6 +244,58 @@ test('runtime startup env resolution also surfaces CODEINFO_CHAT_MCP_PORT when i
     resolutions.find((entry) => entry.name === 'CODEINFO_CHAT_MCP_PORT')
       ?.source,
     'server/.env',
+  );
+});
+
+test('blank CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER falls back to the checked-in default order', () => {
+  const resolved = resolveAgentProviderFallbackOrder({
+    CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: '   ',
+  });
+
+  assert.deepEqual(resolved.normalizedProviders, ['codex', 'copilot']);
+  assert.equal(resolved.usedDefault, true);
+});
+
+test('trims whitespace-padded CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER entries without changing order', () => {
+  const resolved = resolveAgentProviderFallbackOrder({
+    CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: ' codex , lmstudio ',
+  });
+
+  assert.deepEqual(resolved.normalizedProviders, ['codex', 'lmstudio']);
+  assert.equal(resolved.usedDefault, false);
+});
+
+test('drops duplicate CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER providers while preserving first surviving order', () => {
+  const resolved = resolveAgentProviderFallbackOrder({
+    CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER:
+      'copilot,codex,copilot,lmstudio,codex',
+  });
+
+  assert.deepEqual(resolved.normalizedProviders, [
+    'copilot',
+    'codex',
+    'lmstudio',
+  ]);
+  assert.equal(
+    resolved.warnings.some((warning) => warning.includes('duplicate')),
+    true,
+  );
+});
+
+test('ignores unknown fallback providers with warnings and falls back to the default order when none survive', () => {
+  const resolved = resolveAgentProviderFallbackOrder({
+    CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: 'unknown-one,unknown-two',
+  });
+
+  assert.deepEqual(resolved.normalizedProviders, ['codex', 'copilot']);
+  assert.equal(resolved.usedDefault, true);
+  assert.equal(
+    resolved.warnings.some((warning) => warning.includes('unknown-one')),
+    true,
+  );
+  assert.equal(
+    resolved.warnings.some((warning) => warning.includes('unknown-two')),
+    true,
   );
 });
 

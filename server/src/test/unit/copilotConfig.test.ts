@@ -1,15 +1,19 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import test from 'node:test';
+import test, { mock } from 'node:test';
 
 import {
   CopilotManagedJsonArtifactError,
   buildCopilotClientOptions,
+  ensureCopilotBaseConfigSeeded,
   ensureCopilotAuthHomeCompatibility,
+  ensureLmStudioBaseConfigSeeded,
   ensureCopilotPlaintextTokenStorage,
+  getCopilotConfigPathForHome,
   getCopilotChatConfigPathForHome,
   getCopilotConfigDirForHome,
+  getLmStudioConfigPathForHome,
   getCopilotSettingsPathForHome,
   getCopilotStatePathForHome,
   inspectCopilotAuthLocations,
@@ -61,6 +65,72 @@ test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath toget
   );
   assert.equal(resolved.clientOptions.cliPath, '/usr/local/bin/copilot');
   assert.equal(resolved.cliMode, 'cliPath');
+});
+
+test('seeds copilot/config.toml through the startup-owned provider base-config path', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-base-config-'),
+  );
+
+  try {
+    const home = path.join(tempRoot, 'copilot');
+    const configPath = await ensureCopilotBaseConfigSeeded(home);
+
+    assert.equal(configPath, getCopilotConfigPathForHome(home));
+    assert.equal(fs.existsSync(configPath), true);
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('seeds lmstudio/config.toml through the startup-owned provider base-config path', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-lmstudio-base-config-'),
+  );
+
+  try {
+    const home = path.join(tempRoot, 'lmstudio');
+    const configPath = await ensureLmStudioBaseConfigSeeded(home);
+
+    assert.equal(configPath, getLmStudioConfigPathForHome(home));
+    assert.equal(fs.existsSync(configPath), true);
+  } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('cleans up a failed provider-base bootstrap temp file so a later retry can succeed', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-provider-base-config-failure-'),
+  );
+
+  try {
+    const home = path.join(tempRoot, 'copilot');
+    const configPath = getCopilotConfigPathForHome(home);
+    const renameMock = mock.method(fs.promises, 'rename', async () => {
+      const error = Object.assign(new Error('simulated rename failure'), {
+        code: 'EIO',
+      });
+      throw error;
+    });
+
+    await assert.rejects(
+      ensureCopilotBaseConfigSeeded(home),
+      /simulated rename failure/u,
+    );
+    renameMock.mock.restore();
+
+    assert.equal(fs.existsSync(configPath), false);
+    const entries = await fs.promises.readdir(home);
+    assert.deepEqual(entries, []);
+
+    const retriedPath = await ensureCopilotBaseConfigSeeded(home);
+    assert.equal(retriedPath, configPath);
+    assert.equal(fs.existsSync(configPath), true);
+  } finally {
+    mock.restoreAll();
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('keeps an explicitly configured CODEINFO_COPILOT_HOME as the primary contract without creating a ~/.copilot symlink', async () => {

@@ -74,6 +74,79 @@ describe('Agent config defaults', () => {
     });
 
     assert.equal(resolved.modelId, 'gpt-5.2');
+    assert.equal(resolved.providerId, 'codex');
+  });
+
+  it('defaults a missing codeinfo_provider to codex', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(configPath, 'model = "gpt-5.2"\n', 'utf8');
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, undefined);
+  });
+
+  it('defaults a blank codeinfo_provider to codex', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = ""\n',
+      'utf8',
+    );
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, undefined);
+  });
+
+  it('defaults a whitespace-only codeinfo_provider to codex', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = "   "\n',
+      'utf8',
+    );
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, undefined);
+  });
+
+  it('preserves an invalid non-blank codeinfo_provider for later warning evaluation', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = "not-a-provider"\n',
+      'utf8',
+    );
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, 'not-a-provider');
   });
 
   it('emits deterministic T05 success log when runtime execution config resolves', async () => {

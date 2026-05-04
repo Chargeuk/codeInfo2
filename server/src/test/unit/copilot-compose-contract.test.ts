@@ -168,3 +168,50 @@ test('compose wrapper bootstraps the repo-root Copilot home for local runs throu
   );
   assert.match(composeWrapper, /\[ ! -e "\$\{copilot_settings_path\}" \]/u);
 });
+
+test('compose services keep the optional repo-local codeinfo_config layer reachable without widening docker build context', () => {
+  const dockerignore = readRepoFile('.dockerignore');
+  const mainCompose = readRepoFile('docker-compose.yml');
+  const localCompose = readRepoFile('docker-compose.local.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
+
+  assert.match(dockerignore, /^codeinfo_config\/\*\*$/mu);
+
+  for (const compose of [mainCompose, localCompose, e2eCompose]) {
+    const serverBlock = getServiceBlock(compose, 'server');
+    assert.match(
+      serverBlock,
+      /\$\{CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-\.\/codeinfo_config\}:\/app\/codeinfo_config/u,
+    );
+  }
+});
+
+test('compose keeps lmstudio runtime artifacts on a writable provider-managed path across main, local, and e2e workflows', () => {
+  const mainCompose = readRepoFile('docker-compose.yml');
+  const localCompose = readRepoFile('docker-compose.local.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
+
+  const mainServer = getServiceBlock(mainCompose, 'server');
+  assert.match(mainServer, /lmstudio-data:\/app\/lmstudio/u);
+  assert.match(mainCompose, /^  lmstudio-data:$/mu);
+
+  const localServer = getServiceBlock(localCompose, 'server');
+  assert.match(localServer, /\.\/lmstudio:\/app\/lmstudio/u);
+
+  const e2eServer = getServiceBlock(e2eCompose, 'server');
+  assert.match(e2eServer, /lmstudio-data:\/app\/lmstudio/u);
+  assert.match(e2eCompose, /^  lmstudio-data:$/mu);
+});
+
+test('compose wrapper resolves a non-repo fallback mount for absent codeinfo_config directories', () => {
+  const composeWrapper = readRepoFile('scripts/docker-compose-with-env.sh');
+
+  assert.match(
+    composeWrapper,
+    /fallback_dir="\$\{TMPDIR:-\/tmp\}\/codeinfo2-empty-codeinfo-config"/u,
+  );
+  assert.match(
+    composeWrapper,
+    /export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="\$\(resolve_runtime_codeinfo_config_dir\)"/u,
+  );
+});

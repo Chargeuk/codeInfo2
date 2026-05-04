@@ -136,7 +136,7 @@ Use this document for API contracts, protocol details, and advanced runtime beha
 - Use `model` only when the user explicitly asked for a model-specific run.
 - When `provider` and `model` are omitted, the server resolves them through the shared default-selection contract.
 - When `provider` is provided and `model` is omitted, the server resolves that provider's default model.
-- If an explicit `model` does not fit the chosen or resolved provider, the request fails clearly instead of silently switching providers.
+- If an explicit `model` does not fit the chosen or resolved provider, the server does not silently switch providers; execution may fail if the selected provider rejects that model.
 - Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
 - Required methods: `initialize` → `tools/list` → `tools/call`.
 - Quick smoke (host):

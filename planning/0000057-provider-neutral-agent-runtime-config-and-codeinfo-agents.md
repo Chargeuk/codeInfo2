@@ -33,7 +33,7 @@ This story introduces a provider-neutral agent runtime contract built from layer
 
 For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
 
-This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. When a user or saved conversation selects a `workingFolder`, shared code should resolve that repository path once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata and should also include a resolved runtime working-directory override for providers that support it directly. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
+This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias.
 
@@ -60,14 +60,16 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - `codex/config.toml` remains supported as the Codex provider base config.
 - `copilot/config.toml` becomes a first-class provider base config resolved in the same product-owned way as Codex base config.
 - `lmstudio/config.toml` becomes a first-class provider base config resolved in the same product-owned way as Codex base config.
-- Shared code resolves a selected `workingFolder` once and passes a provider-neutral repository execution context into every chat run, agent run, and flow-owned agent run.
+- Shared code resolves repository execution context once and passes a provider-neutral execution payload into every chat run, agent run, flow-owned agent run, and `code_info` execution.
 - The shared repository execution context includes the selected repository path as runtime metadata.
 - The shared repository execution context includes a resolved runtime working-directory override for providers that support it directly.
+- When no `workingFolder` is selected, the shared execution-context resolver still produces the effective default execution root using the same precedence the Codex provider uses today.
 - Chat execution uses the shared repository execution-context contract for Codex, Copilot, and LM Studio.
 - Agent execution can run a Codex agent, a Copilot agent, or an LM Studio agent using the merged runtime config and the agent's selected provider.
 - Agent execution uses the same shared repository execution-context contract for Codex, Copilot, and LM Studio.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
 - Flow-owned agent execution uses the same shared repository execution-context contract as direct agent execution.
+- The current Codex-specific default-working-directory selection logic is removed from provider-specific execution code and replaced by the shared execution-context resolver.
 - Codex consumes the shared runtime working-directory override.
 - Copilot consumes the shared runtime working-directory override.
 - LM Studio receives the shared repository execution context even if its provider-specific implementation does not use the same direct runtime working-directory mechanism as Codex or Copilot.
@@ -93,6 +95,7 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - Requiring every provider SDK to natively consume the exact same raw TOML shape directly.
 - Requiring every provider to consume repository context through the exact same internal SDK fields or runtime mechanism.
 - Requiring LM Studio to implement an identical Codex-style working-directory model if equivalent repository-grounded behavior is achieved through provider-specific tools or runtime wiring.
+- Changing the precedence rules themselves for the default execution root beyond centralizing the current Codex behavior into shared code.
 - Moving or redesigning provider authentication secrets or stored auth state beyond what is required for the new config layering.
 - Inventing a new manual override layer above `codeinfo_config/config.toml`, provider `config.toml`, and chat or agent runtime config.
 - Adding a second user-facing working-folder override model that differs between chat, agents, flows, or MCP tools.
@@ -119,7 +122,7 @@ None. `codeinfo_config/config.toml` remains out of source control, a legacy env 
 - Promote provider selection for agents into app-owned metadata by reading `codeinfo_provider` from the agent `config.toml` before the full merge runs.
 - Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper.
 - Keep the merged runtime contract portable by treating `codeinfo_*` keys as repository-owned metadata that is removed before provider SDK construction.
-- Introduce a shared repository execution-context helper that resolves the selected `workingFolder` once and returns provider-neutral runtime metadata plus any resolved runtime working-directory override.
+- Extract the current Codex default-working-directory resolution logic into a shared repository execution-context helper that resolves both selected-working-folder and no-working-folder cases, then returns provider-neutral runtime metadata plus any resolved runtime working-directory override.
 - Update agent discovery, agent execution, command lookup, and flow-owned agent execution together so provider and folder selection stay consistent across all agent surfaces.
 - Use that shared repository execution-context helper in the chat route, direct agent execution, flow-owned agent execution, and `code_info` execution so provider behavior cannot drift by surface.
 - Let provider implementations consume the shared repository execution context according to their own capabilities: Codex and Copilot should use the runtime working-directory override directly, while LM Studio may initially rely on repository metadata, provider-specific tools, or later working-directory-capable wiring.

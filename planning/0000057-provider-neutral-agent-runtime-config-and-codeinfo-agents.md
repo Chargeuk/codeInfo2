@@ -120,7 +120,20 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 
 ### Questions
 
-None. `codeinfo_config/config.toml` remains out of source control, a legacy env alias such as `CODEINFO_CODEX_AGENT_HOME` remains supported, and inapplicable `codeinfo_provider` values are ignored with a warning.
+1. If `code_info` gets a model name that does not fit the chosen provider, should it fail clearly or try another provider?
+   - Why this is important: The story now says `model` can be an explicit override even when `provider` is omitted, so we need one clear rule for invalid model-provider combinations.
+   - Best Answer: It should fail clearly. Repo precedent already treats explicit overrides as authoritative: `resolveChatDefaults()` lets explicit request values win, and `codebase_question` already fails when an explicitly selected provider cannot run instead of silently switching elsewhere. Extending that same principle to an invalid explicit model keeps the contract predictable and avoids surprising cross-provider fallback.
+   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/unit/config.chatDefaults.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`. No stronger external precedent is needed because this is primarily an internal contract-choice question.
+
+2. For LM Studio in this story, is tool-based repository grounding enough, or must it match Codex and Copilot working-directory behavior too?
+   - Why this is important: The story already expects shared execution context for every provider, but LM Studio currently gets repository grounding through tools and provider-specific runtime flags rather than the same cwd path as Codex.
+   - Best Answer: Tool-based repository grounding should be enough for this story as long as LM Studio receives the shared execution context and remains repository-grounded for `code_info`. Repo tests already prove LM Studio `codebase_question` behavior through `VectorSearch` and provider-local config, not through a direct working-directory seam. The official `lmstudio-js` sources show that working-directory support exists around generator/plugin flows, which means the provider can grow into deeper cwd use later without forcing identical behavior in this story.
+   - Where this answer came from: Repo evidence in `server/src/lmstudio/tools.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`. External evidence from the official `lmstudio-js` source in `packages/lms-client/src/llm/LLMGeneratorHandle.ts` and `packages/lms-shared-types/src/PluginConfigSpecifier.ts` shows LM Studio working-directory support is plugin/generator-oriented rather than identical to Codex.
+
+3. Should this story update only repo-owned `code_info` instructions, or should it also update the shared harness/tool metadata agents see outside this repo?
+   - Why this is important: If we only fix the repo files, agents may still see stale top-level tool guidance and keep sending `provider` or `model` even after the repo is updated.
+   - Best Answer: It should include both if we control both ends. Repo-owned instructions clearly need updating because many prompts and command files teach agents how to call `code_info`, but the shared harness or tool metadata should also be refreshed so the live agent-facing schema stops advertising outdated behavior. Otherwise the repo and the actual agent runtime will drift.
+   - Where this answer came from: Repo evidence in `server/src/mcp2/tools/codebaseQuestion.ts`, `AGENTS.md`, `usefulCommands.txt.md`, `docs/developer-reference.md`, and multiple prompt files under `codex_agents/**` plus `codeinfo_markdown/**`. Additional evidence from this planning session: the live tool schema exposed to the current agent still described omitted `provider` as defaulting to Codex, which shows that repo-only changes may not be enough.
 
 ## Implementation Ideas
 

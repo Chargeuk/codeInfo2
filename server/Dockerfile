@@ -186,6 +186,7 @@ COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
 COPY codex_agents /app/codex_agents
+RUN cp -R /app/codex_agents /app/codeinfo_agents
 COPY flows /app/flows
 COPY flows-sandbox /app/flows-sandbox
 COPY e2e/fixtures /fixtures

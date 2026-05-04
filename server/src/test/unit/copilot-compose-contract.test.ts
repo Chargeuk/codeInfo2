@@ -158,6 +158,7 @@ test('compose services publish CODEINFO_AGENT_HOME as the preferred runtime cont
   const localCompose = readRepoFile('docker-compose.local.yml');
   const e2eCompose = readRepoFile('docker-compose.e2e.yml');
   const serverEnv = readRepoFile('server/.env');
+  const dockerfile = readRepoFile('server/Dockerfile');
 
   assert.match(serverEnv, /^CODEINFO_AGENT_HOME=\.\.\/codeinfo_agents$/mu);
 
@@ -166,6 +167,7 @@ test('compose services publish CODEINFO_AGENT_HOME as the preferred runtime cont
     assert.match(serverBlock, /CODEINFO_AGENT_HOME=\/app\/codeinfo_agents/u);
   }
 
+  assert.match(dockerfile, /RUN cp -R \/app\/codex_agents \/app\/codeinfo_agents/u);
   const localServer = getServiceBlock(localCompose, 'server');
   assert.match(localServer, /\.\/codeinfo_agents:\/app\/codeinfo_agents/u);
 });
@@ -187,9 +189,10 @@ test('compose keeps CODEINFO_CODEX_AGENT_HOME only as the legacy fallback alias'
   assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
 });
 
-test('compose build summary runtime asset marker includes /app/copilot', () => {
+test('compose build summary runtime asset marker includes /app/copilot and /app/codeinfo_agents', () => {
   const composeBuildSummary = readRepoFile('scripts/compose-build-summary.mjs');
   assert.match(composeBuildSummary, /['"]\/app\/copilot['"]/u);
+  assert.match(composeBuildSummary, /['"]\/app\/codeinfo_agents['"]/u);
 });
 
 test('compose wrapper bootstraps the repo-root Copilot home for local runs through settings.json without overwriting existing state', () => {

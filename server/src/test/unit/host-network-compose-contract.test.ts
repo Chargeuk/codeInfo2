@@ -55,6 +55,11 @@ test('main stays image-baked while local host-network compose exposes the live d
     dockerfile,
     /RUN mkdir -p \/app\/codex \/app\/copilot \/app\/lmstudio && chmod 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
   );
+  assert.match(dockerfile, /COPY codex_agents \/app\/codex_agents/u);
+  assert.match(
+    dockerfile,
+    /RUN cp -R \/app\/codex_agents \/app\/codeinfo_agents/u,
+  );
   assert.match(dockerfile, /ENV CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
 
   const mainServer = getServiceBlock(mainCompose, 'server');
@@ -66,6 +71,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(mainServer, /\n\s+ports:/u);
   assert.doesNotMatch(mainServer, /\n\s+networks:/u);
   assert.doesNotMatch(mainServer, /\.\/codex:/u);
+  assert.doesNotMatch(mainServer, /\.\/codeinfo_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/codex_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/flows-sandbox:/u);
   assert.match(mainServer, /\.\/scripts:\/app\/scripts:ro/u);
@@ -109,6 +115,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(localServer, /\n\s+ports:/u);
   assert.doesNotMatch(localServer, /\n\s+networks:/u);
   assert.match(localServer, /\.\/codex:\/app\/codex/u);
+  assert.match(localServer, /\.\/codeinfo_agents:\/app\/codeinfo_agents/u);
   assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
   assert.match(localServer, /\.\/scripts:\/app\/scripts:ro/u);
   assert.match(
@@ -154,6 +161,7 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.doesNotMatch(e2eServer, /\.\/e2e\/fixtures:/u);
   assert.doesNotMatch(e2eServer, /\.\/e2e\/fixtures\/repo:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex:/u);
+  assert.doesNotMatch(e2eServer, /\.\/codeinfo_agents:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex_agents:/u);
   assert.match(e2eServer, /\.\/scripts:\/app\/scripts:ro/u);
   assert.match(e2eServer, /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u);

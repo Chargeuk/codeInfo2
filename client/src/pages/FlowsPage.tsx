@@ -1354,9 +1354,10 @@ export default function FlowsPage() {
                     ) : null}
                   </Stack>
                   <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
+                    direction="row"
                     spacing={1}
-                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                    alignItems="flex-start"
+                    sx={{ minWidth: 0 }}
                   >
                     <TextField
                       fullWidth
@@ -1377,6 +1378,7 @@ export default function FlowsPage() {
                       }}
                       disabled={isWorkingFolderDisabled}
                       inputProps={{ 'data-testid': 'flow-working-folder' }}
+                      sx={{ flex: 1, minWidth: 0 }}
                     />
                     <Button
                       type="button"

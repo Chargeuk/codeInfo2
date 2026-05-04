@@ -1656,9 +1656,10 @@ export default function ChatPage() {
                       )}
 
                       <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
+                        direction="row"
                         spacing={2}
-                        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                        alignItems="flex-start"
+                        sx={{ minWidth: 0 }}
                       >
                         <TextField
                           fullWidth
@@ -1681,12 +1682,12 @@ export default function ChatPage() {
                             );
                           }}
                           disabled={chatWorkingFolderLocked}
-                          helperText="Saved per conversation while idle."
                           slotProps={{
                             htmlInput: {
                               'data-testid': 'chat-working-folder',
                             },
                           }}
+                          sx={{ flex: 1, minWidth: 0 }}
                         />
                         <Button
                           type="button"

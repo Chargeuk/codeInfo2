@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -712,7 +712,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -758,15 +758,17 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 25. [x] Test type: server unit. Location: `server/src/test/unit/copilot-compose-contract.test.ts`. Description: prove `server/.env`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` keep `CODEINFO_CODEX_AGENT_HOME` available only as a fallback alias. Purpose: keep the legacy-alias runtime contract explicit.
 26. [x] Run `npm run lint` for the Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
 27. [x] Run `npm run format:check` for the Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+28. [ ] Update `server/Dockerfile`, the checked-in runtime tree scaffold, and any related compose-facing asset wiring so the main packaged server runtime actually exposes `/app/codeinfo_agents` alongside the legacy fallback root instead of only publishing `CODEINFO_AGENT_HOME` as an env value. Purpose: make the normal compose startup path reach the preferred agent-home contract without depending on the local bind-mount overlay.
+29. [ ] Extend `server/src/test/unit/host-network-compose-contract.test.ts` and/or `server/src/test/unit/copilot-compose-contract.test.ts` so automated proof fails whenever the packaged main runtime or compose contract republishes `CODEINFO_AGENT_HOME=/app/codeinfo_agents` without also making that preferred root reachable in the built server image. Purpose: stop future proof from passing when the env contract and the baked runtime assets drift apart.
 
 #### Testing
 
-1. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper because Task 2 changes the tracked compose env contract, ignore rules, and mounted agent-home assumptions. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because Task 2 changes the tracked compose env contract, ignore rules, and mounted agent-home assumptions. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
 2. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 2 changes shared server discovery and repository-root lookup helpers. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-3. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 2 proof homes are server unit and integration tests around discovery, lookup, and compose contract seams. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 2 proof homes are server unit and integration tests around discovery, lookup, and compose contract seams. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 4. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level flow and command surfaces still pass after the folder-precedence migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-5. [x] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-6. [x] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [ ] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -783,6 +785,7 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 - Automated proof step 4 passed via `npm run test:summary:server:cucumber` after one repair cycle: the first full wrapper exposed a slow large-deletion ingest-delta scenario that only polled for about 12 seconds despite a 60-second step budget, a targeted feature rerun confirmed the longer status wait in `server/src/test/steps/ingest-delta-reembed.steps.ts`, and the final full rerun finished green with `117` tests passed.
 - Automated proof step 5 passed via `npm run lint`; the final lint sweep reported no remaining issues across the Task 2 server, flow, and test-harness changes.
 - Automated proof step 6 passed via `npm run format:check`; Prettier reported `All matched files use Prettier code style!` after the proof-phase code and test-harness repairs.
+- Manual testing ran as a task-scoped pass with the documented main compose stack plus a proof-only duplicate `codeinfo_agents/planning_agent`, and startup/shutdown baseline proved the main stack can still build and start. The pass found that `docker-compose.yml` republishes `CODEINFO_AGENT_HOME=/app/codeinfo_agents`, but the packaged server runtime still serves only legacy `codex_agents` content because `server/Dockerfile` copies `/app/codex_agents` without a matching `/app/codeinfo_agents` asset path; `/agents` therefore kept the legacy planning-agent description and never surfaced the duplicate-warning path. I saved the blocking runtime evidence under `codeInfoTmp/manual-testing/0000057/2/` (`support-main-agents.json`, `support-main-flows.json`, and `support-local-server-mounts.json`), added the concrete runtime-wiring and automated-proof follow-up subtasks above, and reopened compose-build, server-unit, lint, and format testing because automated proof must rerun before a later manual retest.
 
 ### Task 3. Resolve one shared repository execution context for chat and `code_info`
 

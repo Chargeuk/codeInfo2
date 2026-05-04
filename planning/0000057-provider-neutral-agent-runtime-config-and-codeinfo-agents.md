@@ -124,6 +124,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If `codeinfo_config/config.toml` is missing, should the app create it or just keep running without it?
+   - Why this is important: The story adds a new repo-local config layer, so startup behavior needs to be predictable for repositories that have not created that file yet.
+   - Best Answer: It should keep running without the file. This repo usually treats missing repo-local config as optional and falls back cleanly rather than auto-creating files in production code, which keeps startup safer and avoids unexpected writes into user repositories.
+   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/workingFolders/state.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+
+2. If both agent-home env vars are set, should the new one win, or should the old alias still take priority?
+   - Why this is important: The story keeps `CODEINFO_CODEX_AGENT_HOME` as a legacy alias, so we need one clear rule when both the new and old env vars are present at the same time.
+   - Best Answer: The new neutral env var should win, and the legacy alias should be used only as a fallback with a warning. That matches this repo's usual precedence pattern for newer canonical settings versus older compatibility names.
+   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, and `server/src/test/unit/config.chatDefaults.test.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+
+3. If the same agent appears in both folders, should the warning stay in logs only, or also appear in API and UI warnings?
+   - Why this is important: The story already says `codeinfo_agents` should win, but warning visibility is still unclear and will affect whether users can understand why one copy was ignored.
+   - Best Answer: It should be logged and also surfaced through API or UI warnings where those surfaces already support warnings. This repo already treats many non-fatal problems as both server-log events and user-visible warnings, which makes precedence behavior easier to diagnose without digging through logs.
+   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/agents/types.ts`, and `client/src/pages/AgentsPage.tsx`, plus local repo-precedent retrieval from `code_info` during this planning round.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

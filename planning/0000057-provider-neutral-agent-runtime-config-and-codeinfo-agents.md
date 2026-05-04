@@ -31,9 +31,11 @@ From a user's point of view, this creates two product problems. First, users can
 
 This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values. If `codeinfo_config/config.toml` has not been created yet, the runtime should continue cleanly without trying to auto-create repository files at startup.
 
-For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
+For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, that agent should fail clearly rather than silently defaulting to Codex. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
+
+When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced through existing warning-capable API or UI responses. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and the new neutral env var should win when both are set.
 
@@ -55,6 +57,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Named tables still merge by key, with higher-precedence entries replacing conflicting lower-precedence entries.
 - Agent configs can declare `codeinfo_provider = "codex" | "copilot" | "lmstudio"`.
 - If `codeinfo_provider` is absent from an agent config, the runtime defaults that agent to `codex`.
+- If `codeinfo_provider` is present but invalid, that agent fails clearly instead of silently defaulting to `codex`.
 - Chat runtime config does not require or depend on `codeinfo_provider`.
 - If `codeinfo_provider` appears in a config surface where it does not apply, the runtime ignores it with a warning instead of failing validation.
 - The runtime strips app-owned `codeinfo_*` metadata before passing provider config into the relevant provider SDK or harness.
@@ -68,6 +71,12 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Chat execution uses the shared repository execution-context contract for Codex, Copilot, and LM Studio.
 - Agent execution can run a Codex agent, a Copilot agent, or an LM Studio agent using the merged runtime config and the agent's selected provider.
 - Agent execution uses the same shared repository execution-context contract for Codex, Copilot, and LM Studio.
+- If an agent's selected provider is unavailable, agent execution evaluates fallback providers using a new comma-separated env var in `server/.env` named `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
+- `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` defaults to `codex,copilot` in `server/.env`.
+- `lmstudio` is a valid `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` value but is not part of the default fallback list.
+- If provider fallback runs, the model selection order is: the same model on the fallback provider when available, then the model defined in that fallback provider's chat config, then that fallback provider's default model.
+- If no configured fallback provider can execute the agent run, the run fails clearly.
+- Provider fallback emits both warning logs and warning-capable API or GUI warnings.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
 - Flow-owned agent execution uses the same shared repository execution-context contract as direct agent execution.
 - The current Codex-specific default-working-directory selection logic is removed from provider-specific execution code and replaced by the shared execution-context resolver.
@@ -127,21 +136,6 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
-1. If an agent has an invalid `codeinfo_provider`, should that agent fail clearly or quietly default to Codex?
-   - Why this is important: The story uses `codeinfo_provider` as an explicit per-agent choice, so we need one clear rule for bad values.
-   - Best Answer: It should fail clearly for that agent rather than silently defaulting to Codex. The story already keeps Codex as the default only when the field is missing, and this repo usually treats invalid explicit provider values as validation errors rather than silently changing them.
-   - Where this answer came from: Repo evidence in `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/ingest/requestContracts.ts`, `server/src/routes/ingestStart.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
-
-2. If an agent explicitly picks a provider that is unavailable, should the run fail clearly or try another provider?
-   - Why this is important: Per-agent provider selection is a core part of the story, so users need a predictable result when Copilot, Codex, or LM Studio is unavailable.
-   - Best Answer: It should fail clearly instead of silently trying a different provider. This repo already treats explicit provider selection as authoritative in MCP and server-side flows, even when fallback behavior exists for omitted defaults.
-   - Where this answer came from: Repo evidence in `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`, `server/src/config/chatDefaults.ts`, `server/src/agents/service.ts`, and `server/src/chat/factory.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
-
-3. Should Copilot and LM Studio base config files be auto-seeded like Codex, or only read if they already exist?
-   - Why this is important: The story says `copilot/config.toml` and `lmstudio/config.toml` should work in the same product-owned way as `codex/config.toml`, but the current repo only has a clear base-config bootstrap path for Codex.
-   - Best Answer: They should be auto-seeded like Codex. That is the closest match to “work in exactly the same way as the codex/config.toml file does,” and it keeps provider base-config behavior consistent instead of making Codex special.
-   - Where this answer came from: Repo evidence in `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/copilotConfig.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
-
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.
@@ -186,18 +180,42 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/agents/types.ts`, and `client/src/pages/AgentsPage.tsx`, plus local repo-precedent retrieval from `code_info` during this planning round.
    - Why it is the best answer: It matches the repo's broader warning pattern, keeps the precedence behavior diagnosable for users, and avoids forcing routine troubleshooting through server logs alone.
 
+7. Decision: if an agent has an invalid `codeinfo_provider`, that agent should fail clearly rather than defaulting silently to Codex.
+   - The question being addressed: If an agent has an invalid `codeinfo_provider`, should that agent fail clearly or quietly default to Codex?
+   - Why the question matters: `codeinfo_provider` is an explicit per-agent runtime choice, so bad values need one clear contract.
+   - What the answer is: Fail clearly for that agent. Codex remains the default only when `codeinfo_provider` is absent.
+   - Where the answer came from: Repo evidence in `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/ingest/requestContracts.ts`, `server/src/routes/ingestStart.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+   - Why it is the best answer: It matches the repo's usual handling for invalid explicit provider values and avoids silently changing an agent's declared runtime choice.
+
+8. Decision: if an agent explicitly picks a provider that is unavailable, the runtime should try a configurable fallback provider order before failing.
+   - The question being addressed: If an agent explicitly picks a provider that is unavailable, should the run fail clearly or try another provider?
+   - Why the question matters: Per-agent provider selection is a core part of the story, but users still need a predictable recovery path when a provider is temporarily unavailable.
+   - What the answer is: Use a new comma-separated env var in `server/.env` named `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, defaulting to `codex,copilot`. `lmstudio` is a valid value in that list but is not included by default. For each fallback provider, try the same model first when available, then that provider's chat-config model, then that provider's default model. If no configured fallback provider can run, fail clearly. Emit both warning logs and warning-capable GUI or API messages when fallback occurs.
+   - Where the answer came from: User direction in this planning round, plus repo evidence in `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`, `server/src/config/chatDefaults.ts`, `server/src/agents/service.ts`, and `server/src/chat/factory.ts`.
+   - Why it is the best answer: It gives operators a controlled recovery path without forcing LM Studio into the default chain, keeps the behavior adjustable through env config, and makes fallback visible to both operators and users.
+
+9. Decision: Copilot and LM Studio base config files should be auto-seeded like Codex.
+   - The question being addressed: Should Copilot and LM Studio base config files be auto-seeded like Codex, or only read if they already exist?
+   - Why the question matters: The story says `copilot/config.toml` and `lmstudio/config.toml` should work in the same product-owned way as `codex/config.toml`, so bootstrap behavior needs to match too.
+   - What the answer is: Auto-seed them like Codex.
+   - Where the answer came from: Repo evidence in `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/copilotConfig.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+   - Why it is the best answer: It is the closest match to the intended “same as Codex” behavior and keeps provider base-config treatment consistent instead of making Codex special.
+
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
 - Treat `codeinfo_config/config.toml` as an optional read-if-present layer so startup falls back cleanly when repositories have not created the file yet.
 - Promote provider selection for agents into app-owned metadata by reading `codeinfo_provider` from the agent `config.toml` before the full merge runs.
 - Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper.
+- Keep invalid `codeinfo_provider` handling strict by failing the affected agent clearly instead of silently remapping it onto Codex.
 - Keep the merged runtime contract portable by treating `codeinfo_*` keys as repository-owned metadata that is removed before provider SDK construction.
 - Extract the current Codex default-working-directory resolution logic into a shared repository execution-context helper that resolves both selected-working-folder and no-working-folder cases, then returns provider-neutral runtime metadata plus any resolved runtime working-directory override.
 - Update agent discovery, agent execution, command lookup, and flow-owned agent execution together so provider and folder selection stay consistent across all agent surfaces.
 - Use that shared repository execution-context helper in the chat route, direct agent execution, flow-owned agent execution, and `code_info` execution so provider behavior cannot drift by surface.
 - Let provider implementations consume the shared repository execution context according to their own capabilities: Codex and Copilot should use the runtime working-directory override directly, while LM Studio may initially rely on repository metadata, provider-specific tools, or later working-directory-capable wiring.
 - Add targeted proof that Copilot chat and Copilot-backed agent execution actually receive and use the selected working folder, because that is the main current product gap.
+- Add a shared provider-fallback resolver for agent execution that reads `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, applies the configured provider order, and records warning metadata whenever a fallback provider is used.
+- Reuse provider-model discovery so fallback tries the same model on the next provider first, then that provider's chat-config model, and finally that provider's default model before moving on or failing.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Resolve the new neutral agent-home env var ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.

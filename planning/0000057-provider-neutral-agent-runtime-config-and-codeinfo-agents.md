@@ -136,6 +136,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. Should provider fallback happen only for agents, or should chat use it too?
+   - Why this is important: The latest fallback requirements were added for agent runs, but some earlier wording still reads broadly enough that chat could be pulled into the same behavior by mistake.
+   - Best Answer: It should apply only to agents and flow-owned agent runs, not to normal chat. In simple terms, this keeps chat behavior stable and limits the new fallback complexity to the feature that actually needs it.
+   - Where this answer came from: Direct repo review of this story file, especially the broad runtime wording in the Description and the agent-specific fallback wording later in the same file, plus the existing separation between chat and agent surfaces in the plan.
+
+2. Should the fallback model rule be a separate recovery step, or should it change the normal agent config precedence?
+   - Why this is important: The plan currently says normal agent runtime precedence ends with the agent's own `config.toml`, but the new fallback rule also says to try the fallback provider's `chat/config.toml` model.
+   - Best Answer: It should be a separate recovery step. In simple terms, normal agent config should keep working exactly as planned, and only if the chosen provider is unavailable should the runtime look at the fallback provider's chat model as part of recovery.
+   - Where this answer came from: Direct repo review of this story file, especially the agent runtime precedence list in Acceptance Criteria and the newer fallback-model wording in the Description and Acceptance Criteria.
+
+3. If the failed provider is also listed in the fallback env var, should it be skipped or tried again?
+   - Why this is important: The default fallback order starts with `codex,copilot`, so a Codex failure could accidentally try Codex twice unless the rule is made explicit.
+   - Best Answer: It should be skipped and the runtime should move to the next provider in the list. In simple terms, once a provider has already failed for that run, retrying the same provider in the fallback loop would just waste time and make the behavior harder to understand.
+   - Where this answer came from: Direct repo review of this story file, especially the new `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` wording and the default order now recorded in the story.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

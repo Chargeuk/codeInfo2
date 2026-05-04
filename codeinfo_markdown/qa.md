@@ -11,6 +11,14 @@ Do the deep technical thinking yourself, but phrase questions for the user in pl
 The user-facing question should be short and easy to answer.
 The detailed reasoning should live under `Why this matters`, `Best Answer`, and `Where this answer came from`.
 
+Keep the workflow structured and explicit:
+
+1. Read the whole plan before proposing changes.
+2. Find the highest-value gaps or contradictions first.
+3. Ask only a small number of clear questions at a time.
+4. After each answer, apply it everywhere it belongs.
+5. Run a consistency check across the full plan before you commit.
+
 ## Question Writing Rules
 
 When writing questions for the user:
@@ -53,7 +61,7 @@ The first thing you must do is clarify which story file the user wants to improv
 2. If the user only gives a filename, or the path is incorrect, try to find the file inside the current codebase without using the `code_info` MCP tool first.
 3. If you still cannot find it, use the `code_info` MCP tool to look across related repositories.
 4. Once you have the file, read it carefully and decide whether you understand it.
-5. Look for missing requirements, missing corner cases, missing examples, unclear language, or decisions that are still ambiguous.
+5. Look for missing requirements, missing corner cases, missing examples, unclear language, inconsistencies between sections, or decisions that are still ambiguous.
 6. Prefer solving issues upstream rather than patching them downstream in multiple places. If the likely fix belongs in a library or shared repository that we control, ask the user whether they want that upstream change considered too.
 
 ## Scope And Requirement Questions
@@ -62,13 +70,17 @@ When you identify useful gaps:
 
 1. Extend the existing `## Questions` section in the document, or create one if it does not exist.
 2. Add only the most important unanswered questions. Do not flood the user with every possible edge case.
-3. For each question:
+3. Treat both of these as valid sources for questions:
+   - holes or missing requirements in the plan;
+   - inconsistencies or contradictions between sections of the plan.
+4. Before adding questions, run a quick consistency scan across the plan's major sections. At minimum, compare `## Questions`, `## Decisions`, description, acceptance criteria, out of scope, implementation ideas, examples, and task sections if they exist.
+5. For each question:
    - add a `Why this is important` bullet;
    - search with the `code_info` MCP tool first for local or related-repo precedent;
    - then search with DeepWiki, Context7, and web search for supporting evidence;
    - add a `Best Answer` bullet that prioritizes local repo evidence over external evidence;
    - add a `Where this answer came from` bullet that names the main sources.
-4. Commit the question changes.
+6. Commit the question changes.
 
 After that:
 
@@ -89,9 +101,12 @@ For each answer that the user provides:
    - What the answer is
    - Where the answer came from
    - Why it is the best answer
-4. Update all other relevant sections of the plan based on the answer, including description, acceptance criteria, out of scope, implementation ideas, and any examples that need changing.
-5. Remove answered questions from `## Questions`, but never remove the `## Questions` heading itself.
-6. Commit the change.
+4. Apply the answer to every relevant section of the plan, not just the `## Decisions` section. This includes description, acceptance criteria, out of scope, implementation ideas, examples, task sections, and any other place where the old or incomplete wording still appears.
+5. After applying the answer, run a full consistency check across the plan. Look for stale wording, contradictions, missing follow-on updates, or examples that no longer match the latest decision.
+6. If the consistency check finds text that should clearly be updated based on the answer, update it before committing.
+7. If the consistency check reveals a new unresolved decision, do not guess. Add it to `## Questions` in a later question round instead of leaving the contradiction in place.
+8. Remove answered questions from `## Questions`, but never remove the `## Questions` heading itself.
+9. Commit the change.
 
 ## Completion
 

@@ -131,6 +131,12 @@ Use this document for API contracts, protocol details, and advanced runtime beha
   - MCP v2 JSON-RPC server on `CODEINFO_CHAT_MCP_PORT` (tooling: `codebase_question`, `reingest_repository`, documented under **MCP v2 tools** below).
     Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
 - Retrieval boundary: treat `codebase_question` / `code_info` as a repository-search helper for repository facts, likely file locations, summaries of existing implementations, and current contracts. After retrieval, inspect the relevant source files directly and do your own reasoning; the tool reduces search cost, but it does not replace implementation design, risk assessment, or review by the working model.
+- Caller guidance for `codebase_question`: for normal use, send `question` and optionally `conversationId` for follow-up turns.
+- Use `provider` only when the user explicitly asked for a provider-specific run.
+- Use `model` only when the user explicitly asked for a model-specific run.
+- When `provider` and `model` are omitted, the server resolves them through the shared default-selection contract.
+- When `provider` is provided and `model` is omitted, the server resolves that provider's default model.
+- If an explicit `model` does not fit the chosen or resolved provider, the server does not silently switch providers; execution may fail if the selected provider rejects that model.
 - Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
 - Required methods: `initialize` → `tools/list` → `tools/call`.
 - Quick smoke (host):

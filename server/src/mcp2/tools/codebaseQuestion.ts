@@ -846,12 +846,12 @@ export function codebaseQuestionDefinition() {
           type: 'string',
           enum: ['codex', 'copilot', 'lmstudio'],
           description:
-            'Optional chat provider to use; defaults to codex when omitted.',
+            'Optional explicit provider override. Omit this unless the user specifically asked for a provider-specific run. When omitted, provider selection follows the normal shared server default-resolution contract.',
         },
         model: {
           type: 'string',
           description:
-            "Optional model id for the selected provider. For codex and Copilot, defaults come from that provider's chat/config.toml. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.",
+            'Optional explicit model override. Omit this unless the user specifically asked for a model-specific run. When omitted, model resolution follows the normal shared server default-resolution contract for the selected or resolved provider.',
         },
       },
     },

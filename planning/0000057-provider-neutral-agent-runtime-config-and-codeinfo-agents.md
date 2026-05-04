@@ -418,6 +418,10 @@ This story also changes stateful behavior for selected agents and resumed conver
 ## Message Contracts And Storage Shapes
 
 - Preserve the discovered-agent payload shape from `server/src/agents/types.ts` and `GET /agents`: `{ name, description?, disabled?, warnings? }`.
+- Preserve the current list-route producer and consumer split:
+  - producer: `server/src/routes/agents.ts` and `server/src/routes/flows.ts`
+  - consumers: `client/src/api/agents.ts`, `client/src/api/flows.ts`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx`
+  - Story 57 may add selected-item detail routes or richer warning payloads, but it must not silently break the current list payload contracts that already feed those client surfaces.
 - Preserve the started-run response shapes while adding provider-neutral behavior behind them:
   - agent runs: `{ status, agentName, conversationId, inflightId, modelId }`
   - flow runs: `{ status, flowName, conversationId, inflightId, modelId }`
@@ -430,6 +434,36 @@ This story also changes stateful behavior for selected agents and resumed conver
 - Preserve the canonical conversation storage shape in `server/src/mongo/conversation.ts`: `_id`, `provider`, `model`, `title`, `agentName?`, `flowName?`, `source`, `flags`, `lastMessageAt`, and `archivedAt`.
 - Extend `Conversation.flags` for provider-neutral continuation and runtime metadata rather than inventing a second persistence table unless later repository evidence proves the current mixed-shape approach cannot support the story safely.
 - Keep `flags.threadId`, `flags.workingFolder`, and existing flow resume metadata compatible with current conversation reads and writes in chat, agents, flows, and `code_info`.
+- Preserve the current producer and consumer ownership for persisted execution identity:
+  - producers: `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/routes/chat.ts`, and `server/src/mongo/repo.ts`
+  - consumers: `server/src/routes/conversations.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useChatStream.ts`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`, and `client/src/pages/ChatPage.tsx`
+  - Story 57 must keep both sides aligned whenever `provider`, `model`, `agentName`, `flowName`, or warning metadata changes meaning.
+
+## Environment And Config Domain Constraints
+
+- `codeinfo_provider` is an application-owned agent-config metadata field, not provider SDK input:
+  - valid trimmed values: `codex`, `copilot`, `lmstudio`
+  - blank or whitespace-only value: treat as unset, then default the agent to `codex`
+  - invalid non-blank value: preserve for warning evaluation, do not silently rewrite, and enter the same fallback-availability evaluation used for provider-unavailable runs
+- `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` is a comma-separated application-owned env input:
+  - valid normalized values: ordered unique subset of `codex`, `copilot`, `lmstudio`
+  - blank entries: dropped
+  - unknown entries: ignored with warnings
+  - duplicates: removed while preserving first surviving order
+  - effective lower bound after normalization: `0` usable configured providers
+  - effective upper bound after normalization: `3` usable configured providers, because only the three supported provider ids may survive
+  - if normalization leaves `0` usable configured providers: fall back to the default ordered pair `codex,copilot`
+  - if the originally failed provider appears in the normalized fallback list: skip it rather than retrying it
+- `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME` are env-string inputs and must be normalized the same way:
+  - values arrive as strings from `process.env` and must be trimmed in application code
+  - blank or whitespace-only values count as unset
+  - when both are set with usable values, `CODEINFO_AGENT_HOME` wins and the legacy alias is fallback-only
+- `working_folder` remains a request-time path contract, not a free-form label:
+  - input must be a non-empty string that resolves to an absolute path
+  - validation and host-to-container mapping continue through `server/src/workingFolders/state.ts` and `server/src/ingest/pathMap.ts`
+  - invalid or missing mounted targets must continue to fail through the existing `WORKING_FOLDER_*` codes rather than degrading into unrelated process cwd fallback
+- Copilot runtime config for this story must stay within the repo-facing reasoning-effort contract already exposed by `server/src/chat/agentFlags.ts` and `server/src/chat/providerRuntimeFlags.ts`: `low | medium | high`
+- LM Studio runtime config for this story should treat the documented `temperature` domain as `0..1` and continue using application-owned repository metadata or tools rather than assuming a direct provider `workingDirectory` field exists on normal model calls
 
 ## Lifecycle And State Ownership
 
@@ -441,6 +475,44 @@ This story also changes stateful behavior for selected agents and resumed conver
 - Existing run-lock, inflight, cancel, and completion ownership stays with the current conversation and run lifecycle. Provider fallback or same-provider model repair must happen inside that existing run attempt rather than by silently creating a second visible conversation or a second lock owner.
 - Cancel, retry, and crash-recovery behavior stay inside the existing run lifecycle: cancelling during fallback or model repair cancels the same inflight run, retry starts a new run through the normal acquire path, and crash or teardown continues to rely on the repo's existing lock-release and inflight-cleanup ownership instead of adding a second cleanup mechanism for this story.
 - This story does not add a new cleanup worker, stale-conversation migration, or automatic deletion path. Existing conversation cleanup, archival, and lock-release behavior stays in the current repository-owned paths unless later implementation evidence proves one of those paths must be extended.
+
+## Risk And Invariant Matrix
+
+- Runtime bootstrap writer and runtime config reader:
+  - invariant: managed provider config bootstrap must remain atomic enough that runtime readers see either the previous readable file or the next readable file, never a half-written artifact
+  - likely contradictory state: startup begins writing `copilot/config.toml` or `lmstudio/config.toml` while a runtime resolver reads the same file
+  - proof status: direct
+  - future task home: Task 1
+- Agent-root resolution and duplicate-folder precedence:
+  - invariant: discovery, direct command lookup, flow-owned lookup, and working-folder root fallback must all resolve the same winning agent root and the same duplicate-warning metadata
+  - likely contradictory state: `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME` disagree, or `codeinfo_agents/<agent>` and `codex_agents/<agent>` both exist and different call paths pick different winners
+  - proof status: direct
+  - future task home: Task 2 and Task 6
+- Shared repository execution context:
+  - invariant: chat, direct agents, flow-owned agents, and `code_info` must resolve the same effective repository identity and working-directory override from the same selected or saved `working_folder`
+  - likely contradictory state: one path maps host-to-container workdir through `server/src/ingest/pathMap.ts` while another falls back to process cwd or an unrelated local default
+  - proof status: direct
+  - future task home: Task 3
+- Availability evaluation versus run-time fallback:
+  - invariant: invalid-provider warnings, same-provider model repair, and cross-provider fallback must classify the same input state the same way before run start and at run start
+  - likely contradictory state: selected-agent details mark an agent runnable through fallback, but the execution path either retries the failed provider or skips same-provider model repair and falls straight into cross-provider fallback
+  - proof status: direct
+  - future task home: Task 4 and Task 5
+- Persisted execution identity:
+  - invariant: once a successful first execution establishes the real provider, model, and `agentName`, later turns must keep using that stored identity until the conversation fails or ends
+  - likely contradictory state: a placeholder pre-fallback provider-model pair is written before fallback completes, or a resumed request carries a different selected agent and silently overrides the stored conversation identity
+  - proof status: direct
+  - future task home: Task 5 and Task 6
+- Client selection state versus resumed conversation state:
+  - invariant: resumed conversations stay pinned to stored execution identity, while fresh runs reevaluate current agent config and disabled state without leaking stale hidden selection state
+  - likely contradictory state: the user opens an existing conversation, changes the selected agent, then sends again and the UI submits the current dropdown identity instead of the stored conversation identity
+  - proof status: direct
+  - future task home: Task 7
+- Auth seeding and ignored artifacts:
+  - invariant: compatibility auth seeding remains non-destructive and generated auth or proof artifacts stay out of tracked source and out of Docker build context where the repo already expects that protection
+  - likely contradictory state: new `codeinfo_agents/**/auth.json` or `codeinfo_config/` files become visible to git or Docker after the neutral-root migration
+  - proof status: indirect through ignore and compose contract checks
+  - future task home: Task 1, Task 2, and Task 8
 
 ## Log Or Proof Markers
 
@@ -460,6 +532,15 @@ This story also changes stateful behavior for selected agents and resumed conver
 - `docker-compose.local.yml` should be reserved for cases that honestly need its extra source bind mounts or Docker-socket behavior, and `docker-compose.e2e.yml` should remain the browser-automation stack rather than the main mounted working-repository proof stack.
 - Any fallback-provider simulation, alternate auth state, duplicate-agent fixture, or seeded runtime state should live in test-only fixtures, compose wiring, or harness configuration rather than shipped production behavior.
 - Deterministic continuation and fallback proof should assert ordering through observable boundaries such as the started-run response, streamed transcript, persisted conversation metadata, and stable conversation id rather than fixed sleeps or absence-only checks.
+- The later implementation and proof passes must keep inspecting these unchanged control files honestly rather than assuming their behavior from story prose alone:
+  - `server/.env`
+  - `docker-compose.yml`
+  - `docker-compose.local.yml`
+  - `docker-compose.e2e.yml`
+  - `scripts/docker-compose-with-env.sh`
+  - `server/src/ingest/pathMap.ts`
+  - `server/src/chat/agentFlags.ts`
+  - `server/src/mongo/repo.ts`
 
 ## Edge Cases And Failure Modes
 
@@ -529,3 +610,470 @@ This story also changes stateful behavior for selected agents and resumed conver
   - Prove provider-local model repair separately from cross-provider fallback, including normalized fallback-order handling, warning output, and actual executed provider-model persistence.
 - Established-conversation continuation proof seam:
   - Prove later turns reuse the stored execution pair, keep config changes scoped to new conversations, and fail clearly inside the same conversation when the saved provider, model, or agent name no longer runs.
+
+# Tasks
+
+### Task 1. Replace the runtime-config bootstrap contract with provider-neutral repo-local layering
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task replaces the remaining Codex-shaped runtime-config foundation with the provider-neutral layering contract required by Story 57. It must land first because every later task depends on the same merge order, the same startup bootstrap ownership, and the same app-owned metadata handling for agent provider selection.
+
+#### Task Exit Criteria
+
+- Agent and chat runtime resolution uses the story-owned precedence order `codeinfo_config/config.toml` -> `<provider>/config.toml` -> `<provider>/chat/config.toml` or `<agent>/config.toml`, while keeping missing `codeinfo_config/config.toml` non-fatal and non-writing.
+- The runtime recognizes app-owned `codeinfo_*` metadata, defaults blank or missing `codeinfo_provider` to `codex`, warns when `codeinfo_provider` appears on a non-agent surface, strips app-owned metadata before provider SDK or harness execution, and bootstraps `copilot/config.toml` plus `lmstudio/config.toml` during normal startup.
+
+#### Documentation Locations
+
+- `https://toml.io/en/v1.0.0` - use for the TOML table versus scalar shape rules that the story-owned merge contract must interpret consistently across repo-local, provider-base, chat, and agent config files.
+- `Context7 /nodejs/node/v22.17.0` - use for the fact that Node environment values arrive as strings and must be trimmed and parsed by the application when normalizing `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` and related startup env inputs.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Description`, `Acceptance Criteria`, `Decisions`, `Lifecycle And State Ownership`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then inspect `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, `server/src/config/copilotConfig.ts`, `server/src/config/startupEnv.ts`, `server/src/chat/agentFlags.ts`, `server/src/routes/conversations.ts`, `server/src/index.ts`, `server/.env`, `.gitignore`, and `.dockerignore`. Purpose: anchor the Task 1 implementation to the exact live runtime-config bootstrap, provider-flag sanitization, env-loading, and ignore-rule seams before changing any code.
+2. [ ] In `server/src/config/runtimeConfig.ts`, add the optional repo-local base-config input at `codeinfo_config/config.toml` and keep it read-only, optional, and repository-relative. Purpose: make the new lowest-precedence layer exist without creating or renaming repository-local files.
+3. [ ] In `server/src/config/runtimeConfig.ts`, extract or add one shared merge helper that applies Story 57's exact override semantics for scalars, arrays, and named tables. Purpose: keep chat and agent runtime resolution on one merge engine instead of two drifting code paths.
+4. [ ] In `server/src/agents/config.ts`, parse `codeinfo_provider` as application-owned agent metadata before provider-runtime construction. Purpose: separate agent provider selection from provider SDK config and make blank or missing values default to `codex`.
+5. [ ] In `server/src/config/runtimeConfig.ts`, strip `codeinfo_*` metadata keys before provider runtime config leaves the resolver and preserve invalid non-blank `codeinfo_provider` values for later warning evaluation instead of silently rewriting them. Purpose: keep provider SDK input clean while still surfacing operator mistakes honestly.
+6. [ ] In `server/src/chat/agentFlags.ts` and `server/src/routes/conversations.ts`, keep persisted conversation flags compatible with the new app-owned metadata rules so provider-owned execution paths never receive leaked `codeinfo_*` keys. Purpose: preserve the producer-consumer contract between persistence and runtime execution.
+7. [ ] In `server/src/config/codexConfig.ts` and `server/src/config/copilotConfig.ts`, add or extend the startup-owned provider base-config bootstrap so `copilot/config.toml` and `lmstudio/config.toml` are created through the same product-owned path as the existing Codex base config. Purpose: make the provider-neutral contract reachable from the default startup path.
+8. [ ] In `server/src/index.ts` and `server/src/config/startupEnv.ts`, wire the new provider bootstrap and `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` startup parsing into the normal application startup flow. Purpose: keep missing repo-local config non-fatal while giving the new env input one shared normalization path.
+9. [ ] In `server/.env`, add the tracked default `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER=codex,copilot` and keep blank input non-fatal by design. Purpose: publish the story-owned default env contract in the checked-in server env surface.
+10. [ ] In `.gitignore` and `.dockerignore`, add or preserve ignore rules for `codeinfo_config/` and provider-managed runtime artifacts. Purpose: keep repository-owned config layers and generated runtime files out of git and Docker build contexts.
+11. [ ] In `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml`, keep the repo-local config layer and provider-managed runtime artifacts mounted or excluded the same way the supported runtime paths already handle the existing config surfaces. Purpose: keep the new config layer reachable without widening Docker build input unexpectedly.
+12. [ ] In `scripts/docker-compose-with-env.sh`, preserve the env-file and compose-wrapper behavior needed for the new `codeinfo_config/` layer and provider bootstrap artifacts. Purpose: keep the wrapper-owned startup contract aligned with the compose files instead of creating a shell-only exception.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove `server/src/config/runtimeConfig.ts` treats `codeinfo_config/config.toml` as the optional lowest-precedence layer and keeps a missing file path non-fatal and non-writing. Purpose: give the new repo-local layer an explicit proof home instead of relying on adjacent merge tests.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove `server/src/config/runtimeConfig.ts` applies the documented precedence order across repo-local, provider-base, chat, and agent config inputs. Purpose: make the core runtime layering contract reviewable as its own invariant.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/runtimeConfig.test.ts`. Description: prove `server/src/config/runtimeConfig.ts` strips `codeinfo_*` metadata before provider-facing runtime config leaves the resolver. Purpose: keep app-owned metadata sanitization explicit at the resolver boundary.
+16. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove `server/src/agents/config.ts` defaults a missing `codeinfo_provider` to `codex`. Purpose: give the legacy-agent compatibility path its own direct proof home.
+17. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove `server/src/agents/config.ts` defaults a blank `codeinfo_provider` value to `codex`. Purpose: keep blank-input parsing distinct from the missing-field path.
+18. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove `server/src/agents/config.ts` defaults a whitespace-only `codeinfo_provider` value to `codex`. Purpose: make whitespace normalization explicit instead of implied by the blank-input case.
+19. [ ] Test type: server unit. Location: `server/src/test/unit/agents-config-defaults.test.ts`. Description: prove `server/src/config/runtimeConfig.ts` preserves invalid non-blank `codeinfo_provider` values for later warning evaluation instead of silently rewriting them. Purpose: keep the stale-versus-live warning path separate from defaulting behavior.
+20. [ ] Test type: server unit. Location: `server/src/test/unit/copilotConfig.test.ts`. Description: prove `server/src/config/codexConfig.ts` and `server/src/config/copilotConfig.ts` bootstrap `copilot/config.toml` through the same startup-owned path as the existing Codex base config. Purpose: give the Copilot bootstrap path its own explicit proof home.
+21. [ ] Test type: server unit. Location: `server/src/test/unit/copilotConfig.test.ts`. Description: prove `server/src/config/codexConfig.ts` and `server/src/config/copilotConfig.ts` bootstrap `lmstudio/config.toml` through the same startup-owned path as the existing Codex base config. Purpose: give the LM Studio bootstrap path its own explicit proof home.
+22. [ ] Test type: server unit. Location: `server/src/test/unit/copilotConfig.test.ts`. Description: prove a failed provider-base bootstrap does not leave a partial `copilot/config.toml` or `lmstudio/config.toml` behind, and that a later clean startup retry can seed the file successfully. Purpose: make partial-state cleanup ownership explicit for the startup-seeded config artifacts.
+23. [ ] Test type: server unit. Location: `server/src/test/unit/env-loading.test.ts`. Description: prove `server/src/config/startupEnv.ts` keeps blank `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` input non-fatal and falls back to the checked-in default contract from `server/.env`. Purpose: keep blank env handling explicit at the startup parser seam.
+24. [ ] Test type: server unit. Location: `server/src/test/unit/env-loading.test.ts`. Description: prove `server/src/config/startupEnv.ts` trims and accepts whitespace-padded `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` entries without changing the intended provider order. Purpose: cover whitespace normalization separately from the blank-input path.
+25. [ ] Test type: server unit. Location: `server/src/test/unit/copilot-compose-contract.test.ts`. Description: prove `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `.dockerignore`, and `scripts/docker-compose-with-env.sh` keep the repo-local config layer reachable from the default compose-owned path. Purpose: make launcher reachability explicit before wrapper-based validation.
+26. [ ] Test type: server integration. Location: `server/src/test/integration/conversations.create.test.ts`. Description: prove `server/src/chat/agentFlags.ts` and `server/src/routes/conversations.ts` keep persisted conversation flags compatible with the new metadata rules and do not leak app-owned keys into provider execution payloads. Purpose: keep the reader-writer contract between persistence and runtime execution explicit.
+27. [ ] Run `npm run lint` for the Task 1 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+28. [ ] Run `npm run format:check` for the Task 1 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because Task 1 changes startup bootstrap, env contracts, and ignore rules that must still build cleanly through the repository’s supported Docker path. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 1 changes the shared server runtime-config foundation and bootstrap-owned startup code. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 1 proof homes are server unit and integration tests around runtime config, startup env parsing, and bootstrap ownership. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the normal server feature surface still survives the bootstrap and config-layering change. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+5. [ ] Run `npm run lint` for the final Task 1 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for the final Task 1 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+### Task 2. Introduce the neutral agent-home and `codeinfo_agents` precedence helper
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `codex_agents` assumptions with one neutral resolver shared by discovery, flow lookup, and cross-repository command loading. It must land before warning surfaces or provider-neutral execution can be trusted, because every later task depends on the same folder precedence and env-alias behavior.
+
+#### Task Exit Criteria
+
+- `CODEINFO_AGENT_HOME` is the published neutral agent-home env contract, blank env inputs count as unset, `CODEINFO_CODEX_AGENT_HOME` remains only a legacy fallback alias, and the normal startup plus compose-owned paths still reach the active agent home without one-off edits.
+- `codeinfo_agents` always wins over `codex_agents` for local discovery and cross-repository lookup, duplicate legacy copies emit warning metadata instead of being silently shadowed, and the same helper is reused everywhere agent files are discovered or resolved.
+
+#### Documentation Locations
+
+- `https://docs.docker.com/engine/storage/bind-mounts/` - use for the compose and mounted-runtime contract when republishing the neutral agent-home env and keeping the host-visible agent folder inputs honest.
+- `Context7 /nodejs/node/v22.17.0` - use for path normalization and env-string trimming behavior in the shared agent-home resolver.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Additional Repositories`, `Story Manual Testing Guidance`, `Edge Cases And Failure Modes`, and `Implementation Ideas`, then inspect `server/src/agents/discovery.ts`, `server/src/agents/service.ts`, `server/src/agents/authSeed.ts`, `server/src/flows/discovery.ts`, `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, `server/src/workingFolders/state.ts`, `server/.env`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `.gitignore`, and `.dockerignore`. Purpose: anchor Task 2 on the exact live places that still hardcode `CODEINFO_CODEX_AGENT_HOME` or `codex_agents`, plus the current auth-seeding side effects that must stay non-destructive after the neutral-root migration.
+2. [ ] In `server/src/agents/roots.ts`, add the shared env-normalization helper for `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME`, including blank-input handling and precedence where the new name wins. Purpose: centralize the new agent-home env contract in one reusable module.
+3. [ ] In `server/src/agents/roots.ts`, add the folder-precedence helper that resolves `codeinfo_agents` ahead of `codex_agents` and returns duplicate-warning metadata when the same agent exists in both roots. Purpose: make folder precedence deterministic before discovery or command lookup uses it.
+4. [ ] Update `server/src/agents/discovery.ts` to consume the new shared helper for local discovery and selected-agent warning metadata. Purpose: keep the discovered-agent payload truthful about the winning root and any ignored legacy duplicate.
+5. [ ] Update `server/src/agents/service.ts` to consume the shared helper for direct agent lookup and cross-repository command resolution. Purpose: stop direct agent execution from drifting away from discovery on root precedence or env alias behavior.
+6. [ ] Update `server/src/flows/discovery.ts`, `server/src/flows/service.ts`, and `server/src/flows/markdownFileResolver.ts` to consume the same helper for flow-owned lookup and cross-repository resolution. Purpose: keep flows on the same folder-precedence rules as direct agents.
+7. [ ] Update `server/src/workingFolders/state.ts` to stop deriving the local repository fallback root from `CODEINFO_CODEX_AGENT_HOME` directly. Purpose: make working-folder root detection follow the same neutral agent-home resolver as the rest of the story.
+8. [ ] Update `server/.env`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` so `CODEINFO_AGENT_HOME` becomes the published runtime contract and the legacy alias stays fallback-only. Purpose: make the new env contract reachable through the default runtime and compose paths.
+9. [ ] Update `.gitignore` and `.dockerignore` so `codeinfo_agents/**/auth.json` and agent-session scratch stay ignored the same way the legacy folder artifacts already are. Purpose: preserve secret and scratch-file hygiene after the folder-name migration.
+10. [ ] Keep `server/src/agents/authSeed.ts` non-destructive while the new root and folder precedence are introduced. Purpose: prevent the compatibility migration from adding delete, rename, or overwrite-only behavior for legacy agent homes.
+11. [ ] Test type: server unit. Location: `server/src/test/unit/agents-discovery.test.ts`. Description: prove `server/src/agents/roots.ts` treats a blank `CODEINFO_AGENT_HOME` input as unset. Purpose: give the published env contract a separate blank-input proof home.
+12. [ ] Test type: server unit. Location: `server/src/test/unit/agents-discovery.test.ts`. Description: prove `server/src/agents/roots.ts` treats a blank `CODEINFO_CODEX_AGENT_HOME` input as unset. Purpose: keep legacy-alias blank handling distinct from the preferred env path.
+13. [ ] Test type: server unit. Location: `server/src/test/unit/agents-discovery.test.ts`. Description: prove `server/src/agents/roots.ts` gives `CODEINFO_AGENT_HOME` precedence when both env vars are present. Purpose: make the preferred-versus-legacy alias rule reviewable as its own invariant.
+14. [ ] Test type: server unit. Location: `server/src/test/unit/agents-discovery.test.ts`. Description: prove `server/src/agents/roots.ts` prefers `codeinfo_agents` over `codex_agents` when both folder names are present. Purpose: give folder precedence its own proof home instead of hiding it inside duplicate-warning coverage.
+15. [ ] Test type: server unit. Location: `server/src/test/unit/agents-discovery.test.ts`. Description: prove `server/src/agents/roots.ts` emits duplicate-warning metadata when both roots contain the same agent while still reporting the winning root truthfully. Purpose: keep the mixed-state duplicate path explicit.
+16. [ ] Test type: server unit. Location: `server/src/test/unit/agent-commands-loader.test.ts`. Description: prove `server/src/agents/service.ts` and `server/src/agents/roots.ts` resolve cross-repository command assets from the same winning root that local discovery reports. Purpose: prove direct command lookup parity at the owning service seam.
+17. [ ] Test type: server unit. Location: `server/src/test/unit/markdown-file-resolver.test.ts`. Description: prove `server/src/flows/markdownFileResolver.ts` follows the same `codeinfo_agents` versus `codex_agents` precedence when a flow-owned markdown reference crosses repository boundaries. Purpose: prove flow-owned file resolution parity at the markdown resolver seam.
+18. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.command.test.ts`. Description: prove `server/src/flows/service.ts` executes flow-owned commands against the same winning root selected by `server/src/agents/roots.ts`, even when legacy duplicates still exist. Purpose: prove end-to-end flow command lookup parity on the runtime path.
+19. [ ] Test type: server integration. Location: `server/src/test/integration/flows.list.test.ts`. Description: prove `server/src/flows/discovery.ts` surfaces flow-owned lookup results using the same winning-root contract as local agent discovery. Purpose: prove the non-run flow consumer stayed aligned with the shared root helper.
+20. [ ] Test type: server integration. Location: `server/src/test/integration/flows.list.test.ts`. Description: prove `server/src/flows/discovery.ts` surfaces duplicate warnings for flow-owned lookup when legacy and neutral roots both contain the same agent. Purpose: keep the mixed-state duplicate-warning path explicit on the flow consumer.
+21. [ ] Test type: server unit. Location: `server/src/test/unit/agents-authSeed.test.ts`. Description: prove `server/src/agents/authSeed.ts` keeps auth propagation non-destructive and does not delete, rename, or overwrite legacy agent-home state during the neutral-root migration. Purpose: prove the migration side-effect ordering at the auth seed seam.
+22. [ ] Test type: server unit. Location: `server/src/test/unit/copilot-compose-contract.test.ts`. Description: prove `server/.env`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` expose `CODEINFO_AGENT_HOME` as the published runtime contract. Purpose: prove default launcher reachability for the new env contract.
+23. [ ] Test type: server unit. Location: `server/src/test/unit/copilot-compose-contract.test.ts`. Description: prove `server/.env`, `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` keep `CODEINFO_CODEX_AGENT_HOME` available only as a fallback alias. Purpose: keep the legacy-alias runtime contract explicit.
+24. [ ] Run `npm run lint` for the Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+25. [ ] Run `npm run format:check` for the Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because Task 2 changes the tracked compose env contract, ignore rules, and mounted agent-home assumptions. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 2 changes shared server discovery and repository-root lookup helpers. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 2 proof homes are server unit and integration tests around discovery, lookup, and compose contract seams. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level flow and command surfaces still pass after the folder-precedence migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+5. [ ] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+6. [ ] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+### Task 3. Resolve one shared repository execution context for chat and `code_info`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task pulls the repository-selection and working-directory logic into one provider-neutral execution-context helper and wires chat plus `code_info` to it first. It is the safest way to remove the current Codex-only cwd assumptions without mixing that change into the later agent fallback and conversation-pinning work.
+
+#### Task Exit Criteria
+
+- Chat and `code_info` both receive one shared provider-neutral execution payload that includes the selected repository path when available, a stable default repository root when no `working_folder` was selected, and a provider-facing `workingDirectoryOverride` only where the provider supports it directly.
+- The shared helper preserves the existing `working_folder` error codes and path-mapping behavior, removes provider-specific cwd re-derivation, and keeps omitted-provider `code_info` requests repository-grounded instead of falling back to an unrelated process cwd.
+
+#### Documentation Locations
+
+- `Context7 /nodejs/node/v22.17.0` - use for env and path normalization expectations when one helper maps selected repositories into provider-facing runtime values.
+- `Context7 /github/copilot-sdk` - use for the Copilot session/runtime fields that accept working-directory, tool, and runtime configuration in the existing Node SDK.
+- `Context7 /lmstudio-ai/lmstudio-js` - use to confirm LM Studio should receive repository context only through supported runtime options or provider-specific tools rather than through a Codex-style cwd contract.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Message Contracts And Storage Shapes`, `Lifecycle And State Ownership`, `Edge Cases And Failure Modes`, and `Implementation Ideas`, then inspect `server/src/workingFolders/state.ts`, `server/src/ingest/pathMap.ts`, `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/factory.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, and `scripts/docker-compose-with-env.sh`. Purpose: anchor Task 3 on the exact live chat and `code_info` seams that still resolve repository context independently, plus the real host-to-container mount rules that govern `working_folder` mapping.
+2. [ ] In `server/src/workingFolders/executionContext.ts`, add the shared execution-context helper and its return type for selected repository path, default execution root, provider-neutral repository metadata, and optional provider-facing `workingDirectoryOverride`. Purpose: create one reusable source of truth for repository execution context.
+3. [ ] In `server/src/workingFolders/executionContext.ts`, reuse the existing `server/src/ingest/pathMap.ts` contract and current Codex default-root precedence instead of inventing a second host-to-container mapper or a second cwd fallback policy. Purpose: keep working-folder path behavior consistent with the existing mounted-runtime logic.
+4. [ ] Update `server/src/routes/chat.ts`, `server/src/chat/factory.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, and `server/src/chat/interfaces/ChatInterfaceCopilot.ts` so chat uses the shared execution context and forwards `workingDirectoryOverride` only through the provider paths that already support it. Purpose: move chat off provider-specific cwd re-derivation without changing chat-only provider selection rules.
+5. [ ] Update `server/src/mcp2/tools/codebaseQuestion.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` so omitted-provider and explicit-provider `code_info` execution both receive the same shared repository context, even when LM Studio consumes it through repository metadata or tools rather than a direct cwd field. Purpose: keep `code_info` repository-grounded across providers.
+6. [ ] Update `server/src/workingFolders/state.ts` and any adjacent caller touched by Task 3 so the new shared helper preserves `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`, `WORKING_FOLDER_UNAVAILABLE`, and `WORKING_FOLDER_REPOSITORY_UNAVAILABLE` while still producing the same mapped host-to-workdir result the current Codex path already uses. Purpose: keep existing validation and error mapping stable while the execution-context helper is introduced.
+7. [ ] Test type: server unit. Location: `server/src/test/unit/agents-working-folder.test.ts`. Description: prove `server/src/workingFolders/executionContext.ts` and `server/src/workingFolders/state.ts` preserve mapped-path handling for mounted repositories. Purpose: give the mounted-path translation seam an explicit proof home.
+8. [ ] Test type: server unit. Location: `server/src/test/unit/agents-working-folder.test.ts`. Description: prove `server/src/workingFolders/executionContext.ts` and `server/src/workingFolders/state.ts` preserve literal-path handling when a mapped host path is not required. Purpose: keep literal-path behavior separate from mounted-path translation.
+9. [ ] Test type: server unit. Location: `server/src/test/unit/agents-working-folder.test.ts`. Description: prove `server/src/workingFolders/executionContext.ts` and `server/src/workingFolders/state.ts` avoid falling back to an unrelated process cwd when no mounted path exists. Purpose: make the default-root boundary explicit instead of implied by path-shape coverage.
+10. [ ] Test type: server unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`. Description: prove `server/src/mcp2/tools/codebaseQuestion.ts` and `server/src/workingFolders/executionContext.ts` give omitted-provider `code_info` calls the same selected-repository metadata that chat uses. Purpose: prove producer-consumer consistency on the happy path.
+11. [ ] Test type: server unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`. Description: prove `server/src/mcp2/tools/codebaseQuestion.ts` and `server/src/workingFolders/executionContext.ts` give omitted-provider `code_info` calls the same default execution root that chat uses when no `working_folder` is selected. Purpose: keep default-root behavior separate from selected-repository metadata propagation.
+12. [ ] Test type: server unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`. Description: prove `server/src/mcp2/tools/codebaseQuestion.ts` preserves repository-grounded execution context when the selected repository state becomes unavailable. Purpose: cover stale-versus-live repository-state handling explicitly.
+13. [ ] Test type: server unit. Location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`. Description: prove `server/src/mcp2/tools/codebaseQuestion.ts` preserves the documented working-folder error mapping when working-folder state becomes unavailable. Purpose: keep error-code compatibility separate from repository-grounding behavior.
+14. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`. Description: prove explicit-provider websocket `code_info` runs consume the shared repository execution context even when the downstream provider uses different runtime fields. Purpose: prove propagation across the real streaming path for the explicit-provider branch.
+15. [ ] Test type: server integration. Location: `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`. Description: prove omitted-provider websocket `code_info` runs consume the same shared repository execution context as explicit-provider runs. Purpose: prove propagation across the real streaming path for the default-provider branch.
+16. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.working-folder.test.ts`. Description: prove `server/src/workingFolders/executionContext.ts` preserves mounted-runtime mapping when higher-level flow execution reaches the same seam. Purpose: keep flow-level mapping proof separate from chat and MCP proof.
+17. [ ] Test type: server integration. Location: `server/src/test/integration/flows.run.working-folder.test.ts`. Description: prove `server/src/workingFolders/executionContext.ts` preserves the documented working-folder error behavior when higher-level flow execution reaches the same seam. Purpose: keep flow-level error compatibility explicit.
+18. [ ] Run `npm run lint` for the Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+19. [ ] Run `npm run format:check` for the Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 3 changes shared chat, working-folder, and MCP runtime plumbing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after the shared execution-context migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+### Task 4. Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task creates the non-run warning and disabled-state contract that later execution and UI tasks will rely on. It keeps invalid `codeinfo_provider` warnings off the initial agent list until the user opens the selected agent, while still surfacing duplicate-folder and disabled-state information through the existing list and popover surfaces.
+
+#### Task Exit Criteria
+
+- The server can evaluate agent-selected provider availability, duplicate-folder warnings, normalized fallback candidates, and disabled reasons without starting a run, and the selected-agent details surface exposes invalid-provider warnings when the user opens that agent.
+- Flow info surfaces reuse the same warning data where a matching flow-owned details surface already exists, while the initial agent list remains stable and does not need to eagerly show the invalid-provider warning that the story wants to reveal on open.
+
+#### Documentation Locations
+
+- `Context7 /nodejs/node/v22.17.0` - use for the app-owned parsing of the comma-separated fallback-order env and path normalization performed by the availability evaluator.
+- `Context7 /github/copilot-sdk` - use for Copilot readiness and session expectations when an agent-selected provider or model cannot execute and the story keeps the actual executed pair visible instead of silently defaulting back to Codex.
+- `Context7 /lmstudio-ai/lmstudio-js` - use for LM Studio model option constraints when availability evaluation distinguishes same-provider model repair from cross-provider fallback.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Story Manual Testing Guidance`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then inspect `server/src/routes/agents.ts`, `server/src/routes/flows.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `client/src/api/agents.ts`, `client/src/api/flows.ts`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx`. Purpose: anchor Task 4 on the exact existing list and info-popover surfaces before adding new warning-details payloads.
+2. [ ] In `server/src/agents/availability.ts`, add the shared availability evaluator entrypoint and its result shape. Purpose: give the server one reusable snapshot for provider choice, fallback candidates, warnings, and disabled reasons before a run starts.
+3. [ ] In `server/src/agents/availability.ts`, implement invalid-provider classification, normalized fallback-order evaluation, provider-unavailable disablement, and duplicate-folder warning aggregation without starting a run. Purpose: make availability decisions reusable by list, details, and run-start surfaces.
+4. [ ] In `server/src/agents/service.ts`, keep the existing `GET /agents` discovery payload stable and add a selected-agent details shape that carries warning arrays and disabled-state fields without changing the winning discovered entry. Purpose: separate list stability from details enrichment before the route layer exposes the new surface.
+5. [ ] In `server/src/routes/agents.ts`, keep `GET /agents` unchanged and add or extend `GET /agents/:agentName` so the selected-agent popover fetch returns warning arrays and disabled-state details only on the details route. Purpose: make invalid-provider warnings visible at popover-open time without backfilling them into the initial list contract.
+6. [ ] Update `client/src/api/agents.ts` so it parses the new selected-agent details contract at `GET /agents/:agentName` without flattening warnings or disabled reasons into generic strings. Purpose: preserve the producer-consumer contract across the new details route.
+7. [ ] In `server/src/flows/discovery.ts` and `server/src/flows/service.ts`, compute provider-neutral warning arrays, duplicate-folder precedence, and disabled-state reasons for flow-owned agent references from the shared availability snapshot. Purpose: keep flow discovery data aligned with the same server-owned availability contract as direct agents.
+8. [ ] In `server/src/routes/flows.ts`, keep `GET /flows` stable and add or extend `GET /flows/:flowName` so flow details fetches expose the flow-owned warning arrays and disabled-state reasons from the discovery layer. Purpose: reuse the existing flow info surface without inventing a second flow-warning endpoint.
+9. [ ] Update `client/src/api/flows.ts` so it parses the selected-flow details contract at `GET /flows/:flowName` and preserves warning arrays and disabled-state reasons as first-class fields. Purpose: keep the flow popover contract as explicit as the agent popover contract.
+10. [ ] Extend `server/src/test/unit/agents-router-list.test.ts` with proof that `server/src/routes/agents.ts` keeps `GET /agents` stable and does not eagerly surface the invalid-provider warning that the story reserves for the selected-agent details route. Purpose: protect the list-time route contract directly at the server wrapper.
+11. [ ] Extend `server/src/test/unit/agents-discovery.test.ts` with proof that `server/src/agents/availability.ts` and `server/src/agents/service.ts` expose invalid-provider warnings, duplicate-root warnings, normalized fallback candidates, and disabled reasons through selected-agent details without changing the winning discovered agent entry. Purpose: prove the availability snapshot contract at the server owner seam.
+12. [ ] Extend `server/src/test/integration/flows.list.test.ts` with proof that `server/src/flows/discovery.ts`, `server/src/flows/service.ts`, and `server/src/routes/flows.ts` reuse the same warning data and disabled-state reasons for flow-owned agent references on both list and details surfaces. Purpose: cover the server-side flow consumer of the availability contract.
+13. [ ] Extend `client/src/test/agentsPage.descriptionPopover.test.tsx` with proof that `client/src/pages/AgentsPage.tsx` and `client/src/api/agents.ts` load selected-agent warning details only when the popover opens. Purpose: prove the client-side on-open warning-timing contract.
+14. [ ] Extend `client/src/test/agentsPage.list.test.tsx` with proof that `client/src/pages/AgentsPage.tsx` keeps the initial agent list stable while still preserving disabled-state data and later warning details for the selected agent. Purpose: prove the client-side separation between list payload and details payload.
+15. [ ] Extend `client/src/test/flowsPage.test.tsx` with proof that `client/src/pages/FlowsPage.tsx` and `client/src/api/flows.ts` render selected-flow warning arrays and disabled-state reasons from the new details route. Purpose: cover the client-side flow consumer of the details contract.
+16. [ ] Run `npm run lint` for the Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+17. [ ] Run `npm run format:check` for the Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 4 changes server list and details routes plus shared availability evaluation. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because Task 4 changes client API shapes and existing info-popover data loading. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 4 proof homes are server unit and integration tests around discovery and details surfaces. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after Task 4 changes agent and flow discovery/details behavior. This wrapper is expected to cover the task-owned list/details contract changes that broad server feature scenarios reach through the normal backend flow. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+5. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the Task 4 proof homes include the existing agent and flow info-popover UI tests. If the wrapper reports failures, inspect the printed `test-results/client-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+6. [ ] Run `npm run lint` for the final Task 4 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+7. [ ] Run `npm run format:check` for the final Task 4 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+### Task 5. Switch direct agent runs and commands to provider-neutral execution with pinned conversation identity
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2, Task 3, Task 4`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task turns direct agent execution into the real provider-neutral runtime the story describes. It owns cross-provider fallback, same-provider model repair, provider-neutral run errors, and the rule that later turns stay pinned to the actual provider-model-agent identity chosen when the conversation was first established.
+
+#### Task Exit Criteria
+
+- Direct agent instruction runs and direct agent command runs can execute on Codex, Copilot, or LM Studio from the merged runtime config, apply same-provider model repair before cross-provider fallback, and use `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` only for agent-owned recovery when the selected provider truly cannot execute.
+- Once a direct agent conversation stores the actual executed provider, model, and `agentName`, later turns keep using that saved identity, config changes affect only new conversations, and saved provider, model, or agent-name failures remain clear inside the same conversation instead of silently switching execution identity.
+
+#### Documentation Locations
+
+- `Context7 /nodejs/node/v22.17.0` - use for the app-owned parsing and normalization of the fallback-order env contract.
+- `Context7 /github/copilot-sdk` - use for Copilot session and resume expectations when the actual executed provider-model pair must stay pinned for later turns.
+- `Context7 /lmstudio-ai/lmstudio-js` - use for LM Studio model option constraints when same-provider model repair must stay local and not trigger cross-provider fallback.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Message Contracts And Storage Shapes`, `Lifecycle And State Ownership`, `Risk And Invariant Matrix`, `Edge Cases And Failure Modes`, `Implementation Ideas`, and `Proof Seams`, then inspect `server/src/agents/service.ts`, `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, `server/src/routes/conversations.ts`, and `server/src/chat/inflightRegistry.ts`. Purpose: anchor Task 5 on the exact direct-run persistence and route seams that still assume Codex, plus the pinned-identity invariants that must stay true across admission, fallback, running, cancel, success, and later-turn resume.
+2. [ ] In `server/src/agents/service.ts`, switch direct agent runtime selection to consume the Task 1 merged runtime metadata, the Task 3 shared execution context, and the Task 4 availability evaluator. Purpose: make direct runs provider-neutral before they mutate persistence or route contracts.
+3. [ ] In `server/src/agents/service.ts`, implement same-provider model repair so a missing or invalid model stays on the chosen provider and falls back through the same-model, provider-chat-config, and provider-default model order before any cross-provider fallback begins. Purpose: keep model repair local to the selected provider.
+4. [ ] In `server/src/agents/service.ts`, implement cross-provider fallback so the normalized fallback order skips the originally failed provider, carries shared runtime settings forward, and warns instead of failing when the fallback provider cannot consume original provider-specific settings. Purpose: make provider fallback a controlled recovery path rather than a second opaque failure.
+5. [ ] In `server/src/mongo/repo.ts` and `server/src/agents/service.ts`, persist the actual executed provider, model, and `agentName` when the first successful run establishes the conversation, and replace any pre-fallback placeholder identity before later-turn reads can treat it as authoritative. Purpose: make the stored execution pair honest and stable.
+6. [ ] In `server/src/routes/conversations.ts` and `server/src/agents/service.ts`, enforce that later turns keep using the stored execution identity, agent-config changes affect only new conversations, contradictory resume-time request state is ignored in favor of the stored identity, and saved provider, model, or `agentName` failures stay inside the same conversation. Purpose: lock the continuation contract to the existing conversation record.
+7. [ ] In `server/src/routes/agentsRun.ts`, `server/src/routes/agentsCommands.ts`, `server/src/agents/service.ts`, and `server/src/agents/types.ts`, replace Codex-only wording or reason codes on provider-unavailable, invalid-provider, and disabled-state paths with provider-neutral contract language. Purpose: keep route payloads and server logging truthful once provider-neutral execution exists.
+8. [ ] Rename, split, or rewrite `server/src/test/integration/agents-run-client-conversation-id.test.ts` so any new Story 57 coverage for resumed identity, first-run persistence, and contradictory resume-time payloads no longer hides under conversation-id-only or start-step-default semantics. Purpose: keep the planned proof file's claimed invariant aligned with the actual create-vs-reuse and run-vs-resume behavior it will prove.
+9. [ ] Rename, split, or rewrite `server/src/test/integration/agents-run-ws-stream.test.ts` so any new Story 57 coverage for same-provider model repair, cross-provider fallback, and fail-in-place behavior does not masquerade as transcript-event-only websocket coverage. Purpose: keep streamed lifecycle proofs honest about what they actually assert.
+10. [ ] Extend `server/src/test/unit/agents-router-run.test.ts` with proof that `server/src/routes/agentsRun.ts` returns provider-neutral started payloads, disabled-state errors, and provider-neutral error mapping on the direct instruction run route. Purpose: give the primary direct-run REST wrapper an explicit proof home.
+11. [ ] Extend `server/src/test/unit/agents-commands-router-run.test.ts` with proof that `server/src/routes/agentsCommands.ts` returns provider-neutral started payloads, disabled-state errors, and provider-neutral error mapping on the direct command run route. Purpose: give the direct command REST wrapper an explicit proof home.
+12. [ ] Extend `server/src/test/unit/agents-config-defaults.test.ts` with proof that `server/src/agents/service.ts` and `server/src/agents/config.ts` apply same-provider model repair before any cross-provider fallback and honor the normalized fallback ordering inputs. Purpose: prove the constrained provider-selection defaults at the owning service seam.
+13. [ ] Extend `server/src/test/unit/repo-conversations-agent-filter.test.ts` with proof that `server/src/mongo/repo.ts` and `server/src/routes/conversations.ts` keep persisted execution identity and later-turn filtering keyed to the saved `agentName` after fallback or model repair changes the first-run execution result. Purpose: protect the persisted reader-writer contract directly.
+14. [ ] Extend `server/src/test/integration/agents-run-client-conversation-id.test.ts` with proof that `server/src/agents/service.ts`, `server/src/mongo/repo.ts`, and `server/src/routes/conversations.ts` handle admission, first-run persistence, later-turn resume, and contradictory resume-time payloads from stale client state by ignoring the contradictory fields in favor of the stored execution identity. Purpose: cover the server-side protection against create-vs-reuse and run-vs-resume mixed-state payloads on the direct-agent path.
+15. [ ] Extend `server/src/test/integration/agents-run-ws-stream.test.ts` with proof that `server/src/agents/service.ts` performs same-provider model repair, cross-provider fallback, and fail-in-place behavior when the saved execution identity later becomes unavailable. Purpose: cover the streamed direct-run lifecycle rows that change provider or model selection.
+16. [ ] Extend `server/src/test/integration/agents-run-ws-cancel.test.ts` with proof that `server/src/agents/service.ts` and `server/src/chat/inflightRegistry.ts` handle run-in-progress conflict detection, cancellation, and shared waiter cleanup without changing the stored execution identity. Purpose: cover the negative inflight lifecycle and async-cleanup rows on the direct-agent path.
+17. [ ] Extend `server/src/test/integration/agents-run-client-conversation-id.test.ts` with proof that the first successful direct-agent run persists the final executed provider, model, and `agentName` before later-turn resume reads or caller-visible resume handling can observe the conversation, instead of proving only the earlier placeholder state and the later stored state separately. Purpose: force one exact ordering-boundary proof for the persistence contract that review would otherwise catch late.
+18. [ ] Run `npm run lint` for the Task 5 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+19. [ ] Run `npm run format:check` for the Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 5 changes the core direct agent runtime and persistence path. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 5 proof homes are server unit and integration tests around direct run, persistence, and continuation behavior. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after Task 5 changes direct-agent lifecycle, persistence, and continuation behavior. This wrapper is expected to exercise the task-owned direct-agent runtime contract through the repository's normal backend proof path rather than only targeted unit scenarios. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run lint` for the final Task 5 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+### Task 6. Switch flow-owned agent execution to the same provider-neutral runtime and continuation contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task removes the remaining flow-owned `provider: 'codex'` assumptions and makes flow execution reuse the same provider-neutral agent runtime contract as direct agents. It also keeps flow-owned command lookup and flow child-conversation continuation aligned to the same folder precedence, fallback, and pinned-identity rules.
+
+#### Task Exit Criteria
+
+- Flow-owned agent execution uses the same provider-neutral runtime selection, same-provider model repair, cross-provider fallback, repository execution context, and actual executed provider-model persistence contract as direct agent execution.
+- Flow discovery, flow run-start, and flow-owned command lookup all follow the same `codeinfo_agents` precedence and warning surfaces, and later flow turns keep using the stored provider, model, and `agentName` instead of recomputing them from the current flow or agent config.
+
+#### Documentation Locations
+
+- `https://docs.docker.com/engine/storage/bind-mounts/` - use for the mounted-runtime and cross-repository command-lookup contract when flow-owned execution resolves agent assets from another repository root.
+- `Context7 /nodejs/node/v22.17.0` - use for path and env normalization in the flow-owned lookup and continuation seams.
+- `Context7 /github/copilot-sdk` - use for Copilot continuation expectations when flow child conversations must stay pinned to the provider-model pair that actually executed.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Story Manual Testing Guidance`, `Lifecycle And State Ownership`, `Risk And Invariant Matrix`, `Edge Cases And Failure Modes`, and `Proof Seams`, then inspect `server/src/flows/service.ts`, `server/src/routes/flowsRun.ts`, `server/src/flows/discovery.ts`, `server/src/flows/markdownFileResolver.ts`, `server/src/chat/agentFlags.ts`, `server/src/mongo/repo.ts`, and `server/src/routes/flows.ts`. Purpose: anchor Task 6 on the exact flow-owned seams that still hardcode `provider: 'codex'`, `getChatInterface('codex')`, or legacy lookup behavior, plus the server-owned `flags.flow` and `flags.flowChild` ownership that must remain authoritative during provider-neutral flow continuation.
+2. [ ] In `server/src/flows/service.ts`, replace hardcoded `provider: 'codex'` and `getChatInterface('codex')` on flow LLM steps with the Task 3 shared execution context and the Task 5 provider-neutral selection contract. Purpose: move flow LLM execution onto the same provider-neutral runtime path as direct agents.
+3. [ ] In `server/src/flows/service.ts`, replace hardcoded direct `codex_agents` lookup and Codex-only runtime assumptions on flow-owned command and child-agent execution paths. Purpose: make nested flow-owned execution obey the same provider and folder rules as the parent story contract.
+4. [ ] In `server/src/flows/service.ts`, `server/src/chat/agentFlags.ts`, and `server/src/mongo/repo.ts`, keep saved flow child provider, model, and `agentName` authoritative for later turns while preserving `flags.flow` and `flags.flowChild` as server-owned nested state. Purpose: keep flow continuation pinned without letting nested writers trample sibling state.
+5. [ ] In `server/src/flows/discovery.ts` and `server/src/routes/flows.ts`, reuse the provider-neutral warning and disabled-state data on flow list and flow details surfaces, and keep flow-owned command lookup on `codeinfo_agents` precedence when discovery prepares runnable metadata. Purpose: align non-run flow surfaces with the same warning and folder contract as direct agents.
+6. [ ] In `server/src/routes/flowsRun.ts`, remove Codex-only wording from provider-unavailable responses and reuse the same provider-neutral warning and disabled-state contract on flow run-start failures. Purpose: keep the run-start API honest about why a flow-owned agent cannot execute without inventing a second error vocabulary.
+7. [ ] Rename, split, or rewrite `server/src/test/unit/flows.flags.test.ts` so new Story 57 coverage for nested flag ownership and sibling-state preservation does not blur ordinary flag sanitization semantics with persistence-writer semantics. Purpose: keep the flag-ownership proof file's claimed invariant aligned with the exact nested-state behavior it proves.
+8. [ ] Rename, split, or rewrite `server/src/test/integration/flows.run.resume.test.ts` so resume identity, conflict rejection, and legacy backfill scenarios each keep titles and assertions that match the exact resumed-flow invariant being claimed. Purpose: prevent a generic resume file name from hiding ordering-sensitive or backfill-specific assertions.
+9. [ ] Extend `server/src/test/unit/flows.flags.test.ts` with proof that `server/src/chat/agentFlags.ts` and `server/src/mongo/repo.ts` keep `flags.flow`, `flags.flowChild`, and `flags.workingFolder` server-owned and preserve sibling state through flow continuation writes. Purpose: protect the nested persistence contract directly at the reader-writer seam.
+10. [ ] Extend `server/src/test/integration/flows.run.basic.test.ts` with proof that `server/src/flows/service.ts` handles parent-run admission, same-provider model repair, and cross-provider fallback on the initial flow-owned execution path. Purpose: cover the first-run lifecycle rows on the main flow path.
+11. [ ] Extend `server/src/test/integration/flows.run.resume.test.ts` with proof that `server/src/flows/service.ts` and `server/src/mongo/repo.ts` keep later flow turns pinned to the saved provider, model, and `agentName` instead of recomputing execution identity from current config. Purpose: cover the continuation lifecycle rows on the flow-owned path.
+12. [ ] Extend `server/src/test/integration/flows.run.command.test.ts` with proof that `server/src/flows/service.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/agents/roots.ts` keep flow-owned command execution on `codeinfo_agents` precedence with cross-repository lookup parity. Purpose: prove command execution stays aligned with the direct-agent contract.
+13. [ ] Extend `server/src/test/integration/flows.list.test.ts` with proof that `server/src/flows/discovery.ts`, `server/src/routes/flows.ts`, and `server/src/agents/availability.ts` reuse provider-neutral warning data and disabled-state reasons after the runtime migration. Purpose: prove the non-run flow surfaces stayed aligned with the execution contract.
+14. [ ] Extend `server/src/test/integration/flows.run.errors.test.ts` with proof that `server/src/flows/service.ts` handles stop, cancel, and unavailable saved identities without identity drift or stale child-state cleanup leaks inside the same flow conversation. Purpose: cover the negative lifecycle and cleanup-order rows in flow orchestration.
+15. [ ] Extend `server/src/test/integration/flows.run.resume.test.ts` with proof that legacy parent execution-id backfill is persisted before child-validation failure handling can return or later resume reads can inspect the conversation, instead of relying on separate before-state and after-state assertions. Purpose: force one exact ordering-boundary proof for the resumed-flow persistence path.
+16. [ ] Run `npm run lint` for the Task 6 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+17. [ ] Run `npm run format:check` for the Task 6 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 6 changes the shared flow runtime and continuation path. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 6 proof homes are server unit and integration tests around flow runtime, command lookup, and continuation behavior. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the supported higher-level flow execution surface still passes after the provider-neutral migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run lint` for the final Task 6 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 6 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+### Task 7. Update the Agents and Flows UI for warnings, disabled state, and pinned resumed execution identity
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 4, Task 5, Task 6`
+- Task Status: `__to_do__`
+- Git Commits:
+
+#### Overview
+
+This task applies the new warning and continuation contracts to the existing browser surfaces instead of inventing new screens. It keeps the agent and flow info popovers honest, blocks stale hidden state when a selected item becomes disabled, and makes resumed conversations stay pinned to their saved execution identity in the visible UI.
+
+#### Task Exit Criteria
+
+- The Agents page and Flows page show the new warning and disabled-state contract through their existing list, banner, and info-popover surfaces, and invalid-provider warnings first appear when the selected agent is opened rather than during the initial list fetch.
+- Resuming an existing agent or flow conversation keeps the saved provider, model, and `agentName` authoritative in the UI, while fresh runs reevaluate the current config and disabled-state rules from scratch without leaking stale hidden state from an older runnable selection.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/6.5.0/api/alert.md` - use for the warning and disabled-state banners already used on the Agents and Flows pages.
+- `https://llms.mui.com/material-ui/6.5.0/api/popover.md` - use for the existing info-popover surface that will now show provider-neutral warning details.
+- `https://llms.mui.com/material-ui/6.5.0/api/tooltip.md` - use for the current info-button affordances so the warning-details UX stays aligned with the existing MUI surface pattern.
+
+#### Subtasks
+
+1. [ ] Re-read the story sections `Acceptance Criteria`, `Story Manual Testing Guidance`, `Edge Cases And Failure Modes`, and `Proof Seams`, then inspect `client/src/api/agents.ts`, `client/src/api/flows.ts`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, and `client/src/components/chat/ConversationList.tsx`. Purpose: anchor Task 7 on the exact client surfaces that already render warnings, disabled states, provider-model state, and conversation selection.
+2. [ ] Update `client/src/api/agents.ts` to parse the selected-agent details payload, including provider-neutral disabled reasons and warning arrays, without flattening them into generic strings. Purpose: preserve the server-owned details contract for the agent popover consumer.
+3. [ ] Update `client/src/api/flows.ts` to parse the selected-flow details payload, including warning arrays and provider-neutral disabled-state reasons, without dropping the new fields. Purpose: preserve the server-owned details contract for the flow popover consumer.
+4. [ ] Update `client/src/pages/AgentsPage.tsx` so opening the existing agent info popover loads selected-agent warning details from the new details route instead of relying only on the list payload. Purpose: make invalid-provider warnings appear at the on-open surface the story requires.
+5. [ ] Update `client/src/components/agents/AgentsComposerPanel.tsx` so a selected agent that becomes disabled or changes from runnable to unrunnable clears stale hidden local state and keeps the disabled submit affordance explicit in the composer UI. Purpose: make the local clear-state rule visible at the component that owns the stale values.
+6. [ ] Update the run-start logic in `client/src/pages/AgentsPage.tsx` so new direct-agent submissions stop when selected-agent details report a disabled state and exclude any cleared or hidden stale values from the outgoing payload. Purpose: keep blocked-run behavior and payload sanitization explicit at the page that builds the request.
+7. [ ] Update `client/src/pages/FlowsPage.tsx` so the flow info popover loads and renders provider-neutral warning arrays and disabled-state reasons from the selected-flow details route. Purpose: keep the flow warning surface parallel to the agent warning surface.
+8. [ ] Update `client/src/hooks/useConversations.ts` and `client/src/hooks/useChatModel.ts` so reopening an agent or flow conversation hydrates the saved provider, model, and `agentName` into local resumed state and keeps those values authoritative for that conversation. Purpose: pin resumed local state to stored execution identity before any submit path runs.
+9. [ ] Update `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx` so resumed submissions send the stored provider, model, and `agentName` and reject create-mode overrides during the same resumed turn. Purpose: make the resume-submit contract explicit at the client code that constructs the outgoing request.
+10. [ ] Update `client/src/components/chat/ConversationList.tsx` and the fresh-run path in `client/src/pages/ChatPage.tsx` so new runs reevaluate the current selected agent, provider state, and disabled state from scratch and exclude restored resume-only values from new-run payloads. Purpose: keep fresh-run behavior separate from resumed-turn behavior in the owning create-mode UI path.
+11. [ ] Rename, split, or rewrite `client/src/test/agentsPage.list.test.tsx` so any new Story 57 assertions about selected-item details or disabled-state affordances do not masquerade as pure list-fetch coverage. Purpose: keep the list proof file's claimed invariant aligned with the selected-item behavior it will now exercise.
+12. [ ] Rename, split, or rewrite `client/src/test/agentsPage.run.test.tsx` so run-start guard and payload-exclusion semantics do not hide under a generic run UI label. Purpose: make the mixed-state submission invariant explicit in the proof file name and test titles.
+13. [ ] Rename, split, or rewrite `client/src/test/chatPage.provider.test.tsx` so resumed-identity lock semantics do not blur into generic provider-selector rendering coverage. Purpose: keep the provider-state proof file honest about whether it proves selector UI or pinned resume behavior.
+14. [ ] Rename, split, or rewrite `client/src/test/chatPage.inflightNavigate.test.tsx` so inflight-navigation preservation and fresh-run restored-state exclusion keep separate titles and assertions where needed. Purpose: prevent navigation-history semantics from standing in for the stronger mixed-state claim.
+15. [ ] Rename, split, or rewrite `client/src/test/flowsPage.run.test.tsx` so disabled flow run-start guards stay separate from generic flow page rendering or orchestration semantics. Purpose: keep the run-guard proof file honest about the exact UI transition it proves.
+16. [ ] Rename, split, or rewrite `e2e/chat-provider-history.spec.ts` so historical provider pinning and cross-provider history-selection semantics claim distinct browser invariants instead of sharing one broad history label. Purpose: stop browser proof drift in the most reuse-heavy mixed-state file.
+17. [ ] Extend `client/src/test/agentsPage.descriptionPopover.test.tsx` with proof that `client/src/pages/AgentsPage.tsx` and `client/src/api/agents.ts` show invalid-provider warnings only when the selected-agent popover opens. Purpose: keep the on-open warning-timing requirement explicit at the client surface that owns it.
+18. [ ] Extend `client/src/test/agentsPage.list.test.tsx` with proof that `client/src/pages/AgentsPage.tsx` keeps the initial agent list stable while still preserving disabled-state and details-route affordances for the selected item. Purpose: prove the client-side list-versus-details separation directly.
+19. [ ] Extend `client/src/test/agentsPage.agentChange.test.tsx` with proof that `client/src/pages/AgentsPage.tsx` and `client/src/components/agents/AgentsComposerPanel.tsx` clear stale hidden state locally when a previously runnable agent selection becomes disabled or changes, instead of silently retaining submit-affecting values behind the disabled UI. Purpose: cover stale-versus-live UI state handling before a run starts.
+20. [ ] Extend `client/src/test/agentsPage.run.test.tsx` with proof that `client/src/components/agents/AgentsComposerPanel.tsx` and `client/src/pages/AgentsPage.tsx` block direct agent submission and exclude disabled or hidden stale values from outgoing payloads when the selected-agent details surface reports a disabled state. Purpose: cover the run-start guard separately from the local state reset path.
+21. [ ] Extend `client/src/test/flowsPage.test.tsx` with proof that `client/src/pages/FlowsPage.tsx` renders selected-flow warning arrays and disabled-state reasons from the details route. Purpose: prove the flow info-surface contract at the owning page.
+22. [ ] Extend `client/src/test/flowsApi.test.ts` with proof that `client/src/api/flows.ts` preserves the selected-flow details payload shape without flattening warning arrays or disabled-state reasons. Purpose: prove the flow API consumer contract separately from page rendering.
+23. [ ] Extend `client/src/test/flowsPage.run.test.tsx` with proof that `client/src/pages/FlowsPage.tsx` blocks new flow-owned runs and excludes stale disabled-selection values from outgoing payloads when the selected flow details surface marks the target unavailable. Purpose: cover the flow run-start guard separately from details rendering.
+24. [ ] Extend `client/src/test/chatPage.provider.test.tsx` with proof that `client/src/hooks/useConversations.ts`, `client/src/hooks/useChatModel.ts`, and `client/src/pages/ChatPage.tsx` keep resumed conversations pinned to the stored provider, model, and `agentName`, and do not let newly selected create-mode values override a resumed payload. Purpose: cover the pinned-resume contract directly in the shared conversation state owner.
+25. [ ] Extend `client/src/test/chatPage.inflightNavigate.test.tsx` with proof that `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, and `client/src/components/chat/ConversationList.tsx` reevaluate current selection state for fresh runs and exclude restored resume-only values instead of reusing stale hidden state from an earlier runnable selection. Purpose: cover the stale-client-state path separately from pinned resume.
+26. [ ] Extend `e2e/agents.spec.ts` with browser-visible proof that the shipped Agents UI preserves on-open warning timing, clears stale hidden state when a selected agent becomes disabled, and excludes those cleared values from new-run submission under the supported runtime stack. Purpose: prove the combined agent mixed-state contract on the supported end-to-end path.
+27. [ ] Extend `e2e/flows-execution-runs.spec.ts` with browser-visible proof that the shipped Flows UI preserves warning rendering, blocks disabled flow-owned runs, and excludes stale disabled-selection values from new-run submission under the supported runtime stack. Purpose: prove the combined flow mixed-state contract on the supported end-to-end path.
+28. [ ] Extend `e2e/chat-provider-history.spec.ts` with browser-visible proof that the shipped chat history UI keeps resumed conversations pinned to stored execution identity while fresh runs ignore restored resume-only values and reevaluate the current selection state. Purpose: prove the run-versus-resume mixed-state split on the supported end-to-end path.
+29. [ ] Run `npm run lint` for the Task 7 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+30. [ ] Run `npm run format:check` for the Task 7 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because Task 7 changes browser-visible Agents and Flows behavior plus client API parsing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the Task 7 proof homes include the existing Agents and Flows page unit suites. If the wrapper reports failures, inspect the printed `test-results/client-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+3. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because Task 7 changes browser-visible warning timing, disabled-state guarding, and resumed-conversation pinning on the supported end-to-end path. If the wrapper reports failures or ambiguous output, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run lint` for the final Task 7 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 7 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Implementation notes
+
+### Task 8. Run final Story 0000057 validation and close out the provider-neutral agent contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: This final validation task normally depends on all earlier tasks required for final story proof.
+
+#### Overview
+
+This final task validates the full Story 57 contract rather than isolated seams. It must confirm the provider-neutral runtime, folder precedence, fallback behavior, warning surfaces, and pinned continuation rules together, then refresh the reviewer-facing close-out artifacts and durable documentation.
+
+#### Task Exit Criteria
+
+- Every Story 57 acceptance criterion and important in-scope behavior is implemented, traced to a proof home, and validated through the repository’s supported wrapper-first workflow.
+- Final documentation and close-out materials accurately describe the shipped provider-neutral runtime, `codeinfo_agents` precedence, agent-home env contract, and pinned conversation behavior.
+
+#### Documentation Locations
+
+- `Context7 /github/copilot-sdk` - use when final validation or close-out documentation needs to restate the Copilot runtime assumptions that remain in scope for Story 57.
+- `Context7 /lmstudio-ai/lmstudio-js` - use when final validation or close-out documentation needs to restate the LM Studio runtime assumptions that remain in scope for Story 57.
+- `https://playwright.dev/docs/screenshots` - use if Playwright MCP screenshots are part of the later retained manual-proof bundle for the final story close-out.
+
+#### Subtasks
+
+1. [ ] Re-read the full Story 57 plan and trace the `Acceptance Criteria`, key `Description` requirements, `Out Of Scope` boundaries, `Story Manual Testing Guidance`, `Edge Cases And Failure Modes`, and `Proof Seams` against the final task list before closing the story.
+2. [ ] Update `projectStructure.md` so it documents the final provider-neutral runtime ownership boundaries and the neutral agent-home env contract after the implementation is complete. Purpose: keep the repository-structure documentation aligned with the new runtime ownership model.
+3. [ ] Update `projectStructure.md` so it explicitly documents `codeinfo_agents` versus `codex_agents` precedence plus the selected-agent and flow warning surfaces. Purpose: make the new compatibility and warning behavior discoverable to later maintainers.
+4. [ ] Update `design.md` so it records the final runtime layering order and shared repository execution-context contract. Purpose: capture the new shared runtime architecture in the main design document.
+5. [ ] Update `design.md` so it records the final agent-only provider fallback rules and established-conversation pinning behavior that Story 57 ships. Purpose: keep the lifecycle and continuation contract explicit in the architecture notes.
+6. [ ] Create `codeInfoStatus/pr-summaries/0000057-pr-summary.md` as the durable reviewer-facing close-out artifact after the final behavior is validated. Purpose: create the derived close-out file in the correct durable repository location.
+7. [ ] Populate `codeInfoStatus/pr-summaries/0000057-pr-summary.md` with the final traceability map from task numbers to proof homes without duplicating unchecked task state from the executable plan. Purpose: make the close-out artifact reviewer-friendly while keeping the plan as the source of truth.
+8. [ ] Run `npm run lint` for the final Story 57 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+9. [ ] Run `npm run format:check` for the final Story 57 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because Story 57 changes server, client, env, compose, and mounted-runtime contracts together. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the final scope changes the shared server runtime, agents, flows, and MCP surfaces together. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because the final scope changes the browser-visible Agents and Flows pages plus client API parsing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the final scope changes the shared runtime, direct agents, flows, and MCP `code_info` paths. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the supported higher-level server feature surface still passes after the full Story 57 migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the final scope includes new browser-visible warning and continuation behavior on the Agents and Flows pages. If the wrapper reports failures, inspect the printed `test-results/client-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because Story 57 changes user-visible Agents and Flows behavior that must stay green on the supported browser-backed path. If the wrapper reports failures or ambiguous output, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+8. [ ] Run `npm run compose:up` from the repository root to start the normal main stack after the build and automated suite wrappers are green, then confirm the server health endpoint at `http://localhost:5010/health` and the client at `http://localhost:5001` respond. Use this smoke step because Story 57 changes the normal compose-backed runtime contract, not only the special e2e runtime path. If startup fails, inspect `npm run compose:logs`, fix the issue, and rerun the same wrapper.
+9. [ ] Run `npm run compose:down` from the repository root after the Task 8 smoke step started with `npm run compose:up`. Use this wrapper to shut down only the normal main stack that this task started, keeping the smoke-proof ownership boundary explicit.
+10. [ ] Run `npm run lint` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+11. [ ] Run `npm run format:check` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Use the normal main stack for final manual proof: run `npm run compose:build` and then `npm run compose:up`, wait for `http://localhost:5010/health` and `http://localhost:5001`, and leave any already-running `docker-compose.local.yml` stack untouched because it may back the current session.
+- No separate product login, seeded test account, or one-off runtime patch is required for this story's final manual proof. Use the repository's normal compose stack, the checked-in env loading path through `server/.env` and the compose wrappers, and whatever provider auth state the existing local runtime already uses; do not write secrets, tokens, or provider credentials into the plan or retained proof artifacts.
+- Save retained task-level manual proof under `codeInfoTmp/manual-testing/0000057/8/` and do not commit it because `codeInfoTmp/` is already ignored. Recommended deterministic basenames are `proof-01-agent-duplicate-warning.png`, `proof-02-invalid-provider-on-open.png`, `proof-03-flow-warning-surface.png`, `proof-04-fallback-run.png`, `proof-05-model-repair.png`, `proof-06-pinned-resume.png`, `support-console.txt`, `support-network.json`, `support-mcp-codeinfo.json`, and `support-story57-markers.log`.
+- Cover at least one agent configured for each provider, one duplicate-folder case where `codeinfo_agents` beats `codex_agents`, one invalid `codeinfo_provider` case that first shows its warning when the selected agent is opened, one fallback run that succeeds with warnings, one same-provider model-repair run, and one no-usable-provider case that stays visible but disabled.
+- Cover at least one flow-owned agent path and one cross-repository command or markdown lookup path so the manual proof shows `codeinfo_agents` precedence and warning reuse outside the direct agent page too.
+- Prove that an established conversation keeps using its stored provider, model, and `agentName` on later turns, that changing an agent config affects only new conversations, and that later failure of the saved provider, model, or `agentName` stays inside the same conversation instead of silently switching.
+- Include one `codebase_question` proof with `provider` omitted to confirm repository grounding still uses the shared execution context, and one explicit-provider proof for Copilot or LM Studio to confirm the same repository context reaches the provider-specific runtime path.
+- If Playwright MCP screenshots help, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000057/8/`. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available.
+- After Story 57 close-out, promote the curated durable final manual-proof bundle from the retained scratch artifacts into `codeInfoStatus/manual-proof/0000057/`.
+
+#### Implementation notes

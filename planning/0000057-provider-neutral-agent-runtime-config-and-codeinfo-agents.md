@@ -127,6 +127,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If an agent has an invalid `codeinfo_provider`, should that agent fail clearly or quietly default to Codex?
+   - Why this is important: The story uses `codeinfo_provider` as an explicit per-agent choice, so we need one clear rule for bad values.
+   - Best Answer: It should fail clearly for that agent rather than silently defaulting to Codex. The story already keeps Codex as the default only when the field is missing, and this repo usually treats invalid explicit provider values as validation errors rather than silently changing them.
+   - Where this answer came from: Repo evidence in `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/ingest/requestContracts.ts`, `server/src/routes/ingestStart.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+
+2. If an agent explicitly picks a provider that is unavailable, should the run fail clearly or try another provider?
+   - Why this is important: Per-agent provider selection is a core part of the story, so users need a predictable result when Copilot, Codex, or LM Studio is unavailable.
+   - Best Answer: It should fail clearly instead of silently trying a different provider. This repo already treats explicit provider selection as authoritative in MCP and server-side flows, even when fallback behavior exists for omitted defaults.
+   - Where this answer came from: Repo evidence in `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`, `server/src/config/chatDefaults.ts`, `server/src/agents/service.ts`, and `server/src/chat/factory.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+
+3. Should Copilot and LM Studio base config files be auto-seeded like Codex, or only read if they already exist?
+   - Why this is important: The story says `copilot/config.toml` and `lmstudio/config.toml` should work in the same product-owned way as `codex/config.toml`, but the current repo only has a clear base-config bootstrap path for Codex.
+   - Best Answer: They should be auto-seeded like Codex. That is the closest match to “work in exactly the same way as the codex/config.toml file does,” and it keeps provider base-config behavior consistent instead of making Codex special.
+   - Where this answer came from: Repo evidence in `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/copilotConfig.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

@@ -1,5 +1,4 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MenuIcon from '@mui/icons-material/Menu';
 import {
   Alert,
   Box,
@@ -35,6 +34,7 @@ import {
 } from '../api/flows';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
+import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
@@ -1210,8 +1210,21 @@ export default function FlowsPage() {
             overflowX: 'hidden',
             flex: 1,
             minHeight: 0,
+            position: 'relative',
           }}
         >
+          <ConversationSidebarToggle
+            drawerOpen={drawerOpen}
+            drawerWidth={drawerWidth}
+            isMobile={isMobile}
+            onToggle={() => {
+              if (isMobile) {
+                setMobileDrawerOpen((prev) => !prev);
+                return;
+              }
+              setDesktopDrawerOpen((prev) => !prev);
+            }}
+          />
           {(!isMobile || drawerOpen) && (
             <Drawer
               key={isMobile ? 'mobile' : 'desktop'}
@@ -1296,24 +1309,6 @@ export default function FlowsPage() {
             <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
               <Box data-testid="flows-controls" style={{ flex: '0 0 auto' }}>
                 <Stack spacing={2}>
-                  <Stack direction="row" justifyContent="flex-start">
-                    <IconButton
-                      aria-label="Toggle conversations"
-                      aria-controls="conversation-drawer"
-                      aria-expanded={drawerOpen}
-                      onClick={() => {
-                        if (isMobile) {
-                          setMobileDrawerOpen((prev) => !prev);
-                          return;
-                        }
-                        setDesktopDrawerOpen((prev) => !prev);
-                      }}
-                      size="small"
-                      data-testid="conversation-drawer-toggle"
-                    >
-                      <MenuIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}

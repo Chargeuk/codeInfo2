@@ -1,5 +1,4 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MenuIcon from '@mui/icons-material/Menu';
 import {
   Alert,
   Box,
@@ -43,7 +42,6 @@ type PromptEntry = {
 };
 
 type AgentsComposerPanelProps = {
-  drawerOpen: boolean;
   agentsLoading: boolean;
   agentsError: string | null;
   selectedAgentName: string;
@@ -82,7 +80,6 @@ type AgentsComposerPanelProps = {
   agents: AgentOption[];
   commandOptions: CommandOption[];
   promptEntries: PromptEntry[];
-  onToggleDrawer: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onAgentChange: (event: SelectChangeEvent<string>) => void;
   onCommandChange: (event: SelectChangeEvent<string>) => void;
@@ -125,7 +122,6 @@ type AgentsComposerPanelProps = {
 const agentsComposerLog = createLogger('client');
 
 const AgentsComposerPanel = memo(function AgentsComposerPanel({
-  drawerOpen,
   agentsLoading,
   agentsError,
   selectedAgentName,
@@ -164,7 +160,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   agents,
   commandOptions,
   promptEntries,
-  onToggleDrawer,
   onSubmit,
   onAgentChange,
   onCommandChange,
@@ -209,19 +204,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
     <>
       <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
         <Stack spacing={2} component="form" onSubmit={onSubmit}>
-          <Stack direction="row" justifyContent="flex-start">
-            <IconButton
-              aria-label="Toggle conversations"
-              aria-controls="conversation-drawer"
-              aria-expanded={drawerOpen}
-              onClick={onToggleDrawer}
-              size="small"
-              data-testid="conversation-drawer-toggle"
-            >
-              <MenuIcon fontSize="small" />
-            </IconButton>
-          </Stack>
-
           <Stack
             data-testid="agent-header-row"
             direction={{ xs: 'column', sm: 'row' }}

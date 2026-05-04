@@ -3,13 +3,11 @@ import {
   type ChatAgentFlagKey,
   type ChatAgentFlagValue,
 } from '@codeinfo2/common';
-import MenuIcon from '@mui/icons-material/Menu';
 import {
   Container,
   Alert,
   Button,
   CircularProgress,
-  IconButton,
   Link,
   MenuItem,
   Paper,
@@ -34,6 +32,7 @@ import {
 } from 'react';
 import AgentFlagsPanel from '../components/chat/AgentFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
+import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import {
   buildStepLine,
@@ -1341,8 +1340,22 @@ export default function ChatPage() {
             overflowX: 'hidden',
             flex: 1,
             minHeight: 0,
+            position: 'relative',
           }}
         >
+          <ConversationSidebarToggle
+            drawerOpen={drawerOpen}
+            drawerWidth={drawerWidth}
+            isMobile={isMobile}
+            onToggle={() => {
+              if (isMobile) {
+                setMobileDrawerOpen((prev) => !prev);
+                return;
+              }
+
+              setDesktopDrawerOpen((prev) => !prev);
+            }}
+          />
           {(!isMobile || drawerOpen) && (
             <Drawer
               key={isMobile ? 'mobile' : 'desktop'}
@@ -1428,25 +1441,6 @@ export default function ChatPage() {
             <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
               <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
                 <Stack spacing={2}>
-                  <Stack direction="row" justifyContent="flex-start">
-                    <IconButton
-                      aria-label="Toggle conversations"
-                      aria-controls="conversation-drawer"
-                      aria-expanded={drawerOpen}
-                      onClick={() => {
-                        if (isMobile) {
-                          setMobileDrawerOpen((prev) => !prev);
-                          return;
-                        }
-
-                        setDesktopDrawerOpen((prev) => !prev);
-                      }}
-                      size="small"
-                      data-testid="conversation-drawer-toggle"
-                    >
-                      <MenuIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
                   {isLoading && (
                     <Stack direction="row" spacing={1} alignItems="center">
                       <CircularProgress size={18} />

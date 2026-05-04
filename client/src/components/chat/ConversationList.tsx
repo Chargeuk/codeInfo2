@@ -316,7 +316,7 @@ export function ConversationList({
   };
 
   return (
-    <Stack spacing={1} sx={{ height: '100%' }}>
+    <Stack spacing={1} sx={{ height: '100%', minHeight: 0 }}>
       <Stack
         spacing={0.75}
         sx={{ px: 1.5 }}
@@ -504,7 +504,9 @@ export function ConversationList({
             </Stack>
           </Stack>
         )}
-        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+        <Box
+          sx={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden' }}
+        >
           {sorted.length === 0 && !isLoading ? (
             <Stack
               alignItems="center"
@@ -518,7 +520,7 @@ export function ConversationList({
               </Typography>
             </Stack>
           ) : (
-            <List dense disablePadding>
+            <List dense disablePadding sx={{ width: '100%', minWidth: 0 }}>
               {sorted.map((conversation) => {
                 const selected = selectedId === conversation.conversationId;
                 const runLabel = formatRunLabel(
@@ -528,6 +530,12 @@ export function ConversationList({
                   <ListItem
                     key={conversation.conversationId}
                     disableGutters
+                    sx={{
+                      width: '100%',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      pr: showRowActions ? 7 : 0,
+                    }}
                     secondaryAction={
                       showRowActions ? (
                         conversation.archived ? (
@@ -606,7 +614,13 @@ export function ConversationList({
                       disabled={mutationDisabled}
                       data-testid="conversation-row"
                       style={{ paddingLeft: 12, paddingRight: 12 }}
-                      sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}
+                      sx={{
+                        alignItems: 'flex-start',
+                        py: 1.25,
+                        px: 1.5,
+                        minWidth: 0,
+                        width: '100%',
+                      }}
                     >
                       {enableBulkUi && (
                         <Checkbox
@@ -636,19 +650,20 @@ export function ConversationList({
                       )}
                       <ListItemText
                         disableTypography
+                        sx={{ minWidth: 0, overflow: 'hidden' }}
                         primary={
                           <Stack
                             direction="row"
                             spacing={1}
                             alignItems="center"
-                            sx={{ minWidth: 0 }}
+                            sx={{ minWidth: 0, maxWidth: '100%' }}
                           >
                             <Typography
                               variant="body2"
                               fontWeight={selected ? 700 : 600}
                               noWrap
                               data-testid="conversation-title"
-                              sx={{ maxWidth: '14rem' }}
+                              sx={{ minWidth: 0, flex: 1 }}
                             >
                               {conversation.title || 'Untitled conversation'}
                             </Typography>
@@ -664,13 +679,18 @@ export function ConversationList({
                           </Stack>
                         }
                         secondary={
-                          <Stack spacing={0.5} alignItems="flex-start">
+                          <Stack
+                            spacing={0.5}
+                            alignItems="flex-start"
+                            sx={{ minWidth: 0, maxWidth: '100%' }}
+                          >
                             <Stack
                               direction="row"
                               spacing={0.75}
                               alignItems="center"
                               flexWrap="wrap"
                               useFlexGap
+                              sx={{ minWidth: 0, maxWidth: '100%' }}
                             >
                               {runLabel && (
                                 <Chip
@@ -685,6 +705,8 @@ export function ConversationList({
                                 variant="caption"
                                 color="text.secondary"
                                 data-testid="conversation-meta"
+                                noWrap
+                                sx={{ minWidth: 0, maxWidth: '100%' }}
                               >
                                 {conversation.provider} · {conversation.model} ·{' '}
                                 {conversation.source ?? 'REST'}
@@ -694,6 +716,8 @@ export function ConversationList({
                               variant="caption"
                               color="text.secondary"
                               data-testid="conversation-updated"
+                              noWrap
+                              sx={{ maxWidth: '100%' }}
                             >
                               {formatTimestamp(conversation.lastMessageAt)}
                             </Typography>

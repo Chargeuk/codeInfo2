@@ -1307,7 +1307,7 @@ export default function ChatPage() {
     <Container
       maxWidth={false}
       sx={{
-        pt: 3,
+        pt: 2,
         pb: 0,
         flex: 1,
         display: 'flex',

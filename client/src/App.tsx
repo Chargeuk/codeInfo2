@@ -29,7 +29,7 @@ export default function App() {
       <Container
         maxWidth={false}
         sx={{
-          mt: 3,
+          mt: 1.5,
           pb: 2,
           flex: 1,
           display: 'flex',

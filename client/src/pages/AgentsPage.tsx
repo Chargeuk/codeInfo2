@@ -1845,7 +1845,7 @@ export default function AgentsPage() {
       maxWidth={false}
       data-testid="agents-page"
       sx={{
-        pt: 3,
+        pt: 2,
         pb: 0,
         flex: 1,
         display: 'flex',

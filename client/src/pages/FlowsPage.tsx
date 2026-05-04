@@ -1168,7 +1168,7 @@ export default function FlowsPage() {
       maxWidth={false}
       data-testid="flows-page"
       sx={{
-        pt: 3,
+        pt: 2,
         pb: 0,
         flex: 1,
         display: 'flex',

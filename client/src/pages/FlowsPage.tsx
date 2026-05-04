@@ -1401,10 +1401,10 @@ export default function FlowsPage() {
                       fullWidth
                       size="small"
                       label="Custom title"
+                      placeholder="Optional name for this run"
                       value={customTitle}
                       onChange={(event) => setCustomTitle(event.target.value)}
                       onBlur={handleCustomTitleBlur}
-                      helperText="Optional: name for this run"
                       disabled={customTitleDisabled}
                       inputProps={{ 'data-testid': 'flow-custom-title' }}
                     />

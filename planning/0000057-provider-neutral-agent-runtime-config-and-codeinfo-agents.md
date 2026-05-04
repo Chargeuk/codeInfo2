@@ -181,6 +181,16 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If the saved agent name no longer exists later, should the turn fail, or should we try a different agent?
+   - Why this is important: The story now says later turns keep using the stored `agentName`, so we still need one clear rule for what happens if that saved agent can no longer be found.
+   - Best Answer: Fail the later turn clearly instead of substituting a different agent. That best matches the repo's current `AGENT_NOT_FOUND` pattern, keeps agent identity explicit, and avoids silently continuing a conversation with different prompts, commands, or runtime behavior than the user originally started with.
+   - Where this answer came from: Repo evidence in `server/src/agents/service.ts`, `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/agent-prompts-list.test.ts`, and `server/src/test/unit/agent-commands-list.test.ts`. External evidence in the official GitHub Copilot session-persistence docs, the official OpenAI conversation-state docs, and DeepWiki notes on `openai/openai-node`, which all reinforce that continuity is tied to an existing saved identity rather than silently substituting a different one.
+
+2. If an agent's files change after a conversation starts, should later turns use the updated agent files, or keep the older version?
+   - Why this is important: Storing `agentName` does not automatically tell us whether existing conversations should follow live agent-file changes or try to preserve a snapshot of older agent content.
+   - Best Answer: Use the updated agent files resolved by the saved `agentName` at execution time, not a hidden snapshot of older agent content. That best matches the repo's current live-discovery behavior, keeps the story small, and avoids inventing a much larger snapshotting system that this plan does not currently describe.
+   - Where this answer came from: Repo evidence in `server/src/agents/discovery.ts`, `server/src/config/runtimeConfig.ts`, `server/src/agents/service.ts`, `server/src/routes/conversations.ts`, and `server/src/test/unit/conversations-router-agent-filter.test.ts`. External evidence in the official GitHub Copilot session-persistence docs, the official OpenAI conversation-state docs, and DeepWiki notes on `openai/openai-node`, which all point to continuity being driven by saved session or conversation identity rather than by frozen copies of external application configuration.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

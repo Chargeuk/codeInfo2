@@ -1551,7 +1551,11 @@ export default function ChatPage() {
                           justifyContent="flex-end"
                           sx={{ minWidth: { xs: '100%', sm: 220 } }}
                         >
-                          <Stack spacing={1} sx={{ width: '100%' }}>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ width: '100%' }}
+                          >
                             <Button
                               type="button"
                               variant="outlined"
@@ -1560,6 +1564,7 @@ export default function ChatPage() {
                               onClick={() => handleNewConversation()}
                               disabled={isLoading || nextSendContextLocked}
                               fullWidth
+                              sx={{ flex: 1 }}
                             >
                               New conversation
                             </Button>
@@ -1571,8 +1576,9 @@ export default function ChatPage() {
                                 onClick={handleDeviceAuthOpen}
                                 disabled={isLoading}
                                 fullWidth
+                                sx={{ flex: 1 }}
                               >
-                                Re-authenticate (device auth)
+                                Re-authenticate
                               </Button>
                             ) : null}
                           </Stack>

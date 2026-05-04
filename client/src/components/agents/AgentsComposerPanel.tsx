@@ -252,7 +252,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
               ) : null}
             </Stack>
 
-            <Stack spacing={1} sx={{ flexShrink: 0 }}>
+            <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
               <Button
                 type="button"
                 variant="outlined"
@@ -260,6 +260,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
                 onClick={onResetConversation}
                 disabled={agentsLoading}
                 data-testid="agent-new-conversation"
+                sx={{ flex: 1 }}
               >
                 New conversation
               </Button>
@@ -271,8 +272,9 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
                   size="small"
                   onClick={onDeviceAuthOpen}
                   disabled={agentsLoading}
+                  sx={{ flex: 1 }}
                 >
-                  Re-authenticate (device auth)
+                  Re-authenticate
                 </Button>
               ) : null}
             </Stack>

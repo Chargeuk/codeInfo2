@@ -175,6 +175,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If a saved provider or model stops working later, should the next turn fail, or should we force a new conversation?
+   - Why this is important: The story now locks each conversation to its saved provider-and-model pair, so we still need one clear rule for what happens when that saved pair is no longer usable on a later turn.
+   - Best Answer: Fail the later turn clearly inside the existing conversation instead of silently switching providers or auto-starting a new conversation. That best matches the repo's current explicit-failure pattern for unavailable pinned providers and preserves the user's saved conversation history without silently changing its execution identity. If the user wants to continue on a different provider or model, they should start a new conversation on purpose.
+   - Where this answer came from: Repo evidence in `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/agentFlags.ts`, `client/src/pages/ChatPage.tsx`, and `client/src/test/chatPage.inflightNavigate.test.tsx`. External evidence in the official OpenAI conversation-state docs, the official GitHub Copilot SDK session-persistence docs, and DeepWiki notes on `openai/openai-node`, all of which show continuation is tied to provider-owned conversation or session identifiers.
+
+2. If an older conversation is missing the saved provider and model, should we rebuild and save them, or require a new conversation?
+   - Why this is important: Story 57 changes what later turns depend on, so older saved conversations need a rollout rule that avoids breaking existing history.
+   - Best Answer: Rebuild and save the missing execution pair lazily from existing conversation metadata when enough legacy state is already present, and only fall back to one-time runtime resolution when the older record truly does not have enough stored information. Requiring users to abandon older conversations would be a harsher migration than the repo's normal additive-persistence pattern, while a lazy backfill fits the way this codebase already introduces new conversation metadata fields.
+   - Where this answer came from: Repo evidence in `server/src/mongo/conversation.ts`, `server/src/mongo/repo.ts`, `server/src/routes/chat.ts`, and `server/src/test/unit/flows.flags.test.ts`. External evidence was reviewed but not needed for the recommendation because this is primarily a repo-owned persistence and migration choice.
+
+3. If an agent's config changes after a conversation starts, should the old conversation keep its saved provider and model, or adopt the new config?
+   - Why this is important: Without an explicit rule, an agent edit could silently change how an existing conversation continues, even though the story now says continuation should use the saved execution pair.
+   - Best Answer: Keep the old conversation on its saved provider-and-model pair, and apply the changed agent config only to new conversations created after that edit. That best matches the repo's current chat behavior, where provider or model changes create a next-send boundary instead of rewriting an existing conversation in place.
+   - Where this answer came from: Repo evidence in `client/src/pages/ChatPage.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, and `server/src/mongo/repo.ts`. External evidence in the official OpenAI conversation-state docs, the official GitHub Copilot SDK session-persistence docs, and DeepWiki notes on `openai/openai-node`, which all reinforce that continuation state is tied to the existing conversation or session rather than to later config edits.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

@@ -210,38 +210,47 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
             spacing={1}
             alignItems={{ xs: 'stretch', sm: 'center' }}
           >
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={agentsLoading || !!agentsError}
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              sx={{ flex: 1, minWidth: 0 }}
             >
-              <InputLabel id="agent-select-label">Agent</InputLabel>
-              <Select
-                labelId="agent-select-label"
-                label="Agent"
-                value={selectedAgentName}
-                onChange={onAgentChange}
-                inputProps={{ 'data-testid': 'agent-select' }}
-              >
-                {agents.map((agent) => (
-                  <MenuItem key={agent.name} value={agent.name}>
-                    {agent.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {showAgentInfoButton ? (
-              <IconButton
-                aria-describedby={agentInfoId}
-                onClick={onAgentInfoOpen}
-                disabled={agentInfoDisabled}
+              <FormControl
+                fullWidth
                 size="small"
-                data-testid="agent-info"
+                disabled={agentsLoading || !!agentsError}
+                sx={{ flex: 1, minWidth: 0 }}
               >
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            ) : null}
+                <InputLabel id="agent-select-label">Agent</InputLabel>
+                <Select
+                  labelId="agent-select-label"
+                  label="Agent"
+                  value={selectedAgentName}
+                  onChange={onAgentChange}
+                  inputProps={{ 'data-testid': 'agent-select' }}
+                >
+                  {agents.map((agent) => (
+                    <MenuItem key={agent.name} value={agent.name}>
+                      {agent.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {showAgentInfoButton ? (
+                <IconButton
+                  aria-describedby={agentInfoId}
+                  onClick={onAgentInfoOpen}
+                  disabled={agentInfoDisabled}
+                  size="small"
+                  data-testid="agent-info"
+                  sx={{ flexShrink: 0 }}
+                >
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              ) : null}
+            </Stack>
 
             <Stack spacing={1} sx={{ flexShrink: 0 }}>
               <Button
@@ -323,60 +332,70 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
               </Select>
             </FormControl>
 
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={startStepDisabled}
-              sx={{ flex: 1 }}
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              sx={{ flex: 1, minWidth: 0 }}
             >
-              <InputLabel id="agent-command-start-step-label">
-                Start step
-              </InputLabel>
-              <Select
-                labelId="agent-command-start-step-label"
-                label="Start step"
-                value={startStepValue}
-                onChange={onStartStepChange}
-                displayEmpty
-                inputProps={{
-                  'data-testid': 'agent-command-start-step-select',
-                }}
-              >
-                {!selectedCommandKey ? (
-                  <MenuItem value="" disabled>
-                    Select command first
-                  </MenuItem>
-                ) : null}
-                {Array.from(
-                  { length: Math.max(1, selectedCommandStepCount) },
-                  (_, index) => {
-                    const step = index + 1;
-                    return (
-                      <MenuItem
-                        key={step}
-                        value={`${step}`}
-                        data-testid={`agent-command-start-step-option-${step}`}
-                      >
-                        {`Step ${step}`}
-                      </MenuItem>
-                    );
-                  },
-                )}
-              </Select>
-            </FormControl>
-
-            <Box onMouseDownCapture={onCommandInfoAttempt}>
-              <IconButton
-                aria-describedby={commandInfoId}
-                aria-label="Command info"
-                onClick={onCommandInfoOpen}
-                disabled={commandInfoDisabled}
+              <FormControl
+                fullWidth
                 size="small"
-                data-testid="agent-command-info"
+                disabled={startStepDisabled}
+                sx={{ flex: 1, minWidth: 0 }}
               >
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Box>
+                <InputLabel id="agent-command-start-step-label">
+                  Start step
+                </InputLabel>
+                <Select
+                  labelId="agent-command-start-step-label"
+                  label="Start step"
+                  value={startStepValue}
+                  onChange={onStartStepChange}
+                  displayEmpty
+                  inputProps={{
+                    'data-testid': 'agent-command-start-step-select',
+                  }}
+                >
+                  {!selectedCommandKey ? (
+                    <MenuItem value="" disabled>
+                      Select command first
+                    </MenuItem>
+                  ) : null}
+                  {Array.from(
+                    { length: Math.max(1, selectedCommandStepCount) },
+                    (_, index) => {
+                      const step = index + 1;
+                      return (
+                        <MenuItem
+                          key={step}
+                          value={`${step}`}
+                          data-testid={`agent-command-start-step-option-${step}`}
+                        >
+                          {`Step ${step}`}
+                        </MenuItem>
+                      );
+                    },
+                  )}
+                </Select>
+              </FormControl>
+
+              <Box
+                onMouseDownCapture={onCommandInfoAttempt}
+                sx={{ flexShrink: 0 }}
+              >
+                <IconButton
+                  aria-describedby={commandInfoId}
+                  aria-label="Command info"
+                  onClick={onCommandInfoOpen}
+                  disabled={commandInfoDisabled}
+                  size="small"
+                  data-testid="agent-command-info"
+                >
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Stack>
 
             <Button
               type="button"

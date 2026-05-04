@@ -1310,9 +1310,10 @@ export default function FlowsPage() {
               <Box data-testid="flows-controls" style={{ flex: '0 0 auto' }}>
                 <Stack spacing={2}>
                   <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
+                    direction="row"
                     spacing={1}
-                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                    alignItems="center"
+                    sx={{ minWidth: 0 }}
                   >
                     <TextField
                       select
@@ -1323,6 +1324,7 @@ export default function FlowsPage() {
                       onChange={handleFlowChange}
                       disabled={flowsLoading || !!flowsError}
                       inputProps={{ 'data-testid': 'flow-select' }}
+                      sx={{ flex: 1, minWidth: 0 }}
                     >
                       {flowOptions.map((flow) => (
                         <MenuItem
@@ -1343,6 +1345,7 @@ export default function FlowsPage() {
                             disabled={flowInfoDisabled}
                             size="small"
                             data-testid="flow-info"
+                            sx={{ flexShrink: 0 }}
                           >
                             <InfoOutlinedIcon fontSize="small" />
                           </IconButton>

@@ -39,7 +39,7 @@ This story also shifts the preferred agent folder name from `codex_agents` to `c
 
 The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. The runtime should simply execute according to the merged `config.toml` values plus the shared repository execution context where a working folder has been selected.
 
-One additional requirement is that the `code_info` MCP tool should stop biasing callers toward Codex or toward any explicit model choice. The tool definition should treat both `provider` and `model` as explicit override fields only, and agents should omit them unless the user has specifically asked for a provider-specific or model-specific run. Omitted-field behavior can still follow the server's normal shared default-resolution contract, but the tool contract itself should no longer encourage or imply a Codex-first or model-pinning caller habit. In addition, omitted-provider or non-Codex execution must remain repository-grounded when the repository is available to the harness; provider neutrality is not complete if a non-Codex `code_info` execution loses repository context that the Codex path currently receives through working-directory or runtime wiring.
+One additional requirement is that the repo-owned `code_info` MCP definition and repo-owned instruction surfaces in this codebase should stop biasing callers toward Codex or toward any explicit model choice. The tool definition should treat both `provider` and `model` as explicit override fields only, and agents should omit them unless the user has specifically asked for a provider-specific or model-specific run. Omitted-field behavior can still follow the server's normal shared default-resolution contract, but the repo-owned tool contract and repo-owned prompts in this repository should no longer encourage or imply a Codex-first or model-pinning caller habit. In addition, omitted-provider or non-Codex execution must remain repository-grounded when the repository is available to the harness; provider neutrality is not complete if a non-Codex `code_info` execution loses repository context that the Codex path currently receives through working-directory or runtime wiring.
 
 ### Acceptance Criteria
 
@@ -82,6 +82,7 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - This story does not add new MCP-level agent provider overrides beyond the merged config behavior.
 - The `code_info` MCP tool definition describes `provider` as an explicit optional override rather than as a defaulted Codex-oriented field.
 - The `code_info` MCP tool definition describes `model` as an explicit optional override rather than as a field callers should normally populate.
+- Repo-owned instruction surfaces in this codebase that teach agents how to use `code_info` are updated to match the explicit-override contract for `provider` and `model`.
 - Agents calling `code_info` omit `provider` unless the user explicitly asks for a provider-specific run.
 - Agents calling `code_info` omit `model` unless the user explicitly asks for a model-specific run.
 - When both `provider` and `model` are omitted from `code_info`, provider and model resolution follow the normal shared server default-selection contract.
@@ -104,6 +105,7 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - Changing the precedence rules themselves for the default execution root beyond centralizing the current Codex behavior into shared code.
 - Making LM Studio consume or honor the shared runtime working-directory override directly.
 - Requiring agents to populate `provider` or `model` pre-emptively for routine `code_info` calls instead of relying on the shared server default-resolution contract.
+- Updating shared harness, platform, or other agent-facing metadata that lives outside this repository.
 - Moving or redesigning provider authentication secrets or stored auth state beyond what is required for the new config layering.
 - Inventing a new manual override layer above `codeinfo_config/config.toml`, provider `config.toml`, and chat or agent runtime config.
 - Adding a second user-facing working-folder override model that differs between chat, agents, flows, or MCP tools.
@@ -122,11 +124,6 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 
 ### Questions
 
-1. Should this story update only repo-owned `code_info` instructions, or should it also update the shared harness/tool metadata agents see outside this repo?
-   - Why this is important: If we only fix the repo files, agents may still see stale top-level tool guidance and keep sending `provider` or `model` even after the repo is updated.
-   - Best Answer: It should include both if we control both ends. Repo-owned instructions clearly need updating because many prompts and command files teach agents how to call `code_info`, but the shared harness or tool metadata should also be refreshed so the live agent-facing schema stops advertising outdated behavior. Otherwise the repo and the actual agent runtime will drift.
-   - Where this answer came from: Repo evidence in `server/src/mcp2/tools/codebaseQuestion.ts`, `AGENTS.md`, `usefulCommands.txt.md`, `docs/developer-reference.md`, and multiple prompt files under `codex_agents/**` plus `codeinfo_markdown/**`. Additional evidence from this planning session: the live tool schema exposed to the current agent still described omitted `provider` as defaulting to Codex, which shows that repo-only changes may not be enough.
-
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.
@@ -142,6 +139,13 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
    - What the answer is: LM Studio should remain repository-grounded through existing provider-appropriate context and tools, but consuming the shared runtime working-directory override directly is out of scope for this story.
    - Where the answer came from: Repo evidence in `server/src/lmstudio/tools.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, and `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`. External evidence from the official `lmstudio-js` source in `packages/lms-client/src/llm/LLMGeneratorHandle.ts` and `packages/lms-shared-types/src/PluginConfigSpecifier.ts`.
    - Why it is the best answer: It keeps the story focused on provider-neutral shared context and repository-grounded behavior without forcing unsupported LM Studio parity work into the same implementation.
+
+3. Decision: this story should update only the repo-owned `code_info` definitions and instructions in this codebase.
+   - The question being addressed: Should this story update only repo-owned `code_info` instructions, or should it also update shared harness or platform metadata outside this repository?
+   - Why the question matters: The story now changes how `provider` and `model` should be described and used, so we need a clear boundary for which instruction surfaces this work owns.
+   - What the answer is: Limit the story to repo-owned `code_info` definitions, prompts, and docs in this repository, and leave any shared harness or platform metadata outside this repository out of scope.
+   - Where the answer came from: Repo evidence in `server/src/mcp2/tools/codebaseQuestion.ts`, `AGENTS.md`, `usefulCommands.txt.md`, `docs/developer-reference.md`, and prompt files under `codex_agents/**` plus `codeinfo_markdown/**`. Additional evidence from this planning session: the runtime-facing built tool schema mirrors the repo source, but no clearly separate shared harness metadata file was identified inside this repository.
+   - Why it is the best answer: It keeps Story `0000057` grounded in code and documentation this repository directly owns, while still allowing a later follow-up to align any external agent-facing metadata if needed.
 
 ## Implementation Ideas
 

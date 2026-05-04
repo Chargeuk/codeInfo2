@@ -164,6 +164,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If the chosen provider is up but its model is missing, should we stay on that provider or switch providers?
+   - Why this is important: A bad model name is a common operator mistake, and the story already treats provider fallback as a special recovery path, so we need to say whether model repair stays local or hops providers.
+   - Best Answer: Stay on the selected provider and resolve a fallback model there instead of entering the cross-provider fallback chain. That keeps explicit provider choice authoritative, matches the story's current separation between provider fallback and normal model resolution, and avoids silently changing providers for what is really a provider-local model issue.
+   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `design.md`. External evidence from OpenAI API docs and DeepWiki notes on `openai/openai-node`, both of which show that model selection is application-owned within the chosen provider rather than something the SDK auto-switches across providers.
+
+2. If one run falls back, should the next run try the original provider again, or keep using the fallback provider?
+   - Why this is important: This decides whether fallback is a one-run recovery step or a sticky provider change that silently reshapes later agent behavior.
+   - Best Answer: Try the original provider again on the next run. That best fits the story's existing rule that provider fallback is a separate recovery step rather than a change to the normal config precedence, and it keeps the agent's configured provider as the source of truth unless the user or config actually changes it.
+   - Where this answer came from: Repo evidence in this story's Description, Acceptance Criteria, and Decision 11, plus local runtime-persistence evidence in `server/src/routes/chat.ts` and `server/src/mongo/repo.ts` showing why this needs to be decided explicitly. External evidence from OpenAI API docs and DeepWiki notes on `openai/openai-node`, which reinforce that provider and model choice are request-owned application decisions.
+
+3. After a fallback run, should the conversation show the provider that actually ran, or the provider originally requested?
+   - Why this is important: Users and later runtime code need one honest source for what really executed, especially when warnings, thread reuse, and later debugging depend on it.
+   - Best Answer: Show the provider and model that actually executed, and also keep a warning that fallback happened from the originally requested provider. That matches the repo's existing conversation metadata pattern, keeps the visible state truthful, and still preserves the user's understanding of why the fallback happened.
+   - Where this answer came from: Repo evidence in `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and `server/src/mongo/repo.ts`. External evidence was not needed because the local persistence contract already provides the strongest precedent.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

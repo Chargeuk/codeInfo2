@@ -35,7 +35,7 @@ For agents, the selected provider comes from a new app-owned metadata field insi
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
-When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. That env var should be normalized by trimming entries, dropping blanks, removing duplicates, and ignoring unknown provider ids with warnings. If normalization leaves no usable configured providers, the runtime should fall back to the default order rather than failing startup. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. Shared settings should carry forward across that fallback attempt, while provider-specific settings that the fallback provider cannot use should be ignored with warnings rather than making the fallback fail for that reason alone. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
+When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. That env var should be normalized by trimming entries, dropping blanks, removing duplicates, and ignoring unknown provider ids with warnings. If normalization leaves no usable configured providers, the runtime should fall back to the default order rather than failing startup. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the selected provider is still available but the merged model is missing or invalid for that provider, the runtime should stay on that provider and resolve a fallback model there rather than entering the cross-provider fallback chain. If the runtime does need to fall back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. Shared settings should carry forward across that fallback attempt, while provider-specific settings that the fallback provider cannot use should be ignored with warnings rather than making the fallback fail for that reason alone. That cross-provider fallback is per-run only: each new run should start again from the agent's configured provider and only fall back if the current run still needs recovery. When a fallback run succeeds, the conversation and any user-visible execution metadata should show the provider and model that actually ran, while also keeping a warning that fallback happened from the originally requested provider. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced in the agent list payload plus the selected agent's info or details surface. Equivalent flow-owned agent warning surfaces should reuse the same warning data through the existing flow info or details surface when that surface already exists. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
 
@@ -85,15 +85,18 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` is normalized by trimming entries, dropping blanks, removing duplicates, and ignoring unknown provider ids with warnings.
 - If `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` normalizes to no usable configured providers, agent execution falls back to the default order of `codex,copilot` rather than failing startup.
 - Provider fallback is a separate recovery step and does not change the normal agent runtime config precedence.
+- If the selected provider is available but the merged model is missing or invalid for that provider, runtime stays on that provider and resolves a fallback model there instead of entering cross-provider fallback.
 - A fallback provider counts as available only when it is actually usable for the current run, not merely because it is listed in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
 - If provider fallback runs, the model selection order is: the same model on the fallback provider when available, then the model defined in that fallback provider's chat config, then that fallback provider's default model.
 - If provider fallback runs, shared settings remain in effect and provider-specific settings the fallback provider cannot use are ignored with warnings rather than failing fallback for that reason alone.
+- Cross-provider fallback is per-run only; each new run starts from the agent's configured provider again rather than becoming sticky on the last fallback provider.
 - If the originally failed provider also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, the runtime skips it and moves to the next configured provider.
 - If no configured fallback provider can execute the agent run, the run fails clearly.
 - Provider fallback emits both warning logs and warning-capable API or GUI warnings.
 - Agent fallback warnings appear in the agent list payload and in the selected agent's info or details surface.
 - Equivalent flow-owned agent warning surfaces reuse the same warning data through the existing flow info or details surface when that surface already exists.
 - Agents disabled because no usable provider remains stay visible in the agent list and details surfaces rather than disappearing from discovery.
+- After a fallback run succeeds, the conversation and user-visible execution metadata show the provider and model that actually executed, plus a warning that fallback happened from the originally requested provider.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
 - Flow-owned agent execution uses the same shared repository execution-context contract as direct agent execution.
 - The current Codex-specific default-working-directory selection logic is removed from provider-specific execution code and replaced by the shared execution-context resolver.
@@ -144,6 +147,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Hiding disabled agents from discovery when provider validation or provider availability fails.
 - Treating recoverable formatting mistakes in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` as fatal startup errors.
 - Failing provider fallback solely because the original agent config contains provider-specific settings the fallback provider cannot use.
+- Entering cross-provider fallback just because the chosen provider's model is missing when that provider itself is still available.
+- Making the last fallback provider sticky across later runs without a real config or user change.
+- Showing only the originally requested provider and model after a fallback run when a different provider or model actually executed.
 - Removing `codex_agents` support in this story.
 - Introducing new provider types beyond Codex, Copilot, and LM Studio.
 
@@ -161,23 +167,11 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Later manual proof should include one fallback run where provider-specific settings from the original provider are ignored with a visible warning so the fallback still succeeds.
 - Later manual proof should cover a malformed `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` with blanks, duplicates, or unknown providers and show the resulting warnings plus the normalized fallback behavior.
 - Later manual proof should show that an agent with no usable provider remains visible but disabled in the list and details surfaces.
+- Later manual proof should include one run where the selected provider is available but its model is missing, and show that the runtime stays on that provider while resolving a fallback model there.
+- Later manual proof should show that a later rerun starts from the originally configured provider again rather than staying on the prior run's fallback provider.
+- Later manual proof should show that a fallback run records and displays the provider and model that actually executed, while still surfacing a warning about the originally requested provider.
 
 ### Questions
-
-1. If the chosen provider is up but its model is missing, should we stay on that provider or switch providers?
-   - Why this is important: A bad model name is a common operator mistake, and the story already treats provider fallback as a special recovery path, so we need to say whether model repair stays local or hops providers.
-   - Best Answer: Stay on the selected provider and resolve a fallback model there instead of entering the cross-provider fallback chain. That keeps explicit provider choice authoritative, matches the story's current separation between provider fallback and normal model resolution, and avoids silently changing providers for what is really a provider-local model issue.
-   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `design.md`. External evidence from OpenAI API docs and DeepWiki notes on `openai/openai-node`, both of which show that model selection is application-owned within the chosen provider rather than something the SDK auto-switches across providers.
-
-2. If one run falls back, should the next run try the original provider again, or keep using the fallback provider?
-   - Why this is important: This decides whether fallback is a one-run recovery step or a sticky provider change that silently reshapes later agent behavior.
-   - Best Answer: Try the original provider again on the next run. That best fits the story's existing rule that provider fallback is a separate recovery step rather than a change to the normal config precedence, and it keeps the agent's configured provider as the source of truth unless the user or config actually changes it.
-   - Where this answer came from: Repo evidence in this story's Description, Acceptance Criteria, and Decision 11, plus local runtime-persistence evidence in `server/src/routes/chat.ts` and `server/src/mongo/repo.ts` showing why this needs to be decided explicitly. External evidence from OpenAI API docs and DeepWiki notes on `openai/openai-node`, which reinforce that provider and model choice are request-owned application decisions.
-
-3. After a fallback run, should the conversation show the provider that actually ran, or the provider originally requested?
-   - Why this is important: Users and later runtime code need one honest source for what really executed, especially when warnings, thread reuse, and later debugging depend on it.
-   - Best Answer: Show the provider and model that actually executed, and also keep a warning that fallback happened from the originally requested provider. That matches the repo's existing conversation metadata pattern, keeps the visible state truthful, and still preserves the user's understanding of why the fallback happened.
-   - Where this answer came from: Repo evidence in `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and `server/src/mongo/repo.ts`. External evidence was not needed because the local persistence contract already provides the strongest precedent.
 
 ## Decisions
 
@@ -321,6 +315,27 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/agents/types.ts`, `client/src/components/agents/AgentsComposerPanel.tsx`, and `server/src/config/chatDefaults.ts`.
    - Why it is the best answer: It aligns with the repo's existing agent API and UI shape, preserves debuggability, and keeps discovery behavior predictable for users.
 
+21. Decision: model repair stays on the selected provider instead of entering cross-provider fallback.
+   - The question being addressed: If the chosen provider is up but its model is missing, should the runtime stay on that provider or switch providers?
+   - Why the question matters: A bad model name is a common operator mistake, and the story already treats provider fallback as a separate recovery path.
+   - What the answer is: Stay on the selected provider and resolve a fallback model there instead of entering the cross-provider fallback chain.
+   - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `design.md`. External evidence from OpenAI API docs and DeepWiki notes on `openai/openai-node`, both of which show that model selection is application-owned within the chosen provider rather than something the SDK auto-switches across providers.
+   - Why it is the best answer: It keeps explicit provider choice authoritative, matches the story's current separation between provider fallback and normal model resolution, and avoids silently changing providers for what is really a provider-local model issue.
+
+22. Decision: cross-provider fallback is per-run only and does not become sticky across later runs.
+   - The question being addressed: If one run falls back, should the next run try the original provider again, or keep using the fallback provider?
+   - Why the question matters: This decides whether fallback is a one-run recovery step or a sticky provider change that silently reshapes later agent behavior.
+   - What the answer is: Try the original provider again on the next run. Cross-provider fallback is per-run only.
+   - Where the answer came from: User direction in this planning round. Repo evidence in this story's Description, Acceptance Criteria, and Decision 11, plus local runtime-persistence evidence in `server/src/routes/chat.ts` and `server/src/mongo/repo.ts` showing why this needed to be decided explicitly. External evidence from OpenAI API docs and DeepWiki notes on `openai/openai-node`, which reinforce that provider and model choice are request-owned application decisions.
+   - Why it is the best answer: It preserves the agent's configured provider as the source of truth, keeps fallback aligned with the story's existing recovery-step framing, and prevents silent long-term drift away from the configured provider.
+
+23. Decision: fallback runs should display and persist the provider and model that actually executed.
+   - The question being addressed: After a fallback run, should the conversation show the provider that actually ran, or the provider originally requested?
+   - Why the question matters: Users and later runtime code need one honest source for what really executed, especially when warnings, thread reuse, and later debugging depend on it.
+   - What the answer is: Show and persist the provider and model that actually executed, and also keep a warning that fallback happened from the originally requested provider.
+   - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and `server/src/mongo/repo.ts`.
+   - Why it is the best answer: It matches the repo's existing conversation metadata pattern, keeps visible state truthful, and still preserves the user's understanding of why the fallback happened.
+
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
@@ -337,14 +352,17 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Add a shared provider-fallback resolver for agent execution that reads `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, applies the configured provider order, and records warning metadata whenever a fallback provider is used.
 - Normalize `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` before availability checks by trimming entries, dropping blanks, removing duplicates, and warning on unknown providers, then fall back to the default order if nothing usable remains.
 - Keep that fallback resolver scoped to direct agent runs and flow-owned agent runs so normal chat continues to use its existing behavior.
+- Keep provider-local model repair separate from cross-provider fallback so a missing model on an otherwise available provider resolves to a fallback model on that same provider first.
 - Reuse provider-model discovery so fallback acts as a separate recovery step: try the same model on the next provider first, then that provider's chat-config model, and finally that provider's default model before moving on or failing.
 - Filter provider-specific runtime settings before constructing the fallback provider so shared settings survive while incompatible provider-only settings are dropped with warnings.
 - Skip the originally failed provider if it also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` rather than retrying it inside the fallback loop.
+- Re-resolve the agent's configured provider at the start of each new run so a previous fallback does not become sticky by accident.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Resolve `CODEINFO_AGENT_HOME` ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
 - Surface fallback and duplicate-agent warnings through the agent list payload and the selected agent's info or details surface, and reuse the same warning data through the existing flow info or details surface for equivalent flow-owned agent warnings when that surface already exists.
 - Keep agents with no usable provider in discovery results with `disabled` plus warning metadata instead of removing them from the list.
+- Separate configured-provider selection from persisted execution metadata so a fallback run can record the provider and model that actually executed without rewriting the configured provider choice for the next run.
 - Update the `code_info` MCP schema text so both `provider` and `model` are documented as explicit override fields rather than normal caller-populated inputs.
 - Update repo-owned instruction surfaces that teach agents how to use `code_info` so they explicitly say to omit `provider` and `model` unless the user requests a provider-specific or model-specific run.
 - Add regression coverage for the MCP tool definition payload so future `tools/list` responses cannot silently drift back to Codex-biased or model-pinning wording.

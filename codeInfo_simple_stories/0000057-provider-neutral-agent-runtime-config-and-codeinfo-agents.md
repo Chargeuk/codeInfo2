@@ -7,8 +7,9 @@
 3. Users can see clear warnings and disabled states when an agent has an invalid provider, no usable provider, or a duplicate definition, while still being able to inspect the affected agent or flow.
 4. Users can benefit from controlled provider fallback for agent and flow-owned agent runs, including clear visibility into which provider and model actually executed.
 5. Users can rely on `codeinfo_agents` taking precedence over `codex_agents`, while older `codex_agents` layouts continue to work for compatibility.
-6. Users can reopen an existing conversation and keep using its stored execution identity, while new conversations re-evaluate the current agent config and provider availability from scratch.
-7. Support and technical reviewers can validate the full story through the normal wrapper-first build, test, and compose workflow.
+6. Users and `code_info` callers can rely on one shared repository-grounded execution context, while the published neutral `CODEINFO_AGENT_HOME` contract replaces Codex-only env naming without breaking legacy compatibility.
+7. Users can reopen an existing conversation and keep using its stored execution identity, while new conversations re-evaluate the current agent config and provider availability from scratch.
+8. Support and technical reviewers can validate the full story through the normal wrapper-first build, test, and compose workflow.
 
 # Description
 
@@ -26,7 +27,7 @@ This story finishes the move from a Codex-shaped agent runtime to a provider-neu
 
 3. [codeInfo2] - Resolve one shared repository execution context for chat and `code_info`
 - Centralize repository execution context and working-directory resolution instead of letting each provider derive its own path.
-- Wire the shared execution context into chat, Codex, Copilot, LM Studio, and `code_info` proof surfaces.
+- Use that shared contract as the execution-context foundation that later direct-agent and flow-owned runtime tasks also consume.
 
 4. [codeInfo2] - Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
 - Add reusable availability evaluation for warnings, disabled reasons, and fallback candidates before a run starts.

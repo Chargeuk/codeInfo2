@@ -171,7 +171,9 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 - Later manual proof should show that if a saved `agentName` no longer resolves, the later turn fails clearly instead of substituting another agent.
 - Later manual proof should show that later turns keep using stored database identity fields while resolving the current agent files live at execution time.
 
-### Questions
+## Questions
+
+- No Further Questions
 
 ## Decisions
 

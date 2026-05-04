@@ -31,13 +31,13 @@ From a user's point of view, this creates two product problems. First, users can
 
 This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values. If `codeinfo_config/config.toml` has not been created yet, the runtime should continue cleanly without trying to auto-create repository files at startup.
 
-For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, that agent should fail clearly rather than silently defaulting to Codex. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
+For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, the product should warn immediately rather than silently defaulting to Codex. If a configured fallback provider is available, the agent should remain runnable and the warning should explain which fallback will be used. If no usable fallback provider is available, the product should show a clear error and disable that agent. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
 When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
-This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced through existing warning-capable API or UI responses. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and the new neutral env var should win when both are set.
+This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced through existing warning-capable API or UI responses. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
 
 The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. The runtime should simply execute according to the merged `config.toml` values plus the shared repository execution context where a working folder has been selected.
 
@@ -57,7 +57,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Named tables still merge by key, with higher-precedence entries replacing conflicting lower-precedence entries.
 - Agent configs can declare `codeinfo_provider = "codex" | "copilot" | "lmstudio"`.
 - If `codeinfo_provider` is absent from an agent config, the runtime defaults that agent to `codex`.
-- If `codeinfo_provider` is present but invalid, that agent fails clearly instead of silently defaulting to `codex`.
+- If `codeinfo_provider` is present but invalid, the product warns immediately instead of silently defaulting to `codex`.
+- If `codeinfo_provider` is invalid but a configured fallback provider is available, the agent remains runnable and the warning includes the fallback provider that will be used.
+- If `codeinfo_provider` is invalid and no configured fallback provider is available, the product shows a clear error and disables that agent.
 - Chat runtime config does not require or depend on `codeinfo_provider`.
 - If `codeinfo_provider` appears in a config surface where it does not apply, the runtime ignores it with a warning instead of failing validation.
 - The runtime strips app-owned `codeinfo_*` metadata before passing provider config into the relevant provider SDK or harness.
@@ -88,8 +90,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - LM Studio receives the shared repository execution context even if its provider-specific implementation does not use the same direct runtime working-directory mechanism as Codex or Copilot.
 - The preferred agent folder name becomes `codeinfo_agents`.
 - The legacy `codex_agents` folder remains supported for backward compatibility.
-- A legacy environment variable such as `CODEINFO_CODEX_AGENT_HOME` remains supported as an alias to the preferred neutral agent-home contract.
-- If both the new neutral agent-home env var and `CODEINFO_CODEX_AGENT_HOME` are set, the new neutral env var wins and the legacy alias is treated as a fallback only.
+- `CODEINFO_AGENT_HOME` becomes the preferred neutral agent-home env var.
+- `CODEINFO_CODEX_AGENT_HOME` remains supported as a legacy alias to `CODEINFO_AGENT_HOME`.
+- If both `CODEINFO_AGENT_HOME` and `CODEINFO_CODEX_AGENT_HOME` are set, `CODEINFO_AGENT_HOME` wins and the legacy alias is treated as a fallback only.
 - When both `codeinfo_agents` and `codex_agents` are present for the same lookup path, `codeinfo_agents` always wins.
 - When the same agent is found in both folders, the runtime logs a warning and also surfaces that warning through existing warning-capable API or UI responses.
 - Cross-repository command lookup uses the same folder precedence contract as local agent discovery.
@@ -139,21 +142,6 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
-1. Should `codeinfo_config/config.toml` be optional, or should every repository be expected to have one?
-   - Why this is important: The plan currently says the file exists, but also says the runtime should keep going if the file is missing, so the story needs one clear contract.
-   - Best Answer: It should be optional. In simple terms, the runtime should support the file when a repository chooses to add it, but should not require it to exist before the story works.
-   - Where this answer came from: Direct repo review of this story file, especially the acceptance criteria that currently say both “exists” and “continues cleanly if missing.”
-
-2. What should the new neutral agent-home env var be called?
-   - Why this is important: The story says a new neutral env var should win over `CODEINFO_CODEX_AGENT_HOME`, but it never names that new variable, so two developers could implement different names.
-   - Best Answer: Use `CODEINFO_AGENT_HOME`. In simple terms, it is short, clear, and directly matches what the variable controls without keeping the old Codex-specific wording.
-   - Where this answer came from: Direct repo review of this story file, especially the description and acceptance criteria that refer to “the new neutral env var” without naming it.
-
-3. If an agent has an invalid `codeinfo_provider`, should it show as disabled with a warning, or only fail when someone tries to run it?
-   - Why this is important: The plan says the agent should fail clearly, but it does not say when that failure becomes visible to the user.
-   - Best Answer: It should show as disabled with a warning. In simple terms, this tells the user what is wrong before they try to run the agent, instead of letting them discover the problem only after pressing Run.
-   - Where this answer came from: Direct repo review of this story file, especially the current “fail clearly” wording and the existing plan language about surfacing warnings through API or UI responses.
-
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.
@@ -184,12 +172,12 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/workingFolders/state.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
    - Why it is the best answer: It matches this repo's normal read-if-present behavior for repo-local config, avoids surprising writes into user repositories, and keeps first-run behavior simple.
 
-5. Decision: when both agent-home env vars are set, the new neutral env var should win.
-   - The question being addressed: If both agent-home env vars are set, should the new one win, or should the old alias still take priority?
+5. Decision: `CODEINFO_AGENT_HOME` should be the new neutral agent-home env var, and it should win when both agent-home env vars are set.
+   - The question being addressed: What should the new neutral agent-home env var be called, and if both agent-home env vars are set, should the new one win or should the old alias still take priority?
    - Why the question matters: The story keeps `CODEINFO_CODEX_AGENT_HOME` as a legacy alias, so conflicting env values need one clear precedence rule.
-   - What the answer is: The new neutral agent-home env var wins, and `CODEINFO_CODEX_AGENT_HOME` is used only as a fallback compatibility alias with a warning.
-   - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, and `server/src/test/unit/config.chatDefaults.test.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
-   - Why it is the best answer: It follows this repo's normal canonical-over-legacy precedence pattern and gives users a predictable migration path away from the old Codex-specific name.
+   - What the answer is: Use `CODEINFO_AGENT_HOME` as the preferred neutral env var. `CODEINFO_CODEX_AGENT_HOME` remains as a legacy fallback alias, and `CODEINFO_AGENT_HOME` wins when both are set.
+   - Where the answer came from: Direct repo review of this story file for the missing env-var name, plus the existing story decision that the new neutral env var should take precedence over `CODEINFO_CODEX_AGENT_HOME`.
+   - Why it is the best answer: It gives the story one clear env-var name, removes Codex-specific wording from the preferred contract, and keeps the migration path predictable.
 
 6. Decision: when the same agent appears in both folders, the warning should be logged and also surfaced through existing warning-capable API or UI responses.
    - The question being addressed: If the same agent appears in both folders, should the warning stay in logs only, or also appear in API and UI warnings?
@@ -198,12 +186,12 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/agents/types.ts`, and `client/src/pages/AgentsPage.tsx`, plus local repo-precedent retrieval from `code_info` during this planning round.
    - Why it is the best answer: It matches the repo's broader warning pattern, keeps the precedence behavior diagnosable for users, and avoids forcing routine troubleshooting through server logs alone.
 
-7. Decision: if an agent has an invalid `codeinfo_provider`, that agent should fail clearly rather than defaulting silently to Codex.
-   - The question being addressed: If an agent has an invalid `codeinfo_provider`, should that agent fail clearly or quietly default to Codex?
+7. Decision: if an agent has an invalid `codeinfo_provider`, the product should warn immediately and keep the agent runnable when a fallback is available.
+   - The question being addressed: If an agent has an invalid `codeinfo_provider`, how should that failure be shown to the user?
    - Why the question matters: `codeinfo_provider` is an explicit per-agent runtime choice, so bad values need one clear contract.
-   - What the answer is: Fail clearly for that agent. Codex remains the default only when `codeinfo_provider` is absent.
-   - Where the answer came from: Repo evidence in `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`, `server/src/ingest/requestContracts.ts`, `server/src/routes/ingestStart.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
-   - Why it is the best answer: It matches the repo's usual handling for invalid explicit provider values and avoids silently changing an agent's declared runtime choice.
+   - What the answer is: Show a warning immediately instead of silently defaulting to Codex. If a configured fallback provider is available, keep the agent runnable and include the fallback provider in the warning. If no usable fallback provider is available, show a clear error and disable the agent.
+   - Where the answer came from: User direction in this planning round, plus direct repo review of this story file's existing warning-surfacing and fallback requirements.
+   - Why it is the best answer: It gives users immediate visibility into the problem, still lets them keep working when recovery is possible, and only disables the agent when the runtime truly has nowhere safe to go.
 
 8. Decision: if an agent explicitly picks a provider that is unavailable, the runtime should try a configurable fallback provider order before failing.
    - The question being addressed: If an agent explicitly picks a provider that is unavailable, should the run fail clearly or try another provider?
@@ -240,13 +228,20 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Direct repo review of this story file, especially the new `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` wording and the default order now recorded in the story.
    - Why it is the best answer: It avoids pointless retries, keeps the fallback chain easier to understand, and reduces wasted recovery time.
 
+13. Decision: `codeinfo_config/config.toml` should be optional rather than required in every repository.
+   - The question being addressed: Should `codeinfo_config/config.toml` be optional, or should every repository be expected to have one?
+   - Why the question matters: The story currently says the file exists, but also says the runtime should continue cleanly if it is missing.
+   - What the answer is: Treat it as optional. The runtime supports the file when a repository chooses to add it, but does not require it to exist before the story works.
+   - Where the answer came from: Direct repo review of this story file, especially the acceptance criteria that currently say both “exists” and “continues cleanly if missing.”
+   - Why it is the best answer: It resolves the contradiction, matches the rest of the story's repo-local behavior, and keeps adoption easier for repositories that have not created the file yet.
+
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
 - Treat `codeinfo_config/config.toml` as an optional read-if-present layer so startup falls back cleanly when repositories have not created the file yet.
 - Promote provider selection for agents into app-owned metadata by reading `codeinfo_provider` from the agent `config.toml` before the full merge runs.
 - Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper.
-- Keep invalid `codeinfo_provider` handling strict by failing the affected agent clearly instead of silently remapping it onto Codex.
+- Surface invalid `codeinfo_provider` warnings early in agent discovery or listing, include the fallback provider when one is available, and only disable the agent when no usable fallback provider exists.
 - Keep the merged runtime contract portable by treating `codeinfo_*` keys as repository-owned metadata that is removed before provider SDK construction.
 - Extract the current Codex default-working-directory resolution logic into a shared repository execution-context helper that resolves both selected-working-folder and no-working-folder cases, then returns provider-neutral runtime metadata plus any resolved runtime working-directory override.
 - Update agent discovery, agent execution, command lookup, and flow-owned agent execution together so provider and folder selection stay consistent across all agent surfaces.
@@ -258,7 +253,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Reuse provider-model discovery so fallback acts as a separate recovery step: try the same model on the next provider first, then that provider's chat-config model, and finally that provider's default model before moving on or failing.
 - Skip the originally failed provider if it also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` rather than retrying it inside the fallback loop.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
-- Resolve the new neutral agent-home env var ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
+- Resolve `CODEINFO_AGENT_HOME` ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
 - Surface duplicate-agent precedence warnings through existing warning-capable API or UI paths as well as server logs so users can understand why a legacy copy was ignored.
 - Update the `code_info` MCP schema text so both `provider` and `model` are documented as explicit override fields rather than normal caller-populated inputs.

@@ -35,7 +35,7 @@ For agents, the selected provider comes from a new app-owned metadata field insi
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
-When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
+When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced through existing warning-capable API or UI responses. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and the new neutral env var should win when both are set.
 
@@ -71,10 +71,13 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Chat execution uses the shared repository execution-context contract for Codex, Copilot, and LM Studio.
 - Agent execution can run a Codex agent, a Copilot agent, or an LM Studio agent using the merged runtime config and the agent's selected provider.
 - Agent execution uses the same shared repository execution-context contract for Codex, Copilot, and LM Studio.
+- Provider fallback is an agent-only recovery rule for direct agent runs and flow-owned agent runs; it does not apply to normal chat execution.
 - If an agent's selected provider is unavailable, agent execution evaluates fallback providers using a new comma-separated env var in `server/.env` named `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
 - `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` defaults to `codex,copilot` in `server/.env`.
 - `lmstudio` is a valid `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` value but is not part of the default fallback list.
+- Provider fallback is a separate recovery step and does not change the normal agent runtime config precedence.
 - If provider fallback runs, the model selection order is: the same model on the fallback provider when available, then the model defined in that fallback provider's chat config, then that fallback provider's default model.
+- If the originally failed provider also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, the runtime skips it and moves to the next configured provider.
 - If no configured fallback provider can execute the agent run, the run fails clearly.
 - Provider fallback emits both warning logs and warning-capable API or GUI warnings.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
@@ -135,21 +138,6 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - When proving the `code_info` change later, prefer artifact capture that shows the actual request payload or observable provider-selection behavior so the omission contract is visible.
 
 ### Questions
-
-1. Should provider fallback happen only for agents, or should chat use it too?
-   - Why this is important: The latest fallback requirements were added for agent runs, but some earlier wording still reads broadly enough that chat could be pulled into the same behavior by mistake.
-   - Best Answer: It should apply only to agents and flow-owned agent runs, not to normal chat. In simple terms, this keeps chat behavior stable and limits the new fallback complexity to the feature that actually needs it.
-   - Where this answer came from: Direct repo review of this story file, especially the broad runtime wording in the Description and the agent-specific fallback wording later in the same file, plus the existing separation between chat and agent surfaces in the plan.
-
-2. Should the fallback model rule be a separate recovery step, or should it change the normal agent config precedence?
-   - Why this is important: The plan currently says normal agent runtime precedence ends with the agent's own `config.toml`, but the new fallback rule also says to try the fallback provider's `chat/config.toml` model.
-   - Best Answer: It should be a separate recovery step. In simple terms, normal agent config should keep working exactly as planned, and only if the chosen provider is unavailable should the runtime look at the fallback provider's chat model as part of recovery.
-   - Where this answer came from: Direct repo review of this story file, especially the agent runtime precedence list in Acceptance Criteria and the newer fallback-model wording in the Description and Acceptance Criteria.
-
-3. If the failed provider is also listed in the fallback env var, should it be skipped or tried again?
-   - Why this is important: The default fallback order starts with `codex,copilot`, so a Codex failure could accidentally try Codex twice unless the rule is made explicit.
-   - Best Answer: It should be skipped and the runtime should move to the next provider in the list. In simple terms, once a provider has already failed for that run, retrying the same provider in the fallback loop would just waste time and make the behavior harder to understand.
-   - Where this answer came from: Direct repo review of this story file, especially the new `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` wording and the default order now recorded in the story.
 
 ## Decisions
 
@@ -216,6 +204,27 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Repo evidence in `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/copilotConfig.ts`, and `server/src/config/chatDefaults.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
    - Why it is the best answer: It is the closest match to the intended “same as Codex” behavior and keeps provider base-config treatment consistent instead of making Codex special.
 
+10. Decision: provider fallback should apply only to agents and flow-owned agent runs, not to normal chat.
+   - The question being addressed: Should provider fallback happen only for agents, or should chat use it too?
+   - Why the question matters: The latest fallback requirements were added for agent runs, but broader wording elsewhere could accidentally pull chat into the same behavior.
+   - What the answer is: Keep provider fallback agent-only.
+   - Where the answer came from: Direct repo review of this story file, especially the broad runtime wording in the Description and the agent-specific fallback wording later in the same file.
+   - Why it is the best answer: It keeps chat behavior stable and limits the new fallback complexity to the feature that actually needs it.
+
+11. Decision: the fallback model rule should be a separate recovery step and must not change the normal agent config precedence.
+   - The question being addressed: Should the fallback model rule be a separate recovery step, or should it change the normal agent config precedence?
+   - Why the question matters: The plan already defines a normal agent runtime precedence order, and the new fallback model rule needs to fit around that cleanly instead of rewriting it.
+   - What the answer is: Keep the normal agent precedence unchanged and treat fallback model selection as an agent-only recovery rule that runs only after the selected provider is unavailable.
+   - Where the answer came from: Direct repo review of this story file, especially the agent runtime precedence list in Acceptance Criteria and the newer fallback-model wording in the Description and Acceptance Criteria.
+   - Why it is the best answer: It resolves the current contradiction cleanly and keeps the plan easier to implement and explain.
+
+12. Decision: if the failed provider also appears in the fallback env var, the runtime should skip it and move to the next provider.
+   - The question being addressed: If the failed provider is also listed in the fallback env var, should it be skipped or tried again?
+   - Why the question matters: The default fallback order starts with `codex,copilot`, so a Codex failure could otherwise retry Codex inside the fallback loop.
+   - What the answer is: Skip the failed provider and continue to the next configured fallback provider.
+   - Where the answer came from: Direct repo review of this story file, especially the new `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` wording and the default order now recorded in the story.
+   - Why it is the best answer: It avoids pointless retries, keeps the fallback chain easier to understand, and reduces wasted recovery time.
+
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
@@ -230,7 +239,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Let provider implementations consume the shared repository execution context according to their own capabilities: Codex and Copilot should use the runtime working-directory override directly, while LM Studio may initially rely on repository metadata, provider-specific tools, or later working-directory-capable wiring.
 - Add targeted proof that Copilot chat and Copilot-backed agent execution actually receive and use the selected working folder, because that is the main current product gap.
 - Add a shared provider-fallback resolver for agent execution that reads `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, applies the configured provider order, and records warning metadata whenever a fallback provider is used.
-- Reuse provider-model discovery so fallback tries the same model on the next provider first, then that provider's chat-config model, and finally that provider's default model before moving on or failing.
+- Keep that fallback resolver scoped to direct agent runs and flow-owned agent runs so normal chat continues to use its existing behavior.
+- Reuse provider-model discovery so fallback acts as a separate recovery step: try the same model on the next provider first, then that provider's chat-config model, and finally that provider's default model before moving on or failing.
+- Skip the originally failed provider if it also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` rather than retrying it inside the fallback loop.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Resolve the new neutral agent-home env var ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.

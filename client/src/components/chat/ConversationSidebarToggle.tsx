@@ -15,7 +15,8 @@ export default function ConversationSidebarToggle({
   isMobile,
   onToggle,
 }: ConversationSidebarToggleProps) {
-  const handleLeft = drawerOpen ? drawerWidth - 14 : 0;
+  const buttonSize = 28;
+  const handleLeft = drawerOpen ? drawerWidth : buttonSize / 2;
 
   return (
     <IconButton
@@ -35,8 +36,8 @@ export default function ConversationSidebarToggle({
         borderColor: 'divider',
         bgcolor: 'background.paper',
         boxShadow: 1,
-        width: 28,
-        height: 28,
+        width: buttonSize,
+        height: buttonSize,
         '&:hover': {
           bgcolor: 'background.paper',
         },

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -184,6 +184,22 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
     memoryTurns.delete(conversationId);
   });
 };
+
+let previousPreferredAgentsHome: string | undefined;
+
+beforeEach(() => {
+  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+  delete process.env.CODEINFO_AGENT_HOME;
+});
+
+afterEach(() => {
+  if (previousPreferredAgentsHome === undefined) {
+    delete process.env.CODEINFO_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+  }
+  previousPreferredAgentsHome = undefined;
+});
 
 const writeAgentScaffold = async (params: {
   agentsHome: string;

@@ -34,6 +34,14 @@ const resolveFlowsDir = (baseDir?: string): string => {
   return path.resolve('flows');
 };
 
+const resolveFlowsRepositoryRoot = (flowsDir: string) => {
+  const resolvedFlowsDir = path.resolve(flowsDir);
+  if (path.basename(resolvedFlowsDir) === 'flows') {
+    return path.dirname(resolvedFlowsDir);
+  }
+  return resolvedFlowsDir;
+};
+
 const collectAgentTypes = (steps: FlowStep[], names = new Set<string>()) => {
   for (const step of steps) {
     switch (step.type) {
@@ -177,7 +185,7 @@ export async function discoverFlows(params?: {
 
   const localFlows = await listFlowsFromDir({
     flowsDir,
-    repositoryRoot: path.resolve(flowsDir, '..'),
+    repositoryRoot: resolveFlowsRepositoryRoot(flowsDir),
   });
 
   let ingestedFlows: FlowSummary[] = [];

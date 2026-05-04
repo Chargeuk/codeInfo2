@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 
 import {
   __resetAgentCommandRunnerDepsForTests,
@@ -162,6 +162,22 @@ const writeFlowFile = async (params: {
     'utf8',
   );
 };
+
+let previousPreferredAgentsHome: string | undefined;
+
+beforeEach(() => {
+  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+  delete process.env.CODEINFO_AGENT_HOME;
+});
+
+afterEach(() => {
+  if (previousPreferredAgentsHome === undefined) {
+    delete process.env.CODEINFO_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+  }
+  previousPreferredAgentsHome = undefined;
+});
 
 test('runAgentCommand preserves command-owned degraded-startup QUEUE_UNAVAILABLE diagnostic', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;

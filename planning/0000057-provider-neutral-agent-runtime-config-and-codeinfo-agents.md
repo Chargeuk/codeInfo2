@@ -761,12 +761,12 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because Task 2 changes the tracked compose env contract, ignore rules, and mounted agent-home assumptions. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 2 changes shared server discovery and repository-root lookup helpers. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 2 proof homes are server unit and integration tests around discovery, lookup, and compose contract seams. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-4. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level flow and command surfaces still pass after the folder-precedence migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-5. [ ] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-6. [ ] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper because Task 2 changes the tracked compose env contract, ignore rules, and mounted agent-home assumptions. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 2 changes shared server discovery and repository-root lookup helpers. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+3. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 2 proof homes are server unit and integration tests around discovery, lookup, and compose contract seams. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level flow and command surfaces still pass after the folder-precedence migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+5. [x] Run `npm run lint` for the final Task 2 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+6. [x] Run `npm run format:check` for the final Task 2 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -777,6 +777,12 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 - Added Task 2 proof-home coverage for env normalization, folder precedence, duplicate warnings, cross-repository command lookup parity, flow-owned command precedence, flow discovery warnings, markdown-root precedence, and the compose contract that now publishes the neutral env while retaining the legacy alias.
 - Ran `npm run lint` for the Task 2 surface; the first pass found one import-order warning in the new command lookup proof file, and the rerun passed cleanly after reordering that import.
 - Ran `npm run format:check` for the Task 2 surface; the first pass flagged seven touched files, `npm run format` rewrote them through the repo formatter, and the rerun reported `All matched files use Prettier code style!`.
+- Automated proof step 1 passed via `npm run compose:build:summary`; the wrapper finished with `agent_action: skip_log`, and the compose image contract still bakes the expected runtime assets while the Task 2 env and ignore changes are in place.
+- Automated proof step 2 passed via `npm run build:summary:server`; the server build wrapper reported a clean success with zero warnings, so the shared agent-root and repository-root helper changes still compile in the packaged server workspace.
+- Automated proof step 3 passed via `npm run test:summary:server:unit` after one repair cycle: the first full wrapper exposed env-root compatibility drift and flat-`FLOWS_DIR` repository-root inference gaps, targeted wrapper reruns confirmed the fixes in `server/src/agents/roots.ts`, `server/src/flows/discovery.ts`, and the legacy-only test harnesses, and the final full rerun finished green with `1978` tests passed.
+- Automated proof step 4 passed via `npm run test:summary:server:cucumber` after one repair cycle: the first full wrapper exposed a slow large-deletion ingest-delta scenario that only polled for about 12 seconds despite a 60-second step budget, a targeted feature rerun confirmed the longer status wait in `server/src/test/steps/ingest-delta-reembed.steps.ts`, and the final full rerun finished green with `117` tests passed.
+- Automated proof step 5 passed via `npm run lint`; the final lint sweep reported no remaining issues across the Task 2 server, flow, and test-harness changes.
+- Automated proof step 6 passed via `npm run format:check`; Prettier reported `All matched files use Prettier code style!` after the proof-phase code and test-harness repairs.
 
 ### Task 3. Resolve one shared repository execution context for chat and `code_info`
 

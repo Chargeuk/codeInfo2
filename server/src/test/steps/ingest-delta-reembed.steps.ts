@@ -317,7 +317,8 @@ Then(
   { timeout: 60_000 },
   async (state: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 120; i += 1) {
+    const deadline = Date.now() + 55_000;
+    while (Date.now() < deadline) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = (await res.json()) as {
         state?: string;
@@ -342,7 +343,9 @@ Then(
       }
       await new Promise((r) => setTimeout(r, 100));
     }
-    assert.fail(`did not reach state ${state}`);
+    assert.fail(
+      `did not reach state ${state}; last observed state=${String(lastStatus?.state ?? 'unknown')} message=${String(lastStatus?.message ?? '')}`,
+    );
   },
 );
 

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 
 import express from 'express';
 
@@ -230,6 +230,22 @@ const writeMarkdownFile = async (params: {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, params.content, 'utf8');
 };
+
+let previousPreferredAgentsHome: string | undefined;
+
+beforeEach(() => {
+  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+  delete process.env.CODEINFO_AGENT_HOME;
+});
+
+afterEach(() => {
+  if (previousPreferredAgentsHome === undefined) {
+    delete process.env.CODEINFO_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+  }
+  previousPreferredAgentsHome = undefined;
+});
 
 const waitForMemoryTurns = async (
   conversationId: string,

@@ -75,6 +75,12 @@ export const getAgentRootsForRepository = (repositoryRoot: string) => {
   };
 };
 
+const getConfiguredAgentRoots = (resolution: AgentHomeEnvResolution) => ({
+  repositoryRoot: resolution.codeInfoRoot,
+  preferredAgentsRoot: resolution.preferredAgentHome,
+  legacyAgentsRoot: resolution.legacyAgentHome,
+});
+
 export const resolveAgentHomeEnv = (
   env: Record<string, string | undefined> = process.env,
 ): AgentHomeEnvResolution => {
@@ -172,19 +178,57 @@ export const listConfiguredAgentHomes = async (
   env: Record<string, string | undefined> = process.env,
 ) => {
   const resolution = resolveAgentHomeEnv(env);
-  const roots = getAgentRootsForRepository(resolution.codeInfoRoot);
+  const roots = getConfiguredAgentRoots(resolution);
   const [preferredNames, legacyNames] = await Promise.all([
     listDirectoryEntries(roots.preferredAgentsRoot),
     listDirectoryEntries(roots.legacyAgentsRoot),
   ]);
   const names = new Set([...preferredNames, ...legacyNames]);
   const resolved = await Promise.all(
-    [...names].map((agentName) =>
-      resolveAgentHomeForRepository({
-        repositoryRoot: roots.repositoryRoot,
+    [...names].map(async (agentName): Promise<ResolvedAgentHome> => {
+      const preferredHome = path.join(roots.preferredAgentsRoot, agentName);
+      const legacyHome = path.join(roots.legacyAgentsRoot, agentName);
+      const [hasPreferred, hasLegacy] = await Promise.all([
+        pathExistsAsDirectory(preferredHome),
+        pathExistsAsDirectory(legacyHome),
+      ]);
+
+      const warnings =
+        hasPreferred && hasLegacy
+          ? [
+              buildDuplicateWarning({
+                agentName,
+                repositoryRoot: roots.repositoryRoot,
+              }),
+            ]
+          : [];
+
+      if (hasPreferred) {
+        return {
+          ...roots,
+          agentName,
+          home: preferredHome,
+          rootKind: 'codeinfo_agents' as const,
+          warnings,
+        };
+      }
+
+      if (hasLegacy) {
+        return {
+          ...roots,
+          agentName,
+          home: legacyHome,
+          rootKind: 'codex_agents' as const,
+          warnings,
+        };
+      }
+
+      return {
+        ...roots,
         agentName,
-      }),
-    ),
+        warnings,
+      };
+    }),
   );
 
   return {

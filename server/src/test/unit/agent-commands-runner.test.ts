@@ -24,6 +24,8 @@ type Deferred<T> = {
   reject: (error: unknown) => void;
 };
 
+let markdownHarnessPreviousPreferredAgentsHome: string | undefined;
+
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -200,9 +202,13 @@ async function createMarkdownHarness(baseDir: string) {
   await fs.mkdir(otherRepo, { recursive: true });
   await fs.mkdir(thirdRepo, { recursive: true });
 
+  markdownHarnessPreviousPreferredAgentsHome ??=
+    process.env.CODEINFO_AGENT_HOME;
+  delete process.env.CODEINFO_AGENT_HOME;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   __resetMarkdownFileResolverDepsForTests();
   __setMarkdownFileResolverDepsForTests({
+    getCodeInfo2Root: () => codeInfo2Root,
     listIngestedRepositories: async () =>
       ({
         repos: [
@@ -238,6 +244,13 @@ describe('agent commands runner (v1)', () => {
     __resetAgentCommandRunnerDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
     resetStore();
+    if (markdownHarnessPreviousPreferredAgentsHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME =
+        markdownHarnessPreviousPreferredAgentsHome;
+    }
+    markdownHarnessPreviousPreferredAgentsHome = undefined;
     if (previousAgentsHome === undefined) {
       delete process.env.CODEINFO_CODEX_AGENT_HOME;
     } else {

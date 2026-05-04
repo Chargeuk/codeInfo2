@@ -292,111 +292,117 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
             spacing={1}
             alignItems={{ xs: 'stretch', sm: 'center' }}
           >
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={
-                controlsDisabled ||
-                submitDisabledForRun ||
-                selectedAgentDisabled ||
-                commandsLoading
-              }
-              sx={{ flex: 1 }}
-            >
-              <InputLabel id="agent-command-select-label">Command</InputLabel>
-              <Select
-                labelId="agent-command-select-label"
-                label="Command"
-                value={selectedCommandKey}
-                onChange={onCommandChange}
-                inputProps={{ 'data-testid': 'agent-command-select' }}
-              >
-                <MenuItem value="" disabled>
-                  Select a command
-                </MenuItem>
-                {commandOptions.map((cmd) => (
-                  <MenuItem
-                    key={cmd.key}
-                    value={cmd.key}
-                    disabled={cmd.disabled}
-                    data-testid={`agent-command-option-${cmd.key}`}
-                  >
-                    <Stack spacing={0.25}>
-                      <Typography variant="body2">{cmd.label}</Typography>
-                      {cmd.disabled ? (
-                        <Typography variant="caption" color="text.secondary">
-                          Invalid command file
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
             <Stack
               direction="row"
-              spacing={0.5}
+              spacing={1}
               alignItems="center"
               sx={{ flex: 1, minWidth: 0 }}
             >
               <FormControl
                 fullWidth
                 size="small"
-                disabled={startStepDisabled}
+                disabled={
+                  controlsDisabled ||
+                  submitDisabledForRun ||
+                  selectedAgentDisabled ||
+                  commandsLoading
+                }
                 sx={{ flex: 1, minWidth: 0 }}
               >
-                <InputLabel id="agent-command-start-step-label">
-                  Start step
-                </InputLabel>
+                <InputLabel id="agent-command-select-label">Command</InputLabel>
                 <Select
-                  labelId="agent-command-start-step-label"
-                  label="Start step"
-                  value={startStepValue}
-                  onChange={onStartStepChange}
-                  displayEmpty
-                  inputProps={{
-                    'data-testid': 'agent-command-start-step-select',
-                  }}
+                  labelId="agent-command-select-label"
+                  label="Command"
+                  value={selectedCommandKey}
+                  onChange={onCommandChange}
+                  inputProps={{ 'data-testid': 'agent-command-select' }}
                 >
-                  {!selectedCommandKey ? (
-                    <MenuItem value="" disabled>
-                      Select command first
+                  <MenuItem value="" disabled>
+                    Select a command
+                  </MenuItem>
+                  {commandOptions.map((cmd) => (
+                    <MenuItem
+                      key={cmd.key}
+                      value={cmd.key}
+                      disabled={cmd.disabled}
+                      data-testid={`agent-command-option-${cmd.key}`}
+                    >
+                      <Stack spacing={0.25}>
+                        <Typography variant="body2">{cmd.label}</Typography>
+                        {cmd.disabled ? (
+                          <Typography variant="caption" color="text.secondary">
+                            Invalid command file
+                          </Typography>
+                        ) : null}
+                      </Stack>
                     </MenuItem>
-                  ) : null}
-                  {Array.from(
-                    { length: Math.max(1, selectedCommandStepCount) },
-                    (_, index) => {
-                      const step = index + 1;
-                      return (
-                        <MenuItem
-                          key={step}
-                          value={`${step}`}
-                          data-testid={`agent-command-start-step-option-${step}`}
-                        >
-                          {`Step ${step}`}
-                        </MenuItem>
-                      );
-                    },
-                  )}
+                  ))}
                 </Select>
               </FormControl>
 
-              <Box
-                onMouseDownCapture={onCommandInfoAttempt}
+              <Stack
+                direction="row"
+                spacing={0.5}
+                alignItems="center"
                 sx={{ flexShrink: 0 }}
               >
-                <IconButton
-                  aria-describedby={commandInfoId}
-                  aria-label="Command info"
-                  onClick={onCommandInfoOpen}
-                  disabled={commandInfoDisabled}
+                <FormControl
                   size="small"
-                  data-testid="agent-command-info"
+                  disabled={startStepDisabled}
+                  sx={{ flex: '0 0 144px', minWidth: 120 }}
                 >
-                  <InfoOutlinedIcon fontSize="small" />
-                </IconButton>
-              </Box>
+                  <InputLabel id="agent-command-start-step-label">
+                    Start step
+                  </InputLabel>
+                  <Select
+                    labelId="agent-command-start-step-label"
+                    label="Start step"
+                    value={startStepValue}
+                    onChange={onStartStepChange}
+                    displayEmpty
+                    inputProps={{
+                      'data-testid': 'agent-command-start-step-select',
+                    }}
+                  >
+                    {!selectedCommandKey ? (
+                      <MenuItem value="" disabled>
+                        Select command first
+                      </MenuItem>
+                    ) : null}
+                    {Array.from(
+                      { length: Math.max(1, selectedCommandStepCount) },
+                      (_, index) => {
+                        const step = index + 1;
+                        return (
+                          <MenuItem
+                            key={step}
+                            value={`${step}`}
+                            data-testid={`agent-command-start-step-option-${step}`}
+                          >
+                            {`Step ${step}`}
+                          </MenuItem>
+                        );
+                      },
+                    )}
+                  </Select>
+                </FormControl>
+
+                <Box
+                  onMouseDownCapture={onCommandInfoAttempt}
+                  sx={{ flexShrink: 0 }}
+                >
+                  <IconButton
+                    aria-describedby={commandInfoId}
+                    aria-label="Command info"
+                    onClick={onCommandInfoOpen}
+                    disabled={commandInfoDisabled}
+                    size="small"
+                    data-testid="agent-command-info"
+                  >
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Stack>
             </Stack>
 
             <Button
@@ -483,13 +489,17 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           {shouldShowPromptsRow ? (
             <Stack
               data-testid="agent-prompts-row"
-              direction={{ xs: 'column', sm: 'row' }}
+              direction="row"
               spacing={1}
-              alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+              alignItems="flex-start"
             >
               {hasPromptEntries ? (
                 <>
-                  <FormControl fullWidth size="small">
+                  <FormControl
+                    fullWidth
+                    size="small"
+                    sx={{ flex: 1, minWidth: 0 }}
+                  >
                     <InputLabel id="agent-prompts-label">Prompts</InputLabel>
                     <Select
                       labelId="agent-prompts-label"

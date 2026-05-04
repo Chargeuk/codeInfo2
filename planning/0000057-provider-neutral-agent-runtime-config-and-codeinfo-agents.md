@@ -151,6 +151,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If `copilot/config.toml` or `lmstudio/config.toml` is missing, should startup create it, or should the app wait until that provider is first used?
+   - Why this is important: The story already says those provider base config files should be bootstrapped like Codex, but it does not yet say when that should happen.
+   - Best Answer: Create them during startup as part of one shared provider-config bootstrap step. That is the closest match to the current Codex behavior, and the server already does startup bootstrap work for `codex/config.toml` and provider chat config files before normal requests begin.
+   - Where this answer came from: Repo evidence in `server/src/index.ts`, `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/test/unit/copilotSeedBootstrap.test.ts`, plus earlier decisions already recorded in this plan that Copilot and LM Studio base config files should be auto-seeded like Codex.
+
+2. Should an invalid `codeinfo_provider` warning appear as soon as the agent list loads, or only after the user opens that agent?
+   - Why this is important: The story already says users should be warned immediately, but it does not yet say exactly when that warning first becomes visible.
+   - Best Answer: Show the warning as soon as the agent list payload is loaded, and also keep it visible in the selected agent's info or details surface. That matches the existing story decision about warning surfaces and gives users the earliest useful signal without waiting for a failed run attempt.
+   - Where this answer came from: Repo evidence in `client/src/pages/AgentsPage.tsx`, `server/src/mcpAgents/tools.ts`, and warning-carrying route patterns such as `server/src/routes/chatModels.ts` and `server/src/routes/chatProviders.ts`, plus earlier decisions already recorded in this plan about showing warnings in the agent list payload and selected agent details.
+
+3. For flow-owned agent warnings, should we reuse the existing flow info or details UI, or add a brand-new warning area?
+   - Why this is important: The story already says equivalent flow-owned warning surfaces should be used when they exist, but it does not yet name the preferred UI shape clearly enough.
+   - Best Answer: Reuse the existing flow info or details surface instead of inventing a new warning area. The current flow UI already has a warning-friendly info popover, so reusing that shape keeps the behavior consistent with the rest of the product and avoids unnecessary new UI work.
+   - Where this answer came from: Repo evidence in `client/src/pages/FlowsPage.tsx`, especially the existing `flow-warnings` block inside the flow info popover, plus earlier story wording about reusing equivalent flow-owned warning surfaces where they already exist.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

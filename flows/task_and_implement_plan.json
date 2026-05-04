@@ -92,10 +92,10 @@
                 },
                 {
                   "type": "break",
-                  "label": "Exit if no implementation task is available",
+                  "label": "Exit if no valid implementation task handoff is available",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Answer from the selector result you just produced in the immediately preceding step. Answer yes only if you just wrote a state that does NOT resolve a current task for implementation, for example because plan repair is needed or the story is already complete. Answer no only if you just resolved one current task for this loop pass. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Answer from the selector result you just produced in the immediately preceding step. Answer yes only if that step did NOT leave one valid current task handoff for implementation, for example because selector stdout and the reread current-task.json disagreed, the current task handoff must be regenerated, plan repair is needed, or the story is already complete. Answer no only if the selector stdout result and the persisted current-task.json agreed on one resolved current task for this loop pass. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {

@@ -143,7 +143,7 @@ describe('Chat page auth refresh', () => {
 
     await user.click(
       await screen.findByRole('button', {
-        name: /re-authenticate \(device auth\)/i,
+        name: /re-authenticate/i,
       }),
     );
     await user.click(screen.getByRole('button', { name: 'Codex Auth' }));
@@ -269,7 +269,7 @@ describe('Chat page auth refresh', () => {
 
       await user.click(
         await screen.findByRole('button', {
-          name: /re-authenticate \(device auth\)/i,
+          name: /re-authenticate/i,
         }),
       );
       await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));

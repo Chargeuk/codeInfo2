@@ -141,7 +141,7 @@ describe('Agents page auth dialog', () => {
 
     await user.click(
       await screen.findByRole('button', {
-        name: /re-authenticate \(device auth\)/i,
+        name: /re-authenticate/i,
       }),
     );
 

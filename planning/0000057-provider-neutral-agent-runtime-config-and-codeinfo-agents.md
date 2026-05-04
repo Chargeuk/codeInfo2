@@ -173,6 +173,16 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If a missing model is repaired on the same provider, should the next run try the original model again, or keep using the repaired model?
+   - Why this is important: This decides whether model repair is a one-run recovery step or a quiet long-term change to which model the agent keeps using.
+   - Best Answer: Try the original model again on the next run. That matches the repo's current pattern of re-resolving provider and model from config on each run, keeps the configured model as the source of truth, and avoids silently turning an execution-time repair into a persistent config rewrite.
+   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `server/src/test/unit/config.chatDefaults.test.ts`. External evidence from OpenAI API docs, Context7 documentation for the OpenAI API, and DeepWiki notes on `openai/openai-node`, all of which reinforce that model choice is request-owned application behavior.
+
+2. If a run falls back away from Codex, should we keep the old Codex thread id for later reuse, or clear it?
+   - Why this is important: A Codex thread id is saved Codex-only continuation state, so reusing it after another provider ran could attach later work to the wrong provider-specific thread.
+   - Best Answer: Clear it when a non-Codex run is saved, and preserve thread continuation only when the execution provider is still Codex. That best matches the repo's current provider-scoped thread handling and avoids cross-provider state leakage.
+   - Where this answer came from: Repo evidence in `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/routes/chat.ts`, `server/src/chat/agentFlags.ts`, `server/src/test/unit/chat-interface-run-persistence.test.ts`, and `server/src/test/integration/chat-codex.test.ts`. External evidence was not needed because the local provider-specific thread contract already provides the strongest precedent.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

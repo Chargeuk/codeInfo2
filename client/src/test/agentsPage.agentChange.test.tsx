@@ -351,7 +351,7 @@ describe('Agents page - device auth', () => {
     });
     expect(
       screen.queryByRole('button', {
-        name: 'Re-authenticate (device auth)',
+        name: 'Re-authenticate',
       }),
     ).toBeNull();
 
@@ -363,7 +363,7 @@ describe('Agents page - device auth', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: 'Re-authenticate (device auth)',
+        name: 'Re-authenticate',
       }),
     ).toBeInTheDocument();
   });
@@ -381,7 +381,7 @@ describe('Agents page - device auth', () => {
     });
 
     const button = await screen.findByRole('button', {
-      name: 'Re-authenticate (device auth)',
+      name: 'Re-authenticate',
     });
     await act(async () => {
       await userEvent.click(button);
@@ -405,7 +405,7 @@ describe('Agents page - device auth', () => {
 
     expect(
       screen.queryByRole('button', {
-        name: 'Re-authenticate (device auth)',
+        name: 'Re-authenticate',
       }),
     ).toBeNull();
   });

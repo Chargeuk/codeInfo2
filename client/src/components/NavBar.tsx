@@ -18,7 +18,12 @@ export default function NavBar() {
               : '/';
   return (
     <AppBar position="static">
-      <Toolbar sx={{ minHeight: 64 }}>
+      <Toolbar
+        sx={{
+          minHeight: { xs: 44, sm: 52 },
+          px: { xs: 1, sm: 2 },
+        }}
+      >
         <Tabs
           value={value}
           aria-label="Main navigation"
@@ -26,6 +31,7 @@ export default function NavBar() {
           indicatorColor="secondary"
           variant="scrollable"
           scrollButtons={false}
+          sx={{ minHeight: { xs: 44, sm: 52 } }}
         >
           <Tab
             label="Home"
@@ -33,6 +39,7 @@ export default function NavBar() {
             component={RouterLink}
             to="/"
             aria-label="Home"
+            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
           />
           <Tab
             label="Chat"
@@ -40,6 +47,7 @@ export default function NavBar() {
             component={RouterLink}
             to="/chat"
             aria-label="Chat"
+            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
           />
           <Tab
             label="Agents"
@@ -47,6 +55,7 @@ export default function NavBar() {
             component={RouterLink}
             to="/agents"
             aria-label="Agents"
+            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
           />
           <Tab
             label="Flows"
@@ -54,6 +63,7 @@ export default function NavBar() {
             component={RouterLink}
             to="/flows"
             aria-label="Flows"
+            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
           />
           <Tab
             label="LM Studio"
@@ -61,6 +71,7 @@ export default function NavBar() {
             component={RouterLink}
             to="/lmstudio"
             aria-label="LM Studio"
+            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
           />
           <Tab
             label="Ingest"
@@ -68,6 +79,7 @@ export default function NavBar() {
             component={RouterLink}
             to="/ingest"
             aria-label="Ingest"
+            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
           />
           <Tab
             label="Logs"
@@ -75,6 +87,7 @@ export default function NavBar() {
             component={RouterLink}
             to="/logs"
             aria-label="Logs"
+            sx={{ minHeight: { xs: 44, sm: 52 }, py: 0 }}
           />
         </Tabs>
       </Toolbar>

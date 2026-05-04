@@ -29,6 +29,7 @@ import {
 import AgentsComposerPanel from '../components/agents/AgentsComposerPanel';
 import AgentsTranscriptPane from '../components/agents/AgentsTranscriptPane';
 import ConversationList from '../components/chat/ConversationList';
+import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import {
   buildStepLine,
   buildTimingLine,
@@ -1844,7 +1845,7 @@ export default function AgentsPage() {
       maxWidth={false}
       data-testid="agents-page"
       sx={{
-        pt: 3,
+        pt: 1,
         pb: 0,
         flex: 1,
         display: 'flex',
@@ -1889,8 +1890,15 @@ export default function AgentsPage() {
             overflowX: 'hidden',
             flex: 1,
             minHeight: 0,
+            position: 'relative',
           }}
         >
+          <ConversationSidebarToggle
+            drawerOpen={drawerOpen}
+            drawerWidth={drawerWidth}
+            isMobile={isMobile}
+            onToggle={handleToggleDrawer}
+          />
           {(!isMobile || drawerOpen) && (
             <Drawer
               key={isMobile ? 'mobile' : 'desktop'}
@@ -1978,7 +1986,6 @@ export default function AgentsPage() {
           >
             <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
               <AgentsComposerPanel
-                drawerOpen={drawerOpen}
                 agentsLoading={agentsLoading}
                 agentsError={agentsError}
                 selectedAgentName={selectedAgentName}
@@ -2017,7 +2024,6 @@ export default function AgentsPage() {
                 agents={agents}
                 commandOptions={commandOptions}
                 promptEntries={promptEntries}
-                onToggleDrawer={handleToggleDrawer}
                 onSubmit={handleSubmit}
                 onAgentChange={handleAgentChange}
                 onCommandChange={handleCommandChange}

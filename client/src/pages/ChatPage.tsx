@@ -3,13 +3,11 @@ import {
   type ChatAgentFlagKey,
   type ChatAgentFlagValue,
 } from '@codeinfo2/common';
-import MenuIcon from '@mui/icons-material/Menu';
 import {
   Container,
   Alert,
   Button,
   CircularProgress,
-  IconButton,
   Link,
   MenuItem,
   Paper,
@@ -34,6 +32,7 @@ import {
 } from 'react';
 import AgentFlagsPanel from '../components/chat/AgentFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
+import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import {
   buildStepLine,
@@ -1308,7 +1307,7 @@ export default function ChatPage() {
     <Container
       maxWidth={false}
       sx={{
-        pt: 3,
+        pt: 1,
         pb: 0,
         flex: 1,
         display: 'flex',
@@ -1341,8 +1340,22 @@ export default function ChatPage() {
             overflowX: 'hidden',
             flex: 1,
             minHeight: 0,
+            position: 'relative',
           }}
         >
+          <ConversationSidebarToggle
+            drawerOpen={drawerOpen}
+            drawerWidth={drawerWidth}
+            isMobile={isMobile}
+            onToggle={() => {
+              if (isMobile) {
+                setMobileDrawerOpen((prev) => !prev);
+                return;
+              }
+
+              setDesktopDrawerOpen((prev) => !prev);
+            }}
+          />
           {(!isMobile || drawerOpen) && (
             <Drawer
               key={isMobile ? 'mobile' : 'desktop'}
@@ -1428,25 +1441,6 @@ export default function ChatPage() {
             <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
               <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
                 <Stack spacing={2}>
-                  <Stack direction="row" justifyContent="flex-start">
-                    <IconButton
-                      aria-label="Toggle conversations"
-                      aria-controls="conversation-drawer"
-                      aria-expanded={drawerOpen}
-                      onClick={() => {
-                        if (isMobile) {
-                          setMobileDrawerOpen((prev) => !prev);
-                          return;
-                        }
-
-                        setDesktopDrawerOpen((prev) => !prev);
-                      }}
-                      size="small"
-                      data-testid="conversation-drawer-toggle"
-                    >
-                      <MenuIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
                   {isLoading && (
                     <Stack direction="row" spacing={1} alignItems="center">
                       <CircularProgress size={18} />
@@ -1479,85 +1473,98 @@ export default function ChatPage() {
                   <form onSubmit={handleSubmit}>
                     <Stack spacing={1.5}>
                       <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={2}
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={1.5}
                         alignItems="stretch"
                       >
-                        <TextField
-                          select
-                          size="small"
-                          id="chat-provider-select"
-                          label="Provider"
-                          value={provider ?? ''}
-                          onChange={handleProviderChange}
-                          disabled={
-                            providerStatus === 'loading' || providerLocked
-                          }
-                          sx={{ minWidth: 220 }}
-                          SelectProps={{ displayEmpty: true }}
-                          slotProps={{
-                            select: {
-                              SelectDisplayProps: {
-                                ...selectDisplayTestId('provider-select'),
-                              },
-                            },
-                          }}
+                        <Stack
+                          direction="row"
+                          spacing={1.5}
+                          sx={{ flex: 1, minWidth: 0 }}
                         >
-                          {providers.map((entry) => (
-                            <MenuItem
-                              key={entry.id}
-                              value={entry.id}
-                              disabled={!entry.available}
-                            >
-                              {entry.label}
-                              {!entry.available
-                                ? entry.reason
-                                  ? ` (unavailable: ${entry.reason})`
-                                  : ' (unavailable)'
-                                : ''}
-                            </MenuItem>
-                          ))}
-                        </TextField>
+                          <TextField
+                            select
+                            size="small"
+                            id="chat-provider-select"
+                            label="Provider"
+                            value={provider ?? ''}
+                            onChange={handleProviderChange}
+                            disabled={
+                              providerStatus === 'loading' || providerLocked
+                            }
+                            sx={{
+                              minWidth: { xs: 0, sm: 220 },
+                              flex: { xs: 1, sm: '0 0 220px' },
+                            }}
+                            SelectProps={{ displayEmpty: true }}
+                            slotProps={{
+                              select: {
+                                SelectDisplayProps: {
+                                  ...selectDisplayTestId('provider-select'),
+                                },
+                              },
+                            }}
+                          >
+                            {providers.map((entry) => (
+                              <MenuItem
+                                key={entry.id}
+                                value={entry.id}
+                                disabled={!entry.available}
+                              >
+                                {entry.label}
+                                {!entry.available
+                                  ? entry.reason
+                                    ? ` (unavailable: ${entry.reason})`
+                                    : ' (unavailable)'
+                                  : ''}
+                              </MenuItem>
+                            ))}
+                          </TextField>
 
-                        <TextField
-                          select
-                          size="small"
-                          id="chat-model-select"
-                          label="Model"
-                          value={selected ?? ''}
-                          onChange={handleModelChange}
-                          disabled={
-                            isLoading ||
-                            isError ||
-                            isEmpty ||
-                            !providerAvailable ||
-                            nextSendContextLocked
-                          }
-                          sx={{ minWidth: 260, flex: 1 }}
-                          SelectProps={{ displayEmpty: true }}
-                          slotProps={{
-                            select: {
-                              SelectDisplayProps: {
-                                ...selectDisplayTestId('model-select'),
+                          <TextField
+                            select
+                            size="small"
+                            id="chat-model-select"
+                            label="Model"
+                            value={selected ?? ''}
+                            onChange={handleModelChange}
+                            disabled={
+                              isLoading ||
+                              isError ||
+                              isEmpty ||
+                              !providerAvailable ||
+                              nextSendContextLocked
+                            }
+                            sx={{ minWidth: { xs: 0, sm: 260 }, flex: 1 }}
+                            SelectProps={{ displayEmpty: true }}
+                            slotProps={{
+                              select: {
+                                SelectDisplayProps: {
+                                  ...selectDisplayTestId('model-select'),
+                                },
                               },
-                            },
-                          }}
-                        >
-                          {models.map((model) => (
-                            <MenuItem key={model.key} value={model.key}>
-                              {model.displayName}
-                            </MenuItem>
-                          ))}
-                        </TextField>
+                            }}
+                          >
+                            {models.map((model) => (
+                              <MenuItem key={model.key} value={model.key}>
+                                {model.displayName}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </Stack>
 
                         <Stack
                           direction="row"
                           spacing={1}
                           alignItems="center"
                           justifyContent="flex-end"
-                          sx={{ minWidth: { xs: '100%', sm: 220 } }}
+                          sx={{ minWidth: { xs: '100%', md: 220 } }}
                         >
-                          <Stack spacing={1} sx={{ width: '100%' }}>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ width: '100%' }}
+                          >
                             <Button
                               type="button"
                               variant="outlined"
@@ -1566,6 +1573,7 @@ export default function ChatPage() {
                               onClick={() => handleNewConversation()}
                               disabled={isLoading || nextSendContextLocked}
                               fullWidth
+                              sx={{ flex: 1 }}
                             >
                               New conversation
                             </Button>
@@ -1577,8 +1585,9 @@ export default function ChatPage() {
                                 onClick={handleDeviceAuthOpen}
                                 disabled={isLoading}
                                 fullWidth
+                                sx={{ flex: 1 }}
                               >
-                                Re-authenticate (device auth)
+                                Re-authenticate
                               </Button>
                             ) : null}
                           </Stack>
@@ -1656,9 +1665,10 @@ export default function ChatPage() {
                       )}
 
                       <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
+                        direction="row"
                         spacing={2}
-                        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                        alignItems="flex-start"
+                        sx={{ minWidth: 0 }}
                       >
                         <TextField
                           fullWidth
@@ -1681,12 +1691,12 @@ export default function ChatPage() {
                             );
                           }}
                           disabled={chatWorkingFolderLocked}
-                          helperText="Saved per conversation while idle."
                           slotProps={{
                             htmlInput: {
                               'data-testid': 'chat-working-folder',
                             },
                           }}
+                          sx={{ flex: 1, minWidth: 0 }}
                         />
                         <Button
                           type="button"

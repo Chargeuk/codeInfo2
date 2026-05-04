@@ -93,15 +93,9 @@ export default function AgentFlagsPanel({
       }}
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />}>
-        <Stack spacing={0.25}>
-          <Typography variant="subtitle2" fontWeight={700}>
-            Agent Flags
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Shows only the controls supported by the selected provider and
-            model.
-          </Typography>
-        </Stack>
+        <Typography variant="subtitle2" fontWeight={700}>
+          Agent Flags
+        </Typography>
       </AccordionSummary>
       <AccordionDetails>
         <Stack spacing={1.5} data-testid="codex-flags-panel">

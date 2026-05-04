@@ -29,15 +29,15 @@ CodeInfo2 already supports three chat providers in the product: Codex, GitHub Co
 
 From a user's point of view, this creates two product problems. First, users can select Copilot or LM Studio in the chat product, but they cannot configure one agent to run on Copilot and another to run on LM Studio through the same first-class contract. Second, the folder and runtime naming still advertise the older Codex-only shape even though the product is now clearly broader than that.
 
-This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values. If `codeinfo_config/config.toml` has not been created yet, the runtime should continue cleanly without trying to auto-create repository files at startup.
+This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values. If `codeinfo_config/config.toml` has not been created yet, the runtime should continue cleanly without trying to auto-create repository files at startup. Provider base config files that this story owns, including `copilot/config.toml` and `lmstudio/config.toml`, should be created during shared startup bootstrap rather than waiting for first use.
 
-For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, the product should warn immediately rather than silently defaulting to Codex. If a configured fallback provider is actually usable for that run, the agent should remain runnable and the warning should explain which fallback will be used. If no usable fallback provider is available, the product should show a clear error and disable that agent. This invalid-provider path should use the same fallback order and availability checks as provider-unavailable agent runs. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
+For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, the product should warn when the user opens that affected agent rather than silently defaulting to Codex. If a configured fallback provider is actually usable for that run, the agent should remain runnable and the warning should explain which fallback will be used. If no usable fallback provider is available, the product should show a clear error and disable that agent. This invalid-provider path should use the same fallback order and availability checks as provider-unavailable agent runs. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
 When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
-This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced in the agent list payload plus the selected agent's info or details surface. Equivalent flow-owned agent surfaces should reuse the same warning data when those surfaces already exist. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
+This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced in the agent list payload plus the selected agent's info or details surface. Equivalent flow-owned agent warning surfaces should reuse the same warning data through the existing flow info or details surface when that surface already exists. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
 
 The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. Normal execution should follow the merged `config.toml` values plus the shared repository execution context where a working folder has been selected. For direct agent runs and flow-owned agent runs only, the runtime may also apply the configured provider-fallback recovery policy after the selected provider fails or an invalid `codeinfo_provider` is detected.
 
@@ -57,7 +57,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Named tables still merge by key, with higher-precedence entries replacing conflicting lower-precedence entries.
 - Agent configs can declare `codeinfo_provider = "codex" | "copilot" | "lmstudio"`.
 - If `codeinfo_provider` is absent from an agent config, the runtime defaults that agent to `codex`.
-- If `codeinfo_provider` is present but invalid, the product warns immediately instead of silently defaulting to `codex`.
+- If `codeinfo_provider` is present but invalid, the product warns when the user opens that affected agent instead of silently defaulting to `codex`.
 - If `codeinfo_provider` is invalid but a configured fallback provider is actually usable for that run, the agent remains runnable and the warning includes the fallback provider that will be used.
 - If `codeinfo_provider` is invalid and no configured fallback provider is available, the product shows a clear error and disables that agent.
 - Invalid `codeinfo_provider` handling uses the same fallback order and availability checks as provider-unavailable agent runs.
@@ -69,6 +69,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - `lmstudio/config.toml` becomes a first-class provider base config resolved in the same product-owned way as Codex base config.
 - `copilot/config.toml` is bootstrapped in the same product-owned way as `codex/config.toml`.
 - `lmstudio/config.toml` is bootstrapped in the same product-owned way as `codex/config.toml`.
+- `copilot/config.toml` and `lmstudio/config.toml` are created during shared startup bootstrap rather than waiting for first provider use.
 - Shared code resolves repository execution context once and passes a provider-neutral execution payload into every chat run, agent run, flow-owned agent run, and `code_info` execution.
 - The shared repository execution context includes the selected repository path as runtime metadata.
 - The shared repository execution context includes a resolved runtime working-directory override for providers that support it directly.
@@ -87,7 +88,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - If no configured fallback provider can execute the agent run, the run fails clearly.
 - Provider fallback emits both warning logs and warning-capable API or GUI warnings.
 - Agent fallback warnings appear in the agent list payload and in the selected agent's info or details surface.
-- Equivalent flow-owned agent warning surfaces reuse the same warning data when those surfaces already exist.
+- Equivalent flow-owned agent warning surfaces reuse the same warning data through the existing flow info or details surface when that surface already exists.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
 - Flow-owned agent execution uses the same shared repository execution-context contract as direct agent execution.
 - The current Codex-specific default-working-directory selection logic is removed from provider-specific execution code and replaced by the shared execution-context resolver.
@@ -102,7 +103,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - When both `codeinfo_agents` and `codex_agents` are present for the same lookup path, `codeinfo_agents` always wins.
 - When the same agent is found in both folders, the runtime logs a warning and also surfaces that warning through existing warning-capable API or UI responses.
 - Duplicate-agent warnings appear in the agent list payload and in the selected agent's info or details surface.
-- Equivalent flow-owned agent warning surfaces reuse the same duplicate-agent warning data when those surfaces already exist.
+- Equivalent flow-owned agent warning surfaces reuse the same duplicate-agent warning data through the existing flow info or details surface when that surface already exists.
 - Cross-repository command lookup uses the same folder precedence contract as local agent discovery.
 - This story does not add new GUI-level agent provider overrides.
 - This story does not add new MCP-level agent provider overrides beyond the merged config behavior.
@@ -147,24 +148,10 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Later manual proof should cover at least one agent configured for each provider, plus one scenario where both `codeinfo_agents` and `codex_agents` exist so precedence can be observed honestly.
 - Later manual proof should include at least one command or flow path that resolves agent-owned files from another repository root, because folder precedence must match there as well.
 - When proving the `code_info` change later, prefer artifact capture that shows the actual request payload or observable provider-selection behavior so the omission contract is visible.
-- Later manual proof should show where users see fallback and duplicate-agent warnings in the agent list and in the selected agent's info or details surface, plus any equivalent flow-owned agent warning surface that already exists.
+- Later manual proof should show where users see fallback and duplicate-agent warnings in the agent list and in the selected agent's info or details surface, plus the existing flow info or details warning surface used for equivalent flow-owned agent warnings when that surface exists.
+- Later manual proof should show that an invalid `codeinfo_provider` warning first appears when the user opens the affected agent rather than in the initial agent list.
 
 ### Questions
-
-1. If `copilot/config.toml` or `lmstudio/config.toml` is missing, should startup create it, or should the app wait until that provider is first used?
-   - Why this is important: The story already says those provider base config files should be bootstrapped like Codex, but it does not yet say when that should happen.
-   - Best Answer: Create them during startup as part of one shared provider-config bootstrap step. That is the closest match to the current Codex behavior, and the server already does startup bootstrap work for `codex/config.toml` and provider chat config files before normal requests begin.
-   - Where this answer came from: Repo evidence in `server/src/index.ts`, `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/test/unit/copilotSeedBootstrap.test.ts`, plus earlier decisions already recorded in this plan that Copilot and LM Studio base config files should be auto-seeded like Codex.
-
-2. Should an invalid `codeinfo_provider` warning appear as soon as the agent list loads, or only after the user opens that agent?
-   - Why this is important: The story already says users should be warned immediately, but it does not yet say exactly when that warning first becomes visible.
-   - Best Answer: Show the warning as soon as the agent list payload is loaded, and also keep it visible in the selected agent's info or details surface. That matches the existing story decision about warning surfaces and gives users the earliest useful signal without waiting for a failed run attempt.
-   - Where this answer came from: Repo evidence in `client/src/pages/AgentsPage.tsx`, `server/src/mcpAgents/tools.ts`, and warning-carrying route patterns such as `server/src/routes/chatModels.ts` and `server/src/routes/chatProviders.ts`, plus earlier decisions already recorded in this plan about showing warnings in the agent list payload and selected agent details.
-
-3. For flow-owned agent warnings, should we reuse the existing flow info or details UI, or add a brand-new warning area?
-   - Why this is important: The story already says equivalent flow-owned warning surfaces should be used when they exist, but it does not yet name the preferred UI shape clearly enough.
-   - Best Answer: Reuse the existing flow info or details surface instead of inventing a new warning area. The current flow UI already has a warning-friendly info popover, so reusing that shape keeps the behavior consistent with the rest of the product and avoids unnecessary new UI work.
-   - Where this answer came from: Repo evidence in `client/src/pages/FlowsPage.tsx`, especially the existing `flow-warnings` block inside the flow info popover, plus earlier story wording about reusing equivalent flow-owned warning surfaces where they already exist.
 
 ## Decisions
 
@@ -210,12 +197,12 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/agents/types.ts`, and `client/src/pages/AgentsPage.tsx`, plus local repo-precedent retrieval from `code_info` during this planning round.
    - Why it is the best answer: It matches the repo's broader warning pattern, keeps the precedence behavior diagnosable for users, and avoids forcing routine troubleshooting through server logs alone.
 
-7. Decision: if an agent has an invalid `codeinfo_provider`, the product should warn immediately and keep the agent runnable when a fallback is available.
+7. Decision: if an agent has an invalid `codeinfo_provider`, the product should warn when the user opens that agent and keep the agent runnable when a fallback is available.
    - The question being addressed: If an agent has an invalid `codeinfo_provider`, how should that failure be shown to the user?
    - Why the question matters: `codeinfo_provider` is an explicit per-agent runtime choice, so bad values need one clear contract.
-   - What the answer is: Show a warning immediately instead of silently defaulting to Codex. If a configured fallback provider is available, keep the agent runnable and include the fallback provider in the warning. If no usable fallback provider is available, show a clear error and disable the agent.
+   - What the answer is: Show a warning when the user opens the affected agent instead of silently defaulting to Codex. If a configured fallback provider is available, keep the agent runnable and include the fallback provider in the warning. If no usable fallback provider is available, show a clear error and disable the agent.
    - Where the answer came from: User direction in this planning round, plus direct repo review of this story file's existing warning-surfacing and fallback requirements.
-   - Why it is the best answer: It gives users immediate visibility into the problem, still lets them keep working when recovery is possible, and only disables the agent when the runtime truly has nowhere safe to go.
+   - Why it is the best answer: It gives users the warning at the moment they are actually looking at the affected agent, still lets them keep working when recovery is possible, and only disables the agent when the runtime truly has nowhere safe to go.
 
 8. Decision: if an agent explicitly picks a provider that is unavailable, the runtime should try a configurable fallback provider order before failing.
    - The question being addressed: If an agent explicitly picks a provider that is unavailable, should the run fail clearly or try another provider?
@@ -262,17 +249,38 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 14. Decision: agent fallback and duplicate-agent warnings should appear in the agent list payload and in the selected agent's info or details surface.
    - The question being addressed: Where should users see agent fallback and duplicate-agent warnings?
    - Why the question matters: The story already requires these warnings to reach the GUI and API, but users still need a clear and predictable place to see them.
-   - What the answer is: Show the warnings in the agent list payload and in the selected agent's info or details surface, and reuse the same warning data for equivalent flow-owned agent surfaces when those surfaces already exist.
+   - What the answer is: Show the warnings in the agent list payload and in the selected agent's info or details surface, and reuse the same warning data through the existing flow info or details surface for equivalent flow-owned agent warnings when that surface already exists.
    - Where the answer came from: User direction in this planning round, plus direct repo review of this story file's earlier warning-visibility wording.
    - Why it is the best answer: It lets users see the warning both when choosing an agent and when reviewing that agent's details, without inventing a brand-new warning surface just for this story.
+
+15. Decision: `copilot/config.toml` and `lmstudio/config.toml` should be created during shared startup bootstrap rather than waiting for first use.
+   - The question being addressed: If `copilot/config.toml` or `lmstudio/config.toml` is missing, should startup create it, or should the app wait until that provider is first used?
+   - Why the question matters: The story already says those provider base config files should be bootstrapped like Codex, but it still needed a clear timing rule.
+   - What the answer is: Create them during startup as part of one shared provider-config bootstrap step.
+   - Where the answer came from: Repo evidence in `server/src/index.ts`, `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/test/unit/copilotSeedBootstrap.test.ts`, plus earlier decisions already recorded in this plan that Copilot and LM Studio base config files should be auto-seeded like Codex.
+   - Why it is the best answer: It is the closest match to the current Codex behavior, keeps provider bootstrap timing predictable, and avoids hiding configuration side effects behind first use.
+
+16. Decision: an invalid `codeinfo_provider` warning should first appear when the user opens the affected agent, not in the initial agent list.
+   - The question being addressed: Should an invalid `codeinfo_provider` warning appear as soon as the agent list loads, or only after the user opens that agent?
+   - Why the question matters: The story already said the user should be warned, but it needed a precise and consistent rule for when that warning first becomes visible.
+   - What the answer is: Show the warning when the user opens the affected agent. Do not surface that specific warning in the initial agent list just because the agent exists there.
+   - Where the answer came from: User direction in this planning round, plus the story's earlier distinction between broad list-level warnings and agent-specific details surfaces.
+   - Why it is the best answer: It keeps the list view quieter, limits this warning to the agent the user is actively inspecting, and still surfaces the problem before the user tries to run the affected agent.
+
+17. Decision: flow-owned agent warnings should reuse the existing flow info or details surface rather than adding a new warning area.
+   - The question being addressed: For flow-owned agent warnings, should the story reuse the existing flow info or details UI, or add a brand-new warning area?
+   - Why the question matters: The story already wanted equivalent flow-owned warning surfaces, but it needed a clearer implementation shape.
+   - What the answer is: Reuse the existing flow info or details surface when it already exists.
+   - Where the answer came from: Repo evidence in `client/src/pages/FlowsPage.tsx`, especially the existing `flow-warnings` block inside the flow info popover, plus user direction in this planning round.
+   - Why it is the best answer: It keeps warning behavior consistent with the current flow UI and avoids unnecessary new UI work for this story.
 
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
 - Treat `codeinfo_config/config.toml` as an optional read-if-present layer so startup falls back cleanly when repositories have not created the file yet.
 - Promote provider selection for agents into app-owned metadata by reading `codeinfo_provider` from the agent `config.toml` before the full merge runs.
-- Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper.
-- Surface invalid `codeinfo_provider` warnings early in agent discovery or listing, include the fallback provider when one is available, and only disable the agent when no usable fallback provider exists.
+- Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper, and run that provider-base bootstrap during shared startup rather than waiting for first provider use.
+- Surface invalid `codeinfo_provider` warnings when the user opens the affected agent, include the fallback provider when one is available, and only disable the agent when no usable fallback provider exists.
 - Keep the merged runtime contract portable by treating `codeinfo_*` keys as repository-owned metadata that is removed before provider SDK construction.
 - Extract the current Codex default-working-directory resolution logic into a shared repository execution-context helper that resolves both selected-working-folder and no-working-folder cases, then returns provider-neutral runtime metadata plus any resolved runtime working-directory override.
 - Update agent discovery, agent execution, command lookup, and flow-owned agent execution together so provider and folder selection stay consistent across all agent surfaces.
@@ -286,7 +294,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Resolve `CODEINFO_AGENT_HOME` ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
-- Surface fallback and duplicate-agent warnings through the agent list payload and the selected agent's info or details surface, and reuse the same warning data for equivalent flow-owned agent surfaces when those surfaces already exist.
+- Surface fallback and duplicate-agent warnings through the agent list payload and the selected agent's info or details surface, and reuse the same warning data through the existing flow info or details surface for equivalent flow-owned agent warnings when that surface already exists.
 - Update the `code_info` MCP schema text so both `provider` and `model` are documented as explicit override fields rather than normal caller-populated inputs.
 - Update repo-owned instruction surfaces that teach agents how to use `code_info` so they explicitly say to omit `provider` and `model` unless the user requests a provider-specific or model-specific run.
 - Add regression coverage for the MCP tool definition payload so future `tools/list` responses cannot silently drift back to Codex-biased or model-pinning wording.

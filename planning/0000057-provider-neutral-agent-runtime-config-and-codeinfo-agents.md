@@ -29,13 +29,13 @@ CodeInfo2 already supports three chat providers in the product: Codex, GitHub Co
 
 From a user's point of view, this creates two product problems. First, users can select Copilot or LM Studio in the chat product, but they cannot configure one agent to run on Copilot and another to run on LM Studio through the same first-class contract. Second, the folder and runtime naming still advertise the older Codex-only shape even though the product is now clearly broader than that.
 
-This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values.
+This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values. If `codeinfo_config/config.toml` has not been created yet, the runtime should continue cleanly without trying to auto-create repository files at startup.
 
 For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
-This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias.
+This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced through existing warning-capable API or UI responses. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and the new neutral env var should win when both are set.
 
 The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. The runtime should simply execute according to the merged `config.toml` values plus the shared repository execution context where a working folder has been selected.
 
@@ -45,6 +45,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 - A new repo-level base runtime config exists at `codeinfo_config/config.toml`.
 - `codeinfo_config/config.toml` follows the repo-local runtime-config pattern and remains out of source control.
+- If `codeinfo_config/config.toml` is missing, the runtime continues cleanly without auto-creating the file.
 - Agent and chat runtime config resolution follows this precedence order, with higher entries overriding lower entries:
   - `codeinfo_config/config.toml`
   - `<provider>/config.toml`
@@ -76,7 +77,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - The preferred agent folder name becomes `codeinfo_agents`.
 - The legacy `codex_agents` folder remains supported for backward compatibility.
 - A legacy environment variable such as `CODEINFO_CODEX_AGENT_HOME` remains supported as an alias to the preferred neutral agent-home contract.
+- If both the new neutral agent-home env var and `CODEINFO_CODEX_AGENT_HOME` are set, the new neutral env var wins and the legacy alias is treated as a fallback only.
 - When both `codeinfo_agents` and `codex_agents` are present for the same lookup path, `codeinfo_agents` always wins.
+- When the same agent is found in both folders, the runtime logs a warning and also surfaces that warning through existing warning-capable API or UI responses.
 - Cross-repository command lookup uses the same folder precedence contract as local agent discovery.
 - This story does not add new GUI-level agent provider overrides.
 - This story does not add new MCP-level agent provider overrides beyond the merged config behavior.
@@ -124,21 +127,6 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
-1. If `codeinfo_config/config.toml` is missing, should the app create it or just keep running without it?
-   - Why this is important: The story adds a new repo-local config layer, so startup behavior needs to be predictable for repositories that have not created that file yet.
-   - Best Answer: It should keep running without the file. This repo usually treats missing repo-local config as optional and falls back cleanly rather than auto-creating files in production code, which keeps startup safer and avoids unexpected writes into user repositories.
-   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/workingFolders/state.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
-
-2. If both agent-home env vars are set, should the new one win, or should the old alias still take priority?
-   - Why this is important: The story keeps `CODEINFO_CODEX_AGENT_HOME` as a legacy alias, so we need one clear rule when both the new and old env vars are present at the same time.
-   - Best Answer: The new neutral env var should win, and the legacy alias should be used only as a fallback with a warning. That matches this repo's usual precedence pattern for newer canonical settings versus older compatibility names.
-   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, and `server/src/test/unit/config.chatDefaults.test.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
-
-3. If the same agent appears in both folders, should the warning stay in logs only, or also appear in API and UI warnings?
-   - Why this is important: The story already says `codeinfo_agents` should win, but warning visibility is still unclear and will affect whether users can understand why one copy was ignored.
-   - Best Answer: It should be logged and also surfaced through API or UI warnings where those surfaces already support warnings. This repo already treats many non-fatal problems as both server-log events and user-visible warnings, which makes precedence behavior easier to diagnose without digging through logs.
-   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/agents/types.ts`, and `client/src/pages/AgentsPage.tsx`, plus local repo-precedent retrieval from `code_info` during this planning round.
-
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.
@@ -162,9 +150,31 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Repo evidence in `server/src/mcp2/tools/codebaseQuestion.ts`, `AGENTS.md`, `usefulCommands.txt.md`, `docs/developer-reference.md`, and prompt files under `codex_agents/**` plus `codeinfo_markdown/**`. Additional evidence from this planning session: the runtime-facing built tool schema mirrors the repo source, but no clearly separate shared harness metadata file was identified inside this repository.
    - Why it is the best answer: It keeps Story `0000057` grounded in code and documentation this repository directly owns, while still allowing a later follow-up to align any external agent-facing metadata if needed.
 
+4. Decision: if `codeinfo_config/config.toml` is missing, the runtime should keep running without auto-creating it.
+   - The question being addressed: If `codeinfo_config/config.toml` is missing, should the app create it or just keep running without it?
+   - Why the question matters: The story adds a new repo-local config layer, so startup behavior needs to be predictable for repositories that have not created that file yet.
+   - What the answer is: Keep running without the file and fall back to the remaining config layers instead of auto-creating repository files at startup.
+   - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/flows/markdownFileResolver.ts`, and `server/src/workingFolders/state.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+   - Why it is the best answer: It matches this repo's normal read-if-present behavior for repo-local config, avoids surprising writes into user repositories, and keeps first-run behavior simple.
+
+5. Decision: when both agent-home env vars are set, the new neutral env var should win.
+   - The question being addressed: If both agent-home env vars are set, should the new one win, or should the old alias still take priority?
+   - Why the question matters: The story keeps `CODEINFO_CODEX_AGENT_HOME` as a legacy alias, so conflicting env values need one clear precedence rule.
+   - What the answer is: The new neutral agent-home env var wins, and `CODEINFO_CODEX_AGENT_HOME` is used only as a fallback compatibility alias with a warning.
+   - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/runtimeConfig.ts`, `server/src/config/codexConfig.ts`, and `server/src/test/unit/config.chatDefaults.test.ts`, plus local repo-precedent retrieval from `code_info` during this planning round.
+   - Why it is the best answer: It follows this repo's normal canonical-over-legacy precedence pattern and gives users a predictable migration path away from the old Codex-specific name.
+
+6. Decision: when the same agent appears in both folders, the warning should be logged and also surfaced through existing warning-capable API or UI responses.
+   - The question being addressed: If the same agent appears in both folders, should the warning stay in logs only, or also appear in API and UI warnings?
+   - Why the question matters: The story already gives `codeinfo_agents` precedence, but users still need a clear way to understand why the legacy copy was ignored.
+   - What the answer is: Log the collision and also surface the warning through API or UI warning fields where those surfaces already support warnings.
+   - Where the answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/agents/types.ts`, and `client/src/pages/AgentsPage.tsx`, plus local repo-precedent retrieval from `code_info` during this planning round.
+   - Why it is the best answer: It matches the repo's broader warning pattern, keeps the precedence behavior diagnosable for users, and avoids forcing routine troubleshooting through server logs alone.
+
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
+- Treat `codeinfo_config/config.toml` as an optional read-if-present layer so startup falls back cleanly when repositories have not created the file yet.
 - Promote provider selection for agents into app-owned metadata by reading `codeinfo_provider` from the agent `config.toml` before the full merge runs.
 - Extend the existing `codexConfig` bootstrap pattern to first-class provider base configs for Copilot and LM Studio, likely with a dedicated LM Studio config helper and an expanded Copilot config helper.
 - Keep the merged runtime contract portable by treating `codeinfo_*` keys as repository-owned metadata that is removed before provider SDK construction.
@@ -174,7 +184,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Let provider implementations consume the shared repository execution context according to their own capabilities: Codex and Copilot should use the runtime working-directory override directly, while LM Studio may initially rely on repository metadata, provider-specific tools, or later working-directory-capable wiring.
 - Add targeted proof that Copilot chat and Copilot-backed agent execution actually receive and use the selected working folder, because that is the main current product gap.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
+- Resolve the new neutral agent-home env var ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
+- Surface duplicate-agent precedence warnings through existing warning-capable API or UI paths as well as server logs so users can understand why a legacy copy was ignored.
 - Update the `code_info` MCP schema text so both `provider` and `model` are documented as explicit override fields rather than normal caller-populated inputs.
 - Update repo-owned instruction surfaces that teach agents how to use `code_info` so they explicitly say to omit `provider` and `model` unless the user requests a provider-specific or model-specific run.
 - Add regression coverage for the MCP tool definition payload so future `tools/list` responses cannot silently drift back to Codex-biased or model-pinning wording.

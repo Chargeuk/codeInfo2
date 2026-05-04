@@ -1,9 +1,11 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { resolveAgentHomeEnv } from '../agents/roots.js';
-import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import { append } from '../logStore.js';
+import {
+  resolveWorkingFolderWorkingDirectory as resolveSharedWorkingFolderWorkingDirectory,
+  setExecutionContextStatForTests,
+} from './executionContext.js';
 
 export const DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION =
   'DEV_0000048_T5_WORKING_FOLDER_ROUTE_DECISION';
@@ -70,51 +72,15 @@ type ConversationLike = {
   flags?: Record<string, unknown>;
 };
 
-const isMissingPathError = (error: unknown) => {
-  const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  return code === 'ENOENT' || code === 'ENOTDIR';
-};
-
-const defaultStatPath = async (dirPath: string) =>
-  await fs.stat(dirPath, { bigint: false });
-let statPath = defaultStatPath;
-
 export const setWorkingFolderStatForTests = (
-  next: ((dirPath: string) => ReturnType<typeof defaultStatPath>) | undefined,
+  next:
+    | ((
+        dirPath: string,
+      ) => Promise<Awaited<ReturnType<typeof import('node:fs/promises').stat>>>)
+    | undefined,
 ): void => {
-  statPath = next ?? defaultStatPath;
+  setExecutionContextStatForTests(next);
 };
-
-const toUnavailableWorkingFolderError = (
-  dirPath: string,
-  error: unknown,
-): WorkingFolderValidationError => {
-  const causeCode =
-    typeof (error as NodeJS.ErrnoException | undefined)?.code === 'string'
-      ? (error as NodeJS.ErrnoException).code
-      : undefined;
-  return {
-    code: 'WORKING_FOLDER_UNAVAILABLE',
-    reason: causeCode
-      ? `working_folder could not be validated (${causeCode})`
-      : `working_folder could not be validated for ${dirPath}`,
-    ...(causeCode ? { causeCode } : {}),
-  };
-};
-
-const isDirectory = async (dirPath: string): Promise<boolean> => {
-  try {
-    const stat = await statPath(dirPath);
-    return stat.isDirectory();
-  } catch (error) {
-    if (isMissingPathError(error)) {
-      return false;
-    }
-    throw toUnavailableWorkingFolderError(dirPath, error);
-  }
-};
-
-const normalizeWorkingFolder = (value: string) => path.resolve(value.trim());
 
 const getKnownRepositorySet = (paths: string[]) =>
   new Set(paths.map((entry) => path.resolve(entry)));
@@ -252,48 +218,7 @@ export function appendWorkingFolderDecisionLog(params: {
 export async function resolveWorkingFolderWorkingDirectory(
   working_folder: string | undefined,
 ): Promise<string | undefined> {
-  if (!working_folder || !working_folder.trim()) return undefined;
-
-  const workingFolder = working_folder.trim();
-  const normalized = workingFolder.replace(/\\/g, '/');
-  if (
-    !(path.posix.isAbsolute(normalized) || path.win32.isAbsolute(workingFolder))
-  ) {
-    throw {
-      code: 'WORKING_FOLDER_INVALID',
-      reason: 'working_folder must be an absolute path',
-    } as const satisfies WorkingFolderValidationError;
-  }
-
-  const hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
-  const codexWorkdir =
-    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
-
-  if (hostIngestDir && hostIngestDir.length > 0) {
-    const normalizedHostIngestDir = hostIngestDir.replace(/\\/g, '/');
-    if (
-      path.posix.isAbsolute(normalizedHostIngestDir) &&
-      path.posix.isAbsolute(normalized)
-    ) {
-      const mapped = mapHostWorkingFolderToWorkdir({
-        hostIngestDir,
-        codexWorkdir,
-        hostWorkingFolder: workingFolder,
-      });
-
-      if ('mappedPath' in mapped) {
-        if (await isDirectory(mapped.mappedPath)) return mapped.mappedPath;
-      }
-    }
-  }
-
-  if (await isDirectory(workingFolder))
-    return normalizeWorkingFolder(workingFolder);
-
-  throw {
-    code: 'WORKING_FOLDER_NOT_FOUND',
-    reason: 'working_folder not found',
-  } as const satisfies WorkingFolderValidationError;
+  return await resolveSharedWorkingFolderWorkingDirectory(working_folder);
 }
 
 export async function validateRequestedWorkingFolder(params: {

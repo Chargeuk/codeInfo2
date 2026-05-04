@@ -93,13 +93,13 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
     pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
   };
 };
+import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
   knownRepositoryPathsAvailable,
   knownRepositoryPathsUnavailable,
   restoreSavedWorkingFolder,
-  resolveWorkingFolderWorkingDirectory,
   validateRequestedWorkingFolder,
 } from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
@@ -4165,8 +4165,11 @@ export async function startFlowRun(
           'Flow command repository context unavailable',
         );
       }
-      const workingDirectoryOverride =
-        await resolveWorkingFolderWorkingDirectory(params.working_folder);
+      const workingDirectoryOverride = (
+        await resolveSharedExecutionContext({
+          workingFolder: params.working_folder,
+        })
+      ).workingDirectoryOverride;
       await runFlowUnlocked({
         flowName,
         flow,

@@ -12,7 +12,12 @@ import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
+import {
+  __deleteCodebaseQuestionMemoryConversationForTests,
+  __setCodebaseQuestionMemoryConversationForTests,
+} from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
+import type { Conversation } from '../../../mongo/conversation.js';
 import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
 
 const ENV_KEYS = [
@@ -20,6 +25,8 @@ const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_MODEL',
   'CODEINFO_CODEX_HOME',
   'CODEX_HOME',
+  'CODEINFO_CODEX_WORKDIR',
+  'MCP_FORCE_CODEX_AVAILABLE',
 ] as const;
 const originalEnv = new Map<string, string | undefined>();
 const defaultCodexHome = path.resolve(process.cwd(), '../codex');
@@ -331,6 +338,20 @@ class CapturingChat extends ChatInterface {
   }
 }
 
+const buildRepoEntry = (containerPath: string) => ({
+  id: path.basename(containerPath) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: '2025-01-01T00:00:00.000Z',
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
+
 class ReplayBarrierChat extends ChatInterface {
   runs = 0;
 
@@ -535,6 +556,99 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
+  }
+});
+
+test('codebase_question reuses saved selected-repository metadata when provider is omitted', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-working-folder-'),
+  );
+  const chat = new CapturingChat();
+  const conversationId = 'mcp-working-folder-selected';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: 'm',
+    title: 'Saved MCP conversation',
+    source: 'MCP',
+    flags: { workingFolder: repoRoot },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Conversation);
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Use the saved repo context',
+        conversationId,
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      },
+    );
+
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      workingFolder: repoRoot,
+      lookupSummary: {
+        selectedRepositoryPath: repoRoot,
+        fallbackUsed: false,
+        workingRepositoryAvailable: true,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: repoRoot,
+      defaultExecutionRoot: '/data',
+      workingDirectoryOverride: repoRoot,
+      fallbackUsed: false,
+      workingRepositoryAvailable: true,
+    });
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('codebase_question uses the shared default execution root when no working_folder is selected', async () => {
+  const chat = new CapturingChat();
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Use the default repo context',
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: '/mounted/default-root',
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: '/mounted/default-root',
+      defaultExecutionRoot: '/mounted/default-root',
+      workingDirectoryOverride: '/mounted/default-root',
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
   }
 });
 

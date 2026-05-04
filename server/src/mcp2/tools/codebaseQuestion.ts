@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
 
 import type { ModelInfo } from '@github/copilot-sdk';
 import { LMStudioClient } from '@lmstudio/sdk';
@@ -43,18 +44,25 @@ import {
   RuntimeConfigResolutionError,
   resolveChatRuntimeConfig,
 } from '../../config/runtimeConfig.js';
+import { listIngestedRepositories } from '../../lmstudio/toolService.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
   createConversation,
   updateConversationMeta,
+  updateConversationWorkingFolder,
 } from '../../mongo/repo.js';
 import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../../providers/copilotReadiness.js';
+import { resolveSharedExecutionContext } from '../../workingFolders/executionContext.js';
+import {
+  resolveKnownRepositoryPathsState,
+  restoreSavedWorkingFolder,
+} from '../../workingFolders/state.js';
 import { isCodexAvailable } from '../codexAvailability.js';
 import {
   ArchivedConversationError,
@@ -208,12 +216,25 @@ export type CodebaseQuestionDeps = {
   chatFactory?: typeof getChatInterface;
   chatRuntimeConfigResolver?: typeof resolveChatRuntimeConfig;
   copilotReadinessResolver?: typeof resolveCopilotReadiness;
+  listIngestedRepositoriesFn?: typeof listIngestedRepositories;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
 const shouldUseMemoryPersistence = () =>
   preferMemoryPersistence || mongoose.connection.readyState !== 1;
 const memoryConversations = new Map<string, Conversation>();
+
+export function __setCodebaseQuestionMemoryConversationForTests(
+  conversation: Conversation,
+) {
+  memoryConversations.set(String(conversation._id), conversation);
+}
+
+export function __deleteCodebaseQuestionMemoryConversationForTests(
+  conversationId: string,
+) {
+  memoryConversations.delete(conversationId);
+}
 
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
 
@@ -634,10 +655,80 @@ async function executeCodebaseQuestion(
 
   const executionProvider = runtimeSelection.executionProvider;
   const executionModel = runtimeSelection.executionModel;
-  const codexWorkingDirectory =
-    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
   const codexDefaults = codexCapabilities.defaults;
   let chatRuntimeConfig: CodexOptions['config'] | undefined;
+
+  let effectiveWorkingFolder: string | undefined;
+  let mutableConversation = existingConversation;
+  const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+    async () =>
+      (
+        await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
+      ).repos.map((repo) => path.resolve(repo.containerPath)),
+  );
+  const persistWorkingFolder = async (workingFolder?: string | null) => {
+    if (!conversationId) return;
+    if (shouldUseMemoryPersistence()) {
+      const existing = memoryConversations.get(conversationId);
+      if (!existing) return;
+      const nextFlags = { ...(existing.flags ?? {}) };
+      if (workingFolder && workingFolder.trim().length > 0) {
+        nextFlags.workingFolder = workingFolder;
+      } else {
+        delete nextFlags.workingFolder;
+      }
+      memoryConversations.set(conversationId, {
+        ...existing,
+        flags: nextFlags,
+      } as Conversation);
+      return;
+    }
+    await updateConversationWorkingFolder({
+      conversationId,
+      workingFolder,
+    });
+  };
+
+  try {
+    if (mutableConversation) {
+      effectiveWorkingFolder = await restoreSavedWorkingFolder({
+        conversation: mutableConversation,
+        surface: 'mcp_codebase_question',
+        clearPersistedWorkingFolder: async () => {
+          await persistWorkingFolder(null);
+          const nextFlags = { ...(mutableConversation?.flags ?? {}) };
+          delete nextFlags.workingFolder;
+          mutableConversation = {
+            ...mutableConversation!,
+            flags: nextFlags,
+          } as Conversation;
+        },
+        knownRepositoryPathsState,
+      });
+    }
+  } catch (error) {
+    const workingFolderError = error as {
+      code?: string;
+      reason?: string;
+      causeCode?: string;
+    };
+    if (
+      workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+      workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+    ) {
+      throw new ToolExecutionError(-32002, workingFolderError.code, {
+        reason: workingFolderError.reason,
+        ...(workingFolderError.causeCode
+          ? { causeCode: workingFolderError.causeCode }
+          : {}),
+      });
+    }
+    throw error;
+  }
+
+  const executionContext = await resolveSharedExecutionContext({
+    workingFolder: effectiveWorkingFolder,
+  });
 
   if (executionProvider === 'codex') {
     const runtimeConfigResolver =
@@ -659,7 +750,7 @@ async function executeCodebaseQuestion(
 
   const threadOpts: ThreadOptions = {
     model: executionModel,
-    workingDirectory: codexWorkingDirectory,
+    workingDirectory: executionContext.workingDirectoryOverride,
     skipGitRepoCheck: true,
     sandboxMode: codexDefaults.sandboxMode,
     networkAccessEnabled: codexDefaults.networkAccessEnabled,
@@ -682,8 +773,8 @@ async function executeCodebaseQuestion(
   const inflightId = replayId ? `mcp-replay-${replayId}` : crypto.randomUUID();
 
   const existingFlags =
-    existingConversation && existingConversation._id === resolvedConversationId
-      ? (existingConversation.flags as Record<string, unknown> | undefined)
+    mutableConversation && mutableConversation._id === resolvedConversationId
+      ? (mutableConversation.flags as Record<string, unknown> | undefined)
       : undefined;
   const conversationFlags =
     executionProvider === 'codex'
@@ -748,6 +839,9 @@ async function executeCodebaseQuestion(
           threadId: activeThreadId,
           runtimeConfig: chatRuntimeConfig,
           codexFlags: threadOpts,
+          workingDirectoryOverride: executionContext.workingDirectoryOverride,
+          repositoryContext: executionContext.repositoryMetadata,
+          runtime: executionContext.runtime,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
           source: 'MCP',
         },
@@ -760,13 +854,17 @@ async function executeCodebaseQuestion(
         {
           provider: executionProvider,
           baseUrl,
+          repositoryContext: executionContext.repositoryMetadata,
+          runtime: executionContext.runtime,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
           ...(executionProvider === 'copilot'
             ? {
                 copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
                 resumeConversation:
-                  existingConversation?.provider === 'copilot' &&
-                  existingConversation.model === executionModel,
+                  mutableConversation?.provider === 'copilot' &&
+                  mutableConversation.model === executionModel,
+                workingDirectoryOverride:
+                  executionContext.workingDirectoryOverride,
               }
             : {}),
           source: 'MCP',

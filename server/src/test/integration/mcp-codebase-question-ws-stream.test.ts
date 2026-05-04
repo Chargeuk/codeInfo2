@@ -146,6 +146,31 @@ class StreamingChat extends ChatInterface {
   }
 }
 
+class CapturingRuntimeChat extends ChatInterface {
+  constructor(
+    private readonly calls: Array<{
+      flags: Record<string, unknown>;
+      conversationId: string;
+    }>,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _model;
+    this.calls.push({ flags, conversationId });
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'Captured runtime context' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 class ReplayBarrierStreamingChat extends ChatInterface {
   runs = 0;
   private releaseCleanup: (() => void) | null = null;
@@ -286,6 +311,179 @@ test('MCP codebase_question publishes WS transcript events while in progress', a
     await new Promise<void>((resolve) => mcpServer.close(() => resolve()));
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = originalForce;
+  }
+});
+
+test('explicit-provider MCP codebase_question websocket runs receive the shared execution context', async () => {
+  resetStore();
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
+
+  setToolDeps({
+    chatFactory: () => new CapturingRuntimeChat(calls),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+  const conversationId = 'mcp-ws-runtime-explicit';
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const toolCallPromise = postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 101,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'What is up?',
+          conversationId,
+          provider: 'lmstudio',
+          model: 'm',
+        },
+      },
+    });
+
+    await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is { type: string } => {
+        const e = event as { type?: string; conversationId?: string };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+
+    await toolCallPromise;
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0]?.flags.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: '/mounted/ws-default-root',
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(calls[0]?.flags.repositoryContext, {
+      selectedRepositoryPath: '/mounted/ws-default-root',
+      defaultExecutionRoot: '/mounted/ws-default-root',
+      workingDirectoryOverride: '/mounted/ws-default-root',
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    await closeWs(ws);
+    wsHandle.dispose();
+    resetToolDeps();
+    mcpServer.close();
+    wsHttp.close();
+  }
+});
+
+test('omitted-provider MCP codebase_question websocket runs receive the same shared execution context', async () => {
+  resetStore();
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+
+  setToolDeps({
+    chatFactory: () => new CapturingRuntimeChat(calls),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+  const conversationId = 'mcp-ws-runtime-omitted';
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const toolCallPromise = postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 102,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'What is up?',
+          conversationId,
+        },
+      },
+    });
+
+    await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is { type: string } => {
+        const e = event as { type?: string; conversationId?: string };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+
+    await toolCallPromise;
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0]?.flags.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: '/mounted/ws-default-root',
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(calls[0]?.flags.repositoryContext, {
+      selectedRepositoryPath: '/mounted/ws-default-root',
+      defaultExecutionRoot: '/mounted/ws-default-root',
+      workingDirectoryOverride: '/mounted/ws-default-root',
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    await closeWs(ws);
+    wsHandle.dispose();
+    resetToolDeps();
+    mcpServer.close();
+    wsHttp.close();
   }
 });
 

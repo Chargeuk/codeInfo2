@@ -10,6 +10,7 @@ import {
 import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
 import { toNormalizedOpenAiErrorPayload } from '../ingest/providers/index.js';
 import { baseLogger } from '../logger.js';
+import type { RepositoryExecutionContextMetadata } from '../workingFolders/executionContext.js';
 import {
   RepoNotFoundError,
   ValidationError,
@@ -24,6 +25,7 @@ import {
 export type ToolFactoryOptions = {
   deps?: Partial<ToolDeps>;
   log?: (payload: Record<string, unknown>) => void;
+  repositoryContext?: RepositoryExecutionContextMetadata;
   onToolResult?: (
     callId: string | number | undefined,
     result?: unknown,

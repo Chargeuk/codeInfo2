@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { resolveWorkingFolderWorkingDirectory } from '../../workingFolders/state.js';
+import { resolveSharedExecutionContext } from '../../workingFolders/executionContext.js';
 
 describe('resolveWorkingFolderWorkingDirectory', () => {
   it('rejects relative working_folder inputs', async () => {
@@ -43,9 +43,19 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
       const expectedMapped = path.join(codexWorkdir, 'repo', 'sub');
       await fs.mkdir(expectedMapped, { recursive: true });
 
-      const resolved =
-        await resolveWorkingFolderWorkingDirectory(workingFolder);
-      assert.equal(resolved, expectedMapped);
+      const resolved = await resolveSharedExecutionContext({
+        workingFolder,
+      });
+      assert.equal(resolved.selectedRepositoryPath, expectedMapped);
+      assert.equal(resolved.workingDirectoryOverride, expectedMapped);
+      assert.deepEqual(resolved.runtime, {
+        workingFolder: expectedMapped,
+        lookupSummary: {
+          selectedRepositoryPath: expectedMapped,
+          fallbackUsed: false,
+          workingRepositoryAvailable: true,
+        },
+      });
     } finally {
       process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
       process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
@@ -77,9 +87,19 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
       const workingFolder = path.join(tmp, 'some', 'literal', 'dir');
       await fs.mkdir(workingFolder, { recursive: true });
 
-      const resolved =
-        await resolveWorkingFolderWorkingDirectory(workingFolder);
-      assert.equal(resolved, workingFolder);
+      const resolved = await resolveSharedExecutionContext({
+        workingFolder,
+      });
+      assert.equal(resolved.selectedRepositoryPath, workingFolder);
+      assert.equal(resolved.workingDirectoryOverride, workingFolder);
+      assert.deepEqual(resolved.runtime, {
+        workingFolder,
+        lookupSummary: {
+          selectedRepositoryPath: workingFolder,
+          fallbackUsed: false,
+          workingRepositoryAvailable: true,
+        },
+      });
     } finally {
       process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
       process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
@@ -124,6 +144,34 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
       process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
       process.env.CODEX_WORKDIR = snapshot.CODEX_WORKDIR;
       await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('uses the shared default execution root instead of process cwd when no working_folder is selected', async () => {
+    const snapshot = {
+      CODEINFO_CODEX_WORKDIR: process.env.CODEINFO_CODEX_WORKDIR,
+      CODEX_WORKDIR: process.env.CODEX_WORKDIR,
+    };
+
+    try {
+      process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
+      delete process.env.CODEX_WORKDIR;
+
+      const resolved = await resolveSharedExecutionContext({});
+      assert.equal(resolved.defaultExecutionRoot, '/mounted/default-root');
+      assert.equal(resolved.selectedRepositoryPath, '/mounted/default-root');
+      assert.equal(resolved.workingDirectoryOverride, '/mounted/default-root');
+      assert.deepEqual(resolved.runtime, {
+        lookupSummary: {
+          selectedRepositoryPath: '/mounted/default-root',
+          fallbackUsed: true,
+          workingRepositoryAvailable: false,
+        },
+      });
+      assert.notEqual(resolved.workingDirectoryOverride, process.cwd());
+    } finally {
+      process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
+      process.env.CODEX_WORKDIR = snapshot.CODEX_WORKDIR;
     }
   });
 });

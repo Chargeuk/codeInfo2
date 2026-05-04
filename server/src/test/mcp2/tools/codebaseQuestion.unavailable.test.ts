@@ -9,7 +9,13 @@ import test from 'node:test';
 import { resolveCodexCapabilities } from '../../../codex/capabilityResolver.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
-import { runCodebaseQuestion } from '../../../mcp2/tools/codebaseQuestion.js';
+import {
+  __deleteCodebaseQuestionMemoryConversationForTests,
+  __setCodebaseQuestionMemoryConversationForTests,
+  runCodebaseQuestion,
+} from '../../../mcp2/tools/codebaseQuestion.js';
+import type { Conversation } from '../../../mongo/conversation.js';
+import { setWorkingFolderStatForTests } from '../../../workingFolders/state.js';
 
 type ThreadEvent = {
   type: string;
@@ -44,6 +50,20 @@ class MockCodex {
     return new MockThread(threadId);
   }
 }
+
+const buildRepoEntry = (containerPath: string) => ({
+  id: path.basename(containerPath) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: '2025-01-01T00:00:00.000Z',
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 async function postJson(port: number, body: unknown) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
@@ -253,5 +273,139 @@ test('codebase_question still falls back when provider resolution is omitted and
       process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBaseUrl;
     }
     await tempHome.cleanup();
+  }
+});
+
+test('codebase_question preserves the working-folder repository-unavailable error instead of silently falling back', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-repo-unavailable-'),
+  );
+  const conversationId = 'mcp-working-folder-repo-unavailable';
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: 'm',
+    title: 'Saved MCP conversation',
+    source: 'MCP',
+    flags: { workingFolder: repoRoot },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Conversation);
+
+  try {
+    await assert.rejects(
+      () =>
+        runCodebaseQuestion(
+          {
+            question: 'Keep the saved repository grounding',
+            conversationId,
+          },
+          {
+            clientFactory: () =>
+              ({
+                system: {
+                  listDownloadedModels: async () => [{ modelKey: 'm' }],
+                },
+              }) as never,
+            listIngestedRepositoriesFn: async () => {
+              throw new Error('repo list unavailable');
+            },
+          },
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, 'ToolExecutionError');
+        assert.equal(error.message, 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE');
+        assert.equal(
+          (error as { data?: { reason?: string } }).data?.reason,
+          'repo list unavailable',
+        );
+        return true;
+      },
+    );
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('codebase_question preserves WORKING_FOLDER_UNAVAILABLE when the saved path cannot be validated', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-working-folder-unavailable-'),
+  );
+  const conversationId = 'mcp-working-folder-unavailable';
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: 'm',
+    title: 'Saved MCP conversation',
+    source: 'MCP',
+    flags: { workingFolder: repoRoot },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Conversation);
+
+  setWorkingFolderStatForTests(async () => {
+    const error = new Error('denied') as NodeJS.ErrnoException;
+    error.code = 'EACCES';
+    throw error;
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        runCodebaseQuestion(
+          {
+            question: 'Keep the saved repository grounding',
+            conversationId,
+          },
+          {
+            clientFactory: () =>
+              ({
+                system: {
+                  listDownloadedModels: async () => [{ modelKey: 'm' }],
+                },
+              }) as never,
+            listIngestedRepositoriesFn: async () => ({
+              repos: [buildRepoEntry(repoRoot)],
+              lockedModelId: null,
+            }),
+          },
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, 'ToolExecutionError');
+        assert.equal(error.message, 'WORKING_FOLDER_UNAVAILABLE');
+        assert.equal(
+          (error as { data?: { causeCode?: string } }).data?.causeCode,
+          'EACCES',
+        );
+        return true;
+      },
+    );
+  } finally {
+    setWorkingFolderStatForTests(undefined);
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });

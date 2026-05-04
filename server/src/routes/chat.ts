@@ -60,6 +60,7 @@ import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
@@ -536,6 +537,10 @@ export function createChatRouter({
       throw err;
     }
 
+    const executionContext = await resolveSharedExecutionContext({
+      workingFolder: effectiveWorkingFolder,
+    });
+
     const ensureConversation = async (): Promise<Conversation | null> => {
       const buildRuntimeConversationFlags = (
         currentFlags: Record<string, unknown> | undefined,
@@ -904,11 +909,12 @@ export function createChatRouter({
               threadId: activeThreadId,
               runtimeConfig: chatRuntimeConfig,
               codexFlags: effectiveCodexFlags,
+              workingDirectoryOverride:
+                executionContext.workingDirectoryOverride,
               requestId,
               inflightId,
-              ...(effectiveWorkingFolder
-                ? { runtime: { workingFolder: effectiveWorkingFolder } }
-                : {}),
+              repositoryContext: executionContext.repositoryMetadata,
+              runtime: executionContext.runtime,
               deferInflightCleanup: true,
               signal: getInflight(conversationId)?.abortController.signal,
               source: 'REST',
@@ -931,9 +937,8 @@ export function createChatRouter({
             baseUrl,
             inflightId,
             agentFlags: effectiveAgentFlags,
-            ...(effectiveWorkingFolder
-              ? { runtime: { workingFolder: effectiveWorkingFolder } }
-              : {}),
+            repositoryContext: executionContext.repositoryMetadata,
+            runtime: executionContext.runtime,
             deferInflightCleanup: true,
             signal: getInflight(conversationId)?.abortController.signal,
             history: historyForRun,
@@ -941,6 +946,8 @@ export function createChatRouter({
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
                   resumeConversation: shouldResumeCopilotSession,
+                  workingDirectoryOverride:
+                    executionContext.workingDirectoryOverride,
                 }
               : {}),
             source: 'REST',

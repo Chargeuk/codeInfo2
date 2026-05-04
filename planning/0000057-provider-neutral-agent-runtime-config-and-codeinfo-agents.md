@@ -153,6 +153,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. If fallback switches providers, should it ignore settings meant for the original provider, or fail the run?
+   - Why this is important: Without a clear rule, a Codex-only setting could make an otherwise healthy Copilot or LM Studio fallback fail for a confusing reason.
+   - Best Answer: Ignore provider-specific settings that the fallback provider cannot use, keep the shared settings, and warn about anything dropped. That matches this repo's broader config-normalization pattern, keeps fallback useful as a recovery path, and avoids turning one provider outage into a second avoidable failure.
+   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from the TOML v1.0.0 spec at `toml.io`, which defines TOML as a generic key-value format whose key meaning is owned by the application.
+
+2. If the fallback env var has blank, duplicate, or unknown providers, should we warn and clean it up, or treat it as an error?
+   - Why this is important: Operators will edit this env var by hand, so the plan should say whether small mistakes block startup or get repaired safely.
+   - Best Answer: Warn and normalize it: trim entries, drop blanks, remove duplicates, ignore unknown providers, and only fall back to the default order if nothing usable remains. That matches this repo's current env parsing style and gives operators predictable behavior without hiding the mistake.
+   - Where this answer came from: Repo evidence in `server/src/config/codexEnvDefaults.ts`, `server/src/config/chatDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from Node.js environment-variable docs, the `nodejs/node` documentation surfaced through Context7, and DeepWiki notes on `nodejs/node`, all of which show that env values arrive as strings and application-level normalization is left to the app.
+
+3. If no usable provider is left, should the agent stay visible but disabled, or disappear from the agent list?
+   - Why this is important: Users need a predictable way to understand why an agent cannot run without thinking it vanished or was deleted.
+   - Best Answer: Keep the agent visible but disabled, and show the reason through warnings or details. That fits the repo's existing agent data model and UI, which already support disabled agents and warning surfaces instead of hiding broken items from discovery.
+   - Where this answer came from: Repo evidence in `server/src/agents/types.ts`, `client/src/components/agents/AgentsComposerPanel.tsx`, and `server/src/config/chatDefaults.ts`. External evidence was not needed because the existing local UI and API contract already provide a direct precedent.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

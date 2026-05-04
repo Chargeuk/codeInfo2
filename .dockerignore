@@ -24,5 +24,7 @@ lmstudio/**
 codeinfo_config/**
 server/copilot/**
 codex_agents/**/sessions/**
+codeinfo_agents/**/sessions/**
 codex/**/auth.json
 codex_agents/**/auth.json
+codeinfo_agents/**/auth.json

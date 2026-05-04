@@ -424,6 +424,7 @@ const makeFlowCommand = (params: { commandName: string }) => ({
 const writeRepoCommand = async (params: {
   repoRoot: string;
   commandName: string;
+  rootDirName?: 'codeinfo_agents' | 'codex_agents';
   content?: string;
   items?: unknown[];
   invalidSchema?: boolean;
@@ -431,7 +432,7 @@ const writeRepoCommand = async (params: {
 }) => {
   const commandDir = path.join(
     params.repoRoot,
-    'codex_agents',
+    params.rootDirName ?? 'codex_agents',
     'planning_agent',
     'commands',
   );
@@ -1040,6 +1041,77 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
   } finally {
     await fs.rm(localCommandPath, { force: true });
   }
+});
+
+test('cross-repo flow-owned commands execute from codeinfo_agents before codex_agents when both exist', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'task2-duplicate-source-repo');
+      const commandName = 'task2_codeinfo_agents_precedence';
+      const conversationId = 'task2-codeinfo-agents-precedence';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'task2-codeinfo-agents-precedence',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        rootDirName: 'codeinfo_agents',
+        commandName,
+        content: 'preferred repository command',
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        rootDirName: 'codex_agents',
+        commandName,
+        content: 'legacy repository command',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Owner Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/task2-codeinfo-agents-precedence/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+        })
+        .expect(202);
+
+      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('preferred repository command'),
+          ),
+        3000,
+      );
+      assert.ok(
+        turns.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('preferred repository command'),
+        ),
+      );
+      assert.equal(
+        turns.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('legacy repository command'),
+        ),
+        false,
+      );
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+    },
+  );
 });
 
 test('cross-repo flows resolve commands from the selected working repository before the flow owner', async () => {

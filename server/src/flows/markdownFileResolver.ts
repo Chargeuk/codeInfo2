@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { TextDecoder } from 'node:util';
 
+import { resolveAgentHomeEnv } from '../agents/roots.js';
 import {
   type RepoEntry,
   listIngestedRepositories,
@@ -75,13 +76,7 @@ const defaultDeps: MarkdownFileResolverDeps = {
   listIngestedRepositories,
   readFile: (filePath) => fs.readFile(filePath),
   append,
-  getCodeInfo2Root: () => {
-    const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME?.trim();
-    if (agentsHome) {
-      return path.resolve(agentsHome, '..');
-    }
-    return path.resolve(process.cwd());
-  },
+  getCodeInfo2Root: () => resolveAgentHomeEnv().codeInfoRoot,
 };
 
 let resolverDeps: MarkdownFileResolverDeps = defaultDeps;

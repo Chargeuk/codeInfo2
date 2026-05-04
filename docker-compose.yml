@@ -31,6 +31,7 @@ services:
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_COPILOT_SEED_HOME=/seed/copilot
+      - CODEINFO_AGENT_HOME=/app/codeinfo_agents
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - CODEINFO_HOST_INGEST_DIR=${CODEINFO_HOST_INGEST_DIR:-/tmp}
       - FLOWS_DIR=/app/flows-sandbox

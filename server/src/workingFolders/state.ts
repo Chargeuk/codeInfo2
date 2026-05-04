@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { resolveAgentHomeEnv } from '../agents/roots.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import { append } from '../logStore.js';
 
@@ -158,11 +159,7 @@ export async function resolveKnownRepositoryPathsState(
   }
 }
 
-const getLocalCodeInfo2Root = () => {
-  const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  if (agentsHome) return path.resolve(agentsHome, '..');
-  return path.resolve('codex_agents', '..');
-};
+const getLocalCodeInfo2Root = () => resolveAgentHomeEnv().codeInfoRoot;
 
 const validateKnownRepository = (params: {
   workingFolder: string;

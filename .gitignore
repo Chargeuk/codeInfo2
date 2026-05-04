@@ -33,9 +33,11 @@ codeinfo_config/
 !client/src/components/codex/
 !client/src/components/codex/**
 codex_agents/**/auth.json
+codeinfo_agents/**/auth.json
 copilot/**/config.toml
 lmstudio/**/config.toml
 codex_agents/**/sessions/
+codeinfo_agents/**/sessions/
 logs/
 codeInfoStatus/flow-state/manual-testing-runtime.json
 certs/task6-valid/*.key

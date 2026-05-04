@@ -11,6 +11,10 @@ import type { AgentCommandFile } from '../agents/commandsSchema.js';
 import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
 import {
+  resolveAgentHomeEnv,
+  resolveAgentHomeForRepository,
+} from '../agents/roots.js';
+import {
   getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
@@ -654,16 +658,12 @@ const ensureFlowAgentConversation = async (params: {
 
 const flowsDirForRun = () => {
   if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
-  const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  if (agentsHome) return path.resolve(agentsHome, '..', 'flows');
+  const { codeInfoRoot } = resolveAgentHomeEnv();
+  if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
   return path.resolve('flows');
 };
 
-const codeInfo2RootForRun = () => {
-  const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  if (agentsHome) return path.resolve(agentsHome, '..');
-  return path.resolve('codex_agents', '..');
-};
+const codeInfo2RootForRun = () => resolveAgentHomeEnv().codeInfoRoot;
 
 const resolveFlowFilePath = (flowName: string, flowsRoot: string) => {
   if (!isSafeFlowName(flowName)) {
@@ -2209,10 +2209,10 @@ type FlowCommandCandidate = {
 const buildFlowCommandCandidates = (params: {
   context: FlowCommandRepositoryContext;
   agentType: string;
-}): {
+}): Promise<{
   orderedCandidates: RepositoryCandidateOrderResult;
   candidates: FlowCommandCandidate[];
-} => {
+}> => {
   const ownerRepositoryPath = params.context.flowSourceId?.trim()
     ? params.context.flowSourceId
     : params.context.codeInfo2Root;
@@ -2229,19 +2229,31 @@ const buildFlowCommandCandidates = (params: {
     otherRepositoryRoots: params.context.repos,
   });
 
-  return {
-    orderedCandidates,
-    candidates: orderedCandidates.candidates.map((candidate) => ({
-      sourceId: candidate.sourceId,
-      sourceLabel: candidate.sourceLabel,
-      slot: candidate.slot,
-      agentHome: path.join(
-        candidate.sourceId,
-        'codex_agents',
-        params.agentType,
+  return Promise.resolve(orderedCandidates.candidates).then(
+    async (candidates) => ({
+      orderedCandidates,
+      candidates: await Promise.all(
+        candidates.map(async (candidate) => {
+          const resolvedAgentHome = await resolveAgentHomeForRepository({
+            repositoryRoot: candidate.sourceId,
+            agentName: params.agentType,
+          });
+          return {
+            sourceId: candidate.sourceId,
+            sourceLabel: candidate.sourceLabel,
+            slot: candidate.slot,
+            agentHome:
+              resolvedAgentHome.home ??
+              path.join(
+                candidate.sourceId,
+                'codeinfo_agents',
+                params.agentType,
+              ),
+          } satisfies FlowCommandCandidate;
+        }),
       ),
-    })),
-  };
+    }),
+  );
 };
 
 const appendFlowCommandResolutionLog = (params: {
@@ -2376,7 +2388,7 @@ const resolveFlowCommandForAgent = async (params: {
   context: FlowCommandRepositoryContext;
   phase: 'validation' | 'execution';
 }): Promise<LoadCommandResult> => {
-  const { orderedCandidates, candidates } = buildFlowCommandCandidates({
+  const { orderedCandidates, candidates } = await buildFlowCommandCandidates({
     context: params.context,
     agentType: params.step.agentType,
   });

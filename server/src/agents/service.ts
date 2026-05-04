@@ -81,6 +81,7 @@ import {
 import { runAgentCommandRunner } from './commandsRunner.js';
 import { resolveAgentRuntimeExecutionConfig } from './config.js';
 import { discoverAgents } from './discovery.js';
+import { resolveAgentHomeForRepository } from './roots.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,
@@ -437,15 +438,18 @@ const resolveDirectCommandSelection = async (params: {
   });
 
   for (const candidate of orderedCandidates.candidates) {
-    const commandsRoot =
+    const resolvedAgentHome =
       candidate.sourceId === codeInfo2Root
-        ? path.join(params.agentHome, 'commands')
-        : path.join(
-            candidate.sourceId,
-            'codex_agents',
-            params.agentName,
-            'commands',
-          );
+        ? { home: params.agentHome }
+        : await resolveAgentHomeForRepository({
+            repositoryRoot: candidate.sourceId,
+            agentName: params.agentName,
+          });
+    const commandsRoot = path.join(
+      resolvedAgentHome.home ??
+        path.join(candidate.sourceId, 'codeinfo_agents', params.agentName),
+      'commands',
+    );
     const commandFilePath = path.resolve(
       commandsRoot,
       `${params.commandName}.json`,
@@ -1935,10 +1939,13 @@ export async function listAgentCommands(
           sourceId,
           repo,
         });
+        const resolvedAgentHome = await resolveAgentHomeForRepository({
+          repositoryRoot: sourceId,
+          agentName: agent.name,
+        });
+        if (!resolvedAgentHome.home) return [];
         const ingestedCommandsDir = path.join(
-          sourceId,
-          'codex_agents',
-          agent.name,
+          resolvedAgentHome.home,
           'commands',
         );
         return await listCommandsFromDir({

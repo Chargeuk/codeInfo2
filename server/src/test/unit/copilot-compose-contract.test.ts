@@ -153,6 +153,40 @@ test('compose services that need Copilot state inject CODEINFO_COPILOT_HOME=/app
   }
 });
 
+test('compose services publish CODEINFO_AGENT_HOME as the preferred runtime contract', () => {
+  const mainCompose = readRepoFile('docker-compose.yml');
+  const localCompose = readRepoFile('docker-compose.local.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
+  const serverEnv = readRepoFile('server/.env');
+
+  assert.match(serverEnv, /^CODEINFO_AGENT_HOME=\.\.\/codeinfo_agents$/mu);
+
+  for (const compose of [mainCompose, localCompose, e2eCompose]) {
+    const serverBlock = getServiceBlock(compose, 'server');
+    assert.match(serverBlock, /CODEINFO_AGENT_HOME=\/app\/codeinfo_agents/u);
+  }
+
+  const localServer = getServiceBlock(localCompose, 'server');
+  assert.match(localServer, /\.\/codeinfo_agents:\/app\/codeinfo_agents/u);
+});
+
+test('compose keeps CODEINFO_CODEX_AGENT_HOME only as the legacy fallback alias', () => {
+  const mainCompose = readRepoFile('docker-compose.yml');
+  const localCompose = readRepoFile('docker-compose.local.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
+  const serverEnv = readRepoFile('server/.env');
+
+  assert.match(serverEnv, /^CODEINFO_CODEX_AGENT_HOME=\.\.\/codex_agents$/mu);
+
+  for (const compose of [mainCompose, localCompose, e2eCompose]) {
+    const serverBlock = getServiceBlock(compose, 'server');
+    assert.match(serverBlock, /CODEINFO_CODEX_AGENT_HOME=\/app\/codex_agents/u);
+  }
+
+  const localServer = getServiceBlock(localCompose, 'server');
+  assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
+});
+
 test('compose build summary runtime asset marker includes /app/copilot', () => {
   const composeBuildSummary = readRepoFile('scripts/compose-build-summary.mjs');
   assert.match(composeBuildSummary, /['"]\/app\/copilot['"]/u);

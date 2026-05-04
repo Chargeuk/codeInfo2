@@ -43,6 +43,7 @@ services:
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
+      - CODEINFO_AGENT_HOME=/app/codeinfo_agents
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - CODEINFO_MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
@@ -62,6 +63,7 @@ services:
       - ./copilot:/app/copilot
       - ./codex:/app/codex
       - ./lmstudio:/app/lmstudio
+      - ./codeinfo_agents:/app/codeinfo_agents
       - ./codex_agents:/app/codex_agents
       - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
       - ./scripts:/app/scripts:ro

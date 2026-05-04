@@ -66,6 +66,20 @@ const writeFlowFile = async (
   );
 };
 
+const writeAgentConfig = async (params: {
+  repoRoot: string;
+  rootDirName: 'codeinfo_agents' | 'codex_agents';
+  agentName: string;
+}) => {
+  const agentHome = path.join(
+    params.repoRoot,
+    params.rootDirName,
+    params.agentName,
+  );
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'config.toml'), '# config', 'utf8');
+};
+
 const withFlowsDir = async (dir: string, run: () => Promise<void>) => {
   const prevFlowsDir = process.env.FLOWS_DIR;
   process.env.FLOWS_DIR = dir;
@@ -421,6 +435,63 @@ describe('GET /flows', () => {
         (flow: { name: string }) => flow.name,
       );
       assert.deepEqual(names, ['local']);
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('local flow discovery reuses the winning codeinfo_agents contract for referenced agents', async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-agents-'),
+    );
+    await writeAgentConfig({
+      repoRoot: tmpDir,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'coding_agent',
+    });
+    await writeFlowFile(tmpDir, 'local-flow', 'Local');
+
+    await withFlowsDir(tmpDir, async () => {
+      const response = await supertest(buildApp()).get('/flows');
+
+      assert.equal(response.status, 200);
+      const local = response.body.flows.find(
+        (flow: { name: string; warnings?: string[] }) =>
+          flow.name === 'local-flow',
+      );
+      assert.equal(local.disabled, false);
+      assert.equal(local.warnings, undefined);
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('local flow discovery surfaces duplicate warnings when codeinfo_agents beats codex_agents', async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-agents-'),
+    );
+    await writeAgentConfig({
+      repoRoot: tmpDir,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'coding_agent',
+    });
+    await writeAgentConfig({
+      repoRoot: tmpDir,
+      rootDirName: 'codex_agents',
+      agentName: 'coding_agent',
+    });
+    await writeFlowFile(tmpDir, 'local-flow', 'Local');
+
+    await withFlowsDir(tmpDir, async () => {
+      const response = await supertest(buildApp()).get('/flows');
+
+      assert.equal(response.status, 200);
+      const local = response.body.flows.find(
+        (flow: { name: string; warnings?: string[] }) =>
+          flow.name === 'local-flow',
+      );
+      assert.equal(Array.isArray(local.warnings), true);
+      assert.match(local.warnings?.[0] ?? '', /using codeinfo_agents/u);
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });

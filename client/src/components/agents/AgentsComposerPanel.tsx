@@ -1,5 +1,4 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MenuIcon from '@mui/icons-material/Menu';
 import {
   Alert,
   Box,
@@ -43,7 +42,6 @@ type PromptEntry = {
 };
 
 type AgentsComposerPanelProps = {
-  drawerOpen: boolean;
   agentsLoading: boolean;
   agentsError: string | null;
   selectedAgentName: string;
@@ -82,7 +80,6 @@ type AgentsComposerPanelProps = {
   agents: AgentOption[];
   commandOptions: CommandOption[];
   promptEntries: PromptEntry[];
-  onToggleDrawer: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onAgentChange: (event: SelectChangeEvent<string>) => void;
   onCommandChange: (event: SelectChangeEvent<string>) => void;
@@ -125,7 +122,6 @@ type AgentsComposerPanelProps = {
 const agentsComposerLog = createLogger('client');
 
 const AgentsComposerPanel = memo(function AgentsComposerPanel({
-  drawerOpen,
   agentsLoading,
   agentsError,
   selectedAgentName,
@@ -164,7 +160,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   agents,
   commandOptions,
   promptEntries,
-  onToggleDrawer,
   onSubmit,
   onAgentChange,
   onCommandChange,
@@ -209,59 +204,55 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
     <>
       <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
         <Stack spacing={2} component="form" onSubmit={onSubmit}>
-          <Stack direction="row" justifyContent="flex-start">
-            <IconButton
-              aria-label="Toggle conversations"
-              aria-controls="conversation-drawer"
-              aria-expanded={drawerOpen}
-              onClick={onToggleDrawer}
-              size="small"
-              data-testid="conversation-drawer-toggle"
-            >
-              <MenuIcon fontSize="small" />
-            </IconButton>
-          </Stack>
-
           <Stack
             data-testid="agent-header-row"
             direction={{ xs: 'column', sm: 'row' }}
             spacing={1}
             alignItems={{ xs: 'stretch', sm: 'center' }}
           >
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={agentsLoading || !!agentsError}
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              sx={{ flex: 1, minWidth: 0 }}
             >
-              <InputLabel id="agent-select-label">Agent</InputLabel>
-              <Select
-                labelId="agent-select-label"
-                label="Agent"
-                value={selectedAgentName}
-                onChange={onAgentChange}
-                inputProps={{ 'data-testid': 'agent-select' }}
-              >
-                {agents.map((agent) => (
-                  <MenuItem key={agent.name} value={agent.name}>
-                    {agent.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {showAgentInfoButton ? (
-              <IconButton
-                aria-describedby={agentInfoId}
-                onClick={onAgentInfoOpen}
-                disabled={agentInfoDisabled}
+              <FormControl
+                fullWidth
                 size="small"
-                data-testid="agent-info"
+                disabled={agentsLoading || !!agentsError}
+                sx={{ flex: 1, minWidth: 0 }}
               >
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            ) : null}
+                <InputLabel id="agent-select-label">Agent</InputLabel>
+                <Select
+                  labelId="agent-select-label"
+                  label="Agent"
+                  value={selectedAgentName}
+                  onChange={onAgentChange}
+                  inputProps={{ 'data-testid': 'agent-select' }}
+                >
+                  {agents.map((agent) => (
+                    <MenuItem key={agent.name} value={agent.name}>
+                      {agent.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-            <Stack spacing={1} sx={{ flexShrink: 0 }}>
+              {showAgentInfoButton ? (
+                <IconButton
+                  aria-describedby={agentInfoId}
+                  onClick={onAgentInfoOpen}
+                  disabled={agentInfoDisabled}
+                  size="small"
+                  data-testid="agent-info"
+                  sx={{ flexShrink: 0 }}
+                >
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              ) : null}
+            </Stack>
+
+            <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
               <Button
                 type="button"
                 variant="outlined"
@@ -269,6 +260,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
                 onClick={onResetConversation}
                 disabled={agentsLoading}
                 data-testid="agent-new-conversation"
+                sx={{ flex: 1 }}
               >
                 New conversation
               </Button>
@@ -280,8 +272,9 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
                   size="small"
                   onClick={onDeviceAuthOpen}
                   disabled={agentsLoading}
+                  sx={{ flex: 1 }}
                 >
-                  Re-authenticate (device auth)
+                  Re-authenticate
                 </Button>
               ) : null}
             </Stack>
@@ -299,102 +292,118 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
             spacing={1}
             alignItems={{ xs: 'stretch', sm: 'center' }}
           >
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={
-                controlsDisabled ||
-                submitDisabledForRun ||
-                selectedAgentDisabled ||
-                commandsLoading
-              }
-              sx={{ flex: 1 }}
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ flex: 1, minWidth: 0 }}
             >
-              <InputLabel id="agent-command-select-label">Command</InputLabel>
-              <Select
-                labelId="agent-command-select-label"
-                label="Command"
-                value={selectedCommandKey}
-                onChange={onCommandChange}
-                inputProps={{ 'data-testid': 'agent-command-select' }}
-              >
-                <MenuItem value="" disabled>
-                  Select a command
-                </MenuItem>
-                {commandOptions.map((cmd) => (
-                  <MenuItem
-                    key={cmd.key}
-                    value={cmd.key}
-                    disabled={cmd.disabled}
-                    data-testid={`agent-command-option-${cmd.key}`}
-                  >
-                    <Stack spacing={0.25}>
-                      <Typography variant="body2">{cmd.label}</Typography>
-                      {cmd.disabled ? (
-                        <Typography variant="caption" color="text.secondary">
-                          Invalid command file
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={startStepDisabled}
-              sx={{ flex: 1 }}
-            >
-              <InputLabel id="agent-command-start-step-label">
-                Start step
-              </InputLabel>
-              <Select
-                labelId="agent-command-start-step-label"
-                label="Start step"
-                value={startStepValue}
-                onChange={onStartStepChange}
-                displayEmpty
-                inputProps={{
-                  'data-testid': 'agent-command-start-step-select',
-                }}
-              >
-                {!selectedCommandKey ? (
-                  <MenuItem value="" disabled>
-                    Select command first
-                  </MenuItem>
-                ) : null}
-                {Array.from(
-                  { length: Math.max(1, selectedCommandStepCount) },
-                  (_, index) => {
-                    const step = index + 1;
-                    return (
-                      <MenuItem
-                        key={step}
-                        value={`${step}`}
-                        data-testid={`agent-command-start-step-option-${step}`}
-                      >
-                        {`Step ${step}`}
-                      </MenuItem>
-                    );
-                  },
-                )}
-              </Select>
-            </FormControl>
-
-            <Box onMouseDownCapture={onCommandInfoAttempt}>
-              <IconButton
-                aria-describedby={commandInfoId}
-                aria-label="Command info"
-                onClick={onCommandInfoOpen}
-                disabled={commandInfoDisabled}
+              <FormControl
+                fullWidth
                 size="small"
-                data-testid="agent-command-info"
+                disabled={
+                  controlsDisabled ||
+                  submitDisabledForRun ||
+                  selectedAgentDisabled ||
+                  commandsLoading
+                }
+                sx={{ flex: 1, minWidth: 0 }}
               >
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Box>
+                <InputLabel id="agent-command-select-label">Command</InputLabel>
+                <Select
+                  labelId="agent-command-select-label"
+                  label="Command"
+                  value={selectedCommandKey}
+                  onChange={onCommandChange}
+                  inputProps={{ 'data-testid': 'agent-command-select' }}
+                >
+                  <MenuItem value="" disabled>
+                    Select a command
+                  </MenuItem>
+                  {commandOptions.map((cmd) => (
+                    <MenuItem
+                      key={cmd.key}
+                      value={cmd.key}
+                      disabled={cmd.disabled}
+                      data-testid={`agent-command-option-${cmd.key}`}
+                    >
+                      <Stack spacing={0.25}>
+                        <Typography variant="body2">{cmd.label}</Typography>
+                        {cmd.disabled ? (
+                          <Typography variant="caption" color="text.secondary">
+                            Invalid command file
+                          </Typography>
+                        ) : null}
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Stack
+                direction="row"
+                spacing={0.5}
+                alignItems="center"
+                sx={{ flexShrink: 0 }}
+              >
+                <FormControl
+                  size="small"
+                  disabled={startStepDisabled}
+                  sx={{ flex: '0 0 144px', minWidth: 120 }}
+                >
+                  <InputLabel id="agent-command-start-step-label">
+                    Start step
+                  </InputLabel>
+                  <Select
+                    labelId="agent-command-start-step-label"
+                    label="Start step"
+                    value={startStepValue}
+                    onChange={onStartStepChange}
+                    displayEmpty
+                    inputProps={{
+                      'data-testid': 'agent-command-start-step-select',
+                    }}
+                  >
+                    {!selectedCommandKey ? (
+                      <MenuItem value="" disabled>
+                        Select command first
+                      </MenuItem>
+                    ) : null}
+                    {Array.from(
+                      { length: Math.max(1, selectedCommandStepCount) },
+                      (_, index) => {
+                        const step = index + 1;
+                        return (
+                          <MenuItem
+                            key={step}
+                            value={`${step}`}
+                            data-testid={`agent-command-start-step-option-${step}`}
+                          >
+                            {`Step ${step}`}
+                          </MenuItem>
+                        );
+                      },
+                    )}
+                  </Select>
+                </FormControl>
+
+                <Box
+                  onMouseDownCapture={onCommandInfoAttempt}
+                  sx={{ flexShrink: 0 }}
+                >
+                  <IconButton
+                    aria-describedby={commandInfoId}
+                    aria-label="Command info"
+                    onClick={onCommandInfoOpen}
+                    disabled={commandInfoDisabled}
+                    size="small"
+                    data-testid="agent-command-info"
+                  >
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Stack>
+            </Stack>
 
             <Button
               type="button"
@@ -480,13 +489,17 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           {shouldShowPromptsRow ? (
             <Stack
               data-testid="agent-prompts-row"
-              direction={{ xs: 'column', sm: 'row' }}
+              direction="row"
               spacing={1}
-              alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+              alignItems="flex-start"
             >
               {hasPromptEntries ? (
                 <>
-                  <FormControl fullWidth size="small">
+                  <FormControl
+                    fullWidth
+                    size="small"
+                    sx={{ flex: 1, minWidth: 0 }}
+                  >
                     <InputLabel id="agent-prompts-label">Prompts</InputLabel>
                     <Select
                       labelId="agent-prompts-label"

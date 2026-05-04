@@ -843,7 +843,7 @@ describe('Chat provider selection (WS transport)', () => {
     render(<RouterProvider router={router} />);
 
     const button = await screen.findByRole('button', {
-      name: /re-authenticate \(device auth\)/i,
+      name: /re-authenticate/i,
     });
     expect(button).toBeInTheDocument();
   });
@@ -868,7 +868,7 @@ describe('Chat provider selection (WS transport)', () => {
 
     await user.click(
       await screen.findByRole('button', {
-        name: /re-authenticate \(device auth\)/i,
+        name: /re-authenticate/i,
       }),
     );
 
@@ -901,7 +901,7 @@ describe('Chat provider selection (WS transport)', () => {
     await screen.findByRole('combobox', { name: /provider/i });
     expect(
       screen.queryByRole('button', {
-        name: /re-authenticate \(device auth\)/i,
+        name: /re-authenticate/i,
       }),
     ).not.toBeInTheDocument();
   });
@@ -1177,7 +1177,7 @@ describe('Chat provider selection (WS transport)', () => {
     render(<RouterProvider router={router} />);
 
     await screen.findByRole('button', {
-      name: /re-authenticate \(device auth\)/i,
+      name: /re-authenticate/i,
     });
     await ensureAgentFlagsPanelExpanded(user);
     expect(screen.getByTestId('codex-warnings-banner')).toBeInTheDocument();
@@ -1206,7 +1206,7 @@ describe('Chat provider selection (WS transport)', () => {
     await waitFor(() =>
       expect(
         screen.queryByRole('button', {
-          name: /re-authenticate \(device auth\)/i,
+          name: /re-authenticate/i,
         }),
       ).not.toBeInTheDocument(),
     );
@@ -1245,7 +1245,7 @@ describe('Chat provider selection (WS transport)', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: /re-authenticate \(device auth\)/i,
+        name: /re-authenticate/i,
       }),
     ).toBeInTheDocument();
     await ensureAgentFlagsPanelExpanded(user);

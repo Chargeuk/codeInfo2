@@ -39,7 +39,7 @@ This story also shifts the preferred agent folder name from `codex_agents` to `c
 
 The user's chosen scope for this story is intentionally config-driven. This story does not add new agent-page controls, does not add new MCP input overrides for agent provider selection, and does not introduce an extra manual override layer on top of the merged config. The runtime should simply execute according to the merged `config.toml` values plus the shared repository execution context where a working folder has been selected.
 
-One additional requirement is that the `code_info` MCP tool should stop biasing callers toward Codex. The tool definition should treat `provider` as an explicit override only, and agents should omit it unless the user has specifically asked for a provider. Omitted-provider behavior can still follow the server's normal default-provider resolution, but the tool contract itself should no longer encourage or imply a Codex-first caller habit. In addition, omitted-provider or non-Codex execution must remain repository-grounded when the repository is available to the harness; provider neutrality is not complete if a non-Codex `code_info` execution loses repository context that the Codex path currently receives through working-directory or runtime wiring.
+One additional requirement is that the `code_info` MCP tool should stop biasing callers toward Codex or toward any explicit model choice. The tool definition should treat both `provider` and `model` as explicit override fields only, and agents should omit them unless the user has specifically asked for a provider-specific or model-specific run. Omitted-field behavior can still follow the server's normal shared default-resolution contract, but the tool contract itself should no longer encourage or imply a Codex-first or model-pinning caller habit. In addition, omitted-provider or non-Codex execution must remain repository-grounded when the repository is available to the harness; provider neutrality is not complete if a non-Codex `code_info` execution loses repository context that the Codex path currently receives through working-directory or runtime wiring.
 
 ### Acceptance Criteria
 
@@ -81,11 +81,16 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - This story does not add new GUI-level agent provider overrides.
 - This story does not add new MCP-level agent provider overrides beyond the merged config behavior.
 - The `code_info` MCP tool definition describes `provider` as an explicit optional override rather than as a defaulted Codex-oriented field.
+- The `code_info` MCP tool definition describes `model` as an explicit optional override rather than as a field callers should normally populate.
 - Agents calling `code_info` omit `provider` unless the user explicitly asks for a provider-specific run.
+- Agents calling `code_info` omit `model` unless the user explicitly asks for a model-specific run.
+- When both `provider` and `model` are omitted from `code_info`, provider and model resolution follow the normal shared server default-selection contract.
+- When `provider` is provided and `model` is omitted, `code_info` resolves the default model for that explicitly selected provider.
+- When `model` is provided and `provider` is omitted, `code_info` uses the normal shared provider-selection contract and applies the explicit model as an override for the resolved provider.
 - `code_info` remains repository-grounded when `provider` is omitted.
 - If `code_info` executes on Copilot or LM Studio, it receives equivalent repository context needed to answer local-repository questions through provider-appropriate runtime wiring, tools, or both.
 - Omitting `provider` from `code_info` must not degrade repository-local questions into a non-grounded fallback path when the repository is available to the harness.
-- Tests cover the layered merge precedence, `codeinfo_provider` defaulting, provider-specific agent execution, folder precedence, compatibility fallback to `codex_agents`, and `code_info` caller-contract changes.
+- Tests cover the layered merge precedence, `codeinfo_provider` defaulting, provider-specific agent execution, folder precedence, compatibility fallback to `codex_agents`, and `code_info` caller-contract changes, including omitted-provider, omitted-model, explicit provider-only, explicit model-only, and explicit provider-plus-model behavior.
 
 ### Out Of Scope
 
@@ -96,6 +101,7 @@ One additional requirement is that the `code_info` MCP tool should stop biasing 
 - Requiring every provider to consume repository context through the exact same internal SDK fields or runtime mechanism.
 - Requiring LM Studio to implement an identical Codex-style working-directory model if equivalent repository-grounded behavior is achieved through provider-specific tools or runtime wiring.
 - Changing the precedence rules themselves for the default execution root beyond centralizing the current Codex behavior into shared code.
+- Requiring agents to populate `provider` or `model` pre-emptively for routine `code_info` calls instead of relying on the shared server default-resolution contract.
 - Moving or redesigning provider authentication secrets or stored auth state beyond what is required for the new config layering.
 - Inventing a new manual override layer above `codeinfo_config/config.toml`, provider `config.toml`, and chat or agent runtime config.
 - Adding a second user-facing working-folder override model that differs between chat, agents, flows, or MCP tools.
@@ -129,6 +135,9 @@ None. `codeinfo_config/config.toml` remains out of source control, a legacy env 
 - Add targeted proof that Copilot chat and Copilot-backed agent execution actually receive and use the selected working folder, because that is the main current product gap.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
-- Update the `code_info` tool definition and its tests so the contract encourages omitted `provider` by default, while still allowing explicit provider selection when the user requests it.
+- Update the `code_info` MCP schema text so both `provider` and `model` are documented as explicit override fields rather than normal caller-populated inputs.
+- Update repo-owned instruction surfaces that teach agents how to use `code_info` so they explicitly say to omit `provider` and `model` unless the user requests a provider-specific or model-specific run.
+- Add regression coverage for the MCP tool definition payload so future `tools/list` responses cannot silently drift back to Codex-biased or model-pinning wording.
+- Add execution-path tests that prove omitted `provider` and omitted `model` follow the normal shared server resolution rules instead of requiring callers to pre-resolve those values themselves.
 - Treat inapplicable `codeinfo_provider` usage as a warning path so invalid placement is visible in logs without blocking the wider runtime contract.
 - Add targeted proof first around merge precedence and metadata stripping, then broader proof around provider-specific agent execution and folder-compatibility lookup.

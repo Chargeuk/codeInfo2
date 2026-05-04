@@ -31,11 +31,11 @@ From a user's point of view, this creates two product problems. First, users can
 
 This story introduces a provider-neutral agent runtime contract built from layered config files with clear precedence. The lowest-precedence layer is a new repo-local `codeinfo_config/config.toml`. Above that sits the selected provider's base `config.toml`, such as `codex/config.toml`, `copilot/config.toml`, or `lmstudio/config.toml`. The highest-precedence runtime file is either the selected provider's `chat/config.toml` for chat-driven surfaces or the selected agent's own `config.toml` for agent-driven surfaces. Higher-precedence values replace lower-precedence values. If `codeinfo_config/config.toml` has not been created yet, the runtime should continue cleanly without trying to auto-create repository files at startup. Provider base config files that this story owns, including `copilot/config.toml` and `lmstudio/config.toml`, should be created during shared startup bootstrap rather than waiting for first use.
 
-For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, the product should warn when the user opens that affected agent rather than silently defaulting to Codex. If a configured fallback provider is actually usable for that run, the agent should remain runnable and the warning should explain which fallback will be used. If no usable fallback provider is available, the product should show a clear error and disable that agent. This invalid-provider path should use the same fallback order and availability checks as provider-unavailable agent runs. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
+For agents, the selected provider comes from a new app-owned metadata field inside the agent's own `config.toml`: `codeinfo_provider`. If that field is absent, the provider defaults to `codex` so today's checked-in agents continue to work without manual migration. If the field is present but invalid, the product should warn when the user opens that affected agent rather than silently defaulting to Codex. If a configured fallback provider is actually usable for that run, the agent should remain runnable and the warning should explain which fallback will be used. If no usable fallback provider is available, the product should show a clear error and disable that agent, but the agent should remain visible in discovery surfaces so users can still inspect the warning and understand why it cannot run. This invalid-provider path should use the same fallback order and availability checks as provider-unavailable agent runs. Chat runtime config does not need the same field because the provider is already selected through the chat contract rather than through an agent definition.
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat and agent runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
-When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
+When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. That env var should be normalized by trimming entries, dropping blanks, removing duplicates, and ignoring unknown provider ids with warnings. If normalization leaves no usable configured providers, the runtime should fall back to the default order rather than failing startup. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the runtime falls back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. Shared settings should carry forward across that fallback attempt, while provider-specific settings that the fallback provider cannot use should be ignored with warnings rather than making the fallback fail for that reason alone. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced in the agent list payload plus the selected agent's info or details surface. Equivalent flow-owned agent warning surfaces should reuse the same warning data through the existing flow info or details surface when that surface already exists. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
 
@@ -60,6 +60,7 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - If `codeinfo_provider` is present but invalid, the product warns when the user opens that affected agent instead of silently defaulting to `codex`.
 - If `codeinfo_provider` is invalid but a configured fallback provider is actually usable for that run, the agent remains runnable and the warning includes the fallback provider that will be used.
 - If `codeinfo_provider` is invalid and no configured fallback provider is available, the product shows a clear error and disables that agent.
+- If `codeinfo_provider` is invalid and no configured fallback provider is available, the affected agent remains visible in discovery surfaces and is marked disabled with a clear reason.
 - Invalid `codeinfo_provider` handling uses the same fallback order and availability checks as provider-unavailable agent runs.
 - Chat runtime config does not require or depend on `codeinfo_provider`.
 - If `codeinfo_provider` appears in a config surface where it does not apply, the runtime ignores it with a warning instead of failing validation.
@@ -81,14 +82,18 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - If an agent's selected provider is unavailable, agent execution evaluates fallback providers using a new comma-separated env var in `server/.env` named `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
 - `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` defaults to `codex,copilot` in `server/.env`.
 - `lmstudio` is a valid `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` value but is not part of the default fallback list.
+- `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` is normalized by trimming entries, dropping blanks, removing duplicates, and ignoring unknown provider ids with warnings.
+- If `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` normalizes to no usable configured providers, agent execution falls back to the default order of `codex,copilot` rather than failing startup.
 - Provider fallback is a separate recovery step and does not change the normal agent runtime config precedence.
 - A fallback provider counts as available only when it is actually usable for the current run, not merely because it is listed in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
 - If provider fallback runs, the model selection order is: the same model on the fallback provider when available, then the model defined in that fallback provider's chat config, then that fallback provider's default model.
+- If provider fallback runs, shared settings remain in effect and provider-specific settings the fallback provider cannot use are ignored with warnings rather than failing fallback for that reason alone.
 - If the originally failed provider also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, the runtime skips it and moves to the next configured provider.
 - If no configured fallback provider can execute the agent run, the run fails clearly.
 - Provider fallback emits both warning logs and warning-capable API or GUI warnings.
 - Agent fallback warnings appear in the agent list payload and in the selected agent's info or details surface.
 - Equivalent flow-owned agent warning surfaces reuse the same warning data through the existing flow info or details surface when that surface already exists.
+- Agents disabled because no usable provider remains stay visible in the agent list and details surfaces rather than disappearing from discovery.
 - Existing commands and flows that execute agents continue to work after provider-neutral runtime selection is introduced.
 - Flow-owned agent execution uses the same shared repository execution-context contract as direct agent execution.
 - The current Codex-specific default-working-directory selection logic is removed from provider-specific execution code and replaced by the shared execution-context resolver.
@@ -136,6 +141,9 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Moving or redesigning provider authentication secrets or stored auth state beyond what is required for the new config layering.
 - Inventing a new manual override layer above `codeinfo_config/config.toml`, provider `config.toml`, and chat or agent runtime config.
 - Adding a second user-facing working-folder override model that differs between chat, agents, flows, or MCP tools.
+- Hiding disabled agents from discovery when provider validation or provider availability fails.
+- Treating recoverable formatting mistakes in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` as fatal startup errors.
+- Failing provider fallback solely because the original agent config contains provider-specific settings the fallback provider cannot use.
 - Removing `codex_agents` support in this story.
 - Introducing new provider types beyond Codex, Copilot, and LM Studio.
 
@@ -150,23 +158,11 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - When proving the `code_info` change later, prefer artifact capture that shows the actual request payload or observable provider-selection behavior so the omission contract is visible.
 - Later manual proof should show where users see fallback and duplicate-agent warnings in the agent list and in the selected agent's info or details surface, plus the existing flow info or details warning surface used for equivalent flow-owned agent warnings when that surface exists.
 - Later manual proof should show that an invalid `codeinfo_provider` warning first appears when the user opens the affected agent rather than in the initial agent list.
+- Later manual proof should include one fallback run where provider-specific settings from the original provider are ignored with a visible warning so the fallback still succeeds.
+- Later manual proof should cover a malformed `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` with blanks, duplicates, or unknown providers and show the resulting warnings plus the normalized fallback behavior.
+- Later manual proof should show that an agent with no usable provider remains visible but disabled in the list and details surfaces.
 
 ### Questions
-
-1. If fallback switches providers, should it ignore settings meant for the original provider, or fail the run?
-   - Why this is important: Without a clear rule, a Codex-only setting could make an otherwise healthy Copilot or LM Studio fallback fail for a confusing reason.
-   - Best Answer: Ignore provider-specific settings that the fallback provider cannot use, keep the shared settings, and warn about anything dropped. That matches this repo's broader config-normalization pattern, keeps fallback useful as a recovery path, and avoids turning one provider outage into a second avoidable failure.
-   - Where this answer came from: Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from the TOML v1.0.0 spec at `toml.io`, which defines TOML as a generic key-value format whose key meaning is owned by the application.
-
-2. If the fallback env var has blank, duplicate, or unknown providers, should we warn and clean it up, or treat it as an error?
-   - Why this is important: Operators will edit this env var by hand, so the plan should say whether small mistakes block startup or get repaired safely.
-   - Best Answer: Warn and normalize it: trim entries, drop blanks, remove duplicates, ignore unknown providers, and only fall back to the default order if nothing usable remains. That matches this repo's current env parsing style and gives operators predictable behavior without hiding the mistake.
-   - Where this answer came from: Repo evidence in `server/src/config/codexEnvDefaults.ts`, `server/src/config/chatDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from Node.js environment-variable docs, the `nodejs/node` documentation surfaced through Context7, and DeepWiki notes on `nodejs/node`, all of which show that env values arrive as strings and application-level normalization is left to the app.
-
-3. If no usable provider is left, should the agent stay visible but disabled, or disappear from the agent list?
-   - Why this is important: Users need a predictable way to understand why an agent cannot run without thinking it vanished or was deleted.
-   - Best Answer: Keep the agent visible but disabled, and show the reason through warnings or details. That fits the repo's existing agent data model and UI, which already support disabled agents and warning surfaces instead of hiding broken items from discovery.
-   - Where this answer came from: Repo evidence in `server/src/agents/types.ts`, `client/src/components/agents/AgentsComposerPanel.tsx`, and `server/src/config/chatDefaults.ts`. External evidence was not needed because the existing local UI and API contract already provide a direct precedent.
 
 ## Decisions
 
@@ -289,6 +285,27 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
    - Where the answer came from: Repo evidence in `client/src/pages/FlowsPage.tsx`, especially the existing `flow-warnings` block inside the flow info popover, plus user direction in this planning round.
    - Why it is the best answer: It keeps warning behavior consistent with the current flow UI and avoids unnecessary new UI work for this story.
 
+18. Decision: provider fallback should ignore settings meant only for the original provider rather than fail the run for that reason alone.
+   - The question being addressed: If fallback switches providers, should it ignore settings meant for the original provider, or fail the run?
+   - Why the question matters: Without a clear rule, a Codex-only setting could make an otherwise healthy Copilot or LM Studio fallback fail for a confusing reason.
+   - What the answer is: Keep the shared settings, ignore provider-specific settings the fallback provider cannot use, and emit warnings for anything dropped.
+   - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from the TOML v1.0.0 spec at `toml.io`, which leaves key semantics to the application.
+   - Why it is the best answer: It matches this repo's warning-first config normalization style, preserves fallback as a recovery path, and avoids cascading one provider problem into another avoidable failure.
+
+19. Decision: malformed fallback env values should be normalized with warnings instead of treated as fatal errors.
+   - The question being addressed: If the fallback env var has blank, duplicate, or unknown providers, should we warn and clean it up, or treat it as an error?
+   - Why the question matters: Operators will edit this env var by hand, so the story needs one predictable rule for common mistakes.
+   - What the answer is: Trim entries, drop blanks, remove duplicates, ignore unknown providers with warnings, and use the default fallback order only if nothing usable remains after normalization.
+   - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/config/codexEnvDefaults.ts`, `server/src/config/chatDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from Node.js environment-variable docs, Context7 documentation for `nodejs/node`, and DeepWiki notes on `nodejs/node`, all of which show that env values arrive as strings and application-level normalization belongs to the app.
+   - Why it is the best answer: It matches existing repo env parsing patterns, keeps operator-facing behavior predictable, and still makes the bad config visible through warnings.
+
+20. Decision: agents with no usable provider should stay visible but disabled rather than disappear from discovery.
+   - The question being addressed: If no usable provider is left, should the agent stay visible but disabled, or disappear from the agent list?
+   - Why the question matters: Users need a clear and stable way to understand why an agent cannot run without thinking it vanished or was deleted.
+   - What the answer is: Keep the agent visible, mark it disabled, and show the reason through warnings or details surfaces.
+   - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/agents/types.ts`, `client/src/components/agents/AgentsComposerPanel.tsx`, and `server/src/config/chatDefaults.ts`.
+   - Why it is the best answer: It aligns with the repo's existing agent API and UI shape, preserves debuggability, and keeps discovery behavior predictable for users.
+
 ## Implementation Ideas
 
 - Add a new shared config helper for repo-local `codeinfo_config/config.toml` and refactor runtime resolution so it can compose three layers instead of only the current Codex base-plus-runtime contract.
@@ -303,13 +320,16 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 - Let provider implementations consume the shared repository execution context according to their own capabilities: Codex and Copilot should use the runtime working-directory override directly, while LM Studio may initially rely on repository metadata, provider-specific tools, or later working-directory-capable wiring.
 - Add targeted proof that Copilot chat and Copilot-backed agent execution actually receive and use the selected working folder, because that is the main current product gap.
 - Add a shared provider-fallback resolver for agent execution that reads `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`, applies the configured provider order, and records warning metadata whenever a fallback provider is used.
+- Normalize `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` before availability checks by trimming entries, dropping blanks, removing duplicates, and warning on unknown providers, then fall back to the default order if nothing usable remains.
 - Keep that fallback resolver scoped to direct agent runs and flow-owned agent runs so normal chat continues to use its existing behavior.
 - Reuse provider-model discovery so fallback acts as a separate recovery step: try the same model on the next provider first, then that provider's chat-config model, and finally that provider's default model before moving on or failing.
+- Filter provider-specific runtime settings before constructing the fallback provider so shared settings survive while incompatible provider-only settings are dropped with warnings.
 - Skip the originally failed provider if it also appears in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` rather than retrying it inside the fallback loop.
 - Support a new neutral agent-home contract without breaking existing `CODEINFO_CODEX_AGENT_HOME` users by resolving the legacy variable as an alias during the migration window.
 - Resolve `CODEINFO_AGENT_HOME` ahead of `CODEINFO_CODEX_AGENT_HOME` so the legacy name behaves as a fallback compatibility alias rather than a competing primary setting.
 - Centralize folder precedence in one reusable helper so local discovery and cross-repository lookups cannot drift apart.
 - Surface fallback and duplicate-agent warnings through the agent list payload and the selected agent's info or details surface, and reuse the same warning data through the existing flow info or details surface for equivalent flow-owned agent warnings when that surface already exists.
+- Keep agents with no usable provider in discovery results with `disabled` plus warning metadata instead of removing them from the list.
 - Update the `code_info` MCP schema text so both `provider` and `model` are documented as explicit override fields rather than normal caller-populated inputs.
 - Update repo-owned instruction surfaces that teach agents how to use `code_info` so they explicitly say to omit `provider` and `model` unless the user requests a provider-specific or model-specific run.
 - Add regression coverage for the MCP tool definition payload so future `tools/list` responses cannot silently drift back to Codex-biased or model-pinning wording.

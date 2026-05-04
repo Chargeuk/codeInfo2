@@ -139,6 +139,21 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. Should `codeinfo_config/config.toml` be optional, or should every repository be expected to have one?
+   - Why this is important: The plan currently says the file exists, but also says the runtime should keep going if the file is missing, so the story needs one clear contract.
+   - Best Answer: It should be optional. In simple terms, the runtime should support the file when a repository chooses to add it, but should not require it to exist before the story works.
+   - Where this answer came from: Direct repo review of this story file, especially the acceptance criteria that currently say both “exists” and “continues cleanly if missing.”
+
+2. What should the new neutral agent-home env var be called?
+   - Why this is important: The story says a new neutral env var should win over `CODEINFO_CODEX_AGENT_HOME`, but it never names that new variable, so two developers could implement different names.
+   - Best Answer: Use `CODEINFO_AGENT_HOME`. In simple terms, it is short, clear, and directly matches what the variable controls without keeping the old Codex-specific wording.
+   - Where this answer came from: Direct repo review of this story file, especially the description and acceptance criteria that refer to “the new neutral env var” without naming it.
+
+3. If an agent has an invalid `codeinfo_provider`, should it show as disabled with a warning, or only fail when someone tries to run it?
+   - Why this is important: The plan says the agent should fail clearly, but it does not say when that failure becomes visible to the user.
+   - Best Answer: It should show as disabled with a warning. In simple terms, this tells the user what is wrong before they try to run the agent, instead of letting them discover the problem only after pressing Run.
+   - Where this answer came from: Direct repo review of this story file, especially the current “fail clearly” wording and the existing plan language about surfacing warnings through API or UI responses.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

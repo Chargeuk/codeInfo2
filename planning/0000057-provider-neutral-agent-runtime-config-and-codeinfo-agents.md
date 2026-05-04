@@ -146,6 +146,11 @@ One additional requirement is that the repo-owned `code_info` MCP definition and
 
 ### Questions
 
+1. Where should users see agent fallback and duplicate-agent warnings?
+   - Why this is important: The story already says these warnings should reach the GUI and API, but it does not yet say which user-facing places must show them.
+   - Best Answer: Show them in the agent list payload and in the agent info/details surface for the selected agent, and use the same warning data for equivalent flow-owned agent surfaces when those already exist. In simple terms, users should see the warning both when choosing an agent and when looking at that agent's details.
+   - Where this answer came from: Direct repo review of this story file, especially the current “warning-capable API or GUI warnings” wording and the earlier decision to surface duplicate-agent warnings rather than keeping them in logs only.
+
 ## Decisions
 
 1. Decision: if `code_info` gets a model name that does not fit the chosen provider, it should fail clearly rather than trying another provider.

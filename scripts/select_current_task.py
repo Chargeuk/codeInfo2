@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -119,9 +122,34 @@ def find_stale_in_progress_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, 
     ]
 
 
+def render_payload(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, indent=2) + "\n"
+
+
 def write_output(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n")
+    serialized = render_payload(payload)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        text=True,
+    )
+    tmp_path = Path(tmp_name)
+
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(serialized)
+            handle.flush()
+            os.fsync(handle.fileno())
+        tmp_path.replace(path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+def emit_output(payload: dict[str, Any]) -> None:
+    sys.stdout.write(render_payload(payload))
 
 
 def build_payload(
@@ -164,32 +192,31 @@ def main() -> int:
     tasks: list[dict[str, Any]] = status["tasks"] or []
     open_in_progress = find_open_in_progress_tasks(tasks)
     output_path = Path(args.output)
+    payload: dict[str, Any]
 
     if len(open_in_progress) > 1:
-        write_output(
-            output_path,
-            build_payload(
-                status=status,
-                selection_status="needs_plan_repair",
-                selection_reason="multiple_open_in_progress",
-                selected_task=None,
-                normalized_tasks=normalized_tasks,
-                open_in_progress_tasks=open_in_progress,
-            ),
+        payload = build_payload(
+            status=status,
+            selection_status="needs_plan_repair",
+            selection_reason="multiple_open_in_progress",
+            selected_task=None,
+            normalized_tasks=normalized_tasks,
+            open_in_progress_tasks=open_in_progress,
         )
+        write_output(output_path, payload)
+        emit_output(payload)
         return 0
 
     if len(open_in_progress) == 1:
-        write_output(
-            output_path,
-            build_payload(
-                status=status,
-                selection_status="resolved",
-                selection_reason="active_in_progress",
-                selected_task=open_in_progress[0],
-                normalized_tasks=normalized_tasks,
-            ),
+        payload = build_payload(
+            status=status,
+            selection_status="resolved",
+            selection_reason="active_in_progress",
+            selected_task=open_in_progress[0],
+            normalized_tasks=normalized_tasks,
         )
+        write_output(output_path, payload)
+        emit_output(payload)
         return 0
 
     earliest_todo = status["earliest_todo_task"]
@@ -206,33 +233,31 @@ def main() -> int:
             (task for task in tasks if task["number"] == earliest_todo["number"]),
             None,
         )
-        write_output(
-            output_path,
-            build_payload(
-                status=status,
-                selection_status="resolved",
-                selection_reason="promoted_earliest_todo",
-                selected_task=selected_task,
-                normalized_tasks=normalized_tasks,
-            ),
+        payload = build_payload(
+            status=status,
+            selection_status="resolved",
+            selection_reason="promoted_earliest_todo",
+            selected_task=selected_task,
+            normalized_tasks=normalized_tasks,
         )
+        write_output(output_path, payload)
+        emit_output(payload)
         return 0
 
     selection_status = "story_complete" if status["story_complete"] else "needs_plan_repair"
     selection_reason = (
         "all_tasks_done" if status["story_complete"] else "no_open_or_todo_task_found"
     )
-    write_output(
-        output_path,
-        build_payload(
-            status=status,
-            selection_status=selection_status,
-            selection_reason=selection_reason,
-            selected_task=None,
-            normalized_tasks=normalized_tasks,
-            open_in_progress_tasks=open_in_progress,
-        ),
+    payload = build_payload(
+        status=status,
+        selection_status=selection_status,
+        selection_reason=selection_reason,
+        selected_task=None,
+        normalized_tasks=normalized_tasks,
+        open_in_progress_tasks=open_in_progress,
     )
+    write_output(output_path, payload)
+    emit_output(payload)
     return 0
 
 

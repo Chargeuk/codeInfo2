@@ -47,7 +47,12 @@ test('tools/list returns tool definitions when Codex is available', async () => 
           description: string;
           inputSchema: {
             required: string[];
-            properties: Record<string, unknown>;
+            properties: Record<
+              string,
+              {
+                description?: string;
+              }
+            >;
           };
         }
       | undefined;
@@ -66,6 +71,14 @@ test('tools/list returns tool definitions when Codex is available', async () => 
     assert.ok(tool.inputSchema.properties.conversationId);
     assert.ok(tool.inputSchema.properties.provider);
     assert.ok(tool.inputSchema.properties.model);
+    assert.equal(
+      tool.inputSchema.properties.provider.description,
+      'Optional explicit provider override. Omit this unless the user specifically asked for a provider-specific run. When omitted, provider selection follows the normal shared server default-resolution contract.',
+    );
+    assert.equal(
+      tool.inputSchema.properties.model.description,
+      'Optional explicit model override. Omit this unless the user specifically asked for a model-specific run. When omitted, model resolution follows the normal shared server default-resolution contract for the selected or resolved provider.',
+    );
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     server.close();

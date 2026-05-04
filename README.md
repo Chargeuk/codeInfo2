@@ -209,7 +209,7 @@ Corporate certificate directory requirements:
   - Codex: sandbox mode, approval policy, reasoning effort, reasoning summary, verbosity, network access, and `webSearchMode`
   - Copilot: reasoning effort plus a simple `toolAccess` `On`/`Off` control
   - LM Studio: provider-native generation/tool options such as temperature, max tokens, context overflow policy, and tool access
-- MCP `codebase_question` now shares the same provider-selection and defaults contract as the normal chat path, including Copilot parity on provider selection and model/default resolution, while still keeping Agent Flags out of the MCP request shape itself.
+- MCP `codebase_question` now shares the same provider-selection and defaults contract as the normal chat path, including Copilot parity on provider selection and model/default resolution. `provider` and `model` remain optional explicit overrides rather than fields callers should populate routinely, and Agent Flags stay out of the MCP request shape itself.
 
 ## Story 47 Verification Markers
 

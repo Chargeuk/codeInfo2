@@ -712,7 +712,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

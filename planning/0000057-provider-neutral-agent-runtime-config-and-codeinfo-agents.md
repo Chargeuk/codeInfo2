@@ -617,7 +617,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

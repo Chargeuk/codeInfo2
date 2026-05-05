@@ -56,12 +56,13 @@ Do not treat this step as automated-proof completion.
 <stall_detection_rules>
 
 - Compare the current task's open subtasks and implementation notes against the latest implementation pass.
-- If the task still has unchecked subtasks, no previously unchecked subtask was completed in the latest implementation pass, and there is no live `**BLOCKER**` note, treat that as a stalled invalid state.
+- If the task still has unchecked subtasks and there is no live `**BLOCKER**` note, treat that as a stalled invalid state even when the latest implementation pass closed one or more subtasks.
+- Do not treat partial subtask progress by itself as a valid reason to leave unchecked subtasks open without a live `**BLOCKER**`.
 - If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as a stalled invalid state too.
 - In that stalled invalid state, add a live `**BLOCKER**` note immediately rather than letting the loop continue silently.
 - That blocker note must state:
   - the exact remaining subtasks;
-  - that the latest implementation pass made no subtask-closing progress;
+  - that the latest implementation pass ended with unchecked subtasks and no blocker that honestly justified handing off to a later pass;
   - the narrowing, investigation, or implementation work attempted;
   - and that planner intervention is now required to split, narrow, re-own, or concretize the task before implementation continues honestly.
 
@@ -104,6 +105,7 @@ Before finishing:
 - confirm no `Testing` section items were newly marked complete unless they were already honestly complete or were honestly completed in the immediately preceding implementation pass because an unchecked subtask explicitly required them;
 - confirm the just-worked task was left `__in_progress__`;
 - confirm you did not leave a stalled task with open subtasks and no live `**BLOCKER**`;
+- confirm you did not treat partial subtask progress alone as a valid reason to leave unchecked subtasks open without a blocker;
 - confirm you did not allow vague manual-testing investigation subtasks to pass through as honest implementation-ready tasking;
 - confirm you did not append a duplicate audit note when the task state was materially unchanged;
 - confirm any blocker was preserved and made visible in the plan;

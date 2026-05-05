@@ -57,6 +57,8 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - Before appending an audit note, re-read the latest existing audit or implementation note for this task.
 - If the latest audit outcome is materially unchanged, do not append another audit note just to restate the same state.
 - Treat the outcome as materially unchanged when no subtask status changed, no testing status changed, no blocker state changed, no task status changed, and no new proof or owner conclusion was reached.
+- If unchecked `Testing` items remain while no unchecked subtasks remain and no live standalone `**BLOCKER**` note remains, treat that as an invalid partial-proof state rather than as an honest reason to keep the task `__in_progress__`.
+- Do not treat partial proof progress by itself as a valid reason to leave unchecked `Testing` items open when neither a blocker nor prerequisite unchecked subtasks justify that handoff.
 - Do not research or repair the blocker in this step.
 
 </audit_rules>
@@ -100,6 +102,8 @@ Before finishing:
 - confirm task, subtask, and testing status were normalized to match evidence;
 - confirm the task was set to `__done__` only when both subtasks and testing were honestly complete and no blocker remained;
 - confirm any prose-only remaining-work note was either converted into an unchecked checklist item or blocker, or ignored for completion because it was not an honest remaining gate;
+- confirm you did not leave unchecked `Testing` items open without either a live blocker or prerequisite unchecked subtasks that honestly defer the remaining proof;
+- confirm you did not treat partial proof progress alone as a valid reason to keep the task `__in_progress__`;
 - confirm any newly created subtasks stayed within implementation or proof-authoring work;
 - confirm any newly created `Testing` items remain automated-only;
 - confirm you did not create manual-testing checklist items in `Subtasks` or `Testing`;

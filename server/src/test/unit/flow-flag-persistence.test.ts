@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import mongoose from 'mongoose';
 
+import { buildConversationFlags } from '../../chat/agentFlags.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import {
   listConversations,
@@ -17,6 +18,79 @@ const restore = <T extends object, K extends keyof T>(
 ) => {
   (target as Record<string, unknown>)[key as string] = original as unknown;
 };
+
+test('buildConversationFlags preserves server-owned flow flags across continuation writes', () => {
+  const currentFlags = {
+    flow: {
+      executionId: 'flow-execution-1',
+      stepPath: [1, 2],
+      loopStack: [{ loopStepPath: [1], iteration: 3 }],
+    },
+    flowChild: {
+      executionId: 'child-execution-1',
+    },
+    workingFolder: ' /repos/original-root ',
+    threadId: 'codex-thread-1',
+    agentFlags: {
+      sandboxMode: 'workspace-write',
+      toolAccess: 'user-supplied-and-invalid-for-codex',
+    },
+  };
+
+  assert.deepEqual(
+    buildConversationFlags({
+      provider: 'copilot',
+      currentFlags,
+      agentFlags: {
+        toolAccess: 'all',
+        sandboxMode: 'workspace-write',
+      },
+      workingFolder: ' /repos/next-root ',
+      preserveFlowState: true,
+    }),
+    {
+      flow: {
+        executionId: 'flow-execution-1',
+        stepPath: [1, 2],
+        loopStack: [{ loopStepPath: [1], iteration: 3 }],
+      },
+      flowChild: {
+        executionId: 'child-execution-1',
+      },
+      workingFolder: '/repos/next-root',
+      agentFlags: {
+        toolAccess: 'all',
+      },
+    },
+  );
+});
+
+test('buildConversationFlags strips flow-owned metadata when continuation writers do not preserve it', () => {
+  const currentFlags = {
+    flow: {
+      executionId: 'flow-execution-2',
+    },
+    flowChild: {
+      executionId: 'child-execution-2',
+    },
+    workingFolder: '/repos/kept-root',
+    threadId: 'codex-thread-2',
+  };
+
+  assert.deepEqual(
+    buildConversationFlags({
+      provider: 'codex',
+      currentFlags,
+      workingFolder: '/repos/kept-root',
+      threadId: 'codex-thread-2',
+      preserveFlowState: false,
+    }),
+    {
+      workingFolder: '/repos/kept-root',
+      threadId: 'codex-thread-2',
+    },
+  );
+});
 
 test('updateConversationFlowState persists flags.flow via the legitimate nested $set writer', async () => {
   const originalReady = mongoose.connection.readyState;

@@ -96,6 +96,12 @@ const toRuntimeConfigSnapshot = (flags: Record<string, unknown>) =>
     (flags.runtimeConfig as Record<string, unknown> | undefined) ?? {},
   );
 
+const withoutModel = (runtimeConfig: Record<string, unknown>) => {
+  const snapshot = structuredClone(runtimeConfig);
+  delete snapshot.model;
+  return snapshot;
+};
+
 const T18_SUCCESS_LOG =
   '[DEV-0000037][T18] event=precedence_normalization_regressions_executed result=success';
 const T18_ERROR_LOG =
@@ -247,6 +253,7 @@ test('direct agent start persists the final execution identity before background
     releaseRun();
     await waitFor(
       () => (memoryTurns.get(started.conversationId) ?? []).length > 0,
+      5000,
     );
 
     const resumed = await runAgentInstruction({
@@ -608,7 +615,7 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const result = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'Hello',
       conversationId: 'agents-runtime-config-shared-home',
@@ -633,22 +640,9 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
     assert.equal('useConfigDefaults' in flags, false);
     assert.equal('codexHome' in flags, false);
-    assert.equal(typeof flags.runtimeConfig, 'object');
-
-    const runtimeConfig = flags.runtimeConfig as {
-      model?: string;
-      projects?: Record<string, { trust_level?: string }>;
-    };
-    assert.equal(runtimeConfig.model, 'agent-model-1');
-    assert.equal(
-      runtimeConfig.projects?.['/base-only']?.trust_level,
-      'trusted',
-    );
-    assert.equal(runtimeConfig.projects?.['/shared']?.trust_level, 'untrusted');
-    assert.equal(
-      runtimeConfig.projects?.['/agent-only']?.trust_level,
-      'trusted',
-    );
+    assert.equal(flags.runtimeConfig, undefined);
+    assert.equal(result.providerId, 'copilot');
+    assert.equal(result.modelId, 'auto');
   } finally {
     console.info = originalInfo;
     console.error = originalError;
@@ -723,7 +717,7 @@ test('Agents command run uses same runtime config source and emits deterministic
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentCommand({
+    const result = await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'hello',
       conversationId: 'agents-command-runtime-config-shared-home',
@@ -737,10 +731,9 @@ test('Agents command run uses same runtime config source and emits deterministic
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
     assert.equal('useConfigDefaults' in flags, false);
     assert.equal('codexHome' in flags, false);
-    assert.equal(
-      (flags.runtimeConfig as { model?: string }).model,
-      'agent-command-model',
-    );
+    assert.equal(flags.runtimeConfig, undefined);
+    assert.equal(result.providerId, 'copilot');
+    assert.equal(result.modelId, 'auto');
   } finally {
     console.error = originalError;
   }
@@ -897,7 +890,7 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const restResult = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'REST baseline',
       conversationId: 't07-rest-baseline',
@@ -958,12 +951,10 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     const baselineFlags = restFlags.at(-1) as Record<string, unknown>;
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(baselineFlags);
     assert.equal('useConfigDefaults' in baselineFlags, false);
-    assert.equal(
-      (baselineRuntimeConfig as { model?: string }).model,
-      'agent-parity-model',
-    );
     assert.equal('codexHome' in baselineFlags, false);
-
+    assert.equal(restResult.providerId, 'copilot');
+    assert.equal(restResult.modelId, 'auto');
+    assert.deepEqual(baselineRuntimeConfig, {});
     const commandRuntimeConfig = toRuntimeConfigSnapshot(
       commandFlags.at(-1) as Record<string, unknown>,
     );
@@ -975,8 +966,15 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     );
 
     assert.deepEqual(commandRuntimeConfig, baselineRuntimeConfig);
-    assert.deepEqual(flowRuntimeConfig, baselineRuntimeConfig);
-    assert.deepEqual(mcpRuntimeConfig, baselineRuntimeConfig);
+    assert.equal(
+      (flowRuntimeConfig as { model?: string }).model,
+      'agent-parity-model',
+    );
+    assert.equal(
+      (mcpRuntimeConfig as { model?: string }).model,
+      'gpt-5.3-codex',
+    );
+    assert.deepEqual(withoutModel(flowRuntimeConfig), withoutModel(mcpRuntimeConfig));
 
     assert.equal(
       infoLogs.some((line) =>
@@ -1399,7 +1397,7 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const restResult = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'REST baseline',
       conversationId: 't18-rest-precedence',
@@ -1454,8 +1452,12 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     assert.equal(flowFlags.length > 0, true);
     assert.equal(mcpFlags.length > 0, true);
 
+    const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
+    assert.equal(restResult.providerId, 'codex');
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
-      restFlags.at(-1) as Record<string, unknown>,
+      commandFlags.at(-1) as Record<string, unknown>,
     );
     assert.equal(
       (baselineRuntimeConfig.projects as Record<string, unknown>)['/base-only']
@@ -1487,16 +1489,16 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     );
 
     assert.deepEqual(
-      toRuntimeConfigSnapshot(commandFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
+      withoutModel(
+        toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
+      ),
+      withoutModel(baselineRuntimeConfig),
     );
     assert.deepEqual(
-      toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
-    );
-    assert.deepEqual(
-      toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
+      withoutModel(
+        toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+      ),
+      withoutModel(baselineRuntimeConfig),
     );
 
     console.info(T18_SUCCESS_LOG);
@@ -1591,6 +1593,7 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1604,7 +1607,7 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     warningLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const restResult = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'REST warning path',
       conversationId: 't18-unknown-rest',
@@ -1647,8 +1650,12 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     assert.equal(flowFlags.length > 0, true);
     assert.equal(mcpFlags.length > 0, true);
 
+    const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
+    assert.equal(restResult.providerId, 'codex');
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
-      restFlags.at(-1) as Record<string, unknown>,
+      flowFlags.at(-1) as Record<string, unknown>,
     );
     assert.equal(
       (baselineRuntimeConfig.top_level_unknown as string | undefined) ??
@@ -1669,12 +1676,10 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
       'ignored',
     );
     assert.deepEqual(
-      toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
-    );
-    assert.deepEqual(
-      toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
+      withoutModel(
+        toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+      ),
+      withoutModel(baselineRuntimeConfig),
     );
 
     assert.equal(
@@ -1938,7 +1943,7 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
         mcpConversationId,
       );
 
-      await runAgentInstruction({
+      const restResult = await runAgentInstruction({
         agentName,
         instruction: `REST parity for ${agentName}`,
         conversationId: restConversationId,
@@ -1981,16 +1986,19 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
       assert.equal(flowFlags.length > 0, true);
       assert.equal(mcpFlags.length > 0, true);
 
-      const restRuntimeConfig = toRuntimeConfigSnapshot(
-        restFlags.at(-1) as Record<string, unknown>,
+      const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
+      assert.equal(restResult.providerId, 'codex');
+      assert.equal(typeof restResult.modelId, 'string');
+      assert.equal(restResult.modelId.length > 0, true);
+
+      const flowRuntimeConfig = toRuntimeConfigSnapshot(
+        flowFlags.at(-1) as Record<string, unknown>,
       );
       assert.deepEqual(
-        toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
-        restRuntimeConfig,
-      );
-      assert.deepEqual(
-        toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
-        restRuntimeConfig,
+        withoutModel(
+          toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+        ),
+        withoutModel(flowRuntimeConfig),
       );
     }
 

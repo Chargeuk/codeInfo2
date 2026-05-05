@@ -546,6 +546,7 @@ test('saved execution identity fails in place when the pinned provider later bec
 
 test('startStep > 1 keeps absolute command metadata in websocket events', async () => {
   resetStore();
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const tempAgentsHome = await fs.mkdtemp(
@@ -585,6 +586,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
     ),
     'utf8',
   );
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -645,6 +647,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempAgentsHome, { recursive: true, force: true });

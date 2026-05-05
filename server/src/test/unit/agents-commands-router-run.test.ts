@@ -662,6 +662,32 @@ test('direct command execution restores the saved folder from the owning agent c
       archivedAt: null,
     });
     __setAgentServiceDepsForTests({
+      getCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+      }),
+      resolveCodexCapabilities: async () => ({
+        defaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: false,
+          webSearchMode: 'disabled',
+        },
+        models: [
+          {
+            model: 'gpt-5.1-codex-max',
+            supportedReasoningEfforts: ['high'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+        byModel: new Map(),
+        warnings: [],
+        fallbackUsed: false,
+      }),
+      getMcpStatus: async () => ({ available: true }),
       listIngestedRepositories: async () =>
         ({
           repos: [

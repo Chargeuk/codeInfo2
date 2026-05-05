@@ -79,12 +79,16 @@ class SlowStreamingChat extends ChatInterface {
 async function setupWsTestServer() {
   resetStore();
 
+  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
   );
+  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
 
   const app = express();
   const httpServer = http.createServer(app);
@@ -100,7 +104,9 @@ async function setupWsTestServer() {
     wsHandle,
     httpServer,
     restoreEnv() {
+      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
       process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
     },
   };
 }
@@ -108,12 +114,16 @@ async function setupWsTestServer() {
 test('Agents cancel_inflight publishes turn_final status stopped and run resolves', async () => {
   resetStore();
 
+  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
   );
+  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
 
   const app = express();
   const httpServer = http.createServer(app);
@@ -208,7 +218,9 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.env.CODEINFO_AGENT_HOME = prevAgentHome;
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = prevCodexHome;
   }
 });
 

@@ -955,6 +955,7 @@ This task creates the non-run warning and disabled-state contract that later exe
 - Ran `npm run test:summary:client`; the wrapper passed cleanly with `734` client tests green, including the Task 4 popover-on-open and selected-item details consumers.
 - Ran the final `npm run lint` checkpoint for Task 4; it passed cleanly after the proof-time flow discovery and test alignment fixes, so no follow-up lint repair was needed.
 - Ran the final `npm run format:check` checkpoint for Task 4; Prettier finished with `All matched files use Prettier code style!`, so the proof-time patches stayed formatter-clean.
+- Manual testing stayed task-scoped because Task 4 is not the final story task; I treated the long-running local stack as stale, restarted the documented main stack with `npm run compose:build` then `npm run compose:up`, proved `/health`, `/agents`, `/agents/:agentName`, `/flows`, and `/flows/:flowName`, verified the browser Agents and Flows info-popover surfaces show selected-item warning details without inventing later-task UI, captured scratch proof in `codeInfoTmp/manual-testing/0000057/4/`, and shut the main stack back down with `npm run compose:down` without needing follow-up subtasks.
 
 ### Task 5. Switch direct agent runs and commands to provider-neutral execution with pinned conversation identity
 

@@ -7,9 +7,10 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import { __setAgentAvailabilityDepsForTests } from '../../agents/availability.js';
 import {
-  resetDeterministicCodexAvailabilityBootstrap,
   installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
@@ -261,7 +262,7 @@ describe('GET /flows', () => {
   });
 
   test('ingested sourceLabel falls back to container basename', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -295,7 +296,7 @@ describe('GET /flows', () => {
   });
 
   test('ingested flow discovery tolerates legacy-only alias payloads', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-legacy-'),
     );
@@ -338,7 +339,7 @@ describe('GET /flows', () => {
   });
 
   test('duplicate ingested flow names are retained and sorted by label', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -378,7 +379,7 @@ describe('GET /flows', () => {
   });
 
   test('missing ingest root directories are skipped and local flows still return', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );

@@ -798,7 +798,7 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -886,6 +886,7 @@ This task pulls the repository-selection and working-directory logic into one pr
 - Manual testing reran Task 3 on a fresh main-stack build, proved the selected-repository chat path through the UI and stored turn payloads on `/fixtures/repo`, and saved the new screenshot plus support payloads under `codeInfoTmp/manual-testing/0000057/3/`.
 - The same manual pass still failed the omitted-provider current-repo MCP proof: `tools/call` `codebase_question` answered with a search fallback instead of the `AGENTS.md` Preferred Start Sequence, and bounded diagnosis confirmed the live main stack resolves `CODEINFO_AGENT_HOME=/app/codeinfo_agents` to `/app` while the built server image does not actually contain `/app/AGENTS.md` or the active `planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md` file.
 - Reopened Task 3 with concrete implementation and proof-authoring follow-up plus the affected `test:summary:server:unit`, final `format:check`, and new `compose:build:summary` steps so automated proof must cover the main-stack repo-root packaging contract before the next manual retest.
+- Planner normalization restored Task 3 as the sole active owner because subtasks 25-26 and testing steps 2, 5, and 6 are still explicit unfinished prerequisite work; Task 5 was moved back out of `__in_progress__` so the next selector pass cannot skip this earlier reopened task.
 
 ### Task 4. Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
 
@@ -961,7 +962,7 @@ This task creates the non-run warning and disabled-state contract that later exe
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4`
-- Task Status: `__in_progress__`
+- Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview

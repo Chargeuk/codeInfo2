@@ -220,6 +220,115 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
   }
 });
 
+test('startFlowRun keeps resumed child execution pinned to the saved provider and model', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-pinned-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-pinned-conv-1';
+  const childConversationId = 'agent-conv-resume-pinned-1';
+  const capturedModels: string[] = [];
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      conversation: string,
+      model: string,
+    ) {
+      void _flags;
+      capturedModels.push(model);
+      this.emit('thread', { type: 'thread', threadId: conversation });
+      this.emit('final', { type: 'final', content: `ok:${message}` });
+      this.emit('complete', { type: 'complete', threadId: conversation });
+    }
+  }
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.4',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-pinned-1',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      flowChild: {
+        executionId: 'resume-execution-pinned-1',
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'resume-basic',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new TrackingChat(),
+    });
+
+    await waitFor(() => capturedModels.length === 1);
+    assert.deepEqual(capturedModels, ['gpt-5.2-codex']);
+    assert.equal(memoryConversations.get(childConversationId)?.provider, 'codex');
+    assert.equal(
+      memoryConversations.get(childConversationId)?.model,
+      'gpt-5.2-codex',
+    );
+    const childTurns = memoryTurns.get(childConversationId) ?? [];
+    assert.equal(childTurns.at(-1)?.model, 'gpt-5.2-codex');
+    assert.equal(childTurns.at(-1)?.provider, 'codex');
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('startFlowRun ignores stale parent flow metadata on an ordinary conversation without flow ownership', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

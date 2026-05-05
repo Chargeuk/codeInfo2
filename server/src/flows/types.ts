@@ -65,6 +65,9 @@ export type FlowAgentState = {
   conversationId: string;
   threadId?: string;
   workingFolder?: string;
+  providerId?: string;
+  modelId?: string;
+  requestedProviderId?: string;
 };
 
 export type FlowExecutionRuntimeState = Map<string, FlowAgentState>;

@@ -12,4 +12,7 @@ export type FlowResumeState = {
   agentConversations: Record<string, string>;
   agentWorkingFolders?: Record<string, string>;
   agentThreads: Record<string, string>;
+  agentProviders?: Record<string, string>;
+  agentModels?: Record<string, string>;
+  agentRequestedProviders?: Record<string, string>;
 };

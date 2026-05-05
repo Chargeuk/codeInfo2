@@ -326,6 +326,11 @@ const parseFlowResumeState = (
   const agentConversations = normalizeStringMap(flow.agentConversations);
   const agentWorkingFolders = normalizeStringMap(flow.agentWorkingFolders);
   const agentThreads = normalizeStringMap(flow.agentThreads);
+  const agentProviders = normalizeStringMap(flow.agentProviders);
+  const agentModels = normalizeStringMap(flow.agentModels);
+  const agentRequestedProviders = normalizeStringMap(
+    flow.agentRequestedProviders,
+  );
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {
@@ -354,6 +359,11 @@ const parseFlowResumeState = (
       ? { agentWorkingFolders }
       : {}),
     agentThreads,
+    ...(Object.keys(agentProviders).length > 0 ? { agentProviders } : {}),
+    ...(Object.keys(agentModels).length > 0 ? { agentModels } : {}),
+    ...(Object.keys(agentRequestedProviders).length > 0
+      ? { agentRequestedProviders }
+      : {}),
   };
 };
 
@@ -777,6 +787,7 @@ const ensureAgentState = async (params: {
   flowName: string;
   providerId: ConversationProvider;
   modelId: string;
+  requestedProviderId?: string;
   workingFolder?: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
@@ -802,11 +813,19 @@ const ensureAgentState = async (params: {
       executionId: params.executionId,
     });
     existing.workingFolder = params.workingFolder;
+    existing.providerId = params.providerId;
+    existing.modelId = params.modelId;
+    existing.requestedProviderId = params.requestedProviderId;
     return { state: existing, isNew: false };
   }
 
   const state = {
     conversationId: crypto.randomUUID(),
+    providerId: params.providerId,
+    modelId: params.modelId,
+    ...(params.requestedProviderId
+      ? { requestedProviderId: params.requestedProviderId }
+      : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
   } satisfies FlowAgentState;
   params.runtimeState.set(key, state);
@@ -919,9 +938,15 @@ const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
     ([key, conversationId]) => {
       const threadId = resumeState.agentThreads[key];
       const workingFolder = resumeState.agentWorkingFolders?.[key];
+      const providerId = resumeState.agentProviders?.[key];
+      const modelId = resumeState.agentModels?.[key];
+      const requestedProviderId = resumeState.agentRequestedProviders?.[key];
       runtimeState.set(key, {
         conversationId,
         threadId,
+        ...(providerId ? { providerId } : {}),
+        ...(modelId ? { modelId } : {}),
+        ...(requestedProviderId ? { requestedProviderId } : {}),
         ...(workingFolder ? { workingFolder } : {}),
       });
     },
@@ -1848,6 +1873,9 @@ const buildFlowResumeState = (params: {
   const agentConversations: Record<string, string> = {};
   const agentWorkingFolders: Record<string, string> = {};
   const agentThreads: Record<string, string> = {};
+  const agentProviders: Record<string, string> = {};
+  const agentModels: Record<string, string> = {};
+  const agentRequestedProviders: Record<string, string> = {};
   params.runtimeState.forEach((state, key) => {
     agentConversations[key] = state.conversationId;
     if (state.workingFolder) {
@@ -1855,6 +1883,15 @@ const buildFlowResumeState = (params: {
     }
     if (state.threadId) {
       agentThreads[key] = state.threadId;
+    }
+    if (state.providerId) {
+      agentProviders[key] = state.providerId;
+    }
+    if (state.modelId) {
+      agentModels[key] = state.modelId;
+    }
+    if (state.requestedProviderId) {
+      agentRequestedProviders[key] = state.requestedProviderId;
     }
   });
 
@@ -1879,6 +1916,11 @@ const buildFlowResumeState = (params: {
       ? { agentWorkingFolders }
       : {}),
     agentThreads,
+    ...(Object.keys(agentProviders).length > 0 ? { agentProviders } : {}),
+    ...(Object.keys(agentModels).length > 0 ? { agentModels } : {}),
+    ...(Object.keys(agentRequestedProviders).length > 0
+      ? { agentRequestedProviders }
+      : {}),
   };
 };
 
@@ -2737,12 +2779,14 @@ async function runFlowUnlocked(params: {
 
   const resolveFlowInstructionPrerequisites = async (params: {
     agentType: string;
+    identifier: string;
     configPath?: string;
     workingFolder?: string;
     source: 'REST' | 'MCP';
   }): Promise<{
     providerId: ConversationProvider;
     modelId: string;
+    requestedProviderId?: string;
     runtimeConfig: CodexOptions['config'];
     workingDirectoryOverride?: string;
   }> => {
@@ -2754,11 +2798,34 @@ async function runFlowUnlocked(params: {
       );
     }
 
+    const agentState = runtimeState.get(
+      getAgentKey(params.agentType, params.identifier),
+    );
+    if (
+      agentState?.conversationId &&
+      (!agentState.providerId || !agentState.modelId)
+    ) {
+      const persistedConversation = await getConversation(
+        agentState.conversationId,
+      );
+      if (persistedConversation?.agentName === params.agentType) {
+        agentState.providerId = persistedConversation.provider;
+        agentState.modelId = persistedConversation.model;
+        agentState.requestedProviderId = persistedConversation.provider;
+      }
+    }
+
     return resolveFlowAgentRuntimeExecution({
       agentName: params.agentType,
       configPath: params.configPath ?? agent.configPath,
       workingFolder: params.workingFolder,
       source: params.source,
+      pinnedProviderId: agentState?.providerId as
+        | ConversationProvider
+        | undefined,
+      pinnedModelId: agentState?.modelId,
+      pinnedRequestedProviderId: agentState?.requestedProviderId,
+      allowFallback: !agentState?.providerId,
     });
   };
 
@@ -2781,6 +2848,7 @@ async function runFlowUnlocked(params: {
 
     const runtime = await resolveFlowInstructionPrerequisites({
       agentType: instructionParams.agentType,
+      identifier: instructionParams.identifier,
       configPath: agent.configPath,
       workingFolder: params.repositoryContext.workingRepositoryPath,
       source: params.source,
@@ -2795,6 +2863,7 @@ async function runFlowUnlocked(params: {
       flowName: params.flowName,
       providerId: runtime.providerId,
       modelId,
+      requestedProviderId: runtime.requestedProviderId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
       customTitle: params.customTitle,
       source: params.source,

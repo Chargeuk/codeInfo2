@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -19,6 +19,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { query, resetStore } from '../../logStore.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createAgentsCommandsRouter } from '../../routes/agentsCommands.js';
 
 const repoRoot = path.resolve(
@@ -100,20 +101,12 @@ function buildApp(deps?: {
   return app;
 }
 
-beforeEach(() => {
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-      cliPath: '/usr/bin/codex',
-      reason: undefined,
-    }),
-  });
-});
-
-afterEach(() => {
-  __resetAgentServiceDepsForTests();
+setCodexDetection({
+  available: true,
+  authPresent: true,
+  configPresent: true,
+  cliPath: '/usr/bin/codex',
+  reason: undefined,
 });
 
 test('POST /agents/:agentName/commands/run returns 202 + a stable started payload shape', async () => {

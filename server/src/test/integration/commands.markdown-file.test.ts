@@ -24,6 +24,7 @@ import {
 } from '../../flows/markdownFileResolver.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 
 class CapturingChat extends ChatInterface {
   constructor(private readonly messages: string[]) {
@@ -168,19 +169,16 @@ let previousPreferredAgentsHome: string | undefined;
 beforeEach(() => {
   previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   delete process.env.CODEINFO_AGENT_HOME;
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-      cliPath: '/usr/bin/codex',
-      reason: undefined,
-    }),
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: undefined,
   });
 });
 
 afterEach(() => {
-  __resetAgentServiceDepsForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {

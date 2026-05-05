@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -18,6 +18,7 @@ import {
 import { ConversationModel } from '../../mongo/conversation.js';
 import { appendTurn, listTurns } from '../../mongo/repo.js';
 import { TurnModel, type TurnCommandMetadata } from '../../mongo/turn.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -70,20 +71,12 @@ const restore = <T extends object, K extends keyof T>(
   (target as Record<string, unknown>)[key as string] = original as unknown;
 };
 
-beforeEach(() => {
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-      cliPath: '/usr/bin/codex',
-      reason: undefined,
-    }),
-  });
-});
-
-afterEach(() => {
-  __resetAgentServiceDepsForTests();
+setCodexDetection({
+  available: true,
+  authPresent: true,
+  configPresent: true,
+  cliPath: '/usr/bin/codex',
+  reason: undefined,
 });
 
 test('stores + returns command when provided', async () => {

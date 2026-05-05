@@ -27,6 +27,7 @@ import {
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { attachWs } from '../../ws/server.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 import {
@@ -238,19 +239,16 @@ beforeEach(() => {
   previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   previousLegacyAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   delete process.env.CODEINFO_AGENT_HOME;
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-      cliPath: '/usr/bin/codex',
-      reason: undefined,
-    }),
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: undefined,
   });
 });
 
 afterEach(() => {
-  __resetAgentServiceDepsForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {

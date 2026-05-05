@@ -36,7 +36,30 @@ export type ToolFactoryOptions = {
 };
 
 export function createLmStudioTools(options: ToolFactoryOptions = {}) {
-  const { deps = {}, log, onToolResult } = options;
+  const { deps = {}, log, onToolResult, repositoryContext } = options;
+  let defaultRepositoryIdPromise: Promise<string | undefined> | null = null;
+
+  const resolveDefaultRepositoryId = async (): Promise<string | undefined> => {
+    const selectedRepositoryPath = repositoryContext?.selectedRepositoryPath;
+    if (!selectedRepositoryPath) return undefined;
+
+    const normalizedSelectedPath = path.resolve(selectedRepositoryPath);
+    const listed = await listIngestedRepositories(deps);
+    const match = listed.repos.find((repo) => {
+      const containerPath = path.resolve(repo.containerPath);
+      const hostPath = path.resolve(repo.hostPath);
+      return (
+        containerPath === normalizedSelectedPath ||
+        hostPath === normalizedSelectedPath
+      );
+    });
+    return match?.id;
+  };
+
+  const getDefaultRepositoryId = () => {
+    defaultRepositoryIdPromise ??= resolveDefaultRepositoryId();
+    return defaultRepositoryIdPromise;
+  };
 
   const listIngestedRepositoriesTool = tool({
     name: 'ListIngestedRepositories',
@@ -99,15 +122,21 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
       void _ctx;
       try {
         const validated = validateVectorSearch(params ?? {});
+        const effectiveRepository =
+          validated.repository ?? (await getDefaultRepositoryId());
+        const effectiveParams = {
+          ...validated,
+          ...(effectiveRepository ? { repository: effectiveRepository } : {}),
+        };
         baseLogger.info(
-          { tool: 'VectorSearch', params: validated },
+          { tool: 'VectorSearch', params: effectiveParams },
           'lmstudio validated Params',
         );
-        const result = await vectorSearch(validated, deps);
+        const result = await vectorSearch(effectiveParams, deps);
         log?.({
           tool: 'VectorSearch',
-          repository: validated.repository ?? 'all',
-          limit: validated.limit,
+          repository: effectiveRepository ?? 'all',
+          limit: effectiveParams.limit,
           results: result.results.length,
           modelId: result.modelId,
         });

@@ -58,6 +58,21 @@ const isDirectory = async (dirPath: string): Promise<boolean> => {
 };
 
 const normalizeWorkingFolder = (value: string) => path.resolve(value.trim());
+const normalizeOptionalRoot = (value: string | undefined) => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return path.resolve(trimmed);
+};
+
+const pathExistsAsDirectory = async (dirPath: string): Promise<boolean> => {
+  try {
+    const stat = await fs.stat(dirPath, { bigint: false });
+    return stat.isDirectory();
+  } catch {
+    return false;
+  }
+};
 
 export type RepositoryExecutionContextMetadata = {
   selectedRepositoryPath: string;
@@ -135,8 +150,16 @@ export async function resolveWorkingFolderWorkingDirectory(
 
 export async function resolveSharedExecutionContext(params: {
   workingFolder?: string;
+  defaultRepositoryRoot?: string;
 }): Promise<SharedExecutionContext> {
-  const defaultExecutionRoot = resolveDefaultExecutionRoot();
+  const requestedDefaultRepositoryRoot = normalizeOptionalRoot(
+    params.defaultRepositoryRoot,
+  );
+  const defaultExecutionRoot =
+    requestedDefaultRepositoryRoot &&
+    (await pathExistsAsDirectory(requestedDefaultRepositoryRoot))
+      ? requestedDefaultRepositoryRoot
+      : resolveDefaultExecutionRoot();
   const resolvedWorkingFolder = await resolveWorkingFolderWorkingDirectory(
     params.workingFolder,
   );

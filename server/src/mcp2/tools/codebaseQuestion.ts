@@ -7,6 +7,7 @@ import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
+import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
 import { normalizeImplicitCopilotRequestedModel } from '../../chat/copilotModelSupport.js';
 import {
@@ -726,8 +727,14 @@ async function executeCodebaseQuestion(
     throw error;
   }
 
+  const agentHomeResolution = resolveAgentHomeEnv();
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: effectiveWorkingFolder,
+    defaultRepositoryRoot:
+      !explicitProviderSelected &&
+      agentHomeResolution.activeEnvName !== 'default'
+        ? agentHomeResolution.codeInfoRoot
+        : undefined,
   });
 
   if (executionProvider === 'codex') {

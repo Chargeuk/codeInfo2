@@ -1,10 +1,7 @@
 import path from 'node:path';
 
 import { resolveAgentHomeEnv } from '../agents/roots.js';
-import {
-  mapIngestPath,
-  resolveMountedIngestPath,
-} from '../ingest/pathMap.js';
+import { mapIngestPath, resolveMountedIngestPath } from '../ingest/pathMap.js';
 import { append } from '../logStore.js';
 import {
   resolveWorkingFolderWorkingDirectory as resolveSharedWorkingFolderWorkingDirectory,

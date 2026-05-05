@@ -414,8 +414,10 @@ test('explicit-provider MCP codebase_question restores a saved host-path working
   process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
   process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
 
-  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
-  const mountedPath = '/mounted/ws-default-root/story55-manual-proof/queued-repo';
+  const advertisedHostPath =
+    '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const mountedPath =
+    '/mounted/ws-default-root/story55-manual-proof/queued-repo';
 
   setToolDeps({
     chatFactory: () => new CapturingRuntimeChat(calls),

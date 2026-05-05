@@ -192,7 +192,8 @@ test('POST /conversations/:id/working-folder accepts an advertised host path whe
   process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
   process.env.CODEINFO_CODEX_WORKDIR = '/data';
 
-  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const advertisedHostPath =
+    '/home/d_a_s/code/story55-manual-proof/queued-repo';
   const mountedPath = '/data/story55-manual-proof/queued-repo';
   let captured: unknown;
 

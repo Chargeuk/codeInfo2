@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -130,10 +130,13 @@ describe('Agents page - list/details separation', () => {
 
     await user.click(screen.getByTestId('agent-info'));
 
+    const popover = await screen.findByTestId('agent-info-popover');
     expect(
-      await screen.findByText(/unsupported provider "not-a-provider"/i),
+      await within(popover).findByText(/unsupported provider "not-a-provider"/i),
     ).toBeInTheDocument();
-    expect(await screen.findByText('No usable provider remains')).toBeVisible();
+    expect(
+      await within(popover).findByText('No usable provider remains'),
+    ).toBeVisible();
     expect(getDetailFetches()).toBe(1);
     expect(select).toHaveTextContent('coding_agent');
 

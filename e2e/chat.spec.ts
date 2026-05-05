@@ -534,9 +534,7 @@ test('shared auth dialog renders Copilot verification details from the fake auth
     /OpenAI Codex/i,
     { timeout: 20000 },
   );
-  await page
-    .getByRole('button', { name: /Re-authenticate \(device auth\)/i })
-    .click();
+  await page.getByRole('button', { name: /^Re-authenticate$/i }).click();
 
   const dialog = page.getByRole('dialog');
   await expect(

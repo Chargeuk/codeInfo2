@@ -422,7 +422,10 @@ test('fresh chat after selecting history ignores restored resume-only provider s
   await page.goto(`${baseUrl}/chat`);
   await hideMcpOverlay(page);
 
-  await page.getByTestId('conversation-row').click();
+  await expect(page.getByText('Historical LM conversation')).toBeVisible({
+    timeout: 20000,
+  });
+  await page.getByText('Historical LM conversation').click();
   await expect(page.getByTestId('provider-select')).toContainText(/LM Studio/i);
 
   await page.getByRole('combobox', { name: /provider/i }).click();

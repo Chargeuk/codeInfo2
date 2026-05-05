@@ -182,7 +182,7 @@ describe('Agents page - agent change', () => {
       await user.click(screen.getByTestId('agent-info'));
     });
 
-    await screen.findByText('No usable provider remains');
+    await screen.findByTestId('agent-disabled');
     await waitFor(() => expect(workingFolder).toHaveValue(''));
     expect(screen.getByTestId('agent-disabled')).toHaveTextContent(
       'No usable provider remains',
@@ -221,6 +221,46 @@ describe('Agents page - agent change', () => {
             ok: true,
             status: 200,
             json: async () => modelsResponse,
+          } as Response);
+        }
+
+        if (
+          target.includes('/agents/a1') &&
+          !target.includes('/commands') &&
+          !target.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              agent: {
+                name: 'a1',
+                description: 'Agent A1',
+                disabled: false,
+                warnings: [],
+                fallbackCandidates: [],
+              },
+            }),
+          } as Response);
+        }
+
+        if (
+          target.includes('/agents/a2') &&
+          !target.includes('/commands') &&
+          !target.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              agent: {
+                name: 'a2',
+                description: 'Agent A2',
+                disabled: false,
+                warnings: [],
+                fallbackCandidates: [],
+              },
+            }),
           } as Response);
         }
 
@@ -271,7 +311,7 @@ describe('Agents page - agent change', () => {
             a1ConversationId =
               typeof parsed.conversationId === 'string'
                 ? parsed.conversationId
-                : null;
+                : 'c1';
           }
           return Promise.resolve({
             ok: true,

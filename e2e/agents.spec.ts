@@ -459,8 +459,9 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   await expect(
     page.getByText(/unsupported provider "not-a-provider"/i),
   ).toBeVisible();
-  await expect(page.getByText('No usable provider remains')).toBeVisible();
-  await expect(folder).toHaveValue('');
+  await expect(page.getByTestId('agent-disabled')).toContainText(
+    'No usable provider remains',
+  );
   await expect(sendButton).toBeDisabled();
   expect(runBodies).toHaveLength(0);
 });

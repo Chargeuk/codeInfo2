@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -842,14 +842,17 @@ This task pulls the repository-selection and working-directory logic into one pr
 22. [x] Run `npm run lint` for the reopened Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
 23. [x] Run `npm run format:check` for the reopened Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 24. [x] Update `server/src/lmstudio/tools.ts` so omitted-repository `VectorSearch` calls default to the shared selected repository when `codebase_question` passes repository context. Purpose: make the omitted-provider LM Studio path consume the same repository grounding instead of only carrying it as unused metadata.
+25. [ ] Update `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/workingFolders/executionContext.ts`, and any adjacent repo-root helper so omitted-provider current-repo default-root selection only points `codebase_question` at a root that actually exposes Task 3 proof files on the main stack, or otherwise make the built main server image surface those files under the selected root. Purpose: close the live gap where `CODEINFO_AGENT_HOME=/app/codeinfo_agents` resolves `/app` as the shared current-repo root even though `/app/AGENTS.md` and the active `planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md` file are absent in the built server image.
+26. [ ] Test type: server unit or integration, whichever already owns omitted-provider repo-root selection. Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`. Description: prove omitted-provider current-repo `codebase_question` only succeeds when the shared default repo root can actually resolve deterministic repo-root files such as `AGENTS.md`, and cover the missing-file seam explicitly so the main-stack repo-root contract cannot regress back to an empty root claim. Purpose: keep the Task 3 current-repo default-root contract covered outside manual retest.
 
 #### Testing
 
 1. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 3 changes shared chat, working-folder, and MCP runtime plumbing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after the shared execution-context migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 4. [x] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [x] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+6. [ ] Run `npm run compose:build:summary` from the repository root because the reopened Task 3 seam now includes the main-stack server image packaging and repo-root visibility contract for omitted-provider `codebase_question`. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the packaging issue, and rerun the same wrapper.
 
 #### Manual Testing Guidance
 
@@ -880,6 +883,9 @@ This task pulls the repository-selection and working-directory logic into one pr
 - The reopened Task 3 `npm run format:check` pass finished with `All matched files use Prettier code style!`, so the repo formatter did not need any further rewrites after the omitted-provider grounding fix.
 - The reopened Task 3 `npm run test:summary:server:unit` proof pass first failed on one missing `node:path` import in `lmstudio/tools.ts`, then on three stale proof expectations that still assumed the pre-reopen default-root contract; after importing `path` and updating those omitted-provider MCP expectations to the configured agent-home repo root, the full rerun finished with `1988` passing tests.
 - The reopened Task 3 `npm run format:check` proof pass finished cleanly with `All matched files use Prettier code style!`, so the proof-time repo-root expectation fixes did not need any further formatter rewrite.
+- Manual testing reran Task 3 on a fresh main-stack build, proved the selected-repository chat path through the UI and stored turn payloads on `/fixtures/repo`, and saved the new screenshot plus support payloads under `codeInfoTmp/manual-testing/0000057/3/`.
+- The same manual pass still failed the omitted-provider current-repo MCP proof: `tools/call` `codebase_question` answered with a search fallback instead of the `AGENTS.md` Preferred Start Sequence, and bounded diagnosis confirmed the live main stack resolves `CODEINFO_AGENT_HOME=/app/codeinfo_agents` to `/app` while the built server image does not actually contain `/app/AGENTS.md` or the active `planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md` file.
+- Reopened Task 3 with concrete implementation and proof-authoring follow-up plus the affected `test:summary:server:unit`, final `format:check`, and new `compose:build:summary` steps so automated proof must cover the main-stack repo-root packaging contract before the next manual retest.
 
 ### Task 4. Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
 

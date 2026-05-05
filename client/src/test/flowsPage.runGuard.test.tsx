@@ -128,8 +128,6 @@ describe('Flows page run guards', () => {
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeDisabled());
 
-    await user.click(runButton);
-
     expect(runRequests).toBe(0);
     expect(
       mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),

@@ -668,9 +668,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     ).toBe('xhigh');
   }, 10000);
 
-  it(
-    'clears hidden reasoning values from both the control and submitted draft when the selected model narrows support',
-    async () => {
+  it('clears hidden reasoning values from both the control and submitted draft when the selected model narrows support', async () => {
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
 
@@ -731,9 +729,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     expect(
       (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
     ).toBe('minimal');
-    },
-    15000,
-  );
+  }, 15000);
 
   it('sends non-standard runtime reasoning values when model capabilities allow them', async () => {
     const chatBodies: Record<string, unknown>[] = [];

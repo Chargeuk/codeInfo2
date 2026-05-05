@@ -286,7 +286,6 @@ export function useConversations(params?: {
       normalizedFlowName,
       log,
       dedupeAndSort,
-      applyFilter,
       applyStateFilter,
     ],
   );

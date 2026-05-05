@@ -160,13 +160,13 @@ export async function getAgentDetails(
   const data = (await res.json()) as { agent?: unknown; agents?: unknown };
   const fallbackAgent =
     Array.isArray(data.agents) && data.agents.length > 0
-      ? data.agents.find((item) => {
+      ? (data.agents.find((item) => {
           if (!item || typeof item !== 'object') return false;
           return (
             typeof (item as Record<string, unknown>).name === 'string' &&
             (item as Record<string, unknown>).name === agentName
           );
-        }) ?? data.agents[0]
+        }) ?? data.agents[0])
       : undefined;
   const rawAgent =
     data.agent ??

@@ -11,6 +11,26 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000057 final provider-neutral runtime closeout
+
+- Story `0000057` finishes the migration from provider-specific agent assumptions to one shared provider-neutral execution contract for direct agents, commands, flow-owned agent execution, and MCP `code_info` grounding.
+- The runtime layering order is now explicit and shared:
+  1. repository-owned runtime config and chat defaults
+  2. neutral agent-home selection (`codeinfo_agents` first, `codex_agents` as compatibility fallback)
+  3. resolved repository execution context (`working_folder` plus plan-scope repository set when applicable)
+  4. provider availability evaluation with warning-details output
+  5. route-specific run, disable, fallback, and continuation behavior
+- `server/src/repositories/context.ts`, `server/src/agents/configRoots.ts`, and the shared provider/runtime helpers now define the repository execution-context contract once. Chat, direct agents, flows, and `codebase_question` reuse that shared repository grounding instead of each surface inferring its own working-repository context.
+- Availability is no longer only a yes-or-no gate. The shared runtime now distinguishes usable-with-warning fallback, same-provider repair opportunities, no-usable-provider disable states, duplicate-folder precedence, and invalid configured provider states, then exposes those details consistently to server routes and browser surfaces.
+- The browser layer keeps that contract visible instead of silently normalizing it away. Agents and Flows pages show warning-details content on selection/open, preserve disabled explanations next to run actions, and reuse the same availability evaluation vocabulary the server emits.
+
+## Story 0000057 continuation and fallback rules
+
+- Provider fallback remains scoped to starting a new run, not mutating an established conversation. When a selected agent or flow cannot use its preferred provider but another configured provider can still satisfy the run contract, the new run may proceed with warnings that describe the fallback decision.
+- Established conversations are pinned to the stored `provider`, `model`, and selected execution identity (`agentName` or flow-owned conversation identity). Later sends must keep using that stored tuple until the conversation ends or fails; they do not silently adopt new defaults, later config edits, or whatever create-mode selection is currently visible in the page.
+- Fresh-run state and resumed-conversation state stay intentionally separate. New-conversation actions clear hidden resumed-only working state, re-evaluate the current selection against the latest availability data, and construct a fresh payload; resumed sends instead reuse the saved provider-model pair and conversation ownership metadata.
+- Failure after pinning also stays local to that conversation. If the stored provider, model, or selected agent becomes unavailable later, the same conversation surfaces the failure explicitly instead of silently switching to another provider or agent behind the existing transcript.
+
 ## Story 0000052 Task 4 working and plan-scope execution
 
 - `server/src/ingest/reingestExecution.ts` now treats authored re-ingest requests as one runtime contract with only three modes: explicit `sourceId`, single-repository `working`, and batch `plan_scope`.

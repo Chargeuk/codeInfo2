@@ -132,7 +132,9 @@ describe('Agents page - list/details separation', () => {
 
     const popover = await screen.findByTestId('agent-info-popover');
     expect(
-      await within(popover).findByText(/unsupported provider "not-a-provider"/i),
+      await within(popover).findByText(
+        /unsupported provider "not-a-provider"/i,
+      ),
     ).toBeInTheDocument();
     expect(
       await within(popover).findByText('No usable provider remains'),

@@ -1306,15 +1306,15 @@ This final task validates the full Story 57 contract rather than isolated seams.
 
 #### Subtasks
 
-1. [ ] Re-read the full Story 57 plan and trace the `Acceptance Criteria`, key `Description` requirements, `Out Of Scope` boundaries, `Story Manual Testing Guidance`, `Edge Cases And Failure Modes`, and `Proof Seams` against the final task list before closing the story.
-2. [ ] Update `projectStructure.md` so it documents the final provider-neutral runtime ownership boundaries and the neutral agent-home env contract after the implementation is complete. Purpose: keep the repository-structure documentation aligned with the new runtime ownership model.
-3. [ ] Update `projectStructure.md` so it explicitly documents `codeinfo_agents` versus `codex_agents` precedence plus the selected-agent and flow warning surfaces. Purpose: make the new compatibility and warning behavior discoverable to later maintainers.
-4. [ ] Update `design.md` so it records the final runtime layering order and shared repository execution-context contract. Purpose: capture the new shared runtime architecture in the main design document.
-5. [ ] Update `design.md` so it records the final agent-only provider fallback rules and established-conversation pinning behavior that Story 57 ships. Purpose: keep the lifecycle and continuation contract explicit in the architecture notes.
-6. [ ] Create `codeInfoStatus/pr-summaries/0000057-pr-summary.md` as the durable reviewer-facing close-out artifact after the final behavior is validated. Purpose: create the derived close-out file in the correct durable repository location.
-7. [ ] Populate `codeInfoStatus/pr-summaries/0000057-pr-summary.md` with the final traceability map from task numbers to proof homes without duplicating unchecked task state from the executable plan. Purpose: make the close-out artifact reviewer-friendly while keeping the plan as the source of truth.
-8. [ ] Run `npm run lint` for the final Story 57 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-9. [ ] Run `npm run format:check` for the final Story 57 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Re-read the full Story 57 plan and trace the `Acceptance Criteria`, key `Description` requirements, `Out Of Scope` boundaries, `Story Manual Testing Guidance`, `Edge Cases And Failure Modes`, and `Proof Seams` against the final task list before closing the story.
+2. [x] Update `projectStructure.md` so it documents the final provider-neutral runtime ownership boundaries and the neutral agent-home env contract after the implementation is complete. Purpose: keep the repository-structure documentation aligned with the new runtime ownership model.
+3. [x] Update `projectStructure.md` so it explicitly documents `codeinfo_agents` versus `codex_agents` precedence plus the selected-agent and flow warning surfaces. Purpose: make the new compatibility and warning behavior discoverable to later maintainers.
+4. [x] Update `design.md` so it records the final runtime layering order and shared repository execution-context contract. Purpose: capture the new shared runtime architecture in the main design document.
+5. [x] Update `design.md` so it records the final agent-only provider fallback rules and established-conversation pinning behavior that Story 57 ships. Purpose: keep the lifecycle and continuation contract explicit in the architecture notes.
+6. [x] Create `codeInfoStatus/pr-summaries/0000057-pr-summary.md` as the durable reviewer-facing close-out artifact after the final behavior is validated. Purpose: create the derived close-out file in the correct durable repository location.
+7. [x] Populate `codeInfoStatus/pr-summaries/0000057-pr-summary.md` with the final traceability map from task numbers to proof homes without duplicating unchecked task state from the executable plan. Purpose: make the close-out artifact reviewer-friendly while keeping the plan as the source of truth.
+8. [x] Run `npm run lint` for the final Story 57 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+9. [x] Run `npm run format:check` for the final Story 57 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Testing
 
@@ -1327,8 +1327,8 @@ This final task validates the full Story 57 contract rather than isolated seams.
 7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because Story 57 changes user-visible Agents and Flows behavior that must stay green on the supported browser-backed path. If the wrapper reports failures or ambiguous output, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 8. [ ] Run `npm run compose:up` from the repository root to start the normal main stack after the build and automated suite wrappers are green, then confirm the server health endpoint at `http://localhost:5010/health` and the client at `http://localhost:5001` respond. Use this smoke step because Story 57 changes the normal compose-backed runtime contract, not only the special e2e runtime path. If startup fails, inspect `npm run compose:logs`, fix the issue, and rerun the same wrapper.
 9. [ ] Run `npm run compose:down` from the repository root after the Task 9 smoke step started with `npm run compose:up`. Use this wrapper to shut down only the normal main stack that this task started, keeping the smoke-proof ownership boundary explicit.
-10. [ ] Run `npm run lint` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-11. [ ] Run `npm run format:check` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+10. [x] Run `npm run lint` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+11. [x] Run `npm run format:check` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -1343,3 +1343,10 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - After Story 57 close-out, promote the curated durable final manual-proof bundle from the retained scratch artifacts into `codeInfoStatus/manual-proof/0000057/`.
 
 #### Implementation notes
+
+- Task 9 subtask 1 closed after rereading the Story 57 description, acceptance criteria, out-of-scope notes, manual guidance, edge cases, and proof seams against Tasks 1 through 9 so the final close-out docs can trace the shipped contract honestly.
+- Task 9 subtasks 2 and 3 closed after adding the Story 57 ledger to `projectStructure.md`, including the provider-neutral runtime ownership boundaries, neutral agent-home contract, `codeinfo_agents` precedence, and the warning-aware Agents and Flows surfaces.
+- Task 9 subtasks 4 and 5 closed after updating `design.md` with the final Story 57 runtime layering order, shared repository execution-context contract, fallback rules, and established-conversation pinning behavior.
+- Task 9 subtasks 6 and 7 closed after creating `codeInfoStatus/pr-summaries/0000057-pr-summary.md` and populating it with Story 57 implementation highlights plus a task-to-proof map while leaving final wrapper validation ownership in the executable plan.
+- Task 9 subtask 8 closed after `npm run lint` reported one `useConversations.ts` hook-dependency warning; removing the unnecessary `applyFilter` dependency in `client/src/hooks/useConversations.ts` made the full rerun pass, and the matching Task 9 testing item was checked because the same command was required by this subtask path.
+- Task 9 subtask 9 closed after `npm run format:check` reported ten Story 57 client files with Prettier drift; a targeted `npx prettier --write ...` repair cleared those files, the full check passed on rerun, and the matching Task 9 testing item was checked because the same command was required by this subtask path.

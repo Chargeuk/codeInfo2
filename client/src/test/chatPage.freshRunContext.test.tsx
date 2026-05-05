@@ -32,9 +32,7 @@ const routes = [
 ];
 
 describe('Chat page fresh-run context', () => {
-  it(
-    'uses current create-mode provider and model for a fresh run after revisiting historical state',
-    async () => {
+  it('uses current create-mode provider and model for a fresh run after revisiting historical state', async () => {
     const user = userEvent.setup();
     const chatBodies: Record<string, unknown>[] = [];
 
@@ -232,7 +230,5 @@ describe('Chat page fresh-run context', () => {
       model: 'gpt-5.2',
     });
     expect(chatBodies[0]?.conversationId).not.toBe('c1');
-    },
-    15000,
-  );
+  }, 15000);
 });

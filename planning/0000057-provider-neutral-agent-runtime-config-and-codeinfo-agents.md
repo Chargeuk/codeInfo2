@@ -962,7 +962,7 @@ This task creates the non-run warning and disabled-state contract that later exe
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4`
-- Task Status: `__in_progress__`
+- Task Status: `__to_do__`
 - Git Commits:
 
 #### Overview

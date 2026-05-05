@@ -8,12 +8,12 @@ import { executeCommandItem } from '../agents/commandItemExecutor.js';
 import type { ExecuteCommandItemReingestResult } from '../agents/commandItemExecutor.js';
 import { loadAgentCommandFile } from '../agents/commandsLoader.js';
 import type { AgentCommandFile } from '../agents/commandsSchema.js';
-import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
 import {
   resolveAgentHomeEnv,
   resolveAgentHomeForRepository,
 } from '../agents/roots.js';
+import { prepareFlowOwnedAgentExecution } from '../agents/service.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,
@@ -63,7 +63,7 @@ import {
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
-import type { Conversation } from '../mongo/conversation.js';
+import type { Conversation, ConversationProvider } from '../mongo/conversation.js';
 import {
   appendTurn,
   createConversation,
@@ -81,7 +81,6 @@ import type {
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from '../mongo/turn.js';
-import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 
 const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
@@ -517,6 +516,7 @@ const resolveConversationWorkingFolderForRun = async (params: {
 const ensureFlowConversation = async (params: {
   conversationId: string;
   flowName: string;
+  providerId: ConversationProvider;
   modelId: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
@@ -530,16 +530,17 @@ const ensureFlowConversation = async (params: {
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
     if (existing) {
-      if (!existing.flowName) {
-        updateMemoryConversationMeta(params.conversationId, {
-          flowName: params.flowName,
-        });
-      }
+      updateMemoryConversationMeta(params.conversationId, {
+        provider: params.providerId,
+        model: params.modelId,
+        flowName: existing.flowName ?? params.flowName,
+        lastMessageAt: now,
+      });
       return;
     }
     memoryConversations.set(params.conversationId, {
       _id: params.conversationId,
-      provider: 'codex',
+      provider: params.providerId,
       model: params.modelId,
       title,
       flowName: params.flowName,
@@ -573,7 +574,7 @@ const ensureFlowConversation = async (params: {
 
   await createConversation({
     conversationId: params.conversationId,
-    provider: 'codex',
+    provider: params.providerId,
     model: params.modelId,
     title,
     flowName: params.flowName,
@@ -600,6 +601,7 @@ const ensureFlowAgentConversation = async (params: {
   agentType: string;
   identifier: string;
   executionId: string;
+  providerId: ConversationProvider;
   modelId: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
@@ -614,6 +616,12 @@ const ensureFlowAgentConversation = async (params: {
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
     if (existing) {
+      updateMemoryConversationMeta(params.conversationId, {
+        provider: params.providerId,
+        model: params.modelId,
+        agentName: params.agentType,
+        lastMessageAt: now,
+      });
       if (params.workingFolder) {
         updateMemoryConversationWorkingFolder({
           conversationId: params.conversationId,
@@ -624,7 +632,7 @@ const ensureFlowAgentConversation = async (params: {
     }
     memoryConversations.set(params.conversationId, {
       _id: params.conversationId,
-      provider: 'codex',
+      provider: params.providerId,
       model: params.modelId,
       title,
       agentName: params.agentType,
@@ -658,6 +666,12 @@ const ensureFlowAgentConversation = async (params: {
     .lean()
     .exec()) as Conversation | null;
   if (existing) {
+    await updateConversationMeta({
+      conversationId: params.conversationId,
+      provider: params.providerId,
+      model: params.modelId,
+      lastMessageAt: now,
+    });
     if (params.workingFolder) {
       await updateConversationWorkingFolder({
         conversationId: params.conversationId,
@@ -669,7 +683,7 @@ const ensureFlowAgentConversation = async (params: {
 
   await createConversation({
     conversationId: params.conversationId,
-    provider: 'codex',
+    provider: params.providerId,
     model: params.modelId,
     title,
     agentName: params.agentType,
@@ -761,6 +775,7 @@ const ensureAgentState = async (params: {
   identifier: string;
   executionId: string;
   flowName: string;
+  providerId: ConversationProvider;
   modelId: string;
   workingFolder?: string;
   customTitle?: string;
@@ -775,6 +790,7 @@ const ensureAgentState = async (params: {
       agentType: params.agentType,
       identifier: params.identifier,
       executionId: params.executionId,
+      providerId: params.providerId,
       modelId: params.modelId,
       customTitle: params.customTitle,
       source: params.source,
@@ -800,6 +816,7 @@ const ensureAgentState = async (params: {
     agentType: params.agentType,
     identifier: params.identifier,
     executionId: params.executionId,
+    providerId: params.providerId,
     modelId: params.modelId,
     customTitle: params.customTitle,
     source: params.source,
@@ -813,19 +830,41 @@ const ensureAgentState = async (params: {
   return { state, isNew: true };
 };
 
-const getAgentModelId = async (configPath: string): Promise<string> => {
-  const { modelId } = await resolveFlowAgentRuntimeExecution({ configPath });
+const getAgentModelId = async (params: {
+  agentName: string;
+  configPath: string;
+  workingFolder?: string;
+  source?: 'REST' | 'MCP';
+}): Promise<string> => {
+  const { modelId } = await resolveFlowAgentRuntimeExecution({
+    agentName: params.agentName,
+    configPath: params.configPath,
+    workingFolder: params.workingFolder,
+    source: params.source,
+  });
   return modelId;
 };
 
 const resolveFlowAgentRuntimeExecution = async (params: {
+  agentName: string;
   configPath: string;
+  workingFolder?: string;
   source?: 'REST' | 'MCP';
+  pinnedProviderId?: ConversationProvider;
+  pinnedModelId?: string;
+  pinnedRequestedProviderId?: string;
+  allowFallback?: boolean;
 }) => {
   try {
-    const resolved = await resolveAgentRuntimeExecutionConfig({
+    const resolved = await prepareFlowOwnedAgentExecution({
+      agentName: params.agentName,
       configPath: params.configPath,
-      entrypoint: 'flows.service',
+      workingFolder: params.workingFolder,
+      source: params.source ?? 'REST',
+      pinnedProviderId: params.pinnedProviderId,
+      pinnedModelId: params.pinnedModelId,
+      pinnedRequestedProviderId: params.pinnedRequestedProviderId,
+      allowFallback: params.allowFallback ?? true,
     });
     if (params.source) {
       console.info(T07_SUCCESS_LOG, {
@@ -836,7 +875,10 @@ const resolveFlowAgentRuntimeExecution = async (params: {
     }
     return {
       modelId: resolved.modelId ?? FALLBACK_MODEL_ID,
+      providerId: resolved.executionProviderId,
+      requestedProviderId: resolved.requestedProviderId,
       runtimeConfig: resolved.runtimeConfig as CodexOptions['config'],
+      workingDirectoryOverride: resolved.workingDirectoryOverride,
     };
   } catch (error) {
     if (params.source) {
@@ -848,6 +890,22 @@ const resolveFlowAgentRuntimeExecution = async (params: {
           : 'UNKNOWN_ERROR';
       console.error(
         `${T07_ERROR_LOG} surface=flow.run source=${params.source} code=${code}`,
+      );
+    }
+    const flowErrorCode =
+      error &&
+      typeof error === 'object' &&
+      typeof (error as { code?: unknown }).code === 'string'
+        ? String((error as { code?: string }).code)
+        : undefined;
+    if (
+      flowErrorCode === 'INVALID_PROVIDER' ||
+      flowErrorCode === 'PROVIDER_UNAVAILABLE'
+    ) {
+      throw toFlowRunError(
+        flowErrorCode,
+        (error as { reason?: string; message?: string }).reason ??
+          (error as { message?: string }).message,
       );
     }
     throw error;
@@ -1146,6 +1204,7 @@ const runFlowInstruction = async (params: {
   agentType: string;
   identifier: string;
   agentConversationId: string;
+  providerId: ConversationProvider;
   modelId: string;
   runtimeConfig: CodexOptions['config'];
   threadId?: string;
@@ -1176,7 +1235,7 @@ const runFlowInstruction = async (params: {
   createInflight({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
-    provider: 'codex',
+    provider: params.providerId,
     model: params.modelId,
     source: params.source,
     command: params.command,
@@ -1193,7 +1252,7 @@ const runFlowInstruction = async (params: {
   const resolvedChatFactory = params.chatFactory ?? getChatInterface;
   let chat;
   try {
-    chat = resolvedChatFactory('codex');
+    chat = resolvedChatFactory(params.providerId);
   } catch (err) {
     if (err instanceof UnsupportedProviderError) {
       throw new Error(err.message);
@@ -1204,7 +1263,7 @@ const runFlowInstruction = async (params: {
   const bridge = attachChatStreamBridge({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
-    provider: 'codex',
+    provider: params.providerId,
     model: params.modelId,
     chat,
     deferFinal: params.deferFinal,
@@ -1286,7 +1345,7 @@ const runFlowInstruction = async (params: {
       await chat.run(
         params.instruction,
         {
-          provider: 'codex',
+          provider: params.providerId,
           inflightId: params.inflightId,
           threadId: params.threadId,
           useConfigDefaults: true,
@@ -1396,7 +1455,7 @@ const runFlowInstruction = async (params: {
       role: 'user',
       content: params.instruction,
       model: params.modelId,
-      provider: 'codex',
+      provider: params.providerId,
       source: params.source,
       status: 'ok',
       toolCalls: null,
@@ -1411,7 +1470,7 @@ const runFlowInstruction = async (params: {
       role: 'assistant',
       content: result.content,
       model: params.modelId,
-      provider: 'codex',
+      provider: params.providerId,
       source: params.source,
       status: result.status,
       toolCalls,
@@ -1438,7 +1497,7 @@ const runFlowInstruction = async (params: {
       role: 'user',
       content: params.instruction,
       model: params.modelId,
-      provider: 'codex',
+      provider: params.providerId,
       source: params.source,
       status: 'ok',
       toolCalls: null,
@@ -1460,7 +1519,7 @@ const runFlowInstruction = async (params: {
       role: 'assistant',
       content: result.content,
       model: params.modelId,
-      provider: 'codex',
+      provider: params.providerId,
       source: params.source,
       status: result.status,
       toolCalls,
@@ -2679,10 +2738,13 @@ async function runFlowUnlocked(params: {
   const resolveFlowInstructionPrerequisites = async (params: {
     agentType: string;
     configPath?: string;
+    workingFolder?: string;
     source: 'REST' | 'MCP';
   }): Promise<{
+    providerId: ConversationProvider;
     modelId: string;
     runtimeConfig: CodexOptions['config'];
+    workingDirectoryOverride?: string;
   }> => {
     const agent = agentByName.get(params.agentType);
     if (!agent) {
@@ -2692,13 +2754,10 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const detection = refreshCodexDetection();
-    if (!detection.available) {
-      throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
-    }
-
     return resolveFlowAgentRuntimeExecution({
+      agentName: params.agentType,
       configPath: params.configPath ?? agent.configPath,
+      workingFolder: params.workingFolder,
       source: params.source,
     });
   };
@@ -2723,6 +2782,7 @@ async function runFlowUnlocked(params: {
     const runtime = await resolveFlowInstructionPrerequisites({
       agentType: instructionParams.agentType,
       configPath: agent.configPath,
+      workingFolder: params.repositoryContext.workingRepositoryPath,
       source: params.source,
     });
     const modelId = runtime.modelId;
@@ -2733,6 +2793,7 @@ async function runFlowUnlocked(params: {
       identifier: instructionParams.identifier,
       executionId: params.executionId,
       flowName: params.flowName,
+      providerId: runtime.providerId,
       modelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
       customTitle: params.customTitle,
@@ -2775,11 +2836,13 @@ async function runFlowUnlocked(params: {
         agentType: instructionParams.agentType,
         identifier: instructionParams.identifier,
         agentConversationId: agentState.conversationId,
+        providerId: runtime.providerId,
         modelId,
         runtimeConfig: runtime.runtimeConfig,
         threadId: agentState.threadId,
         systemPrompt,
-        workingDirectoryOverride: params.workingDirectoryOverride,
+        workingDirectoryOverride:
+          runtime.workingDirectoryOverride ?? params.workingDirectoryOverride,
         envOverrides: flowEnvOverrides,
         source: params.source,
         chatFactory: params.chatFactory,
@@ -2937,7 +3000,12 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         instruction: `Markdown file: ${step.markdownFile}`,
         modelId: agent
-          ? await getAgentModelId(agent.configPath)
+          ? await getAgentModelId({
+              agentName: step.agentType,
+              configPath: agent.configPath,
+              workingFolder: params.repositoryContext.workingRepositoryPath,
+              source: params.source,
+            })
           : FALLBACK_MODEL_ID,
         source: params.source,
         message,
@@ -3199,7 +3267,12 @@ async function runFlowUnlocked(params: {
       });
       if (!pendingCancel) return false;
 
-      const modelId = await getAgentModelId(agent.configPath);
+      const modelId = await getAgentModelId({
+        agentName: step.agentType,
+        configPath: agent.configPath,
+        workingFolder: params.repositoryContext.workingRepositoryPath,
+        source: params.source,
+      });
       await emitStoppedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -3241,7 +3314,12 @@ async function runFlowUnlocked(params: {
           );
           continue;
         }
-        const modelId = await getAgentModelId(agent.configPath);
+        const modelId = await getAgentModelId({
+          agentName: step.agentType,
+          configPath: agent.configPath,
+          workingFolder: params.repositoryContext.workingRepositoryPath,
+          source: params.source,
+        });
         await emitFailedFlowStep({
           flowConversationId: params.conversationId,
           inflightId: stepInflightId,
@@ -3340,7 +3418,12 @@ async function runFlowUnlocked(params: {
 
               await flowServiceDeps.runReingestStepLifecycle({
                 conversationId: params.conversationId,
-                modelId: await getAgentModelId(agent.configPath),
+                modelId: await getAgentModelId({
+                  agentName: step.agentType,
+                  configPath: agent.configPath,
+                  workingFolder: params.repositoryContext.workingRepositoryPath,
+                  source: params.source,
+                }),
                 source: params.source,
                 command,
                 toolResult,
@@ -3368,7 +3451,12 @@ async function runFlowUnlocked(params: {
                     flowConversationId: params.conversationId,
                     inflightId: stepInflightId,
                     instruction: `Command: ${step.commandName}`,
-                    modelId: await getAgentModelId(agent.configPath),
+                    modelId: await getAgentModelId({
+                      agentName: step.agentType,
+                      configPath: agent.configPath,
+                      workingFolder: params.repositoryContext.workingRepositoryPath,
+                      source: params.source,
+                    }),
                     source: params.source,
                     command,
                   });
@@ -3393,7 +3481,12 @@ async function runFlowUnlocked(params: {
                   flowConversationId: params.conversationId,
                   inflightId: stepInflightId,
                   instruction: `Command: ${step.commandName}`,
-                  modelId: await getAgentModelId(agent.configPath),
+                  modelId: await getAgentModelId({
+                    agentName: step.agentType,
+                    configPath: agent.configPath,
+                    workingFolder: params.repositoryContext.workingRepositoryPath,
+                    source: params.source,
+                  }),
                   source: params.source,
                   command,
                 });
@@ -3417,7 +3510,12 @@ async function runFlowUnlocked(params: {
                 result: ExecuteCommandItemReingestResult;
               };
         } catch (error) {
-          const modelId = await getAgentModelId(agent.configPath);
+          const modelId = await getAgentModelId({
+            agentName: step.agentType,
+            configPath: agent.configPath,
+            workingFolder: params.repositoryContext.workingRepositoryPath,
+            source: params.source,
+          });
           await emitFailedFlowStep({
             flowConversationId: params.conversationId,
             inflightId: stepInflightId,
@@ -3957,6 +4055,7 @@ export async function startFlowRun(
 
   let flow: FlowFile;
   let modelId = FALLBACK_MODEL_ID;
+  let providerId: ConversationProvider = 'codex';
   let resumeState: FlowResumeState | null = null;
   let repositoryContext: FlowCommandRepositoryContext | null = null;
   let executionId: string = crypto.randomUUID();
@@ -4103,13 +4202,14 @@ export async function startFlowRun(
           `Agent ${firstAgentStep.agentType} not found`,
         );
       }
-
-      const detection = refreshCodexDetection();
-      if (!detection.available) {
-        throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
-      }
-
-      modelId = await getAgentModelId(agent.configPath);
+      const prepared = await resolveFlowAgentRuntimeExecution({
+        agentName: firstAgentStep.agentType,
+        configPath: agent.configPath,
+        workingFolder: effectiveWorkingFolder,
+        source: params.source,
+      });
+      modelId = prepared.modelId;
+      providerId = prepared.providerId;
     }
 
     const codeInfo2Root = codeInfo2RootForRun();
@@ -4145,6 +4245,7 @@ export async function startFlowRun(
     await ensureFlowConversation({
       conversationId,
       flowName,
+      providerId,
       modelId,
       customTitle: params.customTitle,
       source: params.source,

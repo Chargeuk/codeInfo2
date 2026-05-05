@@ -535,7 +535,7 @@ async function resolveProviderRuntimeConfig(params: {
 async function resolveDirectAgentRuntimeExecution(params: {
   configPath: string;
   source: 'REST' | 'MCP';
-  surface: 'agents.run' | 'agents.commands.run' | 'mcp.agents.run';
+  surface: 'agents.run' | 'agents.commands.run' | 'mcp.agents.run' | 'flows.run';
 }) {
   try {
     const resolved = await resolveAgentRuntimeExecutionConfig({
@@ -620,7 +620,7 @@ async function prepareDirectAgentExecution(params: {
   configPath: string;
   workingFolder?: string;
   source: 'REST' | 'MCP';
-  surface: 'agents.run' | 'agents.commands.run' | 'mcp.agents.run';
+  surface: 'agents.run' | 'agents.commands.run' | 'mcp.agents.run' | 'flows.run';
   pinnedProviderId?: ConversationProvider;
   pinnedModelId?: string;
   pinnedRequestedProviderId?: string;
@@ -763,6 +763,22 @@ async function prepareDirectAgentExecution(params: {
       ? `Provider "${configuredRequestedProvider}" is unavailable: ${requestedState.reason}.`
       : `Provider "${configuredRequestedProvider}" is unavailable.`,
   );
+}
+
+export async function prepareFlowOwnedAgentExecution(params: {
+  agentName: string;
+  configPath: string;
+  workingFolder?: string;
+  source: 'REST' | 'MCP';
+  pinnedProviderId?: ConversationProvider;
+  pinnedModelId?: string;
+  pinnedRequestedProviderId?: string;
+  allowFallback: boolean;
+}): Promise<DirectAgentPreparedExecution> {
+  return prepareDirectAgentExecution({
+    ...params,
+    surface: 'flows.run',
+  });
 }
 
 function logTransitiveContractRead(params: {

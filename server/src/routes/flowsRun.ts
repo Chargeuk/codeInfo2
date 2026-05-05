@@ -204,6 +204,13 @@ export function createFlowsRunRouter(
             .status(503)
             .json({ error: 'provider_unavailable', reason: err.reason });
         }
+        if (err.code === 'INVALID_PROVIDER') {
+          return res.status(409).json({
+            error: 'agent_disabled',
+            code: err.code,
+            reason: err.reason,
+          });
+        }
         if (err.code === 'AGENT_MISMATCH') {
           return res.status(400).json({
             error: 'agent_mismatch',

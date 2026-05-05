@@ -20,6 +20,10 @@ import { handleRpc } from '../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import { attachWs } from '../../ws/server.js';
 import {
+  __deleteCodebaseQuestionMemoryConversationForTests as deleteMemoryConversation,
+  __setCodebaseQuestionMemoryConversationForTests as setMemoryConversation,
+} from '../../mcp2/tools/codebaseQuestion.js';
+import {
   closeWs,
   connectWs,
   sendJson,
@@ -390,6 +394,132 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
       delete process.env.CODEINFO_CODEX_WORKDIR;
     } else {
       process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    await closeWs(ws);
+    await wsHandle.close();
+    resetToolDeps();
+    mcpServer.close();
+    wsHttp.close();
+  }
+});
+
+test('explicit-provider MCP codebase_question restores a saved host-path working folder through the mounted repository bridge', async () => {
+  resetStore();
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
+
+  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const mountedPath = '/mounted/ws-default-root/story55-manual-proof/queued-repo';
+
+  setToolDeps({
+    chatFactory: () => new CapturingRuntimeChat(calls),
+    clientFactory: makeLmStudioClientFactory(),
+    listIngestedRepositoriesFn: async () => ({
+      repos: [
+        {
+          id: 'repo-host-bridge',
+          description: null,
+          containerPath: advertisedHostPath,
+          hostPath: advertisedHostPath,
+          lastIngestAt: null,
+          embeddingProvider: 'lmstudio',
+          embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+          embeddingDimensions: 768,
+          modelId: 'text-embedding-nomic-embed-text-v1.5',
+          counts: { files: 0, chunks: 0, embedded: 0 },
+          lastError: null,
+        },
+      ],
+      lockedModelId: null,
+    }),
+  });
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+  const conversationId = 'mcp-ws-runtime-host-bridge';
+  setMemoryConversation({
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: 'm',
+    title: 'Host bridge conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: { workingFolder: advertisedHostPath },
+  } as never);
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const toolCallPromise = postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 103,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'What is up?',
+          conversationId,
+          provider: 'lmstudio',
+          model: 'm',
+        },
+      },
+    });
+
+    await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is { type: string } => {
+        const e = event as { type?: string; conversationId?: string };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+
+    await toolCallPromise;
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0]?.flags.runtime, {
+      workingFolder: mountedPath,
+      lookupSummary: {
+        selectedRepositoryPath: mountedPath,
+        fallbackUsed: false,
+        workingRepositoryAvailable: true,
+      },
+    });
+    assert.deepEqual(calls[0]?.flags.repositoryContext, {
+      selectedRepositoryPath: mountedPath,
+      defaultExecutionRoot: '/mounted/ws-default-root',
+      workingDirectoryOverride: mountedPath,
+      fallbackUsed: false,
+      workingRepositoryAvailable: true,
+    });
+  } finally {
+    deleteMemoryConversation(conversationId);
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    if (originalHostIngestDir === undefined) {
+      delete process.env.CODEINFO_HOST_INGEST_DIR;
+    } else {
+      process.env.CODEINFO_HOST_INGEST_DIR = originalHostIngestDir;
     }
     await closeWs(ws);
     await wsHandle.close();

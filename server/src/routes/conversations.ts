@@ -22,7 +22,10 @@ import {
   resolveCopilotRuntimeAgentFlags,
   resolveLmStudioRuntimeAgentFlags,
 } from '../chat/providerRuntimeFlags.js';
-import { listIngestedRepositories } from '../lmstudio/toolService.js';
+import {
+  getAdvertisedRepositoryIdentityPaths,
+  listIngestedRepositories,
+} from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
 import { emitConversationUpsert } from '../mongo/events.js';
@@ -454,8 +457,8 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
   const knownRepositoryPathsState = async () =>
     await resolveKnownRepositoryPathsState(async () =>
-      (await listIngestedRepositoriesFn()).repos.map(
-        (repo) => repo.containerPath,
+      (await listIngestedRepositoriesFn()).repos.flatMap((repo) =>
+        getAdvertisedRepositoryIdentityPaths(repo),
       ),
     );
 

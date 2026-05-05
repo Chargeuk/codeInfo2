@@ -18,7 +18,7 @@ import {
   getStatus,
   type ActiveIngestRunContext,
 } from '../ingest/ingestJob.js';
-import { mapIngestPath } from '../ingest/pathMap.js';
+import { mapIngestPath, resolveMountedIngestPath } from '../ingest/pathMap.js';
 import {
   normalizeCanonicalQueueTargetPath,
   resolveRequestEmbeddingSelection,
@@ -663,6 +663,32 @@ function buildRepoLookupKeys(
   });
 
   return [...keys];
+}
+
+export function getAdvertisedRepositoryIdentityPaths(
+  repo: Pick<RepoEntry, 'containerPath' | 'hostPath'>,
+): string[] {
+  const paths = new Set<string>();
+  const rawPaths = [repo.containerPath, repo.hostPath];
+
+  rawPaths.forEach((value) => {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return;
+    }
+    const normalized = normalizeCanonicalQueueTargetPath(value);
+    const mapped = mapIngestPath(normalized);
+    paths.add(normalized);
+    paths.add(mapped.containerPath);
+    paths.add(mapped.hostPath);
+    paths.add(
+      resolveMountedIngestPath({
+        containerPath: mapped.containerPath,
+        hostPath: mapped.hostPath,
+      }),
+    );
+  });
+
+  return [...paths];
 }
 
 function indexRepoByLookupKeys(

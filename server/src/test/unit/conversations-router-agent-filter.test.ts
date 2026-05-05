@@ -53,6 +53,8 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
 test.afterEach(() => {
   setWorkingFolderStatForTests(undefined);
   resetStore();
+  delete process.env.CODEINFO_HOST_INGEST_DIR;
+  delete process.env.CODEINFO_CODEX_WORKDIR;
 });
 
 test('GET /conversations forwards agentName=__none__ to repo layer', async () => {
@@ -184,6 +186,53 @@ test('POST /conversations/:id/working-folder saves flags.workingFolder while idl
   });
   assert.equal(res.body.status, 'ok');
   assert.equal(res.body.conversation.flags.workingFolder, process.cwd());
+});
+
+test('POST /conversations/:id/working-folder accepts an advertised host path when the runtime uses the mounted /data bridge', async () => {
+  process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
+  process.env.CODEINFO_CODEX_WORKDIR = '/data';
+
+  const advertisedHostPath = '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const mountedPath = '/data/story55-manual-proof/queued-repo';
+  let captured: unknown;
+
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (targetPath === mountedPath) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('missing') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const res = await request(
+    buildApp({
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(advertisedHostPath)],
+        lockedModelId: null,
+      }),
+      findConversationById: async () => baseConversation,
+      updateConversationWorkingFolder: async (params: unknown) => {
+        captured = params;
+        return {
+          ...baseConversation,
+          flags: { workingFolder: mountedPath },
+        };
+      },
+    }),
+  )
+    .post('/conversations/conv-working-folder/working-folder')
+    .send({ workingFolder: advertisedHostPath })
+    .expect(200);
+
+  assert.deepEqual(captured, {
+    conversationId: 'conv-working-folder',
+    workingFolder: mountedPath,
+  });
+  assert.equal(res.body.status, 'ok');
+  assert.equal(res.body.conversation.flags.workingFolder, mountedPath);
 });
 
 test('GET /conversations surfaces operational working-folder diagnostics without object stringification', async () => {

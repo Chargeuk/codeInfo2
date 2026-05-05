@@ -1,6 +1,10 @@
 import path from 'node:path';
 
 import { resolveAgentHomeEnv } from '../agents/roots.js';
+import {
+  mapIngestPath,
+  resolveMountedIngestPath,
+} from '../ingest/pathMap.js';
 import { append } from '../logStore.js';
 import {
   resolveWorkingFolderWorkingDirectory as resolveSharedWorkingFolderWorkingDirectory,
@@ -78,8 +82,28 @@ export const setWorkingFolderStatForTests = (
   setExecutionContextStatForTests(next);
 };
 
-const getKnownRepositorySet = (paths: string[]) =>
-  new Set(paths.map((entry) => path.resolve(entry)));
+const getKnownRepositorySet = (paths: string[]) => {
+  const knownPaths = new Set<string>();
+
+  paths.forEach((entry) => {
+    if (typeof entry !== 'string' || entry.trim().length === 0) return;
+    const normalized = entry.trim();
+    const mapped = mapIngestPath(normalized);
+    knownPaths.add(path.resolve(normalized));
+    knownPaths.add(path.resolve(mapped.containerPath));
+    knownPaths.add(path.resolve(mapped.hostPath));
+    knownPaths.add(
+      path.resolve(
+        resolveMountedIngestPath({
+          containerPath: mapped.containerPath,
+          hostPath: mapped.hostPath,
+        }),
+      ),
+    );
+  });
+
+  return knownPaths;
+};
 
 export const knownRepositoryPathsAvailable = (
   knownRepositoryPaths: string[],

@@ -45,7 +45,10 @@ import {
   RuntimeConfigResolutionError,
   resolveChatRuntimeConfig,
 } from '../../config/runtimeConfig.js';
-import { listIngestedRepositories } from '../../lmstudio/toolService.js';
+import {
+  getAdvertisedRepositoryIdentityPaths,
+  listIngestedRepositories,
+} from '../../lmstudio/toolService.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -665,7 +668,11 @@ async function executeCodebaseQuestion(
     async () =>
       (
         await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
-      ).repos.map((repo) => path.resolve(repo.containerPath)),
+      ).repos.flatMap((repo) =>
+        getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
+          path.resolve(entry),
+        ),
+      ),
   );
   const persistWorkingFolder = async (workingFolder?: string | null) => {
     if (!conversationId) return;

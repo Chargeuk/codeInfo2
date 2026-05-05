@@ -891,7 +891,7 @@ This task pulls the repository-selection and working-directory logic into one pr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview

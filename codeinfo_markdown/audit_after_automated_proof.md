@@ -42,7 +42,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
-- Treat unchecked subtasks, a live standalone `**BLOCKER**` note, and unchecked testing steps that are honestly blocked or deferred by prerequisite unchecked subtasks as the only valid reasons for the just-worked task to remain `__in_progress__` after this automated-proof audit.
+- Treat unchecked subtasks, a live standalone `**BLOCKER**` note, and unchecked testing steps that are honestly blocked or deferred only by prerequisite unchecked subtasks for the next remaining testing step as the only valid reasons for the just-worked task to remain `__in_progress__` after this automated-proof audit.
 - If prose notes, exit-criteria text, or other non-checklist text still claim remaining work after all subtasks and testing are checked and no live standalone `**BLOCKER**` remains, treat that as invalid task shape rather than as a reason to keep the task open.
 - In that invalid task-shape case, either:
   - mark the task `__done__` if current repository evidence shows the prose-only remainder is already satisfied or is not an honest remaining gate; or
@@ -59,9 +59,24 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - Treat the outcome as materially unchanged when no subtask status changed, no testing status changed, no blocker state changed, no task status changed, and no new proof or owner conclusion was reached.
 - If unchecked `Testing` items remain while no unchecked subtasks remain and no live standalone `**BLOCKER**` note remains, treat that as an invalid partial-proof state rather than as an honest reason to keep the task `__in_progress__`.
 - Do not treat partial proof progress by itself as a valid reason to leave unchecked `Testing` items open when neither a blocker nor prerequisite unchecked subtasks justify that handoff.
+- Do not treat newly added or remaining unchecked subtasks as an honest defer reason unless the audit can explain how they must be completed before the next remaining unchecked `Testing` item can run honestly.
+- If unchecked `Testing` items remain and the unchecked subtasks are not true prerequisites for the next remaining testing step, convert that state into a live standalone `**BLOCKER**` note instead of leaving the task silently deferred.
 - Do not research or repair the blocker in this step.
 
 </audit_rules>
+
+<stall_detection_rules>
+
+- Compare the current task's open `Testing` items, open `Subtasks`, and recent audit or implementation notes against the latest automated-proof pass.
+- If unchecked `Testing` items remain while no unchecked subtasks remain and no live standalone `**BLOCKER**` note remains, treat that as a stalled invalid partial-proof state.
+- In that stalled invalid partial-proof state, add a live standalone `**BLOCKER**` note immediately rather than letting the loop continue silently.
+- That blocker note must state:
+  - the exact remaining unchecked `Testing` items;
+  - that the latest automated-proof pass ended with remaining testing and no blocker or honest defer reason;
+  - what proof work was attempted;
+  - and that planner intervention is now required to split, narrow, re-own, or concretize the remaining proof path before automated proof can continue honestly.
+
+</stall_detection_rules>
 
 <task_status_rules>
 
@@ -104,6 +119,9 @@ Before finishing:
 - confirm any prose-only remaining-work note was either converted into an unchecked checklist item or blocker, or ignored for completion because it was not an honest remaining gate;
 - confirm you did not leave unchecked `Testing` items open without either a live blocker or prerequisite unchecked subtasks that honestly defer the remaining proof;
 - confirm you did not treat partial proof progress alone as a valid reason to keep the task `__in_progress__`;
+- confirm that if unchecked `Testing` items remain with no blocker, you identified the exact prerequisite unchecked subtasks for the next remaining testing step;
+- confirm you did not accept a defer-to-implementation state based on unrelated or merely adjacent unchecked subtasks;
+- confirm any invalid partial-proof state was converted into a visible live standalone `**BLOCKER**` note rather than left to loop silently;
 - confirm any newly created subtasks stayed within implementation or proof-authoring work;
 - confirm any newly created `Testing` items remain automated-only;
 - confirm you did not create manual-testing checklist items in `Subtasks` or `Testing`;

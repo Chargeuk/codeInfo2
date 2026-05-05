@@ -25,6 +25,10 @@ import { startFlowRun } from '../../flows/service.js';
 import { resetStore } from '../../logStore.js';
 import { callTool } from '../../mcpAgents/tools.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -115,9 +119,11 @@ let previousPreferredAgentsHome: string | undefined;
 
 beforeEach(() => {
   previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+  installDeterministicCodexAvailabilityBootstrap();
 });
 
 afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {

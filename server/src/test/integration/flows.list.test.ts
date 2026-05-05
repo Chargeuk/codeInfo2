@@ -8,9 +8,9 @@ import express from 'express';
 import supertest from 'supertest';
 
 import {
-  __resetAgentAvailabilityDepsForTests,
-  __setAgentAvailabilityDepsForTests,
-} from '../../agents/availability.js';
+  resetDeterministicCodexAvailabilityBootstrap,
+  installDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
 
@@ -119,34 +119,13 @@ const buildApp = (params?: {
   return app;
 };
 
-const setDefaultAvailabilityDeps = () => {
-  __setAgentAvailabilityDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-      reason: undefined,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      models: ['copilot-gpt-5'],
-      modelsRaw: [],
-      authSource: 'env-token',
-    }),
-    getLmStudioBaseUrl: () => undefined,
-  });
-};
-
 describe('GET /flows', () => {
   afterEach(() => {
-    __resetAgentAvailabilityDepsForTests();
+    resetDeterministicCodexAvailabilityBootstrap();
   });
 
   test('missing flows folder returns empty list', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const missingDir = path.join(process.cwd(), 'tmp-flows-missing');
     await fs.rm(missingDir, { recursive: true, force: true });
     await withFlowsDir(missingDir, async () => {
@@ -158,7 +137,7 @@ describe('GET /flows', () => {
   });
 
   test('lists flows with disabled/error states for invalid entries', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
     await writeAgentConfig({
@@ -213,7 +192,7 @@ describe('GET /flows', () => {
   });
 
   test('ingested flows include source metadata and sort by display label', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -254,7 +233,7 @@ describe('GET /flows', () => {
   });
 
   test('local flows omit source metadata', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -463,6 +442,7 @@ describe('GET /flows', () => {
   });
 
   test('ingest repository failures return local flows only', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -488,7 +468,7 @@ describe('GET /flows', () => {
   });
 
   test('local flow discovery reuses the winning codeinfo_agents contract for referenced agents', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-agents-'),
     );
@@ -515,7 +495,7 @@ describe('GET /flows', () => {
   });
 
   test('local flow discovery surfaces duplicate warnings when codeinfo_agents beats codex_agents', async () => {
-    setDefaultAvailabilityDeps();
+    installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-agents-'),
     );

@@ -798,7 +798,7 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview

@@ -44,6 +44,10 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -576,6 +580,163 @@ test('POST /flows/:flowName/run returns 409 for concurrent runs', async () => {
     assert.equal(res.body.code, 'RUN_IN_PROGRESS');
   } finally {
     releaseConversationLock(conversationId);
+    if (prevAgentsHome) {
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    } else {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    }
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('resumed flow run keeps the saved child identity stable when the pinned model becomes unavailable', async () => {
+  installDeterministicCodexAvailabilityBootstrap({
+    models: [{ model: 'gpt-5.3-codex' }],
+  });
+
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-unavailable-'),
+  );
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const flowConversationId = 'flow-resume-unavailable-conv';
+  const childConversationId = 'flow-resume-unavailable-child';
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  await writeFlowFile({
+    tmpDir,
+    flowName: 'resume-unavailable',
+    steps: [
+      {
+        type: 'llm',
+        label: 'Step 1',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 1'] }],
+      },
+      {
+        type: 'llm',
+        label: 'Step 2',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 2'] }],
+      },
+    ],
+  });
+
+  memoryConversations.set(flowConversationId, {
+    _id: flowConversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'Flow: resume-unavailable',
+    flowName: 'resume-unavailable',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-unavailable-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentThreads: {},
+        agentProviders: {
+          'coding_agent:resume-test': 'codex',
+        },
+        agentModels: {
+          'coding_agent:resume-test': 'gpt-5.2-codex',
+        },
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastMessageAt: new Date(),
+    archivedAt: null,
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-unavailable (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      flowChild: { executionId: 'resume-unavailable-execution' },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastMessageAt: new Date(),
+    archivedAt: null,
+  });
+
+  const { app } = buildApp();
+
+  try {
+    const response = await supertest(app)
+      .post('/flows/resume-unavailable/run')
+      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+    assert.equal(response.status, 202);
+
+    await waitForConversationUnlocked(flowConversationId);
+    const turns = await waitForTurns(
+      flowConversationId,
+      (items) =>
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            /Saved model "gpt-5.2-codex" is unavailable/i.test(
+              turn.content ?? '',
+            ),
+        ),
+    );
+    const failureTurn = turns.find(
+      (turn) =>
+        turn.role === 'assistant' &&
+        turn.status === 'failed' &&
+        /Saved model "gpt-5.2-codex" is unavailable/i.test(
+          turn.content ?? '',
+        ),
+    );
+    assert.ok(failureTurn);
+    assert.equal(failureTurn.provider, 'codex');
+    assert.equal(failureTurn.model, 'gpt-5.3-codex');
+
+    const flowConversation = memoryConversations.get(flowConversationId);
+    const childConversation = memoryConversations.get(childConversationId);
+    const flowFlags = (flowConversation?.flags ?? {}) as {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+
+    assert.equal(memoryConversations.size, 2);
+    assert.deepEqual(
+      [...memoryConversations.keys()].sort(),
+      [childConversationId, flowConversationId].sort(),
+    );
+    assert.equal(
+      flowFlags.flow?.agentConversations?.['coding_agent:resume-test'],
+      childConversationId,
+    );
+    assert.equal(childConversation?.provider, 'codex');
+    assert.equal(childConversation?.model, 'gpt-5.2-codex');
+    assert.deepEqual(memoryTurns.get(childConversationId) ?? [], []);
+  } finally {
+    resetDeterministicCodexAvailabilityBootstrap();
+    memoryConversations.delete(flowConversationId);
+    memoryTurns.delete(flowConversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
     if (prevAgentsHome) {
       process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     } else {

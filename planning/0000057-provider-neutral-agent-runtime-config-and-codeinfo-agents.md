@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -712,7 +712,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1315,6 +1315,10 @@ This final task validates the full Story 57 contract rather than isolated seams.
 7. [x] Populate `codeInfoStatus/pr-summaries/0000057-pr-summary.md` with the final traceability map from task numbers to proof homes without duplicating unchecked task state from the executable plan. Purpose: make the close-out artifact reviewer-friendly while keeping the plan as the source of truth.
 8. [x] Run `npm run lint` for the final Story 57 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
 9. [x] Run `npm run format:check` for the final Story 57 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+10. [ ] In `server/src/lmstudio/toolService.ts`, `server/src/workingFolders/state.ts`, and `server/src/routes/conversations.ts`, make `POST /conversations/:id/working-folder` accept the same ingested repository identity that `/tools/ingested-repos` advertises on the supported main compose stack, including the current host-path versus `/data` container-path bridge for mounted repos. Purpose: restore a manual-proofable selected-repository contract for final Story 57 MCP and explicit-provider validation.
+11. [ ] Add one automated proof in `server/src/test/unit/conversations-router-agent-filter.test.ts` that a working-folder edit succeeds when the advertised ingested root and the runtime-visible root differ only by the supported host/container path bridge. Purpose: lock the repaired Task 9 repository-selection contract in one direct route-level proof home.
+12. [ ] Add one automated proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that explicit-provider `codebase_question` reuses the saved working-folder repository context after the working-folder identity bridge is applied. Purpose: ensure the final Story 57 manual retest can prove the same selected repository reaches the provider-specific MCP execution path.
+13. [ ] In `server/Dockerfile` and the checked-in `codex_agents/*/config.toml` seed set that is copied into `/app/codeinfo_agents`, expose one main-stack invalid-`codeinfo_provider` warning case and one main-stack no-usable-provider disabled case, or narrow this task's `Manual Testing Guidance` in the same plan section if the supported compose seed intentionally will not ship those proof surfaces. Purpose: make the final Story 57 selected-agent warning and disabled-state manual proof surface honest on the normal main stack.
 
 #### Testing
 
@@ -1328,7 +1332,7 @@ This final task validates the full Story 57 contract rather than isolated seams.
 8. [x] Run `npm run compose:up` from the repository root to start the normal main stack after the build and automated suite wrappers are green, then confirm the server health endpoint at `http://localhost:5010/health` and the client at `http://localhost:5001` respond. Use this smoke step because Story 57 changes the normal compose-backed runtime contract, not only the special e2e runtime path. If startup fails, inspect `npm run compose:logs`, fix the issue, and rerun the same wrapper.
 9. [x] Run `npm run compose:down` from the repository root after the Task 9 smoke step started with `npm run compose:up`. Use this wrapper to shut down only the normal main stack that this task started, keeping the smoke-proof ownership boundary explicit.
 10. [x] Run `npm run lint` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-11. [x] Run `npm run format:check` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+11. [ ] Run `npm run format:check` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -1361,3 +1365,4 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 testing step 9 passed via `npm run compose:down`; the wrapper stopped and removed only the main-stack containers and `codeinfo2_internal` network that this smoke step started.
 - Task 9 automated proof needed one cucumber repair round on this pass: removing the ingest-manage hook-local `10s` timeout reset avoided capping later shared hooks, guarding its teardown against missing test-mode setup avoided a cascade after failed setup, and Chroma collection cleanup now treats `Missing metadata segment` as an empty-store cleanup case. After those in-scope fixes, the full `npm run test:summary:server:cucumber` wrapper rerun passed `117/117`.
 - Automated-proof audit closed Task 9 after rereading the task from disk and confirming all nine subtasks, all eleven testing steps, and zero live blockers were already honest on disk, so the task status now matches the completed final-validation evidence.
+- Manual testing expanded to full-story scope because Task 9 is the final Story 57 task, but the pass found two concrete proof blockers on the supported main stack and reopened the task. The scratch proof bundle under `codeInfoTmp/manual-testing/0000057/9/` captures the successful `/agents` and `/flows` warning screenshots plus the failing MCP and working-folder evidence: `/tools/ingested-repos` advertises host-form roots such as `/home/d_a_s/code/story55-manual-proof/queued-repo`, while `POST /conversations/:id/working-folder` rejects both those host-form paths and the visible `/data/...` container-form paths with `WORKING_FOLDER_NOT_FOUND`, which prevents the explicit-provider `codebase_question` repository-grounding proof from running honestly on the main stack. The same pass also confirmed that the current `/app/codeinfo_agents` seed copied from `codex_agents` exposes only duplicate-root and discovery warnings, not the invalid-provider or no-usable-provider selected-agent cases that this task's manual guidance still requires. Added Task 9 follow-up subtasks 10 through 13 and reopened testing step 11 so automated proof must rerun before a later manual retest.

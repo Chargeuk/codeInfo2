@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
+import { resolveAgentHomeEnv } from '../../../agents/roots.js';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
@@ -566,6 +567,7 @@ test('codebase_question reuses saved selected-repository metadata when provider 
   );
   const chat = new CapturingChat();
   const conversationId = 'mcp-working-folder-selected';
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
 
   __setCodebaseQuestionMemoryConversationForTests({
@@ -607,7 +609,7 @@ test('codebase_question reuses saved selected-repository metadata when provider 
     });
     assert.deepEqual(chat.lastFlags?.repositoryContext, {
       selectedRepositoryPath: repoRoot,
-      defaultExecutionRoot: '/data',
+      defaultExecutionRoot: expectedRepoRoot,
       workingDirectoryOverride: repoRoot,
       fallbackUsed: false,
       workingRepositoryAvailable: true,
@@ -620,6 +622,7 @@ test('codebase_question reuses saved selected-repository metadata when provider 
 
 test('codebase_question uses the shared default execution root when no working_folder is selected', async () => {
   const chat = new CapturingChat();
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
   process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
 
@@ -636,15 +639,15 @@ test('codebase_question uses the shared default execution root when no working_f
 
     assert.deepEqual(chat.lastFlags?.runtime, {
       lookupSummary: {
-        selectedRepositoryPath: '/mounted/default-root',
+        selectedRepositoryPath: expectedRepoRoot,
         fallbackUsed: true,
         workingRepositoryAvailable: false,
       },
     });
     assert.deepEqual(chat.lastFlags?.repositoryContext, {
-      selectedRepositoryPath: '/mounted/default-root',
-      defaultExecutionRoot: '/mounted/default-root',
-      workingDirectoryOverride: '/mounted/default-root',
+      selectedRepositoryPath: expectedRepoRoot,
+      defaultExecutionRoot: expectedRepoRoot,
+      workingDirectoryOverride: expectedRepoRoot,
       fallbackUsed: true,
       workingRepositoryAvailable: false,
     });

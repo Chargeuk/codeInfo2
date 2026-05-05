@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { tool } from '@lmstudio/sdk';
 import type { ToolCallContext } from '@lmstudio/sdk';
 import { z } from 'zod';

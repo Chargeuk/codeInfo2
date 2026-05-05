@@ -8,6 +8,7 @@ import test from 'node:test';
 
 import express from 'express';
 
+import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   getCompletedInflightByReplayId,
   getInflight,
@@ -404,6 +405,7 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
     flags: Record<string, unknown>;
     conversationId: string;
   }> = [];
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
   const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
   process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
@@ -456,15 +458,15 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0]?.flags.runtime, {
       lookupSummary: {
-        selectedRepositoryPath: '/mounted/ws-default-root',
+        selectedRepositoryPath: expectedRepoRoot,
         fallbackUsed: true,
         workingRepositoryAvailable: false,
       },
     });
     assert.deepEqual(calls[0]?.flags.repositoryContext, {
-      selectedRepositoryPath: '/mounted/ws-default-root',
-      defaultExecutionRoot: '/mounted/ws-default-root',
-      workingDirectoryOverride: '/mounted/ws-default-root',
+      selectedRepositoryPath: expectedRepoRoot,
+      defaultExecutionRoot: expectedRepoRoot,
+      workingDirectoryOverride: expectedRepoRoot,
       fallbackUsed: true,
       workingRepositoryAvailable: false,
     });

@@ -846,10 +846,10 @@ This task pulls the repository-selection and working-directory logic into one pr
 #### Testing
 
 1. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 3 changes shared chat, working-folder, and MCP runtime plumbing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+2. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after the shared execution-context migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 4. [x] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -878,6 +878,8 @@ This task pulls the repository-selection and working-directory logic into one pr
 - Updated `server/src/lmstudio/tools.ts` so `VectorSearch` defaults to the selected repository from `repositoryContext` when the model omits `repository`, closing the gap where LM Studio carried Task 3 grounding metadata but still searched all ingested roots.
 - The reopened Task 3 `npm run lint` pass only found import ordering in `codebaseQuestion.ts` and an unused model parameter in the new omitted-provider proof chat stub; both fixes were local, and the rerun passed cleanly.
 - The reopened Task 3 `npm run format:check` pass finished with `All matched files use Prettier code style!`, so the repo formatter did not need any further rewrites after the omitted-provider grounding fix.
+- The reopened Task 3 `npm run test:summary:server:unit` proof pass first failed on one missing `node:path` import in `lmstudio/tools.ts`, then on three stale proof expectations that still assumed the pre-reopen default-root contract; after importing `path` and updating those omitted-provider MCP expectations to the configured agent-home repo root, the full rerun finished with `1988` passing tests.
+- The reopened Task 3 `npm run format:check` proof pass finished cleanly with `All matched files use Prettier code style!`, so the proof-time repo-root expectation fixes did not need any further formatter rewrite.
 
 ### Task 4. Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
 

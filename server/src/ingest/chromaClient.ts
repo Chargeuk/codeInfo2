@@ -537,7 +537,8 @@ export async function clearRootsCollection(where?: Record<string, unknown>) {
     if (
       errorName.includes('ChromaNotFoundError') ||
       message.includes('ChromaNotFoundError') ||
-      message.includes('requested resource could not be found')
+      message.includes('requested resource could not be found') ||
+      message.includes('Missing metadata segment')
     ) {
       baseLogger.info('clearRootsCollection skipped; collection missing');
       return;
@@ -566,7 +567,8 @@ export async function clearVectorsCollection(where?: Record<string, unknown>) {
     if (
       errorName.includes('ChromaNotFoundError') ||
       message.includes('ChromaNotFoundError') ||
-      message.includes('requested resource could not be found')
+      message.includes('requested resource could not be found') ||
+      message.includes('Missing metadata segment')
     ) {
       baseLogger.info('clearVectorsCollection skipped; collection missing');
       return;

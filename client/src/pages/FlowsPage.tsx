@@ -261,7 +261,12 @@ export default function FlowsPage() {
   const flowInfoEmptyMessage =
     flowDetailsError ??
     'No description or warnings are available for this flow yet.';
-  const selectedFlowDisabled = Boolean(selectedFlow?.disabled);
+  const selectedFlowDisabled = Boolean(
+    selectedFlowDetails?.disabled ?? selectedFlow?.disabled,
+  );
+  const selectedFlowDisabledReason =
+    selectedFlowDetails?.disabledReason?.message ??
+    (selectedFlow?.disabled ? selectedFlow?.error : undefined);
 
   const flowConversations = useMemo(
     () => (selectedFlowName.trim() ? conversations : []),
@@ -1026,8 +1031,14 @@ export default function FlowsPage() {
 
   const startFlowRun = useCallback(
     async (mode: 'run' | 'resume') => {
-      if (!selectedFlowName || selectedFlowDisabled) return;
+      if (!selectedFlowName) return;
       setRunError(null);
+      if (selectedFlowDisabled) {
+        setRunError(
+          selectedFlowDisabledReason ?? 'This flow is currently disabled.',
+        );
+        return;
+      }
       if (persistenceUnavailable || !wsTranscriptReady) {
         setRunError(
           'Realtime connection unavailable — Flow runs require WebSocket streaming.',
@@ -1140,6 +1151,7 @@ export default function FlowsPage() {
       refreshConversations,
       resumeStepPath,
       selectedFlowDisabled,
+      selectedFlowDisabledReason,
       selectedFlow?.sourceId,
       selectedFlowName,
       setConversation,

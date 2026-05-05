@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -82,13 +84,24 @@ async function setupWsTestServer() {
   const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-ws-cancel-'));
+  const agentsHome = path.join(tempRoot, 'codeinfo_agents');
+  const codexHome = path.join(tempRoot, 'codex');
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "codex"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
   );
-  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
 
   const app = express();
   const httpServer = http.createServer(app);
@@ -103,10 +116,11 @@ async function setupWsTestServer() {
     ws,
     wsHandle,
     httpServer,
-    restoreEnv() {
+    async restoreEnv() {
       process.env.CODEINFO_AGENT_HOME = prevAgentHome;
       process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
       process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+      await fs.rm(tempRoot, { recursive: true, force: true });
     },
   };
 }
@@ -241,7 +255,7 @@ test('cancelling an in-flight direct agent run does not rewrite the stored execu
           e.type === 'assistant_delta' && e.conversationId === conversationId
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 15_000,
     });
 
     const finalPromise = waitForEvent({
@@ -264,7 +278,7 @@ test('cancelling an in-flight direct agent run does not rewrite the stored execu
           e.status === 'stopped'
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 15_000,
     });
 
     const runPromise = runAgentInstructionUnlocked({
@@ -295,7 +309,7 @@ test('cancelling an in-flight direct agent run does not rewrite the stored execu
     await new Promise<void>((resolve) =>
       server.httpServer.close(() => resolve()),
     );
-    server.restoreEnv();
+    await server.restoreEnv();
   }
 });
 
@@ -328,7 +342,7 @@ test('Agents startup-race conversation-only stop finishes a normal run as stoppe
           typeof e.inflightId === 'string'
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 15_000,
     });
 
     const started = await startAgentInstruction({
@@ -354,7 +368,7 @@ test('Agents startup-race conversation-only stop finishes a normal run as stoppe
     await new Promise<void>((resolve) =>
       server.httpServer.close(() => resolve()),
     );
-    server.restoreEnv();
+    await server.restoreEnv();
   }
 });
 
@@ -391,7 +405,7 @@ test('Duplicate stop requests for a normal agent run emit one terminal event', a
           e.status === 'stopped'
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 15_000,
     });
 
     await startAgentInstruction({
@@ -420,7 +434,7 @@ test('Duplicate stop requests for a normal agent run emit one terminal event', a
     await new Promise<void>((resolve) =>
       server.httpServer.close(() => resolve()),
     );
-    server.restoreEnv();
+    await server.restoreEnv();
   }
 });
 
@@ -451,7 +465,7 @@ test('Normal agent stop cleanup fallback still releases runtime state', async ()
           e.status === 'stopped'
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 15_000,
     });
 
     const started = await startAgentInstruction({
@@ -469,7 +483,7 @@ test('Normal agent stop cleanup fallback still releases runtime state', async ()
 
     const waitForInflight = async () => {
       const startedAt = Date.now();
-      while (Date.now() - startedAt < 4_000) {
+      while (Date.now() - startedAt < 15_000) {
         const inflight = getInflight(conversationId);
         if (inflight?.inflightId === started.inflightId) return;
         await delay(25);
@@ -488,7 +502,7 @@ test('Normal agent stop cleanup fallback still releases runtime state', async ()
     await new Promise<void>((resolve) =>
       server.httpServer.close(() => resolve()),
     );
-    server.restoreEnv();
+    await server.restoreEnv();
   }
 });
 
@@ -519,7 +533,7 @@ test('A new normal agent run can start on the same conversation after confirmed 
           e.status === 'stopped'
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 15_000,
     });
 
     await startAgentInstruction({

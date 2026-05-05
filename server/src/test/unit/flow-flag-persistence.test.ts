@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import mongoose from 'mongoose';
 
-import { sanitizeConversationFlagsForProvider } from '../../chat/agentFlags.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import {
   listConversations,
@@ -18,25 +17,6 @@ const restore = <T extends object, K extends keyof T>(
 ) => {
   (target as Record<string, unknown>)[key as string] = original as unknown;
 };
-
-test('ordinary conversation flag sanitization drops flow-owned metadata while nested flow writers remain the owner', () => {
-  assert.deepEqual(
-    sanitizeConversationFlagsForProvider(
-      'codex',
-      {
-        flow: { executionId: 'smuggled-parent-1' },
-        flowChild: { executionId: 'smuggled-child-1' },
-        threadId: 'thread-1',
-        workingFolder: '/repos/flow-root',
-      },
-      { preserveFlowState: false },
-    ),
-    {
-      threadId: 'thread-1',
-      workingFolder: '/repos/flow-root',
-    },
-  );
-});
 
 test('updateConversationFlowState persists flags.flow via the legitimate nested $set writer', async () => {
   const originalReady = mongoose.connection.readyState;

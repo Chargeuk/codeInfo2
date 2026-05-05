@@ -142,26 +142,36 @@ export function useConversations(params?: {
   const controllerRef = useRef<AbortController | null>(null);
   const log = useMemo(() => createLogger('client-flows'), []);
 
+  const normalizedAgentName =
+    typeof agentName === 'string' ? agentName.trim() : '';
   const normalizedFlowName =
     typeof flowName === 'string' ? flowName.trim() : '';
 
   const applyFilter = useCallback(
     (items: ConversationSummary[]) => {
-      const flowFiltered = normalizedFlowName
+      const agentFiltered = normalizedAgentName
         ? items.filter((item) => {
+            if (normalizedAgentName === '__none__') {
+              return !item.agentName;
+            }
+            return item.agentName === normalizedAgentName;
+          })
+        : items;
+      const flowFiltered = normalizedFlowName
+        ? agentFiltered.filter((item) => {
             if (normalizedFlowName === '__none__') {
               return !item.flowName;
             }
             return item.flowName === normalizedFlowName;
           })
-        : items;
+        : agentFiltered;
       if (filterState === 'all') return flowFiltered;
       if (filterState === 'archived') {
         return flowFiltered.filter((item) => Boolean(item.archived));
       }
       return flowFiltered.filter((item) => !item.archived);
     },
-    [filterState, normalizedFlowName],
+    [filterState, normalizedAgentName, normalizedFlowName],
   );
 
   const dedupeAndSort = useCallback((items: ConversationSummary[]) => {
@@ -217,11 +227,12 @@ export function useConversations(params?: {
           cursor: cursorRef.current,
         });
         log('info', 'flows.filter.requested', {
+          agentName: normalizedAgentName || '__all__',
           flowName: normalizedFlowName || '__all__',
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         search.set('state', filterState);
-        if (agentName) search.set('agentName', agentName);
+        if (normalizedAgentName) search.set('agentName', normalizedAgentName);
         if (normalizedFlowName) search.set('flowName', normalizedFlowName);
         const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
         if (mode === 'append' && cursorToUse) search.set('cursor', cursorToUse);
@@ -264,6 +275,7 @@ export function useConversations(params?: {
     [
       agentName,
       filterState,
+      normalizedAgentName,
       normalizedFlowName,
       log,
       dedupeAndSort,

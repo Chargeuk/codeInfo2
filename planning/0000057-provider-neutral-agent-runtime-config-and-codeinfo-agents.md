@@ -1023,7 +1023,7 @@ This task turns direct agent execution into the real provider-neutral runtime th
 2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 5 proof homes are server unit and integration tests around direct run, persistence, and continuation behavior. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after Task 5 changes direct-agent lifecycle, persistence, and continuation behavior. This wrapper is expected to exercise the task-owned direct-agent runtime contract through the repository's normal backend proof path rather than only targeted unit scenarios. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 4. [x] Run `npm run lint` for the final Task 5 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 5 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1054,6 +1054,7 @@ This task turns direct agent execution into the real provider-neutral runtime th
 - Closed Task 5 subtask 25 by extending `server/src/test/unit/turn-command-metadata.test.ts` with an owner-only direct-command regression proof that keeps turn runtime metadata pinned to the requested working repository even when `sourceId` resolves the command file from a different repository root.
 - Ran `npm run lint` for the reopened Task 5 surface; ESLint passed cleanly after the direct-command runtime-metadata split and the new turn-metadata proof were added, so no follow-up lint repair was needed at this checkpoint.
 - Ran `npm run format:check` for the reopened Task 5 surface; Prettier finished with `All matched files use Prettier code style!`, so the direct-command metadata repair stayed formatter-clean before the later automated-proof rerun.
+- Implementation-only audit marked the reopened final `npm run format:check` testing step complete from the latest recorded pass; Task 5 stays `__in_progress__` because the full `npm run test:summary:server:unit` rerun is still the remaining automated-proof gate.
 
 ### Task 6. Switch flow-owned agent execution to the same provider-neutral runtime and continuation contract
 

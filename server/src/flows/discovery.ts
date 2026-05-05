@@ -2,6 +2,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  createAgentAvailabilityContext,
+  evaluateAgentAvailability,
+  toAgentListWarnings,
+  type AgentAvailabilityWarning,
+  type AgentDisabledReason,
+} from '../agents/availability.js';
+import {
   resolveAgentHomeForRepository,
   resolveAgentHomeEnv,
 } from '../agents/roots.js';
@@ -20,6 +27,8 @@ export type FlowSummary = {
   warnings?: string[];
   sourceId?: string;
   sourceLabel?: string;
+  warningDetails?: AgentAvailabilityWarning[];
+  disabledReason?: AgentDisabledReason;
 };
 
 const INVALID_DESCRIPTION = 'Invalid flow file';
@@ -77,6 +86,81 @@ const collectFlowWarnings = async (params: {
     }
   }
   return warnings.size > 0 ? [...warnings] : undefined;
+};
+
+const collectFlowAvailability = async (params: {
+  parsedFlow?: FlowFile;
+  repositoryRoot: string;
+}) => {
+  if (!params.parsedFlow) {
+    return {
+      warnings: undefined,
+      warningDetails: undefined,
+      disabledReason: undefined,
+    };
+  }
+
+  const warnings = new Set<string>();
+  const warningDetails: AgentAvailabilityWarning[] = [];
+  let disabledReason: AgentDisabledReason | undefined;
+  const availabilityContext = await createAgentAvailabilityContext();
+
+  for (const agentName of collectAgentTypes(params.parsedFlow.steps)) {
+    const resolved = await resolveAgentHomeForRepository({
+      repositoryRoot: params.repositoryRoot,
+      agentName,
+    });
+
+    if (!resolved.home) {
+      const message = `Flow agent "${agentName}" could not be found under "${params.repositoryRoot}".`;
+      warningDetails.push({
+        code: 'discovery_warning',
+        message,
+        visibility: 'details',
+      });
+      disabledReason ??= {
+        code: 'agent_not_found',
+        message,
+      };
+      continue;
+    }
+
+    const availability = await evaluateAgentAvailability({
+      agentName,
+      configPath: path.join(resolved.home, 'config.toml'),
+      discoveryWarnings: resolved.warnings,
+      entrypoint: 'flows.service',
+      context: availabilityContext,
+    });
+
+    for (const warning of toAgentListWarnings(availability)) {
+      warnings.add(warning);
+    }
+    for (const warning of availability.warnings) {
+      if (
+        !warningDetails.some(
+          (entry) =>
+            entry.code === warning.code && entry.message === warning.message,
+        )
+      ) {
+        warningDetails.push(warning);
+      }
+    }
+
+    if (availability.disabledReason && !disabledReason) {
+      disabledReason = {
+        code: availability.disabledReason.code,
+        providerId: availability.disabledReason.providerId,
+        message: `Flow agent "${agentName}" is unavailable: ${availability.disabledReason.message}`,
+      };
+    }
+  }
+
+  return {
+    warnings: warnings.size > 0 ? [...warnings] : undefined,
+    warningDetails: warningDetails.length > 0 ? warningDetails : undefined,
+    disabledReason,
+  };
 };
 
 const buildSummary = (params: {
@@ -164,20 +248,37 @@ export async function discoverFlows(params?: {
       }
 
       const parsed = parseFlowFile(jsonText, { flowName: name });
-      const warnings = await collectFlowWarnings({
+      const listWarnings = await collectFlowWarnings({
         parsedFlow: parsed.ok ? parsed.flow : undefined,
         repositoryRoot: params.repositoryRoot,
       });
+      const availability = await collectFlowAvailability({
+        parsedFlow: parsed.ok ? parsed.flow : undefined,
+        repositoryRoot: params.repositoryRoot,
+      });
+      const warnings = [
+        ...new Set([...(listWarnings ?? []), ...(availability.warnings ?? [])]),
+      ];
       summaries.push(
         buildSummary({
           name,
           parsed,
-          error: parsed.ok ? undefined : 'Invalid flow file',
+          error: parsed.ok
+            ? availability.disabledReason?.message
+            : 'Invalid flow file',
           warnings,
           sourceId: params.sourceId,
           sourceLabel: params.sourceLabel,
         }),
       );
+      const latest = summaries[summaries.length - 1];
+      if (latest) {
+        latest.warningDetails = availability.warningDetails;
+        latest.disabledReason = availability.disabledReason;
+        if (availability.disabledReason) {
+          latest.disabled = true;
+        }
+      }
     }
 
     return summaries;

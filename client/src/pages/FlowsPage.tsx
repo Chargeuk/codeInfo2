@@ -28,7 +28,9 @@ import {
 } from 'react';
 import {
   FlowApiError,
+  type FlowDetails,
   type FlowSummary,
+  getFlowDetails,
   listFlows,
   runFlow,
 } from '../api/flows';
@@ -118,6 +120,10 @@ export default function FlowsPage() {
   const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
 
   const [flows, setFlows] = useState<FlowSummary[]>([]);
+  const [flowDetailsByKey, setFlowDetailsByKey] = useState<
+    Record<string, FlowDetails | undefined>
+  >({});
+  const [flowDetailsError, setFlowDetailsError] = useState<string | null>(null);
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
   const [selectedFlowKey, setSelectedFlowKey] = useState('');
@@ -167,6 +173,9 @@ export default function FlowsPage() {
     () => flowOptions.find((flow) => flow.key === selectedFlowKey),
     [flowOptions, selectedFlowKey],
   );
+  const selectedFlowDetails = selectedFlowKey
+    ? flowDetailsByKey[selectedFlowKey]
+    : undefined;
   const selectedFlowName = selectedFlow?.name ?? '';
 
   const {
@@ -227,15 +236,30 @@ export default function FlowsPage() {
     [displayMessages],
   );
 
-  const flowDescription = selectedFlow?.description?.trim();
-  const flowWarnings =
-    selectedFlow?.disabled && selectedFlow?.error ? [selectedFlow.error] : [];
+  const flowDescription = (
+    selectedFlowDetails?.description ?? selectedFlow?.description
+  )?.trim();
+  const flowWarnings = Array.from(
+    new Set([
+      ...(selectedFlowDetails?.warnings.map((warning) => warning.message) ??
+        []),
+      ...(selectedFlow?.warnings ?? []),
+      ...(selectedFlowDetails?.disabledReason
+        ? [selectedFlowDetails.disabledReason.message]
+        : []),
+      ...(selectedFlow?.disabled && selectedFlow?.error
+        ? [selectedFlow.error]
+        : []),
+    ]),
+  );
   const flowInfoOpen = Boolean(flowInfoAnchorEl);
   const flowInfoId = flowInfoOpen ? 'flow-info-popover' : undefined;
   const flowInfoDisabled = flowsLoading || !selectedFlowName;
   const showFlowInfoButton = !flowsError;
-  const flowInfoEmpty = !flowDescription && flowWarnings.length === 0;
+  const flowInfoEmpty =
+    !flowDescription && flowWarnings.length === 0 && !flowDetailsError;
   const flowInfoEmptyMessage =
+    flowDetailsError ??
     'No description or warnings are available for this flow yet.';
   const selectedFlowDisabled = Boolean(selectedFlow?.disabled);
 
@@ -581,6 +605,35 @@ export default function FlowsPage() {
   useEffect(() => {
     void loadFlows();
   }, [loadFlows]);
+
+  useEffect(() => {
+    if (!flowInfoOpen || !selectedFlow) return;
+    if (flowDetailsByKey[selectedFlow.key]) return;
+
+    let cancelled = false;
+    setFlowDetailsError(null);
+    void getFlowDetails({
+      flowName: selectedFlow.name,
+      sourceId: selectedFlow.sourceId,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setFlowDetailsByKey((prev) => ({
+          ...prev,
+          [selectedFlow.key]: result.flow,
+        }));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setFlowDetailsError(
+          (error as Error).message ?? 'Failed to load flow details.',
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [flowDetailsByKey, flowInfoOpen, selectedFlow]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;

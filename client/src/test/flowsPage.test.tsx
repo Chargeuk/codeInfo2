@@ -180,6 +180,26 @@ describe('Flows page basics', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
+      if (target.includes('/flows/broken_flow')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'broken_flow',
+            description: 'Broken flow',
+            disabled: true,
+            warnings: [
+              {
+                code: 'provider_unavailable',
+                message: 'Failed to parse flow JSON',
+              },
+            ],
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'Failed to parse flow JSON',
+            },
+          },
+        });
+      }
+
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -255,6 +275,17 @@ describe('Flows page basics', () => {
 
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Run the **daily** flow.',
+            disabled: false,
+            warnings: [],
+          },
+        });
       }
 
       if (target.includes('/flows')) {
@@ -688,6 +719,16 @@ describe('Flows info popover', () => {
 
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/simple_flow')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'simple_flow',
+            disabled: false,
+            warnings: [],
+          },
+        });
       }
 
       if (target.includes('/flows')) {

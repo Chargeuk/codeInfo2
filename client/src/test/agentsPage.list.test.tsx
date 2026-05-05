@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -38,11 +38,42 @@ describe('Agents page - list', () => {
           json: async () => ({ mongoConnected: true }),
         } as Response);
       }
+      if (
+        target.includes('/agents/coding_agent') &&
+        !target.includes('/commands')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            agent: {
+              name: 'coding_agent',
+              description: '# Hello agent',
+              disabled: false,
+              warnings: [
+                {
+                  code: 'invalid_provider',
+                  message:
+                    'Agent config requested unsupported provider "not-a-provider".',
+                },
+              ],
+              fallbackCandidates: [],
+            },
+          }),
+        } as Response);
+      }
       if (target.includes('/agents')) {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          json: async () => ({
+            agents: [
+              {
+                name: 'coding_agent',
+                warnings: ['duplicate root warning'],
+              },
+            ],
+          }),
         } as Response);
       }
       if (target.includes('/conversations')) {
@@ -64,5 +95,13 @@ describe('Agents page - list', () => {
 
     const select = await screen.findByRole('combobox', { name: /agent/i });
     await waitFor(() => expect(select).toHaveTextContent('coding_agent'));
+    expect(
+      screen.queryByText(/unsupported provider "not-a-provider"/i),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByTestId('agent-info'));
+    expect(
+      await screen.findByText(/unsupported provider "not-a-provider"/i),
+    ).toBeInTheDocument();
   });
 });

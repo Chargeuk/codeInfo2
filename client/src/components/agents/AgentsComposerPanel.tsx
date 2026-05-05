@@ -30,6 +30,19 @@ type AgentOption = {
   name: string;
 };
 
+type AgentWarningDetails = {
+  code: string;
+  message: string;
+  providerId?: string;
+  fallbackProviderId?: string;
+};
+
+type AgentDisabledReason = {
+  code: string;
+  message: string;
+  providerId?: string;
+};
+
 type CommandOption = {
   key: string;
   label: string;
@@ -49,8 +62,9 @@ type AgentsComposerPanelProps = {
   startStep: number;
   selectedCommandStepCount: number;
   selectedCommandDescription: string;
-  agentWarnings: string[];
+  agentWarnings: AgentWarningDetails[];
   agentDescription?: string;
+  agentDisabledReason?: AgentDisabledReason;
   agentInfoDisabled: boolean;
   showAgentInfoButton: boolean;
   agentInfoEmpty: boolean;
@@ -131,6 +145,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   selectedCommandDescription,
   agentWarnings,
   agentDescription,
+  agentDisabledReason,
   agentInfoDisabled,
   showAgentInfoButton,
   agentInfoEmpty,
@@ -195,6 +210,16 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   conversationId,
   promptsError,
 }: AgentsComposerPanelProps) {
+  const warningMessages = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...agentWarnings.map((warning) => warning.message),
+          ...(agentDisabledReason ? [agentDisabledReason.message] : []),
+        ]),
+      ),
+    [agentDisabledReason, agentWarnings],
+  );
   const startStepValue = useMemo(
     () => (selectedCommandKey ? `${startStep}` : ''),
     [selectedCommandKey, startStep],
@@ -651,12 +676,12 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         data-testid="agent-info-popover"
       >
         <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
-          {agentWarnings.length > 0 ? (
+          {warningMessages.length > 0 ? (
             <Stack spacing={0.5} data-testid="agent-warnings">
               <Typography variant="subtitle2" color="warning.main">
                 Warnings
               </Typography>
-              {agentWarnings.map((warning) => (
+              {warningMessages.map((warning) => (
                 <Typography key={warning} variant="body2" color="warning.main">
                   {warning}
                 </Typography>

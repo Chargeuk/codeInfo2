@@ -4,11 +4,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 
+import {
+  __resetAgentAvailabilityDepsForTests,
+  __setAgentAvailabilityDepsForTests,
+} from '../../agents/availability.js';
 import { discoverAgents } from '../../agents/discovery.js';
 import {
   resolveAgentHomeEnv,
   resolveAgentHomeForRepository,
 } from '../../agents/roots.js';
+import { getAgentDetails, listAgents } from '../../agents/service.js';
 
 let tmpDir: string;
 let prevAgentHome: string | undefined;
@@ -36,6 +41,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  __resetAgentAvailabilityDepsForTests();
   if (prevAgentHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -200,4 +206,108 @@ test('resolveAgentHomeForRepository emits duplicate-warning metadata and discove
   const agents = await discoverAgents();
   assert.equal(agents.length, 1);
   assert.deepEqual(agents[0].warnings, resolved.warnings);
+});
+
+test('selected-agent details expose invalid-provider warnings and fallback candidates without widening the list entry', async () => {
+  const agentHome = await writeAgent({
+    rootDirName: 'codeinfo_agents',
+    agentName: 'coding_agent',
+  });
+  await fs.writeFile(
+    path.join(tmpDir, 'codeinfo_agents', 'coding_agent', 'description.md'),
+    '# Hello agent',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'codeinfo_provider = "not-a-provider"\n',
+    'utf8',
+  );
+  process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,lmstudio';
+
+  __setAgentAvailabilityDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: false,
+      reason: 'codex unavailable',
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token',
+    }),
+    getLmStudioBaseUrl: () => undefined,
+  });
+
+  const list = await listAgents();
+  assert.equal(list.agents.length, 1);
+  assert.deepEqual(list.agents[0].warnings, undefined);
+
+  const details = await getAgentDetails('coding_agent');
+  assert.equal(details.name, 'coding_agent');
+  assert.equal(
+    details.warnings.some((warning) => warning.code === 'invalid_provider'),
+    true,
+  );
+  assert.equal(
+    details.fallbackCandidates.some(
+      (candidate) =>
+        candidate.providerId === 'copilot' && candidate.available === true,
+    ),
+    true,
+  );
+  assert.equal(details.executionProviderId, 'copilot');
+});
+
+test('selected-agent details preserve duplicate-root warnings and disabled reasons when no fallback provider is available', async () => {
+  await writeAgent({
+    rootDirName: 'codeinfo_agents',
+    agentName: 'planning_agent',
+  });
+  await writeAgent({
+    rootDirName: 'codex_agents',
+    agentName: 'planning_agent',
+  });
+  await fs.writeFile(
+    path.join(tmpDir, 'codeinfo_agents', 'planning_agent', 'config.toml'),
+    'codeinfo_provider = "copilot"\n',
+    'utf8',
+  );
+  process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'lmstudio';
+
+  __setAgentAvailabilityDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: false,
+      reason: 'codex unavailable',
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      reason: 'copilot authentication required',
+      blockingStage: 'authentication',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+    getLmStudioBaseUrl: () => undefined,
+  });
+
+  const list = await listAgents();
+  assert.equal(list.agents[0]?.disabled, true);
+  assert.equal(Array.isArray(list.agents[0]?.warnings), true);
+
+  const details = await getAgentDetails('planning_agent');
+  assert.equal(
+    details.warnings.some((warning) => warning.code === 'duplicate_root'),
+    true,
+  );
+  assert.equal(details.disabledReason?.code, 'provider_unavailable');
 });

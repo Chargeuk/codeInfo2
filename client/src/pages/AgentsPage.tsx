@@ -18,8 +18,10 @@ import {
   useState,
 } from 'react';
 import {
+  AgentDetails,
   AgentPromptEntry,
   listAgentCommands,
+  getAgentDetails,
   listAgentPrompts,
   listAgents,
   runAgentCommand,
@@ -88,6 +90,13 @@ export default function AgentsPage() {
       warnings?: string[];
     }>
   >([]);
+  const [agentDetailsByName, setAgentDetailsByName] = useState<
+    Record<string, AgentDetails | undefined>
+  >({});
+  const [agentDetailsLoading, setAgentDetailsLoading] = useState(false);
+  const [agentDetailsError, setAgentDetailsError] = useState<string | null>(
+    null,
+  );
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [agentsLoading, setAgentsLoading] = useState(true);
 
@@ -1671,6 +1680,9 @@ export default function AgentsPage() {
   ]);
 
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
+  const selectedAgentDetails = selectedAgentName
+    ? agentDetailsByName[selectedAgentName]
+    : undefined;
   const hasVisibleStoppedRun =
     liveStoppedMarker !== null &&
     liveStoppedMarker.conversationId === activeConversationId &&
@@ -1761,14 +1773,22 @@ export default function AgentsPage() {
     selectedAgentName,
   ]);
 
-  const agentDescription = selectedAgent?.description?.trim();
-  const agentWarnings = selectedAgent?.warnings ?? [];
+  const agentDescription = (
+    selectedAgentDetails?.description ?? selectedAgent?.description
+  )?.trim();
+  const agentWarnings = selectedAgentDetails?.warnings ?? [];
   const agentInfoOpen = Boolean(agentInfoAnchorEl);
   const agentInfoId = agentInfoOpen ? 'agent-info-popover' : undefined;
-  const agentInfoDisabled = agentsLoading || !selectedAgentName;
+  const agentInfoDisabled =
+    agentsLoading || agentDetailsLoading || !selectedAgentName;
   const showAgentInfoButton = !agentsError;
-  const agentInfoEmpty = !agentDescription && agentWarnings.length === 0;
+  const agentInfoEmpty =
+    !agentDescription &&
+    agentWarnings.length === 0 &&
+    !selectedAgentDetails?.disabledReason &&
+    !agentDetailsError;
   const agentInfoEmptyMessage =
+    agentDetailsError ??
     'No description or warnings are available for this agent yet.';
 
   const showStop = isRunActive;
@@ -1823,6 +1843,37 @@ export default function AgentsPage() {
   const handleAgentInfoClose = () => {
     setAgentInfoAnchorEl(null);
   };
+
+  useEffect(() => {
+    if (!agentInfoOpen || !selectedAgentName) return;
+    if (agentDetailsByName[selectedAgentName]) return;
+
+    let cancelled = false;
+    setAgentDetailsLoading(true);
+    setAgentDetailsError(null);
+    void getAgentDetails(selectedAgentName)
+      .then((result) => {
+        if (cancelled) return;
+        setAgentDetailsByName((prev) => ({
+          ...prev,
+          [selectedAgentName]: result.agent,
+        }));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAgentDetailsError(
+          (error as Error).message ?? 'Failed to load agent details.',
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setAgentDetailsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [agentDetailsByName, agentInfoOpen, selectedAgentName]);
   const handleCommandInfoAttempt = () => {
     if (!commandInfoDisabled) return;
     console.info('[agents.commandInfo.blocked] reason=no_command_selected');
@@ -1995,6 +2046,7 @@ export default function AgentsPage() {
                 selectedCommandDescription={selectedCommandDescription}
                 agentWarnings={agentWarnings}
                 agentDescription={agentDescription}
+                agentDisabledReason={selectedAgentDetails?.disabledReason}
                 agentInfoDisabled={agentInfoDisabled}
                 showAgentInfoButton={showAgentInfoButton}
                 agentInfoEmpty={agentInfoEmpty}

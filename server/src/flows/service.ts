@@ -104,6 +104,7 @@ import {
 } from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
 
+import { discoverFlows, type FlowSummary } from './discovery.js';
 import {
   parseFlowFile,
   type FlowFile,
@@ -162,6 +163,42 @@ const defaultFlowServiceDeps: FlowServiceDeps = {
   runReingestStepLifecycle,
   createCallId: () => crypto.randomUUID(),
 };
+
+export async function listFlows(params?: {
+  baseDir?: string;
+  listIngestedRepositories?: typeof listIngestedRepositories;
+}): Promise<{ flows: FlowSummary[] }> {
+  const flows = await discoverFlows({
+    baseDir: params?.baseDir,
+    listIngestedRepositories: params?.listIngestedRepositories,
+  });
+  return { flows };
+}
+
+export async function getFlowDetails(params: {
+  flowName: string;
+  sourceId?: string;
+  baseDir?: string;
+  listIngestedRepositories?: typeof listIngestedRepositories;
+}): Promise<FlowSummary> {
+  const flows = await discoverFlows({
+    baseDir: params.baseDir,
+    listIngestedRepositories: params.listIngestedRepositories,
+  });
+  const flow = flows.find(
+    (entry) =>
+      entry.name === params.flowName &&
+      (params.sourceId ? entry.sourceId === params.sourceId : !entry.sourceId),
+  );
+  if (!flow) {
+    const error = new Error(`Flow "${params.flowName}" not found`) as Error & {
+      code?: string;
+    };
+    error.code = 'FLOW_NOT_FOUND';
+    throw error;
+  }
+  return flow;
+}
 
 const flowServiceDeps: FlowServiceDeps = {
   ...defaultFlowServiceDeps,

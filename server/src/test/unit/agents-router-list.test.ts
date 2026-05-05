@@ -1,39 +1,68 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { afterEach, beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import express from 'express';
 import request from 'supertest';
+
 import { createAgentsRouter } from '../../routes/agents.js';
 
-let tmpDir: string;
-let prevAgentsHome: string | undefined;
-
-beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-router-'));
-  prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  process.env.CODEINFO_CODEX_AGENT_HOME = tmpDir;
-});
-
-afterEach(async () => {
-  process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-  await fs.rm(tmpDir, { recursive: true, force: true });
-});
-
-function buildApp() {
+function buildApp(overrides?: {
+  listAgents?: () => Promise<{
+    agents: Array<{
+      name: string;
+      description?: string;
+      disabled?: boolean;
+      warnings?: string[];
+    }>;
+  }>;
+  getAgentDetails?: (agentName: string) => Promise<{
+    name: string;
+    description?: string;
+    disabled: boolean;
+    warnings: Array<{
+      code: string;
+      message: string;
+      providerId?: string;
+      fallbackProviderId?: string;
+    }>;
+    fallbackCandidates: Array<{
+      providerId: string;
+      available: boolean;
+      reason?: string;
+    }>;
+    requestedProviderId?: string;
+    executionProviderId?: string;
+    disabledReason?: {
+      code: string;
+      message: string;
+      providerId?: string;
+    };
+  }>;
+}) {
   const app = express();
   app.use(express.json());
-  app.use(createAgentsRouter());
+  app.use(
+    createAgentsRouter({
+      listAgents:
+        overrides?.listAgents ??
+        (async () => ({
+          agents: [{ name: 'coding_agent' }],
+        })),
+      getAgentDetails:
+        overrides?.getAgentDetails ??
+        (async (agentName: string) => ({
+          name: agentName,
+          description: '# Hello agent',
+          disabled: false,
+          warnings: [],
+          fallbackCandidates: [],
+        })),
+    }),
+  );
   return app;
 }
 
 test('GET /agents returns discovered agents', async () => {
-  const agentHome = path.join(tmpDir, 'coding_agent');
-  await fs.mkdir(agentHome, { recursive: true });
-  await fs.writeFile(path.join(agentHome, 'config.toml'), '# config');
-
   const res = await request(buildApp()).get('/agents');
 
   assert.equal(res.status, 200);
@@ -42,27 +71,75 @@ test('GET /agents returns discovered agents', async () => {
   assert.equal(res.body.agents[0].name, 'coding_agent');
 });
 
-test('GET /agents includes description when description.md exists', async () => {
-  const agentHome = path.join(tmpDir, 'coding_agent');
-  await fs.mkdir(agentHome, { recursive: true });
-  await fs.writeFile(path.join(agentHome, 'config.toml'), '# config');
-  await fs.writeFile(path.join(agentHome, 'description.md'), '# Hello agent');
-
-  const res = await request(buildApp()).get('/agents');
+test('GET /agents includes description when provided by the list payload', async () => {
+  const res = await request(
+    buildApp({
+      listAgents: async () => ({
+        agents: [{ name: 'coding_agent', description: '# Hello agent' }],
+      }),
+    }),
+  ).get('/agents');
 
   assert.equal(res.status, 200);
   assert.equal(res.body.agents.length, 1);
   assert.equal(res.body.agents[0].description, '# Hello agent');
 });
 
-test('GET /agents succeeds when description.md is missing', async () => {
-  const agentHome = path.join(tmpDir, 'coding_agent');
-  await fs.mkdir(agentHome, { recursive: true });
-  await fs.writeFile(path.join(agentHome, 'config.toml'), '# config');
+test('GET /agents keeps invalid-provider warnings off the list payload and exposes them on details only', async () => {
+  const app = buildApp({
+    listAgents: async () => ({
+      agents: [
+        {
+          name: 'coding_agent',
+          description: '# Hello agent',
+          disabled: false,
+          warnings: [
+            'Agent "coding_agent" exists in both codeinfo_agents and codex_agents under "/repo"; using codeinfo_agents and ignoring the legacy codex_agents copy.',
+          ],
+        },
+      ],
+    }),
+    getAgentDetails: async () => ({
+      name: 'coding_agent',
+      description: '# Hello agent',
+      disabled: false,
+      warnings: [
+        {
+          code: 'duplicate_root',
+          message:
+            'Agent "coding_agent" exists in both codeinfo_agents and codex_agents under "/repo"; using codeinfo_agents and ignoring the legacy codex_agents copy.',
+        },
+        {
+          code: 'invalid_provider',
+          message:
+            'Agent config requested unsupported provider "not-a-provider".',
+          providerId: 'not-a-provider',
+        },
+      ],
+      fallbackCandidates: [
+        {
+          providerId: 'copilot',
+          available: true,
+        },
+      ],
+      requestedProviderId: 'not-a-provider',
+      executionProviderId: 'copilot',
+    }),
+  });
 
-  const res = await request(buildApp()).get('/agents');
+  const listRes = await request(app).get('/agents');
+  assert.equal(listRes.status, 200);
+  assert.deepEqual(listRes.body.agents[0].warnings, [
+    'Agent "coding_agent" exists in both codeinfo_agents and codex_agents under "/repo"; using codeinfo_agents and ignoring the legacy codex_agents copy.',
+  ]);
 
-  assert.equal(res.status, 200);
-  assert.equal(res.body.agents.length, 1);
-  assert.equal('description' in res.body.agents[0], false);
+  const detailsRes = await request(app).get('/agents/coding_agent');
+  assert.equal(detailsRes.status, 200);
+  assert.equal(Array.isArray(detailsRes.body.agent.warnings), true);
+  assert.equal(
+    detailsRes.body.agent.warnings.some(
+      (warning: { code?: string }) => warning.code === 'invalid_provider',
+    ),
+    true,
+  );
 });

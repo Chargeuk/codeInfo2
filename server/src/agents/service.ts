@@ -75,6 +75,11 @@ import {
 import { publishUserTurn } from '../ws/server.js';
 
 import {
+  createAgentAvailabilityContext,
+  evaluateAgentAvailability,
+  toAgentListWarnings,
+} from './availability.js';
+import {
   loadAgentCommandFile,
   loadAgentCommandSummary,
 } from './commandsLoader.js';
@@ -87,17 +92,63 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
-import type { AgentSummary } from './types.js';
+import type { AgentDetails, AgentSummary } from './types.js';
 
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
   const discovered = await discoverAgents();
+  const availabilityContext = await createAgentAvailabilityContext();
+  const agents = await Promise.all(
+    discovered.map(async (agent) => {
+      const availability = await evaluateAgentAvailability({
+        agentName: agent.name,
+        configPath: agent.configPath,
+        discoveryWarnings: agent.warnings,
+        entrypoint: 'agents.service',
+        context: availabilityContext,
+      });
+      const warnings = toAgentListWarnings(availability);
+      return {
+        name: agent.name,
+        description: agent.description,
+        disabled: availability.disabled,
+        warnings: warnings.length > 0 ? warnings : undefined,
+      } satisfies AgentSummary;
+    }),
+  );
   return {
-    agents: discovered.map((agent) => ({
-      name: agent.name,
-      description: agent.description,
-      disabled: agent.disabled,
-      warnings: agent.warnings,
-    })),
+    agents,
+  };
+}
+
+export async function getAgentDetails(
+  agentName: string,
+): Promise<AgentDetails> {
+  const discovered = await discoverAgents();
+  const selected = discovered.find((agent) => agent.name === agentName);
+  if (!selected) {
+    const error = new Error(`Agent "${agentName}" not found`) as Error & {
+      code?: string;
+    };
+    error.code = 'AGENT_NOT_FOUND';
+    throw error;
+  }
+
+  const availability = await evaluateAgentAvailability({
+    agentName: selected.name,
+    configPath: selected.configPath,
+    discoveryWarnings: selected.warnings,
+    entrypoint: 'agents.service',
+  });
+
+  return {
+    name: selected.name,
+    description: selected.description,
+    disabled: availability.disabled,
+    warnings: availability.warnings,
+    fallbackCandidates: availability.fallbackCandidates,
+    disabledReason: availability.disabledReason,
+    requestedProviderId: availability.requestedProviderId,
+    executionProviderId: availability.executionProviderId,
   };
 }
 

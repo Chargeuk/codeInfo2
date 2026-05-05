@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { describe, test } from 'node:test';
+import { afterEach, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
 import supertest from 'supertest';
 
+import {
+  __resetAgentAvailabilityDepsForTests,
+  __setAgentAvailabilityDepsForTests,
+} from '../../agents/availability.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
 
@@ -115,8 +119,34 @@ const buildApp = (params?: {
   return app;
 };
 
+const setDefaultAvailabilityDeps = () => {
+  __setAgentAvailabilityDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      reason: undefined,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token',
+    }),
+    getLmStudioBaseUrl: () => undefined,
+  });
+};
+
 describe('GET /flows', () => {
+  afterEach(() => {
+    __resetAgentAvailabilityDepsForTests();
+  });
+
   test('missing flows folder returns empty list', async () => {
+    setDefaultAvailabilityDeps();
     const missingDir = path.join(process.cwd(), 'tmp-flows-missing');
     await fs.rm(missingDir, { recursive: true, force: true });
     await withFlowsDir(missingDir, async () => {
@@ -128,6 +158,7 @@ describe('GET /flows', () => {
   });
 
   test('lists flows with disabled/error states for invalid entries', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
     await withFlowsDir(tmpDir, async () => {
@@ -172,6 +203,7 @@ describe('GET /flows', () => {
   });
 
   test('ingested flows include source metadata and sort by display label', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -212,6 +244,7 @@ describe('GET /flows', () => {
   });
 
   test('local flows omit source metadata', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -239,6 +272,7 @@ describe('GET /flows', () => {
   });
 
   test('ingested sourceLabel falls back to container basename', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -272,6 +306,7 @@ describe('GET /flows', () => {
   });
 
   test('ingested flow discovery tolerates legacy-only alias payloads', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-legacy-'),
     );
@@ -314,6 +349,7 @@ describe('GET /flows', () => {
   });
 
   test('duplicate ingested flow names are retained and sorted by label', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -353,6 +389,7 @@ describe('GET /flows', () => {
   });
 
   test('missing ingest root directories are skipped and local flows still return', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
     );
@@ -467,6 +504,7 @@ describe('GET /flows', () => {
   });
 
   test('local flow discovery surfaces duplicate warnings when codeinfo_agents beats codex_agents', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-agents-'),
     );
@@ -492,6 +530,74 @@ describe('GET /flows', () => {
       );
       assert.equal(Array.isArray(local.warnings), true);
       assert.match(local.warnings?.[0] ?? '', /using codeinfo_agents/u);
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('flow details expose provider-neutral warnings and disabled-state reasons from the shared availability snapshot', async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-'),
+    );
+    await writeFlowFile(tmpDir, 'broken-agent', 'Broken agent flow');
+    await writeAgentConfig({
+      repoRoot: tmpDir,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'coding_agent',
+    });
+    await fs.writeFile(
+      path.join(tmpDir, 'codeinfo_agents', 'coding_agent', 'config.toml'),
+      'codeinfo_provider = "copilot"\n',
+      'utf8',
+    );
+
+    __setAgentAvailabilityDepsForTests({
+      getCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+        reason: undefined,
+      }),
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness: async () => ({
+        available: false,
+        toolsAvailable: false,
+        reason: 'copilot authentication required',
+        blockingStage: 'authentication',
+        models: [],
+        modelsRaw: [],
+        authSource: 'unauthenticated',
+      }),
+      getLmStudioBaseUrl: () => undefined,
+    });
+
+    await withFlowsDir(tmpDir, async () => {
+      const listResponse = await supertest(buildApp()).get('/flows');
+      assert.equal(listResponse.status, 200);
+      const listed = listResponse.body.flows.find(
+        (flow: { name: string }) => flow.name === 'broken-agent',
+      );
+      assert.equal(listed.disabled, true);
+      assert.match(
+        String(listed.error ?? ''),
+        /copilot authentication required/u,
+      );
+
+      const detailsResponse = await supertest(buildApp()).get(
+        '/flows/broken-agent',
+      );
+      assert.equal(detailsResponse.status, 200);
+      assert.equal(
+        detailsResponse.body.flow.warnings.some(
+          (warning: { code?: string }) =>
+            warning.code === 'provider_unavailable',
+        ),
+        true,
+      );
+      assert.equal(
+        detailsResponse.body.flow.disabledReason?.code,
+        'provider_unavailable',
+      );
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });

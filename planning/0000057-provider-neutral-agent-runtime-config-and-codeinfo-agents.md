@@ -1190,7 +1190,7 @@ This task removes the remaining flow-owned `provider: 'codex'` assumptions and m
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4, Task 5, Task 6, Task 7`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

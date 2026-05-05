@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -10,6 +10,10 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 const waitFor = async (
   predicate: () => boolean,
@@ -64,6 +68,14 @@ class MinimalChat extends ChatInterface {
     this.emit('complete', { type: 'complete', threadId: conversation });
   }
 }
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 test('startFlowRun reuses the same agent slot inside one fresh execution', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;

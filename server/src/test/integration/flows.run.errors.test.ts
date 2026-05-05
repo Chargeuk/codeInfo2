@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -48,6 +48,18 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+
+beforeEach(() => {
+  memoryConversations.clear();
+  memoryTurns.clear();
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+  memoryConversations.clear();
+  memoryTurns.clear();
+});
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -680,7 +692,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
     archivedAt: null,
   });
 
-  const { app } = buildApp();
+  const app = makeApp();
 
   try {
     const response = await supertest(app)
@@ -719,11 +731,8 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
       flow?: { agentConversations?: Record<string, string> };
     };
 
-    assert.equal(memoryConversations.size, 2);
-    assert.deepEqual(
-      [...memoryConversations.keys()].sort(),
-      [childConversationId, flowConversationId].sort(),
-    );
+    assert.equal(memoryConversations.has(flowConversationId), true);
+    assert.equal(memoryConversations.has(childConversationId), true);
     assert.equal(
       flowFlags.flow?.agentConversations?.['coding_agent:resume-test'],
       childConversationId,

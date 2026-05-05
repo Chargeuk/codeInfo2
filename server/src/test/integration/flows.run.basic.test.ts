@@ -27,6 +27,7 @@ import {
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
 import {
@@ -35,6 +36,10 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const fixturesDir = path.resolve(
@@ -194,10 +199,11 @@ let previousPreferredAgentsHome: string | undefined;
 beforeEach(() => {
   previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   delete process.env.CODEINFO_AGENT_HOME;
+  installDeterministicCodexAvailabilityBootstrap();
 });
 
 afterEach(() => {
-  __resetAgentServiceDepsForTests();
+  resetDeterministicCodexAvailabilityBootstrap();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -408,8 +414,16 @@ const withMarkdownFlowHarness = async (
   } finally {
     __resetMarkdownFileResolverDepsForTests();
     cleanupMemory(...conversations);
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
     if (previousFlowsDir) {
       process.env.FLOWS_DIR = previousFlowsDir;
     } else {
@@ -702,6 +716,7 @@ test('fresh flow start creates a new parent conversation when an older conversat
 });
 
 test('initial flow-owned execution repairs the requested provider model before first run turns persist', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const previousFlowsDir = process.env.FLOWS_DIR;
@@ -821,12 +836,26 @@ test('initial flow-owned execution repairs the requested provider model before f
     assert.equal(childConversation?.provider, 'codex');
     assert.equal(childConversation?.model, 'codex-repaired');
   } finally {
+    __resetAgentServiceDepsForTests();
     cleanupMemory(
       conversationId,
       ...collectAgentConversationIds(conversationId),
     );
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousCodexAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
     if (previousFlowsDir) {
       process.env.FLOWS_DIR = previousFlowsDir;
     } else {
@@ -837,6 +866,7 @@ test('initial flow-owned execution repairs the requested provider model before f
 });
 
 test('initial flow-owned execution falls back to another provider and persists the actual provider-model pair', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
@@ -962,15 +992,37 @@ test('initial flow-owned execution falls back to another provider and persists t
     assert.equal(childConversation?.provider, 'copilot');
     assert.equal(childConversation?.model, 'copilot-model');
   } finally {
+    __resetAgentServiceDepsForTests();
     cleanupMemory(
       conversationId,
       ...collectAgentConversationIds(conversationId),
     );
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
-      previousFallbackOrder;
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousCodexAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousFallbackOrder === undefined) {
+      delete process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+    } else {
+      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
+        previousFallbackOrder;
+    }
     if (previousFlowsDir) {
       process.env.FLOWS_DIR = previousFlowsDir;
     } else {
@@ -1910,6 +1962,7 @@ test('flow llm.markdownFile reports AGENT_NOT_FOUND before markdown resolution f
 });
 
 test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution failures', async () => {
+  resetDeterministicCodexAvailabilityBootstrap();
   await withMarkdownFlowHarness(
     async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
       const sourceRepo = path.join(tempRoot, 'repo-source');
@@ -1933,6 +1986,12 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
 
       try {
         process.env.CODEINFO_CODEX_HOME = unavailableCodexHome;
+        setCodexDetection({
+          available: false,
+          authPresent: false,
+          configPresent: true,
+          reason: 'Missing auth.json',
+        });
         await assert.rejects(
           async () =>
             runFlow({
@@ -1942,15 +2001,23 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
               listedRepos: [buildRepoEntry(sourceRepo)],
               turnsPredicate: () => false,
             }),
-          (error) =>
-            (error as { code?: string; reason?: string }).code ===
-              'CODEX_UNAVAILABLE' &&
-            /Missing auth\.json/i.test(
-              (error as { code?: string; reason?: string }).reason ?? '',
-            ),
+          (error) => {
+            const code = (error as { code?: string; reason?: string }).code;
+            const reason = (error as { code?: string; reason?: string })
+              .reason;
+            return (
+              (code === 'CODEX_UNAVAILABLE' ||
+                code === 'PROVIDER_UNAVAILABLE') &&
+              /Missing auth\.json/i.test(reason ?? '')
+            );
+          },
         );
       } finally {
-        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+        if (previousCodexHome === undefined) {
+          delete process.env.CODEINFO_CODEX_HOME;
+        } else {
+          process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+        }
       }
     },
   );

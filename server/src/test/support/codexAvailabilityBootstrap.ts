@@ -36,6 +36,16 @@ const buildDeterministicCodexCapabilities = (
       supportedReasoningEfforts: ['high'],
       defaultReasoningEffort: 'high',
     },
+    {
+      model: 'gpt-5.2-codex',
+      supportedReasoningEfforts: ['medium', 'high'],
+      defaultReasoningEffort: 'medium',
+    },
+    {
+      model: 'gpt-5.1-codex-max',
+      supportedReasoningEfforts: ['medium', 'high'],
+      defaultReasoningEffort: 'medium',
+    },
   ],
 ) => ({
   defaults: {

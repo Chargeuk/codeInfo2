@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -14,6 +14,19 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
+
 const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 5000,

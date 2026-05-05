@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -10,6 +10,10 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 const waitFor = async (
   predicate: () => boolean,
@@ -23,6 +27,14 @@ const waitFor = async (
   }
   throw new Error('Timed out waiting for predicate');
 };
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 const writeResumeFlow = async (dir: string) => {
   const flow = {

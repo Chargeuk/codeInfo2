@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -44,8 +44,20 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 const withTimeout = async <T>(
   promise: Promise<T>,

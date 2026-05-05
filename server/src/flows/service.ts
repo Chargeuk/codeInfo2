@@ -867,6 +867,19 @@ const getAgentModelId = async (params: {
   return modelId;
 };
 
+const getFailureModelId = async (params: {
+  agentName: string;
+  configPath: string;
+  workingFolder?: string;
+  source?: 'REST' | 'MCP';
+}): Promise<string> => {
+  try {
+    return await getAgentModelId(params);
+  } catch {
+    return FALLBACK_MODEL_ID;
+  }
+};
+
 const resolveFlowAgentRuntimeExecution = async (params: {
   agentName: string;
   configPath: string;
@@ -3038,12 +3051,46 @@ async function runFlowUnlocked(params: {
     if ('messages' in step) {
       for (const message of step.messages) {
         const instruction = joinMessageContent(message.content);
-        const result = await runInstruction({
-          agentType: step.agentType,
-          identifier: step.identifier,
-          instruction,
-          command,
-        });
+        let result: FlowInstructionResult;
+        try {
+          result = await runInstruction({
+            agentType: step.agentType,
+            identifier: step.identifier,
+            instruction,
+            command,
+          });
+        } catch (error) {
+          const agent = agentByName.get(step.agentType);
+          const agentKey = getAgentKey(step.agentType, step.identifier);
+          const message = isFlowRunError(error)
+            ? (error.reason ?? error.code)
+            : error instanceof Error
+              ? error.message
+              : 'Failed to execute flow llm step';
+          const errorCode = isFlowRunError(error)
+            ? error.code
+            : 'INVALID_REQUEST';
+          await emitFailedFlowStep({
+            flowConversationId: params.conversationId,
+            inflightId: stepInflightId,
+            instruction,
+            modelId: agent
+              ? await getFailureModelId({
+                  agentName: step.agentType,
+                  configPath: agent.configPath,
+                  workingFolder: params.repositoryContext.workingRepositoryPath,
+                  source: params.source,
+                })
+              : FALLBACK_MODEL_ID,
+            providerId: (runtimeState.get(agentKey)?.providerId ??
+              'codex') as ConversationProvider,
+            source: params.source,
+            message,
+            errorCode,
+            command,
+          });
+          return 'failed';
+        }
         if (shouldStopAfter(result.status)) return result.status;
       }
       return 'ok';
@@ -3053,6 +3100,7 @@ async function runFlowUnlocked(params: {
     try {
       await resolveFlowInstructionPrerequisites({
         agentType: step.agentType,
+        identifier: step.identifier,
         source: params.source,
       });
       preparedMarkdownInstruction = await prepareMarkdownInstruction({
@@ -3076,7 +3124,7 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         instruction: `Markdown file: ${step.markdownFile}`,
         modelId: agent
-          ? await getAgentModelId({
+          ? await getFailureModelId({
               agentName: step.agentType,
               configPath: agent.configPath,
               workingFolder: params.repositoryContext.workingRepositoryPath,

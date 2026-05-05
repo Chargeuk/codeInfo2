@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -22,6 +22,10 @@ import { resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
@@ -80,6 +84,14 @@ class CapturingFlowChat extends ChatInterface {
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

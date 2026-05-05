@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -11,6 +11,10 @@ import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -69,6 +73,14 @@ const waitFor = async (
   }
   throw new Error('Timed out waiting for condition');
 };
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 test('Flow run reloads flow file between runs', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;

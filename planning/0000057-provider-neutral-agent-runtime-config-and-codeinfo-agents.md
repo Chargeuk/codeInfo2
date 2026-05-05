@@ -1190,7 +1190,7 @@ This task removes the remaining flow-owned `provider: 'codex'` assumptions and m
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4, Task 5, Task 6, Task 7`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1245,7 +1245,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 1. [x] Run `npm run build:summary:client` from the repository root. Use this wrapper because Task 8 changes browser-visible Agents and Flows behavior plus client API parsing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
 2. [x] Run `npm run test:summary:client` from the repository root. Use this wrapper because the Task 8 proof homes include the existing Agents and Flows page unit suites. If the wrapper reports failures, inspect the printed `test-results/client-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-3. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because Task 8 changes browser-visible warning timing, disabled-state guarding, and resumed-conversation pinning on the supported end-to-end path. If the wrapper reports failures or ambiguous output, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+3. [x] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because Task 8 changes browser-visible warning timing, disabled-state guarding, and resumed-conversation pinning on the supported end-to-end path. If the wrapper reports failures or ambiguous output, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 4. [x] Run `npm run lint` for the final Task 8 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
 5. [x] Run `npm run format:check` for the final Task 8 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
@@ -1278,7 +1278,7 @@ This task applies the new warning and continuation contracts to the existing bro
 - Ran `npm run format:check` from the repository root for Task 8 subtask 30, then applied the repository formatter to the flagged `e2e/chat-provider-history.spec.ts` file before rerunning `npm run format:check` to a clean result. The matching Task 8 testing format item was honestly checked through that same subtask-owned command path.
 - Ran `npm run build:summary:client` for the remaining Task 8 automated proof and the wrapper finished with `status: passed`, `warning_count: 0`, and `agent_action: skip_log`, so the client build proof step is now honestly complete without any log inspection.
 - Ran `npm run test:summary:client`, repaired the first failing Task 8 proof homes with targeted wrapper reruns, added a minimal agent-details compatibility fallback for legacy runnable mocks in `client/src/api/agents.ts`, and then reran the full client wrapper to a clean `tests run: 741`, `passed: 741`, `failed: 0` result.
-- **BLOCKER** Testing step 3 (`npm run test:summary:e2e`) is currently blocked by the shared e2e harness rather than a remaining stable Task 8 code owner. I repaired the Task 8-owned browser selectors in `e2e/agents.spec.ts`, `e2e/chat-provider-history.spec.ts`, and the stale auth-button label in `e2e/chat.spec.ts`, then retried the full wrapper multiple times; one full rerun still reached unrelated non-Task-8 failures and artifact defects (`ENOENT` trace/network files under `playwright-output/.playwright-artifacts-*`, `apiRequestContext._wrapApiCall: file data stream has unexpected number of bytes`), while the latest full rerun failed earlier during wrapper setup with duplicate `e2e:up` / compose startup collisions (`network codeinfo2-e2e_internal_e2e already exists`, `/mongo_db_CodeInfo-e2e` already in use, then `failed to set up container networking: network codeinfo2-e2e_internal_e2e not found`). This task should stay `__in_progress__` and the flow should either stabilize the shared e2e wrapper/harness first or split that harness repair into a prerequisite before Task 8 automated proof can finish honestly.
+- **RESOLVED ISSUE** Testing step 3 (`npm run test:summary:e2e`) first failed in `e2e/chat-provider-history.spec.ts` because the fresh-run-after-history proof skipped the explicit conversation refresh used by the other history-selection scenarios, and the earlier compose-collision notes came from overlapping e2e runs rather than a stable harness defect. I updated that proof to refresh and select the history row through the existing conversation-list surface, reran the focused `e2e/chat-provider-history.spec.ts` wrapper to a clean pass, then reran the full `npm run test:summary:e2e` wrapper to `tests run: 52`, `passed: 52`, `failed: 0`.
 
 ### Task 9. Run final Story 0000057 validation and close out the provider-neutral agent contract
 

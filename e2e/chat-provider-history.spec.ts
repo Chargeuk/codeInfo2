@@ -402,6 +402,10 @@ test('fresh chat after selecting history ignores restored resume-only provider s
     }),
   );
   await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
     chatBodies.push(
       (route.request().postDataJSON?.() ?? {}) as Record<string, unknown>,
     );
@@ -422,10 +426,17 @@ test('fresh chat after selecting history ignores restored resume-only provider s
   await page.goto(`${baseUrl}/chat`);
   await hideMcpOverlay(page);
 
-  await expect(page.getByText('Historical LM conversation')).toBeVisible({
+  await page.getByTestId('conversation-refresh').click();
+  const historyConversationRow = page.locator(
+    '[data-testid="conversation-row"]',
+    {
+      hasText: historyConversation.title,
+    },
+  );
+  await expect(historyConversationRow).toBeVisible({
     timeout: 20000,
   });
-  await page.getByText('Historical LM conversation').click();
+  await historyConversationRow.click();
   await expect(page.getByTestId('provider-select')).toContainText(/LM Studio/i);
 
   await page.getByRole('combobox', { name: /provider/i }).click();

@@ -75,6 +75,123 @@ function emitWsEvent(event: Record<string, unknown>) {
 }
 
 describe('Agents page - agent change', () => {
+  it('clears stale hidden local state when the selected agent becomes disabled', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        } as Response);
+      }
+
+      if (target.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => buildProvidersResponse(true),
+        } as Response);
+      }
+
+      if (target.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => modelsResponse,
+        } as Response);
+      }
+
+      if (
+        target.includes('/agents') &&
+        !target.includes('/commands') &&
+        !target.includes('/run') &&
+        !target.includes('/agents/coding_agent')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+        } as Response);
+      }
+
+      if (
+        target.includes('/agents/coding_agent') &&
+        !target.includes('/commands') &&
+        !target.includes('/run')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            agent: {
+              name: 'coding_agent',
+              description: 'Disabled now',
+              disabled: true,
+              warnings: [
+                {
+                  code: 'provider_unavailable',
+                  message: 'Primary provider is unavailable',
+                },
+              ],
+              disabledReason: {
+                code: 'provider_unavailable',
+                message: 'No usable provider remains',
+              },
+              fallbackCandidates: [],
+            },
+          }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/coding_agent/commands')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ commands: [] }),
+        } as Response);
+      }
+
+      if (target.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [] }),
+        } as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const workingFolder = await screen.findByRole('textbox', {
+      name: 'working_folder',
+    });
+    await user.type(workingFolder, '/tmp/stale');
+
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-info'));
+    });
+
+    await screen.findByText('No usable provider remains');
+    await waitFor(() => expect(workingFolder).toHaveValue(''));
+    expect(screen.getByTestId('agent-disabled')).toHaveTextContent(
+      'No usable provider remains',
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-send')).toBeDisabled(),
+    );
+  });
+
   it('resets to new conversation state on agent change (without aborting server runs)', async () => {
     const runBodies: Record<string, unknown>[] = [];
     let a1ConversationId: string | null = null;

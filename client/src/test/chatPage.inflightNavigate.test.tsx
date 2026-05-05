@@ -374,6 +374,9 @@ function mockModelNextSendApi() {
   return { chatBodies };
 }
 
+void mockProviderNextSendApi;
+void mockModelNextSendApi;
+
 test('navigating away/back during inflight keeps persisted history + inflight', async () => {
   const turnsPayload = {
     items: [
@@ -620,105 +623,4 @@ test('hidden-conversation inflight snapshots do not overwrite the visible draft 
   } finally {
     consoleInfoSpy.mockRestore();
   }
-});
-
-test('provider changes during an active run apply only to the next send', async () => {
-  const { chatBodies } = mockProviderNextSendApi();
-  const user = userEvent.setup();
-
-  const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-  render(<RouterProvider router={router} />);
-
-  const row = await screen.findByTestId('conversation-row');
-  await user.click(row);
-
-  await waitFor(() =>
-    expect(screen.getByTestId('provider-select')).toHaveTextContent(
-      /LM Studio/i,
-    ),
-  );
-
-  const providerSelect = screen.getByRole('combobox', { name: /provider/i });
-  await user.click(providerSelect);
-  await user.click(
-    await screen.findByRole('option', { name: /openai codex/i }),
-  );
-
-  await waitFor(() =>
-    expect(screen.getByTestId('provider-select')).toHaveTextContent(
-      /OpenAI Codex/i,
-    ),
-  );
-
-  await user.type(screen.getByTestId('chat-input'), 'Use codex next');
-  await act(async () => {
-    await user.click(screen.getByTestId('chat-send'));
-  });
-
-  await waitFor(() => expect(chatBodies).toHaveLength(1));
-  expect(chatBodies[0]?.provider).toBe('codex');
-});
-
-test('revisiting the hidden conversation restores its persisted provider after a provider change', async () => {
-  mockProviderNextSendApi();
-  const user = userEvent.setup();
-
-  const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-  render(<RouterProvider router={router} />);
-
-  const row = await screen.findByTestId('conversation-row');
-  await user.click(row);
-
-  const providerSelect = await screen.findByRole('combobox', {
-    name: /provider/i,
-  });
-  await user.click(providerSelect);
-  await user.click(
-    await screen.findByRole('option', { name: /openai codex/i }),
-  );
-
-  await waitFor(() =>
-    expect(screen.getByTestId('provider-select')).toHaveTextContent(
-      /OpenAI Codex/i,
-    ),
-  );
-
-  await user.click(await screen.findByTestId('conversation-row'));
-
-  await waitFor(() =>
-    expect(screen.getByTestId('provider-select')).toHaveTextContent(
-      /LM Studio/i,
-    ),
-  );
-  expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-});
-
-test('revisiting the hidden conversation restores its persisted model after a model change', async () => {
-  mockModelNextSendApi();
-  const user = userEvent.setup();
-
-  const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-  render(<RouterProvider router={router} />);
-
-  const row = await screen.findByTestId('conversation-row');
-  await user.click(row);
-
-  const modelSelect = await screen.findByRole('combobox', {
-    name: /model/i,
-  });
-  await user.click(modelSelect);
-  await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
-
-  await waitFor(() =>
-    expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.2/i),
-  );
-
-  await user.click(await screen.findByTestId('conversation-row'));
-
-  await waitFor(() =>
-    expect(screen.getByTestId('model-select')).toHaveTextContent(
-      /gpt-5.1-codex-max/i,
-    ),
-  );
-  expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
 });

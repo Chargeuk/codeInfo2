@@ -196,10 +196,13 @@ export function createFlowsRunRouter(
               'A run is already in progress for this conversation.',
           });
         }
-        if (err.code === 'CODEX_UNAVAILABLE') {
+        if (
+          err.code === 'CODEX_UNAVAILABLE' ||
+          err.code === 'PROVIDER_UNAVAILABLE'
+        ) {
           return res
             .status(503)
-            .json({ error: 'codex_unavailable', reason: err.reason });
+            .json({ error: 'provider_unavailable', reason: err.reason });
         }
         if (err.code === 'AGENT_MISMATCH') {
           return res.status(400).json({

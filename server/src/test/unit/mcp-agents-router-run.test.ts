@@ -202,13 +202,13 @@ test('tools/call run_agent_instruction aborts tool call on disconnect (AbortSign
 
       abortedResolve?.();
 
-        return {
-          agentName: 'coding_agent',
-          conversationId: 'c1',
-          providerId: 'copilot',
-          modelId: 'm1',
-          segments: [{ type: 'answer', text: 'stopped' }],
-        };
+      return {
+        agentName: 'coding_agent',
+        conversationId: 'c1',
+        providerId: 'copilot',
+        modelId: 'm1',
+        segments: [{ type: 'answer', text: 'stopped' }],
+      };
     },
   });
 

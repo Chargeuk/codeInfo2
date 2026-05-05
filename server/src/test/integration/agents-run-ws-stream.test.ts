@@ -558,12 +558,12 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
   await fs.mkdir(commandsDir, { recursive: true });
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
-      path.join(agentHome, 'config.toml'),
-      [
-        'codeinfo_provider = "codex"',
-        'model = "gpt-5.3-codex"',
-        'approval_policy = "never"',
-      ].join('\n'),
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.3-codex"',
+      'approval_policy = "never"',
+    ].join('\n'),
     'utf8',
   );
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');

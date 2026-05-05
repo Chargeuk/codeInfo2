@@ -89,6 +89,12 @@ import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
+  resolveSharedExecutionContext,
+  resolveWorkingFolderWorkingDirectory,
+  type RepositoryExecutionContextMetadata,
+  type SharedExecutionContext,
+} from '../workingFolders/executionContext.js';
+import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
   knownRepositoryPathsUnavailable,
@@ -96,12 +102,6 @@ import {
   restoreSavedWorkingFolder,
   validateRequestedWorkingFolder,
 } from '../workingFolders/state.js';
-import {
-  resolveSharedExecutionContext,
-  resolveWorkingFolderWorkingDirectory,
-  type RepositoryExecutionContextMetadata,
-  type SharedExecutionContext,
-} from '../workingFolders/executionContext.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -114,6 +114,7 @@ import {
   loadAgentCommandSummary,
 } from './commandsLoader.js';
 import { runAgentCommandRunner } from './commandsRunner.js';
+import { resolveAgentRuntimeExecutionConfig } from './config.js';
 import { discoverAgents } from './discovery.js';
 import { resolveAgentHomeForRepository } from './roots.js';
 import {
@@ -121,7 +122,6 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
-import { resolveAgentRuntimeExecutionConfig } from './config.js';
 import type { AgentDetails, AgentSummary } from './types.js';
 
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
@@ -689,15 +689,16 @@ async function prepareDirectAgentExecution(params: {
 
   const requestedProviderId =
     requestedRuntime.requestedProviderId ?? availability.requestedProviderId;
-  const fallbackOrder = agentServiceDeps
-    .resolveAgentProviderFallbackOrder()
-    .normalizedProviders;
+  const fallbackOrder =
+    agentServiceDeps.resolveAgentProviderFallbackOrder().normalizedProviders;
   const configuredRequestedProvider =
     requestedProviderId && isChatProviderId(requestedProviderId)
       ? requestedProviderId
-      : fallbackOrder.find((providerId) => providerStates[providerId]?.available) ??
+      : (fallbackOrder.find(
+          (providerId) => providerStates[providerId]?.available,
+        ) ??
         availability.executionProviderId ??
-        'codex';
+        'codex');
   const filteredFallbackOrder = fallbackOrder.filter(
     (providerId) => providerId !== configuredRequestedProvider,
   );
@@ -1734,7 +1735,8 @@ export async function startAgentCommand(params: {
       configPath: agent.configPath,
       workingFolder: effectiveWorkingFolder,
       source: params.source,
-      surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.commands.run',
+      surface:
+        params.source === 'MCP' ? 'mcp.agents.run' : 'agents.commands.run',
       pinnedProviderId: existingConversation?.provider,
       pinnedModelId: existingConversation?.model,
       allowFallback: !existingConversation,

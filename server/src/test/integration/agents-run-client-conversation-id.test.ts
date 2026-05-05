@@ -1468,7 +1468,10 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     assert.equal(restResult.providerId, 'codex');
     assert.equal(restResult.modelId, 'gpt-5.3-codex');
     assert.equal(restFlagsSnapshot.useConfigDefaults, true);
-    assert.equal((restRuntimeConfig as { model?: string }).model, restResult.modelId);
+    assert.equal(
+      (restRuntimeConfig as { model?: string }).model,
+      restResult.modelId,
+    );
 
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
       commandFlags.at(-1) as Record<string, unknown>,
@@ -1673,7 +1676,10 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     assert.equal(restResult.providerId, 'codex');
     assert.equal(restResult.modelId, 'gpt-5.3-codex');
     assert.equal(restFlagsSnapshot.useConfigDefaults, true);
-    assert.equal((restRuntimeConfig as { model?: string }).model, restResult.modelId);
+    assert.equal(
+      (restRuntimeConfig as { model?: string }).model,
+      restResult.modelId,
+    );
 
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
       flowFlags.at(-1) as Record<string, unknown>,
@@ -2011,7 +2017,6 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
       assert.equal(flowFlags.length > 0, true);
       assert.equal(mcpFlags.length > 0, true);
 
-      const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
       assert.equal(restResult.providerId, 'codex');
       assert.equal(typeof restResult.modelId, 'string');
       assert.equal(restResult.modelId.length > 0, true);

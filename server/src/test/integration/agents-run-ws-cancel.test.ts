@@ -84,7 +84,9 @@ async function setupWsTestServer() {
   const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-ws-cancel-'));
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-ws-cancel-'),
+  );
   const agentsHome = path.join(tempRoot, 'codeinfo_agents');
   const codexHome = path.join(tempRoot, 'codex');
   const agentHome = path.join(agentsHome, 'coding_agent');

@@ -644,11 +644,19 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
     assert.equal(capturedFlags.length > 0, true);
 
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
-    assert.equal('useConfigDefaults' in flags, false);
-    assert.equal('codexHome' in flags, false);
-    assert.equal(flags.runtimeConfig, undefined);
-    assert.equal(result.providerId, 'copilot');
-    assert.equal(result.modelId, 'auto');
+    const runtimeConfig = toRuntimeConfigSnapshot(flags);
+    assert.equal(flags.useConfigDefaults, true);
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'gpt-5.3-codex');
+    assert.deepEqual(runtimeConfig, {
+      approval_policy: 'never',
+      model: result.modelId,
+      projects: {
+        '/agent-only': { trust_level: 'trusted' },
+        '/base-only': { trust_level: 'trusted' },
+        '/shared': { trust_level: 'untrusted' },
+      },
+    });
   } finally {
     console.info = originalInfo;
     console.error = originalError;
@@ -735,11 +743,17 @@ test('Agents command run uses same runtime config source and emits deterministic
     });
 
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
-    assert.equal('useConfigDefaults' in flags, false);
-    assert.equal('codexHome' in flags, false);
-    assert.equal(flags.runtimeConfig, undefined);
-    assert.equal(result.providerId, 'copilot');
-    assert.equal(result.modelId, 'auto');
+    const runtimeConfig = toRuntimeConfigSnapshot(flags);
+    assert.equal(flags.useConfigDefaults, true);
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'gpt-5.3-codex');
+    assert.deepEqual(runtimeConfig, {
+      approval_policy: 'never',
+      model: result.modelId,
+      projects: {
+        '/shared': { trust_level: 'untrusted' },
+      },
+    });
   } finally {
     console.error = originalError;
   }
@@ -956,11 +970,18 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
 
     const baselineFlags = restFlags.at(-1) as Record<string, unknown>;
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(baselineFlags);
-    assert.equal('useConfigDefaults' in baselineFlags, false);
-    assert.equal('codexHome' in baselineFlags, false);
-    assert.equal(restResult.providerId, 'copilot');
-    assert.equal(restResult.modelId, 'auto');
-    assert.deepEqual(baselineRuntimeConfig, {});
+    assert.equal(baselineFlags.useConfigDefaults, true);
+    assert.equal(restResult.providerId, 'codex');
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.deepEqual(baselineRuntimeConfig, {
+      approval_policy: 'never',
+      model: restResult.modelId,
+      projects: {
+        '/agent-only': { trust_level: 'trusted' },
+        '/base-only': { trust_level: 'trusted' },
+        '/shared': { trust_level: 'untrusted' },
+      },
+    });
     const commandRuntimeConfig = toRuntimeConfigSnapshot(
       commandFlags.at(-1) as Record<string, unknown>,
     );
@@ -1472,8 +1493,8 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
     const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
-    assert.equal(restResult.modelId, 'agent-parity-model');
-    assert.equal('useConfigDefaults' in restFlagsSnapshot, false);
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
     assert.equal(
       (restRuntimeConfig as { model?: string }).model,
       restResult.modelId,
@@ -1680,8 +1701,8 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
     const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
-    assert.equal(restResult.modelId, 'agent-warning-model');
-    assert.equal('useConfigDefaults' in restFlagsSnapshot, false);
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
     assert.equal(
       (restRuntimeConfig as { model?: string }).model,
       restResult.modelId,

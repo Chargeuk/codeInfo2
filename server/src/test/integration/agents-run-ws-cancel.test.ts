@@ -22,15 +22,15 @@ import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { resetStore } from '../../logStore.js';
 import { attachWs } from '../../ws/server.js';
 import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
+import {
   closeWs,
   connectWs,
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-import {
-  installDeterministicCodexAvailabilityBootstrap,
-  resetDeterministicCodexAvailabilityBootstrap,
-} from '../support/codexAvailabilityBootstrap.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

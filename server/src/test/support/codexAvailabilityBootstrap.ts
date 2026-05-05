@@ -6,7 +6,10 @@ import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
 } from '../../agents/service.js';
-import { setCodexDetection, type CodexDetection } from '../../providers/codexRegistry.js';
+import {
+  setCodexDetection,
+  type CodexDetection,
+} from '../../providers/codexRegistry.js';
 
 type CodexModelCapability = {
   model: string;

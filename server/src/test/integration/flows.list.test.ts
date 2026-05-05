@@ -8,12 +8,12 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { __setAgentAvailabilityDepsForTests } from '../../agents/availability.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { createFlowsRouter } from '../../routes/flows.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
-import type { RepoEntry } from '../../lmstudio/toolService.js';
-import { createFlowsRouter } from '../../routes/flows.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

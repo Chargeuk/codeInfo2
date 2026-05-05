@@ -171,6 +171,8 @@ test('compose services publish CODEINFO_AGENT_HOME as the preferred runtime cont
     dockerfile,
     /RUN cp -R \/app\/codex_agents \/app\/codeinfo_agents/u,
   );
+  assert.match(dockerfile, /COPY AGENTS\.md \/app\/AGENTS\.md/u);
+  assert.match(dockerfile, /COPY planning \/app\/planning/u);
   const localServer = getServiceBlock(localCompose, 'server');
   assert.match(localServer, /\.\/codeinfo_agents:\/app\/codeinfo_agents/u);
 });

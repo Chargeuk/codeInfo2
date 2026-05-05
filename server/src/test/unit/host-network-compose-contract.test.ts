@@ -56,6 +56,8 @@ test('main stays image-baked while local host-network compose exposes the live d
     /RUN mkdir -p \/app\/codex \/app\/copilot \/app\/lmstudio && chmod 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
   );
   assert.match(dockerfile, /COPY codex_agents \/app\/codex_agents/u);
+  assert.match(dockerfile, /COPY AGENTS\.md \/app\/AGENTS\.md/u);
+  assert.match(dockerfile, /COPY planning \/app\/planning/u);
   assert.match(
     dockerfile,
     /RUN cp -R \/app\/codex_agents \/app\/codeinfo_agents/u,

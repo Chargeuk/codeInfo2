@@ -73,11 +73,12 @@ Do not perform manual testing in this step.
 - Keep implementation notes concise as you work so later steps can see what changed and why.
 - Continue working through the candidate task's unchecked `Testing` items in this same step until one of the following is true:
   - every unchecked `Testing` item in the candidate task is now honestly complete; or
-  - a live `**BLOCKER**` has been added for the first remaining unchecked `Testing` item that cannot be completed honestly in this pass.
+  - a live `**BLOCKER**` has been added for the first remaining unchecked `Testing` item that cannot be completed honestly in this pass; or
+  - proof must honestly stop because unchecked non-proof subtasks already exist for this task under the applicable skip rules, or because this pass discovered new implementation/proof-authoring work that has been added to `Subtasks` and must be completed before the remaining `Testing` items can be run honestly.
 - It is not valid to stop this step merely because partial proof progress was made, one or more testing steps were completed, the remaining proof feels safer to leave for a later pass, or the work is risky but still in scope and fixable.
-- If unchecked `Testing` items remain and no live `**BLOCKER**` prevents the next remaining unchecked testing step, continue working in this step instead of handing off to a later loop pass.
-- Do not intentionally split one task's remaining unchecked automated-proof obligations across multiple coding passes when those testing steps are still in scope, actionable, and not honestly blocked.
-- \"I completed some testing steps and left the rest for a later pass\" is not an acceptable stop condition unless a live `**BLOCKER**` now prevents the next unchecked `Testing` item from being completed honestly.
+- If unchecked `Testing` items remain and no live `**BLOCKER**` prevents the next remaining unchecked testing step and no prerequisite implementation/proof-authoring subtasks require handing off under the skip rules, continue working in this step instead of handing off to a later loop pass.
+- Do not intentionally split one task's remaining unchecked automated-proof obligations across multiple coding passes when those testing steps are still in scope, actionable, and not honestly blocked by either a live `**BLOCKER**` or prerequisite non-proof work that must be completed first.
+- \"I completed some testing steps and left the rest for a later pass\" is not an acceptable stop condition unless a live `**BLOCKER**` now prevents the next unchecked `Testing` item from being completed honestly, or the remaining testing must be deferred because prerequisite implementation/proof-authoring subtasks are still unchecked or were newly discovered and recorded for follow-up.
 
 </proof_rules>
 
@@ -144,7 +145,7 @@ Return a concise summary that includes:
 3. which testing steps now pass;
 4. whether any blocker remains;
 5. any important commands or outputs that indicate success;
-6. if any unchecked `Testing` items remain, the first remaining unchecked testing step and the exact live `**BLOCKER**` that prevented it from being completed.
+6. if any unchecked `Testing` items remain, the first remaining unchecked testing step and whether it is blocked by a live `**BLOCKER**` or deferred because prerequisite non-proof subtasks remain.
 
 Do not mark the task `__done__` in this step. The later audit step decides that.
 
@@ -162,9 +163,9 @@ Before finishing:
 - confirm any newly added subtasks stayed within implementation, proof-authoring, documentation, config, or explicitly allowed code-hygiene work;
 - confirm any newly added `Testing` steps remain automated-only and wrapper-level when repository guidance expects that;
 - confirm you did not raise a blocker for an ordinary failing test without first inspecting the failure evidence, attempting at least one concrete in-scope repair when appropriate, and rerunning the affected proof;
-- confirm that either all unchecked `Testing` items are now complete, or a live `**BLOCKER**` was added that prevents the next remaining unchecked testing step from being completed honestly in this pass;
+- confirm that either all unchecked `Testing` items are now complete, or a live `**BLOCKER**` was added that prevents the next remaining unchecked testing step from being completed honestly in this pass, or the remaining proof was honestly deferred because prerequisite non-proof subtasks still remain or were newly added for follow-up;
 - confirm you did not end the step after partial proof progress alone;
-- confirm you did not defer actionable in-scope proof work to a later pass without a blocker;
+- confirm you did not defer actionable in-scope proof work to a later pass unless a live `**BLOCKER**` or prerequisite non-proof work required that handoff;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;
 - confirm you did not add manual-testing work to `Subtasks` or `Testing`;

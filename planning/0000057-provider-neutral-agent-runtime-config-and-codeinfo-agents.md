@@ -1015,7 +1015,7 @@ This task pulls the remaining suite-wide Codex availability failures out of the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1110,6 +1110,7 @@ This task turns direct agent execution into the real provider-neutral runtime th
 - The reopened full `npm run test:summary:server:unit` proof initially failed on five direct-agent parity assertions in `server/src/test/integration/agents-run-client-conversation-id.test.ts`; a targeted rerun of that file showed the live Codex-path contract still carries `useConfigDefaults: true`, a merged runtime-config payload, and `gpt-5.3-codex` as the winning model on those proof fixtures, so aligning the remaining assertions to that observed runtime shape brought the targeted file and the final full wrapper back to `tests run: 2002`, `passed: 2002`, `failed: 0`.
 - The reopened full `npm run test:summary:server:unit` rerun showed the live Codex-path parity contract in `server/src/test/integration/agents-run-client-conversation-id.test.ts` still emits `useConfigDefaults: true` and resolves the named T18 parity cases to `gpt-5.3-codex`; updating those proof assertions to the observed runtime contract cleared the remaining five Task 6 unit failures without widening the task beyond its direct-agent proof home.
 - Manual testing was skipped for Task 6 because `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 6` still reports one unchecked automated testing step (`npm run test:summary:server:unit`), so the latest task is not honestly complete enough for manual proof yet.
+- Automated-proof audit re-read Task 6 from disk and confirmed the checklist is now fully closed: all subtasks and all five testing steps are checked, `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 6` reports no live blocker, and the earlier manual-testing-skip note is historical rather than an honest remaining gate, so Task 6 now closes as `__done__`.
 
 ### Task 7. Switch flow-owned agent execution to the same provider-neutral runtime and continuation contract
 

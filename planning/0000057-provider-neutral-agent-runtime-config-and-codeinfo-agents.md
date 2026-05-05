@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1372,3 +1372,4 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 subtask 12 closed by adding an MCP websocket proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that explicit-provider `codebase_question` restores the saved host-form working folder through the mounted repository bridge and reuses that repaired repository context in the runtime flags it sends downstream.
 - Task 9 subtask 13 closed by narrowing the final manual guidance to the warning and disabled-state surfaces the current checked-in main-stack seed actually ships, updating the retained-proof path to `codeInfoTmp/manual-testing/0000057/9/`, and leaving invalid-provider or no-usable-provider selected-agent screenshots as additive evidence only if a later checked-in seed introduces those cases.
 - Task 9 testing step 11 passed after `npm run format:check` initially narrowed the remaining drift to `server/src/workingFolders/state.ts`, `server/src/test/unit/conversations-router-agent-filter.test.ts`, and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`; a targeted Prettier write repaired those files and the full root rerun finished cleanly with `All matched files use Prettier code style!`.
+- Automated-proof audit closed Task 9 after rereading the reopened follow-up from disk and confirming all thirteen subtasks, all eleven testing steps, and zero live blockers are now honest on disk, so the final story-validation task status now matches the completed evidence.

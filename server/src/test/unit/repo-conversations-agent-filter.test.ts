@@ -168,3 +168,42 @@ test('listConversations flowName=<name> adds an exact match filter', async () =>
     );
   }
 });
+
+test('listConversations agentName filtering stays keyed to the saved agentName even when provider/model drift elsewhere', async () => {
+  const originalFind = ConversationModel.find;
+  let capturedQuery: unknown;
+
+  (ConversationModel as unknown as Record<string, unknown>).find = (
+    query: unknown,
+  ) => {
+    capturedQuery = query;
+    return {
+      sort: () => ({
+        limit: () => ({
+          lean: async () => [],
+        }),
+      }),
+    };
+  };
+
+  try {
+    await listConversations({
+      limit: 10,
+      includeArchived: true,
+      agentName: 'coding_agent',
+    });
+
+    assert.equal(typeof capturedQuery, 'object');
+    assert(capturedQuery);
+    const query = capturedQuery as Record<string, unknown>;
+    assert.equal(query.agentName, 'coding_agent');
+    assert.equal('provider' in query, false);
+    assert.equal('model' in query, false);
+  } finally {
+    restore(
+      ConversationModel as unknown as Record<string, unknown>,
+      'find',
+      originalFind,
+    );
+  }
+});

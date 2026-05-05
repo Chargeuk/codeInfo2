@@ -16,6 +16,7 @@ import {
   getPendingConversationCancel,
 } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { resetStore } from '../../logStore.js';
 import { attachWs } from '../../ws/server.js';
 import {
@@ -208,6 +209,81 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+  }
+});
+
+test('cancelling an in-flight direct agent run does not rewrite the stored execution identity', async () => {
+  const server = await setupWsTestServer();
+  const conversationId = 'agents-ws-conv-cancel-identity-1';
+
+  try {
+    sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+
+    const deltaPromise = waitForEvent({
+      ws: server.ws,
+      predicate: (
+        event: unknown,
+      ): event is { type: 'assistant_delta'; conversationId: string } => {
+        const e = event as { type?: string; conversationId?: string };
+        return (
+          e.type === 'assistant_delta' && e.conversationId === conversationId
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const finalPromise = waitForEvent({
+      ws: server.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        conversationId: string;
+      } => {
+        const e = event as {
+          type?: string;
+          status?: string;
+          conversationId?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.status === 'stopped'
+        );
+      },
+      timeoutMs: 8_000,
+    });
+
+    const runPromise = runAgentInstructionUnlocked({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId,
+      mustExist: false,
+      source: 'REST',
+      inflightId: 'agents-ws-cancel-identity-inflight-1',
+      chatFactory: () => new SlowStreamingChat(),
+    });
+
+    await deltaPromise;
+    sendJson(server.ws, {
+      type: 'cancel_inflight',
+      conversationId,
+    });
+    await finalPromise;
+    await runPromise;
+
+    const conversation = memoryConversations.get(conversationId);
+    assert.equal(conversation?.provider, 'codex');
+    assert.equal(typeof conversation?.model, 'string');
+    assert.equal((conversation?.model ?? '').length > 0, true);
+  } finally {
+    await closeWs(server.ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+    server.restoreEnv();
   }
 });
 

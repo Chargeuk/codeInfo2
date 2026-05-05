@@ -25,13 +25,14 @@ type AgentCommandsBody = {
 
 type AgentCommandsError =
   | { code: 'AGENT_NOT_FOUND' }
+  | { code: 'AGENT_DISABLED' | 'INVALID_PROVIDER'; reason?: string }
   | { code: 'CONVERSATION_ARCHIVED' }
   | { code: 'AGENT_MISMATCH' }
   | { code: 'COMMAND_NOT_FOUND' }
   | { code: 'COMMAND_INVALID'; reason?: string }
   | { code: 'INVALID_START_STEP'; reason?: string }
   | { code: 'RUN_IN_PROGRESS'; reason?: string }
-  | { code: 'CODEX_UNAVAILABLE'; reason?: string }
+  | { code: 'PROVIDER_UNAVAILABLE'; reason?: string }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
   | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }
   | {
@@ -385,6 +386,7 @@ export function createAgentsCommandsRouter(
         agentName,
         commandName: result.commandName,
         conversationId: result.conversationId,
+        providerId: result.providerId,
         modelId: result.modelId,
       });
     } catch (err) {
@@ -439,10 +441,17 @@ export function createAgentsCommandsRouter(
               'A run is already in progress for this conversation.',
           });
         }
-        if (err.code === 'CODEX_UNAVAILABLE') {
+        if (err.code === 'AGENT_DISABLED' || err.code === 'INVALID_PROVIDER') {
+          return res.status(409).json({
+            error: 'agent_disabled',
+            code: err.code,
+            reason: err.reason,
+          });
+        }
+        if (err.code === 'PROVIDER_UNAVAILABLE') {
           return res
             .status(503)
-            .json({ error: 'codex_unavailable', reason: err.reason });
+            .json({ error: 'provider_unavailable', reason: err.reason });
         }
         if (
           err.code === 'WORKING_FOLDER_INVALID' ||

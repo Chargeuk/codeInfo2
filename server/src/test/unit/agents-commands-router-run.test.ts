@@ -116,6 +116,7 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
           agentName: 'planning_agent',
           commandName: 'improve_plan',
           conversationId: 'conv-1',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -129,6 +130,7 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
   assert.equal(res.body.agentName, 'planning_agent');
   assert.equal(res.body.commandName, 'improve_plan');
   assert.equal(res.body.conversationId, 'conv-1');
+  assert.equal(res.body.providerId, 'copilot');
   assert.equal(typeof res.body.modelId, 'string');
   assert.equal(res.body.modelId.length > 0, true);
   assert.equal(receivedSourceId, undefined);
@@ -145,6 +147,7 @@ test('POST /agents/:agentName/commands/run forwards sourceId for ingested comman
           agentName: 'planning_agent',
           commandName: 'build',
           conversationId: 'conv-2',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -168,6 +171,7 @@ test('POST /agents/:agentName/commands/run forwards startStep when provided', as
           agentName: 'planning_agent',
           commandName: 'build',
           conversationId: 'conv-2',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -311,11 +315,11 @@ test("POST /agents/:agentName/commands/run maps AGENT_MISMATCH to 400 { error: '
   assert.deepEqual(res.body, { error: 'agent_mismatch' });
 });
 
-test('POST /agents/:agentName/commands/run maps CODEX_UNAVAILABLE to 503', async () => {
+test('POST /agents/:agentName/commands/run maps PROVIDER_UNAVAILABLE to 503', async () => {
   const res = await request(
     buildApp({
       startAgentCommand: async () => {
-        throw { code: 'CODEX_UNAVAILABLE', reason: 'missing codex config' };
+        throw { code: 'PROVIDER_UNAVAILABLE', reason: 'copilot unavailable' };
       },
     }),
   )
@@ -324,8 +328,32 @@ test('POST /agents/:agentName/commands/run maps CODEX_UNAVAILABLE to 503', async
 
   assert.equal(res.status, 503);
   assert.deepEqual(res.body, {
-    error: 'codex_unavailable',
-    reason: 'missing codex config',
+    error: 'provider_unavailable',
+    reason: 'copilot unavailable',
+  });
+});
+
+test('POST /agents/:agentName/commands/run maps AGENT_DISABLED to 409 disabled payload', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        throw {
+          code: 'AGENT_DISABLED',
+          reason:
+            'Provider "copilot" is unavailable: copilot connectivity unavailable.',
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 409);
+  assert.deepEqual(res.body, {
+    error: 'agent_disabled',
+    code: 'AGENT_DISABLED',
+    reason:
+      'Provider "copilot" is unavailable: copilot connectivity unavailable.',
   });
 });
 

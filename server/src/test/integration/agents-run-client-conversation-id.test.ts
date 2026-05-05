@@ -9,8 +9,11 @@ import express from 'express';
 import supertest from 'supertest';
 
 import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
   runAgentCommand,
   runAgentInstruction,
+  startAgentInstruction,
   startAgentCommand,
 } from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -53,6 +56,25 @@ class CapturingChat extends ChatInterface {
     void _model;
     this.capture({ ...flags });
     this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+class DeferredChat extends ChatInterface {
+  constructor(private readonly release: Promise<void>) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    await this.release;
     this.emit('final', { type: 'final', content: 'ok' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
@@ -107,6 +129,122 @@ test('Agents runs accept a client-supplied conversationId even when it does not 
     assert.equal(result.agentName, 'coding_agent');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+  }
+});
+
+test('direct agent start persists the final execution identity before background completion, and later runs ignore contradictory config drift', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-run-'));
+  const agentsHome = path.join(tempRoot, 'agents');
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  await fs.mkdir(path.join(agentHome), { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'codeinfo_provider = "codex"\nmodel = "missing-codex-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "codex-repaired"\n',
+    'utf8',
+  );
+
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'codex-repaired',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [{ id: 'copilot-model', name: 'Copilot Model' }],
+      authSource: 'env-token',
+    }),
+  });
+
+  let releaseRun!: () => void;
+  const releasePromise = new Promise<void>((resolve) => {
+    releaseRun = resolve;
+  });
+
+  try {
+    const started = await startAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId: 'task5-persisted-identity',
+      source: 'REST',
+      chatFactory: () => new DeferredChat(releasePromise),
+    });
+
+    const persisted = memoryConversations.get(started.conversationId);
+    assert.equal(started.providerId, 'codex');
+    assert.equal(started.modelId, 'codex-repaired');
+    assert.equal(persisted?.provider, 'codex');
+    assert.equal(persisted?.model, 'codex-repaired');
+
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      'codeinfo_provider = "copilot"\nmodel = "copilot-new-model"\n',
+      'utf8',
+    );
+
+    releaseRun();
+    await waitFor(
+      () => (memoryTurns.get(started.conversationId) ?? []).length > 0,
+    );
+
+    const resumed = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello again',
+      conversationId: started.conversationId,
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.equal(resumed.providerId, 'codex');
+    assert.equal(resumed.modelId, 'codex-repaired');
+    const resumedConversation = memoryConversations.get(started.conversationId);
+    assert.equal(resumedConversation?.provider, 'codex');
+    assert.equal(resumedConversation?.model, 'codex-repaired');
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 

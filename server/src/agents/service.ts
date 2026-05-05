@@ -89,9 +89,6 @@ import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 import {
-  resolveSharedExecutionContext,
-  type RepositoryExecutionContextMetadata,
-  type SharedExecutionContext,
   appendWorkingFolderDecisionLog,
   getConversationRecordType,
   knownRepositoryPathsUnavailable,
@@ -99,6 +96,12 @@ import {
   restoreSavedWorkingFolder,
   validateRequestedWorkingFolder,
 } from '../workingFolders/state.js';
+import {
+  resolveSharedExecutionContext,
+  resolveWorkingFolderWorkingDirectory,
+  type RepositoryExecutionContextMetadata,
+  type SharedExecutionContext,
+} from '../workingFolders/executionContext.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -118,6 +121,7 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
+import { resolveAgentRuntimeExecutionConfig } from './config.js';
 import type { AgentDetails, AgentSummary } from './types.js';
 
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
@@ -250,6 +254,10 @@ const toRunAgentError = (
 
 const T06_ERROR_LOG =
   '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error';
+const T06_SUCCESS_LOG =
+  '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success';
+const T07_SUCCESS_LOG =
+  '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';
 const T07_ERROR_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
 const agentServiceDeps: AgentServiceDeps = {
@@ -524,6 +532,48 @@ async function resolveProviderRuntimeConfig(params: {
   return resolved.config as CodexOptions['config'];
 }
 
+async function resolveDirectAgentRuntimeExecution(params: {
+  configPath: string;
+  source: 'REST' | 'MCP';
+  surface: 'agents.run' | 'agents.commands.run' | 'mcp.agents.run';
+}) {
+  try {
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath: params.configPath,
+      entrypoint: 'agents.service',
+    });
+    if (params.source === 'REST') {
+      console.info(T06_SUCCESS_LOG, {
+        surface: params.surface,
+        source: params.source,
+        hasModel: Boolean(resolved.modelId),
+      });
+    } else {
+      console.info(T07_SUCCESS_LOG, {
+        surface: params.surface,
+        source: params.source,
+        hasModel: Boolean(resolved.modelId),
+      });
+    }
+    return resolved;
+  } catch (error) {
+    const code =
+      error instanceof RuntimeConfigResolutionError
+        ? error.code
+        : 'UNKNOWN_ERROR';
+    if (params.source === 'REST') {
+      console.error(
+        `${T06_ERROR_LOG} surface=${params.surface} source=${params.source} code=${code}`,
+      );
+    } else {
+      console.error(
+        `${T07_ERROR_LOG} surface=${params.surface} source=${params.source} code=${code}`,
+      );
+    }
+    throw error;
+  }
+}
+
 function resolveProviderModelForExecution(params: {
   providerId: ChatProviderId;
   requestedModel?: string;
@@ -569,11 +619,18 @@ async function prepareDirectAgentExecution(params: {
   agentName: string;
   configPath: string;
   workingFolder?: string;
+  source: 'REST' | 'MCP';
+  surface: 'agents.run' | 'agents.commands.run' | 'mcp.agents.run';
   pinnedProviderId?: ConversationProvider;
   pinnedModelId?: string;
   pinnedRequestedProviderId?: string;
   allowFallback: boolean;
 }): Promise<DirectAgentPreparedExecution> {
+  const requestedRuntime = await resolveDirectAgentRuntimeExecution({
+    configPath: params.configPath,
+    source: params.source,
+    surface: params.surface,
+  });
   const availabilityContext =
     await agentServiceDeps.createAgentAvailabilityContext();
   const availability = await agentServiceDeps.evaluateAgentAvailability({
@@ -630,20 +687,23 @@ async function prepareDirectAgentExecution(params: {
     };
   }
 
-  const requestedProviderId = availability.requestedProviderId;
+  const requestedProviderId =
+    requestedRuntime.requestedProviderId ?? availability.requestedProviderId;
+  const fallbackOrder = agentServiceDeps
+    .resolveAgentProviderFallbackOrder()
+    .normalizedProviders;
   const configuredRequestedProvider =
     requestedProviderId && isChatProviderId(requestedProviderId)
       ? requestedProviderId
-      : (availability.executionProviderId ?? 'codex');
-
-  const fallbackOrder = agentServiceDeps
-    .resolveAgentProviderFallbackOrder()
-    .normalizedProviders.filter(
-      (providerId) => providerId !== configuredRequestedProvider,
-    );
+      : fallbackOrder.find((providerId) => providerStates[providerId]?.available) ??
+        availability.executionProviderId ??
+        'codex';
+  const filteredFallbackOrder = fallbackOrder.filter(
+    (providerId) => providerId !== configuredRequestedProvider,
+  );
   const executionOrder = [
     configuredRequestedProvider,
-    ...(params.allowFallback ? fallbackOrder : []),
+    ...(params.allowFallback ? filteredFallbackOrder : []),
   ];
 
   let invalidProviderReason: string | undefined;
@@ -656,17 +716,19 @@ async function prepareDirectAgentExecution(params: {
   for (const providerId of executionOrder) {
     const providerState = providerStates[providerId];
     if (!providerState?.available) continue;
-    const providerRuntimeConfig = await resolveProviderRuntimeConfig({
-      agentConfigPath: params.configPath,
-      providerId,
-    });
+    const providerRuntimeConfig =
+      providerId === requestedRuntime.providerId
+        ? (requestedRuntime.runtimeConfig as CodexOptions['config'])
+        : await resolveProviderRuntimeConfig({
+            agentConfigPath: params.configPath,
+            providerId,
+          });
     const requestedModel =
-      normalizeModel(
-        (providerRuntimeConfig as Record<string, unknown>)?.model,
-      ) ??
-      normalizeModel(
-        availability.executionProviderId === providerId ? undefined : undefined,
-      );
+      providerId === requestedRuntime.providerId
+        ? requestedRuntime.modelId
+        : normalizeModel(
+            (providerRuntimeConfig as Record<string, unknown>)?.model,
+          );
     const modelId = resolveProviderModelForExecution({
       providerId,
       requestedModel,
@@ -1293,6 +1355,8 @@ export async function startAgentInstruction(
       agentName: params.agentName,
       configPath: agent.configPath,
       workingFolder: params.working_folder,
+      source: params.source,
+      surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
       pinnedProviderId: existingConversation?.provider,
       pinnedModelId: existingConversation?.model,
       allowFallback: !existingConversation,
@@ -1481,31 +1545,16 @@ async function prepareDirectCommandBootstrap(params: {
     throw toRunAgentError('AGENT_MISMATCH');
   }
 
-  let prepared: DirectAgentPreparedExecution;
-  try {
-    prepared = await prepareDirectAgentExecution({
-      agentName: params.agentName,
-      configPath: params.configPath,
-      workingFolder: params.workingFolder,
-      pinnedProviderId: existingConversation?.provider,
-      pinnedModelId: existingConversation?.model,
-      allowFallback: !existingConversation,
-    });
-  } catch (error) {
-    const code =
-      error instanceof RuntimeConfigResolutionError
-        ? error.code
-        : 'UNKNOWN_ERROR';
-    console.error(
-      `${T06_ERROR_LOG} surface=agents.run source=${params.source} code=${code}`,
-    );
-    if (params.source === 'MCP') {
-      console.error(
-        `${T07_ERROR_LOG} surface=mcp.agents.run source=${params.source} code=${code}`,
-      );
-    }
-    throw error;
-  }
+  const prepared = await prepareDirectAgentExecution({
+    agentName: params.agentName,
+    configPath: params.configPath,
+    workingFolder: params.workingFolder,
+    source: params.source,
+    surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.commands.run',
+    pinnedProviderId: existingConversation?.provider,
+    pinnedModelId: existingConversation?.model,
+    allowFallback: !existingConversation,
+  });
   const initialModelId = prepared.modelId ?? FALLBACK_COMMAND_MODEL_ID;
 
   if (!needsSyntheticBootstrap || existingConversation) {
@@ -1684,6 +1733,8 @@ export async function startAgentCommand(params: {
       agentName: params.agentName,
       configPath: agent.configPath,
       workingFolder: effectiveWorkingFolder,
+      source: params.source,
+      surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.commands.run',
       pinnedProviderId: existingConversation?.provider,
       pinnedModelId: existingConversation?.model,
       allowFallback: !existingConversation,
@@ -2052,6 +2103,8 @@ export async function runAgentInstructionUnlocked(params: {
       agentName: params.agentName,
       configPath: agent.configPath,
       workingFolder: effectiveWorkingFolder,
+      source: params.source,
+      surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
       pinnedProviderId: existingConversation?.provider,
       pinnedModelId: existingConversation?.model,
       pinnedRequestedProviderId: existingConversation?.provider,

@@ -403,14 +403,23 @@ describe('Agent config defaults', () => {
       }),
       getMcpStatus: async () => ({ available: true }),
       resolveCopilotReadiness: async () => ({
-        available: true,
-        toolsAvailable: true,
-        blockingStage: 'ready',
-        models: ['copilot-model'],
-        modelsRaw: [{ id: 'copilot-model', name: 'Copilot Model' }],
-        authSource: 'env-token',
-      }),
-    });
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
 
     try {
       const started = await startAgentInstruction({
@@ -508,14 +517,23 @@ describe('Agent config defaults', () => {
       }),
       getMcpStatus: async () => ({ available: true }),
       resolveCopilotReadiness: async () => ({
-        available: true,
-        toolsAvailable: true,
-        blockingStage: 'ready',
-        models: ['copilot-model'],
-        modelsRaw: [{ id: 'copilot-model', name: 'Copilot Model' }],
-        authSource: 'env-token',
-      }),
-    });
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
 
     try {
       const started = await startAgentInstruction({

@@ -81,6 +81,7 @@ test('tools/call run_agent_instruction returns JSON text content with answer-onl
       return {
         agentName: 'coding_agent',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'model-from-config',
         segments: [
           { type: 'thinking', text: 't' },
@@ -201,12 +202,13 @@ test('tools/call run_agent_instruction aborts tool call on disconnect (AbortSign
 
       abortedResolve?.();
 
-      return {
-        agentName: 'coding_agent',
-        conversationId: 'c1',
-        modelId: 'm1',
-        segments: [{ type: 'answer', text: 'stopped' }],
-      };
+        return {
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          providerId: 'copilot',
+          modelId: 'm1',
+          segments: [{ type: 'answer', text: 'stopped' }],
+        };
     },
   });
 
@@ -285,6 +287,7 @@ test('tools/call run_command aborts tool call on disconnect (AbortSignal propaga
         agentName: 'planning_agent',
         commandName: 'improve_plan',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'm1',
       };
     },
@@ -385,6 +388,7 @@ test('tools/call run_command runs local commands when sourceId is omitted', asyn
         agentName: 'planning_agent',
         commandName: 'improve_plan',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'm1',
       };
     },
@@ -475,6 +479,7 @@ test('tools/call run_command forwards sourceId when provided', async () => {
         agentName: 'planning_agent',
         commandName: 'improve_plan',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'm1',
       };
     },

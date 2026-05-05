@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -105,6 +105,21 @@ const T19_SUCCESS_LOG =
 const T19_ERROR_LOG =
   '[DEV-0000037][T19] event=migration_safety_regressions_executed result=error';
 
+let previousPreferredAgentsHome: string | undefined;
+
+beforeEach(() => {
+  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+});
+
+afterEach(() => {
+  if (previousPreferredAgentsHome === undefined) {
+    delete process.env.CODEINFO_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+  }
+  previousPreferredAgentsHome = undefined;
+});
+
 test('Agents runs accept a client-supplied conversationId even when it does not exist yet', async () => {
   resetStore();
 
@@ -189,7 +204,16 @@ test('direct agent start persists the final execution identity before background
       toolsAvailable: true,
       blockingStage: 'ready',
       models: ['copilot-model'],
-      modelsRaw: [{ id: 'copilot-model', name: 'Copilot Model' }],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
       authSource: 'env-token',
     }),
   });
@@ -289,6 +313,7 @@ test('startAgentCommand omission path defaults startStep to 1 and executes from 
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -361,6 +386,7 @@ test('runAgentCommand omission path defaults startStep to 1 and executes from st
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -495,6 +521,7 @@ test('Agents runs fail when agent config contains invalid supported key types (r
     ['model = "gpt-5.1-codex-max"', 'approval_policy = 42'].join('\n'),
     'utf8',
   );
+  process.env.CODEINFO_AGENT_HOME = tmpAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tmpAgentsHome;
 
   try {
@@ -568,6 +595,7 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -685,6 +713,7 @@ test('Agents command run uses same runtime config source and emits deterministic
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -850,6 +879,7 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1024,6 +1054,7 @@ test('one successful device-auth flow unlocks shared auth reuse for agent, flow,
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1183,6 +1214,7 @@ test('Flow and MCP runtime resolver paths emit deterministic T07 error logs on i
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1346,6 +1378,7 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;

@@ -271,10 +271,10 @@ test('cancelling an in-flight direct agent run does not rewrite the stored execu
       conversationId,
     });
     await finalPromise;
-    await runPromise;
+    const result = await runPromise;
 
     const conversation = memoryConversations.get(conversationId);
-    assert.equal(conversation?.provider, 'codex');
+    assert.equal(conversation?.provider, result.providerId);
     assert.equal(typeof conversation?.model, 'string');
     assert.equal((conversation?.model ?? '').length > 0, true);
   } finally {

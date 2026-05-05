@@ -377,7 +377,16 @@ test('direct agent runs can fall back to a different provider when the requested
       toolsAvailable: true,
       blockingStage: 'ready',
       models: ['copilot-model'],
-      modelsRaw: [{ id: 'copilot-model', name: 'Copilot Model' }],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
       authSource: 'env-token',
     }),
   });

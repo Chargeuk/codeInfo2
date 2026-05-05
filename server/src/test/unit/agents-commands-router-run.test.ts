@@ -616,9 +616,13 @@ test('direct command execution restores the saved folder from the owning agent c
   const commandName = 'task5_direct_command_saved_folder';
   const conversationId = 'task5-direct-command-saved-folder';
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
 
   try {
+    process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codex_agents');
     process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+    process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
     await writeRepoCommand({
       repoRoot: savedWorkingRoot,
       commandName,
@@ -698,10 +702,20 @@ test('direct command execution restores the saved folder from the owning agent c
     __resetAgentServiceDepsForTests();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
     if (previousAgentsHome === undefined) {
       delete process.env.CODEINFO_CODEX_AGENT_HOME;
     } else {
       process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

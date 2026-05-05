@@ -12,14 +12,15 @@ test('callTool run_command success returns minimal JSON payload', async () => {
   const result = await callTool(
     'run_command',
     { agentName: 'planning_agent', commandName: 'improve_plan' },
-    {
-      runAgentCommand: async () => ({
-        agentName: 'planning_agent',
-        commandName: 'improve_plan',
-        conversationId: 'c1',
-        modelId: 'm1',
-      }),
-    },
+        {
+          runAgentCommand: async () => ({
+            agentName: 'planning_agent',
+            commandName: 'improve_plan',
+            conversationId: 'c1',
+            providerId: 'copilot',
+            modelId: 'm1',
+          }),
+        },
   );
 
   const text = result.content[0].text as string;
@@ -75,16 +76,17 @@ test('callTool run_command trims sourceId and treats whitespace-only as undefine
       commandName: 'improve_plan',
       sourceId: '   ',
     },
-    {
-      runAgentCommand: async (params) => {
-        captured = { sourceId: params.sourceId };
-        return {
-          agentName: 'planning_agent',
-          commandName: 'improve_plan',
-          conversationId: 'c1',
-          modelId: 'm1',
-        };
-      },
+        {
+          runAgentCommand: async (params) => {
+            captured = { sourceId: params.sourceId };
+            return {
+              agentName: 'planning_agent',
+              commandName: 'improve_plan',
+              conversationId: 'c1',
+              providerId: 'copilot',
+              modelId: 'm1',
+            };
+          },
     },
   );
 

@@ -60,9 +60,11 @@ Leave the task ready for the later automated-proof step.
 - Do not add subtasks that run automated proof commands, depend on later screenshots or logs, or require later manual-testing-agent validation in order to become complete.
 - If the task needs additional automated proof obligations to stay honest, do not run them here; leave those for the later automated-proof step.
 - If the selected task still has unchecked subtasks at the end of this step, then one of the following must be true:
-  - at least one previously unchecked subtask was completed in this step; or
-  - you added a live `**BLOCKER**` note explaining exactly why the remaining subtasks could not be completed honestly.
-- It is not valid to leave the task with the same unchecked subtasks and no newly completed subtask and no live `**BLOCKER**`.
+  - every implementation-owned unchecked subtask that is honestly completable within this implementation step is now complete; or
+  - the only remaining unchecked subtasks explicitly depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts that are reserved for the later automated-proof step; or
+  - you added a live `**BLOCKER**` note explaining exactly why the next remaining implementation-owned unchecked subtask could not be completed honestly.
+- It is not valid to stop this step merely because partial progress was made, one or more subtasks were completed, the remaining implementation-owned work feels safer to leave for a later pass, or the work is risky but still in scope and fixable.
+- It is not valid to leave the task with remaining implementation-owned unchecked subtasks and no live `**BLOCKER**`.
 - If the remaining unchecked subtasks are open-ended diagnosis, narrowing, isolation, or investigation work and this pass did not isolate the owner, repair the owner, or close a subtask, stop and add a live `**BLOCKER**` note instead of repeating another partial narrowing pass.
 - If the active task is a bounded diagnostic task and the bounded search is exhausted cleanly, do not keep the same task alive by inventing more ad hoc narrowing inside this step; raise a live `**BLOCKER**` so planner repair can either close the exhausted branch or create a fresh successor task.
 
@@ -95,7 +97,8 @@ Return a concise summary that includes:
 1. which task you worked on;
 2. whether all subtasks are now complete;
 3. whether the task is ready for automated proof, still needs implementation work, or is blocked;
-4. any important gotchas encountered.
+4. any important gotchas encountered;
+5. if any unchecked subtasks remain, the first remaining unchecked subtask and whether it is blocked by a live `**BLOCKER**` or explicitly reserved for the later automated-proof step.
 
 Do not claim the task is fully complete unless the `Testing` section has also been run later.
 Do not claim unrelated automated proof was completed if you only ran subtask-required testing-wrapper steps in this step.
@@ -115,7 +118,8 @@ Before finishing:
 - confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;
 - confirm completed subtasks were marked immediately;
 - confirm you did not defer completed subtask or directly corresponding testing updates until the end of a longer wrapper chain;
-- confirm that if unchecked subtasks remain, either at least one subtask was completed in this pass or a live `**BLOCKER**` was added;
+- confirm that if unchecked subtasks remain, either the only remaining unchecked subtasks are explicitly reserved for the later automated-proof step because they depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts, or a live `**BLOCKER**` was added that explains why the next remaining implementation-owned unchecked subtask could not be completed honestly;
+- confirm you did not treat partial progress alone as a valid reason to stop with remaining implementation-owned unchecked subtasks;
 - confirm you did not leave the task in a stalled no-progress state;
 - confirm any blocker was written into `Implementation Notes` as `**BLOCKER**`;
 - confirm tracked changes were committed if any were made.

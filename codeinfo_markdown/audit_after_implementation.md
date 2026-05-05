@@ -56,12 +56,12 @@ Do not treat this step as automated-proof completion.
 <stall_detection_rules>
 
 - Compare the current task's open subtasks and implementation notes against the latest implementation pass.
-- If the task still has unchecked subtasks and there is no live `**BLOCKER**` note, treat that as a stalled invalid state even when the latest implementation pass closed one or more subtasks.
-- Do not treat partial subtask progress by itself as a valid reason to leave unchecked subtasks open without a live `**BLOCKER**`.
+- If the task still has unchecked subtasks, there is no live `**BLOCKER**` note, and at least one remaining unchecked subtask is not explicitly reserved for the later automated-proof step because it depends on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts, treat that as a stalled invalid state even when the latest implementation pass closed one or more subtasks.
+- Do not treat partial subtask progress by itself as a valid reason to leave unchecked implementation-owned subtasks open without a live `**BLOCKER**`.
 - If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as a stalled invalid state too.
 - In that stalled invalid state, add a live `**BLOCKER**` note immediately rather than letting the loop continue silently.
 - That blocker note must state:
-  - the exact remaining subtasks;
+  - the exact remaining implementation-owned subtasks;
   - that the latest implementation pass ended with unchecked subtasks and no blocker that honestly justified handing off to a later pass;
   - the narrowing, investigation, or implementation work attempted;
   - and that planner intervention is now required to split, narrow, re-own, or concretize the task before implementation continues honestly.
@@ -72,7 +72,7 @@ Do not treat this step as automated-proof completion.
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - After this audit, the task just worked in this loop must remain `__in_progress__`, because automated proof has not yet been completed in this loop.
-- A task with unchecked subtasks must not continue after an implementation pass without a live `**BLOCKER**` that honestly explains why the next remaining unchecked subtask could not be completed in that pass.
+- A task with remaining implementation-owned unchecked subtasks must not continue after an implementation pass without a live `**BLOCKER**` that honestly explains why the next remaining implementation-owned unchecked subtask could not be completed in that pass.
 - If this audit detects that stalled state, preserve the task as `__in_progress__` and make the blocker visible so the planner loop can take over.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.
 
@@ -105,7 +105,8 @@ Before finishing:
 - confirm no `Testing` section items were newly marked complete unless they were already honestly complete or were honestly completed in the immediately preceding implementation pass because an unchecked subtask explicitly required them;
 - confirm the just-worked task was left `__in_progress__`;
 - confirm you did not leave a stalled task with open subtasks and no live `**BLOCKER**`;
-- confirm you did not treat partial subtask progress alone as a valid reason to leave unchecked subtasks open without a blocker;
+- confirm you did not treat partial subtask progress alone as a valid reason to leave unchecked implementation-owned subtasks open without a blocker;
+- confirm any remaining unchecked subtasks left for the automated-proof step were explicitly proof-owned follow-ups that depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts;
 - confirm you did not allow vague manual-testing investigation subtasks to pass through as honest implementation-ready tasking;
 - confirm you did not append a duplicate audit note when the task state was materially unchanged;
 - confirm any blocker was preserved and made visible in the plan;

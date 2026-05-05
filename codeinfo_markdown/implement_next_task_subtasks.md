@@ -60,12 +60,13 @@ Leave the task ready for the later automated-proof step.
 - Do not add subtasks that run automated proof commands, depend on later screenshots or logs, or require later manual-testing-agent validation in order to become complete.
 - If the task needs additional automated proof obligations to stay honest, do not run them here; leave those for the later automated-proof step.
 - Continue working through the selected task's unchecked `Subtasks` in this same step until one of the following is true:
-  - every unchecked subtask in the selected task's `Subtasks` section is now honestly complete; or
-  - a live `**BLOCKER**` has been added for the first remaining unchecked subtask that cannot be completed honestly in this pass.
-- It is not valid to stop this step merely because partial progress was made, one or more subtasks were completed, the remaining work feels safer to leave for a later pass, or the work is risky but still in scope and fixable.
-- If unchecked subtasks remain and no live `**BLOCKER**` prevents the next remaining unchecked subtask, continue working in this step instead of handing off to a later loop pass.
-- Do not intentionally split one task's remaining unchecked subtasks across multiple coding passes when those subtasks are still in scope, actionable, and not honestly blocked.
-- \"I completed some subtasks and left the rest for a later pass\" is not an acceptable stop condition unless a live `**BLOCKER**` now prevents the next unchecked subtask from being completed honestly.
+  - every unchecked subtask in the selected task's `Subtasks` section that is honestly completable within this implementation step is now honestly complete; or
+  - the only remaining unchecked subtasks explicitly depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts that are reserved for the later automated-proof step; or
+  - a live `**BLOCKER**` has been added for the first remaining unchecked subtask that cannot be completed honestly in this pass and is not one of those later automated-proof-owned follow-ups.
+- It is not valid to stop this step merely because partial progress was made, one or more subtasks were completed, the remaining implementation-owned work feels safer to leave for a later pass, or the work is risky but still in scope and fixable.
+- If unchecked subtasks remain and no live `**BLOCKER**` prevents the next remaining implementation-owned unchecked subtask, continue working in this step instead of handing off to a later loop pass.
+- Do not intentionally split one task's remaining implementation-owned unchecked subtasks across multiple coding passes when those subtasks are still in scope, actionable, and not honestly blocked.
+- \"I completed some subtasks and left the rest for a later pass\" is not an acceptable stop condition unless either the remaining unchecked subtasks are explicitly reserved for the later automated-proof step because they depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts, or a live `**BLOCKER**` now prevents the next remaining implementation-owned unchecked subtask from being completed honestly.
 - If the remaining unchecked subtasks are open-ended diagnosis, narrowing, isolation, or investigation work and this pass did not isolate the owner, repair the owner, or close a subtask, stop and add a live `**BLOCKER**` note instead of repeating another partial narrowing pass.
 - If the active task is a bounded diagnostic task and the bounded search is exhausted cleanly, do not keep the same task alive by inventing more ad hoc narrowing inside this step; raise a live `**BLOCKER**` so planner repair can either close the exhausted branch or create a fresh successor task.
 
@@ -101,7 +102,7 @@ Return a concise summary that includes:
 2. whether all subtasks are now complete;
 3. whether the task is ready for automated proof, still needs implementation work, or is blocked;
 4. any important gotchas encountered;
-5. if any unchecked subtasks remain, the first remaining unchecked subtask and the exact live `**BLOCKER**` that prevented it from being completed.
+5. if any unchecked subtasks remain, the first remaining unchecked subtask and whether it is blocked by a live `**BLOCKER**` or explicitly reserved for the later automated-proof step.
 
 Do not claim the task is fully complete unless the `Testing` section has also been run later.
 Do not claim unrelated automated proof was completed if you only ran subtask-required testing-wrapper steps in this step.
@@ -121,9 +122,9 @@ Before finishing:
 - confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;
 - confirm completed subtasks were marked immediately;
 - confirm you did not defer completed subtask or directly corresponding testing updates until the end of a longer wrapper chain;
-- confirm that either all unchecked subtasks are now complete, or a live `**BLOCKER**` was added that prevents the next remaining unchecked subtask from being completed honestly in this pass;
+- confirm that either all implementation-owned unchecked subtasks are now complete, or the only remaining unchecked subtasks are explicitly reserved for the later automated-proof step because they depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts, or a live `**BLOCKER**` was added that prevents the next remaining implementation-owned unchecked subtask from being completed honestly in this pass;
 - confirm you did not end the step after partial progress alone;
-- confirm you did not defer actionable in-scope subtasks to a later pass without a blocker;
+- confirm you did not defer actionable in-scope implementation-owned subtasks to a later pass without a blocker;
 - confirm you did not leave the task in a stalled no-progress state;
 - confirm any blocker was written into `Implementation Notes` as `**BLOCKER**`;
 - confirm tracked changes were committed if any were made.

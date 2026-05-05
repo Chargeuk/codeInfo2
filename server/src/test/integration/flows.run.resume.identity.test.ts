@@ -306,7 +306,10 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
 
     await waitFor(() => capturedModels.length === 1);
     assert.deepEqual(capturedModels, ['gpt-5.2-codex']);
-    assert.equal(memoryConversations.get(childConversationId)?.provider, 'codex');
+    assert.equal(
+      memoryConversations.get(childConversationId)?.provider,
+      'codex',
+    );
     assert.equal(
       memoryConversations.get(childConversationId)?.model,
       'gpt-5.2-codex',

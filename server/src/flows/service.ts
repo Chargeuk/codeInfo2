@@ -13,12 +13,12 @@ import {
   resolveAgentHomeEnv,
   resolveAgentHomeForRepository,
 } from '../agents/roots.js';
-import { prepareFlowOwnedAgentExecution } from '../agents/service.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
+import { prepareFlowOwnedAgentExecution } from '../agents/service.js';
 import { isTransientReconnect } from '../agents/transientReconnect.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { getChatInterface, UnsupportedProviderError } from '../chat/factory.js';
@@ -63,7 +63,10 @@ import {
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
-import type { Conversation, ConversationProvider } from '../mongo/conversation.js';
+import type {
+  Conversation,
+  ConversationProvider,
+} from '../mongo/conversation.js';
 import {
   appendTurn,
   createConversation,
@@ -1666,16 +1669,18 @@ const emitFailedFlowStep = async (params: {
   inflightId: string;
   instruction: string;
   modelId: string;
+  providerId?: ConversationProvider;
   source: 'REST' | 'MCP';
   message: string;
   errorCode?: string;
   command?: TurnCommandMetadata;
 }) => {
   const createdAtIso = new Date().toISOString();
+  const providerId = params.providerId ?? 'codex';
   createInflight({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
-    provider: 'codex',
+    provider: providerId,
     model: params.modelId,
     source: params.source,
     command: params.command,
@@ -1692,7 +1697,7 @@ const emitFailedFlowStep = async (params: {
   const bridge = attachChatStreamBridge({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
-    provider: 'codex',
+    provider: providerId,
     model: params.modelId,
     chat: createNoopChat(),
     deferFinal: true,
@@ -1704,7 +1709,7 @@ const emitFailedFlowStep = async (params: {
     role: 'user',
     content: params.instruction,
     model: params.modelId,
-    provider: 'codex',
+    provider: providerId,
     source: params.source,
     status: 'ok',
     toolCalls: null,
@@ -1718,7 +1723,7 @@ const emitFailedFlowStep = async (params: {
     role: 'assistant',
     content: params.message,
     model: params.modelId,
-    provider: 'codex',
+    provider: providerId,
     source: params.source,
     status: 'failed',
     toolCalls: null,
@@ -1761,14 +1766,16 @@ const emitStoppedFlowStep = async (params: {
   inflightId: string;
   instruction: string;
   modelId: string;
+  providerId?: ConversationProvider;
   source: 'REST' | 'MCP';
   command?: TurnCommandMetadata;
 }) => {
   const createdAtIso = new Date().toISOString();
+  const providerId = params.providerId ?? 'codex';
   createInflight({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
-    provider: 'codex',
+    provider: providerId,
     model: params.modelId,
     source: params.source,
     command: params.command,
@@ -1785,7 +1792,7 @@ const emitStoppedFlowStep = async (params: {
   const bridge = attachChatStreamBridge({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
-    provider: 'codex',
+    provider: providerId,
     model: params.modelId,
     chat: createNoopChat(),
     deferFinal: true,
@@ -1797,7 +1804,7 @@ const emitStoppedFlowStep = async (params: {
     role: 'user',
     content: params.instruction,
     model: params.modelId,
-    provider: 'codex',
+    provider: providerId,
     source: params.source,
     status: 'ok',
     toolCalls: null,
@@ -1811,7 +1818,7 @@ const emitStoppedFlowStep = async (params: {
     role: 'assistant',
     content: 'Stopped',
     model: params.modelId,
-    provider: 'codex',
+    provider: providerId,
     source: params.source,
     status: 'stopped',
     toolCalls: null,
@@ -3329,6 +3336,20 @@ async function runFlowUnlocked(params: {
       },
     });
 
+    let commandRuntimeIdentity:
+      | Awaited<ReturnType<typeof resolveFlowInstructionPrerequisites>>
+      | undefined;
+    const resolveCommandRuntimeIdentity = async () => {
+      commandRuntimeIdentity ??= await resolveFlowInstructionPrerequisites({
+        agentType: step.agentType,
+        identifier: step.identifier,
+        configPath: agent.configPath,
+        workingFolder: params.repositoryContext.workingRepositoryPath,
+        source: params.source,
+      });
+      return commandRuntimeIdentity;
+    };
+
     const stopCommandBeforeHandoff = async (): Promise<boolean> => {
       const pendingCancel = consumePendingConversationCancel({
         conversationId: params.conversationId,
@@ -3336,17 +3357,13 @@ async function runFlowUnlocked(params: {
       });
       if (!pendingCancel) return false;
 
-      const modelId = await getAgentModelId({
-        agentName: step.agentType,
-        configPath: agent.configPath,
-        workingFolder: params.repositoryContext.workingRepositoryPath,
-        source: params.source,
-      });
+      const runtimeIdentity = await resolveCommandRuntimeIdentity();
       await emitStoppedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction: `Command: ${step.commandName}`,
-        modelId,
+        modelId: runtimeIdentity.modelId,
+        providerId: runtimeIdentity.providerId,
         source: params.source,
         command,
       });
@@ -3383,17 +3400,13 @@ async function runFlowUnlocked(params: {
           );
           continue;
         }
-        const modelId = await getAgentModelId({
-          agentName: step.agentType,
-          configPath: agent.configPath,
-          workingFolder: params.repositoryContext.workingRepositoryPath,
-          source: params.source,
-        });
+        const runtimeIdentity = await resolveCommandRuntimeIdentity();
         await emitFailedFlowStep({
           flowConversationId: params.conversationId,
           inflightId: stepInflightId,
           instruction: `Command: ${step.commandName}`,
-          modelId,
+          modelId: runtimeIdentity.modelId,
+          providerId: runtimeIdentity.providerId,
           source: params.source,
           message: commandLoad.message,
           errorCode: 'COMMAND_INVALID',
@@ -3484,15 +3497,11 @@ async function runFlowUnlocked(params: {
                 callId,
                 execution: result.value,
               });
+              const runtimeIdentity = await resolveCommandRuntimeIdentity();
 
               await flowServiceDeps.runReingestStepLifecycle({
                 conversationId: params.conversationId,
-                modelId: await getAgentModelId({
-                  agentName: step.agentType,
-                  configPath: agent.configPath,
-                  workingFolder: params.repositoryContext.workingRepositoryPath,
-                  source: params.source,
-                }),
+                modelId: runtimeIdentity.modelId,
                 source: params.source,
                 command,
                 toolResult,
@@ -3516,16 +3525,13 @@ async function runFlowUnlocked(params: {
               if (result.value.kind === 'single') {
                 let stopAfter = false;
                 if (pendingCancelAfterWait) {
+                  const runtimeIdentity = await resolveCommandRuntimeIdentity();
                   await emitStoppedFlowStep({
                     flowConversationId: params.conversationId,
                     inflightId: stepInflightId,
                     instruction: `Command: ${step.commandName}`,
-                    modelId: await getAgentModelId({
-                      agentName: step.agentType,
-                      configPath: agent.configPath,
-                      workingFolder: params.repositoryContext.workingRepositoryPath,
-                      source: params.source,
-                    }),
+                    modelId: runtimeIdentity.modelId,
+                    providerId: runtimeIdentity.providerId,
                     source: params.source,
                     command,
                   });
@@ -3546,16 +3552,13 @@ async function runFlowUnlocked(params: {
 
               let stopAfter = false;
               if (pendingCancelAfterWait) {
+                const runtimeIdentity = await resolveCommandRuntimeIdentity();
                 await emitStoppedFlowStep({
                   flowConversationId: params.conversationId,
                   inflightId: stepInflightId,
                   instruction: `Command: ${step.commandName}`,
-                  modelId: await getAgentModelId({
-                    agentName: step.agentType,
-                    configPath: agent.configPath,
-                    workingFolder: params.repositoryContext.workingRepositoryPath,
-                    source: params.source,
-                  }),
+                  modelId: runtimeIdentity.modelId,
+                  providerId: runtimeIdentity.providerId,
                   source: params.source,
                   command,
                 });
@@ -3579,17 +3582,13 @@ async function runFlowUnlocked(params: {
                 result: ExecuteCommandItemReingestResult;
               };
         } catch (error) {
-          const modelId = await getAgentModelId({
-            agentName: step.agentType,
-            configPath: agent.configPath,
-            workingFolder: params.repositoryContext.workingRepositoryPath,
-            source: params.source,
-          });
+          const runtimeIdentity = await resolveCommandRuntimeIdentity();
           await emitFailedFlowStep({
             flowConversationId: params.conversationId,
             inflightId: stepInflightId,
             instruction: `Command: ${step.commandName}`,
-            modelId,
+            modelId: runtimeIdentity.modelId,
+            providerId: runtimeIdentity.providerId,
             source: params.source,
             message:
               error instanceof Error

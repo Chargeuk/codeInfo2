@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import tempfile
 import textwrap
@@ -33,7 +35,9 @@ class SelectCurrentTaskTests(unittest.TestCase):
         output_path = handoff_path.parent / "current-task.json"
         return plan_path, handoff_path, output_path
 
-    def invoke_selector(self, handoff_path: Path, output_path: Path) -> dict[str, object]:
+    def invoke_selector(
+        self, handoff_path: Path, output_path: Path
+    ) -> tuple[dict[str, object], dict[str, object]]:
         argv = sys.argv
         self.addCleanup(setattr, sys, "argv", argv)
         sys.argv = [
@@ -43,9 +47,14 @@ class SelectCurrentTaskTests(unittest.TestCase):
             "--output",
             str(output_path),
         ]
-        exit_code = select_current_task.main()
+        stdout_buffer = io.StringIO()
+        with contextlib.redirect_stdout(stdout_buffer):
+            exit_code = select_current_task.main()
         self.assertEqual(exit_code, 0)
-        return json.loads(output_path.read_text())
+        file_payload = json.loads(output_path.read_text())
+        stdout_payload = json.loads(stdout_buffer.getvalue())
+        self.assertEqual(stdout_payload, file_payload)
+        return file_payload, stdout_payload
 
     def test_normalizes_fully_checked_in_progress_task_to_done(self) -> None:
         plan_path, handoff_path, output_path = self.make_repo(
@@ -64,7 +73,7 @@ class SelectCurrentTaskTests(unittest.TestCase):
             """
         )
 
-        payload = self.invoke_selector(handoff_path, output_path)
+        payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
 
         self.assertEqual(payload["selection_status"], "story_complete")
         self.assertEqual(payload["selection_reason"], "all_tasks_done")
@@ -100,7 +109,7 @@ class SelectCurrentTaskTests(unittest.TestCase):
             """
         )
 
-        payload = self.invoke_selector(handoff_path, output_path)
+        payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
 
         self.assertEqual(payload["selection_status"], "needs_plan_repair")
         self.assertEqual(payload["selection_reason"], "multiple_open_in_progress")
@@ -135,7 +144,7 @@ class SelectCurrentTaskTests(unittest.TestCase):
             """
         )
 
-        payload = self.invoke_selector(handoff_path, output_path)
+        payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
 
         self.assertEqual(payload["selection_status"], "resolved")
         self.assertEqual(payload["selection_reason"], "promoted_earliest_todo")
@@ -172,7 +181,7 @@ class SelectCurrentTaskTests(unittest.TestCase):
         )
         original_plan = plan_path.read_text()
 
-        payload = self.invoke_selector(handoff_path, output_path)
+        payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
 
         self.assertEqual(payload["selection_status"], "resolved")
         self.assertEqual(payload["selection_reason"], "active_in_progress")
@@ -194,7 +203,7 @@ class SelectCurrentTaskTests(unittest.TestCase):
         )
         original_plan = plan_path.read_text()
 
-        payload = self.invoke_selector(handoff_path, output_path)
+        payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
 
         self.assertEqual(payload["selection_status"], "resolved")
         self.assertEqual(payload["selection_reason"], "active_in_progress")

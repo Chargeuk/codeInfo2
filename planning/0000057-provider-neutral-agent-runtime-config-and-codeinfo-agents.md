@@ -1238,16 +1238,16 @@ This task applies the new warning and continuation contracts to the existing bro
 26. [ ] Extend `e2e/agents.spec.ts` with browser-visible proof that the shipped Agents UI preserves on-open warning timing, clears stale hidden state when a selected agent becomes disabled, and excludes those cleared values from new-run submission under the supported runtime stack. Purpose: prove the combined agent mixed-state contract on the supported end-to-end path.
 27. [ ] Extend `e2e/flows-execution-runs.spec.ts` with browser-visible proof that the shipped Flows UI preserves warning rendering, blocks disabled flow-owned runs, and excludes stale disabled-selection values from new-run submission under the supported runtime stack. Purpose: prove the combined flow mixed-state contract on the supported end-to-end path.
 28. [ ] Extend `e2e/chat-provider-history.spec.ts` with browser-visible proof that the shipped chat history UI keeps resumed conversations pinned to stored execution identity while fresh runs ignore restored resume-only values and reevaluate the current selection state. Purpose: prove the run-versus-resume mixed-state split on the supported end-to-end path.
-29. [ ] Run `npm run lint` for the Task 8 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-30. [ ] Run `npm run format:check` for the Task 8 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+29. [x] Run `npm run lint` for the Task 8 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+30. [x] Run `npm run format:check` for the Task 8 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because Task 8 changes browser-visible Agents and Flows behavior plus client API parsing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
 2. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the Task 8 proof homes include the existing Agents and Flows page unit suites. If the wrapper reports failures, inspect the printed `test-results/client-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 3. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because Task 8 changes browser-visible warning timing, disabled-state guarding, and resumed-conversation pinning on the supported end-to-end path. If the wrapper reports failures or ambiguous output, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-4. [ ] Run `npm run lint` for the final Task 8 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 8 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+4. [x] Run `npm run lint` for the final Task 8 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 8 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -1266,6 +1266,8 @@ This task applies the new warning and continuation contracts to the existing bro
 - Updated `client/src/pages/FlowsPage.tsx` so run and resume guards now respect the fetched selected-flow details contract instead of only the list row, and extended `client/src/test/flowsPage.runGuard.test.tsx` with proof that no `/flows/:name/run` request is sent once the details surface marks the flow unavailable, so Task 8 subtask 23 now has an honest run-guard proof home.
 - Marked Task 8 subtask 17 complete after re-reading `client/src/test/agentsPage.descriptionPopover.test.tsx`, which already contains a dedicated invalid-provider timing proof that keeps the warning absent from the closed state and loads it only after the selected-agent popover opens.
 - Split the disabled flow run-start guard out of `client/src/test/flowsPage.run.test.tsx` into the new dedicated proof home `client/src/test/flowsPage.runGuard.test.tsx`, so Task 8 subtask 15 is now honest and the remaining `flowsPage.run.test.tsx` coverage no longer claims the guard invariant alongside generic run/resume controls.
+- Ran `npm run lint` from the repository root for Task 8 subtask 29 and fixed the repo-level warning gate by reordering imports in the Story 57 flow integration tests under `server/src/test/integration/`. Checked the matching Task 8 testing lint item immediately because the same command was explicitly required by the subtask path in this pass.
+- Ran `npm run format:check` from the repository root for Task 8 subtask 30, then applied targeted Prettier writes to the flagged Task 8 and Story 57 files before rerunning the full check to a clean result. Checked the matching Task 8 testing format item immediately because the same command was explicitly required by the subtask path in this pass.
 
 ### Task 9. Run final Story 0000057 validation and close out the provider-neutral agent contract
 

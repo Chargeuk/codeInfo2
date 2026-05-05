@@ -1249,11 +1249,7 @@ export default function AgentsPage() {
       details.disabledReason?.message ?? 'This agent is currently disabled.',
     );
     return false;
-  }, [
-    clearSelectedAgentRunState,
-    loadSelectedAgentDetails,
-    selectedAgentName,
-  ]);
+  }, [clearSelectedAgentRunState, loadSelectedAgentDetails, selectedAgentName]);
 
   const handleAgentChange = useCallback(
     (event: SelectChangeEvent<string>) => {
@@ -1787,9 +1783,7 @@ export default function AgentsPage() {
     !wsTranscriptReady ||
     selectedAgentDisabled;
   const isInstructionInputDisabled =
-    !inputEditableDuringRun ||
-    !wsTranscriptReady ||
-    selectedAgentDisabled;
+    !inputEditableDuringRun || !wsTranscriptReady || selectedAgentDisabled;
   const conversationListDisabled =
     !sidebarSelectableDuringRun || persistenceUnavailable;
   const lastSelectedAgentDisabledStateRef = useRef<{

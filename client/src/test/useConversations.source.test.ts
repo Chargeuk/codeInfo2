@@ -225,9 +225,7 @@ describe('useConversations source metadata', () => {
 
     expect(result.current.conversations).toHaveLength(2);
     expect(
-      result.current.conversations.some(
-        (item) => item.conversationId === 'c3',
-      ),
+      result.current.conversations.some((item) => item.conversationId === 'c3'),
     ).toBe(false);
   });
 

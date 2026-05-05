@@ -833,7 +833,9 @@ export default function ChatPage() {
     });
     void send(input, {
       workingFolder: workingFolder.trim() || undefined,
-      providerOverride: useResumedExecutionIdentity ? resumedProvider : undefined,
+      providerOverride: useResumedExecutionIdentity
+        ? resumedProvider
+        : undefined,
       modelOverride: useResumedExecutionIdentity ? resumedModel : undefined,
     }).then(() => refreshConversations());
     setInput('');

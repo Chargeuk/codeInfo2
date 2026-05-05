@@ -37,6 +37,10 @@ import { query, resetStore } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 import {
   closeWs,
@@ -44,10 +48,6 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-import {
-  installDeterministicCodexAvailabilityBootstrap,
-  resetDeterministicCodexAvailabilityBootstrap,
-} from '../support/codexAvailabilityBootstrap.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

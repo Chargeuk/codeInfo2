@@ -39,15 +39,15 @@ import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
 import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
+import {
   closeWs,
   connectWs,
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-import {
-  installDeterministicCodexAvailabilityBootstrap,
-  resetDeterministicCodexAvailabilityBootstrap,
-} from '../support/codexAvailabilityBootstrap.js';
 
 beforeEach(() => {
   memoryConversations.clear();
@@ -701,25 +701,21 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
     assert.equal(response.status, 202);
 
     await waitForConversationUnlocked(flowConversationId);
-    const turns = await waitForTurns(
-      flowConversationId,
-      (items) =>
-        items.some(
-          (turn) =>
-            turn.role === 'assistant' &&
-            turn.status === 'failed' &&
-            /Saved model "gpt-5.2-codex" is unavailable/i.test(
-              turn.content ?? '',
-            ),
-        ),
+    const turns = await waitForTurns(flowConversationId, (items) =>
+      items.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'failed' &&
+          /Saved model "gpt-5.2-codex" is unavailable/i.test(
+            turn.content ?? '',
+          ),
+      ),
     );
     const failureTurn = turns.find(
       (turn) =>
         turn.role === 'assistant' &&
         turn.status === 'failed' &&
-        /Saved model "gpt-5.2-codex" is unavailable/i.test(
-          turn.content ?? '',
-        ),
+        /Saved model "gpt-5.2-codex" is unavailable/i.test(turn.content ?? ''),
     );
     assert.ok(failureTurn);
     assert.equal(failureTurn.provider, 'codex');

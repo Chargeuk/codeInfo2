@@ -31,15 +31,15 @@ import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
 import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
+import {
   closeWs,
   connectWs,
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-import {
-  installDeterministicCodexAvailabilityBootstrap,
-  resetDeterministicCodexAvailabilityBootstrap,
-} from '../support/codexAvailabilityBootstrap.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const fixturesDir = path.resolve(
@@ -2003,8 +2003,7 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
             }),
           (error) => {
             const code = (error as { code?: string; reason?: string }).code;
-            const reason = (error as { code?: string; reason?: string })
-              .reason;
+            const reason = (error as { code?: string; reason?: string }).reason;
             return (
               (code === 'CODEX_UNAVAILABLE' ||
                 code === 'PROVIDER_UNAVAILABLE') &&

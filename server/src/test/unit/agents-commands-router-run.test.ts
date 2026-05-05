@@ -613,6 +613,9 @@ test('direct command execution restores the saved folder from the owning agent c
   );
   const savedWorkingRoot = path.join(tmpDir, 'saved-working-repo');
   const sourceRoot = path.join(tmpDir, 'source-repo');
+  const agentsHome = path.join(tmpDir, 'codeinfo_agents');
+  const planningAgentHome = path.join(agentsHome, 'planning_agent');
+  const codexHome = path.join(tmpDir, 'codex-home');
   const commandName = 'task5_direct_command_saved_folder';
   const conversationId = 'task5-direct-command-saved-folder';
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -620,9 +623,21 @@ test('direct command execution restores the saved folder from the owning agent c
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
 
   try {
-    process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-    process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
+    await fs.mkdir(planningAgentHome, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(planningAgentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(planningAgentHome, 'config.toml'),
+      ['model = "auto"', 'approval_policy = "never"'].join('\n'),
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
+
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
     await writeRepoCommand({
       repoRoot: savedWorkingRoot,
       commandName,

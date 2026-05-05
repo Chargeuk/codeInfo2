@@ -631,7 +631,7 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
     assert.equal(capturedFlags.length > 0, true);
 
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
-    assert.equal(flags.useConfigDefaults, true);
+    assert.equal('useConfigDefaults' in flags, false);
     assert.equal('codexHome' in flags, false);
     assert.equal(typeof flags.runtimeConfig, 'object');
 
@@ -735,7 +735,7 @@ test('Agents command run uses same runtime config source and emits deterministic
     });
 
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
-    assert.equal(flags.useConfigDefaults, true);
+    assert.equal('useConfigDefaults' in flags, false);
     assert.equal('codexHome' in flags, false);
     assert.equal(
       (flags.runtimeConfig as { model?: string }).model,
@@ -957,7 +957,11 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
 
     const baselineFlags = restFlags.at(-1) as Record<string, unknown>;
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(baselineFlags);
-    assert.equal(baselineFlags.useConfigDefaults, true);
+    assert.equal('useConfigDefaults' in baselineFlags, false);
+    assert.equal(
+      (baselineRuntimeConfig as { model?: string }).model,
+      'agent-parity-model',
+    );
     assert.equal('codexHome' in baselineFlags, false);
 
     const commandRuntimeConfig = toRuntimeConfigSnapshot(

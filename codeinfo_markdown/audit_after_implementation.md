@@ -72,7 +72,7 @@ Do not treat this step as automated-proof completion.
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - After this audit, the task just worked in this loop must remain `__in_progress__`, because automated proof has not yet been completed in this loop.
-- A task with unchecked subtasks must not continue through repeated implementation passes without either subtask closure or a live `**BLOCKER**`.
+- A task with unchecked subtasks must not continue after an implementation pass without a live `**BLOCKER**` that honestly explains why the next remaining unchecked subtask could not be completed in that pass.
 - If this audit detects that stalled state, preserve the task as `__in_progress__` and make the blocker visible so the planner loop can take over.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.
 

@@ -42,7 +42,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
-- Treat unchecked subtasks, unchecked testing steps, and a live standalone `**BLOCKER**` note as the only valid reasons for the just-worked task to remain `__in_progress__` after this automated-proof audit.
+- Treat unchecked subtasks, a live standalone `**BLOCKER**` note, and unchecked testing steps that are honestly blocked or deferred by prerequisite unchecked subtasks as the only valid reasons for the just-worked task to remain `__in_progress__` after this automated-proof audit.
 - If prose notes, exit-criteria text, or other non-checklist text still claim remaining work after all subtasks and testing are checked and no live standalone `**BLOCKER**` remains, treat that as invalid task shape rather than as a reason to keep the task open.
 - In that invalid task-shape case, either:
   - mark the task `__done__` if current repository evidence shows the prose-only remainder is already satisfied or is not an honest remaining gate; or

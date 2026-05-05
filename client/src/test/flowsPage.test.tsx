@@ -268,6 +268,81 @@ describe('Flows page basics', () => {
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
 
+  it('renders selected-flow warning arrays and disabled-state reasons from the details route', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Run the **daily** flow.',
+            disabled: true,
+            warnings: [
+              {
+                code: 'provider_unavailable',
+                message: 'Primary provider unavailable',
+                providerId: 'codex',
+                fallbackProviderId: 'lmstudio',
+              },
+              {
+                code: 'disabled_flow_step',
+                message: 'One step is currently disabled',
+              },
+            ],
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'No usable provider remains',
+              providerId: 'codex',
+            },
+          },
+        });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const flowSelect = await screen.findByTestId('flow-select');
+    await waitFor(() =>
+      expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
+    );
+
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('flow-info'));
+    });
+
+    const warnings = await screen.findByTestId('flow-warnings');
+    expect(warnings).toHaveTextContent('Primary provider unavailable');
+    expect(warnings).toHaveTextContent('One step is currently disabled');
+    expect(warnings).toHaveTextContent('No usable provider remains');
+    expect(screen.getByTestId('flow-description')).toHaveTextContent(
+      'Run the daily flow.',
+    );
+  });
+
   it('shows the flow turns warning when conversation history fails to load', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {

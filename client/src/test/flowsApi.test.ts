@@ -11,7 +11,7 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
-const { listFlows, runFlow } = await import('../api/flows');
+const { listFlows, getFlowDetails, runFlow } = await import('../api/flows');
 
 describe('Flows API helpers', () => {
   it('calls GET /flows for listFlows', async () => {
@@ -71,6 +71,76 @@ describe('Flows API helpers', () => {
     mockFetch.mockResolvedValue(mockJsonResponse({}, { status: 500 }));
 
     await expect(listFlows()).rejects.toThrow('Failed to load flows (500)');
+  });
+
+  it('preserves structured flow detail warnings and disabled reasons', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        flow: {
+          name: 'daily',
+          description: 'Daily flow',
+          disabled: true,
+          warnings: [
+            {
+              code: 'provider_unavailable',
+              message: 'Primary provider unavailable',
+              providerId: 'codex',
+              fallbackProviderId: 'lmstudio',
+            },
+            {
+              code: 'disabled_flow_step',
+              message: 'One step is currently disabled',
+            },
+            { code: 42, message: 'ignored invalid warning' },
+          ],
+          disabledReason: {
+            code: 'provider_unavailable',
+            message: 'No usable provider remains',
+            providerId: 'codex',
+          },
+          sourceId: '/data/repo-a',
+          sourceLabel: 'Repo A',
+        },
+      }),
+    );
+
+    const result = await getFlowDetails({
+      flowName: 'daily',
+      sourceId: '/data/repo-a',
+    });
+
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit?];
+    const parsedUrl = new URL(url);
+    expect(parsedUrl.pathname).toBe('/flows/daily');
+    expect(parsedUrl.searchParams.get('sourceId')).toBe('/data/repo-a');
+    expect(result).toEqual({
+      flow: {
+        name: 'daily',
+        description: 'Daily flow',
+        disabled: true,
+        warnings: [
+          {
+            code: 'provider_unavailable',
+            message: 'Primary provider unavailable',
+            providerId: 'codex',
+            fallbackProviderId: 'lmstudio',
+          },
+          {
+            code: 'disabled_flow_step',
+            message: 'One step is currently disabled',
+            providerId: undefined,
+            fallbackProviderId: undefined,
+          },
+        ],
+        disabledReason: {
+          code: 'provider_unavailable',
+          message: 'No usable provider remains',
+          providerId: 'codex',
+        },
+        sourceId: '/data/repo-a',
+        sourceLabel: 'Repo A',
+      },
+    });
   });
 
   it('calls POST /flows/:flowName/run and parses success payload', async () => {

@@ -79,6 +79,7 @@ export type RunAgentCommandRunnerParams = {
   source: 'REST' | 'MCP';
   initialModelId?: string;
   lookupSummary?: RepositoryCandidateLookupSummary;
+  runtimeLookupSummary?: RepositoryCandidateLookupSummary;
   logger?: LoggerLike;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   releaseConversationLockFn?: typeof releaseConversationLock;
@@ -486,8 +487,11 @@ export async function runAgentCommandRunner(
       let previousError: unknown = null;
       let sanitizedErrorLength = 0;
       let currentAttempt = 0;
+      // Command lookup can resolve from an owner repository while the
+      // persisted runtime metadata must stay anchored to the requested
+      // working repository for the command turn itself.
       const runtimeLookupSummary =
-        preparedInstruction.lookupSummary ?? params.lookupSummary;
+        params.runtimeLookupSummary ?? params.lookupSummary;
       const runtime: TurnRuntimeMetadata | undefined =
         runtimeLookupSummary || params.working_folder
           ? {

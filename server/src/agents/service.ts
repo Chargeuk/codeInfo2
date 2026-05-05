@@ -931,6 +931,7 @@ type DirectCommandResolution = {
   selectedRepositorySlot: RepositoryCandidateOrderSlot;
   orderedCandidates: RepositoryCandidateOrderResult;
   lookupSummary: RepositoryCandidateLookupSummary;
+  runtimeLookupSummary: RepositoryCandidateLookupSummary;
 };
 
 const codeInfo2RootForAgent = (agentHome: string) =>
@@ -1085,6 +1086,12 @@ const resolveDirectCommandSelection = async (params: {
       orderedCandidates,
       selectedRepositoryPath: candidate.sourceId,
     });
+    const runtimeLookupSummary = params.workingRepositoryPath?.trim()
+      ? buildRepositoryCandidateLookupSummary({
+          orderedCandidates,
+          selectedRepositoryPath: params.workingRepositoryPath,
+        })
+      : lookupSummary;
     appendDirectCommandResolutionLogs({
       agentName: params.agentName,
       commandName: params.commandName,
@@ -1100,6 +1107,7 @@ const resolveDirectCommandSelection = async (params: {
       selectedRepositorySlot: candidate.slot,
       orderedCandidates,
       lookupSummary,
+      runtimeLookupSummary,
     };
   }
 
@@ -1795,6 +1803,7 @@ export async function startAgentCommand(params: {
           source: params.source,
           initialModelId: modelId,
           lookupSummary: resolution.lookupSummary,
+          runtimeLookupSummary: resolution.runtimeLookupSummary,
           onPrestartFailure: async (failure) => {
             await emitFailedAgentCommandStep({
               conversationId,
@@ -1967,6 +1976,7 @@ export async function runAgentCommand(params: {
     source: params.source,
     initialModelId,
     lookupSummary: resolution.lookupSummary,
+    runtimeLookupSummary: resolution.runtimeLookupSummary,
     runAgentInstructionUnlocked: (runParams) =>
       runAgentInstructionUnlocked({
         ...runParams,

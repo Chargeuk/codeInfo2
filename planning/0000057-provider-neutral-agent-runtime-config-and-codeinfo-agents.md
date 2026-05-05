@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1359,3 +1359,4 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 testing step 7 passed via `npm run test:summary:e2e`; the wrapper completed the compose-backed browser path with `tests run: 52`, `passed: 52`, `failed: 0`, and emitted the expected host-network verification marker before teardown.
 - Task 9 testing step 8 passed after `npm run compose:up` started the normal main stack cleanly and direct smoke checks confirmed `http://localhost:5010/health` returned `status: ok` with `mongoConnected: true` while `http://localhost:5001` returned `HTTP/1.1 200 OK`.
 - Task 9 testing step 9 passed via `npm run compose:down`; the wrapper stopped and removed only the main-stack containers and `codeinfo2_internal` network that this smoke step started.
+- Automated-proof audit closed Task 9 after rereading the task from disk and confirming all nine subtasks, all eleven testing steps, and zero live blockers were already honest on disk, so the task status now matches the completed final-validation evidence.

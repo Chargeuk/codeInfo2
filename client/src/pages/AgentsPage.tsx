@@ -1199,6 +1199,62 @@ export default function AgentsPage() {
     setConversation,
   ]);
 
+  const clearSelectedAgentRunState = useCallback(
+    (reason: 'agent_disabled' | 'agent_unrunnable') => {
+      setSelectedCommandKey('');
+      setStartStep(1);
+      setCommandInfoAnchorEl(null);
+      invalidatePromptDiscoveryState({
+        reason: 'selected_agent_reset',
+        clearCommittedWorkingFolder: true,
+      });
+      setWorkingFolder('');
+      log('info', 'agents.page.local_run_state_cleared', {
+        agentName: selectedAgentName || '__none__',
+        reason,
+      });
+    },
+    [invalidatePromptDiscoveryState, log, selectedAgentName],
+  );
+
+  const loadSelectedAgentDetails = useCallback(
+    async (agentName: string) => {
+      const cached = agentDetailsByName[agentName];
+      if (cached) {
+        return cached;
+      }
+
+      const result = await getAgentDetails(agentName);
+      setAgentDetailsByName((prev) => ({
+        ...prev,
+        [agentName]: result.agent,
+      }));
+      return result.agent;
+    },
+    [agentDetailsByName],
+  );
+
+  const ensureSelectedAgentRunnable = useCallback(async () => {
+    if (!selectedAgentName) {
+      return false;
+    }
+
+    const details = await loadSelectedAgentDetails(selectedAgentName);
+    if (!details.disabled) {
+      return true;
+    }
+
+    clearSelectedAgentRunState('agent_disabled');
+    setRunError(
+      details.disabledReason?.message ?? 'This agent is currently disabled.',
+    );
+    return false;
+  }, [
+    clearSelectedAgentRunState,
+    loadSelectedAgentDetails,
+    selectedAgentName,
+  ]);
+
   const handleAgentChange = useCallback(
     (event: SelectChangeEvent<string>) => {
       const next = event.target.value;
@@ -1499,6 +1555,10 @@ export default function AgentsPage() {
       return;
     }
 
+    if (!(await ensureSelectedAgentRunnable())) {
+      return;
+    }
+
     lastSentRef.current = rawInstruction;
     setInput('');
     await executeInstructionRun({
@@ -1516,6 +1576,10 @@ export default function AgentsPage() {
       persistenceUnavailable ||
       !wsTranscriptReady
     ) {
+      return;
+    }
+
+    if (!(await ensureSelectedAgentRunnable())) {
       return;
     }
 
@@ -1543,6 +1607,7 @@ export default function AgentsPage() {
     );
   }, [
     committedWorkingFolder,
+    ensureSelectedAgentRunnable,
     executeInstructionRun,
     persistenceUnavailable,
     selectedAgentName,
@@ -1560,6 +1625,10 @@ export default function AgentsPage() {
       persistenceUnavailable ||
       !wsTranscriptReady
     ) {
+      return;
+    }
+
+    if (!(await ensureSelectedAgentRunnable())) {
       return;
     }
 
@@ -1662,6 +1731,7 @@ export default function AgentsPage() {
   }, [
     activeConversationId,
     agentModelId,
+    ensureSelectedAgentRunnable,
     getInflightId,
     hydrateHistory,
     log,
@@ -1683,6 +1753,9 @@ export default function AgentsPage() {
   const selectedAgentDetails = selectedAgentName
     ? agentDetailsByName[selectedAgentName]
     : undefined;
+  const selectedAgentDisabled = Boolean(
+    selectedAgentDetails?.disabled ?? selectedAgent?.disabled,
+  );
   const hasVisibleStoppedRun =
     liveStoppedMarker !== null &&
     liveStoppedMarker.conversationId === activeConversationId &&
@@ -1701,7 +1774,7 @@ export default function AgentsPage() {
   const startStepDisabled =
     controlsDisabled ||
     submitDisabledForRun ||
-    selectedAgent?.disabled ||
+    selectedAgentDisabled ||
     commandsLoading ||
     !selectedCommand ||
     selectedCommand.disabled ||
@@ -1712,13 +1785,17 @@ export default function AgentsPage() {
     controlsDisabled ||
     agentWorkingFolderLocked ||
     !wsTranscriptReady ||
-    Boolean(selectedAgent?.disabled);
+    selectedAgentDisabled;
   const isInstructionInputDisabled =
     !inputEditableDuringRun ||
     !wsTranscriptReady ||
-    Boolean(selectedAgent?.disabled);
+    selectedAgentDisabled;
   const conversationListDisabled =
     !sidebarSelectableDuringRun || persistenceUnavailable;
+  const lastSelectedAgentDisabledStateRef = useRef<{
+    agentName: string;
+    disabled: boolean;
+  } | null>(null);
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId;
@@ -1727,6 +1804,43 @@ export default function AgentsPage() {
   useEffect(() => {
     workingFolderDisabledRef.current = isWorkingFolderDisabled;
   }, [isWorkingFolderDisabled]);
+
+  useEffect(() => {
+    if (!selectedAgentName) {
+      lastSelectedAgentDisabledStateRef.current = null;
+      return;
+    }
+
+    const previous = lastSelectedAgentDisabledStateRef.current;
+    const becameDisabled =
+      previous?.agentName === selectedAgentName &&
+      previous.disabled === false &&
+      selectedAgentDisabled;
+    const switchedToDisabledAgent =
+      previous?.agentName !== selectedAgentName && selectedAgentDisabled;
+
+    if (becameDisabled || switchedToDisabledAgent) {
+      clearSelectedAgentRunState(
+        selectedAgentDetails?.disabledReason
+          ? 'agent_disabled'
+          : 'agent_unrunnable',
+      );
+      setRunError(
+        selectedAgentDetails?.disabledReason?.message ??
+          'This agent is currently disabled.',
+      );
+    }
+
+    lastSelectedAgentDisabledStateRef.current = {
+      agentName: selectedAgentName,
+      disabled: selectedAgentDisabled,
+    };
+  }, [
+    clearSelectedAgentRunState,
+    selectedAgentDetails?.disabledReason,
+    selectedAgentDisabled,
+    selectedAgentName,
+  ]);
 
   useEffect(() => {
     if (!agentWorkingFolderLocked) {
@@ -1874,6 +1988,7 @@ export default function AgentsPage() {
       cancelled = true;
     };
   }, [agentDetailsByName, agentInfoOpen, selectedAgentName]);
+
   const handleCommandInfoAttempt = () => {
     if (!commandInfoDisabled) return;
     console.info('[agents.commandInfo.blocked] reason=no_command_selected');
@@ -2072,7 +2187,7 @@ export default function AgentsPage() {
                 canShowDeviceAuth={canShowDeviceAuth}
                 commandInfoDisabled={commandInfoDisabled}
                 actionSlotMinWidth={actionSlotMinWidth}
-                selectedAgentDisabled={Boolean(selectedAgent?.disabled)}
+                selectedAgentDisabled={selectedAgentDisabled}
                 agents={agents}
                 commandOptions={commandOptions}
                 promptEntries={promptEntries}

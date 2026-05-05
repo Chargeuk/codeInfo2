@@ -471,7 +471,8 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
 
           {selectedAgentDisabled ? (
             <Alert severity="warning" data-testid="agent-disabled">
-              This agent is currently disabled.
+              {agentDisabledReason?.message ??
+                'This agent is currently disabled.'}
             </Alert>
           ) : null}
 

@@ -848,10 +848,10 @@ This task pulls the repository-selection and working-directory logic into one pr
 #### Testing
 
 1. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 3 changes shared chat, working-folder, and MCP runtime plumbing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+2. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after the shared execution-context migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 4. [x] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 6. [ ] Run `npm run compose:build:summary` from the repository root because the reopened Task 3 seam now includes the main-stack server image packaging and repo-root visibility contract for omitted-provider `codebase_question`. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the packaging issue, and rerun the same wrapper.
 
 #### Manual Testing Guidance
@@ -889,6 +889,7 @@ This task pulls the repository-selection and working-directory logic into one pr
 - Planner normalization restored Task 3 as the sole active owner because subtasks 25-26 and testing steps 2, 5, and 6 are still explicit unfinished prerequisite work; Task 5 was moved back out of `__in_progress__` so the next selector pass cannot skip this earlier reopened task.
 - Baked `AGENTS.md` and the full `planning/` tree into `/app` in `server/Dockerfile`, then tightened the existing compose contract tests so the main-stack image-backed repo root now has the deterministic Task 3 proof files that omitted-provider `codebase_question` expects under `/app`.
 - Extended `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` with an explicit missing-`AGENTS.md` repo-root seam, so the Task 3 omitted-provider current-repo contract now proves both the success case and the “empty root claim” regression case without needing another manual-only diagnosis pass.
+- Audit normalization closed reopened testing steps 2 and 5 because the latest Task 3 implementation pass already reran `npm run test:summary:server:unit` to `1988` passing tests and reran the final `npm run format:check` cleanly after the repo-root packaging and proof updates; only `npm run compose:build:summary` remains open before the next automated-proof audit.
 
 ### Task 4. Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
 

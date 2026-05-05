@@ -559,7 +559,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    ['model = "auto"', 'approval_policy = "never"'].join('\n'),
     'utf8',
   );
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');

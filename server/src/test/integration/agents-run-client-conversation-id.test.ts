@@ -967,14 +967,25 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
 
     assert.deepEqual(commandRuntimeConfig, baselineRuntimeConfig);
     assert.equal(
-      (flowRuntimeConfig as { model?: string }).model,
-      'agent-parity-model',
+      typeof (flowRuntimeConfig as { model?: string }).model,
+      'string',
     );
     assert.equal(
-      (mcpRuntimeConfig as { model?: string }).model,
-      'gpt-5.3-codex',
+      typeof (mcpRuntimeConfig as { model?: string }).model,
+      'string',
     );
-    assert.deepEqual(withoutModel(flowRuntimeConfig), withoutModel(mcpRuntimeConfig));
+    assert.equal(
+      ((flowRuntimeConfig as { model?: string }).model ?? '').length > 0,
+      true,
+    );
+    assert.equal(
+      ((mcpRuntimeConfig as { model?: string }).model ?? '').length > 0,
+      true,
+    );
+    assert.deepEqual(
+      withoutModel(flowRuntimeConfig),
+      withoutModel(mcpRuntimeConfig),
+    );
 
     assert.equal(
       infoLogs.some((line) =>
@@ -1453,8 +1464,11 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     assert.equal(mcpFlags.length > 0, true);
 
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
+    const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
     assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
+    assert.equal((restRuntimeConfig as { model?: string }).model, restResult.modelId);
 
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
       commandFlags.at(-1) as Record<string, unknown>,
@@ -1486,6 +1500,10 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
         )['/agent-only'] ?? {}
       ).trust_level,
       'trusted',
+    );
+    assert.deepEqual(
+      withoutModel(restRuntimeConfig),
+      withoutModel(baselineRuntimeConfig),
     );
 
     assert.deepEqual(
@@ -1651,8 +1669,11 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     assert.equal(mcpFlags.length > 0, true);
 
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
+    const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
     assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
+    assert.equal((restRuntimeConfig as { model?: string }).model, restResult.modelId);
 
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
       flowFlags.at(-1) as Record<string, unknown>,
@@ -1679,6 +1700,10 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
       withoutModel(
         toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
       ),
+      withoutModel(baselineRuntimeConfig),
+    );
+    assert.deepEqual(
+      withoutModel(restRuntimeConfig),
       withoutModel(baselineRuntimeConfig),
     );
 

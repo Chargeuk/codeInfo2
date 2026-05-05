@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { test } from 'node:test';
+import { afterEach, beforeEach, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -99,6 +99,22 @@ function buildApp(deps?: {
   );
   return app;
 }
+
+beforeEach(() => {
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+      reason: undefined,
+    }),
+  });
+});
+
+afterEach(() => {
+  __resetAgentServiceDepsForTests();
+});
 
 test('POST /agents/:agentName/commands/run returns 202 + a stable started payload shape', async () => {
   let receivedSourceId: string | undefined;

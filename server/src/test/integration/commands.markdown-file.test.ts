@@ -168,9 +168,19 @@ let previousPreferredAgentsHome: string | undefined;
 beforeEach(() => {
   previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   delete process.env.CODEINFO_AGENT_HOME;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+      reason: undefined,
+    }),
+  });
 });
 
 afterEach(() => {
+  __resetAgentServiceDepsForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {

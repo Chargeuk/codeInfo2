@@ -238,9 +238,19 @@ beforeEach(() => {
   previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   previousLegacyAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   delete process.env.CODEINFO_AGENT_HOME;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+      reason: undefined,
+    }),
+  });
 });
 
 afterEach(() => {
+  __resetAgentServiceDepsForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -289,6 +299,15 @@ const setupRepoCommandHarness = async (suffix: string) => {
   process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+      reason: undefined,
+    }),
+  });
 
   return {
     tempRoot,
@@ -362,7 +381,7 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
     const conversation = memoryConversations.get(result.conversationId);
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.ok(conversation);
-    assert.equal(conversation?.model, 'auto');
+    assert.equal(conversation?.model, 'gpt-5.3-codex');
     assert.equal(conversation?.title, 'Command: reingest-only-run');
     assert.equal(turns.length, 2);
     assert.equal(turns[0]?.role, 'user');
@@ -454,7 +473,7 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
     const conversation = memoryConversations.get(result.conversationId);
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.ok(conversation);
-    assert.equal(conversation?.model, 'auto');
+    assert.equal(conversation?.model, 'gpt-5.3-codex');
     assert.equal(conversation?.title, 'Command: reingest-only-start');
     assert.equal(turns.length, 2);
     assert.equal(

@@ -488,6 +488,7 @@ describe('GET /flows', () => {
   });
 
   test('local flow discovery reuses the winning codeinfo_agents contract for referenced agents', async () => {
+    setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-agents-'),
     );

@@ -995,6 +995,30 @@ const appendDirectCommandResolutionLogs = (params: {
   });
 };
 
+const buildDirectCommandRuntimeLookupSummary = (params: {
+  orderedCandidates: RepositoryCandidateOrderResult;
+  workingRepositoryPath: string;
+}): RepositoryCandidateLookupSummary => {
+  const selectedRepositoryPath = path.resolve(params.workingRepositoryPath);
+  const selectedCandidate = params.orderedCandidates.candidates.find(
+    (candidate) => candidate.sourceId === selectedRepositoryPath,
+  );
+  if (!selectedCandidate) {
+    throw new Error(
+      `working repository ${selectedRepositoryPath} is not present in the ordered candidate list`,
+    );
+  }
+
+  return {
+    selectedRepositoryPath,
+    // Runtime metadata describes the execution repository, not whether
+    // command-file lookup had to fall back to an owner repository.
+    fallbackUsed: false,
+    workingRepositoryAvailable:
+      params.orderedCandidates.workingRepositoryAvailable,
+  };
+};
+
 const resolveDirectCommandSelection = async (params: {
   agentName: string;
   agentHome: string;
@@ -1087,9 +1111,9 @@ const resolveDirectCommandSelection = async (params: {
       selectedRepositoryPath: candidate.sourceId,
     });
     const runtimeLookupSummary = params.workingRepositoryPath?.trim()
-      ? buildRepositoryCandidateLookupSummary({
+      ? buildDirectCommandRuntimeLookupSummary({
           orderedCandidates,
-          selectedRepositoryPath: params.workingRepositoryPath,
+          workingRepositoryPath: params.workingRepositoryPath,
         })
       : lookupSummary;
     appendDirectCommandResolutionLogs({

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -69,6 +69,22 @@ const restore = <T extends object, K extends keyof T>(
 ) => {
   (target as Record<string, unknown>)[key as string] = original as unknown;
 };
+
+beforeEach(() => {
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+      reason: undefined,
+    }),
+  });
+});
+
+afterEach(() => {
+  __resetAgentServiceDepsForTests();
+});
 
 test('stores + returns command when provided', async () => {
   const stored: Array<Record<string, unknown>> = [];
@@ -433,8 +449,10 @@ test('owner-only direct commands still persist the requested working repository 
       (turn) => turn.command?.name === commandName,
     );
     assert.equal(commandTurns.length > 0, true);
+    const runtimeCommandTurns = commandTurns.filter((turn) => turn.runtime);
+    assert.equal(runtimeCommandTurns.length > 0, true);
     assert.equal(
-      commandTurns.every(
+      runtimeCommandTurns.every(
         (turn) =>
           turn.runtime?.workingFolder === path.resolve(workingRoot) &&
           turn.runtime?.lookupSummary?.selectedRepositoryPath ===

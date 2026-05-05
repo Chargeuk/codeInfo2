@@ -491,7 +491,9 @@ export async function runAgentCommandRunner(
       // persisted runtime metadata must stay anchored to the requested
       // working repository for the command turn itself.
       const runtimeLookupSummary =
-        params.runtimeLookupSummary ?? params.lookupSummary;
+        preparedInstruction.lookupSummary ??
+        params.runtimeLookupSummary ??
+        params.lookupSummary;
       const runtime: TurnRuntimeMetadata | undefined =
         runtimeLookupSummary || params.working_folder
           ? {

@@ -10,6 +10,10 @@ import express from 'express';
 import supertest from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -193,6 +197,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  __resetAgentServiceDepsForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;
   } else {
@@ -693,6 +698,285 @@ test('fresh flow start creates a new parent conversation when an older conversat
       delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('initial flow-owned execution repairs the requested provider model before first run turns persist', async () => {
+  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-provider-repair-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const localFlowsDir = path.join(codeInfo2Root, 'flows');
+  const agentsHome = path.join(codeInfo2Root, 'codeinfo_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const flowName = 'provider-repair';
+  const conversationId = 'flow-provider-repair';
+
+  await fs.mkdir(localFlowsDir, { recursive: true });
+  await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  await fs.writeFile(
+    path.join(agentsHome, 'coding_agent', 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "missing-codex-model"',
+      'approval_policy = "never"',
+    ].join('\n'),
+    'utf8',
+  );
+  await writeFlowFile({
+    flowsRoot: localFlowsDir,
+    flowName,
+    steps: [
+      {
+        type: 'llm',
+        agentType: 'coding_agent',
+        identifier: 'basic',
+        messages: [
+          { role: 'user', content: ['repair the first-run flow model'] },
+        ],
+      },
+    ],
+  });
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.FLOWS_DIR = localFlowsDir;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'codex-repaired',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName,
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+
+    assert.equal(result.conversationId, conversationId);
+    assert.equal(result.modelId, 'codex-repaired');
+
+    await waitForTurns(conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    const flowConversation = memoryConversations.get(conversationId);
+    assert.equal(flowConversation?.provider, 'codex');
+    assert.equal(flowConversation?.model, 'codex-repaired');
+
+    const childConversation = memoryConversations.get(
+      getAgentConversationId(conversationId),
+    );
+    assert.equal(childConversation?.provider, 'codex');
+    assert.equal(childConversation?.model, 'codex-repaired');
+  } finally {
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousFlowsDir) {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('initial flow-owned execution falls back to another provider and persists the actual provider-model pair', async () => {
+  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const previousFallbackOrder =
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+  const tempRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-provider-fallback-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const localFlowsDir = path.join(codeInfo2Root, 'flows');
+  const agentsHome = path.join(codeInfo2Root, 'codeinfo_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const copilotHome = path.join(tempRoot, 'copilot-home');
+  const flowName = 'provider-fallback';
+  const conversationId = 'flow-provider-fallback';
+
+  await fs.mkdir(localFlowsDir, { recursive: true });
+  await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(agentsHome, 'coding_agent', 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "missing-codex-model"',
+      'approval_policy = "never"',
+    ].join('\n'),
+    'utf8',
+  );
+  await writeFlowFile({
+    flowsRoot: localFlowsDir,
+    flowName,
+    steps: [
+      {
+        type: 'llm',
+        agentType: 'coding_agent',
+        identifier: 'basic',
+        messages: [{ role: 'user', content: ['fallback the first run'] }],
+      },
+    ],
+  });
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
+  process.env.FLOWS_DIR = localFlowsDir;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      reason: 'codex unavailable',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName,
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+
+    assert.equal(result.conversationId, conversationId);
+    assert.equal(result.modelId, 'copilot-model');
+
+    await waitForTurns(conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    const flowConversation = memoryConversations.get(conversationId);
+    assert.equal(flowConversation?.provider, 'copilot');
+    assert.equal(flowConversation?.model, 'copilot-model');
+
+    const childConversation = memoryConversations.get(
+      getAgentConversationId(conversationId),
+    );
+    assert.equal(childConversation?.provider, 'copilot');
+    assert.equal(childConversation?.model, 'copilot-model');
+  } finally {
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
+      previousFallbackOrder;
+    if (previousFlowsDir) {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 

@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -712,7 +712,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -798,7 +798,7 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -837,14 +837,24 @@ This task pulls the repository-selection and working-directory logic into one pr
 17. [x] Test type: server integration. Location: `server/src/test/integration/flows.run.working-folder.test.ts`. Description: prove `server/src/workingFolders/executionContext.ts` preserves the documented working-folder error behavior when higher-level flow execution reaches the same seam. Purpose: keep flow-level error compatibility explicit.
 18. [x] Run `npm run lint` for the Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
 19. [x] Run `npm run format:check` for the Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+20. [ ] Update `server/src/workingFolders/executionContext.ts` and `server/src/mcp2/tools/codebaseQuestion.ts` so omitted-provider `code_info` uses a repository-grounded default execution root that can actually resolve current-story repository files on the main stack instead of dropping broad `/data` fallback state into provider runtime selection. Purpose: close the Task 3 manual-proof gap where `codebase_question` accepted the shared contract but still could not locate `AGENTS.md` or the active `planning/0000057-...` file without an explicit selected repository.
+21. [ ] Test type: server integration or unit, whichever already owns the omitted-provider MCP seam. Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` or `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`. Description: prove an omitted-provider `codebase_question` call can answer a deterministic current-repository file question from the shared default execution root without a saved `working_folder`. Purpose: turn the Task 3 manual finding into automated proof on the same repo-grounded contract.
+22. [ ] Run `npm run lint` for the reopened Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+23. [ ] Run `npm run format:check` for the reopened Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Testing
 
 1. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 3 changes shared chat, working-folder, and MCP runtime plumbing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after the shared execution-context migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 4. [x] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [x] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+
+#### Manual Testing Guidance
+
+- Later Task 3 retest should restart the main human stack through `npm run compose:build` followed by `npm run compose:up`, then prove one selected-repository chat run on a path the main stack can both validate and see inside the container, such as `/fixtures/repo`, before retrying the omitted-provider `codebase_question` path.
+- Later Task 3 retest should then run omitted-provider MCP `codebase_question` against a deterministic current-repository file question, such as `AGENTS.md` or `planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md`, and save the JSON-RPC request plus response under `codeInfoTmp/manual-testing/0000057/3/`.
+- Later Task 3 retest should keep one browser screenshot plus the chat/MCP support payloads in `codeInfoTmp/manual-testing/0000057/3/` so story closeout can promote the final proof cleanly.
 
 #### Implementation notes
 
@@ -859,6 +869,9 @@ This task pulls the repository-selection and working-directory logic into one pr
 - `npm run test:summary:server:cucumber` passed cleanly on the first Task 3 proof run with `117` scenarios green, so the higher-level server feature surface stayed stable after the shared execution-context migration.
 - The final Task 3 `npm run lint` proof pass only surfaced import-order warnings in the two MCP proof files touched by the build fixes; reordering those type imports made the full repo lint command pass cleanly on rerun.
 - The final Task 3 `npm run format:check` proof pass finished cleanly with `All matched files use Prettier code style!`, so no additional formatter rewrite was needed after the proof-time harness and typing fixes.
+- Manual testing restarted the main stack because the previously running local overlay was stale and not a trustworthy freshness proof for Task 3, then proved the selected-repository chat contract on `/fixtures/repo`: `POST /chat` returned `202 Accepted`, the resulting conversation persisted `flags.workingFolder: "/fixtures/repo"`, and the saved user turn runtime showed `lookupSummary.selectedRepositoryPath: "/fixtures/repo"` with `workingRepositoryAvailable: true`.
+- The same manual pass found a real Task 3 gap on the omitted-provider `code_info` branch: MCP `codebase_question` without provider overrides could not answer deterministic current-repository questions about `AGENTS.md` or `planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md`, which means the shared default execution root is still not honestly repository-grounded enough for the current repo on the main stack even though the selected-repository path works.
+- Reopened the omitted-provider implementation and proof work plus the affected `test:summary:server:unit` and final `format:check` testing steps so automated proof must rerun before the next Task 3 manual retest; supporting artifacts from this manual pass live under `codeInfoTmp/manual-testing/0000057/3/`, including `proof-01-chat-task3-state.png`, the successful `/fixtures/repo` chat payloads, and the failing omitted-provider MCP responses.
 
 ### Task 4. Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
 

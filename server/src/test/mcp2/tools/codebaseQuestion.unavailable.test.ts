@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { resolveCodexCapabilities } from '../../../codex/capabilityResolver.js';
+import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import {
@@ -51,7 +52,7 @@ class MockCodex {
   }
 }
 
-const buildRepoEntry = (containerPath: string) => ({
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
   description: null,
   containerPath,

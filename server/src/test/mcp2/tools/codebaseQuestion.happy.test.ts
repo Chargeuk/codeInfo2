@@ -10,6 +10,7 @@ import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
+import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import {
@@ -338,7 +339,7 @@ class CapturingChat extends ChatInterface {
   }
 }
 
-const buildRepoEntry = (containerPath: string) => ({
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
   description: null,
   containerPath,

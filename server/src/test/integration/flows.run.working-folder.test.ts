@@ -524,7 +524,19 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
 });
 
 test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execution-context seam cannot validate the path', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-workdir-unavailable-'),
+  );
   const workingFolder = path.join(process.cwd(), 'flow-unavailable-workdir');
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
   const app = express();
   app.use(
     createFlowsRunRouter({
@@ -559,6 +571,13 @@ test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execut
     });
   } finally {
     setWorkingFolderStatForTests(undefined);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 

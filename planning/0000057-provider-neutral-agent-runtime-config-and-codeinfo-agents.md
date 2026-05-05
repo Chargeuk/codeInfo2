@@ -840,11 +840,11 @@ This task pulls the repository-selection and working-directory logic into one pr
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 3 changes shared chat, working-folder, and MCP runtime plumbing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-3. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after the shared execution-context migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
-4. [ ] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-5. [ ] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+1. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 3 changes shared chat, working-folder, and MCP runtime plumbing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
+2. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the Task 3 proof homes are server unit and integration tests around working-folder ownership and `code_info` runtime grounding. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+3. [x] Run `npm run test:summary:server:cucumber` from the repository root so the higher-level server feature surface still passes after the shared execution-context migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [x] Run `npm run lint` for the final Task 3 surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
+5. [x] Run `npm run format:check` for the final Task 3 surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Implementation notes
 
@@ -854,6 +854,11 @@ This task pulls the repository-selection and working-directory logic into one pr
 - Added Task 3 proof homes for mounted-path translation, literal-path handling, default-root fallback, omitted-provider and explicit-provider `code_info` context propagation, repository-unavailable and path-unavailable MCP failures, and higher-level flow execution reaching the same shared execution-context seam.
 - Ran `npm run lint` for the Task 3 surface; the only failures were import-order warnings on the new execution-context wiring and proof files, and the rerun passed cleanly after reordering those imports.
 - Ran `npm run format:check` for the Task 3 surface; the first pass flagged the shared MCP and working-folder files, `npm run format -- ...` rewrote those touched files through the repo formatter, and the full rerun finished with `All matched files use Prettier code style!`.
+- The first `npm run build:summary:server` proof pass caught Task 3 type regressions in the new working-folder proof files and websocket cleanup calls; tightening the helper test imports, repo-entry typings, state test hook typing, and `WsServerHandle` cleanup let the full wrapper rerun pass cleanly without needing log inspection beyond the wrapper-directed TypeScript failures.
+- The first `npm run test:summary:server:unit` proof pass narrowed to one Task 3 flow integration harness case that never loaded the flow fixtures and therefore returned `FLOW_NOT_FOUND` before the shared execution-context seam; restoring the standard `FLOWS_DIR` and agent-home setup for that test let the full rerun finish with `1987` passing tests.
+- `npm run test:summary:server:cucumber` passed cleanly on the first Task 3 proof run with `117` scenarios green, so the higher-level server feature surface stayed stable after the shared execution-context migration.
+- The final Task 3 `npm run lint` proof pass only surfaced import-order warnings in the two MCP proof files touched by the build fixes; reordering those type imports made the full repo lint command pass cleanly on rerun.
+- The final Task 3 `npm run format:check` proof pass finished cleanly with `All matched files use Prettier code style!`, so no additional formatter rewrite was needed after the proof-time harness and typing fixes.
 
 ### Task 4. Publish agent and flow warning-details surfaces from provider-neutral availability evaluation
 

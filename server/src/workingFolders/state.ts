@@ -73,11 +73,7 @@ type ConversationLike = {
 };
 
 export const setWorkingFolderStatForTests = (
-  next:
-    | ((
-        dirPath: string,
-      ) => Promise<Awaited<ReturnType<typeof import('node:fs/promises').stat>>>)
-    | undefined,
+  next: Parameters<typeof setExecutionContextStatForTests>[0],
 ): void => {
   setExecutionContextStatForTests(next);
 };

@@ -391,7 +391,7 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
       process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
     }
     await closeWs(ws);
-    wsHandle.dispose();
+    await wsHandle.close();
     resetToolDeps();
     mcpServer.close();
     wsHttp.close();
@@ -480,7 +480,7 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
       process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
     }
     await closeWs(ws);
-    wsHandle.dispose();
+    await wsHandle.close();
     resetToolDeps();
     mcpServer.close();
     wsHttp.close();

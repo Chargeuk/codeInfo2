@@ -1472,8 +1472,8 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
     const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
-    assert.equal(restResult.modelId, 'gpt-5.3-codex');
-    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
+    assert.equal(restResult.modelId, 'agent-parity-model');
+    assert.equal('useConfigDefaults' in restFlagsSnapshot, false);
     assert.equal(
       (restRuntimeConfig as { model?: string }).model,
       restResult.modelId,
@@ -1680,8 +1680,8 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
     const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
-    assert.equal(restResult.modelId, 'gpt-5.3-codex');
-    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
+    assert.equal(restResult.modelId, 'agent-warning-model');
+    assert.equal('useConfigDefaults' in restFlagsSnapshot, false);
     assert.equal(
       (restRuntimeConfig as { model?: string }).model,
       restResult.modelId,

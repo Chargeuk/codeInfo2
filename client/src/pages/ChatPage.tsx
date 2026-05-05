@@ -793,6 +793,11 @@ export default function ChatPage() {
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const hasNonWhitespaceContent = input.trim().length > 0;
+    const resumedProvider = selectedConversation?.provider?.trim() || undefined;
+    const resumedModel = selectedConversation?.model?.trim() || undefined;
+    const useResumedExecutionIdentity = Boolean(
+      selectedConversation?.conversationId && resumedProvider && resumedModel,
+    );
     log('info', 'DEV-0000035:T9:chat_raw_send_evaluated', {
       source: 'ChatPage',
       rawLength: input.length,
@@ -800,6 +805,9 @@ export default function ChatPage() {
       hasNonWhitespaceContent,
       controlsDisabled,
       isSending,
+      useResumedExecutionIdentity,
+      resumedProvider: resumedProvider ?? null,
+      resumedModel: resumedModel ?? null,
     });
 
     if (!hasNonWhitespaceContent || controlsDisabled) {
@@ -825,6 +833,8 @@ export default function ChatPage() {
     });
     void send(input, {
       workingFolder: workingFolder.trim() || undefined,
+      providerOverride: useResumedExecutionIdentity ? resumedProvider : undefined,
+      modelOverride: useResumedExecutionIdentity ? resumedModel : undefined,
     }).then(() => refreshConversations());
     setInput('');
   };

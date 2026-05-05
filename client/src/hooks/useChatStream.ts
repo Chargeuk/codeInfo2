@@ -1083,8 +1083,12 @@ export function useChatStream(
       text: string,
       options?: {
         workingFolder?: string;
+        providerOverride?: string;
+        modelOverride?: string;
       },
     ) => {
+      const effectiveProvider = options?.providerOverride ?? provider;
+      const effectiveModel = options?.modelOverride ?? model;
       const hasNonWhitespaceContent = text.trim().length > 0;
       logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_evaluated', {
         source: 'useChatStream',
@@ -1092,15 +1096,17 @@ export function useChatStream(
         trimmedLength: text.trim().length,
         hasNonWhitespaceContent,
         blockedByStatus: status === 'sending',
-        blockedByModel: !model,
-        blockedByProvider: !provider,
+        blockedByModel: !effectiveModel,
+        blockedByProvider: !effectiveProvider,
+        effectiveProvider: effectiveProvider ?? null,
+        effectiveModel: effectiveModel ?? null,
       });
 
       if (
         !hasNonWhitespaceContent ||
         status === 'sending' ||
-        !model ||
-        !provider
+        !effectiveModel ||
+        !effectiveProvider
       ) {
         logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_result', {
           source: 'useChatStream',
@@ -1109,11 +1115,13 @@ export function useChatStream(
             ? 'whitespace_only'
             : status === 'sending'
               ? 'status_sending'
-              : !model
+              : !effectiveModel
                 ? 'missing_model'
                 : 'missing_provider',
           rawLength: text.length,
           trimmedLength: text.trim().length,
+          effectiveProvider: effectiveProvider ?? null,
+          effectiveModel: effectiveModel ?? null,
         });
         return;
       }
@@ -1183,7 +1191,7 @@ export function useChatStream(
           ? { threadId: threadIdRef.current }
           : {};
         const codexPayload: Record<string, unknown> =
-          provider === 'codex' ? { ...baseCodexPayload } : {};
+          effectiveProvider === 'codex' ? { ...baseCodexPayload } : {};
         const normalizedAgentFlags = Object.fromEntries(
           Object.entries(agentFlags ?? {}).flatMap(([key, value]) => {
             if (value === undefined || value === null) {
@@ -1200,8 +1208,8 @@ export function useChatStream(
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            provider,
-            model,
+            provider: effectiveProvider,
+            model: effectiveModel,
             conversationId: currentConversationId,
             inflightId: nextInflightId,
             message: text,

@@ -62,7 +62,7 @@ Leave the task ready for the later automated-proof step.
 - If the selected task still has unchecked subtasks at the end of this step, then one of the following must be true:
   - every unchecked subtask that can be completed honestly within this implementation step, without depending on testing-wrapper outputs, a retained proof-home path, rerun-generated artifacts, later automated proof runs, or later manual-testing-agent validation, is now complete; or
   - the only remaining unchecked subtasks explicitly depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts that are reserved for the later automated-proof step; or
-  - you added a live `**BLOCKER**` note explaining exactly why the next remaining unchecked subtask of the first kind could not be completed honestly.
+  - you added a live `**BLOCKER**` note explaining exactly why the first unchecked subtask in `Subtasks` order that does not explicitly depend on testing-wrapper outputs, a retained proof-home path, rerun-generated artifacts, later automated proof runs, or later manual-testing-agent validation could not be completed honestly.
 - It is not valid to stop this step merely because partial progress was made, one or more subtasks were completed, the remaining in-scope work that could be completed in this step feels safer to leave for a later pass, or the work is risky but still in scope and fixable.
 - It is not valid to leave the task with remaining unchecked subtasks that could be completed honestly in this step, without depending on later proof or validation artifacts, and no live `**BLOCKER**`.
 - If the remaining unchecked subtasks are open-ended diagnosis, narrowing, isolation, or investigation work and this pass did not isolate the owner, repair the owner, or close a subtask, stop and add a live `**BLOCKER**` note instead of repeating another partial narrowing pass.
@@ -98,7 +98,7 @@ Return a concise summary that includes:
 2. whether all subtasks are now complete;
 3. whether the task is ready for automated proof, still needs implementation work, or is blocked;
 4. any important gotchas encountered;
-5. if any unchecked subtasks remain, the first remaining unchecked subtask and whether it is blocked by a live `**BLOCKER**` or explicitly reserved for the later automated-proof step.
+5. if any unchecked subtasks remain, the first remaining unchecked subtask in `Subtasks` list order and whether it is blocked by a live `**BLOCKER**` or explicitly reserved for the later automated-proof step.
 
 Do not claim the task is fully complete unless the `Testing` section has also been run later.
 Do not claim unrelated automated proof was completed if you only ran subtask-required testing-wrapper steps in this step.
@@ -118,7 +118,8 @@ Before finishing:
 - confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;
 - confirm completed subtasks were marked immediately;
 - confirm you did not defer completed subtask or directly corresponding testing updates until the end of a longer wrapper chain;
-- confirm that if unchecked subtasks remain, either the only remaining unchecked subtasks are explicitly reserved for the later automated-proof step because they depend on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts, or a live `**BLOCKER**` was added that explains why the next remaining unchecked subtask that could be completed honestly in this implementation step could not be completed;
+- confirm that if unchecked subtasks remain, any subtask left explicitly reserved for the later automated-proof step depends on testing-wrapper outputs, a retained proof-home path, or rerun-generated artifacts;
+- confirm that if the first unchecked subtask in `Subtasks` order that could be completed honestly in this implementation step was not completed, a live `**BLOCKER**` was added explaining why;
 - confirm you did not treat partial progress alone as a valid reason to stop with remaining unchecked subtasks that could be completed honestly in this implementation step;
 - confirm you did not leave the task in a stalled no-progress state;
 - confirm any blocker was written into `Implementation Notes` as `**BLOCKER**`;

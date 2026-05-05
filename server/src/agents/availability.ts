@@ -1,5 +1,8 @@
 import type { ChatProviderId } from '@codeinfo2/common';
-import { LMStudioClient, type LMStudioClientOptions } from '@lmstudio/sdk';
+import {
+  LMStudioClient,
+  type LMStudioClientConstructorOpts,
+} from '@lmstudio/sdk';
 
 import { resolveAgentProviderFallbackOrder } from '../config/startupEnv.js';
 import {
@@ -92,7 +95,7 @@ const availabilityDeps: AvailabilityDeps = {
   lmstudioClientFactory: (baseUrl: string) =>
     new LMStudioClient({
       baseUrl,
-    } as LMStudioClientOptions),
+    } as LMStudioClientConstructorOpts),
   getLmStudioBaseUrl: () => process.env.CODEINFO_LMSTUDIO_BASE_URL,
 };
 
@@ -384,7 +387,7 @@ export function __resetAgentAvailabilityDepsForTests() {
   availabilityDeps.lmstudioClientFactory = (baseUrl: string) =>
     new LMStudioClient({
       baseUrl,
-    } as LMStudioClientOptions);
+    } as LMStudioClientConstructorOpts);
   availabilityDeps.getLmStudioBaseUrl = () =>
     process.env.CODEINFO_LMSTUDIO_BASE_URL;
 }

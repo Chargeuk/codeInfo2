@@ -4,40 +4,14 @@ import { test } from 'node:test';
 import express from 'express';
 import request from 'supertest';
 
+import type { AgentDetails, AgentSummary } from '../../agents/types.js';
 import { createAgentsRouter } from '../../routes/agents.js';
 
 function buildApp(overrides?: {
   listAgents?: () => Promise<{
-    agents: Array<{
-      name: string;
-      description?: string;
-      disabled?: boolean;
-      warnings?: string[];
-    }>;
+    agents: AgentSummary[];
   }>;
-  getAgentDetails?: (agentName: string) => Promise<{
-    name: string;
-    description?: string;
-    disabled: boolean;
-    warnings: Array<{
-      code: string;
-      message: string;
-      providerId?: string;
-      fallbackProviderId?: string;
-    }>;
-    fallbackCandidates: Array<{
-      providerId: string;
-      available: boolean;
-      reason?: string;
-    }>;
-    requestedProviderId?: string;
-    executionProviderId?: string;
-    disabledReason?: {
-      code: string;
-      message: string;
-      providerId?: string;
-    };
-  }>;
+  getAgentDetails?: (agentName: string) => Promise<AgentDetails>;
 }) {
   const app = express();
   app.use(express.json());
@@ -86,6 +60,35 @@ test('GET /agents includes description when provided by the list payload', async
 });
 
 test('GET /agents keeps invalid-provider warnings off the list payload and exposes them on details only', async () => {
+  const details: AgentDetails = {
+    name: 'coding_agent',
+    description: '# Hello agent',
+    disabled: false,
+    warnings: [
+      {
+        code: 'duplicate_root',
+        message:
+          'Agent "coding_agent" exists in both codeinfo_agents and codex_agents under "/repo"; using codeinfo_agents and ignoring the legacy codex_agents copy.',
+        visibility: 'list',
+      },
+      {
+        code: 'invalid_provider',
+        message:
+          'Agent config requested unsupported provider "not-a-provider".',
+        visibility: 'details',
+        providerId: 'not-a-provider',
+      },
+    ],
+    fallbackCandidates: [
+      {
+        providerId: 'copilot',
+        available: true,
+      },
+    ],
+    requestedProviderId: 'not-a-provider',
+    executionProviderId: 'copilot',
+  };
+
   const app = buildApp({
     listAgents: async () => ({
       agents: [
@@ -99,32 +102,7 @@ test('GET /agents keeps invalid-provider warnings off the list payload and expos
         },
       ],
     }),
-    getAgentDetails: async () => ({
-      name: 'coding_agent',
-      description: '# Hello agent',
-      disabled: false,
-      warnings: [
-        {
-          code: 'duplicate_root',
-          message:
-            'Agent "coding_agent" exists in both codeinfo_agents and codex_agents under "/repo"; using codeinfo_agents and ignoring the legacy codex_agents copy.',
-        },
-        {
-          code: 'invalid_provider',
-          message:
-            'Agent config requested unsupported provider "not-a-provider".',
-          providerId: 'not-a-provider',
-        },
-      ],
-      fallbackCandidates: [
-        {
-          providerId: 'copilot',
-          available: true,
-        },
-      ],
-      requestedProviderId: 'not-a-provider',
-      executionProviderId: 'copilot',
-    }),
+    getAgentDetails: async () => details,
   });
 
   const listRes = await request(app).get('/agents');

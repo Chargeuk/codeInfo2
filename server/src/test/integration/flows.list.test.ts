@@ -161,6 +161,16 @@ describe('GET /flows', () => {
     setDefaultAvailabilityDeps();
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
+    await writeAgentConfig({
+      repoRoot: tmpDir,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'coding_agent',
+    });
+    await writeAgentConfig({
+      repoRoot: tmpDir,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'planning_agent',
+    });
     await withFlowsDir(tmpDir, async () => {
       const response = await supertest(buildApp()).get('/flows');
 
@@ -553,10 +563,10 @@ describe('GET /flows', () => {
 
     __setAgentAvailabilityDepsForTests({
       getCodexDetection: () => ({
-        available: true,
-        authPresent: true,
-        configPresent: true,
-        reason: undefined,
+        available: false,
+        authPresent: false,
+        configPresent: false,
+        reason: 'codex authentication required',
       }),
       getMcpStatus: async () => ({ available: true }),
       resolveCopilotReadiness: async () => ({

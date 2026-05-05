@@ -192,7 +192,8 @@ const buildSummary = (params: {
   const base: FlowSummary = {
     name: params.name,
     description: params.parsed.flow.description ?? '',
-    disabled: false,
+    disabled: Boolean(params.error),
+    ...(params.error ? { error: params.error } : {}),
     ...(params.warnings ? { warnings: params.warnings } : {}),
   };
   if (params.sourceId && params.sourceLabel) {
@@ -256,9 +257,10 @@ export async function discoverFlows(params?: {
         parsedFlow: parsed.ok ? parsed.flow : undefined,
         repositoryRoot: params.repositoryRoot,
       });
-      const warnings = [
+      const mergedWarnings = [
         ...new Set([...(listWarnings ?? []), ...(availability.warnings ?? [])]),
       ];
+      const warnings = mergedWarnings.length > 0 ? mergedWarnings : undefined;
       summaries.push(
         buildSummary({
           name,

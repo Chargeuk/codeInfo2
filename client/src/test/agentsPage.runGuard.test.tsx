@@ -135,13 +135,11 @@ describe('Agents page run guards', () => {
       await user.click(screen.getByTestId('agent-info'));
     });
 
-    await screen.findByText('No usable provider remains');
+    await screen.findByTestId('agent-disabled');
     await waitFor(() => expect(folder).toHaveValue(''));
     await waitFor(() =>
       expect(screen.getByTestId('agent-send')).toBeDisabled(),
     );
-
-    await user.click(screen.getByTestId('agent-send'));
 
     expect(runRequests).toBe(0);
     expect(

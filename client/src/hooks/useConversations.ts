@@ -147,6 +147,17 @@ export function useConversations(params?: {
   const normalizedFlowName =
     typeof flowName === 'string' ? flowName.trim() : '';
 
+  const applyStateFilter = useCallback(
+    (items: ConversationSummary[]) => {
+      if (filterState === 'all') return items;
+      if (filterState === 'archived') {
+        return items.filter((item) => Boolean(item.archived));
+      }
+      return items.filter((item) => !item.archived);
+    },
+    [filterState],
+  );
+
   const applyFilter = useCallback(
     (items: ConversationSummary[]) => {
       const agentFiltered = normalizedAgentName
@@ -165,13 +176,9 @@ export function useConversations(params?: {
             return item.flowName === normalizedFlowName;
           })
         : agentFiltered;
-      if (filterState === 'all') return flowFiltered;
-      if (filterState === 'archived') {
-        return flowFiltered.filter((item) => Boolean(item.archived));
-      }
-      return flowFiltered.filter((item) => !item.archived);
+      return applyStateFilter(flowFiltered);
     },
-    [filterState, normalizedAgentName, normalizedFlowName],
+    [applyStateFilter, normalizedAgentName, normalizedFlowName],
   );
 
   const dedupeAndSort = useCallback((items: ConversationSummary[]) => {
@@ -252,7 +259,7 @@ export function useConversations(params?: {
         cursorRef.current = data.nextCursor;
         setConversations((prev) => {
           const merged = mode === 'append' ? [...prev, ...items] : items;
-          return dedupeAndSort(applyFilter(merged));
+          return dedupeAndSort(applyStateFilter(merged));
         });
         console.info('[conversations] fetch success', {
           mode,
@@ -280,6 +287,7 @@ export function useConversations(params?: {
       log,
       dedupeAndSort,
       applyFilter,
+      applyStateFilter,
     ],
   );
 

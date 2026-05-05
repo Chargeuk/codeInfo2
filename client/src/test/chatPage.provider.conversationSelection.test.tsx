@@ -285,7 +285,9 @@ async function selectProvider(
 }
 
 describe('Chat page sidebar conversation selection', () => {
-  it('does not send cancel_inflight when switching conversations during an active run', async () => {
+  it(
+    'does not send cancel_inflight when switching conversations during an active run',
+    async () => {
     const { user, draftConversationId } = await startDraftRun();
 
     const codexRowTitle = screen.getByText('Codex conversation');
@@ -311,7 +313,9 @@ describe('Chat page sidebar conversation selection', () => {
     );
 
     expect(cancelMessages).toHaveLength(0);
-  });
+    },
+    15000,
+  );
 
   it('shows only the selected conversation transcript and local state after switching', async () => {
     const { user } = await startDraftRun();

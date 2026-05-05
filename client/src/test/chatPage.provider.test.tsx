@@ -60,7 +60,7 @@ function mockChatProvidersFetch(options: {
         json: async () => ({ mongoConnected: true }),
       }) as unknown as Response;
     }
-    if (href.includes('/conversations') && href.includes('pageSize')) {
+    if (href.includes('/conversations')) {
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -206,7 +206,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -557,7 +557,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -660,7 +660,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -710,7 +710,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -917,7 +917,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -1266,7 +1266,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -1546,7 +1546,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -1613,7 +1613,7 @@ describe('Chat provider selection (WS transport)', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,

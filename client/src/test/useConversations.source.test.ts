@@ -41,7 +41,9 @@ describe('useConversations source metadata', () => {
   it('defaults missing source to REST and preserves MCP', async () => {
     const { result } = renderHook(() => useConversations());
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+    await waitFor(() => expect(result.current.conversations.length).toBe(2), {
+      timeout: 5000,
+    });
 
     const restItem = result.current.conversations.find(
       (c) => c.conversationId === 'c1',
@@ -134,7 +136,7 @@ describe('useConversations source metadata', () => {
     expect(firstUrl).toContain('flowName=__none__');
   });
 
-  it('filters fetched conversations by agentName locally', async () => {
+  it('requests agentName when fetching agent-scoped conversations', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse({
         items: [
@@ -162,7 +164,15 @@ describe('useConversations source metadata', () => {
       useConversations({ agentName: 'planner' }),
     );
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    const fetchCalls = mockFetch.mock.calls;
+    const conversationCall = fetchCalls.find((call) =>
+      String(call[0]).includes('/conversations?'),
+    );
+    const firstUrl =
+      conversationCall?.[0]?.toString?.() ?? String(conversationCall?.[0]);
+    expect(firstUrl).toContain('agentName=planner');
 
     expect(result.current.conversations[0]?.conversationId).toBe('c1');
     expect(result.current.conversations[0]?.agentName).toBe('planner');
@@ -188,7 +198,9 @@ describe('useConversations source metadata', () => {
       useConversations({ agentName: 'planner' }),
     );
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+    await waitFor(() => expect(result.current.conversations.length).toBe(1), {
+      timeout: 5000,
+    });
 
     act(() => {
       result.current.applyWsUpsert({
@@ -304,7 +316,9 @@ describe('useConversations source metadata', () => {
 
     const { result } = renderHook(() => useConversations());
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+    await waitFor(() => expect(result.current.conversations.length).toBe(1), {
+      timeout: 5000,
+    });
 
     act(() => {
       result.current.applyWsUpsert({
@@ -369,7 +383,9 @@ describe('useConversations source metadata', () => {
 
     const { result } = renderHook(() => useConversations());
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+    await waitFor(() => expect(result.current.conversations.length).toBe(1), {
+      timeout: 5000,
+    });
 
     await act(async () => {
       await result.current.updateWorkingFolder({

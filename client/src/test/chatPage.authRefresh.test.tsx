@@ -46,7 +46,7 @@ describe('Chat page auth refresh', () => {
           json: async () => ({ mongoConnected: true }),
         }) as unknown as Response;
       }
-      if (href.includes('/conversations') && href.includes('pageSize')) {
+      if (href.includes('/conversations')) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -174,7 +174,7 @@ describe('Chat page auth refresh', () => {
             json: async () => ({ mongoConnected: true }),
           }) as unknown as Response;
         }
-        if (href.includes('/conversations') && href.includes('pageSize')) {
+        if (href.includes('/conversations')) {
           return Promise.resolve({
             ok: true,
             status: 200,

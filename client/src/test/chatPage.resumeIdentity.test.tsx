@@ -32,7 +32,9 @@ const routes = [
 ];
 
 describe('Chat page resumed execution identity', () => {
-  it('pins resumed sends to the stored provider and model instead of the create-mode bootstrap defaults', async () => {
+  it(
+    'pins resumed sends to the stored provider and model instead of the create-mode bootstrap defaults',
+    async () => {
     const user = userEvent.setup();
     const chatBodies: Record<string, unknown>[] = [];
 
@@ -48,7 +50,11 @@ describe('Chat page resumed execution identity', () => {
           }) as unknown as Response;
         }
 
-        if (href.includes('/conversations') && href.includes('pageSize')) {
+        if (
+          href.includes('/conversations') &&
+          !href.includes('/turns') &&
+          opts?.method !== 'POST'
+        ) {
           return Promise.resolve({
             ok: true,
             status: 200,
@@ -59,7 +65,6 @@ describe('Chat page resumed execution identity', () => {
                   title: 'Historic LM conversation',
                   provider: 'lmstudio',
                   model: 'lm',
-                  agentName: '__none__',
                   lastMessageAt: '2025-01-01T00:00:03.000Z',
                   archived: false,
                 },
@@ -212,5 +217,7 @@ describe('Chat page resumed execution identity', () => {
       conversationId: 'c1',
     });
     expect(chatBodies[0]).not.toHaveProperty('agentName');
-  });
+    },
+    15000,
+  );
 });

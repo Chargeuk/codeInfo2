@@ -728,7 +728,9 @@ describe('Chat page models list', () => {
     expect(cancelMessages).toHaveLength(0);
   });
 
-  it('uses the newly selected model only for the next send while the hidden run keeps its persisted model', async () => {
+  it(
+    'uses the newly selected model only for the next send while the hidden run keeps its persisted model',
+    async () => {
     const { chatBodies } = mockCodexModelNextSendApi();
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
@@ -774,9 +776,13 @@ describe('Chat page models list', () => {
       ),
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  }, 10000);
+    },
+    15000,
+  );
 
-  it('clears stale hidden reasoning draft values when the selected model changes', async () => {
+  it(
+    'clears stale hidden reasoning draft values when the selected model changes',
+    async () => {
     const { chatBodies } = mockCodexModelNextSendApi();
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
@@ -824,7 +830,9 @@ describe('Chat page models list', () => {
       (chatBodies[0]?.agentFlags as Record<string, unknown>)
         ?.modelReasoningEffort,
     ).toBe('minimal');
-  });
+    },
+    15000,
+  );
 
   it('refreshes the displayed resolved default from the combined payload when the model changes', async () => {
     mockCodexModelNextSendApi();

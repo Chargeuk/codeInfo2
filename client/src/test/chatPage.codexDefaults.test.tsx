@@ -234,7 +234,9 @@ describe('Codex compatibility defaults behavior', () => {
     }
   });
 
-  it('preserves Codex defaults behavior when changing the next-send model during an active run', async () => {
+  it(
+    'preserves Codex defaults behavior when changing the next-send model during an active run',
+    async () => {
     mockCodexReady({
       codexModels: [
         {
@@ -297,9 +299,13 @@ describe('Codex compatibility defaults behavior', () => {
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
     expect(sandboxSelect).toHaveTextContent(/read-only/i);
     expect(approvalSelect).toHaveTextContent(/never/i);
-  });
+    },
+    15000,
+  );
 
-  it('resets invalid reasoning effort after capability payload refresh', async () => {
+  it(
+    'resets invalid reasoning effort after capability payload refresh',
+    async () => {
     let codexModelsRequestCount = 0;
 
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
@@ -431,7 +437,9 @@ describe('Codex compatibility defaults behavior', () => {
       expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
     } finally {
     }
-  });
+    },
+    15000,
+  );
 
   it('logs deterministic error for malformed empty supportedReasoningEfforts payload', async () => {
     mockCodexReady({

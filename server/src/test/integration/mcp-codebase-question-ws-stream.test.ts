@@ -10,25 +10,25 @@ import express from 'express';
 
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
-  getMemoryTurns,
-  memoryConversations,
-  memoryTurns,
-} from '../../chat/memoryPersistence.js';
-import {
   getCompletedInflightByReplayId,
   getInflight,
 } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { resetStore } from '../../logStore.js';
 import { handleRpc } from '../../mcp2/router.js';
-import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
-import { attachWs } from '../../ws/server.js';
 import {
   __deleteCodebaseQuestionMemoryConversationForTests as deleteMemoryConversation,
   __setCodebaseQuestionMemoryConversationForTests as setMemoryConversation,
 } from '../../mcp2/tools/codebaseQuestion.js';
+import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
+import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
   connectWs,
@@ -255,8 +255,9 @@ class RepositoryScopedLmStudioChat extends ChatInterface {
     _message: string,
     flags: Record<string, unknown>,
     conversationId: string,
-    _model: string,
+    model: string,
   ) {
+    void model;
     const { tools } = createLmStudioTools({
       repositoryContext: (flags as { repositoryContext?: unknown })
         .repositoryContext as never,
@@ -309,14 +310,27 @@ class RepositoryScopedLmStudioChat extends ChatInterface {
               };
             },
           }) as never,
-        getLockedModel: async () => this.listedRepos[0]?.modelId ?? 'embed-test',
+        getLockedModel: async () =>
+          this.listedRepos[0]?.modelId ?? 'embed-test',
       },
     });
 
     const vectorSearchTool = tools.find(
-      (entry) =>
-        (entry as { name?: string }).name === 'VectorSearch',
-    ) as { implementation: Function } | undefined;
+      (entry) => (entry as { name?: string }).name === 'VectorSearch',
+    ) as
+      | {
+          implementation: (
+            params: {
+              query: string;
+              repository: string;
+              limit: number;
+            },
+            ctx: Record<string, unknown>,
+          ) => Promise<{
+            results?: Array<{ repo?: string }>;
+          }>;
+        }
+      | undefined;
     if (!vectorSearchTool) {
       throw new Error('VectorSearch tool unavailable');
     }
@@ -328,12 +342,7 @@ class RepositoryScopedLmStudioChat extends ChatInterface {
       limit: 5,
     };
     try {
-      const result = (await vectorSearchTool.implementation(
-        params,
-        {},
-      )) as {
-        results?: Array<{ repo?: string }>;
-      };
+      const result = await vectorSearchTool.implementation(params, {});
       this.emit('tool-result', {
         type: 'tool-result',
         callId: 'vector-search-1',
@@ -732,8 +741,7 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
 
   const advertisedHostPath =
     '/home/d_a_s/code/story55-manual-proof/queued-repo';
-  const mountedPath =
-    '/data/story55-manual-proof/queued-repo';
+  const mountedPath = '/data/story55-manual-proof/queued-repo';
   const repoId = advertisedHostPath;
 
   setToolDeps({
@@ -815,7 +823,11 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
       ws,
       predicate: (
         event: unknown,
-      ): event is { type: string; conversationId?: string; status?: string } => {
+      ): event is {
+        type: string;
+        conversationId?: string;
+        status?: string;
+      } => {
         const e = event as {
           type?: string;
           conversationId?: string;

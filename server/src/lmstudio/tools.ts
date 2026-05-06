@@ -70,15 +70,14 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
     const indexRepoAliases = (
       repo: Pick<RepoEntry, 'id' | 'containerPath' | 'hostPath'>,
     ) => {
-      [
-        repo.id,
-        ...getAdvertisedRepositoryIdentityPaths(repo),
-      ].forEach((candidate) => {
-        if (typeof candidate !== 'string' || candidate.trim().length === 0) {
-          return;
-        }
-        aliasToId.set(normalizeRepositorySelector(candidate.trim()), repo.id);
-      });
+      [repo.id, ...getAdvertisedRepositoryIdentityPaths(repo)].forEach(
+        (candidate) => {
+          if (typeof candidate !== 'string' || candidate.trim().length === 0) {
+            return;
+          }
+          aliasToId.set(normalizeRepositorySelector(candidate.trim()), repo.id);
+        },
+      );
     };
 
     listed.repos.forEach(indexRepoAliases);
@@ -162,9 +161,7 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
         );
         const defaultRepositoryId = await getDefaultRepositoryId();
         const effectiveRepository =
-          requestedRepositoryId ??
-          defaultRepositoryId ??
-          validated.repository;
+          requestedRepositoryId ?? defaultRepositoryId ?? validated.repository;
         const effectiveParams = {
           ...validated,
           ...(effectiveRepository ? { repository: effectiveRepository } : {}),

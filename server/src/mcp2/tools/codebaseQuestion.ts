@@ -4,7 +4,6 @@ import path from 'node:path';
 import type { ModelInfo } from '@github/copilot-sdk';
 import { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
-import mongoose from 'mongoose';
 import { z } from 'zod';
 
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
@@ -21,10 +20,6 @@ import {
   getInflight,
   type CompletedInflightState,
 } from '../../chat/inflightRegistry.js';
-import {
-  memoryConversations,
-  shouldUseMemoryPersistence,
-} from '../../chat/memoryPersistence.js';
 import type {
   ChatAnalysisEvent,
   ChatCompleteEvent,
@@ -33,6 +28,10 @@ import type {
   ChatThreadEvent,
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
+import {
+  memoryConversations,
+  shouldUseMemoryPersistence,
+} from '../../chat/memoryPersistence.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {

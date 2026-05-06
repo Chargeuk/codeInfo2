@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1379,3 +1379,4 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 subtask 14 closed by exporting `HOME=/app/codex` and `CODEX_HOME=/app/codex` in the main compose contract, baking the same runtime-home default into `server/Dockerfile`, and teaching `server/entrypoint.sh` to recreate a readable `${HOME}/.agents/skills` tree before dropping privileges so omitted-provider Codex MCP runs no longer fall back to `/root/.agents/skills`.
 - Task 9 subtask 15 closed by extending `server/src/test/unit/host-network-compose-contract.test.ts` to assert the main image, compose env, and entrypoint script all preserve that writable Codex runtime-home contract while the local overlay stays distinct.
 - Task 9 testing step 11 passed again after the reopened omitted-provider runtime-home repair; rerunning `npm run format:check` on the full Story 57 validation surface finished cleanly with `All matched files use Prettier code style!`, so the final reopened proof gate is honest on disk.
+- Automated-proof audit closed Task 9 after rereading the omitted-provider runtime-home follow-up from disk and confirming all fifteen subtasks, all eleven testing steps, and zero live blockers are now honest on disk, so the final story-validation task status now matches the completed evidence.

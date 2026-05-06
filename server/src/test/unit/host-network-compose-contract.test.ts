@@ -50,10 +50,11 @@ test('main stays image-baked while local host-network compose exposes the live d
   const dockerfile = readRepoFile('server/Dockerfile');
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
+  const entrypoint = readRepoFile('server/entrypoint.sh');
 
   assert.match(
     dockerfile,
-    /RUN mkdir -p \/app\/codex \/app\/copilot \/app\/lmstudio && chmod 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
+    /RUN mkdir -p \/app\/codex\/\.agents\/skills \/app\/copilot \/app\/lmstudio && chmod -R 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
   );
   assert.match(dockerfile, /COPY codex_agents \/app\/codex_agents/u);
   assert.match(dockerfile, /COPY AGENTS\.md \/app\/AGENTS\.md/u);
@@ -62,6 +63,8 @@ test('main stays image-baked while local host-network compose exposes the live d
     dockerfile,
     /RUN cp -R \/app\/codex_agents \/app\/codeinfo_agents/u,
   );
+  assert.match(dockerfile, /ENV HOME=\/app\/codex/u);
+  assert.match(dockerfile, /ENV CODEX_HOME=\/app\/codex/u);
   assert.match(dockerfile, /ENV CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
 
   const mainServer = getServiceBlock(mainCompose, 'server');
@@ -89,6 +92,8 @@ test('main stays image-baked while local host-network compose exposes the live d
     mainServer,
     /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
   );
+  assert.match(mainServer, /HOME=\/app\/codex/u);
+  assert.match(mainServer, /CODEX_HOME=\/app\/codex/u);
   assert.match(mainServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
   assert.match(
     mainServer,
@@ -97,6 +102,11 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
   assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
+  assert.match(
+    entrypoint,
+    /export HOME="\$runtime_home"\nexport CODEX_HOME="\$\{CODEX_HOME:-\$\{CODEINFO_CODEX_HOME:-\$runtime_home\}\}"/u,
+  );
+  assert.match(entrypoint, /mkdir -p "\$\{HOME\}\/\.agents\/skills"/u);
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
@@ -128,6 +138,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
+  assert.doesNotMatch(localServer, /HOME=\/app\/codex/u);
   assert.match(
     localServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:5510\/health'\]/u,

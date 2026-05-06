@@ -26,6 +26,8 @@ services:
       - CODEINFO_LMSTUDIO_BASE_URL=http://host.docker.internal:1234
       - CODEINFO_LOG_FILE_PATH=/app/logs/server.log
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
+      - HOME=/app/codex
+      - CODEX_HOME=/app/codex
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_CODEX_WORKDIR=/data
       - CODEINFO_COPILOT_HOME=/app/copilot

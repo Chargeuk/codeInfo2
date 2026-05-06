@@ -204,10 +204,9 @@ RUN npx playwright install chromium
 RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 
 # Prepare the mutable provider homes even when the gitignored repo-local directories are absent.
-RUN mkdir -p /app/codex /app/copilot /app/lmstudio && chmod 777 /app/codex /app/copilot /app/lmstudio
-
-# Make HOME and all subfolders read/write for all users
-RUN chmod -R 777 "${HOME}"
+RUN mkdir -p /app/codex/.agents/skills /app/copilot /app/lmstudio && chmod -R 777 /app/codex /app/copilot /app/lmstudio
+ENV HOME=/app/codex
+ENV CODEX_HOME=/app/codex
 ENV CODEINFO_CODEX_HOME=/app/codex
 ENV CODEINFO_COPILOT_HOME=/app/copilot
 ENV CODEINFO_LMSTUDIO_HOME=/app/lmstudio

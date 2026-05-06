@@ -9,6 +9,13 @@ CHROME_HEADLESS="${CHROME_HEADLESS:-true}"
 runtime_uid="${CODEINFO_RUNTIME_UID:-1000}"
 runtime_gid="${CODEINFO_RUNTIME_GID:-1000}"
 runtime_supplementary_gids="${CODEINFO_RUNTIME_SUPPLEMENTARY_GIDS:-}"
+runtime_home="${CODEINFO_CODEX_HOME:-${HOME:-/app/codex}}"
+
+export HOME="$runtime_home"
+export CODEX_HOME="${CODEX_HOME:-${CODEINFO_CODEX_HOME:-$runtime_home}}"
+
+mkdir -p "${HOME}/.agents/skills"
+chmod 777 "${HOME}" "${HOME}/.agents" "${HOME}/.agents/skills" 2>/dev/null || true
 
 case "$runtime_uid" in
   '' | *[!0-9]*)

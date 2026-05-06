@@ -15,10 +15,12 @@ import type { RepositoryExecutionContextMetadata } from '../workingFolders/execu
 import {
   RepoNotFoundError,
   ValidationError,
+  getAdvertisedRepositoryIdentityPaths,
   listIngestedRepositories,
   validateVectorSearch,
   vectorSearch,
   type ListReposResult,
+  type RepoEntry,
   type ToolDeps,
   type VectorSearchResult,
 } from './toolService.js';
@@ -27,6 +29,9 @@ export type ToolFactoryOptions = {
   deps?: Partial<ToolDeps>;
   log?: (payload: Record<string, unknown>) => void;
   repositoryContext?: RepositoryExecutionContextMetadata;
+  listIngestedRepositoriesFn?: (
+    deps?: Partial<ToolDeps>,
+  ) => Promise<ListReposResult>;
   onToolResult?: (
     callId: string | number | undefined,
     result?: unknown,
@@ -37,24 +42,53 @@ export type ToolFactoryOptions = {
 };
 
 export function createLmStudioTools(options: ToolFactoryOptions = {}) {
-  const { deps = {}, log, onToolResult, repositoryContext } = options;
+  const {
+    deps = {},
+    log,
+    onToolResult,
+    repositoryContext,
+    listIngestedRepositoriesFn = listIngestedRepositories,
+  } = options;
   let defaultRepositoryIdPromise: Promise<string | undefined> | null = null;
+  let listedRepositoriesPromise: Promise<ListReposResult> | null = null;
+
+  const getListedRepositories = () => {
+    listedRepositoriesPromise ??= listIngestedRepositoriesFn(deps);
+    return listedRepositoriesPromise;
+  };
+
+  const normalizeRepositorySelector = (value: string) => path.resolve(value);
+
+  const resolveRepositoryIdForSelector = async (
+    selector: string | undefined,
+  ): Promise<string | undefined> => {
+    if (!selector || selector.trim().length === 0) return undefined;
+    const normalizedSelector = normalizeRepositorySelector(selector.trim());
+    const listed = await getListedRepositories();
+
+    const aliasToId = new Map<string, string>();
+    const indexRepoAliases = (
+      repo: Pick<RepoEntry, 'id' | 'containerPath' | 'hostPath'>,
+    ) => {
+      [
+        repo.id,
+        ...getAdvertisedRepositoryIdentityPaths(repo),
+      ].forEach((candidate) => {
+        if (typeof candidate !== 'string' || candidate.trim().length === 0) {
+          return;
+        }
+        aliasToId.set(normalizeRepositorySelector(candidate.trim()), repo.id);
+      });
+    };
+
+    listed.repos.forEach(indexRepoAliases);
+    return aliasToId.get(normalizedSelector);
+  };
 
   const resolveDefaultRepositoryId = async (): Promise<string | undefined> => {
     const selectedRepositoryPath = repositoryContext?.selectedRepositoryPath;
     if (!selectedRepositoryPath) return undefined;
-
-    const normalizedSelectedPath = path.resolve(selectedRepositoryPath);
-    const listed = await listIngestedRepositories(deps);
-    const match = listed.repos.find((repo) => {
-      const containerPath = path.resolve(repo.containerPath);
-      const hostPath = path.resolve(repo.hostPath);
-      return (
-        containerPath === normalizedSelectedPath ||
-        hostPath === normalizedSelectedPath
-      );
-    });
-    return match?.id;
+    return await resolveRepositoryIdForSelector(selectedRepositoryPath);
   };
 
   const getDefaultRepositoryId = () => {
@@ -123,8 +157,14 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
       void _ctx;
       try {
         const validated = validateVectorSearch(params ?? {});
+        const requestedRepositoryId = await resolveRepositoryIdForSelector(
+          validated.repository,
+        );
+        const defaultRepositoryId = await getDefaultRepositoryId();
         const effectiveRepository =
-          validated.repository ?? (await getDefaultRepositoryId());
+          requestedRepositoryId ??
+          defaultRepositoryId ??
+          validated.repository;
         const effectiveParams = {
           ...validated,
           ...(effectiveRepository ? { repository: effectiveRepository } : {}),

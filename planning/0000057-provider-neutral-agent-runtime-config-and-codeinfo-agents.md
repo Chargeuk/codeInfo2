@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1415,3 +1415,4 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 testing step 9 passed via `npm run compose:down`; the wrapper removed the client, server, database, Chroma, telemetry, Playwright, and network resources for the normal main stack started in step 8, so the smoke-proof ownership boundary stayed explicit.
 - Task 9 testing step 10 passed after `npm run lint` surfaced one unused `mongoose` import plus import-order and typing issues in `server/src/mcp2/tools/codebaseQuestion.ts` and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`; removing the dead import, restoring lint-safe import order, and replacing the loose `Function` annotation made the full rerun pass cleanly.
 - Task 9 testing step 11 passed after `npm run format:check` first narrowed the remaining Prettier drift to `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` and then `server/src/lmstudio/tools.ts`; targeted `npx prettier --write` repairs on those proof-owned files cleared the remaining drift, and the full root rerun finished with `All matched files use Prettier code style!`.
+- Automated-proof audit normalized Task 9 to `__done__` after rereading the current plan and parser state from disk: all 23 subtasks are checked, all 11 testing steps are checked, and no live `**BLOCKER**` remains, so no honest remaining gate is left in this story plan.

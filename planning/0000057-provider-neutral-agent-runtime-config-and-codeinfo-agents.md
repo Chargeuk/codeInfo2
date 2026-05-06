@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -712,7 +712,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1321,6 +1321,10 @@ This final task validates the full Story 57 contract rather than isolated seams.
 13. [x] In `server/Dockerfile` and the checked-in `codex_agents/*/config.toml` seed set that is copied into `/app/codeinfo_agents`, expose one main-stack invalid-`codeinfo_provider` warning case and one main-stack no-usable-provider disabled case, or narrow this task's `Manual Testing Guidance` in the same plan section if the supported compose seed intentionally will not ship those proof surfaces. Purpose: make the final Story 57 selected-agent warning and disabled-state manual proof surface honest on the normal main stack.
 14. [x] In `docker-compose.yml`, `server/Dockerfile`, and `server/entrypoint.sh`, make omitted-provider Codex `codebase_question` runs on the normal main stack inherit a readable runtime `HOME` and skills root instead of falling back to unreadable `/root/.agents/skills`, while preserving the existing dropped-privilege container contract. Purpose: restore the required final Story 57 omitted-provider MCP proof path on the supported compose runtime.
 15. [x] Add one automated proof in `server/src/test/unit/host-network-compose-contract.test.ts` that the normal `docker-compose.yml` server contract exports the writable Codex runtime-home env needed for omitted-provider MCP `codebase_question` runs, so the compose-backed MCP path cannot regress back to `/root/.agents/skills`. Purpose: lock the repaired main-stack runtime contract in one automated proof home.
+16. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, make omitted-provider Codex `codebase_question` follow-up runs reuse the saved Codex `flags.threadId` instead of the MCP conversation id, and return the real tool outcome instead of collapsing that failure into a generic JSON-RPC `Method not found` error. Purpose: repair the saved-conversation omitted-provider MCP path that manual proof still breaks on after the runtime-home fix.
+17. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, and any related Codex MCP conversation-meta update seam, keep fresh omitted-provider Codex `codebase_question` runs on one valid rollout identity from thread creation through final persistence so the normal main stack no longer fails with `failed to record rollout items: thread <id> not found`. Purpose: repair the new-conversation omitted-provider MCP path that manual proof still breaks on after the runtime-home fix.
+18. [ ] Add one automated proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that omitted-provider Codex `codebase_question` on a saved working-folder conversation returns a JSON-RPC result, persists a successful assistant turn, and reuses the real saved Codex thread identity instead of the MCP conversation id. Purpose: lock the repaired saved-conversation omitted-provider MCP contract in one integration proof home.
+19. [ ] Add one automated proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that a fresh omitted-provider Codex `codebase_question` run returns a JSON-RPC result and persists a successful assistant turn instead of `failed to record rollout items` or `Method not found`. Purpose: lock the repaired new-conversation omitted-provider MCP create-path in one integration proof home.
 
 #### Testing
 
@@ -1334,7 +1338,7 @@ This final task validates the full Story 57 contract rather than isolated seams.
 8. [x] Run `npm run compose:up` from the repository root to start the normal main stack after the build and automated suite wrappers are green, then confirm the server health endpoint at `http://localhost:5010/health` and the client at `http://localhost:5001` respond. Use this smoke step because Story 57 changes the normal compose-backed runtime contract, not only the special e2e runtime path. If startup fails, inspect `npm run compose:logs`, fix the issue, and rerun the same wrapper.
 9. [x] Run `npm run compose:down` from the repository root after the Task 9 smoke step started with `npm run compose:up`. Use this wrapper to shut down only the normal main stack that this task started, keeping the smoke-proof ownership boundary explicit.
 10. [x] Run `npm run lint` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
-11. [x] Run `npm run format:check` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+11. [ ] Run `npm run format:check` for the final Story 57 validation surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
 
 #### Manual Testing Guidance
 
@@ -1380,3 +1384,4 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 subtask 15 closed by extending `server/src/test/unit/host-network-compose-contract.test.ts` to assert the main image, compose env, and entrypoint script all preserve that writable Codex runtime-home contract while the local overlay stays distinct.
 - Task 9 testing step 11 passed again after the reopened omitted-provider runtime-home repair; rerunning `npm run format:check` on the full Story 57 validation surface finished cleanly with `All matched files use Prettier code style!`, so the final reopened proof gate is honest on disk.
 - Automated-proof audit closed Task 9 after rereading the omitted-provider runtime-home follow-up from disk and confirming all fifteen subtasks, all eleven testing steps, and zero live blockers are now honest on disk, so the final story-validation task status now matches the completed evidence.
+- Manual testing reran in full-story scope on a verified-fresh rebuilt main stack and saved fresh scratch proof under `codeInfoTmp/manual-testing/0000057/9/`, including `proof-01-agent-warning-surface.png`, `proof-02-flow-warning-surface.png`, `support-console.txt`, `support-network.json`, the successful explicit-provider LM Studio cross-repo MCP bundle, and the successful same-conversation `coding_agent` rerun bundle. The selected-agent warning surface, the flow-owned warning surface, the bridged `/data/story55-manual-proof/queued-repo` explicit-provider repository context, and the pinned direct-agent provider/model identity all proved successfully, but the required omitted-provider Codex `codebase_question` proof still fails on the supported main stack after a bounded diagnosis pass: a saved MCP conversation now persists the bridged working folder but fails with `thread/resume failed: no rollout found for thread id <conversationId>`, while a fresh omitted-provider run still persists a failed assistant turn with `failed to record rollout items: thread <id> not found`, and both paths surface back to JSON-RPC as `Method not found`. Added Task 9 follow-up subtasks 16 through 19 and reopened testing step 11 so the normal automated-proof loop must rerun before the next manual retest.

@@ -129,6 +129,10 @@ def render_payload(payload: dict[str, Any]) -> str:
 def write_output(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = render_payload(payload)
+    try:
+        output_mode = path.stat().st_mode & 0o777
+    except FileNotFoundError:
+        output_mode = 0o666
     fd, tmp_name = tempfile.mkstemp(
         dir=path.parent,
         prefix=f".{path.name}.",
@@ -138,10 +142,17 @@ def write_output(path: Path, payload: dict[str, Any]) -> None:
     tmp_path = Path(tmp_name)
 
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        try:
+            handle = os.fdopen(fd, "w", encoding="utf-8")
+        except Exception:
+            os.close(fd)
+            raise
+
+        with handle:
             handle.write(serialized)
             handle.flush()
             os.fsync(handle.fileno())
+            os.fchmod(handle.fileno(), output_mode)
         tmp_path.replace(path)
     finally:
         if tmp_path.exists():

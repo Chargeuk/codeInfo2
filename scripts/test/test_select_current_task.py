@@ -11,6 +11,7 @@ import textwrap
 import unittest
 from pathlib import Path
 import sys
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -55,6 +56,48 @@ class SelectCurrentTaskTests(unittest.TestCase):
         stdout_payload = json.loads(stdout_buffer.getvalue())
         self.assertEqual(stdout_payload, file_payload)
         return file_payload, stdout_payload
+
+    def test_write_output_preserves_existing_mode(self) -> None:
+        _plan_path, _handoff_path, output_path = self.make_repo(
+            """
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """
+        )
+        output_path.write_text("{}\n")
+        output_path.chmod(0o666)
+
+        select_current_task.write_output(output_path, {"selection_status": "resolved"})
+
+        self.assertEqual(output_path.stat().st_mode & 0o777, 0o666)
+
+    def test_write_output_closes_fd_if_fdopen_fails(self) -> None:
+        _plan_path, _handoff_path, output_path = self.make_repo(
+            """
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """
+        )
+
+        with mock.patch.object(
+            select_current_task.os,
+            "fdopen",
+            side_effect=OSError("boom"),
+        ), mock.patch.object(
+            select_current_task.os,
+            "close",
+            wraps=select_current_task.os.close,
+        ) as close_mock:
+            with self.assertRaises(OSError):
+                select_current_task.write_output(
+                    output_path, {"selection_status": "resolved"}
+                )
+
+        self.assertEqual(close_mock.call_count, 1)
+        self.assertFalse(output_path.exists())
+        self.assertEqual(list(output_path.parent.glob(".*.tmp")), [])
 
     def test_normalizes_fully_checked_in_progress_task_to_done(self) -> None:
         plan_path, handoff_path, output_path = self.make_repo(

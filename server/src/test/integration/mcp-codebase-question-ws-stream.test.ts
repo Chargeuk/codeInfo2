@@ -608,8 +608,7 @@ test('explicit-provider MCP codebase_question restores a saved host-path working
 
   const advertisedHostPath =
     '/home/d_a_s/code/story55-manual-proof/queued-repo';
-  const mountedPath =
-    '/mounted/ws-default-root/story55-manual-proof/queued-repo';
+  const resolvedSelectedPath = advertisedHostPath;
 
   setToolDeps({
     chatFactory: () => new CapturingRuntimeChat(calls),
@@ -689,17 +688,17 @@ test('explicit-provider MCP codebase_question restores a saved host-path working
     await toolCallPromise;
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0]?.flags.runtime, {
-      workingFolder: mountedPath,
+      workingFolder: resolvedSelectedPath,
       lookupSummary: {
-        selectedRepositoryPath: mountedPath,
+        selectedRepositoryPath: resolvedSelectedPath,
         fallbackUsed: false,
         workingRepositoryAvailable: true,
       },
     });
     assert.deepEqual(calls[0]?.flags.repositoryContext, {
-      selectedRepositoryPath: mountedPath,
+      selectedRepositoryPath: resolvedSelectedPath,
       defaultExecutionRoot: '/mounted/ws-default-root',
-      workingDirectoryOverride: mountedPath,
+      workingDirectoryOverride: resolvedSelectedPath,
       fallbackUsed: false,
       workingRepositoryAvailable: true,
     });
@@ -741,12 +740,30 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
       new RepositoryScopedLmStudioChat(mountedPath, [
         {
           id: repoId,
-          containerPath: advertisedHostPath,
+          containerPath: mountedPath,
           hostPath: advertisedHostPath,
           modelId: 'text-embedding-nomic-embed-text-v1.5',
         },
       ]),
     clientFactory: makeLmStudioClientFactory(),
+    listIngestedRepositoriesFn: async () => ({
+      repos: [
+        {
+          id: repoId,
+          description: null,
+          containerPath: mountedPath,
+          hostPath: advertisedHostPath,
+          lastIngestAt: null,
+          embeddingProvider: 'lmstudio',
+          embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+          embeddingDimensions: 768,
+          modelId: 'text-embedding-nomic-embed-text-v1.5',
+          counts: { files: 0, chunks: 0, embedded: 0 },
+          lastError: null,
+        },
+      ],
+      lockedModelId: null,
+    }),
   });
 
   const wsApp = express();

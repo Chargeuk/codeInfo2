@@ -21,6 +21,10 @@ import {
   getInflight,
   type CompletedInflightState,
 } from '../../chat/inflightRegistry.js';
+import {
+  memoryConversations,
+  shouldUseMemoryPersistence,
+} from '../../chat/memoryPersistence.js';
 import type {
   ChatAnalysisEvent,
   ChatCompleteEvent,
@@ -233,9 +237,8 @@ export type CodebaseQuestionDeps = {
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
-const shouldUseMemoryPersistence = () =>
-  preferMemoryPersistence || mongoose.connection.readyState !== 1;
-const memoryConversations = new Map<string, Conversation>();
+const shouldUseCodebaseQuestionMemoryPersistence = () =>
+  preferMemoryPersistence || shouldUseMemoryPersistence();
 
 export function __setCodebaseQuestionMemoryConversationForTests(
   conversation: Conversation,
@@ -295,7 +298,7 @@ const extractWarningFields = (warnings: string[]): string[] =>
 async function getConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
-  if (shouldUseMemoryPersistence()) {
+  if (shouldUseCodebaseQuestionMemoryPersistence()) {
     return memoryConversations.get(conversationId) ?? null;
   }
 
@@ -312,7 +315,7 @@ async function ensureConversation(
   flags?: Record<string, unknown>,
 ): Promise<void> {
   const now = new Date();
-  if (shouldUseMemoryPersistence()) {
+  if (shouldUseCodebaseQuestionMemoryPersistence()) {
     const existing = memoryConversations.get(conversationId);
     if (!existing) {
       memoryConversations.set(conversationId, {
@@ -685,7 +688,7 @@ async function executeCodebaseQuestion(
   );
   const persistWorkingFolder = async (workingFolder?: string | null) => {
     if (!conversationId) return;
-    if (shouldUseMemoryPersistence()) {
+    if (shouldUseCodebaseQuestionMemoryPersistence()) {
       const existing = memoryConversations.get(conversationId);
       if (!existing) return;
       const nextFlags = { ...(existing.flags ?? {}) };
@@ -924,6 +927,15 @@ async function executeCodebaseQuestion(
       question.trim().slice(0, 80) || 'Untitled conversation',
       nextFlags,
     );
+    if (!conversationId && providerThreadId !== resolvedConversationId) {
+      await ensureConversation(
+        providerThreadId,
+        executionProvider,
+        executionModel,
+        question.trim().slice(0, 80) || 'Untitled conversation',
+        nextFlags,
+      );
+    }
   }
 
   let payload: CodebaseQuestionResult;

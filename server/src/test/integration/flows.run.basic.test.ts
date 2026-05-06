@@ -1963,6 +1963,8 @@ test('flow llm.markdownFile reports AGENT_NOT_FOUND before markdown resolution f
 
 test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution failures', async () => {
   resetDeterministicCodexAvailabilityBootstrap();
+  const previousFallbackOrder =
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
   await withMarkdownFlowHarness(
     async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
       const sourceRepo = path.join(tempRoot, 'repo-source');
@@ -1986,6 +1988,7 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
 
       try {
         process.env.CODEINFO_CODEX_HOME = unavailableCodexHome;
+        process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'codex';
         setCodexDetection({
           available: false,
           authPresent: false,
@@ -2020,6 +2023,11 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
       }
     },
   );
+  if (previousFallbackOrder === undefined) {
+    delete process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+  } else {
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = previousFallbackOrder;
+  }
 });
 
 test('flow continues to later steps after a successful llm.markdownFile step', async () => {

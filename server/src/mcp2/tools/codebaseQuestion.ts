@@ -170,6 +170,15 @@ const activeReplayRuns = new Map<
   Promise<{ content: [{ type: 'text'; text: string }] }>
 >();
 
+const getSavedCodexThreadId = (
+  conversation: Conversation | null | undefined,
+): string | undefined => {
+  const threadId = conversation?.flags?.threadId;
+  return typeof threadId === 'string' && threadId.trim().length > 0
+    ? threadId
+    : undefined;
+};
+
 function logSummaryContractRead(params: {
   conversationId: string;
   summaries: ReturnType<McpResponder['getVectorSummaries']>;
@@ -843,49 +852,56 @@ async function executeCodebaseQuestion(
   });
 
   try {
-    if (executionProvider === 'codex') {
-      const activeThreadId =
-        typeof conversationId === 'string' ? conversationId : undefined;
-      await chat.run(
-        question,
-        {
-          provider: executionProvider,
-          threadId: activeThreadId,
-          runtimeConfig: chatRuntimeConfig,
-          codexFlags: threadOpts,
-          workingDirectoryOverride: executionContext.workingDirectoryOverride,
-          repositoryContext: executionContext.repositoryMetadata,
-          runtime: executionContext.runtime,
-          signal: getInflight(resolvedConversationId)?.abortController.signal,
-          source: 'MCP',
-        },
-        resolvedConversationId,
-        executionModel,
-      );
-    } else {
-      await chat.run(
-        question,
-        {
-          provider: executionProvider,
-          baseUrl,
-          repositoryContext: executionContext.repositoryMetadata,
-          runtime: executionContext.runtime,
-          signal: getInflight(resolvedConversationId)?.abortController.signal,
-          ...(executionProvider === 'copilot'
-            ? {
-                copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
-                resumeConversation:
-                  mutableConversation?.provider === 'copilot' &&
-                  mutableConversation.model === executionModel,
-                workingDirectoryOverride:
-                  executionContext.workingDirectoryOverride,
-              }
-            : {}),
-          source: 'MCP',
-        },
-        resolvedConversationId,
-        executionModel,
-      );
+    try {
+      if (executionProvider === 'codex') {
+        await chat.run(
+          question,
+          {
+            provider: executionProvider,
+            threadId: getSavedCodexThreadId(mutableConversation),
+            runtimeConfig: chatRuntimeConfig,
+            codexFlags: threadOpts,
+            workingDirectoryOverride: executionContext.workingDirectoryOverride,
+            repositoryContext: executionContext.repositoryMetadata,
+            runtime: executionContext.runtime,
+            signal: getInflight(resolvedConversationId)?.abortController.signal,
+            source: 'MCP',
+          },
+          resolvedConversationId,
+          executionModel,
+        );
+      } else {
+        await chat.run(
+          question,
+          {
+            provider: executionProvider,
+            baseUrl,
+            repositoryContext: executionContext.repositoryMetadata,
+            runtime: executionContext.runtime,
+            signal: getInflight(resolvedConversationId)?.abortController.signal,
+            ...(executionProvider === 'copilot'
+              ? {
+                  copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
+                  resumeConversation:
+                    mutableConversation?.provider === 'copilot' &&
+                    mutableConversation.model === executionModel,
+                  workingDirectoryOverride:
+                    executionContext.workingDirectoryOverride,
+                }
+              : {}),
+            source: 'MCP',
+          },
+          resolvedConversationId,
+          executionModel,
+        );
+      }
+    } catch (error) {
+      if (error instanceof ToolExecutionError) throw error;
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : 'TOOL_EXECUTION_FAILED';
+      throw new ToolExecutionError(-32002, message);
     }
   } finally {
     bridge.cleanup();
@@ -895,13 +911,34 @@ async function executeCodebaseQuestion(
     }
   }
 
-  const payload: CodebaseQuestionResult = responder.toResult(
-    executionModel,
-    resolvedConversationId,
-    {
+  const providerThreadId = responder.getProviderThreadId();
+  if (executionProvider === 'codex' && providerThreadId) {
+    const nextFlags = {
+      ...(conversationFlags ?? {}),
+      threadId: providerThreadId,
+    };
+    await ensureConversation(
+      resolvedConversationId,
+      executionProvider,
+      executionModel,
+      question.trim().slice(0, 80) || 'Untitled conversation',
+      nextFlags,
+    );
+  }
+
+  let payload: CodebaseQuestionResult;
+  try {
+    payload = responder.toResult(executionModel, resolvedConversationId, {
       preferFallbackConversationId: typeof conversationId === 'string',
-    },
-  );
+    });
+  } catch (error) {
+    if (error instanceof ToolExecutionError) throw error;
+    const message =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : 'TOOL_EXECUTION_FAILED';
+    throw new ToolExecutionError(-32002, message);
+  }
   logSummaryContractRead({
     conversationId: resolvedConversationId,
     summaries: responder.getVectorSummaries(),

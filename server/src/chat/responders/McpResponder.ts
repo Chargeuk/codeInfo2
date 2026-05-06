@@ -109,6 +109,10 @@ export class McpResponder {
     return this.transientReconnectLastMessage;
   }
 
+  getProviderThreadId() {
+    return this.providerThreadId;
+  }
+
   private handleAnalysis(event: ChatAnalysisEvent) {
     const delta = event.content;
     if (!delta) return;

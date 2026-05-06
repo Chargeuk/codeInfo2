@@ -789,7 +789,9 @@ test('omitted-provider MCP codebase_question reuses the saved Codex thread ident
     );
 
     const persistedTurns = getMemoryTurns(conversationId);
-    const assistantTurn = persistedTurns.find((turn) => turn.role === 'assistant');
+    const assistantTurn = persistedTurns.find(
+      (turn) => turn.role === 'assistant',
+    );
     assert.ok(assistantTurn);
     assert.equal(assistantTurn?.status, 'ok');
     assert.equal(assistantTurn?.content, 'Saved Codex follow-up answer');
@@ -909,14 +911,19 @@ test('omitted-provider MCP codebase_question fresh runs persist a successful ass
     assert.equal(calls[0]?.conversationId, conversationId);
     assert.equal(calls[0]?.flags.threadId, undefined);
     assert.equal(payload.conversationId, conversationId);
-    assert.equal(payload.segments[0]?.text, 'Fresh Codex omitted-provider answer');
+    assert.equal(
+      payload.segments[0]?.text,
+      'Fresh Codex omitted-provider answer',
+    );
     assert.equal(
       memoryConversations.get(conversationId)?.flags?.threadId,
       providerThreadId,
     );
 
     const persistedTurns = getMemoryTurns(conversationId);
-    const assistantTurn = persistedTurns.find((turn) => turn.role === 'assistant');
+    const assistantTurn = persistedTurns.find(
+      (turn) => turn.role === 'assistant',
+    );
     assert.ok(assistantTurn);
     assert.equal(assistantTurn?.status, 'ok');
     assert.equal(assistantTurn?.content, 'Fresh Codex omitted-provider answer');

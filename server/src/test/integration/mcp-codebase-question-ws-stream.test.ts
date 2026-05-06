@@ -445,6 +445,7 @@ test('MCP codebase_question publishes WS transcript events while in progress', a
 
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await delay(25);
 
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',

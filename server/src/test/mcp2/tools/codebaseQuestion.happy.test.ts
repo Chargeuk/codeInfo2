@@ -201,6 +201,12 @@ class DivergentReplayCodex extends MockCodex {
     this.providerThreadId = providerThreadId;
   }
 
+  override startThread(opts?: unknown) {
+    this.lastStartOptions = opts;
+    this.runs += 1;
+    return this.createThread();
+  }
+
   override resumeThread(threadId: string, opts?: unknown) {
     this.lastResumeId = threadId;
     this.lastResumeOptions = opts;
@@ -1009,7 +1015,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
     assert.equal(firstPayload.conversationId, 'caller-follow-up-1');
     assert.equal(sameReplayPayload.conversationId, 'caller-follow-up-1');
     assert.deepEqual(sameReplayPayload, firstPayload);
-    assert.equal(divergentCodex.lastResumeId, 'caller-follow-up-1');
+    assert.equal(divergentCodex.lastResumeId, undefined);
 
     const afterCleanupCall = await postJson(port, {
       jsonrpc: '2.0',
@@ -1053,6 +1059,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
       freshReplayCall.result.content[0].text,
     );
     assert.equal(divergentCodex.runs, 2);
+    assert.equal(divergentCodex.lastResumeId, 'provider-thread-xyz');
     assert.equal(freshReplayPayload.conversationId, 'caller-follow-up-1');
     assert.equal(freshReplayPayload.segments[0].text, 'Codex replay answer 2');
   } finally {

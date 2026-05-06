@@ -138,7 +138,8 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.doesNotMatch(localServer, /HOME=\/app\/codex/u);
+  assert.match(localServer, /\n\s+- HOME=\$\{HOME\}/u);
+  assert.doesNotMatch(localServer, /\n\s+- HOME=\/app\/codex/u);
   assert.match(
     localServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:5510\/health'\]/u,

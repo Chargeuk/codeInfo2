@@ -1492,6 +1492,105 @@ test('codebase_question keeps inherited base runtime settings in the resolved Co
   }
 });
 
+test('codebase_question pins omitted-provider Codex runs to the saved conversation model', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'gpt-5.1-codex-max';
+  resetStore();
+  const capturingChat = new CapturingChat();
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.1-codex-max"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  const conversationId = 'saved-codex-model-pin';
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'Saved Codex model pin conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {
+      workingFolder: '/data/story55-manual-proof/queued-repo',
+    },
+  } as Conversation);
+
+  setToolDeps({
+    clientFactory: makeLmStudioClientFactory(),
+    chatFactory: () => capturingChat,
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 132,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'Keep the saved Codex model pinned',
+          conversationId,
+        },
+      },
+    });
+
+    assert.ok(response.result);
+    const payload = JSON.parse(
+      (response as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+    const runtimeConfig = capturingChat.lastFlags?.runtimeConfig as
+      | Record<string, unknown>
+      | undefined;
+
+    assert.equal(payload.modelId, 'gpt-5.3-codex');
+    assert.equal(runtimeConfig?.model, 'gpt-5.3-codex');
+    assert.equal(
+      (capturingChat.lastFlags as { provider?: string; threadId?: unknown })
+        ?.provider,
+      'codex',
+    );
+    assert.equal(
+      (capturingChat.lastFlags as { provider?: string; threadId?: unknown })
+        ?.threadId,
+      undefined,
+    );
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeinfoHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    if (originalDefaultProvider === undefined)
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    else process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    if (originalDefaultModel === undefined)
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    else process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
 test('codebase_question receives the same inherited overlaid Context7 definition', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;

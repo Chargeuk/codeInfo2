@@ -128,6 +128,9 @@ export type CodebaseQuestionResult = {
   segments: Segment[];
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 function buildReplayResult(params: {
   conversationId: string;
   completedReplay: CompletedInflightState;
@@ -428,27 +431,19 @@ async function executeCodebaseQuestion(
   }
   const question = parsed.question;
   const conversationId = parsed.conversationId;
-  const resolvedDefaults = resolveChatDefaults({
-    requestProvider: parsed.provider as ChatDefaultProvider | undefined,
-    requestModel:
-      typeof parsed.model === 'string' && parsed.model.trim().length > 0
-        ? parsed.model.trim()
-        : undefined,
-  });
-  const requestedProvider = resolvedDefaults.provider;
-  const explicitProviderSelected =
-    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0;
-  const codexRequestedDefaults =
-    requestedProvider === 'codex' &&
-    !(typeof parsed.model === 'string' && parsed.model.trim().length > 0)
-      ? await resolveCodexChatDefaults({
-          codexHome: process.env.CODEX_HOME,
-        })
+  const requestedProviderArg =
+    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0
+      ? parsed.provider.trim()
       : undefined;
-  const requestedModel =
-    requestedProvider === 'codex'
-      ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
-      : resolvedDefaults.model;
+  const requestedModelArg =
+    typeof parsed.model === 'string' && parsed.model.trim().length > 0
+      ? parsed.model.trim()
+      : undefined;
+  const explicitProviderSelected = requestedProviderArg !== undefined;
+  const resolvedDefaults = resolveChatDefaults({
+    requestProvider: requestedProviderArg as ChatDefaultProvider | undefined,
+    requestModel: requestedModelArg,
+  });
 
   const existingConversation = conversationId
     ? await getConversation(conversationId)
@@ -460,6 +455,31 @@ async function executeCodebaseQuestion(
       );
     }
   }
+
+  const pinSavedConversationSelection =
+    requestedProviderArg === undefined &&
+    requestedModelArg === undefined &&
+    existingConversation !== null &&
+    existingConversation.provider === 'codex' &&
+    typeof existingConversation.model === 'string' &&
+    existingConversation.model.trim().length > 0;
+
+  const requestedProvider = pinSavedConversationSelection
+    ? (existingConversation!.provider as ChatDefaultProvider)
+    : resolvedDefaults.provider;
+  const codexRequestedDefaults =
+    requestedProvider === 'codex' &&
+    requestedModelArg === undefined &&
+    !pinSavedConversationSelection
+      ? await resolveCodexChatDefaults({
+          codexHome: process.env.CODEX_HOME,
+        })
+      : undefined;
+  const requestedModel = pinSavedConversationSelection
+    ? existingConversation!.model.trim()
+    : requestedProvider === 'codex'
+      ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
+      : resolvedDefaults.model;
 
   if (
     process.env.MCP_FORCE_CODEX_AVAILABLE === 'true' &&
@@ -660,7 +680,10 @@ async function executeCodebaseQuestion(
     defaults: codexCapabilities.defaults,
   });
 
-  if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
+  if (
+    (explicitProviderSelected || pinSavedConversationSelection) &&
+    runtimeSelection.decision !== 'selected'
+  ) {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
   }
 
@@ -761,6 +784,16 @@ async function executeCodebaseQuestion(
     try {
       const { config } = await runtimeConfigResolver();
       chatRuntimeConfig = config as CodexOptions['config'];
+      if (
+        pinSavedConversationSelection &&
+        isRecord(chatRuntimeConfig) &&
+        chatRuntimeConfig.model !== executionModel
+      ) {
+        chatRuntimeConfig = {
+          ...chatRuntimeConfig,
+          model: executionModel,
+        } satisfies Record<string, unknown>;
+      }
     } catch (err) {
       if (err instanceof RuntimeConfigResolutionError) {
         throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {

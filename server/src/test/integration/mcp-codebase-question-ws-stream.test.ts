@@ -1234,6 +1234,169 @@ test('omitted-provider MCP codebase_question fresh runs persist a successful ass
   }
 });
 
+test('omitted-provider MCP codebase_question keeps the saved Codex model on fresh selected-repository conversations', async () => {
+  resetStore();
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  const conversationId = 'mcp-ws-codex-fresh-saved-selected-repo';
+  const providerThreadId = 'codex-thread-fresh-saved-789';
+  const savedModel = 'gpt-5.3-codex';
+  const selectedRepo = '/data/story55-manual-proof/queued-repo';
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const tempCodexHome = await withTempCodexHome();
+
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'gpt-5.1-codex-max';
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEX_HOME = tempCodexHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome.codexHome;
+
+  setMemoryConversation({
+    _id: conversationId,
+    provider: 'codex',
+    model: savedModel,
+    title: 'Saved selected repository Codex conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {
+      workingFolder: selectedRepo,
+    },
+  } as never);
+
+  setToolDeps({
+    chatFactory: () =>
+      new CapturingCodexMcpChat(
+        calls,
+        providerThreadId,
+        'Fresh saved selected-repository Codex answer',
+      ),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const toolCallPromise = postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 106,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question:
+            'Start a fresh omitted-provider Codex run on the saved selected repository',
+          conversationId,
+        },
+      },
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is { type: string; status: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(final.status, 'ok');
+
+    const response = await toolCallPromise;
+    assert.ok((response as { result?: unknown }).result);
+    const payload = JSON.parse(
+      (response as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.conversationId, conversationId);
+    assert.equal(calls[0]?.flags.threadId, undefined);
+    assert.equal(payload.conversationId, conversationId);
+    assert.equal(payload.modelId, savedModel);
+    assert.equal(
+      payload.segments[0]?.text,
+      'Fresh saved selected-repository Codex answer',
+    );
+    assert.equal(memoryConversations.get(conversationId)?.model, savedModel);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.threadId,
+      providerThreadId,
+    );
+
+    const persistedTurns = getMemoryTurns(conversationId);
+    const assistantTurn = persistedTurns.find(
+      (turn) => turn.role === 'assistant',
+    );
+    assert.ok(assistantTurn);
+    assert.equal(assistantTurn?.status, 'ok');
+    assert.equal(
+      assistantTurn?.content,
+      'Fresh saved selected-repository Codex answer',
+    );
+    assert.equal(assistantTurn?.model, savedModel);
+  } finally {
+    deleteMemoryConversation(conversationId);
+    memoryTurns.delete(conversationId);
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalDefaultModel === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    }
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempCodexHome.cleanup();
+    await closeWs(ws);
+    await wsHandle.close();
+    resetToolDeps();
+    mcpServer.close();
+    wsHttp.close();
+  }
+});
+
 test('MCP codebase_question keeps Copilot provider parity on the streamed websocket path', async () => {
   resetStore();
 

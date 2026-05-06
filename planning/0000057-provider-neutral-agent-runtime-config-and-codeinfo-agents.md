@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1389,4 +1389,5 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 subtask 17 closed by persisting the real Codex provider thread id back onto the saved MCP conversation after a successful omitted-provider run in `server/src/mcp2/tools/codebaseQuestion.ts`, which keeps fresh runs on one valid rollout identity from thread start through the next follow-up without reopening the already-correct `ChatInterfaceCodex` event bridge.
 - Task 9 subtask 18 closed by adding a websocket integration proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that a saved omitted-provider Codex MCP conversation reuses its persisted `flags.threadId`, returns a JSON-RPC result on the caller conversation id, and records a successful assistant turn.
 - Task 9 subtask 19 closed by adding a websocket integration proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that a fresh omitted-provider Codex MCP conversation starts without a fake resume thread id, returns a JSON-RPC result on the caller conversation id, persists the real provider thread id onto the saved conversation, and records a successful assistant turn instead of `failed to record rollout items`.
+- Automated-proof audit closed Task 9 after rereading the latest omitted-provider Codex follow-up from disk and confirming all nineteen subtasks, all eleven testing steps, and zero live blockers are now honest on disk, so the final story-validation task status now matches the completed evidence.
 - Task 9 testing step 11 passed after `npm run format:check` first narrowed the remaining Prettier drift to `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`; a targeted `npx prettier --write` repair on that proof home cleared the issue, and the full root rerun finished with `All matched files use Prettier code style!`.

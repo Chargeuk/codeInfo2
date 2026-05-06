@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1430,4 +1430,5 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 subtask 27 closed by adding complementary omitted-provider Codex model-pinning proofs in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`; targeted `npm run test:summary:server:unit -- --file ... --test-name ...` reruns passed for both proof homes, so the saved `gpt-5.3-codex` model now stays pinned through the persisted assistant turn on the selected-repository path without reopening the broader Task 9 testing checklist yet.
 - Task 9 subtask 28 closed after `npm run lint` passed cleanly on the reopened omitted-provider Codex repair surface without needing any additional code changes beyond the new model-pinning implementation and proof homes.
 - Task 9 subtask 29 closed after `npm run format:check` narrowed the remaining drift to `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`; a targeted `npx prettier --write` repair on those two proof files cleared the drift and the full rerun finished with `All matched files use Prettier code style!`.
+- Automated-proof audit normalized Task 9 back to `__done__` after the reopened omitted-provider follow-up cleared cleanly: current parser state shows all 29 subtasks checked, all 11 testing steps checked, and no live `**BLOCKER**`, so no honest remaining gate is left before the story can return to final manual-proof disposition.
 - Task 9 testing step 4 passed after the required full `npm run test:summary:server:unit` rerun completed cleanly with `tests run: 2015`, `passed: 2015`, `failed: 0`, and `agent_action: skip_log`, so the final reopened server-unit proof gate is now honest on disk without any further repair cycle.

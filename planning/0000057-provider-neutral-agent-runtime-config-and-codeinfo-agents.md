@@ -1658,11 +1658,11 @@ This final review task owns the whole current review cycle's closing proof. It m
 #### Task Exit Criteria
 
 - Every review-created repair task added for review pass `0000057-20260507T014045Z-e54d5640` is implemented, fully proved with the repository's wrapper-first workflow, and reflected honestly in the executable plan.
-- The same final revalidation pass also confirms the earlier inline minor fixes remain green on the affected proof surfaces, so this review cycle can close without a second final-task owner.
+- The same final revalidation pass also confirms the earlier inline minor fixes remain green on the affected proof surfaces, including the disabled-agent mixed-state guard that must keep cleared or hidden local state out of `Execute Prompt` submission, so this review cycle can close without a second final-task owner.
 
 #### Subtasks
 
-1. [ ] Before the broad wrapper reruns, confirm Tasks 10 through 13 landed their claimed proof homes and that the final revalidation scope still matches review pass `0000057-20260507T014045Z-e54d5640` and review cycle `0000057-rc-20260507T033249Z-a89766f6`.
+1. [ ] Before the broad wrapper reruns, confirm Tasks 10 through 13 landed their claimed proof homes, that the final revalidation scope still matches review pass `0000057-20260507T014045Z-e54d5640` and review cycle `0000057-rc-20260507T033249Z-a89766f6`, and that inline-resolved mixed-state proof still has an explicit owner in `client/src/test/agentsPage.runGuard.test.tsx` for cleared-or-hidden disabled-agent state exclusion from `Execute Prompt` submission.
 2. [ ] Refresh only the reviewer-facing close-out text that becomes stale after Tasks 10 through 13 land, and keep the existing inline minor-fix audit entries as the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.
 
 #### Testing

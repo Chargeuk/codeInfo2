@@ -1168,10 +1168,7 @@ test('resumed contradictory provider-model input cannot rewrite saved execution 
   assert.equal(response.body.provider, 'codex');
   assert.equal(response.body.model, 'gpt-5.1-codex-max');
   assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-identity');
-  assert.equal(
-    memoryConversations.get(conversationId)?.provider,
-    'codex',
-  );
+  assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
   assert.equal(
     memoryConversations.get(conversationId)?.model,
     'gpt-5.1-codex-max',

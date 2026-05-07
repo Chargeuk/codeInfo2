@@ -383,9 +383,8 @@ export async function ensureCopilotPlaintextTokenStorage(
   while (true) {
     let currentSettings: Record<string, unknown> = {};
     let currentSettingsRaw: string | undefined;
-    const settingsResult = await readCopilotManagedJsonObjectWithRaw(
-      settingsPath,
-    );
+    const settingsResult =
+      await readCopilotManagedJsonObjectWithRaw(settingsPath);
     const settingsFileExists = settingsResult.status === 'present';
     if (settingsResult.status === 'present') {
       currentSettings = settingsResult.value;
@@ -454,9 +453,8 @@ export async function ensureCopilotPlaintextTokenStorage(
         };
       }
 
-      const latestSettings = await readCopilotManagedJsonObjectWithRaw(
-        settingsPath,
-      );
+      const latestSettings =
+        await readCopilotManagedJsonObjectWithRaw(settingsPath);
       if (
         latestSettings.status !== 'present' ||
         latestSettings.raw !== currentSettingsRaw

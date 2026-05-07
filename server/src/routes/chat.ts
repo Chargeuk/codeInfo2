@@ -32,7 +32,6 @@ import {
   getMemoryTurns,
   memoryConversations,
   shouldUseMemoryPersistence,
-  updateMemoryConversationWorkingFolder,
 } from '../chat/memoryPersistence.js';
 import {
   resolveCodexCapabilities,
@@ -51,10 +50,7 @@ import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
-import {
-  createConversation,
-  updateConversationMeta,
-} from '../mongo/repo.js';
+import { createConversation, updateConversationMeta } from '../mongo/repo.js';
 import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';

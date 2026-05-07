@@ -146,11 +146,7 @@ test('provider base-config bootstrap keeps a newer config that appears after the
       fs.promises,
       'link',
       async (existingPath: fs.PathLike, newPath: fs.PathLike) => {
-        await fs.promises.writeFile(
-          configPath,
-          '# newer config won\n',
-          'utf8',
-        );
+        await fs.promises.writeFile(configPath, '# newer config won\n', 'utf8');
         return originalLink.call(fs.promises, existingPath, newPath);
       },
     );
@@ -159,7 +155,10 @@ test('provider base-config bootstrap keeps a newer config that appears after the
     linkMock.mock.restore();
 
     assert.equal(seededPath, configPath);
-    assert.equal(await fs.promises.readFile(configPath, 'utf8'), '# newer config won\n');
+    assert.equal(
+      await fs.promises.readFile(configPath, 'utf8'),
+      '# newer config won\n',
+    );
     const entries = await fs.promises.readdir(home);
     assert.deepEqual(entries, ['config.toml']);
   } finally {
@@ -333,11 +332,7 @@ test('managed settings normalization keeps newer settings that appear after a st
     const writeMock = mock.method(
       fs.promises,
       'writeFile',
-      async (
-        file: unknown,
-        data: unknown,
-        options?: unknown,
-      ) => {
+      async (file: unknown, data: unknown, options?: unknown) => {
         const targetPath = file as fs.PathLike;
         const result = await originalWriteFile.call(
           fs.promises,

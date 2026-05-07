@@ -621,14 +621,14 @@ describe('ChatInterface.run persistence', () => {
   test('non-Codex persistence paths clear stale Codex threadId state before the next execution context is saved', async () => {
     memoryConversations.set('chat-threadid-clear', {
       _id: 'chat-threadid-clear',
-      provider: 'codex',
-      model: 'gpt-5.3-codex',
+      provider: 'lmstudio',
+      model: 'lmstudio-test',
       title: 'Thread cleanup conversation',
       source: 'REST',
       flags: {
         threadId: 'codex-thread-1',
         agentFlags: {
-          sandboxMode: 'workspace-write',
+          toolAccess: 'off',
         },
       },
       createdAt: new Date(),

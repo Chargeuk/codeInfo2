@@ -153,9 +153,7 @@ const parseRuntimeMetadata = (
       ? rawReplay.inflightId.trim()
       : undefined;
   const completed =
-    typeof rawReplay?.completed === 'boolean'
-      ? rawReplay.completed
-      : undefined;
+    typeof rawReplay?.completed === 'boolean' ? rawReplay.completed : undefined;
 
   const lookupSummary =
     selectedRepositoryPath !== undefined &&
@@ -589,7 +587,6 @@ export abstract class ChatInterface extends EventEmitter {
       source,
       command,
       runtime,
-      runtime: assistantRuntime,
       usage,
       timing,
       status,

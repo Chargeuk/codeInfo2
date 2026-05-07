@@ -561,10 +561,9 @@ async function executeCodebaseQuestion(
     savedConversationProvider !== undefined &&
     savedConversationModel !== undefined;
   const resolvedDefaults = resolveChatDefaults({
-    requestProvider:
-      pinSavedConversationExecutionIdentity
-        ? savedConversationProvider
-        : (requestedProviderArg as ChatDefaultProvider | undefined),
+    requestProvider: pinSavedConversationExecutionIdentity
+      ? savedConversationProvider
+      : (requestedProviderArg as ChatDefaultProvider | undefined),
     requestModel: pinSavedConversationExecutionIdentity
       ? savedConversationModel
       : requestedModelArg,

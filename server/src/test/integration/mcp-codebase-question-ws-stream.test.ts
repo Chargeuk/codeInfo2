@@ -2108,7 +2108,9 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
     );
 
     const persistedTurns = getMemoryTurns(conversationId);
-    const persistedUserTurn = persistedTurns.find((turn) => turn.role === 'user');
+    const persistedUserTurn = persistedTurns.find(
+      (turn) => turn.role === 'user',
+    );
     const persistedAssistantTurn = persistedTurns.find(
       (turn) => turn.role === 'assistant',
     );
@@ -2192,7 +2194,8 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
       params: {
         name: 'codebase_question',
         arguments: {
-          question: 'fresh websocket run after incomplete persisted replay state',
+          question:
+            'fresh websocket run after incomplete persisted replay state',
           conversationId: incompleteConversationId,
           replayId: 'incomplete-replay-1',
           provider: 'lmstudio',
@@ -2200,7 +2203,9 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
         },
       },
     });
-    assert.ok((freshAfterIncompletePersistedState as { result?: unknown }).result);
+    assert.ok(
+      (freshAfterIncompletePersistedState as { result?: unknown }).result,
+    );
     const freshAfterIncompletePayload = JSON.parse(
       (
         freshAfterIncompletePersistedState as {

@@ -1564,7 +1564,7 @@ The review found two route-owned defects on the same `/chat` continuation seam: 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 9`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260507T014045Z-e54d5640`.
 

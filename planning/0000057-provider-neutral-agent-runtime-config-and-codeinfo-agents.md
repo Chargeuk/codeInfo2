@@ -1544,15 +1544,19 @@ The review found two route-owned defects on the same `/chat` continuation seam: 
 
 #### Subtasks
 
-1. [ ] In `server/src/routes/chat.ts`, make the resumed existing-conversation path reuse stored conversation provider-model identity before contradictory request input can override it, and keep that repair scoped to resumed conversations rather than changing fresh conversation selection behavior.
-2. [ ] In `server/src/routes/chat.ts`, move any `ensureConversation()` metadata mutation that can change persisted provider, model, flags, or related execution state behind successful `tryAcquireConversationLock(...)` acquisition so a blocked loser cannot rewrite saved metadata before the winner is known.
-3. [ ] Extend or split `server/src/test/integration/chat-codex.test.ts` so one dedicated proof explicitly claims and asserts that resumed contradictory provider-model input cannot rewrite saved execution identity, and a separate dedicated proof explicitly claims and asserts the exact ordering boundary that a `RUN_IN_PROGRESS` loser leaves persisted provider, model, flags, and related metadata unchanged because the route loses before lock-protected mutation begins.
+1. [x] In `server/src/routes/chat.ts`, make the resumed existing-conversation path reuse stored conversation provider-model identity before contradictory request input can override it, and keep that repair scoped to resumed conversations rather than changing fresh conversation selection behavior.
+2. [x] In `server/src/routes/chat.ts`, move any `ensureConversation()` metadata mutation that can change persisted provider, model, flags, or related execution state behind successful `tryAcquireConversationLock(...)` acquisition so a blocked loser cannot rewrite saved metadata before the winner is known.
+3. [x] Extend or split `server/src/test/integration/chat-codex.test.ts` so one dedicated proof explicitly claims and asserts that resumed contradictory provider-model input cannot rewrite saved execution identity, and a separate dedicated proof explicitly claims and asserts the exact ordering boundary that a `RUN_IN_PROGRESS` loser leaves persisted provider, model, flags, and related metadata unchanged because the route loses before lock-protected mutation begins.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` from the repository root. Use this targeted wrapper because it is the existing route-level integration proof home for resumed `/chat` contract behavior.
 
 #### Implementation notes
+
+- Reused saved `/chat` conversation provider-model identity before runtime provider probing and fallback selection so contradictory resumed request input no longer overrides stored execution identity, while leaving fresh conversation selection untouched.
+- Moved `ensureConversation()` behind successful `tryAcquireConversationLock(...)` ownership so blocked `RUN_IN_PROGRESS` losers cannot rewrite persisted provider, model, flags, or timestamps before the winner is known.
+- Added dedicated `chat-codex.test.ts` proofs for resumed contradictory provider-model input and for the lock-order invariant that a `RUN_IN_PROGRESS` loser leaves persisted provider, model, flags, and timestamps unchanged.
 
 ### Task 12. Make provider bootstrap startup and managed config writes deterministic
 

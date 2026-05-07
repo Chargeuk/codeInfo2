@@ -54,7 +54,6 @@ import { ConversationModel, type Conversation } from '../mongo/conversation.js';
 import {
   createConversation,
   updateConversationMeta,
-  updateConversationWorkingFolder,
 } from '../mongo/repo.js';
 import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
@@ -277,7 +276,34 @@ export function createChatRouter({
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
+    const loadExistingConversation = async (): Promise<Conversation | null> =>
+      shouldUseMemoryPersistence()
+        ? (memoryConversations.get(conversationId) ?? null)
+        : (((await ConversationModel.findById(conversationId)
+            .lean()
+            .exec()) as Conversation | null) ?? null);
+    let existingConversation = await loadExistingConversation();
+    if (existingConversation?.archivedAt) {
+      return res.status(410).json({
+        status: 'error',
+        code: 'CONVERSATION_ARCHIVED',
+        message: 'Conversation is archived and must be restored before use.',
+      });
+    }
+
+    const resumedExecutionIdentity =
+      existingConversation?.provider && existingConversation?.model
+        ? {
+            provider: existingConversation.provider as ChatDefaultProvider,
+            model: existingConversation.model,
+          }
+        : null;
+    const effectiveRequestedProvider =
+      resumedExecutionIdentity?.provider ?? requestedProvider;
+    const effectiveRequestedModel =
+      resumedExecutionIdentity?.model ?? requestedModel;
     const explicitProviderSelected =
+      resumedExecutionIdentity !== null ||
       defaultsResolution.providerSource === 'request';
     const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
 
@@ -313,11 +339,14 @@ export function createChatRouter({
     const mcp = await getMcpStatus();
 
     let lmstudioState = buildUnavailableRuntimeProviderState(
-      explicitProviderSelected && requestedProvider !== 'lmstudio'
+      explicitProviderSelected && effectiveRequestedProvider !== 'lmstudio'
         ? 'lmstudio probe skipped for explicit provider request'
         : 'lmstudio unavailable',
     );
-    if (!explicitProviderSelected || requestedProvider === 'lmstudio') {
+    if (
+      !explicitProviderSelected ||
+      effectiveRequestedProvider === 'lmstudio'
+    ) {
       if (!BASE_URL_REGEX.test(baseUrl)) {
         lmstudioState = buildUnavailableRuntimeProviderState(
           'lmstudio unavailable',
@@ -347,7 +376,7 @@ export function createChatRouter({
       }
     }
     const copilotReadiness =
-      !explicitProviderSelected || requestedProvider === 'copilot'
+      !explicitProviderSelected || effectiveRequestedProvider === 'copilot'
         ? await resolveCopilotReadiness({
             createRuntime: copilotLifecycleFactory,
             env: process.env,
@@ -364,15 +393,15 @@ export function createChatRouter({
             authSource: 'unauthenticated' as const,
           };
     const normalizedRequestedModel =
-      requestedProvider === 'copilot'
+      effectiveRequestedProvider === 'copilot'
         ? normalizeImplicitCopilotRequestedModel({
             models: copilotReadiness.modelsRaw as ModelInfo[],
-            requestedModel,
+            requestedModel: effectiveRequestedModel,
             requestedModelSource: defaultsResolution.modelSource,
           })
-        : requestedModel;
+        : effectiveRequestedModel;
     const runtimeSelection = resolveRuntimeProviderSelection({
-      requestedProvider,
+      requestedProvider: effectiveRequestedProvider,
       requestedModel: normalizedRequestedModel,
       codex: codexState,
       copilot: {
@@ -478,28 +507,6 @@ export function createChatRouter({
       'DEV-0000035:T2:provider_fallback_result',
     );
 
-    const loadExistingConversation = async (): Promise<Conversation | null> =>
-      shouldUseMemoryPersistence()
-        ? (memoryConversations.get(conversationId) ?? null)
-        : (((await ConversationModel.findById(conversationId)
-            .lean()
-            .exec()) as Conversation | null) ?? null);
-
-    const persistWorkingFolder = async (workingFolder?: string | null) => {
-      if (shouldUseMemoryPersistence()) {
-        updateMemoryConversationWorkingFolder({
-          conversationId,
-          workingFolder,
-        });
-        return;
-      }
-      await updateConversationWorkingFolder({
-        conversationId,
-        workingFolder,
-      });
-    };
-
-    let existingConversation = await loadExistingConversation();
     const shouldResumeCopilotSession =
       existingConversation?.provider === 'copilot' &&
       existingConversation.model === executionModel;
@@ -510,7 +517,6 @@ export function createChatRouter({
           conversation: existingConversation,
           surface: 'chat_run',
           clearPersistedWorkingFolder: async (id) => {
-            await persistWorkingFolder(null);
             const nextFlags = { ...(existingConversation?.flags ?? {}) };
             delete nextFlags.workingFolder;
             existingConversation = {
@@ -681,26 +687,6 @@ export function createChatRouter({
       });
     }
 
-    const ensuredConversation = await ensureConversation();
-    if (!ensuredConversation) {
-      return res.status(410).json({
-        status: 'error',
-        code: 'CONVERSATION_ARCHIVED',
-        message: 'Conversation is archived and must be restored before use.',
-      });
-    }
-
-    if (requestedWorkingFolder) {
-      appendWorkingFolderDecisionLog({
-        conversationId,
-        recordType: getConversationRecordType(ensuredConversation),
-        surface: 'chat_run',
-        action: 'save',
-        decisionReason: 'request_value_persisted',
-        workingFolder: requestedWorkingFolder,
-      });
-    }
-
     if (!tryAcquireConversationLock(conversationId)) {
       if (
         typeof requestedInflightId === 'string' &&
@@ -759,6 +745,27 @@ export function createChatRouter({
       });
     }
     const { runToken } = ownership;
+
+    const ensuredConversation = await ensureConversation();
+    if (!ensuredConversation) {
+      releaseConversationLockFn(conversationId, runToken);
+      return res.status(410).json({
+        status: 'error',
+        code: 'CONVERSATION_ARCHIVED',
+        message: 'Conversation is archived and must be restored before use.',
+      });
+    }
+
+    if (requestedWorkingFolder) {
+      appendWorkingFolderDecisionLog({
+        conversationId,
+        recordType: getConversationRecordType(ensuredConversation),
+        surface: 'chat_run',
+        action: 'save',
+        decisionReason: 'request_value_persisted',
+        workingFolder: requestedWorkingFolder,
+      });
+    }
 
     const inflightId =
       typeof requestedInflightId === 'string' && requestedInflightId.length > 0

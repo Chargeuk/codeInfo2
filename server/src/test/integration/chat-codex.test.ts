@@ -1118,6 +1118,66 @@ test('codex chat preserves persisted thread when resuming the same conversation 
   );
 });
 
+test('resumed contradictory provider-model input cannot rewrite saved execution identity', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const conversationId = 'conv-chat-saved-identity-wins';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved execution identity',
+    source: 'REST',
+    flags: { threadId: 'thread-saved-identity' },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as never);
+
+  const mockCodex = new MockCodex('thread-saved-identity');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  const response = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+      }),
+    )
+    .expect(202);
+
+  await waitForAssistantTurn(conversationId);
+
+  assert.equal(response.body.provider, 'codex');
+  assert.equal(response.body.model, 'gpt-5.1-codex-max');
+  assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-identity');
+  assert.equal(
+    memoryConversations.get(conversationId)?.provider,
+    'codex',
+  );
+  assert.equal(
+    memoryConversations.get(conversationId)?.model,
+    'gpt-5.1-codex-max',
+  );
+});
+
 test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
   setCodexDetection({
     available: true,
@@ -1296,6 +1356,79 @@ test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', asyn
   assert.equal(response.status, 409);
   assert.equal(response.body.status, 'error');
   assert.equal(response.body.code, 'RUN_IN_PROGRESS');
+
+  releaseConversationLock(conversationId);
+});
+
+test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged before lock-protected mutation begins', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex('thread-lock'),
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  const conversationId = 'thread-lock-no-mutation';
+  const originalConversation = {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Locked conversation',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-lock-persisted',
+      workingFolder: '/repo/original',
+    },
+    lastMessageAt: new Date('2026-05-07T00:00:00.000Z'),
+    archivedAt: null,
+    createdAt: new Date('2026-05-07T00:00:00.000Z'),
+    updatedAt: new Date('2026-05-07T00:00:00.000Z'),
+  };
+  memoryConversations.set(conversationId, originalConversation as never);
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+
+  const response = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+        working_folder: '/repo/contradictory',
+        agentFlags: {
+          approvalPolicy: 'never',
+          sandboxMode: 'workspace-write',
+        },
+      }),
+    );
+  assert.equal(response.status, 409);
+  assert.equal(response.body.status, 'error');
+  assert.equal(response.body.code, 'RUN_IN_PROGRESS');
+
+  const persistedConversation = memoryConversations.get(conversationId);
+  assert.equal(persistedConversation?.provider, originalConversation.provider);
+  assert.equal(persistedConversation?.model, originalConversation.model);
+  assert.deepEqual(persistedConversation?.flags, originalConversation.flags);
+  assert.equal(
+    persistedConversation?.lastMessageAt?.toISOString(),
+    originalConversation.lastMessageAt.toISOString(),
+  );
+  assert.equal(
+    persistedConversation?.updatedAt?.toISOString(),
+    originalConversation.updatedAt.toISOString(),
+  );
 
   releaseConversationLock(conversationId);
 });

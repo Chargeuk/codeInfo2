@@ -554,21 +554,41 @@ export function createChatRouter({
             conversationId,
             overrides: {
               model: executionModel,
-              sandbox_mode: effectiveCodexFlags.sandboxMode,
-              approval_policy: effectiveCodexFlags.approvalPolicy,
+              sandbox_mode:
+                typeof effectiveCodexFlags.sandboxMode === 'string'
+                  ? effectiveCodexFlags.sandboxMode
+                  : undefined,
+              approval_policy:
+                typeof effectiveCodexFlags.approvalPolicy === 'string'
+                  ? effectiveCodexFlags.approvalPolicy
+                  : undefined,
               model_reasoning_effort:
-                effectiveCodexFlags.modelReasoningEffort,
+                typeof effectiveCodexFlags.modelReasoningEffort === 'string'
+                  ? effectiveCodexFlags.modelReasoningEffort
+                  : undefined,
               model_reasoning_summary:
-                effectiveCodexFlags.modelReasoningSummary,
-              model_verbosity: effectiveCodexFlags.modelVerbosity,
+                typeof effectiveCodexFlags.modelReasoningSummary === 'string'
+                  ? effectiveCodexFlags.modelReasoningSummary
+                  : undefined,
+              model_verbosity:
+                typeof effectiveCodexFlags.modelVerbosity === 'string'
+                  ? effectiveCodexFlags.modelVerbosity
+                  : undefined,
               network_access_enabled:
-                effectiveCodexFlags.networkAccessEnabled,
-              web_search_mode: effectiveCodexFlags.webSearchMode,
+                typeof effectiveCodexFlags.networkAccessEnabled === 'boolean'
+                  ? effectiveCodexFlags.networkAccessEnabled
+                  : undefined,
+              web_search_mode:
+                typeof effectiveCodexFlags.webSearchMode === 'string'
+                  ? effectiveCodexFlags.webSearchMode
+                  : undefined,
             },
           });
         repositoryBackedCodexHome = materializedRuntimeHome.runtimeCodexHome;
       } catch (error) {
-        console.error(`${T06_ERROR_LOG} surface=/chat code=RUNTIME_CONFIG_INVALID`);
+        console.error(
+          `${T06_ERROR_LOG} surface=/chat code=RUNTIME_CONFIG_INVALID`,
+        );
         return res.status(500).json({
           status: 'error',
           code: 'RUNTIME_CONFIG_INVALID',
@@ -954,10 +974,7 @@ export function createChatRouter({
               ...(repositoryBackedCodexRun
                 ? {}
                 : {
-                    runtimeConfig: {
-                      ...(chatRuntimeConfig as Record<string, unknown>),
-                      model: executionModel,
-                    } as CodexOptions['config'],
+                    runtimeConfig: chatRuntimeConfig,
                     codexFlags: effectiveCodexFlags,
                   }),
               workingDirectoryOverride:

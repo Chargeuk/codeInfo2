@@ -1586,14 +1586,16 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
   const sourceAuthPath = getCodexAuthPathForHome(sourceCodexHome);
 
   await fs.mkdir(sourceCodexHome, { recursive: true });
-  await fs.writeFile(sourceBaseConfigPath, buildDefaultCodexConfig(), {
-    encoding: 'utf8',
-    flag: 'wx',
-  }).catch((error: unknown) => {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-      throw error;
-    }
-  });
+  await fs
+    .writeFile(sourceBaseConfigPath, buildDefaultCodexConfig(), {
+      encoding: 'utf8',
+      flag: 'wx',
+    })
+    .catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw error;
+      }
+    });
   await ensureProviderChatConfigBootstrapped({
     provider: 'codex',
     codexHome: sourceCodexHome,
@@ -1624,14 +1626,14 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
     fs.writeFile(runtimeChatConfigPath, runtimeChatConfig, 'utf8'),
   ]);
 
-  const authConfigRaw = await fs.readFile(sourceAuthPath, 'utf8').catch(
-    (error: unknown) => {
+  const authConfigRaw = await fs
+    .readFile(sourceAuthPath, 'utf8')
+    .catch((error: unknown) => {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return undefined;
       }
       throw error;
-    },
-  );
+    });
   if (typeof authConfigRaw === 'string') {
     await fs.writeFile(runtimeAuthPath, authConfigRaw, 'utf8');
   }

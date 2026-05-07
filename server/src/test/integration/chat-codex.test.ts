@@ -146,6 +146,11 @@ beforeEach(async () => {
     'model = "gpt-5.1-codex-max"\n',
     'utf8',
   );
+  await fs.writeFile(
+    path.join(tempCodexHomeForTest, 'auth.json'),
+    '{}',
+    'utf8',
+  );
   process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
   memoryConversations.clear();
   memoryTurns.clear();
@@ -1261,8 +1266,9 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
     override startThread(opts?: CodexThreadOptions) {
       this.lastStartOptions = opts;
       const activeHome = lastCapturedCodexOptions?.env?.CODEX_HOME;
-      const runtimeConfig =
-        lastCapturedCodexOptions?.config as Record<string, unknown> | undefined;
+      const runtimeConfig = lastCapturedCodexOptions?.config as
+        | Record<string, unknown>
+        | undefined;
       const shouldFailRolloutRecording =
         opts?.model !== undefined ||
         opts?.approvalPolicy !== undefined ||
@@ -1278,8 +1284,9 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
       this.lastResumeThreadId = threadId;
       this.lastResumeOptions = opts;
       const activeHome = lastCapturedCodexOptions?.env?.CODEX_HOME;
-      const runtimeConfig =
-        lastCapturedCodexOptions?.config as Record<string, unknown> | undefined;
+      const runtimeConfig = lastCapturedCodexOptions?.config as
+        | Record<string, unknown>
+        | undefined;
       const shouldFailRolloutRecording =
         threadId !== this.id ||
         opts?.model !== undefined ||
@@ -1296,7 +1303,6 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
   const conversationId = 'conv-chat-repo-backed-thread-persisted';
   const mockCodex = new RepositoryBackedCodex('thread-repo-backed');
   let lastCapturedCodexOptions: CodexOptions | undefined;
-  let firstRuntimeHome: string | undefined;
   const app = express();
   app.use(express.json());
   app.use(
@@ -1335,7 +1341,9 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
   assert.equal(firstResponse.body.model, 'gpt-5.1-codex-max');
   assert.equal(firstAssistant?.status, 'ok');
   assert.equal(firstAssistant?.content, 'READY');
-  firstRuntimeHome = String(lastCapturedCodexOptions?.env?.CODEX_HOME ?? '');
+  const firstRuntimeHome = String(
+    lastCapturedCodexOptions?.env?.CODEX_HOME ?? '',
+  );
   assert.notEqual(firstRuntimeHome, tempCodexHomeForTest);
   assert.equal(
     (lastCapturedCodexOptions?.config as Record<string, unknown> | undefined)

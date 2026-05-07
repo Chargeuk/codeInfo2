@@ -1662,8 +1662,8 @@ The review found that MCP replay safety still depends on a process-local complet
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because it is the existing proof home for `codebase_question` replay semantics.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root when the repaired replay path needs websocket-backed persistence proof in addition to unit coverage.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because it is the existing proof home for `codebase_question` replay semantics.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root when the repaired replay path needs websocket-backed persistence proof in addition to unit coverage.
 
 #### Implementation notes
 
@@ -1671,6 +1671,8 @@ The review found that MCP replay safety still depends on a process-local complet
 - Added a minimal persistence marker on MCP turn runtime metadata so only assistant turns persisted with `replay.completed = true` can satisfy durable replay reconstruction, while user-only or incomplete replay state stays on the fresh execution path.
 - Added a dedicated durable replay proof in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` that clears the completed inflight cache after one successful replay, reuses the same `replayId`, and separately proves that incomplete persisted replay state does not masquerade as a durable hit.
 - Added a dedicated websocket-backed durable replay proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that exercises the same cache-clear boundary through the MCP router and persisted-memory turn path without widening into the later automated proof step.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` cleanly, confirming the durable replay unit proof home now passes with the completed-cache-clear and incomplete-persisted-state cases (`tests run: 19`, `passed: 19`, `failed: 0`).
+- Ran `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` cleanly, confirming the websocket-backed durable replay path also passes through the MCP router and persisted-memory turn seam (`tests run: 14`, `passed: 14`, `failed: 0`).
 
 ### Task 14. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
 

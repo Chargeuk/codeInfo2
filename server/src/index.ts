@@ -91,18 +91,6 @@ const copilotRuntimeConfig = buildCopilotClientOptions({
 });
 const fakeCopilotRuntimeSeam = createFakeCopilotRuntimeSeamFromEnv(process.env);
 ensureCodexConfigSeeded();
-void ensureAllProviderChatConfigsBootstrapped({
-  codexHome: process.env.CODEINFO_CODEX_HOME,
-  copilotHome: process.env.CODEINFO_COPILOT_HOME,
-  lmstudioHome: resolveLmStudioChatDefaultsHome(),
-}).catch((error) => {
-  baseLogger.warn(
-    {
-      error: error instanceof Error ? error.message : String(error),
-    },
-    'provider chat-config bootstrap failed during startup',
-  );
-});
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
 const codexSdkGuardAccepted = validateAndLogCodexSdkUpgrade(
   installedCodexSdkVersion,
@@ -428,6 +416,11 @@ const start = async () => {
     baseLogger.error('CODEINFO_MONGO_URI is required but missing');
     process.exit(1);
   }
+  await ensureAllProviderChatConfigsBootstrapped({
+    codexHome: process.env.CODEINFO_CODEX_HOME,
+    copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    lmstudioHome: resolveLmStudioChatDefaultsHome(),
+  });
   try {
     await connectMongo(mongoUri);
   } catch (err) {
@@ -471,7 +464,16 @@ const start = async () => {
   startAgentsMcpServer();
 };
 
-void start();
+void start().catch((err) => {
+  baseLogger.error(
+    {
+      err,
+      error: err instanceof Error ? err.message : String(err),
+    },
+    'server startup failed before listen',
+  );
+  process.exit(1);
+});
 
 const shutdown = async (signal: NodeJS.Signals) => {
   baseLogger.info({ signal }, 'Shutting down services');

@@ -1593,12 +1593,12 @@ The review found that the default startup path still launches provider bootstrap
 
 #### Subtasks
 
-1. [ ] In `server/src/index.ts`, await `ensureAllProviderChatConfigsBootstrapped()` before the default launcher path begins serving normal provider traffic, and keep the shipped startup and readiness contract unchanged apart from that repaired bootstrap ordering.
-2. [ ] In `server/src/config/runtimeConfig.ts`, guard provider chat-config writes so a stale read or missing-state check cannot overwrite newer config, and preserve temp-file cleanup so later bootstrap reads or retries never treat partial chat-config artifacts as live state.
-3. [ ] In `server/src/config/copilotConfig.ts`, guard provider base-config and Copilot managed-settings writes so stale reads cannot overwrite newer config, and preserve temp-file cleanup so later readers or retries never treat partial settings artifacts as live state.
-4. [ ] Extend or split `server/src/test/unit/runtimeConfig.test.ts` so one dedicated proof explicitly claims and asserts that the default startup path does not expose provider traffic before bootstrap completion, and another dedicated proof explicitly claims and asserts that the provider chat-config writer cannot replace newer config after the initial missing-state check while leaving no partial-write artifact that later bootstrap reads could mistake for live config; rename any reused bootstrap-template title that would otherwise describe only adjacent file-seeding behavior.
-5. [ ] Extend or split `server/src/test/unit/copilotConfig.test.ts` so dedicated proofs explicitly claim and assert that the provider base-config writer and the Copilot managed-settings normalization path do not clobber newer config after a stale read or existence check, and that failed guarded writes still clean up temp artifacts before later readers or retries observe the config directory, rather than reusing seed-only titles whose assertions would no longer describe the guarded writer invariant.
-6. [ ] Add or rewrite one default-path launcher proof home, such as `server/src/test/unit/host-network-compose-contract.test.ts`, so a dedicated proof explicitly claims and asserts that the awaited bootstrap contract is reachable through the normal checked-in launcher path rather than only through compose inventory or mount-shape assertions; rename any reused contract test whose old title would still describe only container layout.
+1. [x] In `server/src/index.ts`, await `ensureAllProviderChatConfigsBootstrapped()` before the default launcher path begins serving normal provider traffic, and keep the shipped startup and readiness contract unchanged apart from that repaired bootstrap ordering.
+2. [x] In `server/src/config/runtimeConfig.ts`, guard provider chat-config writes so a stale read or missing-state check cannot overwrite newer config, and preserve temp-file cleanup so later bootstrap reads or retries never treat partial chat-config artifacts as live state.
+3. [x] In `server/src/config/copilotConfig.ts`, guard provider base-config and Copilot managed-settings writes so stale reads cannot overwrite newer config, and preserve temp-file cleanup so later readers or retries never treat partial settings artifacts as live state.
+4. [x] Extend or split `server/src/test/unit/runtimeConfig.test.ts` so one dedicated proof explicitly claims and asserts that the default startup path does not expose provider traffic before bootstrap completion, and another dedicated proof explicitly claims and asserts that the provider chat-config writer cannot replace newer config after the initial missing-state check while leaving no partial-write artifact that later bootstrap reads could mistake for live config; rename any reused bootstrap-template title that would otherwise describe only adjacent file-seeding behavior.
+5. [x] Extend or split `server/src/test/unit/copilotConfig.test.ts` so dedicated proofs explicitly claim and assert that the provider base-config writer and the Copilot managed-settings normalization path do not clobber newer config after a stale read or existence check, and that failed guarded writes still clean up temp artifacts before later readers or retries observe the config directory, rather than reusing seed-only titles whose assertions would no longer describe the guarded writer invariant.
+6. [x] Add or rewrite one default-path launcher proof home, such as `server/src/test/unit/host-network-compose-contract.test.ts`, so a dedicated proof explicitly claims and asserts that the awaited bootstrap contract is reachable through the normal checked-in launcher path rather than only through compose inventory or mount-shape assertions; rename any reused contract test whose old title would still describe only container layout.
 
 #### Testing
 
@@ -1610,6 +1610,13 @@ The review found that the default startup path still launches provider bootstrap
 6. [ ] Run `npm run compose:down` from the repository root after the task-local startup smoke step that this task started.
 
 #### Implementation notes
+
+- Moved provider chat-config bootstrap into the awaited `start()` path in `server/src/index.ts` and removed the earlier fire-and-forget startup call so the checked-in launcher does not listen before bootstrap completes.
+- Changed `server/src/config/runtimeConfig.ts` chat-template seeding to commit only when the target file is still missing, so a newer chat config created after the initial missing-state check wins and temp artifacts are still cleaned up.
+- Changed `server/src/config/copilotConfig.ts` provider base-config seeding to use the same missing-only commit path, and updated Copilot managed-settings normalization to re-read before overwrite so newer `settings.json` content wins instead of being clobbered by a stale read.
+- Added dedicated Task 12 proof titles in `server/src/test/unit/runtimeConfig.test.ts` for awaited startup bootstrap and for the provider chat-config no-clobber plus no-temp-artifact invariant.
+- Added dedicated Task 12 proof titles in `server/src/test/unit/copilotConfig.test.ts` for provider base-config no-clobber and managed-settings stale-read protection while reusing the existing cleanup coverage.
+- Added a checked-in launcher proof in `server/src/test/unit/host-network-compose-contract.test.ts` that asserts the default entrypoint now awaits provider bootstrap before listen instead of firing it off in the background.
 
 ### Task 13. Make MCP replay idempotency survive process-local cache loss
 

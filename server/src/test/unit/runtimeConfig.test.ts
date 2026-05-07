@@ -283,6 +283,22 @@ describe('runtimeConfig bootstrap', () => {
   const TASK9_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
   const TASK3_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
 
+  it('default startup path awaits provider chat-config bootstrap before the checked-in server entrypoint begins listening', async () => {
+    const indexSource = await fs.readFile(
+      path.join(repoRoot, 'server/src/index.ts'),
+      'utf8',
+    );
+
+    assert.doesNotMatch(
+      indexSource,
+      /void ensureAllProviderChatConfigsBootstrapped\(/u,
+    );
+    assert.match(
+      indexSource,
+      /const start = async \(\) => \{[\s\S]*await ensureAllProviderChatConfigsBootstrapped\([\s\S]*const httpServer = http\.createServer\(app\);/u,
+    );
+  });
+
   it('writes the canonical chat template when chat config is missing', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2668,6 +2684,44 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
 
       assert.equal(snapshot.config?.model, 'kept-model');
       await fs.access(`${chatConfigPath}.partial.tmp`);
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('provider chat-config bootstrap keeps a newer config that appears after the missing-state check and leaves no partial temp artifact behind', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'provider-chat-race-'),
+    );
+    const lmstudioHome = path.join(tempRoot, 'lmstudio');
+    const { chatConfigPath } = getProviderChatConfigPath({
+      provider: 'lmstudio',
+      lmstudioHome,
+    });
+    const originalLink = fs.link;
+
+    try {
+      const linkMock = mock.method(
+        fs,
+        'link',
+        async (existingPath: PathLike, newPath: PathLike) => {
+          await fs.writeFile(chatConfigPath, 'model = "newer-model"\n', 'utf8');
+          return originalLink.call(fs, existingPath, newPath);
+        },
+      );
+
+      const result = await ensureProviderChatConfigBootstrapped({
+        provider: 'lmstudio',
+        lmstudioHome,
+      });
+      linkMock.mock.restore();
+
+      const seeded = await fs.readFile(chatConfigPath, 'utf8');
+      const entries = await fs.readdir(path.join(lmstudioHome, 'chat'));
+
+      assert.equal(result.branch, 'existing_noop');
+      assert.equal(seeded, 'model = "newer-model"\n');
+      assert.deepEqual(entries, ['config.toml']);
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }

@@ -265,6 +265,21 @@ function buildChatConfigTempPath(chatConfigPath: string): string {
     .slice(2)}.tmp`;
 }
 
+async function commitTempFileIfMissing(
+  tempPath: string,
+  targetPath: string,
+): Promise<'written' | 'existing'> {
+  try {
+    await fs.link(tempPath, targetPath);
+    return 'written';
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      return 'existing';
+    }
+    throw error;
+  }
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
@@ -1404,7 +1419,32 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       encoding: 'utf8',
       flag: 'wx',
     });
-    await fs.rename(tempPath, chatConfigPath);
+    const commitResult = await commitTempFileIfMissing(
+      tempPath,
+      chatConfigPath,
+    );
+    if (commitResult === 'existing') {
+      logTask9Bootstrap({
+        branch: 'existing_noop',
+        codexHome: providerHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+      });
+      logTask3Bootstrap({
+        chatConfigPath,
+        outcome: 'existing',
+        success: true,
+      });
+      return {
+        provider: params.provider,
+        providerHome,
+        chatConfigPath,
+        generatedTemplate: false,
+        branch: 'existing_noop',
+      };
+    }
     logTask9Bootstrap({
       branch: 'generated_template',
       codexHome: providerHome,
@@ -1426,7 +1466,6 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       branch: 'generated_template',
     };
   } catch (error) {
-    await cleanupPartialChatConfig(tempPath);
     if ((error as { code?: string }).code === 'EEXIST') {
       logTask9Bootstrap({
         branch: 'existing_noop',
@@ -1471,6 +1510,8 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       warningCode: code,
     });
     throw error;
+  } finally {
+    await cleanupPartialChatConfig(tempPath);
   }
 }
 

@@ -133,6 +133,41 @@ test('cleans up a failed provider-base bootstrap temp file so a later retry can 
   }
 });
 
+test('provider base-config bootstrap keeps a newer config that appears after the missing-state check and leaves no temp artifact behind', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-provider-base-config-race-'),
+  );
+  const originalLink = fs.promises.link;
+
+  try {
+    const home = path.join(tempRoot, 'copilot');
+    const configPath = getCopilotConfigPathForHome(home);
+    const linkMock = mock.method(
+      fs.promises,
+      'link',
+      async (existingPath: fs.PathLike, newPath: fs.PathLike) => {
+        await fs.promises.writeFile(
+          configPath,
+          '# newer config won\n',
+          'utf8',
+        );
+        return originalLink.call(fs.promises, existingPath, newPath);
+      },
+    );
+
+    const seededPath = await ensureCopilotBaseConfigSeeded(home);
+    linkMock.mock.restore();
+
+    assert.equal(seededPath, configPath);
+    assert.equal(await fs.promises.readFile(configPath, 'utf8'), '# newer config won\n');
+    const entries = await fs.promises.readdir(home);
+    assert.deepEqual(entries, ['config.toml']);
+  } finally {
+    mock.restoreAll();
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('keeps an explicitly configured CODEINFO_COPILOT_HOME as the primary contract without creating a ~/.copilot symlink', async () => {
   const tempRoot = await fs.promises.mkdtemp(
     path.join(process.cwd(), 'tmp-copilot-config-'),
@@ -276,6 +311,80 @@ test('enables plaintext token storage without overwriting existing settings keys
     assert.equal(parsed.firstLaunchAt, '2026-03-23T00:00:00.000Z');
     assert.equal(parsed.storeTokenPlaintext, true);
   } finally {
+    await fs.promises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('managed settings normalization keeps newer settings that appear after a stale read and leaves no temp artifact behind', async () => {
+  const tempRoot = await fs.promises.mkdtemp(
+    path.join(process.cwd(), 'tmp-copilot-settings-race-'),
+  );
+  let injectedConcurrentWrite = false;
+  const originalWriteFile = fs.promises.writeFile;
+
+  try {
+    const settingsPath = path.join(tempRoot, 'settings.json');
+    await fs.promises.writeFile(
+      settingsPath,
+      JSON.stringify({ firstLaunchAt: '2026-03-23T00:00:00.000Z' }, null, 2),
+      'utf8',
+    );
+
+    const writeMock = mock.method(
+      fs.promises,
+      'writeFile',
+      async (
+        file: unknown,
+        data: unknown,
+        options?: unknown,
+      ) => {
+        const result = await originalWriteFile.call(
+          fs.promises,
+          file,
+          data as never,
+          options as never,
+        );
+        if (
+          !injectedConcurrentWrite &&
+          typeof file === 'string' &&
+          file.includes('settings.json.') &&
+          file.endsWith('.tmp')
+        ) {
+          injectedConcurrentWrite = true;
+          await originalWriteFile.call(
+            fs.promises,
+            settingsPath,
+            `${JSON.stringify(
+              {
+                firstLaunchAt: '2026-04-01T00:00:00.000Z',
+                storeTokenPlaintext: true,
+                concurrentMarker: 'preserved',
+              },
+              null,
+              2,
+            )}\n`,
+            'utf8',
+          );
+        }
+        return result;
+      },
+    );
+
+    const result = await ensureCopilotPlaintextTokenStorage(tempRoot);
+    writeMock.mock.restore();
+
+    const parsed = JSON.parse(await fs.promises.readFile(settingsPath, 'utf8'));
+    const entries = await fs.promises.readdir(tempRoot);
+
+    assert.equal(result.changed, false);
+    assert.deepEqual(parsed, {
+      firstLaunchAt: '2026-04-01T00:00:00.000Z',
+      storeTokenPlaintext: true,
+      concurrentMarker: 'preserved',
+    });
+    assert.deepEqual(entries, ['settings.json']);
+  } finally {
+    mock.restoreAll();
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
   }
 });

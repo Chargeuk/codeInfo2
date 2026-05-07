@@ -187,3 +187,16 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   );
   assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
 });
+
+test('checked-in default launcher awaits provider bootstrap before listen instead of firing it off in the background', () => {
+  const indexSource = readRepoFile('server/src/index.ts');
+
+  assert.doesNotMatch(
+    indexSource,
+    /void ensureAllProviderChatConfigsBootstrapped\(/u,
+  );
+  assert.match(
+    indexSource,
+    /const start = async \(\) => \{[\s\S]*await ensureAllProviderChatConfigsBootstrapped\([\s\S]*const httpServer = http\.createServer\(app\);/u,
+  );
+});

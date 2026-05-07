@@ -1677,13 +1677,69 @@ The review found that MCP replay safety still depends on a process-local complet
 - Proved the owned restart-idempotency seam on the live MCP surface by creating a Codex-backed `codebase_question` conversation pinned to `/data/story55-manual-proof/queued-repo`, recording one completed replay result, restarting the full stack, then reissuing the same `conversationId` plus `replayId` with a contradictory prompt and confirming `support-proof-summary.json` shows the post-restart payload exactly matched the original persisted replay result.
 - Screenshots were not applicable because this pass exercised startup, shutdown, HTTP, and MCP-only proof surfaces. An exploratory extra check with a fresh new `replayId` after the restart failed with `thread/resume failed: no rollout found for thread id ...`, but I did not require that path for Task 13 because its exit criterion is the durable same-`replayId` result after cache loss, not broader fresh resumed-thread recovery on later follow-up turns.
 
-### Task 14. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
+### Task 14. Repair main-stack Codex auth handoff before final review revalidation
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `Task 10, Task 11, Task 12, Task 13`
+- Task Dependencies: `Task 13`
 - Task Status: `__in_progress__`
 - Git Commits:
-- Notes: Review-created final revalidation task for review cycle `0000057-rc-20260507T033249Z-a89766f6`.
+- Notes: Planner-created prerequisite from the former final revalidation owner after Task 15's `**BLOCKING ANSWER**` proved the main-stack failure is a runtime-auth baseline seam rather than another product-code defect.
+
+#### Overview
+
+The final review task is now blocked before its own continuation seams execute: the first repository-backed main-stack `codebase_question` turn dies in Codex auth refresh with `refresh_token_reused` / `token_expired`. This prerequisite task owns the runtime-auth handoff so the checked-in Compose stack stops depending on stale copied Codex credentials before the story returns to final close-out proof.
+
+#### Highest-Risk Invariant
+
+- The checked-in main stack must not silently proceed on diverging or stale copied Codex auth state; repository-backed Codex runs must either use one authoritative writable auth source or fail fast with an explicit host reauthentication contract before downstream MCP or `/chat` seams are blamed.
+
+#### Likely Blocker Family
+
+- `manual or runtime environment seam`
+
+#### Addresses Findings
+
+- Unblocks the final review-created close-out owner by repairing the shared Codex auth handoff that currently fails before Task 15's repository-backed continuation seams can be exercised on the shipped main stack.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the checked-in Compose auth mount, startup bootstrap, runtime Codex-home contract, and operator guidance that currently allow stale copied auth to block repository-backed main-stack proof before downstream product seams run.
+
+#### Task Exit Criteria
+
+- The checked-in main stack uses one explicit supported Codex auth authority for repository-backed proof surfaces, or it fails fast with clear reauthentication guidance bound to `${CODEINFO_HOST_CODEX_HOME}` instead of running on stale copied auth state.
+- The repaired runtime-auth handoff is covered by deterministic repository proof where realistic, and any remaining limitation of live OAuth automation is recorded explicitly instead of being rediscovered during final revalidation.
+
+#### Subtasks
+
+1. [ ] Re-read `docker-compose.yml`, `server/src/index.ts`, `server/src/utils/codexAuthCopy.ts`, `server/src/config/codexConfig.ts`, `README.md`, and `client/src/pages/ChatPage.tsx`, then implement one bounded supported main-stack contract for Codex auth authority: either direct single-home reuse or deterministic reseed plus explicit fail-fast reauthentication when the active host authority is stale. Success threshold: the exact writable source of truth and the exact stale-auth prevention point are encoded in the checked-in runtime path; exhausted outcome: if upstream Codex auth rules forbid any safe copied-home reuse, the stack must stop before downstream MCP or `/chat` execution and surface the host reauthentication requirement clearly.
+2. [ ] In the owned runtime seam (`docker-compose.yml`, startup bootstrap, and the adjacent Codex auth-copy helper they call), remove the current silent stale-copy behavior for repository-backed main-stack Codex proof so the first `codebase_question` turn no longer enters downstream runtime execution on a bad copied auth cache.
+3. [ ] Add or extend deterministic server-owned proof in `server/src/test/unit/codexAuthCopy.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`, or the closest startup proof home so the repaired auth handoff is enforced without depending on live OAuth credentials. Purpose: prove the stack either uses the intended single auth authority or stops with the explicit reauthentication contract instead of rediscovering `refresh_token_reused` at manual-proof time.
+4. [ ] Update the checked-in operator guidance in `README.md` and any adjacent shipped banner or startup guidance so manual-proof users know the single supported auth source and the exact reauthentication step when the runtime baseline expires, without needing container-only log archaeology.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codexAuthCopy.test.ts` from the repository root. Use this targeted wrapper because it is the closest deterministic proof home for the auth-copy and file-authority rules.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/codexAuthCopy.integration.test.ts` from the repository root. Use this targeted wrapper when the repaired contract crosses the startup bootstrap and filesystem seam rather than only the pure helper boundary.
+3. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the repaired seam lives in server-owned startup and Codex runtime wiring.
+4. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the repaired seam includes the checked-in Compose auth mount and runtime-home contract used by the main stack.
+
+#### Manual Testing Guidance
+
+- After the automated proof is green, reuse the checked-in main stack (`npm run compose:build`, then `npm run compose:up`) and re-run only the repository-backed `codebase_question` proof on `/data/story55-manual-proof/queued-repo` before returning to Task 15.
+- Retain any new runtime-auth artifacts under `codeInfoTmp/manual-testing/0000057/14/` and do not commit them.
+
+#### Implementation notes
+
+- Planner repair created this prerequisite after Task 15's current `**BLOCKING ANSWER**` proved the first failing main-stack `codebase_question` turn dies in Codex auth refresh before the final revalidation owner reaches its own continuation seams, so the next honest work is runtime-auth handoff repair rather than more review-closeout code changes.
+
+### Task 15. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 10, Task 11, Task 12, Task 13, Task 14`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created final revalidation successor for review cycle `0000057-rc-20260507T033249Z-a89766f6`, narrowed by planner repair after the runtime-auth blocker proved a separate prerequisite owner was required.
 
 #### Overview
 
@@ -1741,8 +1797,8 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 
 - If Tasks 10 through 13 change user-visible startup or continuation behavior beyond what the automated wrappers already prove, reuse the normal main stack (`npm run compose:build` then `npm run compose:up`) to spot-check one resumed `/chat` conversation, one resumed `codebase_question` conversation, and the disabled-agent `Execute Prompt` surface before closing the review cycle.
 - Use the checked-in normal main stack only: the compose wrappers remain the supported startup path, the expected readiness checks are `http://localhost:5010/health` for the server and `http://localhost:5001` for the client, and the current seed or setup source is the repository's checked-in compose plus runtime-config material rather than ad hoc local edits.
-- Keep any retained artifacts under `codeInfoTmp/manual-testing/0000057/14/` and do not commit them.
-- If Playwright MCP screenshots help this final spot-check, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000057/14/`. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available; do not treat it as the target artifact root for this repository.
+- Keep any retained artifacts under `codeInfoTmp/manual-testing/0000057/15/` and do not commit them.
+- If Playwright MCP screenshots help this final spot-check, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000057/15/`. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available; do not treat it as the target artifact root for this repository.
 
 #### Implementation notes
 
@@ -1773,5 +1829,6 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 - Ran `npm run test:summary:server:unit` after one honest reopened-proof repair cycle. The first full rerun failed on two `chat-codex` regressions: the generic chat-runtime-config proof showed I had widened the model overlay past the repository-backed seam, and the new repository-backed proof exposed a missing `auth.json` fixture in the derived Codex home path. I narrowed the non-repository-backed route back to the plain chat config contract, added the auth fixture for the derived-home proof, reran `server/src/test/integration/chat-codex.test.ts` cleanly as the targeted checkpoint (`tests run: 22`, `passed: 22`, `failed: 0`), and then reran the full wrapper cleanly with `tests run: 2029`, `passed: 2029`, `failed: 0`, and `agent_action: skip_log`.
 - Ran `npm run lint`; the first pass found one proof-local `prefer-const` error in `server/src/test/integration/chat-codex.test.ts`, I tightened that binding, and the exact rerun passed cleanly.
 - Ran `npm run format:check`; the first pass surfaced style drift in three task-owned files, I normalized the touched server paths with a focused Prettier write, and the exact rerun finished cleanly with `All matched files use Prettier code style!`.
-- **BLOCKER** Manual testing expanded to full-story scope on a restarted checked-in main stack (`npm run compose:down`, `npm run compose:build`, `npm run compose:up`) and reached the required browser plus resumed-conversation seams, but the first repository-backed resumed `codebase_question` turn on `/data/story55-manual-proof/queued-repo` failed with live Codex auth errors (`refresh_token_reused` / `token_expired`) on the supported runtime path before the saved-Codex continuation contract could be proved. I re-read the bound Task 14 manual guidance, kept the pass on the supported main stack, captured retained runtime artifacts under `codeInfoTmp/manual-testing/0000057/14/` (`support-health.json`, `support-chat-providers.json`, `support-agents-list.json`, `support-conversation-create*.json`, `support-mcp-*.json`), and checked the live `codeinfo2-server-1` logs; the failure is the current Codex auth environment contract rather than a new task-owned code seam. The current shipped seed still shows no disabled agent in `/agents`, and a Playwright screenshot was staged as `manual-testing/0000057/14/proof-01-agents-page.png`, but the documented main-stack copy-out locations were not host-visible during this pass, so the intended retained destination remains `codeInfoTmp/manual-testing/0000057/14/proof-01-agents-page.png` until the auth-blocked proof can be rerun honestly.
+- **RESOLVED ISSUE** Manual testing expanded to full-story scope on a restarted checked-in main stack (`npm run compose:down`, `npm run compose:build`, `npm run compose:up`) and reached the required browser plus resumed-conversation seams, but the first repository-backed resumed `codebase_question` turn on `/data/story55-manual-proof/queued-repo` failed with live Codex auth errors (`refresh_token_reused` / `token_expired`) on the supported runtime path before the saved-Codex continuation contract could be proved. I re-read the bound manual guidance, kept the pass on the supported main stack, captured retained runtime artifacts under `codeInfoTmp/manual-testing/0000057/14/` (`support-health.json`, `support-chat-providers.json`, `support-agents-list.json`, `support-conversation-create*.json`, `support-mcp-*.json`), and checked the live `codeinfo2-server-1` logs. Planner repair moved the next real work into new Task 14 because this failure proved a separate runtime-auth prerequisite owner was required before final review revalidation can continue honestly.
 - **BLOCKING ANSWER** Repository precedent shows the main stack already treats one file-backed Codex home as the supported auth authority, not a task-owned runtime seam: `server/src/config/codexConfig.ts` resolves auth at `CODEX_HOME/auth.json` with `cli_auth_credentials_store = "file"`, `server/src/index.ts` calls `ensureCodexAuthFromHost(...)`, `server/src/utils/codexAuthCopy.ts` only copies `/host/codex/auth.json` into `/app/codex/auth.json` when the container file is missing, and the shipped user guidance in `README.md` plus `client/src/pages/ChatPage.tsx` tells operators to log in on the host (`CODEX_HOME=./codex codex login` or `~/.codex`) and let Compose mount that home into `/host/codex` for bootstrap. The strongest local proof is the retained manual artifact `codeInfoTmp/manual-testing/0000057/14/support-mcp-first-response.json`: the very first repository-backed `codebase_question` turn fails before any saved-thread continuation logic runs, with `codex_login::auth::manager` reporting `refresh_token_reused`, `codex_models_manager` reporting `token_expired`, and the downstream `thread ... not found` line appearing only after auth refresh has already failed; the resumed summary in `support-mcp-summary-after-resume.json` still shows the expected provider, model, working folder, and saved `flags.threadId`, so the task-owned continuation contract is not the gate currently failing. External precedent matches that reading: OpenAI's Codex authentication docs say Codex caches login state locally in `~/.codex/auth.json` or the OS store and normally refreshes active sessions automatically, while the advanced CI/CD auth docs only support file-backed automation when the same `CODEX_HOME/auth.json` is restored and then persisted again after Codex runs; upstream `openai/codex` issue `#15410` records that copied `auth.json` files across isolated `CODEX_HOME` values become invalid because OAuth refresh tokens are single-use, issue `#15502` reports the same copied-auth workflow as unreliable in practice, and issue `#6498` shows `refresh_token_reused` on concurrent or stale sessions with the practical recovery being renewed login. The proven solution is therefore a runtime-baseline repair, not more Task 14 product code: refresh the single source auth home that the checked-in Compose stack mounts through `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` by running a real Codex re-login against that home (`codex login` or `codex login --device-auth`, whichever the environment supports), then restart the main stack so `/app/codex/auth.json` is reseeded from a valid source; if this proof path needs to be automated later, manage one writable `CODEX_HOME/auth.json` secret and persist the refreshed file after each run instead of relying on copied or diverging auth caches. The blocker family is `manual or runtime environment seam`, and the current task does not own another implementation fix because the failing surface is the external auth baseline that precedes the route or MCP continuation code. Rejected alternatives were another broad Task 14 code change, because the first MCP turn already dies before task logic can prove anything; repeated broad wrapper or manual retries without re-auth, because the failure signature is deterministic and upstream sources say stale refresh state does not self-heal; and copied-auth or parallel-home workarounds, because the repo's copy-once bootstrap plus upstream issues show that split `auth.json` homes are exactly the unreliable anti-pattern behind `refresh_token_reused`.
+- Planner repair moved the active owner to new Task 14 after the written blocker answer proved the auth failure belongs to a prerequisite runtime baseline rather than this final revalidation task. Task 15 now stays out of active selection until that prerequisite lands, at which point the final close-out owner can return to a clean review audit and completion path instead of rediscovering the same auth failure.

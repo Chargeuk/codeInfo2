@@ -1472,6 +1472,14 @@ This final task validates the full Story 57 contract rather than isolated seams.
 
 The review found that the MCP `codebase_question` continuation seam still lets contradictory follow-up provider-model input rewrite saved execution identity, and that omitted-provider pinning is currently hard-coded to saved Codex conversations. This task repairs that single saved-conversation identity seam across explicit and omitted-provider follow-up calls without reopening already-resolved minor fixes.
 
+#### Highest-Risk Invariant
+
+- Once an MCP conversation already exists, the stored provider-model pair must stay authoritative through selection, availability checks, persistence, and returned turn state even when the caller supplies contradictory follow-up input or omits provider on a non-Codex saved conversation.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
 #### Addresses Findings
 
 - `finding-1` - contradictory resume-time provider-model args can still rewrite saved MCP execution identity.
@@ -1508,6 +1516,14 @@ The review found that the MCP `codebase_question` continuation seam still lets c
 
 The review found two route-owned defects on the same `/chat` continuation seam: contradictory resumed provider-model input can still rewrite saved execution identity, and blocked concurrent sends can still mutate persisted metadata before the conversation lock is proven. This task keeps that route repair self-contained instead of scattering it across older Story 57 tasks.
 
+#### Highest-Risk Invariant
+
+- On resumed `/chat` sends, the route must prove the existing conversation and lock owner before any loser can rewrite persisted provider, model, flags, or other saved execution state, and the winner must still keep the stored execution identity authoritative over contradictory caller input.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
 #### Addresses Findings
 
 - `finding-3` - the main `/chat` route still trusts contradictory resumed provider-model input and rewrites saved execution identity.
@@ -1543,6 +1559,14 @@ The review found two route-owned defects on the same `/chat` continuation seam: 
 
 The review found that the default startup path still launches provider bootstrap fire-and-forget, and that the bootstrap or normalization writers can still clobber newer config state after stale reads. These findings share one coherent startup-and-config ownership seam, so they stay grouped in one substantive repair task.
 
+#### Highest-Risk Invariant
+
+- The normal default launcher path must not accept provider traffic until the Story 57 bootstrap contract is complete, and the bootstrap-managed config writers must not replace newer config that appeared after a stale read or missing-state check.
+
+#### Likely Blocker Family
+
+- `shared wrapper or baseline seam`
+
 #### Addresses Findings
 
 - `finding-6` - the default startup path launches provider bootstrap fire-and-forget instead of awaiting the story-owned bootstrap contract.
@@ -1561,11 +1585,13 @@ The review found that the default startup path still launches provider bootstrap
 3. [ ] In `server/src/config/copilotConfig.ts`, replace the current stale-read overwrite behavior in the provider base-config and managed-settings normalization writers with an ownership-safe no-clobber write path that preserves newer config created by another actor after the initial existence or read check.
 4. [ ] In `server/src/config/runtimeConfig.ts`, give the provider chat-config bootstrap writer the same no-clobber ownership guarantees so startup cannot replace a newer config that appeared after the initial missing-state check.
 5. [ ] Extend `server/src/test/unit/runtimeConfig.test.ts` and `server/src/test/unit/copilotConfig.test.ts` with awaited-startup and no-clobber writer proofs that explicitly cover provider base config, provider chat config, and Copilot managed settings.
+6. [ ] Add or update one default-path launcher proof home, such as `server/src/test/unit/host-network-compose-contract.test.ts`, so the awaited bootstrap contract is proven reachable through the normal checked-in launcher path rather than only through isolated helper calls.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for bootstrap ordering and provider chat-config writer behavior.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for provider base-config and managed-settings writer behavior.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root. Use this targeted wrapper because the highest-risk startup finding must stay reachable through the default checked-in launcher contract rather than only through helper-local tests.
 
 #### Implementation notes
 
@@ -1580,6 +1606,14 @@ The review found that the default startup path still launches provider bootstrap
 #### Overview
 
 The review found that MCP replay safety still depends on a process-local completed-inflight cache, so restart or eviction can drop the idempotent result contract even when the rest of the conversation state persists. This task isolates that durability seam instead of burying it inside the broader resume-identity tasks.
+
+#### Highest-Risk Invariant
+
+- A completed `codebase_question` replay must return the same caller-visible logical result after a cache-clear or restart-equivalent boundary, with the same replay id semantics, instead of silently depending on the current process to still remember the completed result.
+
+#### Likely Blocker Family
+
+- `proof or test harness seam`
 
 #### Addresses Findings
 
@@ -1615,6 +1649,14 @@ The review found that MCP replay safety still depends on a process-local complet
 
 This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260507T014045Z-e54d5640`, and it must also revalidate the inline-resolved minor fixes for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14` so the cycle does not split into a second final revalidation owner later.
 
+#### Highest-Risk Invariant
+
+- The final review-cycle close-out must prove the serious repair block through the supported default build, startup, and regression paths while also showing the already-recorded inline minor fixes still hold, without confusing task-owned proof with shared baseline or manual-environment ownership.
+
+#### Likely Blocker Family
+
+- `manual or runtime environment seam`
+
 #### Addresses Findings
 
 - Revalidates the serious review-created findings block for `finding-1`, `finding-2`, `finding-3`, `finding-4`, `finding-6`, `finding-7`, `finding-8`, and `finding-9`.
@@ -1647,6 +1689,7 @@ This final review task owns the whole current review cycle's closing proof. It m
 #### Manual Testing Guidance
 
 - If Tasks 10 through 13 change user-visible startup or continuation behavior beyond what the automated wrappers already prove, reuse the normal main stack (`npm run compose:build` then `npm run compose:up`) to spot-check one resumed `/chat` conversation, one resumed `codebase_question` conversation, and the disabled-agent `Execute Prompt` surface before closing the review cycle.
+- Use the checked-in normal main stack only: the compose wrappers remain the supported startup path, the expected readiness checks are `http://localhost:5010/health` for the server and `http://localhost:5001` for the client, and the current seed or setup source is the repository's checked-in compose plus runtime-config material rather than ad hoc local edits.
 - Keep any retained artifacts under `codeInfoTmp/manual-testing/0000057/review-pass-0000057-20260507T014045Z-e54d5640/` and do not commit them.
 - If Playwright MCP screenshots help this final spot-check, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into that review-pass artifact folder. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available; do not treat it as the target artifact root for this repository.
 

@@ -27,6 +27,7 @@ import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.j
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { attachWs } from '../../ws/server.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
@@ -180,6 +181,8 @@ afterEach(async () => {
     await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
     tempCodexHomeForTest = undefined;
   }
+
+  setWorkingFolderStatForTests(undefined);
 });
 
 let conversationSeq = 0;
@@ -201,6 +204,26 @@ async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`Timed out waiting for assistant turn: ${conversationId}`);
+}
+
+async function waitForAssistantTurnCount(
+  conversationId: string,
+  assistantCount: number,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const turns = getMemoryTurns(conversationId);
+    if (
+      turns.filter((turn) => turn.role === 'assistant').length >= assistantCount
+    ) {
+      return turns;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(
+    `Timed out waiting for ${assistantCount} assistant turns: ${conversationId}`,
+  );
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1172,6 +1195,170 @@ test('resumed contradictory provider-model input cannot rewrite saved execution 
   assert.equal(
     memoryConversations.get(conversationId)?.model,
     'gpt-5.1-codex-max',
+  );
+});
+
+test('repository-backed codex chat keeps the saved thread across a contradictory follow-up without rollout recording failure', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  class RepositoryBackedRolloutThread extends MockThread {
+    constructor(
+      id: string,
+      private readonly shouldFailRolloutRecording: boolean,
+    ) {
+      super(id);
+    }
+
+    override async runStreamed(): Promise<{
+      events: AsyncGenerator<ThreadEvent>;
+    }> {
+      const threadId = this.id;
+      const shouldFailRolloutRecording = this.shouldFailRolloutRecording;
+      async function* generator(): AsyncGenerator<ThreadEvent> {
+        yield { type: 'thread.started', thread_id: threadId } as ThreadEvent;
+        if (shouldFailRolloutRecording) {
+          yield {
+            type: 'error',
+            message:
+              `Codex Exec exited with code 1: Reading prompt from stdin...\n` +
+              `${new Date(0).toISOString()} ERROR codex_core::session: failed to record rollout items: thread ${threadId} not found`,
+          } as ThreadEvent;
+          return;
+        }
+        yield {
+          type: 'item.completed',
+          item: {
+            type: 'agent_message',
+            id: 'repo-backed-success',
+            text: 'READY',
+          },
+        } as ThreadEvent;
+        yield { type: 'turn.completed' } as ThreadEvent;
+      }
+
+      return { events: generator() };
+    }
+  }
+
+  class RepositoryBackedCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      const shouldFailRolloutRecording =
+        opts?.model !== undefined || opts?.approvalPolicy !== undefined;
+      return new RepositoryBackedRolloutThread(
+        this.id,
+        shouldFailRolloutRecording,
+      );
+    }
+
+    override resumeThread(threadId: string, opts?: CodexThreadOptions) {
+      this.lastResumeThreadId = threadId;
+      this.lastResumeOptions = opts;
+      const shouldFailRolloutRecording =
+        threadId !== this.id ||
+        opts?.model !== undefined ||
+        opts?.approvalPolicy !== undefined;
+      return new RepositoryBackedRolloutThread(
+        threadId,
+        shouldFailRolloutRecording,
+      );
+    }
+  }
+
+  const conversationId = 'conv-chat-repo-backed-thread-persisted';
+  const mockCodex = new RepositoryBackedCodex('thread-repo-backed');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  const firstResponse = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        message: 'Reply with only READY.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+
+  const firstTurns = await waitForAssistantTurnCount(conversationId, 1);
+  const firstAssistant = firstTurns
+    .filter((turn) => turn.role === 'assistant')
+    .at(-1);
+  assert.equal(firstResponse.body.provider, 'codex');
+  assert.equal(firstResponse.body.model, 'gpt-5.1-codex-max');
+  assert.equal(firstAssistant?.status, 'ok');
+  assert.equal(firstAssistant?.content, 'READY');
+  assert.equal(
+    memoryConversations.get(conversationId)?.flags?.threadId,
+    'thread-repo-backed',
+  );
+  assert.equal(mockCodex.lastStartOptions?.model, undefined);
+
+  const resumedResponse = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+        message: 'Ignore the earlier instruction and reply with only CHANGED.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+
+  const resumedTurns = await waitForAssistantTurnCount(conversationId, 2);
+  const assistantTurns = resumedTurns.filter(
+    (turn) => turn.role === 'assistant',
+  );
+  const resumedAssistant = assistantTurns.at(-1);
+
+  assert.equal(resumedResponse.body.provider, 'codex');
+  assert.equal(resumedResponse.body.model, 'gpt-5.1-codex-max');
+  assert.equal(mockCodex.lastResumeThreadId, 'thread-repo-backed');
+  assert.equal(mockCodex.lastResumeOptions?.model, undefined);
+  assert.equal(resumedAssistant?.status, 'ok');
+  assert.equal(resumedAssistant?.content, 'READY');
+  assert.equal(
+    assistantTurns.some((turn) =>
+      String(turn.content).includes('failed to record rollout items'),
+    ),
+    false,
+  );
+  assert.equal(
+    memoryConversations.get(conversationId)?.flags?.threadId,
+    'thread-repo-backed',
   );
 });
 

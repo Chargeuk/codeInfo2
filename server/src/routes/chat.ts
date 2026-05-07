@@ -441,7 +441,10 @@ export function createChatRouter({
     if (executionProvider === 'codex') {
       try {
         const { config } = await resolveChatRuntimeConfig();
-        chatRuntimeConfig = config as CodexOptions['config'];
+        chatRuntimeConfig = {
+          ...(config as Record<string, unknown>),
+          model: executionModel,
+        } as CodexOptions['config'];
         console.info(T06_SUCCESS_LOG, {
           surface: '/chat',
           provider: 'codex',
@@ -542,6 +545,9 @@ export function createChatRouter({
     const executionContext = await resolveSharedExecutionContext({
       workingFolder: effectiveWorkingFolder,
     });
+    const repositoryBackedCodexRun =
+      executionProvider === 'codex' &&
+      executionContext.repositoryMetadata.workingRepositoryAvailable;
 
     const ensureConversation = async (): Promise<Conversation | null> => {
       const buildRuntimeConversationFlags = (
@@ -910,6 +916,7 @@ export function createChatRouter({
             {
               provider: 'codex',
               threadId: activeThreadId,
+              useConfigDefaults: repositoryBackedCodexRun,
               runtimeConfig: chatRuntimeConfig,
               codexFlags: effectiveCodexFlags,
               workingDirectoryOverride:

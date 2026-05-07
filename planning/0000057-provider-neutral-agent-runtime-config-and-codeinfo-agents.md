@@ -1713,9 +1713,9 @@ This final review task owns the whole current review cycle's closing proof. It m
 
 #### Subtasks
 
-1. [ ] Before the broad wrapper reruns, confirm Tasks 10 through 13 updated the exact proof files promised in this review-created block and did not quietly shift those invariants into different files without updating the plan.
-2. [ ] Before the broad wrapper reruns, confirm this task still closes the right review scope by matching review pass `0000057-20260507T014045Z-e54d5640`, review cycle `0000057-rc-20260507T033249Z-a89766f6`, and the inline-resolved mixed-state proof owner in `client/src/test/agentsPage.runGuard.test.tsx` for cleared-or-hidden disabled-agent state exclusion from `Execute Prompt` submission.
-3. [ ] Refresh only the reviewer-facing close-out text that becomes stale after Tasks 10 through 13 land, and keep the existing inline minor-fix audit entries as the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.
+1. [x] Before the broad wrapper reruns, confirm Tasks 10 through 13 updated the exact proof files promised in this review-created block and did not quietly shift those invariants into different files without updating the plan.
+2. [x] Before the broad wrapper reruns, confirm this task still closes the right review scope by matching review pass `0000057-20260507T014045Z-e54d5640`, review cycle `0000057-rc-20260507T033249Z-a89766f6`, and the inline-resolved mixed-state proof owner in `client/src/test/agentsPage.runGuard.test.tsx` for cleared-or-hidden disabled-agent state exclusion from `Execute Prompt` submission.
+3. [x] Refresh only the reviewer-facing close-out text that becomes stale after Tasks 10 through 13 land, and keep the existing inline minor-fix audit entries as the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.
 
 #### Testing
 
@@ -1741,3 +1741,7 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 - If Playwright MCP screenshots help this final spot-check, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000057/14/`. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available; do not treat it as the target artifact root for this repository.
 
 #### Implementation notes
+
+- Re-opened Tasks 10 through 13 and confirmed the promised review-created proof homes stayed where the plan said they would: Task 10 and Task 13 still land in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` plus `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`, Task 11 still lands in `server/src/test/integration/chat-codex.test.ts`, and Task 12 still lands in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, and `server/src/test/unit/host-network-compose-contract.test.ts`.
+- Re-opened `codeInfoStatus/flow-state/review-disposition-state.json` and `client/src/test/agentsPage.runGuard.test.tsx`, then confirmed this task still owns review pass `0000057-20260507T014045Z-e54d5640`, review cycle `0000057-rc-20260507T033249Z-a89766f6`, and the inline mixed-state disabled-agent `Execute Prompt` proof surface without adding a second close-out owner.
+- Refreshed `codeInfoStatus/pr-summaries/0000057-pr-summary.md` so the reviewer-facing close-out text now maps Tasks 10 through 13 plus Task 14 correctly and leaves the existing inline minor-fix audit entries as the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.

@@ -22,11 +22,19 @@ Task-to-proof map:
 - Task 7 proof homes: Story 57 flow-owned server proof, `e2e/flows-execution-runs.spec.ts`, and the final compose-backed validation chain in Task 9.
 - Task 8 proof homes: `client/src/test/agentsPage.runGuard.test.tsx`, `client/src/test/chatPage.freshRunContext.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, `e2e/agents.spec.ts`, `e2e/chat-provider-history.spec.ts`, and `e2e/flows-execution-runs.spec.ts`.
 - Task 9 proof homes: the final wrapper-first build, test, compose smoke, lint, and format sequence recorded in the executable plan.
+- Task 10 proof homes: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` for saved-conversation MCP execution-identity pinning across contradictory explicit input and omitted-provider follow-ups.
+- Task 11 proof homes: `server/src/test/integration/chat-codex.test.ts` for resumed `/chat` execution-identity pinning and pre-lock mutation boundaries.
+- Task 12 proof homes: `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, and `server/src/test/unit/host-network-compose-contract.test.ts` plus the task-owned compose build or up or down smoke chain for awaited bootstrap startup and guarded config writers.
+- Task 13 proof homes: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` for durable replay reconstruction after completed-cache loss while incomplete persisted replay state stays on the fresh path.
+- Task 14 final revalidation owner: the broad wrapper-first build, server, client, cucumber, e2e, compose smoke, lint, and format sequence recorded in the executable plan for review pass `0000057-20260507T014045Z-e54d5640` and review cycle `0000057-rc-20260507T033249Z-a89766f6`.
+- Inline minor proof owner carried into Task 14: `client/src/test/agentsPage.runGuard.test.tsx` remains the mixed-state disabled-agent `Execute Prompt` surface that the final review-cycle rerun must keep green, while the existing inline minor-fix audit entries remain the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.
 
 Final validation status:
 
-- Task 8 implementation and its task-owned proof are complete on this branch.
-- Task 9 close-out is also complete on this branch. The executable plan now records all wrapper-first validation, compose smoke, and durable manual-proof ownership as finished, so this summary is purely a reviewer-facing traceability artifact rather than an open work tracker.
+- Story 57 baseline implementation and its original Task 9 close-out are complete on this branch.
+- Review-created Tasks 10 through 13 are also complete on this branch, including their task-owned automated proof and retained task-scoped manual evidence where the executable plan required it.
+- Task 14 is now the sole remaining review-cycle owner on disk. Its unchecked work is the final broad revalidation chain for review pass `0000057-20260507T014045Z-e54d5640`, not additional feature implementation for the underlying Story 57 runtime migration.
+- This summary is therefore a reviewer-facing traceability artifact for the current close-out state, while the executable plan remains the source of truth for the remaining Task 14 proof run.
 
 Scope guardrails kept intact:
 

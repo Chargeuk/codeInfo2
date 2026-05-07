@@ -71,6 +71,19 @@ const buildCommandKey = (params: { name: string; sourceId?: string }) =>
 const EXECUTE_PROMPT_INSTRUCTION_TEMPLATE =
   'Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>';
 
+export const isExecutePromptEnabled = (params: {
+  selectedPromptEntry: AgentPromptEntry | null;
+  selectedAgentName: string;
+  selectedAgentDisabled: boolean;
+  startPending: boolean;
+  persistenceUnavailable: boolean;
+}) =>
+  params.selectedPromptEntry !== null &&
+  Boolean(params.selectedAgentName) &&
+  !params.selectedAgentDisabled &&
+  !params.startPending &&
+  !params.persistenceUnavailable;
+
 export default function AgentsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -697,12 +710,6 @@ export default function AgentsPage() {
       ) ?? null,
     [promptEntries, selectedPromptFullPath],
   );
-  const executePromptEnabled =
-    selectedPromptEntry !== null &&
-    Boolean(selectedAgentName) &&
-    !startPending &&
-    !persistenceUnavailable;
-
   useEffect(() => {
     if (selectedCommand && startStep > selectedCommand.stepCount) {
       setStartStep(1);
@@ -1752,6 +1759,13 @@ export default function AgentsPage() {
   const selectedAgentDisabled = Boolean(
     selectedAgentDetails?.disabled ?? selectedAgent?.disabled,
   );
+  const executePromptEnabled = isExecutePromptEnabled({
+    selectedPromptEntry,
+    selectedAgentName,
+    selectedAgentDisabled,
+    startPending,
+    persistenceUnavailable,
+  });
   const hasVisibleStoppedRun =
     liveStoppedMarker !== null &&
     liveStoppedMarker.conversationId === activeConversationId &&

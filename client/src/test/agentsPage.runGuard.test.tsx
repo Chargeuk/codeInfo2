@@ -17,7 +17,9 @@ beforeEach(() => {
 });
 
 const { default: App } = await import('../App');
-const { default: AgentsPage } = await import('../pages/AgentsPage');
+const { default: AgentsPage, isExecutePromptEnabled } = await import(
+  '../pages/AgentsPage'
+);
 const { default: HomePage } = await import('../pages/HomePage');
 
 const routes = [
@@ -144,6 +146,21 @@ describe('Agents page run guards', () => {
     expect(runRequests).toBe(0);
     expect(
       mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),
+    ).toBe(false);
+  });
+
+  it('includes selectedAgentDisabled in execute-prompt gating', () => {
+    expect(
+      isExecutePromptEnabled({
+        selectedPromptEntry: {
+          relativePath: 'persona/start.md',
+          fullPath: '/tmp/disabled/.github/prompts/persona/start.md',
+        },
+        selectedAgentName: 'coding_agent',
+        selectedAgentDisabled: true,
+        startPending: false,
+        persistenceUnavailable: false,
+      }),
     ).toBe(false);
   });
 });

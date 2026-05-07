@@ -139,6 +139,23 @@ const parseRuntimeMetadata = (
     typeof rawLookupSummary?.workingRepositoryAvailable === 'boolean'
       ? rawLookupSummary.workingRepositoryAvailable
       : undefined;
+  const rawReplay =
+    value.replay && typeof value.replay === 'object'
+      ? (value.replay as Record<string, unknown>)
+      : undefined;
+  const replayId =
+    typeof rawReplay?.replayId === 'string' && rawReplay.replayId.trim().length
+      ? rawReplay.replayId.trim()
+      : undefined;
+  const inflightId =
+    typeof rawReplay?.inflightId === 'string' &&
+    rawReplay.inflightId.trim().length
+      ? rawReplay.inflightId.trim()
+      : undefined;
+  const completed =
+    typeof rawReplay?.completed === 'boolean'
+      ? rawReplay.completed
+      : undefined;
 
   const lookupSummary =
     selectedRepositoryPath !== undefined &&
@@ -150,11 +167,20 @@ const parseRuntimeMetadata = (
           workingRepositoryAvailable,
         }
       : undefined;
+  const replay =
+    replayId !== undefined && completed !== undefined
+      ? {
+          replayId,
+          ...(inflightId !== undefined ? { inflightId } : {}),
+          completed,
+        }
+      : undefined;
 
-  if (!workingFolder && !lookupSummary) return undefined;
+  if (!workingFolder && !lookupSummary && !replay) return undefined;
   return {
     ...(workingFolder ? { workingFolder } : {}),
     ...(lookupSummary ? { lookupSummary } : {}),
+    ...(replay ? { replay } : {}),
   };
 };
 
@@ -267,6 +293,26 @@ export abstract class ChatInterface extends EventEmitter {
     const runtime = parseRuntimeMetadata(
       (flags as { runtime?: unknown })?.runtime,
     );
+    const userRuntime =
+      runtime?.replay !== undefined
+        ? {
+            ...runtime,
+            replay: {
+              ...runtime.replay,
+              completed: false,
+            },
+          }
+        : runtime;
+    const assistantRuntime =
+      runtime?.replay !== undefined
+        ? {
+            ...runtime,
+            replay: {
+              ...runtime.replay,
+              completed: true,
+            },
+          }
+        : runtime;
     const createdAt = new Date();
     const userStatus: TurnStatus = 'ok';
 
@@ -351,7 +397,7 @@ export abstract class ChatInterface extends EventEmitter {
           provider,
           source,
           command,
-          runtime,
+          runtime: userRuntime,
           toolCalls: null,
           status: userStatus,
           createdAt,
@@ -369,7 +415,7 @@ export abstract class ChatInterface extends EventEmitter {
           provider,
           source,
           command,
-          runtime,
+          runtime: userRuntime,
           toolCalls: null,
           status: userStatus,
           createdAt,
@@ -451,6 +497,7 @@ export abstract class ChatInterface extends EventEmitter {
         provider,
         source,
         command,
+        runtime: assistantRuntime,
         usage,
         timing,
         status,
@@ -542,6 +589,7 @@ export abstract class ChatInterface extends EventEmitter {
       source,
       command,
       runtime,
+      runtime: assistantRuntime,
       usage,
       timing,
       status,

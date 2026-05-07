@@ -29,6 +29,7 @@ import type {
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
 import {
+  getMemoryTurns,
   memoryConversations,
   shouldUseMemoryPersistence,
 } from '../../chat/memoryPersistence.js';
@@ -57,9 +58,11 @@ import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
   createConversation,
+  listTurns,
   updateConversationMeta,
   updateConversationWorkingFolder,
 } from '../../mongo/repo.js';
+import type { TurnRuntimeMetadata } from '../../mongo/turn.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -165,6 +168,96 @@ function getCompletedReplayResult(params: {
     conversationId: params.conversationId,
     completedReplay,
   });
+}
+
+const getReplayMetadata = (
+  runtime: TurnRuntimeMetadata | undefined,
+):
+  | {
+      replayId: string;
+      inflightId?: string;
+      completed: boolean;
+    }
+  | undefined => {
+  if (!runtime?.replay) return undefined;
+  const replayId = runtime.replay.replayId?.trim();
+  if (!replayId) return undefined;
+  return {
+    replayId,
+    ...(runtime.replay.inflightId?.trim()
+      ? { inflightId: runtime.replay.inflightId.trim() }
+      : {}),
+    completed: runtime.replay.completed,
+  };
+};
+
+async function getPersistedCompletedReplayResult(params: {
+  conversationId?: string;
+  replayId?: string;
+}): Promise<{ content: [{ type: 'text'; text: string }] } | null> {
+  if (!params.conversationId || !params.replayId) return null;
+
+  const turns = shouldUseCodebaseQuestionMemoryPersistence()
+    ? getMemoryTurns(params.conversationId)
+    : (
+        await listTurns({
+          conversationId: params.conversationId,
+          limit: Number.MAX_SAFE_INTEGER,
+        })
+      ).items;
+
+  let matchedAssistant:
+    | {
+        content: string;
+        model: string;
+        status: 'ok' | 'stopped' | 'failed';
+        createdAt: Date;
+      }
+    | undefined;
+  for (const turn of turns) {
+    if (turn.role !== 'assistant') continue;
+    const replay = getReplayMetadata(turn.runtime);
+    if (!replay || replay.replayId !== params.replayId || !replay.completed) {
+      continue;
+    }
+    if (
+      !matchedAssistant ||
+      turn.createdAt.getTime() > matchedAssistant.createdAt.getTime()
+    ) {
+      matchedAssistant = {
+        content: turn.content,
+        model: turn.model,
+        status: turn.status,
+        createdAt: turn.createdAt,
+      };
+    }
+  }
+
+  if (!matchedAssistant) return null;
+  return buildReplayResult({
+    conversationId: params.conversationId,
+    completedReplay: {
+      inflightId: `persisted-${params.replayId}`,
+      replayId: params.replayId,
+      model: matchedAssistant.model,
+      source: 'MCP',
+      assistantText: matchedAssistant.content,
+      assistantThink: '',
+      toolEvents: [],
+      startedAt: matchedAssistant.createdAt.toISOString(),
+      finalStatus: matchedAssistant.status,
+      completedAt: matchedAssistant.createdAt.toISOString(),
+    },
+  });
+}
+
+async function getReplayResult(params: {
+  conversationId?: string;
+  replayId?: string;
+}): Promise<{ content: [{ type: 'text'; text: string }] } | null> {
+  const completedReplay = getCompletedReplayResult(params);
+  if (completedReplay) return completedReplay;
+  return await getPersistedCompletedReplayResult(params);
 }
 
 function makeActiveReplayKey(conversationId: string, replayId: string) {
@@ -383,7 +476,7 @@ export async function runCodebaseQuestion(
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const parsed = validateParams(params);
   const replayId = parsed.replayId;
-  const completedReplay = getCompletedReplayResult({
+  const completedReplay = await getReplayResult({
     conversationId: parsed.conversationId,
     replayId,
   });
@@ -422,7 +515,7 @@ async function executeCodebaseQuestion(
   deps: Partial<CodebaseQuestionDeps>,
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const replayId = parsed.replayId;
-  const completedReplay = getCompletedReplayResult({
+  const completedReplay = await getReplayResult({
     conversationId: parsed.conversationId,
     replayId,
   });
@@ -833,7 +926,7 @@ async function executeCodebaseQuestion(
 
   const resolvedConversationId =
     conversationId ?? `${executionProvider}-thread-${Date.now()}`;
-  const lateCompletedReplay = getCompletedReplayResult({
+  const lateCompletedReplay = await getReplayResult({
     conversationId: resolvedConversationId,
     replayId,
   });
@@ -898,6 +991,17 @@ async function executeCodebaseQuestion(
     model: executionModel,
     chat,
   });
+  const runtimeMetadata =
+    replayId !== undefined
+      ? {
+          ...executionContext.runtime,
+          replay: {
+            replayId,
+            inflightId,
+            completed: false,
+          },
+        }
+      : executionContext.runtime;
 
   try {
     try {
@@ -911,7 +1015,7 @@ async function executeCodebaseQuestion(
             codexFlags: threadOpts,
             workingDirectoryOverride: executionContext.workingDirectoryOverride,
             repositoryContext: executionContext.repositoryMetadata,
-            runtime: executionContext.runtime,
+            runtime: runtimeMetadata,
             signal: getInflight(resolvedConversationId)?.abortController.signal,
             source: 'MCP',
           },
@@ -925,7 +1029,7 @@ async function executeCodebaseQuestion(
             provider: executionProvider,
             baseUrl,
             repositoryContext: executionContext.repositoryMetadata,
-            runtime: executionContext.runtime,
+            runtime: runtimeMetadata,
             signal: getInflight(resolvedConversationId)?.abortController.signal,
             ...(executionProvider === 'copilot'
               ? {

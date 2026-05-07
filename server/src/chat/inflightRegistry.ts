@@ -185,6 +185,12 @@ export function getCompletedInflightByReplayId(params: {
   return snapshot ? cloneCompletedInflightState(snapshot) : null;
 }
 
+export function __resetCompletedInflightForTests(): void {
+  completedInflightByKey.clear();
+  completedInflightKeyByReplayKey.clear();
+  completedInflightOrder.length = 0;
+}
+
 export function createInflight(params: {
   conversationId: string;
   inflightId: string;

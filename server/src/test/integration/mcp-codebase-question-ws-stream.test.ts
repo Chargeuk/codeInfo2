@@ -10,6 +10,7 @@ import express from 'express';
 
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
+  __resetCompletedInflightForTests,
   getCompletedInflightByReplayId,
   getInflight,
 } from '../../chat/inflightRegistry.js';
@@ -18,6 +19,7 @@ import {
   getMemoryTurns,
   memoryConversations,
   memoryTurns,
+  recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
@@ -2041,6 +2043,182 @@ test('MCP codebase_question replays one stable follow-up result before cleanup a
     assert.deepEqual(cleanupReplayPayload, immediateReplayPayload);
   } finally {
     chat.allowFirstCleanup();
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
+    await new Promise<void>((resolve) => mcpServer.close(() => resolve()));
+    resetToolDeps();
+  }
+});
+
+test('MCP codebase_question completed replay survives a completed-cache clear while incomplete persisted replay state stays on the fresh path', async () => {
+  resetStore();
+
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  setToolDeps({
+    chatFactory: () =>
+      new CapturingPinnedConversationChat(
+        calls,
+        'Durable websocket replay answer',
+      ),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+
+  const conversationId = 'mcp-ws-durable-replay-1';
+  const replayId = 'durable-replay-1';
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const firstResponse = await postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 51,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'first durable websocket replay follow-up',
+          conversationId,
+          replayId,
+          provider: 'lmstudio',
+          model: 'm',
+        },
+      },
+    });
+    assert.ok((firstResponse as { result?: unknown }).result);
+    const firstPayload = JSON.parse(
+      (firstResponse as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+
+    const persistedTurns = getMemoryTurns(conversationId);
+    const persistedUserTurn = persistedTurns.find((turn) => turn.role === 'user');
+    const persistedAssistantTurn = persistedTurns.find(
+      (turn) => turn.role === 'assistant',
+    );
+    assert.equal(
+      persistedUserTurn?.runtime?.replay?.completed,
+      false,
+      JSON.stringify(persistedTurns, null, 2),
+    );
+    assert.equal(
+      persistedAssistantTurn?.runtime?.replay?.completed,
+      true,
+      JSON.stringify(persistedTurns, null, 2),
+    );
+
+    __resetCompletedInflightForTests();
+
+    const replayAfterCacheClear = await postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 52,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'contradictory retry after websocket replay cache clear',
+          conversationId,
+          replayId,
+          provider: 'lmstudio',
+          model: 'm',
+        },
+      },
+    });
+    assert.ok((replayAfterCacheClear as { result?: unknown }).result);
+    const replayAfterCacheClearPayload = JSON.parse(
+      (
+        replayAfterCacheClear as {
+          result: { content: Array<{ text: string }> };
+        }
+      ).result.content[0].text,
+    );
+    assert.equal(calls.length, 1);
+    assert.deepEqual(replayAfterCacheClearPayload, firstPayload);
+
+    const incompleteConversationId = 'mcp-ws-durable-replay-incomplete-1';
+    memoryConversations.set(incompleteConversationId, {
+      _id: incompleteConversationId,
+      provider: 'lmstudio',
+      model: 'm',
+      title: 'Incomplete durable replay conversation',
+      source: 'MCP',
+      lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+      createdAt: new Date('2025-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+      archivedAt: null,
+      flags: {},
+    } as never);
+    recordMemoryTurn({
+      conversationId: incompleteConversationId,
+      role: 'user',
+      content: 'persisted incomplete websocket replay request',
+      model: 'm',
+      provider: 'lmstudio',
+      source: 'MCP',
+      toolCalls: null,
+      status: 'ok',
+      runtime: {
+        replay: {
+          replayId: 'incomplete-replay-1',
+          inflightId: 'persisted-incomplete',
+          completed: false,
+        },
+      },
+      createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    } as never);
+
+    __resetCompletedInflightForTests();
+
+    const freshAfterIncompletePersistedState = await postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 53,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'fresh websocket run after incomplete persisted replay state',
+          conversationId: incompleteConversationId,
+          replayId: 'incomplete-replay-1',
+          provider: 'lmstudio',
+          model: 'm',
+        },
+      },
+    });
+    assert.ok((freshAfterIncompletePersistedState as { result?: unknown }).result);
+    const freshAfterIncompletePayload = JSON.parse(
+      (
+        freshAfterIncompletePersistedState as {
+          result: { content: Array<{ text: string }> };
+        }
+      ).result.content[0].text,
+    );
+    assert.equal(calls.length, 2);
+    assert.equal(
+      freshAfterIncompletePayload.segments[0].text,
+      'Durable websocket replay answer',
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete('mcp-ws-durable-replay-incomplete-1');
+    memoryTurns.delete('mcp-ws-durable-replay-incomplete-1');
+    __resetCompletedInflightForTests();
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => wsHttp.close(() => resolve()));

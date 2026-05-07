@@ -7,8 +7,15 @@ import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
 import { resolveAgentHomeEnv } from '../../../agents/roots.js';
+import { __resetCompletedInflightForTests } from '../../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  memoryTurns,
+  recordMemoryTurn,
+} from '../../../chat/memoryPersistence.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
 import type { RepoEntry } from '../../../lmstudio/toolService.js';
@@ -20,7 +27,6 @@ import {
 } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
-import { memoryConversations } from '../../../chat/memoryPersistence.js';
 import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
 
 const ENV_KEYS = [
@@ -58,6 +64,9 @@ afterEach(() => {
     }
   }
   originalEnv.clear();
+  __resetCompletedInflightForTests();
+  memoryConversations.clear();
+  memoryTurns.clear();
 });
 
 type ThreadEvent = {
@@ -989,6 +998,133 @@ test('codebase_question replays one stable Copilot follow-up result for the same
   assert.equal(
     freshReplayPayload.segments[0].text,
     'Replay answer 2: fresh logical follow-up',
+  );
+});
+
+test('codebase_question keeps the same caller-visible replay result after the completed cache is cleared while incomplete persisted replay state stays on the fresh path', async () => {
+  resetStore();
+  const conversationId = 'mcp-replay-durable-1';
+  const replayId = 'replay-durable-1';
+  const chatCalls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const chat = new CapturingSelectionChat(
+    chatCalls,
+    'Durable replay answer from persisted assistant turn',
+  );
+  const deps = {
+    chatFactory: () => chat,
+    copilotReadinessResolver: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready' as const,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token' as const,
+    }),
+  };
+
+  const firstResult = await runCodebaseQuestion(
+    {
+      question: 'first durable replay follow-up',
+      conversationId,
+      replayId,
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const firstPayload = JSON.parse(firstResult.content[0].text);
+
+  const persistedTurns = getMemoryTurns(conversationId);
+  const persistedUserTurn = persistedTurns.find((turn) => turn.role === 'user');
+  const persistedAssistantTurn = persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.equal(
+    persistedUserTurn?.runtime?.replay?.completed,
+    false,
+    JSON.stringify(persistedTurns, null, 2),
+  );
+  assert.equal(
+    persistedAssistantTurn?.runtime?.replay?.completed,
+    true,
+    JSON.stringify(persistedTurns, null, 2),
+  );
+
+  __resetCompletedInflightForTests();
+
+  const replayAfterCacheClear = await runCodebaseQuestion(
+    {
+      question: 'contradictory retry after completed cache clear',
+      conversationId,
+      replayId,
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const replayAfterCacheClearPayload = JSON.parse(
+    replayAfterCacheClear.content[0].text,
+  );
+
+  assert.equal(chatCalls.length, 1);
+  assert.deepEqual(replayAfterCacheClearPayload, firstPayload);
+
+  const incompleteConversationId = 'mcp-replay-durable-incomplete-1';
+  memoryConversations.set(incompleteConversationId, {
+    _id: incompleteConversationId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    title: 'Incomplete persisted replay conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {},
+  } as Conversation);
+  recordMemoryTurn({
+    conversationId: incompleteConversationId,
+    role: 'user',
+    content: 'persisted incomplete replay request',
+    model: 'copilot-gpt-5',
+    provider: 'copilot',
+    source: 'MCP',
+    toolCalls: null,
+    status: 'ok',
+    runtime: {
+      replay: {
+        replayId: 'replay-incomplete-1',
+        inflightId: 'persisted-incomplete',
+        completed: false,
+      },
+    },
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+  } as never);
+
+  __resetCompletedInflightForTests();
+
+  const freshAfterIncompletePersistedState = await runCodebaseQuestion(
+    {
+      question: 'fresh run after incomplete persisted replay state',
+      conversationId: incompleteConversationId,
+      replayId: 'replay-incomplete-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const freshAfterIncompletePayload = JSON.parse(
+    freshAfterIncompletePersistedState.content[0].text,
+  );
+
+  assert.equal(chatCalls.length, 2);
+  assert.equal(
+    freshAfterIncompletePayload.segments[0].text,
+    'Durable replay answer from persisted assistant turn',
   );
 });
 

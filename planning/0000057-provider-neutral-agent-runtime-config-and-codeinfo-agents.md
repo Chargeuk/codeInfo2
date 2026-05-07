@@ -1655,10 +1655,10 @@ The review found that MCP replay safety still depends on a process-local complet
 
 #### Subtasks
 
-1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, reconstruct replay results from persisted completed conversation or turn state after the process-local cache is cleared, and keep the existing caller-visible JSON-RPC replay contract plus `replayId` semantics unchanged.
-2. [ ] In the adjacent persistence seam that `codebase_question` already reads, make the reader boundary explicit: only completed persisted replay state is reusable after cache loss, and incomplete or in-progress state must still fall back safely to fresh execution; if the current seams are insufficient, keep the change to the smallest bounded persistence extension needed for that restart-equivalent path.
-3. [ ] Extend or split `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so one dedicated proof explicitly claims and asserts the combined replay invariant that a completed replay keeps the same caller-visible logical result and `replayId` semantics after the in-process cache is cleared, and that incomplete state does not masquerade as a durable replay hit, rather than relying on adjacent replay tests that only prove same-process reuse or only the later returned payload.
-4. [ ] Extend or split `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` when the repaired replay path depends on persisted conversation or turn state outside the unit seam, so one dedicated websocket-backed proof explicitly claims and asserts that completed replay survives the same cache-clear or restart-equivalent boundary while incomplete persisted state still stays on the fresh path; rename any reused cleanup-oriented replay title whose old wording would hide the durable replay contract.
+1. [x] In `server/src/mcp2/tools/codebaseQuestion.ts`, reconstruct replay results from persisted completed conversation or turn state after the process-local cache is cleared, and keep the existing caller-visible JSON-RPC replay contract plus `replayId` semantics unchanged.
+2. [x] In the adjacent persistence seam that `codebase_question` already reads, make the reader boundary explicit: only completed persisted replay state is reusable after cache loss, and incomplete or in-progress state must still fall back safely to fresh execution; if the current seams are insufficient, keep the change to the smallest bounded persistence extension needed for that restart-equivalent path.
+3. [x] Extend or split `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so one dedicated proof explicitly claims and asserts the combined replay invariant that a completed replay keeps the same caller-visible logical result and `replayId` semantics after the in-process cache is cleared, and that incomplete state does not masquerade as a durable replay hit, rather than relying on adjacent replay tests that only prove same-process reuse or only the later returned payload.
+4. [x] Extend or split `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` when the repaired replay path depends on persisted conversation or turn state outside the unit seam, so one dedicated websocket-backed proof explicitly claims and asserts that completed replay survives the same cache-clear or restart-equivalent boundary while incomplete persisted state still stays on the fresh path; rename any reused cleanup-oriented replay title whose old wording would hide the durable replay contract.
 
 #### Testing
 
@@ -1666,6 +1666,11 @@ The review found that MCP replay safety still depends on a process-local complet
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root when the repaired replay path needs websocket-backed persistence proof in addition to unit coverage.
 
 #### Implementation notes
+
+- Reworked `server/src/mcp2/tools/codebaseQuestion.ts` so replay resolution now falls back from the in-process completed cache to persisted assistant-turn state, keeping the same caller-visible JSON-RPC replay payload when a completed replay is rebuilt after cache loss.
+- Added a minimal persistence marker on MCP turn runtime metadata so only assistant turns persisted with `replay.completed = true` can satisfy durable replay reconstruction, while user-only or incomplete replay state stays on the fresh execution path.
+- Added a dedicated durable replay proof in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` that clears the completed inflight cache after one successful replay, reuses the same `replayId`, and separately proves that incomplete persisted replay state does not masquerade as a durable hit.
+- Added a dedicated websocket-backed durable replay proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that exercises the same cache-clear boundary through the MCP router and persisted-memory turn path without widening into the later automated proof step.
 
 ### Task 14. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
 

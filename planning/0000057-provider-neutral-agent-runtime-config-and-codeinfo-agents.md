@@ -1586,6 +1586,9 @@ The review found that the default startup path still launches provider bootstrap
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for bootstrap ordering and provider chat-config writer behavior.
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for provider base-config and managed-settings writer behavior.
 3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root. Use this targeted wrapper because the highest-risk startup finding must stay reachable through the default checked-in launcher contract rather than only through helper-local tests.
+4. [ ] Run `npm run compose:build:summary` from the repository root. Use this broader wrapper here because this task changes the default startup and launcher-owned runtime seam, so the repaired path must still build honestly in the supported compose stack before the final review-cycle revalidation reruns the whole block.
+5. [ ] Run `npm run compose:up` from the repository root, then confirm `http://localhost:5010/health` responds before closing this task. Use this broader task-local smoke step because targeted unit proof alone does not prove the repaired bootstrap and launcher path is reachable through the shipped startup entrypoint.
+6. [ ] Run `npm run compose:down` from the repository root after the task-local startup smoke step that this task started.
 
 #### Implementation notes
 
@@ -1667,6 +1670,8 @@ This final review task owns the whole current review cycle's closing proof. It m
 
 #### Testing
 
+No separate `npm run test:summary:e2e` pass is required in this final review task because the serious review-created findings are route, MCP, startup, config-writer, and replay seams in the current repository rather than new browser workflow behavior; inline-resolved UI finding `finding-11` is revalidated here through `npm run test:summary:client` plus the optional manual spot-check below.
+
 1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the review-created block includes startup/bootstrap and server runtime contract repairs that must still build cleanly in the supported compose path.
 2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the serious review-created findings all touch server-owned route, MCP, or startup seams.
 3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because inline-resolved minor finding `finding-11` changed the shipped Agents UI affordance contract and must stay compatible with the final server/runtime repairs.
@@ -1682,7 +1687,7 @@ This final review task owns the whole current review cycle's closing proof. It m
 
 - If Tasks 10 through 13 change user-visible startup or continuation behavior beyond what the automated wrappers already prove, reuse the normal main stack (`npm run compose:build` then `npm run compose:up`) to spot-check one resumed `/chat` conversation, one resumed `codebase_question` conversation, and the disabled-agent `Execute Prompt` surface before closing the review cycle.
 - Use the checked-in normal main stack only: the compose wrappers remain the supported startup path, the expected readiness checks are `http://localhost:5010/health` for the server and `http://localhost:5001` for the client, and the current seed or setup source is the repository's checked-in compose plus runtime-config material rather than ad hoc local edits.
-- Keep any retained artifacts under `codeInfoTmp/manual-testing/0000057/review-pass-0000057-20260507T014045Z-e54d5640/` and do not commit them.
-- If Playwright MCP screenshots help this final spot-check, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into that review-pass artifact folder. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available; do not treat it as the target artifact root for this repository.
+- Keep any retained artifacts under `codeInfoTmp/manual-testing/0000057/14/` and do not commit them.
+- If Playwright MCP screenshots help this final spot-check, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000057/14/`. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available; do not treat it as the target artifact root for this repository.
 
 #### Implementation notes

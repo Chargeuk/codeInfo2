@@ -1623,6 +1623,7 @@ The review found that the default startup path still launches provider bootstrap
 - Ran `npm run compose:build:summary` cleanly after the guarded-writer and awaited-startup changes; the supported compose stack still builds honestly (`items passed: 2`, `items failed: 0`, `agent_action: skip_log`).
 - Ran `npm run compose:up` and confirmed `http://localhost:5010/health` returned `{\"status\":\"ok\", ... , \"mongoConnected\":true}` so the repaired bootstrap path is reachable through the shipped startup entrypoint.
 - Ran `npm run compose:down` cleanly after the Task 12 smoke step so the compose-backed proof path finished without leaving the support stack running.
+- Manual proof stayed task-scoped for Task 12, restarted the main stack with `npm run compose:build` then `npm run compose:up` because prior freshness was unprovable, and saved scratch artifacts under `codeInfoTmp/manual-testing/0000057/12/`; `GET /health` returned `status=ok` with `mongoConnected=true`, `GET /chat/providers` succeeded after startup with provider defaults loaded, the running server home contained the expected seeded Codex/Copilot/LM Studio config files with no leftover `.tmp` artifacts, screenshots were not applicable because this pass exercised startup and HTTP/runtime-file surfaces rather than a browser-owned acceptance seam, and no additional subtasks were needed.
 
 ### Task 13. Make MCP replay idempotency survive process-local cache loss
 

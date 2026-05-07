@@ -1681,7 +1681,7 @@ This final review task owns the whole current review cycle's closing proof. It m
 
 #### Testing
 
-No separate `npm run test:summary:e2e` pass is required in this final review task because the serious review-created findings are route, MCP, startup, config-writer, and replay seams in the current repository rather than new browser workflow behavior; inline-resolved UI finding `finding-11` is revalidated here through `npm run test:summary:client` plus the optional manual spot-check below.
+Run the automated Playwright wrapper once here, not on each individual review-created task, because inline-resolved UI finding `finding-11` still needs browser-level proof while the serious review-created findings remain primarily route, MCP, startup, config-writer, and replay seams in the current repository.
 
 1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the review-created block includes startup/bootstrap and server runtime contract repairs that must still build cleanly in the supported compose path.
 2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the serious review-created findings all touch server-owned route, MCP, or startup seams.
@@ -1689,10 +1689,11 @@ No separate `npm run test:summary:e2e` pass is required in this final review tas
 4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the serious review-created findings and the existing inline MCP or startup fixes all rely on server unit or integration proof homes.
 5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because inline-resolved minor finding `finding-10` changed BDD step-role proof ownership and the serious repairs must not regress the supported higher-level server feature surface.
 6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because inline-resolved minor finding `finding-11` changed a browser-visible disabled-run affordance that still belongs to this review cycle's final proof.
-7. [ ] Run `npm run compose:up` from the repository root, then confirm `http://localhost:5010/health` and `http://localhost:5001` respond before the final close-out decision. Use this smoke step because finding `finding-6` is about default startup readiness rather than only isolated helper behavior.
-8. [ ] Run `npm run compose:down` from the repository root after the final compose-backed smoke step that Task 14 started.
-9. [ ] Run `npm run lint` from the repository root. Use this wrapper-free root command because the review-created repair block and inline-resolved client plus documentation fixes must end on one clean repository lint pass.
-10. [ ] Run `npm run format:check` from the repository root. Use this wrapper-free root command because the final review-cycle close-out must not leave formatting drift in either the new server repairs or the already-recorded inline minor proof homes.
+7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper once here because the final review-cycle proof still needs automated browser coverage for the disabled-agent run-guard surface, but broad browser regression remains shared proof owned by this final task instead of every individual review-created repair task.
+8. [ ] Run `npm run compose:up` from the repository root, then confirm `http://localhost:5010/health` and `http://localhost:5001` respond before the final close-out decision. Keep this normal-stack smoke step separate from the e2e wrapper because finding `finding-6` is about default startup readiness on the shipped runtime path rather than only the e2e-adjusted environment.
+9. [ ] Run `npm run compose:down` from the repository root after the final compose-backed smoke step that Task 14 started.
+10. [ ] Run `npm run lint` from the repository root. Use this wrapper-free root command because the review-created repair block and inline-resolved client plus documentation fixes must end on one clean repository lint pass.
+11. [ ] Run `npm run format:check` from the repository root. Use this wrapper-free root command because the final review-cycle close-out must not leave formatting drift in either the new server repairs or the already-recorded inline minor proof homes.
 
 #### Manual Testing Guidance
 

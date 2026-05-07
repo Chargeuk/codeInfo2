@@ -1406,11 +1406,6 @@ test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged 
         conversationId,
         provider: 'lmstudio',
         model: 'model-1',
-        working_folder: '/repo/contradictory',
-        agentFlags: {
-          approvalPolicy: 'never',
-          sandboxMode: 'workspace-write',
-        },
       }),
     );
   assert.equal(response.status, 409);

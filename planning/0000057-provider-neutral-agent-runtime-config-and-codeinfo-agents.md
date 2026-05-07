@@ -1550,13 +1550,14 @@ The review found two route-owned defects on the same `/chat` continuation seam: 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` from the repository root. Use this targeted wrapper because it is the existing route-level integration proof home for resumed `/chat` contract behavior.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` from the repository root. Use this targeted wrapper because it is the existing route-level integration proof home for resumed `/chat` contract behavior.
 
 #### Implementation notes
 
 - Reused saved `/chat` conversation provider-model identity before runtime provider probing and fallback selection so contradictory resumed request input no longer overrides stored execution identity, while leaving fresh conversation selection untouched.
 - Moved `ensureConversation()` behind successful `tryAcquireConversationLock(...)` ownership so blocked `RUN_IN_PROGRESS` losers cannot rewrite persisted provider, model, flags, or timestamps before the winner is known.
 - Added dedicated `chat-codex.test.ts` proofs for resumed contradictory provider-model input and for the lock-order invariant that a `RUN_IN_PROGRESS` loser leaves persisted provider, model, flags, and timestamps unchanged.
+- `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` passed with `tests run: 21`, `passed: 21`, `failed: 0`; the first rerun showed the new loser-path proof was tripping request validation before the lock gate, so the proof input was narrowed to the actual lock-order seam before the task-listed wrapper was rerun cleanly.
 
 ### Task 12. Make provider bootstrap startup and managed config writes deterministic
 

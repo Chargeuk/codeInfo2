@@ -10,6 +10,11 @@ import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnUsageMetadata } from '../../mongo/turn.js';
+import {
+  memoryConversations,
+  shouldUseMemoryPersistence,
+  updateMemoryConversationMeta,
+} from '../memoryPersistence.js';
 import { refreshCodexDetection } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
@@ -277,6 +282,18 @@ export class ChatInterfaceCodex extends ChatInterface {
       if (!incoming || incoming === activeThreadId) return;
       activeThreadId = incoming;
       this.emitEvent({ type: 'thread', threadId: incoming });
+      if (shouldUseMemoryPersistence()) {
+        const currentFlags = memoryConversations.get(conversationId)?.flags;
+        updateMemoryConversationMeta(conversationId, {
+          flags: {
+            ...(typeof currentFlags === 'object' && currentFlags !== null
+              ? currentFlags
+              : {}),
+            threadId: incoming,
+          },
+        });
+        return;
+      }
       await updateConversationThreadId({
         conversationId,
         threadId: incoming,

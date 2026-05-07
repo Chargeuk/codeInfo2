@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -712,7 +712,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1335,13 +1335,15 @@ This final task validates the full Story 57 contract rather than isolated seams.
 27. [x] Add one automated proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` or `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` that an omitted-provider Codex MCP run preserves the saved conversation model on the persisted assistant turn after a selected-repository working folder has been restored. Purpose: stop the live model-drift regression from reopening once the rollout-recording path is repaired.
 28. [x] Run `npm run lint` for the reopened Story 57 omitted-provider MCP repair surface from the repository root, and fix any issues found using `npm run lint:fix` before manual cleanup when possible.
 29. [x] Run `npm run format:check` for the reopened Story 57 omitted-provider MCP repair surface from the repository root, and fix any issues found using `npm run format` before manual cleanup when possible.
+30. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/config/chatDefaults.ts`, and any LM Studio model-selection seam they feed, make explicit-provider LM Studio `codebase_question` on a saved selected-repository conversation preserve a usable saved or requested LM Studio model when the request omits `model`, instead of falling back to unavailable `model-1` on the supported main stack. Purpose: restore the final Story 57 explicit-provider MCP proof path without requiring a manual one-off model override.
+31. [ ] Add one automated proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that explicit-provider LM Studio `codebase_question` on a saved selected-repository conversation succeeds without an explicit `model` argument, stays scoped to the restored selected repository, and persists the assistant turn on the saved conversation model instead of failing `Cannot find a model with path "model-1"`. Purpose: lock the repaired explicit-provider LM Studio model-selection contract in the same server MCP proof home that manual proof just reopened.
 
 #### Testing
 
 1. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because Story 57 changes server, client, env, compose, and mounted-runtime contracts together. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/compose-build-latest.log`, fix the issue, and rerun the same wrapper.
 2. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because the final scope changes the shared server runtime, agents, flows, and MCP surfaces together. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-server-latest.log`, fix the issue, and rerun the same wrapper.
 3. [x] Run `npm run build:summary:client` from the repository root. Use this wrapper because the final scope changes the browser-visible Agents and Flows pages plus client API parsing. If the wrapper ends with `agent_action: inspect_log`, inspect `logs/test-summaries/build-client-latest.log`, fix the issue, and rerun the same wrapper.
-4. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the final scope changes the shared runtime, direct agents, flows, and MCP `code_info` paths. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the final scope changes the shared runtime, direct agents, flows, and MCP `code_info` paths. If the wrapper reports failures, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 5. [x] Run `npm run test:summary:server:cucumber` from the repository root so the supported higher-level server feature surface still passes after the full Story 57 migration. If the wrapper reports failures, inspect the printed `test-results/server-cucumber-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 6. [x] Run `npm run test:summary:client` from the repository root. Use this wrapper because the final scope includes new browser-visible warning and continuation behavior on the Agents and Flows pages. If the wrapper reports failures, inspect the printed `test-results/client-tests-*.log` path, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
 7. [x] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because Story 57 changes user-visible Agents and Flows behavior that must stay green on the supported browser-backed path. If the wrapper reports failures or ambiguous output, inspect `logs/test-summaries/e2e-tests-latest.log`, diagnose with targeted wrapper reruns as needed, then rerun the full wrapper.
@@ -1432,3 +1434,6 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 subtask 29 closed after `npm run format:check` narrowed the remaining drift to `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`; a targeted `npx prettier --write` repair on those two proof files cleared the drift and the full rerun finished with `All matched files use Prettier code style!`.
 - Automated-proof audit normalized Task 9 back to `__done__` after the reopened omitted-provider follow-up cleared cleanly: current parser state shows all 29 subtasks checked, all 11 testing steps checked, and no live `**BLOCKER**`, so no honest remaining gate is left before the story can return to final manual-proof disposition.
 - Task 9 testing step 4 passed after the required full `npm run test:summary:server:unit` rerun completed cleanly with `tests run: 2015`, `passed: 2015`, `failed: 0`, and `agent_action: skip_log`, so the final reopened server-unit proof gate is now honest on disk without any further repair cycle.
+- Full-story manual testing reran on a fresh main stack started with `npm run compose:build` then `npm run compose:up`, while the existing `docker-compose.local.yml` stack stayed untouched because its freshness could not be proved and the repo guidance treats it as session-critical. The pass again proved the browser-visible selected-agent and flow warning surfaces live, and Playwright staged `manual-testing/0000057/9/proof-01-agent-warning-surface.png` plus `manual-testing/0000057/9/proof-02-flow-warning-surface.png`, but neither `/tmp/playwright-output` on the host nor `codeinfo2-playwright-mcp-1:/tmp/playwright-output/...` exposed those files for copy-out, so the screenshots were reviewed live and the transfer limitation remained.
+- The same manual pass proved the previously reopened omitted-provider Codex MCP path is now healthy on the supported main stack. Fresh `POST /conversations` plus saved working-folder plus `POST http://localhost:5011/mcp` `codebase_question` runs against `/data/story55-manual-proof/queued-repo` persisted a successful assistant turn and kept the saved `gpt-5.3-codex` model in `support-mcp-omitted-call.json` and `support-mcp-omitted-turns.json`, while direct `POST /agents/coding_agent/run` remained pinned to `codex / gpt-5.4` across two turns in `support-agent-run-first*.json` and `support-agent-run-second*.json`.
+- Manual testing also found one new explicit-provider LM Studio regression after a bounded diagnosis pass. A saved selected-repository LM Studio conversation created with model `huihui-qwen3.5-9b-abliterated` still failed its first explicit-provider `codebase_question` run with `Cannot find a model with path "model-1"` in `support-mcp-explicit-call.json` and `support-mcp-explicit-turns.json`, which shows the runtime ignored the saved conversation model when the request omitted `model`; a bounded rerun with an explicit `model` override succeeded, stayed scoped to `/home/d_a_s/code/story55-manual-proof/queued-repo`, and returned `story-55-queued-repo` in `support-mcp-explicit-retry-call.json` and `support-mcp-explicit-retry-turns.json`. Follow-up subtasks 30 and 31 were added and testing step 4 was reopened because automated server proof must rerun before a later manual retest.

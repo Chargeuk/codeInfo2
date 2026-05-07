@@ -1,25 +1,32 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-07T03:37:24Z",
+  "generated_at_utc": "2026-05-07T03:44:04Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260507T014045Z-e54d5640",
-  "finding_id": "finding-5",
+  "finding_id": "finding-10",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Direct agent execution now uses the legacy CODEINFO_CODEX_AGENT_HOME alias when deriving the shared default repository root.",
+  "summary": "BDD proof steps now use When phases for remembered harness-state mutation instead of Then phases.",
   "changed_files": [
-    "server/src/agents/service.ts",
-    "server/src/test/integration/agents-run-client-conversation-id.test.ts"
+    "server/src/test/steps/flows-execution-runs.steps.ts",
+    "server/src/test/steps/ingest-delta-reembed.steps.ts",
+    "server/src/test/features/flows-execution-runs.feature",
+    "server/src/test/features/ingest-delta-reembed.feature"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts --test-name \"direct agent execution uses the legacy CODEINFO_CODEX_AGENT_HOME alias for the default repository root\"",
+      "command": "npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature",
       "result": "passed",
       "notes": "Wrapper finished cleanly with tests run: 1, passed: 1, failed: 0, and agent_action: skip_log."
+    },
+    {
+      "command": "npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature",
+      "result": "passed",
+      "notes": "Wrapper finished cleanly with tests run: 15, passed: 15, failed: 0, and agent_action: skip_log."
     }
   ],
-  "commit_sha": "e0c6cd11de0fbe9b17872bcec512fa840e18e249",
+  "commit_sha": "b861ac06d75ba23591fb2ec1c56bac3d72f9cd04",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

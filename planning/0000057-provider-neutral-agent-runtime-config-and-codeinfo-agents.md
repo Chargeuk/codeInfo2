@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1722,7 +1722,7 @@ The final review task is now blocked before its own continuation seams execute: 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codexAuthCopy.test.ts` from the repository root. Use this targeted wrapper because it is the closest deterministic proof home for the auth-copy and file-authority rules.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/codexAuthCopy.integration.test.ts` from the repository root. Use this targeted wrapper when the repaired contract crosses the startup bootstrap and filesystem seam rather than only the pure helper boundary.
 3. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because the repaired seam lives in server-owned startup and Codex runtime wiring.
-4. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the repaired seam includes the checked-in Compose auth mount and runtime-home contract used by the main stack.
+4. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the repaired seam includes the checked-in Compose auth mount and runtime-home contract used by the main stack.
 
 #### Manual Testing Guidance
 
@@ -1741,6 +1741,7 @@ The final review task is now blocked before its own continuation seams execute: 
 - Ran `npm run build:summary:server` cleanly with `warning_count: 0` and `agent_action: skip_log`, confirming the repaired startup and auth-authority wiring still compiles before the compose-backed proof step.
 - Ran `npm run compose:build:summary` cleanly with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker, confirming the checked-in Compose stack now bakes the repaired single-home Codex auth contract without reopening image-runtime asset regressions.
 - Automated-proof audit confirmed all Task 14 subtasks and testing gates are complete with no live `**BLOCKER**`, so planner normalization closes this prerequisite owner as `__done__` before the story returns to Task 15's final revalidation pass.
+- **BLOCKER** Task-scoped manual testing restarted the checked-in main stack from a prior stopped state (`npm run compose:down`, `npm run compose:build`, `npm run compose:up`) and reran the one required repository-backed `codebase_question` proof on `/data/story55-manual-proof/queued-repo`, but the very first Codex turn failed before Task 14's saved-conversation seam could execute: `support-mcp-first-response.json` and `support-turns-after-first.json` show `Codex Exec exited with code 1: Error loading config.toml: invalid type: map, expected a string in notice.model_migrations.gpt-5`, while the saved summary still kept the expected Codex provider, model, and `workingFolder`. I re-read the task requirements, checked the live `codeinfo2-server-1` logs, and captured `support-codex-config.txt`, which shows the mounted `/app/codex/config.toml` root file contains `[notice.model_migrations]` from the host-backed Codex home even though `/app/codex/chat/config.toml` stayed on the checked-in runtime contract. That leaves this pass blocked on an external runtime baseline or host Codex-home config repair rather than another concrete Task 14 product-code change, so `npm run compose:build:summary` is reopened and later manual retest must wait for that mounted config authority to become compatible with the live Codex CLI again.
 
 ### Task 15. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
 

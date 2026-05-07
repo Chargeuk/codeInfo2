@@ -1681,7 +1681,7 @@ The review found that MCP replay safety still depends on a process-local complet
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 13`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Planner-created prerequisite from the former final revalidation owner after Task 15's `**BLOCKING ANSWER**` proved the main-stack failure is a runtime-auth baseline seam rather than another product-code defect.
 
@@ -1740,6 +1740,7 @@ The final review task is now blocked before its own continuation seams execute: 
 - Ran `npm run test:summary:server:unit -- --file server/src/test/integration/codexAuthCopy.integration.test.ts` cleanly with `tests run: 5`, `passed: 5`, `failed: 0`, and `agent_action: skip_log`, confirming the same contract holds across the startup-oriented filesystem seam without live Codex OAuth.
 - Ran `npm run build:summary:server` cleanly with `warning_count: 0` and `agent_action: skip_log`, confirming the repaired startup and auth-authority wiring still compiles before the compose-backed proof step.
 - Ran `npm run compose:build:summary` cleanly with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker, confirming the checked-in Compose stack now bakes the repaired single-home Codex auth contract without reopening image-runtime asset regressions.
+- Automated-proof audit confirmed all Task 14 subtasks and testing gates are complete with no live `**BLOCKER**`, so planner normalization closes this prerequisite owner as `__done__` before the story returns to Task 15's final revalidation pass.
 
 ### Task 15. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
 

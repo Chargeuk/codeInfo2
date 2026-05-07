@@ -78,7 +78,6 @@ import {
   updateConversationMeta,
   updateConversationWorkingFolder,
 } from '../mongo/repo.js';
-import { resolveAgentHomeEnv } from './roots.js';
 import type {
   Turn,
   TurnCommandMetadata,
@@ -117,7 +116,7 @@ import {
 import { runAgentCommandRunner } from './commandsRunner.js';
 import { resolveAgentRuntimeExecutionConfig } from './config.js';
 import { discoverAgents } from './discovery.js';
-import { resolveAgentHomeForRepository } from './roots.js';
+import { resolveAgentHomeEnv, resolveAgentHomeForRepository } from './roots.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,

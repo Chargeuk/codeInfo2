@@ -1285,7 +1285,7 @@ This task applies the new warning and continuation contracts to the existing bro
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task normally depends on all earlier tasks required for final story proof.
 
@@ -1440,3 +1440,4 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Task 9 subtask 30 closed by moving the saved-conversation LM Studio model handoff ahead of `resolveChatDefaults()` in `server/src/mcp2/tools/codebaseQuestion.ts`, so an explicit-provider saved conversation can reuse its persisted model when the request omits `model` instead of dying in fallback default-model resolution before the saved model is considered.
 - Task 9 subtask 31 closed by adding a websocket MCP proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that seeds a saved selected-repository LM Studio conversation with model `huihui-qwen3.5-9b-abliterated`, calls `codebase_question` with `provider: 'lmstudio'` and no `model`, and asserts the run stays scoped to the restored repository while the persisted assistant turn keeps the saved conversation model. A targeted `npm run test:summary:server:unit -- --file ... --test-name ...` rerun passed for that proof home without reopening the broader Task 9 Testing checklist yet.
 - Task 9 testing step 4 passed after the required full `npm run test:summary:server:unit` rerun stayed on healthy wrapper wait heartbeats through the long test phase and then finished cleanly with `tests run: 2016`, `passed: 2016`, `failed: 0`, `agent_action: skip_log`, and log `test-results/server-unit-tests-2026-05-07T00-37-03-150Z.log`, so the reopened final server-unit proof gate is honest on disk again.
+- Automated-proof audit reread the live plan and parser state, then normalized Task 9 back to `__done__` because all 31 subtasks and all 11 testing steps are now checked with no live `**BLOCKER**`, so no honest remaining gate is left in the story plan.

@@ -190,10 +190,13 @@ export class ChatInterfaceCodex extends ChatInterface {
       process.env.CODEINFO_CODEX_WORKDIR ??
       '/data';
 
-    const effectiveRuntimeConfig = mergeRuntimeConfigOverrides(runtimeConfig, {
-      model_reasoning_summary: effectiveCodexFlags.modelReasoningSummary,
-      model_verbosity: effectiveCodexFlags.modelVerbosity,
-    });
+    const effectiveRuntimeConfig =
+      useConfigDefaults && runtimeConfig === undefined
+        ? undefined
+        : mergeRuntimeConfigOverrides(runtimeConfig, {
+            model_reasoning_summary: effectiveCodexFlags.modelReasoningSummary,
+            model_verbosity: effectiveCodexFlags.modelVerbosity,
+          });
 
     const threadOptions: CodexThreadOptions = useConfigDefaults
       ? {

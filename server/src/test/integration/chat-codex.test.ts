@@ -1260,8 +1260,14 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
   class RepositoryBackedCodex extends MockCodex {
     override startThread(opts?: CodexThreadOptions) {
       this.lastStartOptions = opts;
+      const activeHome = lastCapturedCodexOptions?.env?.CODEX_HOME;
+      const runtimeConfig =
+        lastCapturedCodexOptions?.config as Record<string, unknown> | undefined;
       const shouldFailRolloutRecording =
-        opts?.model !== undefined || opts?.approvalPolicy !== undefined;
+        opts?.model !== undefined ||
+        opts?.approvalPolicy !== undefined ||
+        activeHome === tempCodexHomeForTest ||
+        runtimeConfig?.model !== undefined;
       return new RepositoryBackedRolloutThread(
         this.id,
         shouldFailRolloutRecording,
@@ -1271,10 +1277,15 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
     override resumeThread(threadId: string, opts?: CodexThreadOptions) {
       this.lastResumeThreadId = threadId;
       this.lastResumeOptions = opts;
+      const activeHome = lastCapturedCodexOptions?.env?.CODEX_HOME;
+      const runtimeConfig =
+        lastCapturedCodexOptions?.config as Record<string, unknown> | undefined;
       const shouldFailRolloutRecording =
         threadId !== this.id ||
         opts?.model !== undefined ||
-        opts?.approvalPolicy !== undefined;
+        opts?.approvalPolicy !== undefined ||
+        activeHome === tempCodexHomeForTest ||
+        runtimeConfig?.model !== undefined;
       return new RepositoryBackedRolloutThread(
         threadId,
         shouldFailRolloutRecording,
@@ -1284,13 +1295,18 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
 
   const conversationId = 'conv-chat-repo-backed-thread-persisted';
   const mockCodex = new RepositoryBackedCodex('thread-repo-backed');
+  let lastCapturedCodexOptions: CodexOptions | undefined;
+  let firstRuntimeHome: string | undefined;
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({
       clientFactory: dummyClientFactory,
-      codexFactory: () => mockCodex,
+      codexFactory: (options?: CodexOptions) => {
+        lastCapturedCodexOptions = options;
+        return mockCodex;
+      },
       copilotLifecycleFactory: createUnavailableCopilotLifecycle,
       listIngestedRepositoriesFn: async () =>
         ({
@@ -1319,6 +1335,18 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
   assert.equal(firstResponse.body.model, 'gpt-5.1-codex-max');
   assert.equal(firstAssistant?.status, 'ok');
   assert.equal(firstAssistant?.content, 'READY');
+  firstRuntimeHome = String(lastCapturedCodexOptions?.env?.CODEX_HOME ?? '');
+  assert.notEqual(firstRuntimeHome, tempCodexHomeForTest);
+  assert.equal(
+    (lastCapturedCodexOptions?.config as Record<string, unknown> | undefined)
+      ?.model,
+    undefined,
+  );
+  const runtimeChatConfig = await fs.readFile(
+    path.join(firstRuntimeHome, 'chat', 'config.toml'),
+    'utf8',
+  );
+  assert.match(runtimeChatConfig, /model = "gpt-5\.1-codex-max"/u);
   assert.equal(
     memoryConversations.get(conversationId)?.flags?.threadId,
     'thread-repo-backed',
@@ -1348,6 +1376,7 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
   assert.equal(resumedResponse.body.model, 'gpt-5.1-codex-max');
   assert.equal(mockCodex.lastResumeThreadId, 'thread-repo-backed');
   assert.equal(mockCodex.lastResumeOptions?.model, undefined);
+  assert.equal(lastCapturedCodexOptions?.env?.CODEX_HOME, firstRuntimeHome);
   assert.equal(resumedAssistant?.status, 'ok');
   assert.equal(resumedAssistant?.content, 'READY');
   assert.equal(

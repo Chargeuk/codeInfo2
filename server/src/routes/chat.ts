@@ -44,6 +44,7 @@ import {
 } from '../config/chatDefaults.js';
 import {
   RuntimeConfigResolutionError,
+  materializeRepositoryBackedCodexChatHome,
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
 import { listIngestedRepositories } from '../lmstudio/toolService.js';
@@ -545,6 +546,39 @@ export function createChatRouter({
     const repositoryBackedCodexRun =
       executionProvider === 'codex' &&
       executionContext.repositoryMetadata.workingRepositoryAvailable;
+    let repositoryBackedCodexHome: string | undefined;
+    if (repositoryBackedCodexRun) {
+      try {
+        const materializedRuntimeHome =
+          await materializeRepositoryBackedCodexChatHome({
+            conversationId,
+            overrides: {
+              model: executionModel,
+              sandbox_mode: effectiveCodexFlags.sandboxMode,
+              approval_policy: effectiveCodexFlags.approvalPolicy,
+              model_reasoning_effort:
+                effectiveCodexFlags.modelReasoningEffort,
+              model_reasoning_summary:
+                effectiveCodexFlags.modelReasoningSummary,
+              model_verbosity: effectiveCodexFlags.modelVerbosity,
+              network_access_enabled:
+                effectiveCodexFlags.networkAccessEnabled,
+              web_search_mode: effectiveCodexFlags.webSearchMode,
+            },
+          });
+        repositoryBackedCodexHome = materializedRuntimeHome.runtimeCodexHome;
+      } catch (error) {
+        console.error(`${T06_ERROR_LOG} surface=/chat code=RUNTIME_CONFIG_INVALID`);
+        return res.status(500).json({
+          status: 'error',
+          code: 'RUNTIME_CONFIG_INVALID',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'repository-backed chat runtime config materialization failed',
+        });
+      }
+    }
 
     const ensureConversation = async (): Promise<Conversation | null> => {
       const buildRuntimeConversationFlags = (
@@ -913,14 +947,19 @@ export function createChatRouter({
             {
               provider: 'codex',
               threadId: activeThreadId,
+              ...(repositoryBackedCodexHome
+                ? { codexHome: repositoryBackedCodexHome }
+                : {}),
               useConfigDefaults: repositoryBackedCodexRun,
-              runtimeConfig: repositoryBackedCodexRun
-                ? ({
-                    ...(chatRuntimeConfig as Record<string, unknown>),
-                    model: executionModel,
-                  } as CodexOptions['config'])
-                : chatRuntimeConfig,
-              codexFlags: effectiveCodexFlags,
+              ...(repositoryBackedCodexRun
+                ? {}
+                : {
+                    runtimeConfig: {
+                      ...(chatRuntimeConfig as Record<string, unknown>),
+                      model: executionModel,
+                    } as CodexOptions['config'],
+                    codexFlags: effectiveCodexFlags,
+                  }),
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
               requestId,

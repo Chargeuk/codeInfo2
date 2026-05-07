@@ -10,7 +10,9 @@ import { discoverAgents } from '../agents/discovery.js';
 import { append } from '../logStore.js';
 
 import {
+  buildDefaultCodexConfig,
   ensureCodexConfigSeeded,
+  getCodexAuthPathForHome,
   getCodexChatConfigPathForHome,
   getCodexConfigPathForHome,
   resolveCodexHome,
@@ -69,6 +71,16 @@ type Context7NormalizationMode =
 type Context7NormalizationResult = {
   config: RuntimeTomlConfig;
   mode: Context7NormalizationMode;
+};
+type CodexChatConfigRootOverrides = {
+  model?: string;
+  approval_policy?: string;
+  sandbox_mode?: string;
+  network_access_enabled?: boolean;
+  web_search_mode?: string;
+  model_reasoning_effort?: string;
+  model_reasoning_summary?: string;
+  model_verbosity?: string;
 };
 
 export class RuntimeConfigResolutionError extends Error {
@@ -175,6 +187,13 @@ const providerChatConfigDirRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../..',
 );
+
+const sanitizeCodexRuntimeHomeSegment = (value: string): string => {
+  const sanitized = value
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return sanitized.length > 0 ? sanitized : 'conversation';
+};
 
 export function resolveLmStudioChatDefaultsHome(): string {
   return path.join(providerChatConfigDirRoot, 'lmstudio');
@@ -1140,6 +1159,42 @@ async function cleanupPartialChatConfig(chatConfigPath: string) {
   await fs.rm(chatConfigPath, { force: true }).catch(() => undefined);
 }
 
+const toTomlScalar = (value: string | boolean): string =>
+  typeof value === 'boolean' ? String(value) : toTomlQuoted(value);
+
+const upsertRootTomlScalar = (
+  rawConfig: string,
+  key: string,
+  value: string | boolean,
+): string => {
+  const rendered = `${key} = ${toTomlScalar(value)}`;
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const existingLine = new RegExp(`^${escapedKey}\\s*=.*$`, 'mu');
+  if (existingLine.test(rawConfig)) {
+    return rawConfig.replace(existingLine, rendered);
+  }
+
+  const lines = rawConfig.split('\n');
+  const firstTableIndex = lines.findIndex((line) =>
+    line.trimStart().startsWith('['),
+  );
+  const insertIndex = firstTableIndex === -1 ? lines.length : firstTableIndex;
+  lines.splice(insertIndex, 0, rendered);
+  return lines.join('\n');
+};
+
+const applyCodexChatConfigRootOverrides = (
+  rawConfig: string,
+  overrides: CodexChatConfigRootOverrides,
+): string => {
+  let next = rawConfig;
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) continue;
+    next = upsertRootTomlScalar(next, key, value);
+  }
+  return next;
+};
+
 function readProviderChatConfigSync(params: {
   provider: ChatProviderId;
   codexHome?: string;
@@ -1513,6 +1568,80 @@ export async function ensureProviderChatConfigBootstrapped(params: {
   } finally {
     await cleanupPartialChatConfig(tempPath);
   }
+}
+
+export async function materializeRepositoryBackedCodexChatHome(params: {
+  conversationId: string;
+  codexHome?: string;
+  overrides: CodexChatConfigRootOverrides;
+}): Promise<{
+  sourceCodexHome: string;
+  runtimeCodexHome: string;
+  baseConfigPath: string;
+  chatConfigPath: string;
+}> {
+  const sourceCodexHome = resolveCodexHome(params.codexHome);
+  const sourceBaseConfigPath = getCodexConfigPathForHome(sourceCodexHome);
+  const sourceChatConfigPath = getCodexChatConfigPathForHome(sourceCodexHome);
+  const sourceAuthPath = getCodexAuthPathForHome(sourceCodexHome);
+
+  await fs.mkdir(sourceCodexHome, { recursive: true });
+  await fs.writeFile(sourceBaseConfigPath, buildDefaultCodexConfig(), {
+    encoding: 'utf8',
+    flag: 'wx',
+  }).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      throw error;
+    }
+  });
+  await ensureProviderChatConfigBootstrapped({
+    provider: 'codex',
+    codexHome: sourceCodexHome,
+  });
+
+  const runtimeCodexHome = path.join(
+    sourceCodexHome,
+    '.codeinfo-chat-runtimes',
+    sanitizeCodexRuntimeHomeSegment(params.conversationId),
+  );
+  const runtimeBaseConfigPath = getCodexConfigPathForHome(runtimeCodexHome);
+  const runtimeChatConfigPath = getCodexChatConfigPathForHome(runtimeCodexHome);
+  const runtimeAuthPath = getCodexAuthPathForHome(runtimeCodexHome);
+
+  await fs.mkdir(path.dirname(runtimeChatConfigPath), { recursive: true });
+
+  const [baseConfigRaw, chatConfigRaw] = await Promise.all([
+    fs.readFile(sourceBaseConfigPath, 'utf8'),
+    fs.readFile(sourceChatConfigPath, 'utf8'),
+  ]);
+  const runtimeChatConfig = applyCodexChatConfigRootOverrides(
+    chatConfigRaw,
+    params.overrides,
+  );
+
+  await Promise.all([
+    fs.writeFile(runtimeBaseConfigPath, baseConfigRaw, 'utf8'),
+    fs.writeFile(runtimeChatConfigPath, runtimeChatConfig, 'utf8'),
+  ]);
+
+  const authConfigRaw = await fs.readFile(sourceAuthPath, 'utf8').catch(
+    (error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return undefined;
+      }
+      throw error;
+    },
+  );
+  if (typeof authConfigRaw === 'string') {
+    await fs.writeFile(runtimeAuthPath, authConfigRaw, 'utf8');
+  }
+
+  return {
+    sourceCodexHome,
+    runtimeCodexHome,
+    baseConfigPath: runtimeBaseConfigPath,
+    chatConfigPath: runtimeChatConfigPath,
+  };
 }
 
 export async function ensureAllProviderChatConfigsBootstrapped(params?: {

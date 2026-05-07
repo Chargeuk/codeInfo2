@@ -10,13 +10,13 @@ import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnUsageMetadata } from '../../mongo/turn.js';
+import { refreshCodexDetection } from '../../providers/codexDetection.js';
+import { getCodexDetection } from '../../providers/codexRegistry.js';
 import {
   memoryConversations,
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../memoryPersistence.js';
-import { refreshCodexDetection } from '../../providers/codexDetection.js';
-import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
 type CodexRunFlags = {

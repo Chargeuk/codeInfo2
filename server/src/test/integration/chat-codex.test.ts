@@ -27,8 +27,8 @@ import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.j
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
-import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
+import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {

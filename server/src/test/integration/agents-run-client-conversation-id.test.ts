@@ -159,6 +159,78 @@ test('Agents runs accept a client-supplied conversationId even when it does not 
   }
 });
 
+test('direct agent execution uses the legacy CODEINFO_CODEX_AGENT_HOME alias for the default repository root', async () => {
+  resetStore();
+
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const capturedFlags: Array<Record<string, unknown>> = [];
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "gpt-5.3-codex"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+
+  delete process.env.CODEINFO_AGENT_HOME;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  try {
+    await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Use the default repository root',
+      conversationId: 'legacy-alias-default-root',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          capturedFlags.push(flags);
+        }),
+    });
+
+    const flags = capturedFlags.at(-1) as Record<string, unknown>;
+    const expectedRepositoryRoot = path.resolve(tempAgentsHome, '..');
+    assert.equal(flags.workingDirectoryOverride, expectedRepositoryRoot);
+    assert.notEqual(flags.workingDirectoryOverride, process.cwd());
+  } finally {
+    memoryConversations.delete('legacy-alias-default-root');
+    memoryTurns.delete('legacy-alias-default-root');
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
 test('direct agent start persists the final execution identity before background completion, and later runs ignore contradictory config drift', async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-run-'));
   const agentsHome = path.join(tempRoot, 'agents');

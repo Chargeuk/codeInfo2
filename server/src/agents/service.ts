@@ -78,6 +78,7 @@ import {
   updateConversationMeta,
   updateConversationWorkingFolder,
 } from '../mongo/repo.js';
+import { resolveAgentHomeEnv } from './roots.js';
 import type {
   Turn,
   TurnCommandMetadata,
@@ -650,9 +651,7 @@ async function prepareDirectAgentExecution(params: {
   const providerStates = await collectDirectAgentProviderStates();
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
-    defaultRepositoryRoot: process.env.CODEINFO_AGENT_HOME?.trim()
-      ? path.resolve(process.env.CODEINFO_AGENT_HOME.trim(), '..')
-      : undefined,
+    defaultRepositoryRoot: resolveAgentHomeEnv().codeInfoRoot,
   });
 
   if (params.pinnedProviderId) {

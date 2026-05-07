@@ -1602,12 +1602,12 @@ The review found that the default startup path still launches provider bootstrap
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for bootstrap ordering and provider chat-config writer behavior.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for provider base-config and managed-settings writer behavior.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root. Use this targeted wrapper because the highest-risk startup finding must stay reachable through the default checked-in launcher contract rather than only through helper-local tests.
-4. [ ] Run `npm run compose:build:summary` from the repository root. Use this broader wrapper here because this task changes the default startup and launcher-owned runtime seam, so the repaired path must still build honestly in the supported compose stack before the final review-cycle revalidation reruns the whole block.
-5. [ ] Run `npm run compose:up` from the repository root, then confirm `http://localhost:5010/health` responds before closing this task. Use this broader task-local smoke step because targeted unit proof alone does not prove the repaired bootstrap and launcher path is reachable through the shipped startup entrypoint.
-6. [ ] Run `npm run compose:down` from the repository root after the task-local startup smoke step that this task started.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for bootstrap ordering and provider chat-config writer behavior.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for provider base-config and managed-settings writer behavior.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root. Use this targeted wrapper because the highest-risk startup finding must stay reachable through the default checked-in launcher contract rather than only through helper-local tests.
+4. [x] Run `npm run compose:build:summary` from the repository root. Use this broader wrapper here because this task changes the default startup and launcher-owned runtime seam, so the repaired path must still build honestly in the supported compose stack before the final review-cycle revalidation reruns the whole block.
+5. [x] Run `npm run compose:up` from the repository root, then confirm `http://localhost:5010/health` responds before closing this task. Use this broader task-local smoke step because targeted unit proof alone does not prove the repaired bootstrap and launcher path is reachable through the shipped startup entrypoint.
+6. [x] Run `npm run compose:down` from the repository root after the task-local startup smoke step that this task started.
 
 #### Implementation notes
 
@@ -1617,6 +1617,12 @@ The review found that the default startup path still launches provider bootstrap
 - Added dedicated Task 12 proof titles in `server/src/test/unit/runtimeConfig.test.ts` for awaited startup bootstrap and for the provider chat-config no-clobber plus no-temp-artifact invariant.
 - Added dedicated Task 12 proof titles in `server/src/test/unit/copilotConfig.test.ts` for provider base-config no-clobber and managed-settings stale-read protection while reusing the existing cleanup coverage.
 - Added a checked-in launcher proof in `server/src/test/unit/host-network-compose-contract.test.ts` that asserts the default entrypoint now awaits provider bootstrap before listen instead of firing it off in the background.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts`; the first build exposed a TypeScript path-type mistake in the new Copilot proof helper, so I narrowed that mock path before rerunning the exact Task 12 wrapper cleanly (`tests run: 93`, `passed: 93`, `failed: 0`).
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts`; the first rerun showed the older failure-cleanup test was still mocking `rename` after the guarded writer moved to `link`, so I retargeted that proof to the repaired commit seam and reran cleanly (`tests run: 16`, `passed: 16`, `failed: 0`).
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` cleanly to keep the awaited-launcher contract reachable through the checked-in default entrypoint proof home (`tests run: 4`, `passed: 4`, `failed: 0`).
+- Ran `npm run compose:build:summary` cleanly after the guarded-writer and awaited-startup changes; the supported compose stack still builds honestly (`items passed: 2`, `items failed: 0`, `agent_action: skip_log`).
+- Ran `npm run compose:up` and confirmed `http://localhost:5010/health` returned `{\"status\":\"ok\", ... , \"mongoConnected\":true}` so the repaired bootstrap path is reachable through the shipped startup entrypoint.
+- Ran `npm run compose:down` cleanly after the Task 12 smoke step so the compose-backed proof path finished without leaving the support stack running.
 
 ### Task 13. Make MCP replay idempotency survive process-local cache loss
 

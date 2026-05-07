@@ -107,8 +107,8 @@ test('cleans up a failed provider-base bootstrap temp file so a later retry can 
   try {
     const home = path.join(tempRoot, 'copilot');
     const configPath = getCopilotConfigPathForHome(home);
-    const renameMock = mock.method(fs.promises, 'rename', async () => {
-      const error = Object.assign(new Error('simulated rename failure'), {
+    const linkMock = mock.method(fs.promises, 'link', async () => {
+      const error = Object.assign(new Error('simulated link failure'), {
         code: 'EIO',
       });
       throw error;
@@ -116,9 +116,9 @@ test('cleans up a failed provider-base bootstrap temp file so a later retry can 
 
     await assert.rejects(
       ensureCopilotBaseConfigSeeded(home),
-      /simulated rename failure/u,
+      /simulated link failure/u,
     );
-    renameMock.mock.restore();
+    linkMock.mock.restore();
 
     assert.equal(fs.existsSync(configPath), false);
     const entries = await fs.promises.readdir(home);
@@ -338,9 +338,10 @@ test('managed settings normalization keeps newer settings that appear after a st
         data: unknown,
         options?: unknown,
       ) => {
+        const targetPath = file as fs.PathLike;
         const result = await originalWriteFile.call(
           fs.promises,
-          file,
+          targetPath,
           data as never,
           options as never,
         );

@@ -20,6 +20,7 @@ import {
 } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
+import { memoryConversations } from '../../../chat/memoryPersistence.js';
 import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
 
 const ENV_KEYS = [
@@ -600,12 +601,20 @@ test('codebase_question reuses saved selected-repository metadata when provider 
   const chat = new CapturingChat();
   const conversationId = 'mcp-working-folder-selected';
   const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
-  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
 
   __setCodebaseQuestionMemoryConversationForTests({
     _id: conversationId,
-    provider: 'lmstudio',
-    model: 'm',
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
     title: 'Saved MCP conversation',
     source: 'MCP',
     flags: { workingFolder: repoRoot },
@@ -648,6 +657,22 @@ test('codebase_question reuses saved selected-repository metadata when provider 
     });
   } finally {
     __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
@@ -1620,23 +1645,31 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
 test('codebase_question keeps the saved execution identity authoritative over contradictory follow-up provider-model input', async () => {
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
   const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
   resetStore();
   const calls: Array<{
     flags: Record<string, unknown>;
     conversationId: string;
     model: string;
   }> = [];
-  const conversationId = 'saved-lmstudio-identity-pin';
-  const savedModel = 'saved-lmstudio-model';
+  const conversationId = 'saved-codex-identity-pin';
+  const savedModel = 'gpt-5.3-codex';
 
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
   process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'gpt-5.1-codex-max';
+  const tempHome = await withTempCodexHome({
+    chatToml: `model = "${savedModel}"\n`,
+  });
+  setCodexHomes(tempHome.codexHome);
 
   __setCodebaseQuestionMemoryConversationForTests({
     _id: conversationId,
-    provider: 'lmstudio',
+    provider: 'codex',
     model: savedModel,
-    title: 'Saved LM Studio identity pin conversation',
+    title: 'Saved Codex identity pin conversation',
     source: 'MCP',
     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
     createdAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -1651,9 +1684,8 @@ test('codebase_question keeps the saved execution identity authoritative over co
     chatFactory: () =>
       new CapturingSelectionChat(
         calls,
-        'Saved LM Studio identity stayed authoritative',
+        'Saved Codex identity stayed authoritative',
       ),
-    clientFactory: makeLmStudioClientFactory(),
     copilotReadinessResolver: async () => ({
       available: false,
       toolsAvailable: true,
@@ -1689,17 +1721,14 @@ test('codebase_question keeps the saved execution identity authoritative over co
     assert.equal(calls.length, 1, JSON.stringify({ response, calls }, null, 2));
     assert.equal(calls[0]?.conversationId, conversationId);
     assert.equal(calls[0]?.model, savedModel);
-    assert.equal(calls[0]?.flags.provider, 'lmstudio');
+    assert.equal(calls[0]?.flags.provider, 'codex');
     const payload = JSON.parse(
       (response as { result: { content: Array<{ text: string }> } }).result
         .content[0].text,
     );
     assert.equal(payload.conversationId, conversationId);
     assert.equal(payload.modelId, savedModel);
-    assert.equal(
-      memoryConversations.get(conversationId)?.provider,
-      'lmstudio',
-    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
     assert.equal(memoryConversations.get(conversationId)?.model, savedModel);
   } finally {
     __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
@@ -1713,7 +1742,23 @@ test('codebase_question keeps the saved execution identity authoritative over co
     } else {
       process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
     }
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
     resetToolDeps();
+    await tempHome.cleanup();
     server.closeAllConnections();
     await new Promise<void>((resolve) => {
       server.close(() => resolve());

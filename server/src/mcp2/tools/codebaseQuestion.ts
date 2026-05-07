@@ -482,6 +482,7 @@ async function executeCodebaseQuestion(
     : resolvedDefaults.provider;
   const codexRequestedDefaults =
     requestedProvider === 'codex' &&
+    requestedModelArg === undefined &&
     !pinSavedConversationExecutionIdentity
       ? await resolveCodexChatDefaults({
           codexHome: process.env.CODEX_HOME,

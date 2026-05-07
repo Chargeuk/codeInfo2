@@ -1499,8 +1499,8 @@ The review found that the MCP `codebase_question` continuation seam still lets c
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because it is the main unit proof home for saved-conversation `codebase_question` identity behavior.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root. Use this targeted wrapper because the review findings also require the websocket-backed persisted-conversation path to stay pinned across real streamed runs.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because it is the main unit proof home for saved-conversation `codebase_question` identity behavior.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root. Use this targeted wrapper because the review findings also require the websocket-backed persisted-conversation path to stay pinned across real streamed runs.
 
 #### Implementation notes
 
@@ -1508,6 +1508,8 @@ The review found that the MCP `codebase_question` continuation seam still lets c
 - Kept fresh-conversation behavior unchanged by applying the new pinning branch only when a saved conversation already has a valid stored provider-model pair; new conversations still flow through the normal request/default-provider selection path.
 - Added a dedicated unit proof in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` that an existing saved LM Studio conversation ignores contradictory explicit Copilot follow-up input and keeps the caller-visible payload plus persisted conversation metadata pinned to the saved execution identity.
 - Added a dedicated websocket-backed proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that saved Copilot and saved LM Studio conversations pin omitted-provider follow-up calls to the stored execution identity in both streamed turn completion and persisted memory-conversation state, instead of relying on the older generic provider-parity coverage.
+- Automated proof: `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` initially failed on Task 10 proof-home drift plus one accidental Codex explicit-model regression from the saved-identity refactor; after restoring the explicit request-model guard and tightening the saved-conversation fixtures, the exact targeted wrapper rerun passed cleanly with `tests run: 18`, `passed: 18`, `failed: 0`, and `agent_action: skip_log`.
+- Automated proof: `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` passed cleanly with `tests run: 13`, `passed: 13`, `failed: 0`, and `agent_action: skip_log`, confirming the saved Copilot and saved LM Studio omitted-provider follow-up path stays pinned to persisted execution identity on the websocket-backed MCP seam.
 
 ### Task 11. Repair `/chat` resumed execution identity and lock-order mutation boundaries
 

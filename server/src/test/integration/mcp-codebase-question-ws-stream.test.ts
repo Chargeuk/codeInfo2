@@ -1778,10 +1778,10 @@ test('saved Copilot and LM Studio conversations pin omitted-provider follow-up c
         copilotReadinessResolver: async () => ({
           available: true,
           toolsAvailable: true,
-          blockingStage: 'ready',
+          blockingStage: 'ready' as const,
           models: ['copilot-gpt-5'],
           modelsRaw: [],
-          authSource: 'env-token',
+          authSource: 'env-token' as const,
         }),
       },
     },

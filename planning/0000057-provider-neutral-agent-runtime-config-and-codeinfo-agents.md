@@ -1492,10 +1492,8 @@ The review found that the MCP `codebase_question` continuation seam still lets c
 
 #### Subtasks
 
-1. [ ] Re-read `server/src/mcp2/tools/codebaseQuestion.ts` plus its current happy-path and websocket proof homes, then map the exact explicit-provider and omitted-provider branches that still bypass stored execution identity on existing conversations.
-2. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, make the existing-conversation branch derive provider-model authority from the stored conversation before `resolveChatDefaults()`, availability checks, or conversation-meta persistence can treat contradictory follow-up provider-model args as live selection input.
-3. [ ] In that same MCP seam, remove the current Codex-only omitted-provider pinning shortcut so saved Copilot and LM Studio conversations reuse their stored provider-model pair on follow-up calls instead of drifting through default-provider fallback.
-4. [ ] Extend `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` with one contradictory explicit-follow-up proof and extend `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` with saved Copilot and saved LM Studio omitted-provider follow-up proofs, so the repaired identity contract is explicit in both unit and persisted websocket paths.
+1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, patch the existing-conversation selection seam so saved conversations keep their stored provider-model pair authoritative before `resolveChatDefaults()`, availability checks, or conversation-meta persistence can treat contradictory explicit follow-up args or omitted-provider non-Codex follow-ups as live selection input.
+2. [ ] Extend `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` with one contradictory explicit-follow-up proof and extend `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` with saved Copilot and saved LM Studio omitted-provider follow-up proofs, so the repaired identity contract is explicit in both unit and persisted websocket paths.
 
 #### Testing
 
@@ -1536,10 +1534,8 @@ The review found two route-owned defects on the same `/chat` continuation seam: 
 
 #### Subtasks
 
-1. [ ] Re-read `server/src/routes/chat.ts` and its current route-level proof homes, then trace exactly where resumed provider-model selection and metadata writes still occur before stored-conversation or lock ownership is authoritative.
-2. [ ] In `server/src/routes/chat.ts`, make the resumed existing-conversation path derive execution provider-model from stored conversation state before contradictory caller-supplied provider-model input can rewrite persisted execution identity.
-3. [ ] Move or guard the `ensureConversation()` existing-conversation update path so blocked requests that lose `tryAcquireConversationLock(...)` cannot rewrite persisted provider, model, flags, or related conversation metadata for a run that never starts.
-4. [ ] Extend `server/src/test/integration/chat-codex.test.ts` with one resumed contradictory-input proof and one blocked-lock no-mutation proof that asserts the loser still receives `RUN_IN_PROGRESS` while the stored conversation metadata remains unchanged.
+1. [ ] In `server/src/routes/chat.ts`, patch the resumed existing-conversation path so stored conversation state stays authoritative for provider-model selection and the `ensureConversation()` update path cannot rewrite persisted provider, model, flags, or related metadata before `tryAcquireConversationLock(...)` proves the run owner.
+2. [ ] Extend `server/src/test/integration/chat-codex.test.ts` with one resumed contradictory-input proof and one blocked-lock no-mutation proof that asserts the loser still receives `RUN_IN_PROGRESS` while the stored conversation metadata remains unchanged.
 
 #### Testing
 
@@ -1580,12 +1576,9 @@ The review found that the default startup path still launches provider bootstrap
 
 #### Subtasks
 
-1. [ ] Re-read `server/src/index.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/config/copilotConfig.ts`, then trace the current bootstrap ordering and no-clobber gaps across provider base-config, provider chat-config, and managed-settings normalization writes.
-2. [ ] Update the default startup path in `server/src/index.ts` so the normal launcher does not expose first-request provider traffic before `ensureAllProviderChatConfigsBootstrapped()` has finished the Story 57 bootstrap contract.
-3. [ ] In `server/src/config/copilotConfig.ts`, replace the current stale-read overwrite behavior in the provider base-config and managed-settings normalization writers with an ownership-safe no-clobber write path that preserves newer config created by another actor after the initial existence or read check.
-4. [ ] In `server/src/config/runtimeConfig.ts`, give the provider chat-config bootstrap writer the same no-clobber ownership guarantees so startup cannot replace a newer config that appeared after the initial missing-state check.
-5. [ ] Extend `server/src/test/unit/runtimeConfig.test.ts` and `server/src/test/unit/copilotConfig.test.ts` with awaited-startup and no-clobber writer proofs that explicitly cover provider base config, provider chat config, and Copilot managed settings.
-6. [ ] Add or update one default-path launcher proof home, such as `server/src/test/unit/host-network-compose-contract.test.ts`, so the awaited bootstrap contract is proven reachable through the normal checked-in launcher path rather than only through isolated helper calls.
+1. [ ] Patch the default launcher seam in `server/src/index.ts` so first-request provider traffic cannot start before `ensureAllProviderChatConfigsBootstrapped()` finishes, and patch the related writer seams in `server/src/config/copilotConfig.ts` and `server/src/config/runtimeConfig.ts` so provider base config, provider chat config, and Copilot managed settings no longer clobber newer config after a stale read or missing-state check.
+2. [ ] Extend `server/src/test/unit/runtimeConfig.test.ts` and `server/src/test/unit/copilotConfig.test.ts` with awaited-startup and no-clobber writer proofs that explicitly cover provider base config, provider chat config, and Copilot managed settings.
+3. [ ] Add or update one default-path launcher proof home, such as `server/src/test/unit/host-network-compose-contract.test.ts`, so the awaited bootstrap contract is proven reachable through the normal checked-in launcher path rather than only through isolated helper calls.
 
 #### Testing
 
@@ -1625,10 +1618,8 @@ The review found that MCP replay safety still depends on a process-local complet
 
 #### Subtasks
 
-1. [ ] Re-read the active and completed replay seams in `server/src/mcp2/tools/codebaseQuestion.ts`, the surrounding conversation or turn persistence helpers, and the current replay proof homes, then document exactly which caller-visible replay result fields already have durable storage and which result fields still exist only in the process-local cache.
-2. [ ] Update the replay path so a completed `codebase_question` replay can be reconstructed from durable conversation or turn state after the process-local cache is cleared, without redefining the caller-visible JSON-RPC replay contract or the current `replayId` semantics.
-3. [ ] If the existing persisted seams cannot yet carry the completed replay result honestly, stop after creating the smallest bounded persistence extension in the same MCP seam that makes restart-equivalent replay durable instead of adding a vague follow-up note.
-4. [ ] Extend `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and any needed websocket proof home with a cache-clear or restart-equivalent scenario that proves completed replay still returns the same logical result after the in-process cache is gone.
+1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts` and the adjacent conversation or turn persistence seam it already uses, patch replay reconstruction so a completed `codebase_question` replay can be served after the process-local cache is cleared without redefining the caller-visible JSON-RPC replay contract or `replayId` semantics; if the current persisted seams are insufficient, keep the change to the smallest bounded persistence extension needed for that restart-equivalent path.
+2. [ ] Extend `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and any needed websocket proof home with a cache-clear or restart-equivalent scenario that proves completed replay still returns the same logical result after the in-process cache is gone.
 
 #### Testing
 
@@ -1669,9 +1660,8 @@ This final review task owns the whole current review cycle's closing proof. It m
 
 #### Subtasks
 
-1. [ ] Re-read the review-created findings block, the active `review-disposition-state.json`, and the inline minor-fix audit entries before running final proof so the closing validation scope still matches review pass `0000057-20260507T014045Z-e54d5640` and review cycle `0000057-rc-20260507T033249Z-a89766f6`.
-2. [ ] Before the broad wrapper reruns, confirm each serious repair task has updated or added the exact proof home it claimed, so Task 14 does not discover a missing proof file only after the full regression pass starts.
-3. [ ] Refresh only the reviewer-facing close-out text that becomes stale after Tasks 10 through 13 land, and keep the existing inline minor-fix audit entries as the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.
+1. [ ] Before the broad wrapper reruns, confirm Tasks 10 through 13 landed their claimed proof homes and that the final revalidation scope still matches review pass `0000057-20260507T014045Z-e54d5640` and review cycle `0000057-rc-20260507T033249Z-a89766f6`.
+2. [ ] Refresh only the reviewer-facing close-out text that becomes stale after Tasks 10 through 13 land, and keep the existing inline minor-fix audit entries as the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.
 
 #### Testing
 

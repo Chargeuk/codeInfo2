@@ -1664,6 +1664,10 @@ This final review task owns the whole current review cycle's closing proof. It m
 - Revalidates the serious review-created findings block for `finding-1`, `finding-2`, `finding-3`, `finding-4`, `finding-6`, `finding-7`, `finding-8`, and `finding-9`.
 - Revalidates the inline-resolved minor fixes already recorded for `finding-5`, `finding-10`, `finding-11`, and `finding-14` in review cycle `0000057-rc-20260507T033249Z-a89766f6`.
 
+#### Affected Repositories
+
+- `Current Repository` - owns every serious review-created repair in this block, every inline-resolved minor proof surface that this final task revalidates, and the full broad build, test, compose, smoke, lint, and format-check proof owned by this review-cycle close-out.
+
 #### Task Exit Criteria
 
 - Every review-created repair task added for review pass `0000057-20260507T014045Z-e54d5640` is implemented, fully proved with the repository's wrapper-first workflow, and reflected honestly in the executable plan.

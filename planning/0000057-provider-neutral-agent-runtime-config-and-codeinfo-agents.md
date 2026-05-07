@@ -1719,10 +1719,10 @@ The final review task is now blocked before its own continuation seams execute: 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codexAuthCopy.test.ts` from the repository root. Use this targeted wrapper because it is the closest deterministic proof home for the auth-copy and file-authority rules.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/codexAuthCopy.integration.test.ts` from the repository root. Use this targeted wrapper when the repaired contract crosses the startup bootstrap and filesystem seam rather than only the pure helper boundary.
-3. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the repaired seam lives in server-owned startup and Codex runtime wiring.
-4. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the repaired seam includes the checked-in Compose auth mount and runtime-home contract used by the main stack.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codexAuthCopy.test.ts` from the repository root. Use this targeted wrapper because it is the closest deterministic proof home for the auth-copy and file-authority rules.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/codexAuthCopy.integration.test.ts` from the repository root. Use this targeted wrapper when the repaired contract crosses the startup bootstrap and filesystem seam rather than only the pure helper boundary.
+3. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because the repaired seam lives in server-owned startup and Codex runtime wiring.
+4. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the repaired seam includes the checked-in Compose auth mount and runtime-home contract used by the main stack.
 
 #### Manual Testing Guidance
 
@@ -1736,6 +1736,10 @@ The final review task is now blocked before its own continuation seams execute: 
 - Removed the silent stale-copy path from `server/src/utils/codexAuthCopy.ts`. Startup now accepts a shared mounted runtime home or an already-present container home with no host mount, but if a split host/container auth authority is detected it fails fast with explicit reauthentication guidance instead of copying or continuing on diverging `auth.json` state.
 - Rewrote the deterministic auth-copy proof homes in `server/src/test/unit/codexAuthCopy.test.ts` and `server/src/test/integration/codexAuthCopy.integration.test.ts` around the new single-authority contract. They now prove shared-home acceptance, quiet no-auth behavior, and fast failure when split host/container auth state is present, without depending on live Codex OAuth.
 - Updated the checked-in operator guidance in `README.md` plus the shipped Codex-unavailable banner in `client/src/pages/ChatPage.tsx` so both now point to `${CODEINFO_HOST_CODEX_HOME}` as the single supported auth source, explain that the main stack mounts it directly at `/app/codex`, and give the exact host-side reauthentication step when auth refresh errors appear.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/unit/codexAuthCopy.test.ts` cleanly with `tests run: 4`, `passed: 4`, `failed: 0`, and `agent_action: skip_log`, confirming the helper-level shared-home and split-authority rules hold at the narrowest deterministic proof seam.
+- Ran `npm run test:summary:server:unit -- --file server/src/test/integration/codexAuthCopy.integration.test.ts` cleanly with `tests run: 5`, `passed: 5`, `failed: 0`, and `agent_action: skip_log`, confirming the same contract holds across the startup-oriented filesystem seam without live Codex OAuth.
+- Ran `npm run build:summary:server` cleanly with `warning_count: 0` and `agent_action: skip_log`, confirming the repaired startup and auth-authority wiring still compiles before the compose-backed proof step.
+- Ran `npm run compose:build:summary` cleanly with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker, confirming the checked-in Compose stack now bakes the repaired single-home Codex auth contract without reopening image-runtime asset regressions.
 
 ### Task 15. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
 

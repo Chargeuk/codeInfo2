@@ -1,32 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-07T03:44:04Z",
+  "generated_at_utc": "2026-05-07T03:51:13Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260507T014045Z-e54d5640",
-  "finding_id": "finding-10",
+  "finding_id": "finding-11",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "BDD proof steps now use When phases for remembered harness-state mutation instead of Then phases.",
+  "summary": "Execute Prompt now respects the disabled-agent gating rule alongside the sibling run affordances.",
   "changed_files": [
-    "server/src/test/steps/flows-execution-runs.steps.ts",
-    "server/src/test/steps/ingest-delta-reembed.steps.ts",
-    "server/src/test/features/flows-execution-runs.feature",
-    "server/src/test/features/ingest-delta-reembed.feature"
+    "client/src/pages/AgentsPage.tsx",
+    "client/src/test/agentsPage.runGuard.test.tsx"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature",
+      "command": "npm run test:summary:client -- --file client/src/test/agentsPage.runGuard.test.tsx",
       "result": "passed",
-      "notes": "Wrapper finished cleanly with tests run: 1, passed: 1, failed: 0, and agent_action: skip_log."
-    },
-    {
-      "command": "npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature",
-      "result": "passed",
-      "notes": "Wrapper finished cleanly with tests run: 15, passed: 15, failed: 0, and agent_action: skip_log."
+      "notes": "Wrapper finished cleanly with tests run: 2, passed: 2, failed: 0, and agent_action: skip_log."
     }
   ],
-  "commit_sha": "b861ac06d75ba23591fb2ec1c56bac3d72f9cd04",
+  "commit_sha": "0ae16d3ff0bc00d6ee3c4cc1b4d28e08ac31395b",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

@@ -1449,3 +1449,199 @@ This final task validates the full Story 57 contract rather than isolated seams.
 - Review pass `0000057-20260507T014045Z-e54d5640`; finding `finding-10`; repository `current_repository`; summary: BDD proof steps now use `When` phases for remembered harness-state mutation instead of `Then` phases; changed files: `server/src/test/steps/flows-execution-runs.steps.ts`, `server/src/test/steps/ingest-delta-reembed.steps.ts`, `server/src/test/features/flows-execution-runs.feature`, `server/src/test/features/ingest-delta-reembed.feature`; commit `b861ac06d75ba23591fb2ec1c56bac3d72f9cd04`; targeted proof: `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature` passed (`tests run: 1`, `passed: 1`, `failed: 0`) and `npm run test:summary:server:cucumber -- --feature server/src/test/features/ingest-delta-reembed.feature` passed (`tests run: 15`, `passed: 15`, `failed: 0`); disposition: Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.
 - Review pass `0000057-20260507T014045Z-e54d5640`; finding `finding-11`; repository `current_repository`; summary: Execute Prompt now respects the disabled-agent gating rule alongside the sibling run affordances; changed files: `client/src/pages/AgentsPage.tsx`, `client/src/test/agentsPage.runGuard.test.tsx`; commit `0ae16d3ff0bc00d6ee3c4cc1b4d28e08ac31395b`; targeted proof: `npm run test:summary:client -- --file client/src/test/agentsPage.runGuard.test.tsx` passed (`tests run: 2`, `passed: 2`, `failed: 0`); disposition: Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.
 - Review pass `0000057-20260507T014045Z-e54d5640`; finding `finding-14`; repository `current_repository`; summary: The Story 57 PR summary now reflects that Task 9 close-out is complete; changed files: `codeInfoStatus/pr-summaries/0000057-pr-summary.md`; commit `7a35e38f49fc6ef2955d420132ab5546bf987a35`; targeted proof: not run because this was a documentation-only support-file drift fix with no bounded automated proof command needed; disposition: Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.
+
+## Code Review Findings
+
+### Review Pass `0000057-20260507T014045Z-e54d5640`
+
+- Review cycle id: `0000057-rc-20260507T033249Z-a89766f6`
+- Review routing source: `codeInfoStatus/flow-state/review-disposition-state.json`
+- Comparison context: local `HEAD` `e54d56405135e63ea530a3a46d2d7748c50d2cab` versus resolved remote base `origin/main` at `a8f5436227ab7af297bdbf725ca2eba137aee247` using `local_head_vs_resolved_base`; no local-fallback base inference was needed.
+- Unresolved task-required findings now requiring numbered follow-up tasks: `finding-1`, `finding-2`, `finding-3`, `finding-4`, `finding-6`, `finding-7`, `finding-8`, and `finding-9`.
+- Inline-resolved minor findings already handled in this same review cycle and therefore not re-tasked here: `finding-5`, `finding-10`, `finding-11`, and `finding-14`.
+
+### Task 10. Repair resumed `codebase_question` execution-identity enforcement for all saved-provider conversations
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 9`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260507T014045Z-e54d5640`.
+
+#### Overview
+
+The review found that the MCP `codebase_question` continuation seam still lets contradictory follow-up provider-model input rewrite saved execution identity, and that omitted-provider pinning is currently hard-coded to saved Codex conversations. This task repairs that single saved-conversation identity seam across explicit and omitted-provider follow-up calls without reopening already-resolved minor fixes.
+
+#### Addresses Findings
+
+- `finding-1` - contradictory resume-time provider-model args can still rewrite saved MCP execution identity.
+- `finding-2` - omitted-provider saved-identity pinning still excludes non-Codex saved conversations.
+
+#### Task Exit Criteria
+
+- Existing `codebase_question` conversations keep their stored provider and model authoritative on later turns regardless of contradictory caller input.
+- Omitted-provider follow-up calls pin to the saved execution identity for Codex, Copilot, and LM Studio conversations, and the repaired seam is covered by durable automated proof.
+
+#### Subtasks
+
+1. [ ] Re-read `server/src/mcp2/tools/codebaseQuestion.ts` plus its current happy-path and websocket proof homes, then map the exact explicit-provider and omitted-provider branches that still bypass stored execution identity on existing conversations.
+2. [ ] Update the saved-conversation selection logic so resumed `codebase_question` requests ignore contradictory follow-up provider-model input and keep the stored provider-model pair authoritative before availability checks, runtime selection, or persistence rewrites run.
+3. [ ] Extend the MCP proof homes so they cover both contradictory explicit follow-up input and omitted-provider follow-up pinning for non-Codex saved conversations instead of only the current Codex-specific happy path.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because it is the main unit proof home for saved-conversation `codebase_question` identity behavior.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root. Use this targeted wrapper because the review findings also require the websocket-backed persisted-conversation path to stay pinned across real streamed runs.
+
+#### Implementation notes
+
+### Task 11. Repair `/chat` resumed execution identity and lock-order mutation boundaries
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 9`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260507T014045Z-e54d5640`.
+
+#### Overview
+
+The review found two route-owned defects on the same `/chat` continuation seam: contradictory resumed provider-model input can still rewrite saved execution identity, and blocked concurrent sends can still mutate persisted metadata before the conversation lock is proven. This task keeps that route repair self-contained instead of scattering it across older Story 57 tasks.
+
+#### Addresses Findings
+
+- `finding-3` - the main `/chat` route still trusts contradictory resumed provider-model input and rewrites saved execution identity.
+- `finding-4` - the `/chat` route still mutates persisted conversation metadata before proving the conversation lock can be acquired.
+
+#### Task Exit Criteria
+
+- Resumed `/chat` sends keep the stored execution identity authoritative at the server boundary instead of trusting contradictory caller input.
+- A blocked `RUN_IN_PROGRESS` loser leaves persisted provider, model, flags, and related metadata unchanged, and the repaired route is covered by durable automated proof.
+
+#### Subtasks
+
+1. [ ] Re-read `server/src/routes/chat.ts` and its current route-level proof homes, then trace exactly where resumed provider-model selection and metadata writes still occur before stored-conversation or lock ownership is authoritative.
+2. [ ] Update the resumed `/chat` route so existing conversations derive execution identity from stored conversation state before contradictory caller overrides can rewrite provider-model persistence.
+3. [ ] Move or guard the existing-conversation metadata mutation path so blocked requests that lose `tryAcquireConversationLock(...)` cannot rewrite persisted conversation state for a run that never starts.
+4. [ ] Extend the route-owned proof homes so they cover both contradictory resumed input and blocked-lock no-mutation behavior on the production `/chat` boundary.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/chat-codex.test.ts` from the repository root. Use this targeted wrapper because it is the existing route-level integration proof home for resumed `/chat` contract behavior.
+
+#### Implementation notes
+
+### Task 12. Make provider bootstrap startup and managed config writes deterministic
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 9`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260507T014045Z-e54d5640`.
+
+#### Overview
+
+The review found that the default startup path still launches provider bootstrap fire-and-forget, and that the bootstrap or normalization writers can still clobber newer config state after stale reads. These findings share one coherent startup-and-config ownership seam, so they stay grouped in one substantive repair task.
+
+#### Addresses Findings
+
+- `finding-6` - the default startup path launches provider bootstrap fire-and-forget instead of awaiting the story-owned bootstrap contract.
+- `finding-7` - provider bootstrap writers can overwrite a config another actor created after the initial existence check.
+- `finding-8` - Copilot `settings.json` normalization can overwrite a concurrent settings update from a stale read.
+
+#### Task Exit Criteria
+
+- The default server startup path does not accept first-provider traffic before the Story 57 bootstrap contract is satisfied.
+- Provider bootstrap and managed-settings writes avoid stale-read clobbering of newer config owned by another actor, and the repaired startup plus config seams are covered by durable automated proof.
+
+#### Subtasks
+
+1. [ ] Re-read `server/src/index.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/config/copilotConfig.ts`, then trace the current bootstrap ordering and no-clobber gaps across provider base-config, provider chat-config, and managed-settings normalization writes.
+2. [ ] Update the default startup path so the normal launcher waits for the Story 57 provider bootstrap contract before exposing first-request provider traffic.
+3. [ ] Repair the bootstrap and managed-settings writer seams so they no longer replace newer config written by another actor after the initial existence or read check, while preserving the intended bootstrap and normalization behavior.
+4. [ ] Extend the startup and config proof homes so they cover awaited bootstrap ordering plus the no-clobber writer contract for provider base config, provider chat config, and Copilot managed settings.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for bootstrap ordering and provider chat-config writer behavior.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilotConfig.test.ts` from the repository root. Use this targeted wrapper because it is the main proof home for provider base-config and managed-settings writer behavior.
+
+#### Implementation notes
+
+### Task 13. Make MCP replay idempotency survive process-local cache loss
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 9`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260507T014045Z-e54d5640`.
+
+#### Overview
+
+The review found that MCP replay safety still depends on a process-local completed-inflight cache, so restart or eviction can drop the idempotent result contract even when the rest of the conversation state persists. This task isolates that durability seam instead of burying it inside the broader resume-identity tasks.
+
+#### Addresses Findings
+
+- `finding-9` - MCP replay safety depends on a process-local completed-inflight cache and is not durable across restart or eviction.
+
+#### Task Exit Criteria
+
+- Replay behavior for `codebase_question` remains idempotent even after the process-local cache is lost, evicted, or rebuilt, and the repaired seam is covered by durable automated proof.
+
+#### Subtasks
+
+1. [ ] Re-read the active and completed replay seams in `server/src/mcp2/tools/codebaseQuestion.ts` plus the current replay proof homes, then trace exactly which persisted state is already available and which replay contract is still process-local only.
+2. [ ] Update the MCP replay path so completed replay results or equivalent idempotent replay state survive process-local cache loss without redefining the caller-visible replay contract.
+3. [ ] Extend the replay proof homes so they cover cache-loss or restart-equivalent behavior rather than only same-process replay hits.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because it is the existing proof home for `codebase_question` replay semantics.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root when the repaired replay path needs websocket-backed persistence proof in addition to unit coverage.
+
+#### Implementation notes
+
+### Task 14. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 10, Task 11, Task 12, Task 13`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created final revalidation task for review cycle `0000057-rc-20260507T033249Z-a89766f6`.
+
+#### Overview
+
+This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260507T014045Z-e54d5640`, and it must also revalidate the inline-resolved minor fixes for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14` so the cycle does not split into a second final revalidation owner later.
+
+#### Addresses Findings
+
+- Revalidates the serious review-created findings block for `finding-1`, `finding-2`, `finding-3`, `finding-4`, `finding-6`, `finding-7`, `finding-8`, and `finding-9`.
+- Revalidates the inline-resolved minor fixes already recorded for `finding-5`, `finding-10`, `finding-11`, and `finding-14` in review cycle `0000057-rc-20260507T033249Z-a89766f6`.
+
+#### Task Exit Criteria
+
+- Every review-created repair task added for review pass `0000057-20260507T014045Z-e54d5640` is implemented, fully proved with the repository's wrapper-first workflow, and reflected honestly in the executable plan.
+- The same final revalidation pass also confirms the earlier inline minor fixes remain green on the affected proof surfaces, so this review cycle can close without a second final-task owner.
+
+#### Subtasks
+
+1. [ ] Re-read the review-created findings block, the active `review-disposition-state.json`, and the inline minor-fix audit entries before running final proof so the closing validation scope still matches review pass `0000057-20260507T014045Z-e54d5640` and review cycle `0000057-rc-20260507T033249Z-a89766f6`.
+2. [ ] Refresh any reviewer-facing close-out text that becomes stale after Tasks 10 through 13 land, but do not create a second review-cycle final-task owner or duplicate the existing inline minor-fix audit entries.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the review-created block includes startup/bootstrap and server runtime contract repairs that must still build cleanly in the supported compose path.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the serious review-created findings all touch server-owned route, MCP, or startup seams.
+3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because inline-resolved minor finding `finding-11` changed the shipped Agents UI affordance contract and must stay compatible with the final server/runtime repairs.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the serious review-created findings and the existing inline MCP or startup fixes all rely on server unit or integration proof homes.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because inline-resolved minor finding `finding-10` changed BDD step-role proof ownership and the serious repairs must not regress the supported higher-level server feature surface.
+6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because inline-resolved minor finding `finding-11` changed a browser-visible disabled-run affordance that still belongs to this review cycle's final proof.
+7. [ ] Run `npm run compose:up` from the repository root, then confirm `http://localhost:5010/health` and `http://localhost:5001` respond before the final close-out decision. Use this smoke step because finding `finding-6` is about default startup readiness rather than only isolated helper behavior.
+8. [ ] Run `npm run compose:down` from the repository root after the final compose-backed smoke step that Task 14 started.
+9. [ ] Run `npm run lint` from the repository root. Use this wrapper-free root command because the review-created repair block and inline-resolved client plus documentation fixes must end on one clean repository lint pass.
+10. [ ] Run `npm run format:check` from the repository root. Use this wrapper-free root command because the final review-cycle close-out must not leave formatting drift in either the new server repairs or the already-recorded inline minor proof homes.
+
+#### Manual Testing Guidance
+
+- If Tasks 10 through 13 change user-visible startup or continuation behavior beyond what the automated wrappers already prove, reuse the normal main stack (`npm run compose:build` then `npm run compose:up`) to spot-check one resumed `/chat` conversation, one resumed `codebase_question` conversation, and the disabled-agent `Execute Prompt` surface before closing the review cycle. Keep any retained artifacts under `codeInfoTmp/manual-testing/0000057/review-pass-0000057-20260507T014045Z-e54d5640/` and do not commit them.
+
+#### Implementation notes

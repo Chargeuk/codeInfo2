@@ -450,49 +450,45 @@ async function executeCodebaseQuestion(
       );
     }
   }
-  const savedConversationRequestedModel =
-    requestedModelArg === undefined &&
-    requestedProviderArg !== undefined &&
+  const savedConversationProvider =
     existingConversation !== null &&
-    existingConversation.provider === requestedProviderArg &&
+    (existingConversation.provider === 'codex' ||
+      existingConversation.provider === 'copilot' ||
+      existingConversation.provider === 'lmstudio')
+      ? existingConversation.provider
+      : undefined;
+  const savedConversationModel =
+    existingConversation !== null &&
     typeof existingConversation.model === 'string' &&
     existingConversation.model.trim().length > 0
       ? existingConversation.model.trim()
       : undefined;
+  const pinSavedConversationExecutionIdentity =
+    existingConversation !== null &&
+    savedConversationProvider !== undefined &&
+    savedConversationModel !== undefined;
   const resolvedDefaults = resolveChatDefaults({
-    requestProvider: requestedProviderArg as ChatDefaultProvider | undefined,
-    requestModel: requestedModelArg ?? savedConversationRequestedModel,
+    requestProvider:
+      pinSavedConversationExecutionIdentity
+        ? savedConversationProvider
+        : (requestedProviderArg as ChatDefaultProvider | undefined),
+    requestModel: pinSavedConversationExecutionIdentity
+      ? savedConversationModel
+      : requestedModelArg,
   });
 
-  const pinSavedConversationSelection =
-    requestedProviderArg === undefined &&
-    requestedModelArg === undefined &&
-    existingConversation !== null &&
-    existingConversation.provider === 'codex' &&
-    typeof existingConversation.model === 'string' &&
-    existingConversation.model.trim().length > 0;
-  const pinSavedConversationModel =
-    requestedModelArg === undefined &&
-    existingConversation !== null &&
-    typeof existingConversation.model === 'string' &&
-    existingConversation.model.trim().length > 0 &&
-    (pinSavedConversationSelection ||
-      (requestedProviderArg !== undefined &&
-        existingConversation.provider === requestedProviderArg));
-
-  const requestedProvider = pinSavedConversationSelection
-    ? (existingConversation!.provider as ChatDefaultProvider)
+  const requestedProvider = pinSavedConversationExecutionIdentity
+    ? savedConversationProvider
     : resolvedDefaults.provider;
   const codexRequestedDefaults =
     requestedProvider === 'codex' &&
-    requestedModelArg === undefined &&
-    !pinSavedConversationSelection
+    !pinSavedConversationExecutionIdentity
       ? await resolveCodexChatDefaults({
           codexHome: process.env.CODEX_HOME,
         })
       : undefined;
-  const requestedModel = pinSavedConversationModel
-    ? existingConversation!.model.trim()
+  const requestedModel = pinSavedConversationExecutionIdentity
+    ? savedConversationModel
     : requestedProvider === 'codex'
       ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
       : resolvedDefaults.model;
@@ -697,7 +693,7 @@ async function executeCodebaseQuestion(
   });
 
   if (
-    (explicitProviderSelected || pinSavedConversationSelection) &&
+    (explicitProviderSelected || pinSavedConversationExecutionIdentity) &&
     runtimeSelection.decision !== 'selected'
   ) {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
@@ -801,7 +797,7 @@ async function executeCodebaseQuestion(
       const { config } = await runtimeConfigResolver();
       chatRuntimeConfig = config as CodexOptions['config'];
       if (
-        pinSavedConversationSelection &&
+        pinSavedConversationExecutionIdentity &&
         isRecord(chatRuntimeConfig) &&
         chatRuntimeConfig.model !== executionModel
       ) {

@@ -1492,10 +1492,10 @@ The review found that the MCP `codebase_question` continuation seam still lets c
 
 #### Subtasks
 
-1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, move saved-conversation identity resolution ahead of `resolveChatDefaults()`, provider availability checks, and conversation-meta persistence so an existing conversation always reuses its stored provider-model pair on contradictory explicit follow-up input and on omitted-provider follow-up calls for saved non-Codex conversations.
-2. [ ] Keep fresh-conversation selection behavior unchanged while applying that saved-conversation repair: only existing conversations should pin to persisted provider-model identity, and new conversations must still use the normal request or default-provider selection path.
-3. [ ] Extend or split `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so one dedicated proof explicitly claims and asserts that contradictory explicit follow-up provider-model input cannot rewrite the saved execution identity for an existing conversation, including the caller-visible payload plus the persisted conversation metadata that later turns will read back; rename that proof if an adjacent omitted-provider or replay-oriented title would otherwise misdescribe the new invariant.
-4. [ ] Extend or split `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` so one dedicated websocket-backed proof explicitly claims and asserts that saved Copilot and saved LM Studio conversations pin omitted-provider follow-up calls to the stored execution identity in both streamed turn state and persisted conversation metadata rather than generic "provider parity", and rename any reused proof title that would otherwise hide that saved-identity contract.
+1. [x] In `server/src/mcp2/tools/codebaseQuestion.ts`, move saved-conversation identity resolution ahead of `resolveChatDefaults()`, provider availability checks, and conversation-meta persistence so an existing conversation always reuses its stored provider-model pair on contradictory explicit follow-up input and on omitted-provider follow-up calls for saved non-Codex conversations.
+2. [x] Keep fresh-conversation selection behavior unchanged while applying that saved-conversation repair: only existing conversations should pin to persisted provider-model identity, and new conversations must still use the normal request or default-provider selection path.
+3. [x] Extend or split `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so one dedicated proof explicitly claims and asserts that contradictory explicit follow-up provider-model input cannot rewrite the saved execution identity for an existing conversation, including the caller-visible payload plus the persisted conversation metadata that later turns will read back; rename that proof if an adjacent omitted-provider or replay-oriented title would otherwise misdescribe the new invariant.
+4. [x] Extend or split `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` so one dedicated websocket-backed proof explicitly claims and asserts that saved Copilot and saved LM Studio conversations pin omitted-provider follow-up calls to the stored execution identity in both streamed turn state and persisted conversation metadata rather than generic "provider parity", and rename any reused proof title that would otherwise hide that saved-identity contract.
 
 #### Testing
 
@@ -1503,6 +1503,11 @@ The review found that the MCP `codebase_question` continuation seam still lets c
 2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` from the repository root. Use this targeted wrapper because the review findings also require the websocket-backed persisted-conversation path to stay pinned across real streamed runs.
 
 #### Implementation notes
+
+- Repaired `server/src/mcp2/tools/codebaseQuestion.ts` so an existing MCP conversation with a persisted provider-model pair now pins selection to that saved execution identity before `resolveChatDefaults()`, provider availability evaluation, Codex default-model repair, or conversation-meta persistence can consume contradictory follow-up input.
+- Kept fresh-conversation behavior unchanged by applying the new pinning branch only when a saved conversation already has a valid stored provider-model pair; new conversations still flow through the normal request/default-provider selection path.
+- Added a dedicated unit proof in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` that an existing saved LM Studio conversation ignores contradictory explicit Copilot follow-up input and keeps the caller-visible payload plus persisted conversation metadata pinned to the saved execution identity.
+- Added a dedicated websocket-backed proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` that saved Copilot and saved LM Studio conversations pin omitted-provider follow-up calls to the stored execution identity in both streamed turn completion and persisted memory-conversation state, instead of relying on the older generic provider-parity coverage.
 
 ### Task 11. Repair `/chat` resumed execution identity and lock-order mutation boundaries
 

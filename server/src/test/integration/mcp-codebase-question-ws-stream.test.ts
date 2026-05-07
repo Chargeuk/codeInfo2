@@ -238,6 +238,32 @@ class CapturingCodexMcpChat extends ChatInterface {
   }
 }
 
+class CapturingPinnedConversationChat extends ChatInterface {
+  constructor(
+    private readonly calls: Array<{
+      flags: Record<string, unknown>;
+      conversationId: string;
+      model: string;
+    }>,
+    private readonly finalContent: string,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ) {
+    void _message;
+    this.calls.push({ flags, conversationId, model });
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: this.finalContent });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 class RepositoryScopedLmStudioChat extends ChatInterface {
   constructor(
     private readonly repositorySelector: string,
@@ -1737,6 +1763,160 @@ test('MCP codebase_question keeps Copilot provider parity after startup re-norma
     await new Promise<void>((resolve) => mcpServer.close(() => resolve()));
     resetToolDeps();
     await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('saved Copilot and LM Studio conversations pin omitted-provider follow-up calls to the stored execution identity on the streamed websocket path', async () => {
+  resetStore();
+  const cases = [
+    {
+      conversationId: 'mcp-ws-saved-copilot-follow-up',
+      provider: 'copilot' as const,
+      model: 'copilot-gpt-5',
+      finalContent: 'Saved Copilot follow-up answer',
+      deps: {
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['copilot-gpt-5'],
+          modelsRaw: [],
+          authSource: 'env-token',
+        }),
+      },
+    },
+    {
+      conversationId: 'mcp-ws-saved-lmstudio-follow-up',
+      provider: 'lmstudio' as const,
+      model: 'huihui-qwen3.5-9b-abliterated',
+      finalContent: 'Saved LM Studio follow-up answer',
+      deps: {},
+    },
+  ];
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+
+  try {
+    for (const testCase of cases) {
+      const calls: Array<{
+        flags: Record<string, unknown>;
+        conversationId: string;
+        model: string;
+      }> = [];
+      setMemoryConversation({
+        _id: testCase.conversationId,
+        provider: testCase.provider,
+        model: testCase.model,
+        title: `Saved ${testCase.provider} follow-up conversation`,
+        source: 'MCP',
+        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+        createdAt: new Date('2025-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+        archivedAt: null,
+        flags: {
+          workingFolder: '/data/story55-manual-proof/queued-repo',
+        },
+      } as never);
+
+      setToolDeps({
+        chatFactory: () =>
+          new CapturingPinnedConversationChat(calls, testCase.finalContent),
+        clientFactory: makeLmStudioClientFactory(),
+        ...testCase.deps,
+      });
+
+      const ws = await connectWs({ baseUrl });
+      try {
+        sendJson(ws, {
+          type: 'subscribe_conversation',
+          conversationId: testCase.conversationId,
+        });
+
+        const toolCallPromise = postJson(mcpAddr.port, {
+          jsonrpc: '2.0',
+          id: testCase.conversationId,
+          method: 'tools/call',
+          params: {
+            name: 'codebase_question',
+            arguments: {
+              question: `Reuse the saved ${testCase.provider} execution identity`,
+              conversationId: testCase.conversationId,
+            },
+          },
+        });
+
+        const final = await waitForEvent({
+          ws,
+          predicate: (
+            event: unknown,
+          ): event is { type: string; status: string } => {
+            const e = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              e.type === 'turn_final' &&
+              e.conversationId === testCase.conversationId
+            );
+          },
+          timeoutMs: 5000,
+        });
+        assert.equal(final.status, 'ok');
+
+        const response = await toolCallPromise;
+        assert.ok(
+          (response as { result?: unknown }).result,
+          JSON.stringify({ response, calls }, null, 2),
+        );
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0]?.conversationId, testCase.conversationId);
+        assert.equal(calls[0]?.flags.provider, testCase.provider);
+        assert.equal(calls[0]?.model, testCase.model);
+
+        const payload = JSON.parse(
+          (response as { result: { content: Array<{ text: string }> } }).result
+            .content[0].text,
+        );
+        assert.equal(payload.conversationId, testCase.conversationId);
+        assert.equal(payload.modelId, testCase.model);
+        assert.equal(
+          memoryConversations.get(testCase.conversationId)?.provider,
+          testCase.provider,
+        );
+        assert.equal(
+          memoryConversations.get(testCase.conversationId)?.model,
+          testCase.model,
+        );
+
+        const persistedTurns = getMemoryTurns(testCase.conversationId);
+        const assistantTurn = persistedTurns.find(
+          (turn) => turn.role === 'assistant',
+        );
+        assert.ok(assistantTurn);
+        assert.equal(assistantTurn?.status, 'ok');
+        assert.equal(assistantTurn?.model, testCase.model);
+      } finally {
+        deleteMemoryConversation(testCase.conversationId);
+        memoryTurns.delete(testCase.conversationId);
+        await closeWs(ws);
+        resetToolDeps();
+      }
+    }
+  } finally {
+    await wsHandle.close();
+    await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
+    await new Promise<void>((resolve) => mcpServer.close(() => resolve()));
+    resetToolDeps();
   }
 });
 

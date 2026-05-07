@@ -151,6 +151,32 @@ class MockCodex {
   }
 }
 
+class CapturingSelectionChat extends ChatInterface {
+  constructor(
+    private readonly calls: Array<{
+      flags: Record<string, unknown>;
+      conversationId: string;
+      model: string;
+    }>,
+    private readonly finalContent: string,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ) {
+    void _message;
+    this.calls.push({ flags, conversationId, model });
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: this.finalContent });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 class BlockingReplayThread {
   id: string;
   private answerText: string;
@@ -1584,6 +1610,110 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
       delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
     else process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
     await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
+test('codebase_question keeps the saved execution identity authoritative over contradictory follow-up provider-model input', async () => {
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  resetStore();
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const conversationId = 'saved-lmstudio-identity-pin';
+  const savedModel = 'saved-lmstudio-model';
+
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'gpt-5.1-codex-max';
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: savedModel,
+    title: 'Saved LM Studio identity pin conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {
+      workingFolder: '/data/story55-manual-proof/queued-repo',
+    },
+  } as Conversation);
+
+  setToolDeps({
+    chatFactory: () =>
+      new CapturingSelectionChat(
+        calls,
+        'Saved LM Studio identity stayed authoritative',
+      ),
+    clientFactory: makeLmStudioClientFactory(),
+    copilotReadinessResolver: async () => ({
+      available: false,
+      toolsAvailable: true,
+      blockingStage: 'connectivity',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+      reason: 'copilot unavailable for contradictory request',
+    }),
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 133,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'Ignore the contradictory follow-up identity',
+          conversationId,
+          provider: 'copilot',
+          model: 'copilot-contradictory-model',
+        },
+      },
+    });
+
+    assert.ok((response as { result?: unknown }).result);
+    assert.equal(calls.length, 1, JSON.stringify({ response, calls }, null, 2));
+    assert.equal(calls[0]?.conversationId, conversationId);
+    assert.equal(calls[0]?.model, savedModel);
+    assert.equal(calls[0]?.flags.provider, 'lmstudio');
+    const payload = JSON.parse(
+      (response as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+    assert.equal(payload.conversationId, conversationId);
+    assert.equal(payload.modelId, savedModel);
+    assert.equal(
+      memoryConversations.get(conversationId)?.provider,
+      'lmstudio',
+    );
+    assert.equal(memoryConversations.get(conversationId)?.model, savedModel);
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalDefaultModel === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    }
+    resetToolDeps();
     server.closeAllConnections();
     await new Promise<void>((resolve) => {
       server.close(() => resolve());

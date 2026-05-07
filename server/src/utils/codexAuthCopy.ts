@@ -9,8 +9,8 @@ type Params = {
 };
 
 /**
- * Copy Codex auth.json from a mounted host path into the container Codex home
- * when the container auth is missing. Never overwrites existing container auth.
+ * Enforce one supported Codex auth authority for the main stack.
+ * A direct writable home mount is supported; split host/container auth homes are not.
  */
 export function ensureCodexAuthFromHost({
   containerHome,
@@ -19,34 +19,63 @@ export function ensureCodexAuthFromHost({
 }: Params): void {
   const containerAuthPath = path.join(containerHome, 'auth.json');
   const hostAuthPath = path.join(hostHome, 'auth.json');
+  const containerAuthExists = fs.existsSync(containerAuthPath);
+  const hostMountExists = fs.existsSync(hostHome);
+  const hostAuthExists = fs.existsSync(hostAuthPath);
+  const sharedHome = path.resolve(containerHome) === path.resolve(hostHome);
 
-  if (fs.existsSync(containerAuthPath)) {
-    logger?.info(
+  if (sharedHome) {
+    if (containerAuthExists) {
+      logger?.info(
+        { containerAuthPath },
+        'Codex auth authority uses the shared runtime home',
+      );
+      return;
+    }
+
+    logger?.warn(
       { containerAuthPath },
-      'Codex auth present; skipping host copy',
+      'Shared Codex runtime home is missing auth.json; reauthenticate the mounted host home',
     );
     return;
   }
 
-  if (!fs.existsSync(hostAuthPath)) {
+  if (!hostMountExists) {
+    if (containerAuthExists) {
+      logger?.info(
+        { containerAuthPath },
+        'Codex auth already present in runtime home; no host auth mount configured',
+      );
+      return;
+    }
+
     logger?.info(
-      { hostAuthPath },
-      'Host Codex auth not found; nothing to copy',
+      { hostHome, containerAuthPath },
+      'No Codex auth mount configured; runtime remains unavailable until auth.json exists in the mounted Codex home',
     );
     return;
   }
 
-  try {
-    fs.mkdirSync(containerHome, { recursive: true });
-    fs.copyFileSync(hostAuthPath, containerAuthPath);
+  if (!hostAuthExists && !containerAuthExists) {
     logger?.info(
       { hostAuthPath, containerAuthPath },
-      'Copied host Codex auth into container Codex home',
+      'No Codex auth found in either split home; runtime remains unavailable until the mounted host home is reauthenticated',
     );
-  } catch (err) {
-    logger?.warn(
-      { hostAuthPath, containerAuthPath, err },
-      'Failed to copy host Codex auth into container Codex home',
-    );
+    return;
   }
+
+  const guidance =
+    'Unsupported split Codex auth authority detected. Mount CODEINFO_HOST_CODEX_HOME directly at CODEX_HOME (/app/codex), reauthenticate that host home, and restart the main stack instead of relying on copied auth.json state.';
+  logger?.error(
+    {
+      containerHome,
+      hostHome,
+      containerAuthPath,
+      hostAuthPath,
+      containerAuthExists,
+      hostAuthExists,
+    },
+    guidance,
+  );
+  throw new Error(guidance);
 }

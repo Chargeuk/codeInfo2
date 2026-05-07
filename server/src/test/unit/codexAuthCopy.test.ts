@@ -27,38 +27,54 @@ function makeTempDir(prefix: string) {
   return dir;
 }
 
-test('copies host auth when container auth is missing', () => {
+test('accepts shared runtime auth when auth.json is already present', () => {
   const containerHome = makeTempDir('codex-container-');
-  const hostHome = makeTempDir('codex-host-');
-  const hostAuth = path.join(hostHome, 'auth.json');
-  fs.writeFileSync(hostAuth, '{"token":"host"}');
+  const sharedAuth = path.join(containerHome, 'auth.json');
+  fs.writeFileSync(sharedAuth, '{"token":"shared"}');
 
-  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+  ensureCodexAuthFromHost({
+    containerHome,
+    hostHome: containerHome,
+    logger,
+  });
 
-  const containerAuth = path.join(containerHome, 'auth.json');
-  assert.ok(fs.existsSync(containerAuth));
-  assert.equal(fs.readFileSync(containerAuth, 'utf8'), '{"token":"host"}');
+  assert.equal(fs.readFileSync(sharedAuth, 'utf8'), '{"token":"shared"}');
 });
 
-test('does not overwrite existing container auth', () => {
+test('accepts runtime auth when no separate host mount is configured', () => {
   const containerHome = makeTempDir('codex-container-');
-  const hostHome = makeTempDir('codex-host-');
   const containerAuth = path.join(containerHome, 'auth.json');
-  const hostAuth = path.join(hostHome, 'auth.json');
   fs.writeFileSync(containerAuth, '{"token":"container"}');
-  fs.writeFileSync(hostAuth, '{"token":"host"}');
 
-  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+  ensureCodexAuthFromHost({
+    containerHome,
+    hostHome: path.join(containerHome, 'missing-host-mount'),
+    logger,
+  });
 
   assert.equal(fs.readFileSync(containerAuth, 'utf8'), '{"token":"container"}');
 });
 
-test('skips when host auth is missing', () => {
+test('returns quietly when auth is missing everywhere', () => {
   const containerHome = makeTempDir('codex-container-');
-  const hostHome = makeTempDir('codex-host-');
 
-  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+  ensureCodexAuthFromHost({
+    containerHome,
+    hostHome: path.join(containerHome, 'missing-host-mount'),
+    logger,
+  });
 
   const containerAuth = path.join(containerHome, 'auth.json');
   assert.ok(!fs.existsSync(containerAuth));
+});
+
+test('fails fast when split host and container auth authorities are present', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+
+  assert.throws(
+    () => ensureCodexAuthFromHost({ containerHome, hostHome, logger }),
+    /Unsupported split Codex auth authority detected/,
+  );
 });

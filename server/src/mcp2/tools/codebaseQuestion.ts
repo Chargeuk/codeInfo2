@@ -440,11 +440,6 @@ async function executeCodebaseQuestion(
       ? parsed.model.trim()
       : undefined;
   const explicitProviderSelected = requestedProviderArg !== undefined;
-  const resolvedDefaults = resolveChatDefaults({
-    requestProvider: requestedProviderArg as ChatDefaultProvider | undefined,
-    requestModel: requestedModelArg,
-  });
-
   const existingConversation = conversationId
     ? await getConversation(conversationId)
     : null;
@@ -455,6 +450,19 @@ async function executeCodebaseQuestion(
       );
     }
   }
+  const savedConversationRequestedModel =
+    requestedModelArg === undefined &&
+    requestedProviderArg !== undefined &&
+    existingConversation !== null &&
+    existingConversation.provider === requestedProviderArg &&
+    typeof existingConversation.model === 'string' &&
+    existingConversation.model.trim().length > 0
+      ? existingConversation.model.trim()
+      : undefined;
+  const resolvedDefaults = resolveChatDefaults({
+    requestProvider: requestedProviderArg as ChatDefaultProvider | undefined,
+    requestModel: requestedModelArg ?? savedConversationRequestedModel,
+  });
 
   const pinSavedConversationSelection =
     requestedProviderArg === undefined &&
@@ -463,6 +471,14 @@ async function executeCodebaseQuestion(
     existingConversation.provider === 'codex' &&
     typeof existingConversation.model === 'string' &&
     existingConversation.model.trim().length > 0;
+  const pinSavedConversationModel =
+    requestedModelArg === undefined &&
+    existingConversation !== null &&
+    typeof existingConversation.model === 'string' &&
+    existingConversation.model.trim().length > 0 &&
+    (pinSavedConversationSelection ||
+      (requestedProviderArg !== undefined &&
+        existingConversation.provider === requestedProviderArg));
 
   const requestedProvider = pinSavedConversationSelection
     ? (existingConversation!.provider as ChatDefaultProvider)
@@ -475,7 +491,7 @@ async function executeCodebaseQuestion(
           codexHome: process.env.CODEX_HOME,
         })
       : undefined;
-  const requestedModel = pinSavedConversationSelection
+  const requestedModel = pinSavedConversationModel
     ? existingConversation!.model.trim()
     : requestedProvider === 'codex'
       ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)

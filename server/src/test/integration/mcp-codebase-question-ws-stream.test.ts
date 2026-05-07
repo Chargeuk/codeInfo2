@@ -247,6 +247,14 @@ class RepositoryScopedLmStudioChat extends ChatInterface {
       hostPath: string;
       modelId: string;
     }>,
+    private readonly options?: {
+      expectedModel?: string;
+      calls?: Array<{
+        flags: Record<string, unknown>;
+        conversationId: string;
+        model: string;
+      }>;
+    },
   ) {
     super();
   }
@@ -257,7 +265,10 @@ class RepositoryScopedLmStudioChat extends ChatInterface {
     conversationId: string,
     model: string,
   ) {
-    void model;
+    this.options?.calls?.push({ flags, conversationId, model });
+    if (this.options?.expectedModel && model !== this.options.expectedModel) {
+      throw new Error(`Cannot find a model with path "${model}"`);
+    }
     const { tools } = createLmStudioTools({
       repositoryContext: (flags as { repositoryContext?: unknown })
         .repositoryContext as never,
@@ -819,6 +830,16 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
       },
     });
 
+    const response = await toolCallPromise;
+    assert.ok(
+      (response as { result?: unknown }).result,
+      JSON.stringify(response, null, 2),
+    );
+    const payload = JSON.parse(
+      (response as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+
     const final = await waitForEvent({
       ws,
       predicate: (
@@ -838,15 +859,154 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
       timeoutMs: 5000,
     });
     assert.equal(final.status, 'ok');
+    assert.equal(payload.conversationId, conversationId);
+    assert.equal(payload.segments[0]?.text, repoId);
+  } finally {
+    deleteMemoryConversation(conversationId);
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    if (originalHostIngestDir === undefined) {
+      delete process.env.CODEINFO_HOST_INGEST_DIR;
+    } else {
+      process.env.CODEINFO_HOST_INGEST_DIR = originalHostIngestDir;
+    }
+    await closeWs(ws);
+    await wsHandle.close();
+    resetToolDeps();
+    mcpServer.close();
+    wsHttp.close();
+  }
+});
+
+test('story57 explicit-provider LM Studio MCP codebase_question reuses the saved conversation model when model is omitted', async () => {
+  resetStore();
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
+
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const advertisedHostPath =
+    '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const mountedPath = '/data/story55-manual-proof/queued-repo';
+  const repoId = advertisedHostPath;
+  const savedModel = 'huihui-qwen3.5-9b-abliterated';
+
+  setToolDeps({
+    chatFactory: () =>
+      new RepositoryScopedLmStudioChat(
+        mountedPath,
+        [
+          {
+            id: repoId,
+            containerPath: mountedPath,
+            hostPath: advertisedHostPath,
+            modelId: 'text-embedding-nomic-embed-text-v1.5',
+          },
+        ],
+        {
+          calls,
+        },
+      ),
+    clientFactory: makeLmStudioClientFactory(),
+    listIngestedRepositoriesFn: async () => ({
+      repos: [
+        {
+          id: repoId,
+          description: null,
+          containerPath: mountedPath,
+          hostPath: advertisedHostPath,
+          lastIngestAt: null,
+          embeddingProvider: 'lmstudio',
+          embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+          embeddingDimensions: 768,
+          modelId: 'text-embedding-nomic-embed-text-v1.5',
+          counts: { files: 0, chunks: 0, embedded: 0 },
+          lastError: null,
+        },
+      ],
+      lockedModelId: null,
+    }),
+  });
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+  const conversationId = 'mcp-ws-runtime-mounted-selector-saved-model';
+  setMemoryConversation({
+    _id: conversationId,
+    provider: 'lmstudio',
+    model: savedModel,
+    title: 'Mounted selector saved-model conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: { workingFolder: mountedPath },
+  } as never);
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const toolCallPromise = postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 107,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question:
+            'Using only the selected repository, what is the exact string assigned to manualProof in src/index.ts?',
+          conversationId,
+          provider: 'lmstudio',
+        },
+      },
+    });
 
     const response = await toolCallPromise;
-    assert.ok((response as { result?: unknown }).result);
+    assert.equal(calls.length, 1, JSON.stringify({ response, calls }, null, 2));
+    assert.equal(
+      calls[0]?.model,
+      savedModel,
+      JSON.stringify({ response, calls }, null, 2),
+    );
+    assert.ok(
+      (response as { result?: unknown }).result,
+      JSON.stringify({ response, calls }, null, 2),
+    );
     const payload = JSON.parse(
       (response as { result: { content: Array<{ text: string }> } }).result
         .content[0].text,
     );
+    assert.equal(calls[0]?.conversationId, conversationId);
     assert.equal(payload.conversationId, conversationId);
+    assert.equal(payload.modelId, savedModel);
     assert.equal(payload.segments[0]?.text, repoId);
+    assert.equal(memoryConversations.get(conversationId)?.model, savedModel);
+
+    const persistedTurns = getMemoryTurns(conversationId);
+    const assistantTurn = persistedTurns.find(
+      (turn) => turn.role === 'assistant',
+    );
+    assert.ok(assistantTurn);
+    assert.equal(assistantTurn?.status, 'ok');
+    assert.equal(assistantTurn?.model, savedModel);
   } finally {
     deleteMemoryConversation(conversationId);
     if (originalWorkdir === undefined) {

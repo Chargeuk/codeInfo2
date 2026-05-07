@@ -552,7 +552,7 @@ Then('ingest delta mongo should be disconnected', () => {
   assert.equal(isMongoConnected(), false);
 });
 
-Then('I remember the ingest delta runId', () => {
+When('I remember the ingest delta runId', () => {
   assert(lastRunId, 'runId missing');
   rememberedRunId = lastRunId;
 });
@@ -597,7 +597,7 @@ Then(
   },
 );
 
-Then(
+When(
   'I remember ingest delta AST coverage timestamp for the delta repo',
   async () => {
     assert(tempDir, 'temp dir missing');

@@ -122,7 +122,7 @@ Feature: Ingest delta re-embed
     And ingest delta temp repo with file "docs/guide.md" containing "# Guide"
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
-    And I remember ingest delta AST coverage timestamp for the delta repo
+    When I remember ingest delta AST coverage timestamp for the delta repo
     When I change ingest delta temp file "docs/guide.md" to "# Guide\n\nUpdated"
     And I POST ingest reembed for the delta repo
     Then ingest delta status for the last run becomes "completed"
@@ -135,7 +135,7 @@ Feature: Ingest delta re-embed
     And ingest delta temp repo with file "src/other.ts" containing "export const other=1;"
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
-    And I remember ingest delta AST coverage timestamp for the delta repo
+    When I remember ingest delta AST coverage timestamp for the delta repo
     When I delete ingest delta temp file "src/other.ts"
     And I POST ingest reembed for the delta repo
     Then ingest delta status for the last run becomes "completed"
@@ -167,7 +167,7 @@ Feature: Ingest delta re-embed
     Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
-    And I remember the ingest delta runId
+    When I remember the ingest delta runId
     When I delete all ingest_files rows for the delta repo root
     And I POST ingest reembed for the delta repo
     Then ingest delta status for the last run becomes "completed"

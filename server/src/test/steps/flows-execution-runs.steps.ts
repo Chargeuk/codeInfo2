@@ -290,14 +290,14 @@ Then('the flow execution response status code is {int}', (status: number) => {
   assert.equal(lastResponse.status, status);
 });
 
-Then('I remember the started conversation as {string}', (key: string) => {
+When('I remember the started conversation as {string}', (key: string) => {
   assert(lastResponse, 'expected flow execution response');
   const conversationId = lastResponse.body.conversationId;
   assert.equal(typeof conversationId, 'string');
   rememberedConversationIds.set(key, conversationId as string);
 });
 
-Then(
+When(
   'the stored flow execution id for {string} is recorded as {string}',
   async (conversationKey: string, executionKey: string) => {
     const conversationId = rememberedConversationIds.get(conversationKey);

@@ -1681,7 +1681,7 @@ The review found that MCP replay safety still depends on a process-local complet
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 10, Task 11, Task 12, Task 13`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260507T033249Z-a89766f6`.
 

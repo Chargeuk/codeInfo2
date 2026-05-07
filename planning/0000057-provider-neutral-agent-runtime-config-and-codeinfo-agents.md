@@ -630,7 +630,7 @@ This story also changes stateful behavior for selected agents and resumed conver
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -707,6 +707,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 - Automated proof: `npm run test:summary:server:cucumber` passed cleanly with 117 passing scenarios after the Task 1 runtime-layering repairs, so the existing server feature surface still survives the bootstrap and config precedence changes.
 - Automated proof: final `npm run lint` exited cleanly after the Task 1 repairs, and `npm run format:check` reported `All matched files use Prettier code style!`, leaving the Task 1 proof surface lint- and format-clean for audit.
 - Manual proof: task-scoped validation used the story-preferred main compose path (`npm run compose:build`, `npm run compose:up`, `npm run compose:down`) from a stopped main-stack state, proved `/health` and `/chat/providers` responded on the fresh runtime, confirmed `/app/copilot/config.toml` plus `/app/lmstudio/config.toml` were bootstrapped inside the running server, and verified the repo still did not auto-create `codeinfo_config/` before or after shutdown; scratch artifacts were saved under `codeInfoTmp/manual-testing/0000057/1/` (`support-health.json`, `support-providers.json`, `support-bootstrap-files.txt`, `support-codeinfo-config-state.txt`, `support-codeinfo-config-post-shutdown.txt`, `support-running-after-down.txt`), no browser screenshots were needed because Task 1's acceptance-relevant surface is startup and network-visible rather than browser-visible, and no follow-up subtasks were required.
+- Planner normalization closed Task 1 as `__done__` because the current plan still had it marked `__in_progress__` even though every subtask, testing gate, and manual proof note on disk was already complete with no live `**BLOCKER**`.
 
 ### Task 2. Introduce the neutral agent-home and `codeinfo_agents` precedence helper
 
@@ -793,6 +794,7 @@ This task replaces the remaining hardcoded `CODEINFO_CODEX_AGENT_HOME` and `code
 - Re-ran `npm run lint` after the packaged-runtime repair; ESLint exited cleanly with no remaining warnings or errors across the Task 2 files.
 - Re-ran `npm run format:check` after a one-file Prettier repair on `server/src/test/unit/copilot-compose-contract.test.ts`; the first check flagged that file, `npm run format -- server/src/test/unit/copilot-compose-contract.test.ts` rewrote it through the repo formatter, and the full rerun finished with `All matched files use Prettier code style!`.
 - Manual testing reran as a task-scoped pass against the documented main compose stack after restarting instead of reusing the stale local overlay, and startup plus shutdown remained healthy through `npm run compose:build`, `npm run compose:up`, and the later `npm run compose:down`. I proved the Task 2 warning contract on the owned surfaces by saving `/health`, `/agents`, and `/flows` evidence under `codeInfoTmp/manual-testing/0000057/2/`, then selecting `planning_agent` on `http://localhost:5001/agents` and opening the existing agent-info popover to confirm the duplicate `codeinfo_agents` versus `codex_agents` warning is visible there as well. Browser console inspection found no warning or error messages, browser network inspection found no failed requests, and I saved those text artifacts alongside the API captures in `codeInfoTmp/manual-testing/0000057/2/`; Playwright also captured the visible warning state with staging filename `manual-testing/0000057/2/proof-01-agents-warning.png`, but the MCP output root was not host-visible from this session so that screenshot could not be transferred into the target scratch folder even though the image was reviewed live during proof. No additional subtasks or testing reopeners were needed, so Task 2 remains `__done__`.
+- Planner normalization closed Task 2 as `__done__` because the task section on disk already had every subtask, testing gate, and manual-proof note complete with no live `**BLOCKER**`, leaving the lingering `__in_progress__` status as stale structure rather than honest remaining work.
 
 ### Task 3. Resolve one shared repository execution context for chat and `code_info`
 
@@ -1681,7 +1683,7 @@ The review found that MCP replay safety still depends on a process-local complet
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 13`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Planner-created prerequisite from the former final revalidation owner after Task 15's `**BLOCKING ANSWER**` proved the main-stack failure is a runtime-auth baseline seam rather than another product-code defect.
 
@@ -1742,6 +1744,7 @@ The final review task is now blocked before its own continuation seams execute: 
 - Ran `npm run compose:build:summary` cleanly with `items passed: 2`, `items failed: 0`, `agent_action: skip_log`, and the expected `DEV-0000050:T10:image_runtime_assets_baked` marker, confirming the checked-in Compose stack now bakes the repaired single-home Codex auth contract without reopening image-runtime asset regressions.
 - Automated-proof audit confirmed all Task 14 subtasks and testing gates are complete with no live `**BLOCKER**`, so planner normalization closes this prerequisite owner as `__done__` before the story returns to Task 15's final revalidation pass.
 - **BLOCKER** Task-scoped manual testing restarted the checked-in main stack from a prior stopped state (`npm run compose:down`, `npm run compose:build`, `npm run compose:up`) and reran the one required repository-backed `codebase_question` proof on `/data/story55-manual-proof/queued-repo`, but the very first Codex turn failed before Task 14's saved-conversation seam could execute: `support-mcp-first-response.json` and `support-turns-after-first.json` show `Codex Exec exited with code 1: Error loading config.toml: invalid type: map, expected a string in notice.model_migrations.gpt-5`, while the saved summary still kept the expected Codex provider, model, and `workingFolder`. I re-read the task requirements, checked the live `codeinfo2-server-1` logs, and captured `support-codex-config.txt`, which shows the mounted `/app/codex/config.toml` root file contains `[notice.model_migrations]` from the host-backed Codex home even though `/app/codex/chat/config.toml` stayed on the checked-in runtime contract. That leaves this pass blocked on an external runtime baseline or host Codex-home config repair rather than another concrete Task 14 product-code change, so `npm run compose:build:summary` is reopened and later manual retest must wait for that mounted config authority to become compatible with the live Codex CLI again.
+- Planner normalization reopened Task 14 to `__in_progress__` because the manual-proof blocker invalidated the earlier closeout: `npm run compose:build:summary` is now honestly unchecked again, the live `**BLOCKER**` remains active, and Task 15 cannot continue until this runtime-baseline seam is resolved or re-owned.
 
 ### Task 15. Revalidate review pass `0000057-20260507T014045Z-e54d5640` serious fixes and inline minor resolutions
 

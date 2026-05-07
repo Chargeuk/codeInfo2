@@ -26,7 +26,7 @@ Task-to-proof map:
 Final validation status:
 
 - Task 8 implementation and its task-owned proof are complete on this branch.
-- Task 9 is the remaining close-out owner. Final wrapper-first story validation, compose smoke, and durable manual-proof promotion still belong to the executable plan and are not duplicated here.
+- Task 9 close-out is also complete on this branch. The executable plan now records all wrapper-first validation, compose smoke, and durable manual-proof ownership as finished, so this summary is purely a reviewer-facing traceability artifact rather than an open work tracker.
 
 Scope guardrails kept intact:
 

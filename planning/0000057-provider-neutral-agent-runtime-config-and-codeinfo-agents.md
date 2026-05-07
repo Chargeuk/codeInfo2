@@ -1577,8 +1577,9 @@ The review found that the default startup path still launches provider bootstrap
 #### Subtasks
 
 1. [ ] Patch the default launcher seam in `server/src/index.ts` so first-request provider traffic cannot start before `ensureAllProviderChatConfigsBootstrapped()` finishes, and patch the related writer seams in `server/src/config/copilotConfig.ts` and `server/src/config/runtimeConfig.ts` so provider base config, provider chat config, and Copilot managed settings no longer clobber newer config after a stale read or missing-state check.
-2. [ ] Extend `server/src/test/unit/runtimeConfig.test.ts` and `server/src/test/unit/copilotConfig.test.ts` with awaited-startup and no-clobber writer proofs that explicitly cover provider base config, provider chat config, and Copilot managed settings.
-3. [ ] Add or update one default-path launcher proof home, such as `server/src/test/unit/host-network-compose-contract.test.ts`, so the awaited bootstrap contract is proven reachable through the normal checked-in launcher path rather than only through isolated helper calls.
+2. [ ] Extend `server/src/test/unit/runtimeConfig.test.ts` with proofs that the default startup path waits for bootstrap completion and that the provider chat-config writer does not replace a newer config after the initial missing-state check.
+3. [ ] Extend `server/src/test/unit/copilotConfig.test.ts` with proofs that the provider base-config writer and the Copilot managed-settings normalization path do not clobber newer config after a stale read or existence check.
+4. [ ] Add or update one default-path launcher proof home, such as `server/src/test/unit/host-network-compose-contract.test.ts`, so the awaited bootstrap contract is proven reachable through the normal checked-in launcher path rather than only through isolated helper calls.
 
 #### Testing
 
@@ -1619,7 +1620,8 @@ The review found that MCP replay safety still depends on a process-local complet
 #### Subtasks
 
 1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts` and the adjacent conversation or turn persistence seam it already uses, patch replay reconstruction so a completed `codebase_question` replay can be served after the process-local cache is cleared without redefining the caller-visible JSON-RPC replay contract or `replayId` semantics; if the current persisted seams are insufficient, keep the change to the smallest bounded persistence extension needed for that restart-equivalent path.
-2. [ ] Extend `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and any needed websocket proof home with a cache-clear or restart-equivalent scenario that proves completed replay still returns the same logical result after the in-process cache is gone.
+2. [ ] Extend `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` with a cache-clear or restart-equivalent proof that a completed replay keeps the same caller-visible logical result and `replayId` semantics after the in-process cache is gone.
+3. [ ] Extend `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` when the repaired replay path depends on persisted conversation or turn state outside the unit seam, so the websocket-backed proof also shows completed replay survives the same cache-clear boundary.
 
 #### Testing
 

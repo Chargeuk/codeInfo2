@@ -45,6 +45,8 @@ The user's chosen scope for this story is intentionally config-driven. This stor
 
 This story also changes stateful behavior for selected agents and resumed conversations. Opening an existing conversation keeps that conversation pinned to its stored execution identity even if the user has since selected a different agent or the underlying agent config has changed. Starting a fresh conversation reevaluates the current agent config, provider availability, and fallback rules from scratch. If the currently selected agent has no usable provider, the selected-agent details surface should show the warning and disabled state clearly, and the run-start path must not submit stale hidden state from an older runnable selection.
 
+Provider authentication in this product is controlled by external systems and may become stale or missing outside the app's direct control. For that reason, local provider-auth detection is advisory only. A user's explicit login or reauthentication request is authoritative: the shipped product should expose a supported recovery path and continue into the provider login flow when asked, even if the runtime currently appears already authenticated. When the provider already emits human-readable device-auth instructions, the shipped UI should prefer showing the verification URL and raw provider CLI output instead of depending on brittle app-side parsing of a one-time code.
+
 ### Acceptance Criteria
 
 - The runtime supports a repo-level base runtime config at `codeinfo_config/config.toml`.
@@ -136,6 +138,12 @@ This story also changes stateful behavior for selected agents and resumed conver
 - If `code_info` executes on Copilot or LM Studio, it receives equivalent repository context needed to answer local-repository questions through provider-appropriate runtime wiring, tools, or both.
 - Omitting `provider` from `code_info` must not degrade repository-local questions into a non-grounded fallback path when the repository is available to the harness.
 - If resume-time request state ever contradicts the stored conversation execution identity, the stored provider, model, and `agentName` remain authoritative; contradictory client-visible state must be ignored for execution and may only surface as logging or warning context.
+- Local provider-auth detection is advisory only and must not be treated as the final authority over whether a supported login flow may start.
+- If a user explicitly requests provider authentication or reauthentication, the server continues into the supported provider login flow even when the runtime currently appears already authenticated.
+- Chat and agent surfaces expose the shipped reauthentication action whenever the provider supports that recovery path; the action is not hidden solely because provider availability currently reads as false or already authenticated.
+- When the provider login flow returns provider-readable verification instructions, the shipped UI shows the verification URL plus raw provider CLI output rather than depending on an app-parsed one-time code.
+- The checked-in main stack provides an operator-usable auth recovery path for Codex without requiring ad hoc container-only edits after auth loss or expiry.
+- A successful reauthentication on the checked-in main stack persists into the runtime state used by later repository-backed proof on that stack.
 - Tests cover the layered merge precedence, `codeinfo_provider` defaulting, provider-specific agent execution, folder precedence, compatibility fallback to `codex_agents`, and provider-neutral repository execution-context behavior across agent, chat, and `code_info` surfaces.
 
 ### Out Of Scope
@@ -150,8 +158,12 @@ This story also changes stateful behavior for selected agents and resumed conver
 - Making LM Studio consume or honor the shared runtime working-directory override directly.
 - Updating shared harness, platform, or other agent-facing metadata that lives outside this repository.
 - Moving or redesigning provider authentication secrets or stored auth state beyond what is required for the new config layering.
+- Making local auth detection authoritative over an explicit user login request.
+- Preventing a user from attempting a fresh supported login flow only because the runtime appears already authenticated.
+- Requiring the app to derive or display a provider-specific one-time code when the provider's own CLI output can be shown directly.
 - Inventing a new manual override layer above `codeinfo_config/config.toml`, provider `config.toml`, and chat or agent runtime config.
 - Adding a second user-facing working-folder override model that differs between chat, agents, flows, or MCP tools.
+- Requiring identical auth-home topology across every compose variant, as long as each supported stack keeps a documented and honest recovery path.
 - Hiding disabled agents from discovery when provider validation or provider availability fails.
 - Treating recoverable formatting mistakes in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` as fatal startup errors.
 - Failing provider fallback solely because the original agent config contains provider-specific settings the fallback provider cannot use.
@@ -186,6 +198,10 @@ This story also changes stateful behavior for selected agents and resumed conver
 - Later manual proof should show that changing an agent's config affects only new conversations and does not rewrite the saved provider, model, or `agentName` for an already established conversation.
 - Later manual proof should show that if a saved `agentName` no longer resolves, the later turn fails clearly instead of substituting another agent.
 - Later manual proof should show that later turns keep using stored database identity fields while resolving the current agent files live at execution time.
+- Later manual proof should verify that `Re-authenticate` remains visible on the supported Chat and Agents surfaces even when a provider is unavailable or appears already authenticated.
+- Later manual proof should verify that an explicit user reauthentication attempt still starts the provider login flow when local detection says auth already exists.
+- Later manual proof should treat the verification URL plus raw provider CLI output as the operator-facing source of truth during authentication recovery instead of relying on a parsed one-time code.
+- Later manual proof should confirm the checked-in main stack can recover from missing or stale provider auth through the shipped UI path rather than only through ad hoc container-side intervention.
 
 ## Questions
 
@@ -359,6 +375,14 @@ This story also changes stateful behavior for selected agents and resumed conver
 - What the answer is: Keep using the identity fields stored in the database for continuation, but resolve the agent-owned files referenced by that identity live at execution time rather than from a hidden snapshot.
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/agents/discovery.ts`, `server/src/config/runtimeConfig.ts`, `server/src/agents/service.ts`, `server/src/routes/conversations.ts`, and `server/src/test/unit/conversations-router-agent-filter.test.ts`. External evidence in the official GitHub Copilot session-persistence docs, the official OpenAI conversation-state docs, and DeepWiki notes on `openai/openai-node`.
 - Why it is the best answer: It preserves the stored conversation identity, matches the repo's current live-discovery behavior, and avoids expanding this story into a much larger snapshotting feature.
+
+23. Decision: local auth detection is advisory, while explicit user reauthentication is authoritative.
+
+- The question being addressed: If the runtime thinks a provider is already authenticated, should that belief block a user-requested login or re-login attempt?
+- Why the question matters: Provider authentication is controlled by external systems and can drift from local runtime detection, so a false-positive local check could otherwise hide the only recovery path.
+- What the answer is: The app may report its current belief about provider auth state, but it must not suppress or short-circuit a supported login flow when the user explicitly requests one.
+- Where the answer came from: User direction in this implementation round, plus direct repo evidence in the shipped provider-auth dialog and route behavior updated under Story 57.
+- Why it is the best answer: It preserves recoverability on supported stacks, keeps provider auth truth anchored to the actual external provider flow, and prevents local heuristics from blocking the operator action that resolves stale or missing auth.
 
 ## Feasibility Proof Pass
 

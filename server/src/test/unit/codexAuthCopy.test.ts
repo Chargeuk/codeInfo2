@@ -68,13 +68,32 @@ test('returns quietly when auth is missing everywhere', () => {
   assert.ok(!fs.existsSync(containerAuth));
 });
 
-test('fails fast when split host and container auth authorities are present', () => {
+test('copies host auth into the runtime home when split setup has no runtime auth yet', () => {
   const containerHome = makeTempDir('codex-container-');
   const hostHome = makeTempDir('codex-host-');
   fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
 
-  assert.throws(
-    () => ensureCodexAuthFromHost({ containerHome, hostHome, logger }),
-    /Unsupported split Codex auth authority detected/,
+  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+  assert.equal(
+    fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
+    '{"token":"host"}',
+  );
+});
+
+test('keeps the runtime auth when split setup already has a local auth file', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  fs.writeFileSync(
+    path.join(containerHome, 'auth.json'),
+    '{"token":"container"}',
+  );
+  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+
+  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+  assert.equal(
+    fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
+    '{"token":"container"}',
   );
 });

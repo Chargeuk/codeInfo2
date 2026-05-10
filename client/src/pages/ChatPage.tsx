@@ -1648,15 +1648,15 @@ export default function ChatPage() {
                           `CODEX_HOME=./codex codex login` (or your `~/.codex`),
                           and ensure `./codex/config.toml` is seeded. The
                           checked-in main Compose stack mounts{' '}
-                          <code>{'${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}'}</code>{' '}
-                          directly at `/app/codex`, so that host home is the
-                          supported Codex auth source and container logins are
-                          not required. If Codex later fails with
+                          <code>
+                            {'${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}'}
+                          </code>{' '}
+                          directly at `/app/codex`, so container logins are not
+                          required there. If Codex later fails with
                           `refresh_token_reused` or `token_expired`, rerun
-                          `codex login` against that same host home and restart
-                          the stack instead of copying `auth.json` into another
-                          location.
-                          See the guidance in{' '}
+                          `codex login` against the Codex home backing the
+                          runtime you are using and restart that stack. See the
+                          guidance in{' '}
                           <Link
                             href="https://github.com/Chargeuk/codeInfo2#codex-cli"
                             target="_blank"

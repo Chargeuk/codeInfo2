@@ -9,8 +9,8 @@ type Params = {
 };
 
 /**
- * Enforce one supported Codex auth authority for the main stack.
- * A direct writable home mount is supported; split host/container auth homes are not.
+ * Best-effort seed runtime auth from the host mount when needed.
+ * Local and main compose may wire Codex homes differently, so startup stays permissive.
  */
 export function ensureCodexAuthFromHost({
   containerHome,
@@ -64,18 +64,30 @@ export function ensureCodexAuthFromHost({
     return;
   }
 
-  const guidance =
-    'Unsupported split Codex auth authority detected. Mount CODEINFO_HOST_CODEX_HOME directly at CODEX_HOME (/app/codex), reauthenticate that host home, and restart the main stack instead of relying on copied auth.json state.';
-  logger?.error(
-    {
-      containerHome,
-      hostHome,
-      containerAuthPath,
-      hostAuthPath,
-      containerAuthExists,
-      hostAuthExists,
-    },
-    guidance,
+  if (containerAuthExists) {
+    logger?.info(
+      {
+        containerAuthPath,
+        hostAuthPath,
+        hostAuthExists,
+      },
+      'Codex auth already present in runtime home; startup will use the runtime auth file',
+    );
+    return;
+  }
+
+  if (!hostAuthExists) {
+    logger?.info(
+      { hostAuthPath, containerAuthPath },
+      'Split Codex home is configured but the mounted host home has no auth.json; runtime remains unavailable until Codex is authenticated',
+    );
+    return;
+  }
+
+  fs.mkdirSync(containerHome, { recursive: true });
+  fs.copyFileSync(hostAuthPath, containerAuthPath);
+  logger?.info(
+    { hostAuthPath, containerAuthPath },
+    'Seeded runtime Codex auth from the mounted host home',
   );
-  throw new Error(guidance);
 }

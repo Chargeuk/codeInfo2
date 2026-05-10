@@ -117,14 +117,43 @@ test('shared-home auth validation does not execute rename or move operations', (
   }
 });
 
-test('split host and container auth authorities fail fast before runtime use', () => {
+test('split host auth seeds the runtime home before detection runs', () => {
   const containerHome = makeTempDir('codex-container-');
   const hostHome = makeTempDir('codex-host-');
-  fs.writeFileSync(path.join(containerHome, 'auth.json'), '{"token":"container"}');
+  const configPath = path.join(containerHome, 'config.toml');
+
+  fs.writeFileSync(configPath, 'model = "gpt-5.3-codex"\n');
   fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
 
-  assert.throws(
-    () => ensureCodexAuthFromHost({ containerHome, hostHome, logger }),
-    /Unsupported split Codex auth authority detected/,
+  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+  assert.equal(
+    fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
+    '{"token":"host"}',
+  );
+
+  const after = refreshCodexDetection({
+    codexHome: containerHome,
+    resolveCliPath: () => '/usr/local/bin/codex',
+  });
+  assert.equal(after.available, true);
+  assert.equal(after.authPresent, true);
+  assert.equal(after.configPresent, true);
+});
+
+test('split host and runtime auth preserves the runtime copy when both are present', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  fs.writeFileSync(
+    path.join(containerHome, 'auth.json'),
+    '{"token":"container"}',
+  );
+  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+
+  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+  assert.equal(
+    fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
+    '{"token":"container"}',
   );
 });

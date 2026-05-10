@@ -37,6 +37,18 @@ export const ORDERED_PROVIDER_AUTH_STATES = [
 
 export type ProviderAuthState = (typeof ORDERED_PROVIDER_AUTH_STATES)[number];
 
+export const ORDERED_PROVIDER_AUTH_DETECTED_STATES = [
+  'already_authenticated',
+  'unauthenticated',
+] as const;
+
+export type ProviderAuthDetectedState =
+  (typeof ORDERED_PROVIDER_AUTH_DETECTED_STATES)[number];
+
+type ProviderAuthDetectionAdvisory = {
+  detectedAuthState?: ProviderAuthDetectedState;
+};
+
 export type CodexDeviceAuthRequest = Record<string, never>;
 
 export type ProviderAuthVerificationReadyResponse<
@@ -47,7 +59,7 @@ export type ProviderAuthVerificationReadyResponse<
   verificationUrl: string;
   userCode?: string;
   displayOutput?: string;
-};
+} & ProviderAuthDetectionAdvisory;
 
 export type ProviderAuthCompletionPendingResponse<
   TProvider extends ProviderAuthProviderId = ProviderAuthProviderId,
@@ -57,21 +69,21 @@ export type ProviderAuthCompletionPendingResponse<
   verificationUrl?: string;
   userCode?: string;
   displayOutput?: string;
-};
+} & ProviderAuthDetectionAdvisory;
 
 export type ProviderAuthCompletedResponse<
   TProvider extends ProviderAuthProviderId = ProviderAuthProviderId,
 > = {
   provider: TProvider;
   state: 'completed';
-};
+} & ProviderAuthDetectionAdvisory;
 
 export type ProviderAuthAlreadyAuthenticatedResponse<
   TProvider extends ProviderAuthProviderId = ProviderAuthProviderId,
 > = {
   provider: TProvider;
   state: 'already_authenticated';
-};
+} & ProviderAuthDetectionAdvisory;
 
 export type ProviderAuthFailedResponse<
   TProvider extends ProviderAuthProviderId = ProviderAuthProviderId,
@@ -80,7 +92,7 @@ export type ProviderAuthFailedResponse<
   state: 'failed';
   reason: string;
   displayOutput?: string;
-};
+} & ProviderAuthDetectionAdvisory;
 
 export type ProviderAuthUnavailableBeforeStartResponse<
   TProvider extends ProviderAuthProviderId = ProviderAuthProviderId,
@@ -88,7 +100,7 @@ export type ProviderAuthUnavailableBeforeStartResponse<
   provider: TProvider;
   state: 'unavailable_before_start';
   reason: string;
-};
+} & ProviderAuthDetectionAdvisory;
 
 export type CodexDeviceAuthInvalidRequestResponse = {
   error: 'invalid_request';

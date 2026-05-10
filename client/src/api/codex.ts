@@ -1,5 +1,6 @@
 import type {
   CodexDeviceAuthSuccessResponse,
+  ProviderAuthDetectedState,
   ProviderAuthProviderId,
   ProviderAuthResponseFor,
 } from '@codeinfo2/common';
@@ -84,9 +85,24 @@ const T26_SUCCESS_LOG =
   '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success';
 const T26_ERROR_LOG =
   '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error';
+const ORDERED_PROVIDER_AUTH_DETECTED_STATES = [
+  'already_authenticated',
+  'unauthenticated',
+] as const;
 
 function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === 'string';
+}
+
+function isOptionalDetectedAuthState(
+  value: unknown,
+): value is ProviderAuthDetectedState | undefined {
+  return (
+    value === undefined ||
+    ORDERED_PROVIDER_AUTH_DETECTED_STATES.includes(
+      value as ProviderAuthDetectedState,
+    )
+  );
 }
 
 function isValidProviderDeviceAuthResponse<
@@ -112,23 +128,30 @@ function isValidProviderDeviceAuthResponse<
       return (
         typeof data.verificationUrl === 'string' &&
         isOptionalString(data.userCode) &&
-        isOptionalString(data.displayOutput)
+        isOptionalString(data.displayOutput) &&
+        isOptionalDetectedAuthState(data.detectedAuthState)
       );
     case 'completion_pending':
       return (
         isOptionalString(data.verificationUrl) &&
         isOptionalString(data.userCode) &&
-        isOptionalString(data.displayOutput)
+        isOptionalString(data.displayOutput) &&
+        isOptionalDetectedAuthState(data.detectedAuthState)
       );
     case 'failed':
       return (
-        typeof data.reason === 'string' && isOptionalString(data.displayOutput)
+        typeof data.reason === 'string' &&
+        isOptionalString(data.displayOutput) &&
+        isOptionalDetectedAuthState(data.detectedAuthState)
       );
     case 'unavailable_before_start':
-      return typeof data.reason === 'string';
+      return (
+        typeof data.reason === 'string' &&
+        isOptionalDetectedAuthState(data.detectedAuthState)
+      );
     case 'completed':
     case 'already_authenticated':
-      return true;
+      return isOptionalDetectedAuthState(data.detectedAuthState);
     default:
       return false;
   }

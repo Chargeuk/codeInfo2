@@ -172,6 +172,19 @@ function toDeviceAuthResponseState(
   return response;
 }
 
+function withDetectedAuthState<T extends { provider: 'copilot' }>(
+  response: T,
+  detectedAuthState?: 'already_authenticated',
+): T {
+  if (!detectedAuthState) {
+    return response;
+  }
+  return {
+    ...response,
+    detectedAuthState,
+  };
+}
+
 async function resolveExistingAuthState(params: {
   deps: Deps;
   copilotHome: string;
@@ -441,9 +454,10 @@ export function createCopilotDeviceAuthRouter(
       copilotHome: targetCopilotHome,
       reason: 'pre-device-auth-start',
     });
-    if (existingAuth.state === 'already_authenticated') {
-      return res.status(200).json(createCopilotAlreadyAuthenticatedResponse());
-    }
+    const detectedAuthState =
+      existingAuth.state === 'already_authenticated'
+        ? 'already_authenticated'
+        : undefined;
 
     const cliStatus = deps.resolveCopilotCli(deps.env);
     if (!cliStatus.available) {
@@ -452,6 +466,7 @@ export function createCopilotDeviceAuthRouter(
         .json(
           createCopilotUnavailableBeforeStartResponse(
             existingAuth.reason ?? cliStatus.reason ?? 'copilot not found',
+            detectedAuthState,
           ),
         );
     }
@@ -466,7 +481,10 @@ export function createCopilotDeviceAuthRouter(
           cliPath: cliStatus.cliPath,
           env: deps.env,
         });
-        const responseState = toDeviceAuthResponseState(deviceAuth);
+        const responseState = withDetectedAuthState(
+          toDeviceAuthResponseState(deviceAuth),
+          detectedAuthState,
+        );
         if (responseState.state === 'verification_ready') {
           deviceAuthStateByHome.set(
             targetCopilotHome,

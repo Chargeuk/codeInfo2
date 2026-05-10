@@ -1,3 +1,5 @@
+import type { ProviderAuthDetectedState } from '@codeinfo2/common';
+
 import { spawn } from 'node:child_process';
 
 import { buildCodexOptions, resolveCodexHome } from '../config/codexConfig.js';
@@ -12,6 +14,7 @@ export type CodexDeviceAuthVerificationReady = {
   state: 'verification_ready';
   verificationUrl: string;
   displayOutput?: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthCompletionPending = {
@@ -20,16 +23,19 @@ export type CodexDeviceAuthCompletionPending = {
   verificationUrl?: string;
   userCode?: string;
   displayOutput?: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthCompleted = {
   provider: 'codex';
   state: 'completed';
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthAlreadyAuthenticated = {
   provider: 'codex';
   state: 'already_authenticated';
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthFailure = {
@@ -37,12 +43,14 @@ export type CodexDeviceAuthFailure = {
   state: 'failed';
   reason: string;
   displayOutput?: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthUnavailableBeforeStart = {
   provider: 'codex';
   state: 'unavailable_before_start';
   reason: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthResult =
@@ -104,19 +112,23 @@ function normalizeCodexAuthResponse<
 export function createCodexVerificationReadyResponse(params: {
   verificationUrl: string;
   displayOutput: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 }): CodexDeviceAuthVerificationReady {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'verification_ready',
     verificationUrl: params.verificationUrl,
     displayOutput: params.displayOutput,
+    ...(params.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
 export function createCodexCompletionPendingResponse(
   source: Pick<
     CodexDeviceAuthVerificationReady,
-    'verificationUrl' | 'displayOutput'
+    'verificationUrl' | 'displayOutput' | 'detectedAuthState'
   >,
 ): CodexDeviceAuthCompletionPending {
   return normalizeCodexAuthResponse({
@@ -124,42 +136,59 @@ export function createCodexCompletionPendingResponse(
     state: 'completion_pending',
     verificationUrl: source.verificationUrl,
     displayOutput: source.displayOutput,
+    ...(source.detectedAuthState
+      ? { detectedAuthState: source.detectedAuthState }
+      : {}),
   });
 }
 
-export function createCodexCompletedResponse(): CodexDeviceAuthCompleted {
+export function createCodexCompletedResponse(params?: {
+  detectedAuthState?: ProviderAuthDetectedState;
+}): CodexDeviceAuthCompleted {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'completed',
+    ...(params?.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
-export function createCodexAlreadyAuthenticatedResponse(): CodexDeviceAuthAlreadyAuthenticated {
+export function createCodexAlreadyAuthenticatedResponse(params?: {
+  detectedAuthState?: ProviderAuthDetectedState;
+}): CodexDeviceAuthAlreadyAuthenticated {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'already_authenticated',
+    ...(params?.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
 export function createCodexFailedResponse(
   reason: string,
   displayOutput?: string,
+  detectedAuthState?: ProviderAuthDetectedState,
 ): CodexDeviceAuthFailure {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'failed',
     reason,
     displayOutput,
+    ...(detectedAuthState ? { detectedAuthState } : {}),
   });
 }
 
 export function createCodexUnavailableBeforeStartResponse(
   reason: string,
+  detectedAuthState?: ProviderAuthDetectedState,
 ): CodexDeviceAuthUnavailableBeforeStart {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'unavailable_before_start',
     reason,
+    ...(detectedAuthState ? { detectedAuthState } : {}),
   });
 }
 

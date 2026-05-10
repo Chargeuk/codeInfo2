@@ -62,6 +62,7 @@ describe('Provider device-auth API helper', () => {
           payload: {
             verificationUrl: 'https://github.com/login/device',
             userCode: 'COPILOT-CODE',
+            detectedAuthState: 'already_authenticated',
           },
         }),
       ],
@@ -72,6 +73,7 @@ describe('Provider device-auth API helper', () => {
       state: 'verification_ready',
       verificationUrl: 'https://github.com/login/device',
       userCode: 'COPILOT-CODE',
+      detectedAuthState: 'already_authenticated',
       displayOutput:
         'Open https://github.com/login/device and enter COPILOT-CODE.',
     });

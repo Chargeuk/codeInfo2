@@ -118,6 +118,35 @@ describe('CodexDeviceAuthDialog', () => {
     );
   });
 
+  it('shows advisory detected-auth messaging while still rendering the real login flow', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://github.com/login/device',
+          userCode: 'COPILOT-CODE',
+          detectedAuthState: 'already_authenticated',
+        },
+      }),
+    );
+
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
+    expect(
+      await screen.findByText(
+        'GitHub Copilot appears to already be authenticated for this runtime, but a fresh login was still attempted.',
+      ),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Verification URL')).toBeInTheDocument();
+    expect(screen.getByText('CLI output')).toBeInTheDocument();
+    expectCliOutputToContain(
+      'Open https://github.com/login/device and enter COPILOT-CODE.',
+    );
+  });
+
   it('renders already-authenticated state without relying on raw output blocks', async () => {
     const user = userEvent.setup();
     postProviderDeviceAuth.mockResolvedValue(

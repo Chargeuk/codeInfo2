@@ -304,26 +304,13 @@ export default function CodexDeviceAuthDialog({
                 </Stack>
               ) : null}
 
-              {'userCode' in result && result.userCode ? (
-                <Stack spacing={0.5}>
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    One-time code
-                  </Typography>
-                  <Typography
-                    component="code"
-                    sx={{ fontFamily: 'monospace', fontSize: '0.95rem' }}
-                  >
-                    {result.userCode}
-                  </Typography>
-                </Stack>
-              ) : null}
-
               {'displayOutput' in result &&
               result.displayOutput &&
-              result.state === 'completion_pending' ? (
+              (result.state === 'verification_ready' ||
+                result.state === 'completion_pending') ? (
                 <>
                   <Typography variant="subtitle2" fontWeight={600}>
-                    Status details
+                    CLI output
                   </Typography>
                   <Box
                     sx={{

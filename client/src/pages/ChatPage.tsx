@@ -540,8 +540,7 @@ export default function ChatPage() {
     [providers],
   );
   const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
-  const canShowDeviceAuth =
-    providerIsCodex && Boolean(codexProvider?.available);
+  const canShowDeviceAuth = true;
   const showCodexUnavailable = providerIsCodex
     ? !providerAvailable
     : codexUnavailable;

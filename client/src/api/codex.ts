@@ -111,7 +111,7 @@ function isValidProviderDeviceAuthResponse<
     case 'verification_ready':
       return (
         typeof data.verificationUrl === 'string' &&
-        typeof data.userCode === 'string' &&
+        isOptionalString(data.userCode) &&
         isOptionalString(data.displayOutput)
       );
     case 'completion_pending':

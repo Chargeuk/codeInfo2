@@ -11,7 +11,6 @@ export type CodexDeviceAuthVerificationReady = {
   provider: 'codex';
   state: 'verification_ready';
   verificationUrl: string;
-  userCode: string;
   displayOutput?: string;
 };
 
@@ -81,10 +80,7 @@ const deviceAuthExpiredMessage = 'device code expired or was declined';
 const deviceAuthExitMessage = 'device auth command failed';
 
 const verificationUrlRegex = /https?:\/\/\S+/i;
-const userCodeRegex = /\b(?:user\s*code|code)\b\s*[:=\-]?\s*([A-Z0-9-]{6,})/i;
 const verificationUrlRedactRegex = /https?:\/\/\S+/gi;
-const userCodeRedactRegex =
-  /\b(?:user\s*code|code)\b\s*[:=\-]?\s*[A-Z0-9-]{6,}/gi;
 const expiredStderrRegex = /(expired|declined)/i;
 
 function normalizeCodexAuthResponse<
@@ -107,14 +103,12 @@ function normalizeCodexAuthResponse<
 
 export function createCodexVerificationReadyResponse(params: {
   verificationUrl: string;
-  userCode: string;
   displayOutput: string;
 }): CodexDeviceAuthVerificationReady {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'verification_ready',
     verificationUrl: params.verificationUrl,
-    userCode: params.userCode,
     displayOutput: params.displayOutput,
   });
 }
@@ -122,14 +116,13 @@ export function createCodexVerificationReadyResponse(params: {
 export function createCodexCompletionPendingResponse(
   source: Pick<
     CodexDeviceAuthVerificationReady,
-    'verificationUrl' | 'userCode' | 'displayOutput'
+    'verificationUrl' | 'displayOutput'
   >,
 ): CodexDeviceAuthCompletionPending {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'completion_pending',
     verificationUrl: source.verificationUrl,
-    userCode: source.userCode,
     displayOutput: source.displayOutput,
   });
 }
@@ -175,16 +168,13 @@ export function parseCodexDeviceAuthOutput(
 ): CodexDeviceAuthResult {
   const normalized = stripAnsi(stdout);
   const verificationUrl = normalized.match(verificationUrlRegex)?.[0];
-  const userCodeMatch = normalized.match(userCodeRegex);
-  const userCode = userCodeMatch?.[1];
 
-  if (!verificationUrl || !userCode) {
+  if (!verificationUrl) {
     return createCodexFailedResponse(deviceAuthErrorMessage);
   }
 
   return createCodexVerificationReadyResponse({
     verificationUrl,
-    userCode,
     displayOutput: normalized,
   });
 }
@@ -272,7 +262,6 @@ export async function runCodexDeviceAuth(params?: {
             hasDisplayOutput: Boolean(result.displayOutput),
             displayOutputLength: result.displayOutput?.length ?? 0,
             hasVerificationUrl: Boolean(result.verificationUrl),
-            hasUserCode: Boolean(result.userCode),
           },
           'DEV-0000031:T1:codex_device_auth_cli_parsed',
         );
@@ -333,9 +322,7 @@ export async function runCodexDeviceAuth(params?: {
 }
 
 function sanitizeDeviceAuthOutput(output: string) {
-  return stripAnsi(output)
-    .replace(verificationUrlRedactRegex, '<redacted-url>')
-    .replace(userCodeRedactRegex, '<redacted-code>');
+  return stripAnsi(output).replace(verificationUrlRedactRegex, '<redacted-url>');
 }
 
 const ansiRegex =

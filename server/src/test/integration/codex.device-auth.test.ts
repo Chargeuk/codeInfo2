@@ -62,7 +62,6 @@ function verificationReadyResult(
 ): CodexDeviceAuthVerificationReady {
   return createCodexVerificationReadyResponse({
     verificationUrl: overrides?.verificationUrl ?? 'https://device.test/verify',
-    userCode: overrides?.userCode ?? 'CODE-123',
     displayOutput:
       overrides?.displayOutput ??
       'Open https://device.test/verify and enter code CODE-123.',
@@ -110,7 +109,6 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'verification_ready',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
     assert.equal(receivedHome, undefined);
@@ -140,7 +138,6 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'completion_pending',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
 
@@ -301,7 +298,6 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'verification_ready',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
     assert.equal(runCodexDeviceAuth.mock.calls.length, 2);
@@ -442,7 +438,6 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'verification_ready',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
     assert.deepEqual(resA.body, resB.body);

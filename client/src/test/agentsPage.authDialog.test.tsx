@@ -32,6 +32,98 @@ const routes = [
 ];
 
 describe('Agents page auth dialog', () => {
+  it('shows re-authenticate even when Codex is currently unavailable', async () => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: false,
+                toolsAvailable: false,
+                reason: 'GitHub login required',
+              },
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: false,
+                toolsAvailable: false,
+                reason: 'Missing auth.json in /app/codex',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'codex',
+            available: false,
+            toolsAvailable: false,
+            models: [{ key: 'model', displayName: 'Model', type: 'codex' }],
+          }),
+        }) as unknown as Response;
+      }
+      if (
+        href.includes('/agents') &&
+        !href.includes('/commands') &&
+        !href.includes('/run')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ agents: [{ name: 'a1' }] }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/agents/') && href.includes('/commands')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ commands: [] }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    expect(
+      await screen.findByRole('button', { name: /re-authenticate/i }),
+    ).toBeInTheDocument();
+  });
+
   it('opens the shared dialog from the agents page while agent execution stays Codex-backed', async () => {
     const user = userEvent.setup();
     let runCalls = 0;

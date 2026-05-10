@@ -279,8 +279,7 @@ export default function AgentsPage() {
     () => providers.find((entry) => entry.id === 'codex'),
     [providers],
   );
-  const canShowDeviceAuth =
-    Boolean(selectedAgentName) && Boolean(codexProvider?.available);
+  const canShowDeviceAuth = true;
   const {
     citationsOpen,
     thinkOpen,

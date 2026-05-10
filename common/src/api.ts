@@ -45,7 +45,7 @@ export type ProviderAuthVerificationReadyResponse<
   provider: TProvider;
   state: 'verification_ready';
   verificationUrl: string;
-  userCode: string;
+  userCode?: string;
   displayOutput?: string;
 };
 

@@ -122,7 +122,7 @@ describe('Provider device-auth API helper', () => {
         {
           provider: 'copilot',
           state: 'verification_ready',
-          verificationUrl: 'https://github.com/login/device',
+          userCode: 'COPILOT-CODE',
         },
         { status: 200 },
       ),

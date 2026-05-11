@@ -92,6 +92,14 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(
     mainServer,
+    /\.\/manual_testing\/codeinfo_agents:\/app\/codeinfo_agents/u,
+  );
+  assert.match(
+    mainServer,
+    /\.\/manual_testing\/codex_agents:\/app\/codex_agents/u,
+  );
+  assert.match(
+    mainServer,
     /CODEINFO_PLAYWRIGHT_MCP_URL=http:\/\/host\.docker\.internal:8932\/mcp/u,
   );
   assert.match(
@@ -107,7 +115,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
   assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
   assert.match(
     entrypoint,

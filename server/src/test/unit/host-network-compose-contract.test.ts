@@ -63,6 +63,12 @@ test('main stays image-baked while local host-network compose exposes the live d
     dockerfile,
     /RUN cp -R \/app\/codex_agents \/app\/codeinfo_agents/u,
   );
+  assert.match(dockerfile, /ARG CODEINFO_RUNTIME_UID=1000/u);
+  assert.match(dockerfile, /ARG CODEINFO_RUNTIME_GID=1000/u);
+  assert.match(
+    dockerfile,
+    /RUN mkdir -p "\$\{HOME\}" "\$\{HOME\}\/tmp" "\$\{HOME\}\/\.docker" && \\\n\s+chown "\$\{CODEINFO_RUNTIME_UID\}:\$\{CODEINFO_RUNTIME_GID\}" "\$\{HOME\}" "\$\{HOME\}\/tmp" "\$\{HOME\}\/\.docker"/u,
+  );
   assert.match(dockerfile, /ENV HOME=\/app\/codex/u);
   assert.match(dockerfile, /ENV CODEX_HOME=\/app\/codex/u);
   assert.match(dockerfile, /ENV CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
@@ -140,6 +146,10 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(localServer, /\n\s+- HOME=\$\{HOME\}/u);
+  assert.match(localServer, /\n\s+- TMP=\/tmp/u);
+  assert.match(localServer, /\n\s+- TEMP=\/tmp/u);
+  assert.match(localServer, /\n\s+- TMPDIR=\/tmp/u);
+  assert.match(localServer, /\n\s+- TEMPDIR=\/tmp/u);
   assert.doesNotMatch(localServer, /\n\s+- HOME=\/app\/codex/u);
   assert.match(
     localServer,

@@ -44,12 +44,14 @@ RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22.21.1-slim AS runtime
 ARG HOME
+ARG CODEINFO_RUNTIME_UID=1000
+ARG CODEINFO_RUNTIME_GID=1000
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
 ARG CODEINFO_PIP_TRUSTED_HOST
 ARG CODEINFO_NODE_EXTRA_CA_CERTS
-RUN mkdir -p ${HOME}/tmp
-RUN mkdir -p ${HOME}/.docker
+RUN mkdir -p "${HOME}" "${HOME}/tmp" "${HOME}/.docker" && \
+    chown "${CODEINFO_RUNTIME_UID}:${CODEINFO_RUNTIME_GID}" "${HOME}" "${HOME}/tmp" "${HOME}/.docker"
 # Install prerequisites
 RUN apt-get update && apt-get install -y \
     curl \

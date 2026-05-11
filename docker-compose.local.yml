@@ -8,6 +8,8 @@ services:
       dockerfile: server/Dockerfile
       args:
         HOME: ${HOME}
+        CODEINFO_RUNTIME_UID: ${CODEINFO_DOCKER_UID:-1000}
+        CODEINFO_RUNTIME_GID: ${CODEINFO_DOCKER_GID:-1000}
         CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
         CODEINFO_PIP_INDEX_URL: ${CODEINFO_PIP_INDEX_URL:-}
         CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
@@ -30,10 +32,10 @@ services:
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8931
       - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6
       - HOME=${HOME}
-      - TMP=${HOME}/tmp
-      - TEMP=${HOME}/tmp
-      - TMPDIR=${HOME}/tmp
-      - TEMPDIR=${HOME}/tmp
+      - TMP=/tmp
+      - TEMP=/tmp
+      - TMPDIR=/tmp
+      - TEMPDIR=/tmp
       - GIT_AUTHOR_NAME=llm
       - GIT_AUTHOR_EMAIL=llm@llm.com
       - GIT_COMMITTER_NAME=llm

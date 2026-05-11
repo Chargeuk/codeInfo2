@@ -1861,7 +1861,7 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 9. [ ] Run `npm run compose:down` from the repository root after the final compose-backed smoke step that Task 14 started.
 10. [ ] Run `npm run lint` from the repository root. Use this wrapper-free root command because the review-created repair block and inline-resolved client plus documentation fixes must end on one clean repository lint pass.
 11. [ ] Run `npm run format:check` from the repository root. Use this wrapper-free root command because the final review-cycle close-out must not leave formatting drift in either the new server repairs or the already-recorded inline minor proof homes.
-12. [ ] Run `TMPDIR=/tmp npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` from the repository root. Use this targeted wrapper because the repaired first-turn Copilot direct-agent seam now underpins the final main-stack provider-neutral proof surface.
+12. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` from the repository root. Use this targeted wrapper because the repaired first-turn Copilot direct-agent seam now underpins the final main-stack provider-neutral proof surface.
 
 #### Manual Testing Guidance
 
@@ -1877,6 +1877,7 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 
 #### Implementation notes
 
+- Verified the current restarted `codeinfo:local` session now exports `TMPDIR=/tmp` by default and `docker-compose.local.yml` hardcodes `/tmp` for `TMP`, `TEMP`, `TMPDIR`, and `TEMPDIR`, so Task 15 no longer needs to spell `TMPDIR=/tmp` into its remaining targeted test wrapper command.
 - Strengthened the story-level and Task 15 manual-testing guidance so the checked-in `codeinfo` stack now explicitly treats `manual_testing/codeinfo_agents` plus `manual_testing/codex_agents` as the editable close-out proof workspace. The plan now tells later manual testers to add or adjust agents there for dedicated warning, fallback, duplicate-root, provider-specific, or limited-capability proof cases instead of disturbing the `codeinfo:local` development catalog.
 - User-requested final revalidation reset reopened every Task 15 `Testing` step while leaving the task itself `__in_progress__`, so a fresh `flows/implement_next_plan.json` run can rerun the full automated and compose-backed proof sequence from a clean review-closeout state before the next manual review pass.
 - Replaced the older Task 15 authentication-recovery proof wording with the repository-owned skip policy for human-gated provider login. Story-level and task-level manual guidance now say `Re-authenticate` may remain visible as a shipped operator affordance, but autonomous manual proof must not attempt that flow because provider login requires human-controlled two-factor authentication; if Codex or Copilot is not already logged in, later proof skips only the affected auth-dependent seam and falls back to automated mocked proof without reopening the task for that reason alone.

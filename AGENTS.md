@@ -131,6 +131,7 @@ When working from a file in `./planning` that is NOT a pr-summary file, update t
 ### Wrapper-First Rule
 
 - Compose wrappers are the default way to start and stop the AI-agent testing or automation stack.
+- For manual story proof and close-out testing, prefer the checked-in main `codeinfo` stack from `docker-compose.yml`, not `codeinfo:local`.
 - Do not run any `*:local:*` commands from this agent.
 - These wrappers centralize env-file handling and Docker socket or runtime compatibility through `scripts/docker-compose-with-env.sh`.
 
@@ -146,6 +147,11 @@ When working from a file in `./planning` that is NOT a pr-summary file, update t
 
 1. Run `npm run compose:build`.
 2. Run `npm run compose:up`.
+
+Manual-proof notes:
+
+- Treat the main stack at `http://localhost:5001` and `http://localhost:5010` as the supported human/manual-testing surface unless the active plan says otherwise.
+- The checked-in main stack mounts its editable proof agent catalog from `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`; when later manual proof needs dedicated warning, fallback, duplicate-root, provider-specific, or limited-capability cases, prefer adjusting those `manual_testing` roots rather than disturbing the `codeinfo:local` development catalog.
 
 Shortcut:
 
@@ -165,6 +171,7 @@ Shortcut:
 ## Local Stack Safety
 
 - If `docker-compose.local.yml` services are running, assume they may be hosting the current Codex or manual-testing session.
+- `codeinfo:local` is the live development stack, not the default close-out proof stack. Keep its bind-mounted `codeinfo_agents` and `codex_agents` trees untouched unless the user explicitly wants development-stack changes there.
 - Do not run `npm run compose:local:down`, `docker compose -f docker-compose.local.yml down`, or otherwise stop or remove `codeinfo2-*-local` containers unless the user explicitly instructs you to do so.
 - Do not restart or clean up the local stack just because it appears stale. If a task seems to require switching away from the local stack, stop and ask first.
 - Reason: the local compose stack may be the live runtime backing the current agent session, browser tooling, or proof flow; taking it down can kill the session and interrupt work in progress.

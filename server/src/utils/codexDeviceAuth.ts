@@ -1,6 +1,6 @@
-import type { ProviderAuthDetectedState } from '@codeinfo2/common';
-
 import { spawn } from 'node:child_process';
+
+import type { ProviderAuthDetectedState } from '@codeinfo2/common';
 
 import { buildCodexOptions, resolveCodexHome } from '../config/codexConfig.js';
 import { append } from '../logStore.js';
@@ -351,7 +351,10 @@ export async function runCodexDeviceAuth(params?: {
 }
 
 function sanitizeDeviceAuthOutput(output: string) {
-  return stripAnsi(output).replace(verificationUrlRedactRegex, '<redacted-url>');
+  return stripAnsi(output).replace(
+    verificationUrlRedactRegex,
+    '<redacted-url>',
+  );
 }
 
 const ansiRegex =

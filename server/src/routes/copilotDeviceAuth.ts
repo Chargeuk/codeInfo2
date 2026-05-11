@@ -26,7 +26,6 @@ import {
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { hasCopilotEnvToken } from '../providers/copilotReadiness.js';
 import {
-  createCopilotAlreadyAuthenticatedResponse,
   createCopilotCompletedResponse,
   createCopilotCompletionPendingResponse,
   createCopilotFailedResponse,

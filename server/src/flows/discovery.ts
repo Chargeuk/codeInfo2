@@ -43,11 +43,20 @@ const resolveFlowsDir = (baseDir?: string): string => {
   return path.resolve('flows');
 };
 
-const resolveFlowsRepositoryRoot = (flowsDir: string) => {
+const resolveFlowAgentLookupRoot = (flowsDir: string) => {
   const resolvedFlowsDir = path.resolve(flowsDir);
   if (path.basename(resolvedFlowsDir) === 'flows') {
     return path.dirname(resolvedFlowsDir);
   }
+
+  // The shipped main stack keeps local bundled flow JSON files under
+  // /app/flows-sandbox, but the runnable agent homes still live under the
+  // configured app roots (/app/codeinfo_agents or /app/codex_agents). Treat
+  // that sandbox as a flow storage directory, not as a self-contained repo.
+  if (path.basename(resolvedFlowsDir) === 'flows-sandbox') {
+    return resolveAgentHomeEnv().codeInfoRoot;
+  }
+
   return resolvedFlowsDir;
 };
 
@@ -288,7 +297,7 @@ export async function discoverFlows(params?: {
 
   const localFlows = await listFlowsFromDir({
     flowsDir,
-    repositoryRoot: resolveFlowsRepositoryRoot(flowsDir),
+    repositoryRoot: resolveFlowAgentLookupRoot(flowsDir),
   });
 
   let ingestedFlows: FlowSummary[] = [];

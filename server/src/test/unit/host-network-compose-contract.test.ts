@@ -95,6 +95,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(mainServer, /HOME=\/app\/codex/u);
   assert.match(mainServer, /CODEX_HOME=\/app\/codex/u);
   assert.match(mainServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
+  assert.match(mainServer, /FLOWS_DIR=\/app\/flows-sandbox/u);
   assert.match(
     mainServer,
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,

@@ -118,7 +118,7 @@ export default function AgentsPage() {
     string | undefined
   >(undefined);
 
-  const { providers, refreshProviders } = useChatModel();
+  const { refreshProviders } = useChatModel();
 
   const [commands, setCommands] = useState<
     Array<{
@@ -274,10 +274,6 @@ export default function AgentsPage() {
   const deviceAuthLog = useMemo(
     () => createLogger('codex-device-auth-agents'),
     [],
-  );
-  const codexProvider = useMemo(
-    () => providers.find((entry) => entry.id === 'codex'),
-    [providers],
   );
   const canShowDeviceAuth = true;
   const {

@@ -99,6 +99,30 @@ const withFlowsDir = async (dir: string, run: () => Promise<void>) => {
   }
 };
 
+const withAgentHomes = async (
+  params: { preferred: string; legacy: string },
+  run: () => Promise<void>,
+) => {
+  const previousPreferred = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacy = process.env.CODEINFO_CODEX_AGENT_HOME;
+  process.env.CODEINFO_AGENT_HOME = params.preferred;
+  process.env.CODEINFO_CODEX_AGENT_HOME = params.legacy;
+  try {
+    await run();
+  } finally {
+    if (previousPreferred === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousPreferred;
+    }
+    if (previousLegacy === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacy;
+    }
+  }
+};
+
 const buildApp = (params?: {
   listIngestedRepositories?: () => Promise<{
     repos: RepoEntry[];
@@ -525,6 +549,84 @@ describe('GET /flows', () => {
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('local bundled flows-sandbox discovery reuses the app-level agent roots from the shipped main stack shape', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const appRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-sandbox-app-'),
+    );
+    const flowsSandbox = path.join(appRoot, 'flows-sandbox');
+    await writeAgentConfig({
+      repoRoot: appRoot,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'coding_agent',
+    });
+    await writeFlowFile(flowsSandbox, 'local-flow', 'Local');
+
+    await withAgentHomes(
+      {
+        preferred: path.join(appRoot, 'codeinfo_agents'),
+        legacy: path.join(appRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsSandbox, async () => {
+          const response = await supertest(buildApp()).get('/flows');
+
+          assert.equal(response.status, 200);
+          const local = response.body.flows.find(
+            (flow: { name: string; warnings?: string[] }) =>
+              flow.name === 'local-flow',
+          );
+          assert.equal(local.disabled, false);
+          assert.equal(local.warnings, undefined);
+        });
+      },
+    );
+
+    await fs.rm(appRoot, { recursive: true, force: true });
+  });
+
+  test('local bundled flows-sandbox discovery still surfaces duplicate warnings from app-level agent roots', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const appRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-sandbox-app-'),
+    );
+    const flowsSandbox = path.join(appRoot, 'flows-sandbox');
+    await writeAgentConfig({
+      repoRoot: appRoot,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'coding_agent',
+    });
+    await writeAgentConfig({
+      repoRoot: appRoot,
+      rootDirName: 'codex_agents',
+      agentName: 'coding_agent',
+    });
+    await writeFlowFile(flowsSandbox, 'local-flow', 'Local');
+
+    await withAgentHomes(
+      {
+        preferred: path.join(appRoot, 'codeinfo_agents'),
+        legacy: path.join(appRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsSandbox, async () => {
+          const response = await supertest(buildApp()).get('/flows');
+
+          assert.equal(response.status, 200);
+          const local = response.body.flows.find(
+            (flow: { name: string; warnings?: string[] }) =>
+              flow.name === 'local-flow',
+          );
+          assert.equal(local.disabled, false);
+          assert.equal(Array.isArray(local.warnings), true);
+          assert.match(local.warnings?.[0] ?? '', /using codeinfo_agents/u);
+        });
+      },
+    );
+
+    await fs.rm(appRoot, { recursive: true, force: true });
   });
 
   test('flow details expose provider-neutral warnings and disabled-state reasons from the shared availability snapshot', async () => {

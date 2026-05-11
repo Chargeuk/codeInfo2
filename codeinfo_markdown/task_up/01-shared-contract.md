@@ -42,7 +42,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
   - `Subtasks` contain only implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
   - `Testing` contains only automated proof execution steps that the coding agent can run with repository-supported wrappers, commands, or harnesses.
   - `Manual Testing Guidance` contains optional, non-blocking guidance for the manual testing agent. It must not contain checkboxes, pass/fail gating language, or any requirement that blocks task completion.
-  - Task-level `Manual Testing Guidance` may refine or override story-level `Story Manual Testing Guidance` for that one task when needed, may name paired or supporting repositories for task-specific proof paths, and must not contradict fresher repository truth.
+  - Task-level `Manual Testing Guidance` may refine or override story-level `Story Manual Testing Guidance` for that one task when needed, may name paired or supporting repositories for task-specific proof paths, must not contradict fresher repository truth, and should carry forward any relevant repository-defined manual-testing skip or narrowing conditions from `AGENTS.md` or `codeinfo_markdown/repository_information.md` when those conditions affect that task's honest proof path.
   - These manual-testing guidance sections help the later `manual_testing_agent`, but they do not strictly limit which supporting repositories the manual tester may investigate when honest proof requires more context.
 
 </section_ownership_contract>

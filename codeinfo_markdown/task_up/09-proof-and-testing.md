@@ -66,6 +66,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - the required startup order when multiple surfaces matter;
   - the supported login, seed, or setup path if one is needed for proof;
   - where credentials, seeded accounts, helper scripts, or env-backed access come from without inlining secrets.
+- When `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines repository-specific conditions that allow manual proof to be narrowed or skipped for certain surfaces, reflect the relevant condition explicitly in the final task's `Manual Testing Guidance` when that task could hit it during proof.
 - For the final task, keep task-level manual-testing artifacts in `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that later story closeout promotes a curated durable bundle into `codeInfoStatus/manual-proof/<story-number>/`.
 - When manual testing is applicable, prefer the unmodified human Docker stack whenever repository evidence shows it is runnable, especially when supported access or credentials already exist for that normal stack.
 - Only if the normal human Docker stack is not enough should the plan introduce the absolute minimum test-only harness or configuration needed for the `manual_testing_agent` to log on and prove the behavior, and that enablement must stay out of the shipped production code path.

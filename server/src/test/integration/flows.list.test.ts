@@ -58,6 +58,29 @@ const flowTemplate = (description: string) =>
     ],
   });
 
+const commandFlowTemplate = (params: {
+  description: string;
+  agentType?: string;
+  commandName: string;
+}) =>
+  JSON.stringify({
+    description: params.description,
+    steps: [
+      {
+        type: 'command',
+        agentType: params.agentType ?? 'planning_agent',
+        identifier: 'command-main',
+        commandName: params.commandName,
+      },
+    ],
+  });
+
+const validCommand = (description: string) =>
+  JSON.stringify({
+    Description: description,
+    items: [{ type: 'message', role: 'user', content: ['x'] }],
+  });
+
 const writeFlowFile = async (
   dir: string,
   name: string,
@@ -69,6 +92,11 @@ const writeFlowFile = async (
     flowTemplate(description),
     'utf-8',
   );
+};
+
+const writeRawFlowFile = async (dir: string, name: string, body: string) => {
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, `${name}.json`), body, 'utf-8');
 };
 
 const writeAgentConfig = async (params: {
@@ -254,6 +282,172 @@ describe('GET /flows', () => {
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
+  test('ingested llm-step flows stay listable when the owner repo only provides command overlays without config.toml', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const flowsRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-'),
+    );
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-'),
+    );
+
+    await writeAgentConfig({
+      repoRoot: runtimeRoot,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'planning_agent',
+    });
+    await fs.mkdir(
+      path.join(ingestedRoot, 'codex_agents', 'planning_agent', 'commands'),
+      {
+        recursive: true,
+      },
+    );
+    await fs.writeFile(
+      path.join(
+        ingestedRoot,
+        'codex_agents',
+        'planning_agent',
+        'commands',
+        'overlay.json',
+      ),
+      validCommand('Overlay command'),
+      'utf-8',
+    );
+    await writeRawFlowFile(
+      path.join(ingestedRoot, 'flows'),
+      'owner-llm-step',
+      JSON.stringify({
+        description: 'Owner LLM flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'planning_agent',
+            identifier: 'planner',
+            messages: [{ role: 'user', content: ['Hello'] }],
+          },
+        ],
+      }),
+    );
+
+    await withAgentHomes(
+      {
+        preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+        legacy: path.join(runtimeRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsRoot, async () => {
+          const response = await supertest(
+            buildApp({
+              listIngestedRepositories: async () => ({
+                repos: [
+                  buildRepoEntry({
+                    id: 'Owner Repo',
+                    containerPath: ingestedRoot,
+                  }),
+                ],
+                lockedModelId: null,
+              }),
+            }),
+          ).get('/flows');
+
+          assert.equal(response.status, 200);
+          const ingested = response.body.flows.find(
+            (flow: { name: string }) => flow.name === 'owner-llm-step',
+          );
+          assert.ok(ingested);
+          assert.equal(ingested.disabled, false);
+          assert.equal(ingested.sourceId, ingestedRoot);
+        });
+      },
+    );
+
+    await fs.rm(flowsRoot, { recursive: true, force: true });
+    await fs.rm(runtimeRoot, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
+  test('ingested command-step flows stay listable when the owner repo only provides command overlays without config.toml', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const flowsRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-'),
+    );
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-'),
+    );
+
+    await writeAgentConfig({
+      repoRoot: runtimeRoot,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'planning_agent',
+    });
+    await fs.mkdir(
+      path.join(ingestedRoot, 'codex_agents', 'planning_agent', 'commands'),
+      {
+        recursive: true,
+      },
+    );
+    await fs.writeFile(
+      path.join(
+        ingestedRoot,
+        'codex_agents',
+        'planning_agent',
+        'commands',
+        'owner-command.json',
+      ),
+      validCommand('Owner command'),
+      'utf-8',
+    );
+    await writeRawFlowFile(
+      path.join(ingestedRoot, 'flows'),
+      'owner-command-step',
+      commandFlowTemplate({
+        description: 'Owner command flow',
+        commandName: 'owner-command',
+      }),
+    );
+
+    await withAgentHomes(
+      {
+        preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+        legacy: path.join(runtimeRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsRoot, async () => {
+          const response = await supertest(
+            buildApp({
+              listIngestedRepositories: async () => ({
+                repos: [
+                  buildRepoEntry({
+                    id: 'Owner Repo',
+                    containerPath: ingestedRoot,
+                  }),
+                ],
+                lockedModelId: null,
+              }),
+            }),
+          ).get('/flows');
+
+          assert.equal(response.status, 200);
+          const ingested = response.body.flows.find(
+            (flow: { name: string }) => flow.name === 'owner-command-step',
+          );
+          assert.ok(ingested);
+          assert.equal(ingested.disabled, false);
+        });
+      },
+    );
+
+    await fs.rm(flowsRoot, { recursive: true, force: true });
+    await fs.rm(runtimeRoot, { recursive: true, force: true });
     await fs.rm(ingestedRoot, { recursive: true, force: true });
   });
 
@@ -504,17 +698,25 @@ describe('GET /flows', () => {
     });
     await writeFlowFile(tmpDir, 'local-flow', 'Local');
 
-    await withFlowsDir(tmpDir, async () => {
-      const response = await supertest(buildApp()).get('/flows');
+    await withAgentHomes(
+      {
+        preferred: path.join(tmpDir, 'codeinfo_agents'),
+        legacy: path.join(tmpDir, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(tmpDir, async () => {
+          const response = await supertest(buildApp()).get('/flows');
 
-      assert.equal(response.status, 200);
-      const local = response.body.flows.find(
-        (flow: { name: string; warnings?: string[] }) =>
-          flow.name === 'local-flow',
-      );
-      assert.equal(local.disabled, false);
-      assert.equal(local.warnings, undefined);
-    });
+          assert.equal(response.status, 200);
+          const local = response.body.flows.find(
+            (flow: { name: string; warnings?: string[] }) =>
+              flow.name === 'local-flow',
+          );
+          assert.equal(local.disabled, false);
+          assert.equal(local.warnings, undefined);
+        });
+      },
+    );
 
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
@@ -536,17 +738,25 @@ describe('GET /flows', () => {
     });
     await writeFlowFile(tmpDir, 'local-flow', 'Local');
 
-    await withFlowsDir(tmpDir, async () => {
-      const response = await supertest(buildApp()).get('/flows');
+    await withAgentHomes(
+      {
+        preferred: path.join(tmpDir, 'codeinfo_agents'),
+        legacy: path.join(tmpDir, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(tmpDir, async () => {
+          const response = await supertest(buildApp()).get('/flows');
 
-      assert.equal(response.status, 200);
-      const local = response.body.flows.find(
-        (flow: { name: string; warnings?: string[] }) =>
-          flow.name === 'local-flow',
-      );
-      assert.equal(Array.isArray(local.warnings), true);
-      assert.match(local.warnings?.[0] ?? '', /using codeinfo_agents/u);
-    });
+          assert.equal(response.status, 200);
+          const local = response.body.flows.find(
+            (flow: { name: string; warnings?: string[] }) =>
+              flow.name === 'local-flow',
+          );
+          assert.equal(Array.isArray(local.warnings), true);
+          assert.match(local.warnings?.[0] ?? '', /using codeinfo_agents/u);
+        });
+      },
+    );
 
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
@@ -665,34 +875,42 @@ describe('GET /flows', () => {
       getLmStudioBaseUrl: () => undefined,
     });
 
-    await withFlowsDir(tmpDir, async () => {
-      const listResponse = await supertest(buildApp()).get('/flows');
-      assert.equal(listResponse.status, 200);
-      const listed = listResponse.body.flows.find(
-        (flow: { name: string }) => flow.name === 'broken-agent',
-      );
-      assert.equal(listed.disabled, true);
-      assert.match(
-        String(listed.error ?? ''),
-        /copilot authentication required/u,
-      );
+    await withAgentHomes(
+      {
+        preferred: path.join(tmpDir, 'codeinfo_agents'),
+        legacy: path.join(tmpDir, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(tmpDir, async () => {
+          const listResponse = await supertest(buildApp()).get('/flows');
+          assert.equal(listResponse.status, 200);
+          const listed = listResponse.body.flows.find(
+            (flow: { name: string }) => flow.name === 'broken-agent',
+          );
+          assert.equal(listed.disabled, true);
+          assert.match(
+            String(listed.error ?? ''),
+            /copilot authentication required/u,
+          );
 
-      const detailsResponse = await supertest(buildApp()).get(
-        '/flows/broken-agent',
-      );
-      assert.equal(detailsResponse.status, 200);
-      assert.equal(
-        detailsResponse.body.flow.warnings.some(
-          (warning: { code?: string }) =>
-            warning.code === 'provider_unavailable',
-        ),
-        true,
-      );
-      assert.equal(
-        detailsResponse.body.flow.disabledReason?.code,
-        'provider_unavailable',
-      );
-    });
+          const detailsResponse = await supertest(buildApp()).get(
+            '/flows/broken-agent',
+          );
+          assert.equal(detailsResponse.status, 200);
+          assert.equal(
+            detailsResponse.body.flow.warnings.some(
+              (warning: { code?: string }) =>
+                warning.code === 'provider_unavailable',
+            ),
+            true,
+          );
+          assert.equal(
+            detailsResponse.body.flow.disabledReason?.code,
+            'provider_unavailable',
+          );
+        });
+      },
+    );
 
     await fs.rm(tmpDir, { recursive: true, force: true });
   });

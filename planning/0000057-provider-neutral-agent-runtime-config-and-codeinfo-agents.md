@@ -1797,7 +1797,7 @@ The final review task had been blocked before its own continuation seams could e
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 10, Task 11, Task 12, Task 13, Task 14`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created final revalidation successor for review cycle `0000057-rc-20260507T033249Z-a89766f6`, narrowed by planner repair after the runtime-auth blocker proved a separate prerequisite owner was required. It now resumes on top of Task 14's repaired baseline: main-stack Codex runtime state persists in `codex-data`, Chat and Agents always expose `Re-authenticate`, the Codex dialog shows raw `CLI output`, and existing-auth detection is advisory rather than a blocker.
 
@@ -1931,3 +1931,4 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 - Re-ran `npm run lint` for Task 15 testing step 10 and it exited cleanly after the client and e2e proof updates, so the repository-wide lint gate is honestly green at this checkpoint.
 - Re-ran `npm run format:check` for Task 15 testing step 11. The first pass failed on the repo-owned formatter contract because `prettier . --check` still tried to descend into unreadable runtime-owned `codex/.cache`, so I narrowed the `format` and `format:check` scripts in `package.json` to tracked Prettier-supported files, added `--ignore-unknown`, normalized the two remaining drift files with `npx prettier --write client/src/components/codex/CodexDeviceAuthDialog.tsx client/src/test/codexDeviceAuthDialog.test.tsx`, and then reran `npm run format:check` cleanly to `All matched files use Prettier code style!`.
 - Re-ran `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` for Task 15 testing step 12 and it passed cleanly with `tests run: 15`, `passed: 15`, `failed: 0`, and `agent_action: skip_log`, confirming the repaired first-turn Copilot direct-agent seam still holds under its direct proof home.
+- Automated-proof audit normalized Task 15 to `__done__` because all 12 subtasks and all 12 testing steps are now checked on disk, `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 15` reports zero live blockers, and the remaining prose about earlier Task 14 prerequisite or manual follow-up is historical context rather than an honest open gate for this task.

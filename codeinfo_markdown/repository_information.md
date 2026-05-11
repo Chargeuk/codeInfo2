@@ -24,3 +24,18 @@ Examples:
 - Incorrect: `cat "$CODEINFO_ROOT/src/app.ts"` when `app.ts` belongs to the target repository
 
 When accessing target-repository files, use the target repo path, the active `working_folder`, or explicit absolute paths.
+
+## Manual Testing Skip Policy
+
+Repository-owned files may define when manual testing can be narrowed or skipped for this repository.
+
+For this repository:
+
+- Manual testing may be skipped only when a documented repository-owned skip condition is being met while manual proof is attempted.
+- One such skip condition is missing provider login or auth state when restoring that login would require human intervention.
+- When that skip condition is met:
+  - skip only the affected auth-dependent manual-proof surface;
+  - do not reopen or fail the task for that reason alone;
+  - do not add implementation work, blockers, or planner repair work for that reason alone; and
+  - rely on automated tests and mocks for the affected auth-dependent seam.
+- If the provider is already logged in and the behavior still fails, treat that as a normal code or runtime issue rather than as an allowed manual-testing skip.

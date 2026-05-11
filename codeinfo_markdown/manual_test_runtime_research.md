@@ -142,6 +142,7 @@ If repository evidence suggests later tasks in the active plan are expected to c
   - seed or fixture files;
   - repository-documented login helpers.
 - If the supported credential source cannot be discovered from repository evidence, record that honestly instead of guessing.
+- Also record whether `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines any repository-specific manual-testing skip conditions tied to missing or human-gated access, so the later manual-testing step can follow repository policy instead of inventing new skip reasons.
 
 </credential_source_rules>
 
@@ -158,6 +159,7 @@ For every recorded startup path, identify:
 - whether access requires credentials, a seeded identity, a login helper, or other access material
 - where that access comes from, such as env vars, env files, README guidance, helper scripts, or seed data
 - do not inline the actual credential or access values; record only the source
+- whether `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines any repository-specific conditions that allow manual proof to be narrowed or skipped for that access-dependent surface
 - whether the path is for the edited repository itself or for a connected or paired proof surface
 - whether story-level `Story Manual Testing Guidance` was consulted
 - what startup, access, proof-surface, or artifact-destination directions came from that story-level guidance

@@ -152,6 +152,7 @@ Manual-proof notes:
 
 - Treat the main stack at `http://localhost:5001` and `http://localhost:5010` as the supported human/manual-testing surface unless the active plan says otherwise.
 - The checked-in main stack mounts its editable proof agent catalog from `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`; when later manual proof needs dedicated warning, fallback, duplicate-root, provider-specific, or limited-capability cases, prefer adjusting those `manual_testing` roots rather than disturbing the `codeinfo:local` development catalog.
+- Manual testing may be skipped only when repository-owned guidance in `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines a skip condition and that condition is actually being hit during proof. For this repository, missing provider login or auth state that requires human intervention is an allowed skip for the affected auth-dependent surface, must not reopen or fail the task by itself, and must not generate implementation work by itself.
 
 Shortcut:
 

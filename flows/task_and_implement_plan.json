@@ -173,6 +173,20 @@
                 },
                 {
                   "type": "llm",
+                  "label": "Reconfirm repository-defined manual testing skip policy",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "messages": [
+                    {
+                      "role": "user",
+                      "content": [
+                        "Before manual-testing work continues, re-check `AGENTS.md` and `codeinfo_markdown/repository_information.md` for any repository-defined conditions that allow manual proof to be narrowed or skipped. Follow those repository-owned rules if they are being met during proof. Do not invent your own skip reasons, and do not reopen the task or add implementation work solely because a repository-defined skip condition was hit."
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "llm",
                   "label": "Refresh manual testing runtime research",
                   "agentType": "manual_testing_agent",
                   "identifier": "manual_tester",

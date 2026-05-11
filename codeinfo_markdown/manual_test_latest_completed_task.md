@@ -37,6 +37,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Follow the repository run workflow and prefer documented wrapper commands where available.
 - Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence.
 - If `AGENTS.md` does not define wrapper guidance, prefer the highest-level safe command discoverable from repository evidence.
+- Before escalating a manual-testing problem into a blocker, task reopen, or follow-up implementation work, check whether `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines repository-specific conditions that allow manual proof to be narrowed or skipped. If such a repository-defined skip condition is currently being met, follow that repository policy instead of inventing broader repair work.
 - Remember that the manual testing agent container and the Playwright MCP server both use Docker host networking, so they can reach the host system through `localhost` when the host system exposes the relevant ports there.
 - When repository evidence is not enough to use the browser-testing tools correctly, gather the minimum extra documentation needed before proceeding:
   - use Context7 for current Playwright documentation and examples;
@@ -242,6 +243,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - in this case, stop retrying manual testing and record an honest blocker for planner repair.
 - The need to inspect or start a supporting repository outside the story's declared repository list is not, by itself, a `structural_proof_gap`.
 - Classify a blocker only when the required proof path remains genuinely undiscoverable, unreadable, or unsupported after bounded investigation.
+- If `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines a repository-specific skip condition and that condition is what currently prevents part of the manual proof, honor that repository policy. In that case, record the skipped surface honestly, do not reopen or fail the task for that reason alone, and do not add implementation work, blockers, or planner repair work for that reason alone.
 
 - If you can honestly prove the candidate task's own changed behavior, but a later-task-owned surface prevents additional convenience, observability, cleanup, or exploratory checks, do not add `**BLOCKER**`.
 - Instead, add a concise implementation note stating:

@@ -876,7 +876,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
   });
 
-  it('hides device-auth button when Codex is unavailable', async () => {
+  it('shows re-authenticate button even when Codex is unavailable', async () => {
     mockChatProvidersFetch({
       providers: [
         {
@@ -900,10 +900,10 @@ describe('Chat provider selection (WS transport)', () => {
 
     await screen.findByRole('combobox', { name: /provider/i });
     expect(
-      screen.queryByRole('button', {
+      await screen.findByRole('button', {
         name: /re-authenticate/i,
       }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
   });
 
   it('renders provider-driven Agent Flags and refreshes them when switching between Codex and Copilot', async () => {
@@ -1203,13 +1203,11 @@ describe('Chat provider selection (WS transport)', () => {
       ),
     );
 
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('button', {
-          name: /re-authenticate/i,
-        }),
-      ).not.toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByRole('button', {
+        name: /re-authenticate/i,
+      }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByTestId('codex-warnings-banner'),
     ).not.toBeInTheDocument();

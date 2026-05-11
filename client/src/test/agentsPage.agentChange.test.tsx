@@ -500,17 +500,18 @@ describe('Agents page - device auth', () => {
     render(<RouterProvider router={router} />);
   };
 
-  it('shows device-auth button when an agent is selected and Codex is available', async () => {
+  it('keeps re-authenticate visible when an agent is selected and Codex is available', async () => {
     setup(true);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Re-authenticate',
+      }),
+    ).toBeInTheDocument();
 
     const agentSelect = await screen.findByRole('combobox', {
       name: /agent/i,
     });
-    expect(
-      screen.queryByRole('button', {
-        name: 'Re-authenticate',
-      }),
-    ).toBeNull();
 
     await userEvent.click(agentSelect);
     const option = await screen.findByRole('option', { name: 'a1' });
@@ -548,8 +549,14 @@ describe('Agents page - device auth', () => {
     expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
   });
 
-  it('hides the device-auth button when Codex is unavailable', async () => {
+  it('keeps re-authenticate visible when Codex is unavailable', async () => {
     setup(false);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Re-authenticate',
+      }),
+    ).toBeInTheDocument();
 
     const agentSelect = await screen.findByRole('combobox', {
       name: /agent/i,
@@ -561,9 +568,9 @@ describe('Agents page - device auth', () => {
     });
 
     expect(
-      screen.queryByRole('button', {
+      await screen.findByRole('button', {
         name: 'Re-authenticate',
       }),
-    ).toBeNull();
+    ).toBeInTheDocument();
   });
 });

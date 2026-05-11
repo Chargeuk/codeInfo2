@@ -295,7 +295,8 @@ describe('CodexDeviceAuthDialog', () => {
         state: 'verification_ready',
         payload: {
           verificationUrl: 'https://example.com/device',
-          displayOutput: 'Open https://example.com/device and follow the CLI output.',
+          displayOutput:
+            'Open https://example.com/device and follow the CLI output.',
         },
       }),
     );
@@ -309,8 +310,7 @@ describe('CodexDeviceAuthDialog', () => {
       screen
         .getAllByRole('link', { name: 'https://example.com/device' })
         .every(
-          (link) =>
-            link.getAttribute('href') === 'https://example.com/device',
+          (link) => link.getAttribute('href') === 'https://example.com/device',
         ),
     ).toBe(true);
     expect(screen.getByText('CLI output')).toBeInTheDocument();

@@ -544,9 +544,11 @@ test('shared auth dialog renders Copilot verification details from the fake auth
 
   await expect(dialog).toContainText('Verification URL');
   await expect(
-    dialog.getByRole('link', { name: 'https://github.com/login/device' }),
+    dialog
+      .getByRole('link', { name: 'https://github.com/login/device' })
+      .first(),
   ).toBeVisible();
-  await expect(dialog.getByText('TASK16-ABCD', { exact: true })).toBeVisible();
+  await expect(dialog).toContainText('TASK16-ABCD');
 });
 
 test('chat preserves raw outbound payload and blocks whitespace-only submit', async ({

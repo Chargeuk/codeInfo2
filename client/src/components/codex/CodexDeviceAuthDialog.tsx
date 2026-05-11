@@ -101,7 +101,9 @@ function describeProviderAuthState(result: ProviderAuthResponse): {
   }
 }
 
-function getDetectedAuthStateMessage(result: ProviderAuthResponse): string | null {
+function getDetectedAuthStateMessage(
+  result: ProviderAuthResponse,
+): string | null {
   if (
     result.detectedAuthState === 'already_authenticated' &&
     result.state !== 'already_authenticated'

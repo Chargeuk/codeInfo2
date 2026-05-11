@@ -674,7 +674,7 @@ Provider authentication in this product is controlled by external systems and ma
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -757,7 +757,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1797,7 +1797,7 @@ The final review task had been blocked before its own continuation seams could e
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 10, Task 11, Task 12, Task 13, Task 14`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation successor for review cycle `0000057-rc-20260507T033249Z-a89766f6`, narrowed by planner repair after the runtime-auth blocker proved a separate prerequisite owner was required. It now resumes on top of Task 14's repaired baseline: main-stack Codex runtime state persists in `codex-data`, Chat and Agents always expose `Re-authenticate`, the Codex dialog shows raw `CLI output`, and existing-auth detection is advisory rather than a blocker.
 
@@ -1845,6 +1845,8 @@ The shipped main-stack proof surface has now been narrowed to the isolated `manu
 10. [x] In `server/src/agents/service.ts` and `server/src/test/unit/agents-config-defaults.test.ts`, repair the first-turn direct Copilot agent seam so a newly bootstrapped conversation is not misclassified as a provider-session resume. Purpose: keep final main-stack provider-neutral proof honest for Copilot direct agents instead of only for `/chat`.
 11. [x] Run a full main-stack manual pass against the isolated `manual_testing` catalog covering auth recovery, provider discovery, direct agent execution, chat execution, flow discovery, and UI-triggered flow execution, then record which Codex and Copilot surfaces passed and which LM Studio behaviors remain outside the accepted parity boundary. Purpose: close the review cycle against the real shipped runtime instead of only the automated wrappers.
 12. [x] Normalize the story-level `Description`, `Acceptance Criteria`, `Out Of Scope`, `Story Manual Testing Guidance`, and `Decisions` so the isolated main-stack proof path and LM Studio's limited-capability boundary are documented as intentional scope rather than buried in close-out chat history. Purpose: prevent later regressions or review churn from silently reintroducing fake provider parity expectations.
+13. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, and any directly owned persisted-conversation helper they call, repair the checked-in main-stack fresh selected-repository Codex `codebase_question` seam so a saved MCP conversation that gains `/data/story55-manual-proof/queued-repo` through the working-folder edit path can complete its first omitted-provider turn without `Codex Exec exited with code 1 ... failed to record rollout items: thread <id> not found`. Purpose: align the shipped persistence-backed selected-repository MCP start path with the already-green in-memory proof contract.
+14. [ ] Extend `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`, or another existing server-owned proof home that runs under `npm run test:summary:server:unit`, so a persisted selected-repository Codex `codebase_question` conversation created without a saved `threadId` and hydrated through the working-folder edit seam returns a JSON-RPC result, persists an `ok` assistant turn, and records the real Codex `flags.threadId` on its first omitted-provider run instead of failing `thread <id> not found`. Purpose: make the shipped main-stack persistence-backed MCP start path fail in automated proof before later manual retest if this seam regresses again.
 
 #### Testing
 
@@ -1853,7 +1855,7 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 1. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper because the review-created block includes startup/bootstrap and server runtime contract repairs that must still build cleanly in the supported compose path.
 2. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because the serious review-created findings all touch server-owned route, MCP, or startup seams.
 3. [x] Run `npm run build:summary:client` from the repository root. Use this wrapper because inline-resolved minor finding `finding-11` changed the shipped Agents UI affordance contract and must stay compatible with the final server/runtime repairs.
-4. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the serious review-created findings and the existing inline MCP or startup fixes all rely on server unit or integration proof homes.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the serious review-created findings and the existing inline MCP or startup fixes all rely on server unit or integration proof homes.
 5. [x] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because inline-resolved minor finding `finding-10` changed BDD step-role proof ownership and the serious repairs must not regress the supported higher-level server feature surface.
 6. [x] Run `npm run test:summary:client` from the repository root. Use this wrapper because inline-resolved minor finding `finding-11` changed a browser-visible disabled-run affordance that still belongs to this review cycle's final proof.
 7. [x] Run `npm run test:summary:e2e` from the repository root. Use this wrapper once here because the final review-cycle proof still needs automated browser coverage for the disabled-agent run-guard surface, but broad browser regression remains shared proof owned by this final task instead of every individual review-created repair task.
@@ -1932,3 +1934,4 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 - Re-ran `npm run format:check` for Task 15 testing step 11. The first pass failed on the repo-owned formatter contract because `prettier . --check` still tried to descend into unreadable runtime-owned `codex/.cache`, so I narrowed the `format` and `format:check` scripts in `package.json` to tracked Prettier-supported files, added `--ignore-unknown`, normalized the two remaining drift files with `npx prettier --write client/src/components/codex/CodexDeviceAuthDialog.tsx client/src/test/codexDeviceAuthDialog.test.tsx`, and then reran `npm run format:check` cleanly to `All matched files use Prettier code style!`.
 - Re-ran `npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` for Task 15 testing step 12 and it passed cleanly with `tests run: 15`, `passed: 15`, `failed: 0`, and `agent_action: skip_log`, confirming the repaired first-turn Copilot direct-agent seam still holds under its direct proof home.
 - Automated-proof audit normalized Task 15 to `__done__` because all 12 subtasks and all 12 testing steps are now checked on disk, `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 15` reports zero live blockers, and the remaining prose about earlier Task 14 prerequisite or manual follow-up is historical context rather than an honest open gate for this task.
+- Manual testing expanded to full-story scope on a restarted checked-in main stack because Task 15 is the final story task and its owned proof surfaces are externally observable. Browser proof on `http://localhost:5001/agents` stayed healthy enough for close-out context: `Re-authenticate` remained visible, the current shipped seed still exposed no disabled agent to exercise the inline `Execute Prompt` guard live, and retained artifacts landed under `codeInfoTmp/manual-testing/0000057/15/` (`proof-01-agents-page.png`, `support-browser-console.txt`, `support-browser-network.txt`). The repository-backed `/chat` continuation seam passed on the shipped runtime path: both turns for `manual-chat-0000057-15` persisted `status: ok`, the contradictory follow-up still returned `provider: codex` plus `model: gpt-5.1-codex-max`, and the saved summary in `support-chat-summary-after-resume.json` kept the expected `flags.threadId`. The fresh selected-repository MCP seam did not hold, though: two bounded repros of a saved `codebase_question` conversation on `/data/story55-manual-proof/queued-repo` both failed on the first Codex turn with `failed to record rollout items: thread <id> not found`, first when the saved working folder came from conversation creation flags and again when it came from `POST /conversations/:id/working-folder`, with retained evidence in `support-mcp-first-response.json`, `support-mcp-first-response-route.json`, `support-conversation-working-folder-set.json`, `support-mcp-failure-summary.json`, and the live `codeinfo2-server-1` logs. I re-read `server/src/mcp2/tools/codebaseQuestion.ts`, the existing `mcp-codebase-question-ws-stream` proof, and the bound manual guidance before mutating the task, then added the concrete repair plus proof-authoring subtasks above and reopened `npm run test:summary:server:unit` because automated proof must rerun before a later manual retest.

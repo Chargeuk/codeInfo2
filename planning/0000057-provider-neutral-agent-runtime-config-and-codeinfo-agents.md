@@ -674,7 +674,7 @@ Provider authentication in this product is controlled by external systems and ma
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -757,7 +757,7 @@ This task replaces the remaining Codex-shaped runtime-config foundation with the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview

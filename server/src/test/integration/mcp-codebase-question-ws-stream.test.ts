@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import express from 'express';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
@@ -30,6 +31,8 @@ import {
   __setCodebaseQuestionMemoryConversationForTests as setMemoryConversation,
 } from '../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
+import { createConversationsRouter } from '../../routes/conversations.js';
+import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
@@ -466,6 +469,25 @@ async function postJson(port: number, body: unknown) {
   });
   return response.json();
 }
+
+const buildRepoEntry = (hostPath: string): RepoEntry => ({
+  id: hostPath,
+  name: path.basename(hostPath),
+  description: null,
+  containerPath:
+    hostPath === '/home/d_a_s/code/story55-manual-proof/queued-repo'
+      ? '/data/story55-manual-proof/queued-repo'
+      : hostPath,
+  hostPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-test',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-test',
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+  status: 'completed',
+});
 
 test('MCP codebase_question publishes WS transcript events while in progress', async () => {
   resetStore();
@@ -1581,6 +1603,226 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
     await wsHandle.close();
     resetToolDeps();
     mcpServer.close();
+    wsHttp.close();
+  }
+});
+
+test('omitted-provider MCP codebase_question records the first Codex thread after the working-folder edit route saves a mounted selected repository', async () => {
+  resetStore();
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  const conversationId = 'mcp-ws-codex-route-selected-repo';
+  const providerThreadId = 'codex-thread-route-selected-901';
+  const savedModel = 'gpt-5.3-codex';
+  const advertisedHostPath =
+    '/home/d_a_s/code/story55-manual-proof/queued-repo';
+  const mountedPath = '/data/story55-manual-proof/queued-repo';
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  const originalCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  const tempCodexHome = await withTempCodexHome();
+
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'gpt-5.1-codex-max';
+  process.env.CODEINFO_HOST_INGEST_DIR = '/home/d_a_s/code';
+  process.env.CODEINFO_CODEX_WORKDIR = '/data';
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEX_HOME = tempCodexHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome.codexHome;
+
+  setMemoryConversation({
+    _id: conversationId,
+    provider: 'codex',
+    model: savedModel,
+    title: 'Saved selected repository route-edited conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {},
+  } as never);
+
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (targetPath === mountedPath) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('missing') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  setToolDeps({
+    chatFactory: () =>
+      new CapturingCodexMcpChat(
+        calls,
+        providerThreadId,
+        'Fresh route-selected-repository Codex answer',
+      ),
+    clientFactory: makeLmStudioClientFactory(),
+  });
+
+  const conversationsApp = express();
+  conversationsApp.use(express.json());
+  conversationsApp.use(
+    createConversationsRouter({
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(advertisedHostPath)],
+        lockedModelId: null,
+      }),
+    }),
+  );
+  const conversationsHttp = http.createServer(conversationsApp);
+  await new Promise<void>((resolve) => conversationsHttp.listen(0, resolve));
+  const conversationsAddr = conversationsHttp.address() as AddressInfo;
+
+  const wsApp = express();
+  const wsHttp = http.createServer(wsApp);
+  const wsHandle = attachWs({ httpServer: wsHttp });
+  await new Promise<void>((resolve) => wsHttp.listen(0, resolve));
+  const wsAddr = wsHttp.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${wsAddr.port}`;
+
+  const mcpServer = http.createServer(handleRpc);
+  await new Promise<void>((resolve) => mcpServer.listen(0, resolve));
+  const mcpAddr = mcpServer.address() as AddressInfo;
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    const workingFolderResponse = await fetch(
+      `http://127.0.0.1:${conversationsAddr.port}/conversations/${conversationId}/working-folder`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ workingFolder: advertisedHostPath }),
+      },
+    );
+    assert.equal(workingFolderResponse.status, 200);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.workingFolder,
+      mountedPath,
+    );
+
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const toolCallPromise = postJson(mcpAddr.port, {
+      jsonrpc: '2.0',
+      id: 107,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question:
+            'Start a fresh omitted-provider Codex run after the working-folder edit route saves the mounted repository',
+          conversationId,
+        },
+      },
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is { type: string; status: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(final.status, 'ok');
+
+    const response = await toolCallPromise;
+    assert.ok((response as { result?: unknown }).result);
+    const payload = JSON.parse(
+      (response as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.conversationId, conversationId);
+    assert.equal(calls[0]?.flags.threadId, undefined);
+    assert.deepEqual(calls[0]?.flags.repositoryContext, {
+      selectedRepositoryPath: mountedPath,
+      defaultExecutionRoot: resolveAgentHomeEnv().codeInfoRoot,
+      workingDirectoryOverride: mountedPath,
+      fallbackUsed: false,
+      workingRepositoryAvailable: true,
+    });
+    assert.equal(payload.conversationId, conversationId);
+    assert.equal(payload.modelId, savedModel);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.threadId,
+      providerThreadId,
+    );
+
+    const persistedTurns = getMemoryTurns(conversationId);
+    const assistantTurn = persistedTurns.find(
+      (turn) => turn.role === 'assistant',
+    );
+    assert.ok(assistantTurn);
+    assert.equal(assistantTurn?.status, 'ok');
+    assert.equal(
+      assistantTurn?.content,
+      'Fresh route-selected-repository Codex answer',
+    );
+    assert.equal(assistantTurn?.model, savedModel);
+  } finally {
+    deleteMemoryConversation(conversationId);
+    memoryTurns.delete(conversationId);
+    setWorkingFolderStatForTests(undefined);
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalDefaultModel === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    }
+    if (originalHostIngestDir === undefined) {
+      delete process.env.CODEINFO_HOST_INGEST_DIR;
+    } else {
+      process.env.CODEINFO_HOST_INGEST_DIR = originalHostIngestDir;
+    }
+    if (originalCodexWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalCodexWorkdir;
+    }
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempCodexHome.cleanup();
+    await closeWs(ws);
+    await wsHandle.close();
+    resetToolDeps();
+    mcpServer.close();
+    conversationsHttp.close();
     wsHttp.close();
   }
 });

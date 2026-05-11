@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
 import { normalizeImplicitCopilotRequestedModel } from '../../chat/copilotModelSupport.js';
+import { buildConversationFlags } from '../../chat/agentFlags.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
@@ -939,10 +940,18 @@ async function executeCodebaseQuestion(
     mutableConversation && mutableConversation._id === resolvedConversationId
       ? (mutableConversation.flags as Record<string, unknown> | undefined)
       : undefined;
-  const conversationFlags =
-    executionProvider === 'codex'
-      ? { ...(existingFlags ?? {}), ...threadOpts }
-      : sanitizeFlagsForProvider(executionProvider, existingFlags);
+  const conversationFlags = buildConversationFlags({
+    provider: executionProvider,
+    currentFlags: existingFlags,
+    workingFolder: effectiveWorkingFolder,
+    threadId:
+      executionProvider === 'codex' &&
+      mutableConversation?.provider === 'codex' &&
+      mutableConversation.model === executionModel
+        ? getSavedCodexThreadId(mutableConversation) ?? null
+        : null,
+    preserveFlowState: false,
+  });
 
   await ensureConversation(
     resolvedConversationId,
@@ -1064,10 +1073,13 @@ async function executeCodebaseQuestion(
 
   const providerThreadId = responder.getProviderThreadId();
   if (executionProvider === 'codex' && providerThreadId) {
-    const nextFlags = {
-      ...(conversationFlags ?? {}),
+    const nextFlags = buildConversationFlags({
+      provider: executionProvider,
+      currentFlags: conversationFlags,
+      workingFolder: effectiveWorkingFolder,
       threadId: providerThreadId,
-    };
+      preserveFlowState: false,
+    });
     await ensureConversation(
       resolvedConversationId,
       executionProvider,

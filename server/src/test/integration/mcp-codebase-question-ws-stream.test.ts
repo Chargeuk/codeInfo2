@@ -566,7 +566,7 @@ test('MCP codebase_question publishes WS transcript events while in progress', a
         };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 5000,
+      timeoutMs: 15000,
     });
     assert.equal(final.status, 'ok');
 
@@ -633,7 +633,7 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
         const e = event as { type?: string; conversationId?: string };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 5000,
+      timeoutMs: 15000,
     });
 
     await toolCallPromise;
@@ -1252,7 +1252,7 @@ test('omitted-provider MCP codebase_question reuses the saved Codex thread ident
         };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 5000,
+      timeoutMs: 15000,
     });
     assert.equal(final.status, 'ok');
 

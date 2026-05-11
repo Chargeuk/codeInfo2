@@ -1371,6 +1371,7 @@ export async function startAgentInstruction(
 
   let modelId = 'gpt-5.1-codex-max';
   let providerId: ChatProviderId = 'codex';
+  let startPathWasNewConversation = false;
 
   try {
     const discovered = await discoverAgents();
@@ -1393,6 +1394,7 @@ export async function startAgentInstruction(
       }));
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
+    startPathWasNewConversation = isNewConversation;
     if (mustExist && isNewConversation) {
       throw toRunAgentError('AGENT_NOT_FOUND');
     }
@@ -1466,6 +1468,7 @@ export async function startAgentInstruction(
         ...params,
         conversationId,
         mustExist,
+        startPathWasNewConversation,
         inflightId,
         // Intentionally omit any request-bound signal; cancellation happens only
         // via explicit WS cancel_inflight.
@@ -2043,6 +2046,7 @@ export async function runAgentInstructionUnlocked(params: {
   working_folder?: string;
   conversationId: string;
   mustExist?: boolean;
+  startPathWasNewConversation?: boolean;
   command?: TurnCommandMetadata;
   runtime?: TurnRuntimeMetadata;
   envOverrides?: NodeJS.ProcessEnv;
@@ -2139,6 +2143,8 @@ export async function runAgentInstructionUnlocked(params: {
   try {
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
+    const startedAsNewConversation =
+      params.startPathWasNewConversation ?? isNewConversation;
     if (params.mustExist && isNewConversation) {
       throw toRunAgentError('AGENT_NOT_FOUND');
     }
@@ -2299,7 +2305,7 @@ export async function runAgentInstructionUnlocked(params: {
       consumePendingInstructionStop(inflightId);
 
       const shouldResumeCopilotSession =
-        conversation.provider === 'copilot' && !isNewConversation;
+        conversation.provider === 'copilot' && !startedAsNewConversation;
       const historyForRun =
         executionProviderId === 'codex'
           ? undefined

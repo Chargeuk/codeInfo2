@@ -37,6 +37,8 @@ For agents, the selected provider comes from a new app-owned metadata field insi
 
 This story also introduces a shared provider-neutral repository execution-context contract for chat, agent, and `code_info` runs. Shared code should resolve repository execution context once and pass the resulting context to whichever provider executes the run. That shared context should always include the selected repository path as runtime metadata when a `workingFolder` has been chosen and should also include a resolved runtime working-directory override for providers that support it directly. When no `workingFolder` has been selected, the common execution-context resolver should still choose the effective default execution root using the same precedence Codex uses today, rather than letting each provider fall back to its own unrelated process working directory. Codex and Copilot should consume that runtime working-directory value in this story. LM Studio should receive the same shared context even if its current provider implementation only uses the repository metadata or provider-specific tools rather than the same direct working-directory mechanism.
 
+Provider-neutral does not mean equal harness depth across every provider in this story. Codex and Copilot are the full-harness providers for repository-grounded chat, direct agent runs, flows, and close-out proof on the shipped main stack. LM Studio still participates in the same provider-neutral discovery, config layering, selected-agent resolution, and repository-context contract, but this story does not require LM Studio to match Codex or Copilot for direct file mutation, repo-mutating command execution, or exact execution quality when its provider-specific tool path is more limited. The checked-in main stack may also use a dedicated manual-testing agent seed set for close-out proof as long as the normal provider-neutral folder precedence and execution contracts remain the same.
+
 When an agent explicitly selects a provider that is unavailable, this story should not stop at the first failure. Instead, agent execution should evaluate a configurable fallback provider order from a new comma-separated env var in `server/.env`, with a default order of `codex,copilot`. `lmstudio` should be a valid value in that env var, but it should not appear in the default list. That env var should be normalized by trimming entries, dropping blanks, removing duplicates, and ignoring unknown provider ids with warnings. If normalization leaves no usable configured providers, the runtime should fall back to the default order rather than failing startup. This fallback rule applies only to direct agent runs and flow-owned agent runs; it does not change normal chat behavior. The fallback rule is also a separate recovery step, not part of the normal agent config merge precedence. If the selected provider is still available but the merged model is missing or invalid for that provider, the runtime should stay on that provider and resolve a fallback model there rather than entering the cross-provider fallback chain. If the runtime does need to fall back to another provider, it should try the same model first when that model exists on the fallback provider, then the model defined in that provider's chat config, and then the default model for that provider. Shared settings should carry forward across that fallback attempt, while provider-specific settings that the fallback provider cannot use should be ignored with warnings rather than making the fallback fail for that reason alone. Once a conversation has successfully persisted the provider and model that actually executed, later turns in that same conversation should continue on that stored provider-and-model pair rather than re-running provider or model selection from the agent config. That means cross-provider fallback and provider-local model repair are conversation-establishment behavior, not later-turn behavior. If that stored provider or model later becomes unavailable, the later turn should fail clearly inside the existing conversation instead of silently switching execution identity or auto-starting a new conversation. If a later turn would need a different provider or model, this story should not allow that change inside the same conversation. When a fallback run succeeds, the conversation and any user-visible execution metadata should show the provider and model that actually ran, and those stored values become the later-turn continuation target for that conversation. If the originally failed provider also appears in the configured fallback list, it should be skipped rather than tried again. If no configured fallback provider can run, the request should fail clearly. Each fallback event should produce both warning logs and warning-capable GUI or API messages so users can see what happened.
 
 This story also shifts the preferred agent folder name from `codex_agents` to `codeinfo_agents` while keeping the old folder name supported for compatibility. The new folder always wins when both are present, and that precedence must apply consistently in local discovery and in cross-repository command lookup. If the same agent exists in both folders, the ignored legacy copy should produce a warning that is both logged and surfaced in the agent list payload plus the selected agent's info or details surface. Equivalent flow-owned agent warning surfaces should reuse the same warning data through the existing flow info or details surface when that surface already exists. The same compatibility rule applies to environment naming: a new neutral agent-home contract can be introduced through `CODEINFO_AGENT_HOME`, but `CODEINFO_CODEX_AGENT_HOME` must remain supported as a legacy alias, and `CODEINFO_AGENT_HOME` should win when both are set.
@@ -83,6 +85,10 @@ Provider authentication in this product is controlled by external systems and ma
 - Chat execution uses the shared repository execution-context contract for Codex, Copilot, and LM Studio.
 - Agent execution can run a Codex agent, a Copilot agent, or an LM Studio agent using the merged runtime config and the agent's selected provider.
 - Agent execution uses the same shared repository execution-context contract for Codex, Copilot, and LM Studio.
+- The checked-in main stack may use a dedicated manual-testing agent seed set that is different from `docker-compose.local.yml`, as long as both stacks still honor the same provider-neutral `codeinfo_agents` versus `codex_agents` precedence contract.
+- The shipped main stack proves full repository-grounded chat and direct-agent execution for Codex and Copilot.
+- LM Studio participates in provider-neutral discovery, selected-agent resolution, repository-context delivery, and best-effort execution on the shipped main stack, but this story does not require LM Studio to match Codex or Copilot for file-manipulation, repo-mutating command execution, or exact execution quality.
+- Final manual proof may treat LM Studio as a limited-capability provider as long as that boundary is documented honestly and the runtime does not silently relabel LM Studio runs as Codex or Copilot fallback successes.
 - Provider fallback is an agent-only recovery rule for direct agent runs and flow-owned agent runs; it does not apply to normal chat execution.
 - If an agent's selected provider is unavailable, agent execution evaluates fallback providers using a new comma-separated env var in `server/.env` named `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER`.
 - `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` defaults to `codex,copilot` in `server/.env`.
@@ -154,6 +160,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Requiring every provider SDK to natively consume the exact same raw TOML shape directly.
 - Requiring every provider to consume repository context through the exact same internal SDK fields or runtime mechanism.
 - Requiring LM Studio to implement an identical Codex-style working-directory model if equivalent repository-grounded behavior is achieved through provider-specific tools or runtime wiring.
+- Requiring LM Studio to match Codex or Copilot for direct file mutation, repo-mutating command execution, or exact close-out execution quality in this story.
 - Changing the precedence rules themselves for the default execution root beyond centralizing the current Codex behavior into shared code.
 - Making LM Studio consume or honor the shared runtime working-directory override directly.
 - Updating shared harness, platform, or other agent-facing metadata that lives outside this repository.
@@ -164,6 +171,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Inventing a new manual override layer above `codeinfo_config/config.toml`, provider `config.toml`, and chat or agent runtime config.
 - Adding a second user-facing working-folder override model that differs between chat, agents, flows, or MCP tools.
 - Requiring identical auth-home topology across every compose variant, as long as each supported stack keeps a documented and honest recovery path.
+- Requiring `docker-compose.yml` and `docker-compose.local.yml` to mount the exact same agent seed set, as long as both supported stacks keep the same provider-neutral folder precedence and execution contract.
 - Hiding disabled agents from discovery when provider validation or provider availability fails.
 - Treating recoverable formatting mistakes in `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` as fatal startup errors.
 - Failing provider fallback solely because the original agent config contains provider-specific settings the fallback provider cannot use.
@@ -184,8 +192,9 @@ Provider authentication in this product is controlled by external systems and ma
 - Later manual proof should prefer the normal human stack through `npm run compose:build` followed by `npm run compose:up`, because `docker-compose.yml` is the stack that mounts the working repository into the server container and reflects the real repository-grounded runtime contract.
 - Later manual proof should use `docker-compose.local.yml` only when the proof honestly requires its extra source bind mounts or Docker-socket behavior, not as the default runtime for this story.
 - Later automated browser proof can still rely on the e2e stack, but `docker-compose.e2e.yml` should not be treated as the main mounted working-repository proof path because it does not mount the selected host repository into the server container.
+- Later manual proof on the checked-in main stack may use the dedicated `manual_testing` agent seed set rather than the live local-development agent tree, as long as the same provider-neutral folder precedence and runtime contracts are being exercised honestly.
 - Later manual proof should cover at least one agent configured for each provider, plus one scenario where both `codeinfo_agents` and `codex_agents` exist so precedence can be observed honestly.
-- Later manual proof should include at least one command or flow path that resolves agent-owned files from another repository root, because folder precedence must match there as well.
+- Later manual proof should include at least one flow path that resolves agent-owned files from another repository root, because folder precedence must match there as well. If the current checked-in main-stack command catalog exposes only repo-mutating planning commands and the proof pass is explicitly no-change, command discovery may be inspected without firing one of those commands.
 - Later manual proof should show where users see fallback and duplicate-agent warnings in the agent list and in the selected agent's info or details surface, plus the existing flow info or details warning surface used for equivalent flow-owned agent warnings when that surface exists.
 - Later manual proof should show that an invalid `codeinfo_provider` warning first appears when the user opens the affected agent rather than in the initial agent list.
 - Later manual proof should include one fallback run where provider-specific settings from the original provider are ignored with a visible warning so the fallback still succeeds.
@@ -202,6 +211,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Later manual proof should verify that an explicit user reauthentication attempt still starts the provider login flow when local detection says auth already exists.
 - Later manual proof should treat the verification URL plus raw provider CLI output as the operator-facing source of truth during authentication recovery instead of relying on a parsed one-time code.
 - Later manual proof should confirm the checked-in main stack can recover from missing or stale provider auth through the shipped UI path rather than only through ad hoc container-side intervention.
+- Later manual proof should treat Codex and Copilot as the full-harness providers for close-out signoff, and should treat LM Studio as a limited-capability provider: prove provider-neutral discovery, selected-agent resolution, repository-context delivery, and best-effort execution, but do not require LM Studio to match Codex or Copilot for file mutation or repo-mutating command parity unless a later story explicitly adds that harness.
 
 ## Questions
 
@@ -258,21 +268,28 @@ Provider authentication in this product is controlled by external systems and ma
    - Where the answer came from: Direct repo review of this story file, especially the broad runtime wording in the Description and the agent-specific fallback wording later in the same file.
    - Why it is the best answer: It keeps chat behavior stable and limits the new fallback complexity to the feature that actually needs it.
 
-8. Decision: if the failed provider also appears in the fallback env var, the runtime should skip it and move to the next provider.
+8. Decision: LM Studio is a limited-capability provider in Story 57 rather than a full Codex or Copilot harness peer.
+   - The question being addressed: Does provider-neutral support in this story require LM Studio to match Codex or Copilot for direct file mutation, repo-mutating command execution, and close-out execution quality?
+   - Why the question matters: The live main-stack proof now demonstrates real provider-neutral selection and execution identity across Codex, Copilot, and LM Studio, but the providers do not all expose the same harness depth.
+   - What the answer is: No. LM Studio must still participate honestly in provider-neutral discovery, config layering, selected-agent resolution, repository-context delivery, and best-effort execution, but this story does not require LM Studio to match Codex or Copilot for repo-mutating or file-manipulating harness parity.
+   - Where the answer came from: User direction during final Story 57 close-out, the checked-in main-stack manual-testing catalog mounted from `docker-compose.yml`, and the observed main-stack manual proof that Codex and Copilot are the full-harness providers while LM Studio remains provider-neutral but more limited.
+   - Why it is the best answer: It protects the real shipped scope, prevents later reviewers from silently reintroducing fake parity requirements, and still requires the runtime to represent LM Studio honestly instead of masking it behind fallback or mislabeling.
+
+9. Decision: if the failed provider also appears in the fallback env var, the runtime should skip it and move to the next provider.
    - The question being addressed: If the failed provider is also listed in the fallback env var, should it be skipped or tried again?
    - Why the question matters: The default fallback order starts with `codex,copilot`, so a Codex failure could otherwise retry Codex inside the fallback loop.
    - What the answer is: Skip the failed provider and continue to the next configured fallback provider.
    - Where the answer came from: Direct repo review of this story file, especially the new `CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER` wording and the default order now recorded in the story.
    - Why it is the best answer: It avoids pointless retries, keeps the fallback chain easier to understand, and reduces wasted recovery time.
 
-9. Decision: agent fallback and duplicate-agent warnings should appear in the agent list payload and in the selected agent's info or details surface.
+10. Decision: agent fallback and duplicate-agent warnings should appear in the agent list payload and in the selected agent's info or details surface.
    - The question being addressed: Where should users see agent fallback and duplicate-agent warnings?
    - Why the question matters: The story already requires these warnings to reach the GUI and API, but users still need a clear and predictable place to see them.
    - What the answer is: Show the warnings in the agent list payload and in the selected agent's info or details surface, and reuse the same warning data through the existing flow info or details surface for equivalent flow-owned agent warnings when that surface already exists.
    - Where the answer came from: User direction in this planning round, plus direct repo review of this story file's earlier warning-visibility wording.
    - Why it is the best answer: It lets users see the warning both when choosing an agent and when reviewing that agent's details, without inventing a brand-new warning surface just for this story.
 
-10. Decision: `copilot/config.toml` and `lmstudio/config.toml` should be created during shared startup bootstrap rather than waiting for first use.
+11. Decision: `copilot/config.toml` and `lmstudio/config.toml` should be created during shared startup bootstrap rather than waiting for first use.
 
 - The question being addressed: If `copilot/config.toml` or `lmstudio/config.toml` is missing, should startup create it, or should the app wait until that provider is first used?
 - Why the question matters: The story already says those provider base config files should be bootstrapped like Codex, but it still needed a clear timing rule.
@@ -280,7 +297,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: Repo evidence in `server/src/index.ts`, `server/src/config/codexConfig.ts`, `server/src/config/runtimeConfig.ts`, and `server/src/test/unit/copilotSeedBootstrap.test.ts`, plus earlier decisions already recorded in this plan that Copilot and LM Studio base config files should be auto-seeded like Codex.
 - Why it is the best answer: It is the closest match to the current Codex behavior, keeps provider bootstrap timing predictable, and avoids hiding configuration side effects behind first use.
 
-11. Decision: provider fallback should ignore settings meant only for the original provider rather than fail the run for that reason alone.
+12. Decision: provider fallback should ignore settings meant only for the original provider rather than fail the run for that reason alone.
 
 - The question being addressed: If fallback switches providers, should it ignore settings meant for the original provider, or fail the run?
 - Why the question matters: Without a clear rule, a Codex-only setting could make an otherwise healthy Copilot or LM Studio fallback fail for a confusing reason.
@@ -288,7 +305,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from the TOML v1.0.0 spec at `toml.io`, which leaves key semantics to the application.
 - Why it is the best answer: It matches this repo's warning-first config normalization style, preserves fallback as a recovery path, and avoids cascading one provider problem into another avoidable failure.
 
-12. Decision: malformed fallback env values should be normalized with warnings instead of treated as fatal errors.
+13. Decision: malformed fallback env values should be normalized with warnings instead of treated as fatal errors.
 
 - The question being addressed: If the fallback env var has blank, duplicate, or unknown providers, should we warn and clean it up, or treat it as an error?
 - Why the question matters: Operators will edit this env var by hand, so the story needs one predictable rule for common mistakes.
@@ -296,7 +313,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/config/codexEnvDefaults.ts`, `server/src/config/chatDefaults.ts`, and `planning/0000040-command-step-start-chat-config-defaults-and-flow-command-resolution.md`. External evidence from Node.js environment-variable docs, Context7 documentation for `nodejs/node`, and DeepWiki notes on `nodejs/node`, all of which show that env values arrive as strings and application-level normalization belongs to the app.
 - Why it is the best answer: It matches existing repo env parsing patterns, keeps operator-facing behavior predictable, and still makes the bad config visible through warnings.
 
-13. Decision: agents with no usable provider should stay visible but disabled rather than disappear from discovery.
+14. Decision: agents with no usable provider should stay visible but disabled rather than disappear from discovery.
 
 - The question being addressed: If no usable provider is left, should the agent stay visible but disabled, or disappear from the agent list?
 - Why the question matters: Users need a clear and stable way to understand why an agent cannot run without thinking it vanished or was deleted.
@@ -304,7 +321,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/agents/types.ts`, `client/src/components/agents/AgentsComposerPanel.tsx`, and `server/src/config/chatDefaults.ts`.
 - Why it is the best answer: It aligns with the repo's existing agent API and UI shape, preserves debuggability, and keeps discovery behavior predictable for users.
 
-14. Decision: model repair stays on the selected provider instead of entering cross-provider fallback.
+15. Decision: model repair stays on the selected provider instead of entering cross-provider fallback.
 
 - The question being addressed: If the chosen provider is up but its model is missing, should the runtime stay on that provider or switch providers?
 - Why the question matters: A bad model name is a common operator mistake, and the story already treats provider fallback as a separate recovery path.
@@ -312,7 +329,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `design.md`. External evidence from OpenAI API docs and DeepWiki notes on `openai/openai-node`, both of which show that model selection is application-owned within the chosen provider rather than something the SDK auto-switches across providers.
 - Why it is the best answer: It keeps explicit provider choice authoritative, matches the story's current separation between provider fallback and normal model resolution, and avoids silently changing providers for what is really a provider-local model issue.
 
-15. Decision: cross-provider fallback is only for establishing a conversation, and later turns stay on the stored execution pair.
+16. Decision: cross-provider fallback is only for establishing a conversation, and later turns stay on the stored execution pair.
 
 - The question being addressed: If one run falls back, should the next run try the original provider again, or keep using the fallback provider?
 - Why the question matters: This decides whether fallback is a one-run recovery step or a sticky provider change that silently reshapes later agent behavior.
@@ -320,7 +337,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round after reviewing Codex and Copilot continuation constraints. Repo evidence in `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/agentFlags.ts`, and `server/src/mongo/repo.ts`, which show that provider-native continuation depends on the persisted execution context. External evidence was not needed because the local continuation contract already provides the strongest precedent.
 - Why it is the best answer: It preserves provider-native continuation for Codex and Copilot, keeps later-turn behavior predictable, and avoids silently switching an established conversation onto a provider that does not own that conversation's history.
 
-16. Decision: fallback runs should display and persist the provider and model that actually executed.
+17. Decision: fallback runs should display and persist the provider and model that actually executed.
 
 - The question being addressed: After a fallback run, should the conversation show the provider that actually ran, or the provider originally requested?
 - Why the question matters: Users and later runtime code need one honest source for what really executed, especially when warnings, thread reuse, and later debugging depend on it.
@@ -328,7 +345,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/routes/chat.ts`, `server/src/mongo/conversation.ts`, and `server/src/mongo/repo.ts`.
 - Why it is the best answer: It matches the repo's existing conversation metadata pattern, keeps visible state truthful, and gives later turns one unambiguous provider-and-model pair to continue with.
 
-17. Decision: provider-local model repair becomes the stored continuation model for that conversation.
+18. Decision: provider-local model repair becomes the stored continuation model for that conversation.
 
 - The question being addressed: If a missing model is repaired on the same provider, should the next run try the original model again, or keep using the repaired model?
 - Why the question matters: This decides whether model repair is a one-run recovery step or a quiet long-term change to which model the agent keeps using.
@@ -336,7 +353,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round after clarifying that established conversations should continue on the provider-and-model pair stored in the database. Repo evidence in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and `server/src/mongo/repo.ts`.
 - Why it is the best answer: It keeps continuation behavior consistent with the stored execution metadata, avoids reintroducing a model mismatch on the next turn, and matches the same blanket continuity rule now being applied across providers.
 
-18. Decision: once a conversation has stored a provider and model, later turns may not change either value inside that conversation.
+19. Decision: once a conversation has stored a provider and model, later turns may not change either value inside that conversation.
 
 - The question being addressed: Should the same continuity rule apply only to Codex and Copilot, or should it be a blanket rule for all providers in this story?
 - Why the question matters: LM Studio could rebuild from history, but a provider-specific exception would make the story harder to explain, test, and trust.
@@ -344,7 +361,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round, plus repo evidence in `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/routes/chat.ts`, and `server/src/mongo/conversation.ts`.
 - Why it is the best answer: It keeps the product contract simple, prevents provider-specific surprises, and aligns continuation behavior with the database state the runtime already persists and reads.
 
-19. Decision: if a saved provider or model stops working later, the next turn should fail clearly inside the existing conversation.
+20. Decision: if a saved provider or model stops working later, the next turn should fail clearly inside the existing conversation.
 
 - The question being addressed: If a saved provider or model stops working later, should the next turn fail, or should we force a new conversation?
 - Why the question matters: The story now locks each conversation to its saved execution pair, so later-turn failure behavior needs to be explicit.
@@ -352,7 +369,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, `server/src/chat/agentFlags.ts`, `client/src/pages/ChatPage.tsx`, and `client/src/test/chatPage.inflightNavigate.test.tsx`. External evidence in the official OpenAI conversation-state docs, the official GitHub Copilot SDK session-persistence docs, and DeepWiki notes on `openai/openai-node`.
 - Why it is the best answer: It preserves the saved conversation identity, matches the repo's explicit-failure precedent for unavailable pinned execution, and avoids silently changing what an existing conversation means.
 
-20. Decision: if an agent's config changes after a conversation starts, the old conversation keeps its saved provider, model, and `agentName`, and the new config applies only to new conversations.
+21. Decision: if an agent's config changes after a conversation starts, the old conversation keeps its saved provider, model, and `agentName`, and the new config applies only to new conversations.
 
 - The question being addressed: If an agent's config changes after a conversation starts, should the old conversation keep its saved provider, model, and `agentName`, or adopt the new config?
 - Why the question matters: Without a clear rule, an agent edit could silently rewrite how an established conversation continues.
@@ -360,7 +377,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `client/src/pages/ChatPage.tsx`, `client/src/test/chatPage.inflightNavigate.test.tsx`, `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterfaceCopilot.ts`, and `server/src/mongo/repo.ts`. External evidence in the official OpenAI conversation-state docs, the official GitHub Copilot SDK session-persistence docs, and DeepWiki notes on `openai/openai-node`.
 - Why it is the best answer: It matches the repo's next-send boundary behavior for provider and model changes, keeps continuation predictable, and prevents later config edits from mutating an existing conversation's saved execution identity or agent binding.
 
-21. Decision: if the saved agent name no longer exists later, the turn should fail clearly instead of substituting another agent.
+22. Decision: if the saved agent name no longer exists later, the turn should fail clearly instead of substituting another agent.
 
 - The question being addressed: If the saved agent name no longer exists later, should the turn fail, or should we try a different agent?
 - Why the question matters: The story now says later turns keep using the stored `agentName`, so missing-agent behavior needs one explicit rule.
@@ -368,7 +385,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/agents/service.ts`, `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/agent-prompts-list.test.ts`, and `server/src/test/unit/agent-commands-list.test.ts`. External evidence in the official GitHub Copilot session-persistence docs, the official OpenAI conversation-state docs, and DeepWiki notes on `openai/openai-node`.
 - Why it is the best answer: It matches the repo's current `AGENT_NOT_FOUND` precedent, keeps agent identity explicit, and avoids silently changing the agent behavior behind an existing conversation.
 
-22. Decision: later turns should keep using stored database identity fields, but agent-owned files should be resolved live at execution time.
+23. Decision: later turns should keep using stored database identity fields, but agent-owned files should be resolved live at execution time.
 
 - The question being addressed: If an agent's files change after a conversation starts, should later turns use the updated agent files, or keep the older version?
 - Why the question matters: Storing `agentName` does not automatically decide whether conversations follow live file changes or require per-conversation snapshots.
@@ -376,7 +393,7 @@ Provider authentication in this product is controlled by external systems and ma
 - Where the answer came from: User direction in this planning round. Repo evidence in `server/src/agents/discovery.ts`, `server/src/config/runtimeConfig.ts`, `server/src/agents/service.ts`, `server/src/routes/conversations.ts`, and `server/src/test/unit/conversations-router-agent-filter.test.ts`. External evidence in the official GitHub Copilot session-persistence docs, the official OpenAI conversation-state docs, and DeepWiki notes on `openai/openai-node`.
 - Why it is the best answer: It preserves the stored conversation identity, matches the repo's current live-discovery behavior, and avoids expanding this story into a much larger snapshotting feature.
 
-23. Decision: local auth detection is advisory, while explicit user reauthentication is authoritative.
+24. Decision: local auth detection is advisory, while explicit user reauthentication is authoritative.
 
 - The question being addressed: If the runtime thinks a provider is already authenticated, should that belief block a user-requested login or re-login attempt?
 - Why the question matters: Provider authentication is controlled by external systems and can drift from local runtime detection, so a false-positive local check could otherwise hide the only recovery path.
@@ -1777,7 +1794,7 @@ The final review task had been blocked before its own continuation seams could e
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 10, Task 11, Task 12, Task 13, Task 14`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation successor for review cycle `0000057-rc-20260507T033249Z-a89766f6`, narrowed by planner repair after the runtime-auth blocker proved a separate prerequisite owner was required. It now resumes on top of Task 14's repaired baseline: main-stack Codex runtime state persists in `codex-data`, Chat and Agents always expose `Re-authenticate`, the Codex dialog shows raw `CLI output`, and existing-auth detection is advisory rather than a blocker.
 
@@ -1785,9 +1802,11 @@ The final review task had been blocked before its own continuation seams could e
 
 This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260507T014045Z-e54d5640`, and it must also revalidate the inline-resolved minor fixes for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14` so the cycle does not split into a second final revalidation owner later.
 
+The shipped main-stack proof surface has now been narrowed to the isolated `manual_testing` agent catalog mounted by `docker-compose.yml`, and the accepted close-out boundary is asymmetric on purpose: Codex and Copilot are the full-harness providers for final signoff, while LM Studio remains a limited-capability provider that still must participate honestly in provider-neutral discovery, selected-agent resolution, repository-context delivery, and best-effort execution.
+
 #### Highest-Risk Invariant
 
-- The final review-cycle close-out must prove the serious repair block through the supported default build, startup, and regression paths while also showing the already-recorded inline minor fixes still hold, without confusing task-owned proof with shared baseline or manual-environment ownership.
+- The final review-cycle close-out must prove the serious repair block through the supported default build, startup, and regression paths while also showing the already-recorded inline minor fixes still hold, without confusing task-owned proof with shared baseline or manual-environment ownership or silently demanding Codex-or-Copilot harness parity from LM Studio.
 
 #### Likely Blocker Family
 
@@ -1806,6 +1825,8 @@ This final review task owns the whole current review cycle's closing proof. It m
 
 - Every review-created repair task added for review pass `0000057-20260507T014045Z-e54d5640` is implemented, fully proved with the repository's wrapper-first workflow, and reflected honestly in the executable plan.
 - The same final revalidation pass also confirms the earlier inline minor fixes remain green on the affected proof surfaces, including the disabled-agent mixed-state guard that must keep cleared or hidden local state out of `Execute Prompt` submission, so this review cycle can close without a second final-task owner.
+- The checked-in main stack proves provider-neutral discovery on the isolated `manual_testing` catalog and full repository-grounded chat plus direct-agent execution for Codex and Copilot on that shipped runtime path.
+- LM Studio's limited-capability role is documented explicitly at both the task and story level so final close-out does not silently fail the story for lacking Codex or Copilot file-mutation or repo-command parity.
 
 #### Subtasks
 
@@ -1817,6 +1838,10 @@ This final review task owns the whole current review cycle's closing proof. It m
 6. [x] In `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, and any repository-backed Codex runtime-config helper they call, repair the checked-in main compose `/chat` path so a repository-backed conversation using `/data/story55-manual-proof/queued-repo` can complete both its first turn and a resumed contradictory follow-up without `Codex Exec exited with code 1 ... failed to record rollout items: thread <id> not found` on the shipped `/app/codex/chat/config.toml` contract. Purpose: close the remaining gap between the green server-unit harness and the failing main-stack `/chat` seam that manual proof just reproduced.
 7. [x] Extend `server/src/test/integration/chat-codex.test.ts`, or another existing server-owned automated proof home that runs under `npm run test:summary:server:unit`, so the repaired repository-backed `/chat` startup contract explicitly covers the checked-in runtime-config path that manual proof just failed: explicit Codex model on the first turn, contradictory-provider follow-up on the same conversation, and no rollout-recording `thread <id> not found` failure for either assistant turn. Purpose: make the live main-stack `/chat` continuation seam fail in automated proof before later manual retest if this contract regresses again.
 8. [x] In `server/src/flows/discovery.ts` and `server/src/test/integration/flows.list.test.ts`, repair local bundled `FLOWS_DIR=/app/flows-sandbox` discovery so flow list and detail availability use the same app-level agent roots as runtime execution on the checked-in main stack, while preserving repository-relative lookup for real `<repo>/flows` ownership. Purpose: stop the Flows UI from disabling shipped local flows that the backend can actually run on the supported compose runtime.
+9. [x] In `docker-compose.yml`, the checked-in `manual_testing/codeinfo_agents` seed set, and the supporting compose-contract proof, isolate the main-stack final-proof catalog from the live local-development agent tree so Story 57 close-out can demonstrate explicit Codex, Copilot, and LM Studio provider resolution without disturbing `codeinfo:local`. Purpose: make the shipped main-stack proof surface honest and reproducible while preserving the same `codeinfo_agents` precedence contract.
+10. [x] In `server/src/agents/service.ts` and `server/src/test/unit/agents-config-defaults.test.ts`, repair the first-turn direct Copilot agent seam so a newly bootstrapped conversation is not misclassified as a provider-session resume. Purpose: keep final main-stack provider-neutral proof honest for Copilot direct agents instead of only for `/chat`.
+11. [x] Run a full main-stack manual pass against the isolated `manual_testing` catalog covering auth recovery, provider discovery, direct agent execution, chat execution, flow discovery, and UI-triggered flow execution, then record which Codex and Copilot surfaces passed and which LM Studio behaviors remain outside the accepted parity boundary. Purpose: close the review cycle against the real shipped runtime instead of only the automated wrappers.
+12. [x] Normalize the story-level `Description`, `Acceptance Criteria`, `Out Of Scope`, `Story Manual Testing Guidance`, and `Decisions` so the isolated main-stack proof path and LM Studio's limited-capability boundary are documented as intentional scope rather than buried in close-out chat history. Purpose: prevent later regressions or review churn from silently reintroducing fake provider parity expectations.
 
 #### Testing
 
@@ -1833,18 +1858,27 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 9. [x] Run `npm run compose:down` from the repository root after the final compose-backed smoke step that Task 14 started.
 10. [x] Run `npm run lint` from the repository root. Use this wrapper-free root command because the review-created repair block and inline-resolved client plus documentation fixes must end on one clean repository lint pass.
 11. [x] Run `npm run format:check` from the repository root. Use this wrapper-free root command because the final review-cycle close-out must not leave formatting drift in either the new server repairs or the already-recorded inline minor proof homes.
+12. [x] Run `TMPDIR=/tmp npm run test:summary:server:unit -- --file server/src/test/unit/agents-config-defaults.test.ts` from the repository root. Use this targeted wrapper because the repaired first-turn Copilot direct-agent seam now underpins the final main-stack provider-neutral proof surface.
 
 #### Manual Testing Guidance
 
 - If Tasks 10 through 13 change user-visible startup or continuation behavior beyond what the automated wrappers already prove, reuse the normal main stack (`npm run compose:build` then `npm run compose:up`) to spot-check one resumed `/chat` conversation, one resumed `codebase_question` conversation, and the disabled-agent `Execute Prompt` surface before closing the review cycle.
 - Use the checked-in normal main stack only: the compose wrappers remain the supported startup path, the expected readiness checks are `http://localhost:5010/health` for the server and `http://localhost:5001` for the client, and the current seed or setup source is the repository's checked-in compose plus runtime-config material rather than ad hoc local edits.
 - If Codex or Copilot appears unavailable or stale on that stack, use the always-visible `Re-authenticate` action from Chat or Agents. Treat the verification URL plus raw `CLI output` as the source of truth for the login flow; if the dialog says the runtime appears already authenticated, it should still attempt the fresh provider login you requested.
+- For close-out signoff on the checked-in main stack, treat Codex and Copilot as the full-harness providers. Treat LM Studio as a limited-capability provider: prove provider-neutral discovery, selected-agent resolution, repository-context delivery, and best-effort execution, but do not require LM Studio to match Codex or Copilot for repo-mutating command or file-mutation parity unless a later story explicitly adds that harness.
+- If the current checked-in main-stack command catalog exposes only repo-mutating planning commands, inspect command discovery and command metadata but do not fire one during an explicitly no-change manual pass just to force parity with Codex or Copilot proof.
 - Keep any retained artifacts under `codeInfoTmp/manual-testing/0000057/15/` and do not commit them.
 - If Playwright MCP screenshots help this final spot-check, capture them first with relative staging filenames in the Playwright output directory, then transfer the retained files into `codeInfoTmp/manual-testing/0000057/15/`. Use `$CODEINFO_ROOT/playwright-output-local` only as a harness-side staging location when it is available; do not treat it as the target artifact root for this repository.
 
 #### Implementation notes
 
 - Repaired the local bundled flow discovery mismatch in `server/src/flows/discovery.ts` by classifying `/app/flows-sandbox` as shipped flow storage rather than a self-contained repository root for agent lookup. I added regression coverage in `server/src/test/integration/flows.list.test.ts` plus a compose-contract assertion in `server/src/test/unit/host-network-compose-contract.test.ts`, then confirmed on the rebuilt main stack that `/flows` and `/flows/smoke` both return `disabled: false`, the Flows page shows `Run` enabled for `smoke`, and a fresh UI-triggered smoke run completed with assistant output `ok`.
+- Rewired the checked-in main stack to mount isolated agent roots from `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` while leaving `docker-compose.local.yml` on the live development agent tree. The rebuilt main stack now serves a five-agent manual-proof catalog (`coding_agent`, `planning_agent`, `manual_testing_agent`, `lmstudio_agent`, `copilot_manual_agent`) that demonstrates explicit Codex, Copilot, and LM Studio provider resolution without disturbing `codeinfo:local`.
+- Repaired the first-turn direct Copilot agent seam in `server/src/agents/service.ts` by carrying the original new-conversation classification into the unlocked run path instead of re-inferring from the just-persisted conversation row. I covered that seam in `server/src/test/unit/agents-config-defaults.test.ts`, then rebuilt the main stack and proved a fresh `copilot_manual_agent` run plus a same-conversation follow-up both completed successfully on the shipped runtime path.
+- Ran a full main-stack manual pass against the isolated `manual_testing` catalog and confirmed the story now behaves as intended for its full-harness providers: Codex chat passed, Copilot chat passed, Codex direct agent execution passed, Copilot direct agent execution passed, `/flows`, `/flows/echo`, and `/flows/smoke` all reported runnable, fresh API-triggered `echo` and `smoke` runs completed successfully, and a browser-driven `echo` run from the Flows page also completed on the shipped UI path.
+- The same manual pass also documented the accepted LM Studio boundary instead of hiding it: selected-agent discovery and provider resolution stayed on `lmstudio`, but the shipped LM Studio chat default from `lmstudio/chat/config.toml` did not support the same direct literal-response proof as Codex or Copilot, and the direct `lmstudio_agent` run stayed on LM Studio while still failing to satisfy the trivial exact-text instruction. With the story-level scope now normalized, those behaviors remain honest limited-capability observations rather than fake parity expectations.
+- Command discovery on the isolated main-stack catalog is healthy: `GET /agents/planning_agent/commands` returned the expected planning command list with step counts and descriptions. I did not fire one of those commands during the final no-change manual pass because the shipped main-stack command catalog currently exposes only repo-mutating planning work, and the story-level manual guidance now records that limitation explicitly instead of leaving it as tribal knowledge.
+- Normalized the story-level `Description`, `Acceptance Criteria`, `Out Of Scope`, `Story Manual Testing Guidance`, and `Decisions` so the isolated main-stack proof path and LM Studio's limited-capability role are now explicit repository scope rather than close-out-only chat context. Task 15 remains the active owner until that documented boundary and the final review-cycle proof are both accepted together.
 - Re-opened Tasks 10 through 13 and confirmed the promised review-created proof homes stayed where the plan said they would: Task 10 and Task 13 still land in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` plus `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`, Task 11 still lands in `server/src/test/integration/chat-codex.test.ts`, and Task 12 still lands in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/copilotConfig.test.ts`, and `server/src/test/unit/host-network-compose-contract.test.ts`.
 - Re-opened `codeInfoStatus/flow-state/review-disposition-state.json` and `client/src/test/agentsPage.runGuard.test.tsx`, then confirmed this task still owns review pass `0000057-20260507T014045Z-e54d5640`, review cycle `0000057-rc-20260507T033249Z-a89766f6`, and the inline mixed-state disabled-agent `Execute Prompt` proof surface without adding a second close-out owner.
 - Refreshed `codeInfoStatus/pr-summaries/0000057-pr-summary.md` so the reviewer-facing close-out text now maps Tasks 10 through 13 plus Task 14 correctly and leaves the existing inline minor-fix audit entries as the sole durable record for findings `finding-5`, `finding-10`, `finding-11`, and `finding-14`.

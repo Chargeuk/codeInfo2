@@ -8,7 +8,8 @@ Read the stored current-plan handoff and use only that scope for this step.
 Re-open the exact plan file from disk before doing any work.
 Identify the active task from the current plan.
 Work through that task's `Subtasks` section fully and honestly.
-If completing the remaining subtasks honestly requires running tests, wrappers, or other task-listed checks, run the minimum commands needed and record their results immediately.
+If completing the current subtask honestly requires running a test, wrapper, or other task-listed check, run only the minimum command(s) needed for that subtask and record the result immediately.
+Do not treat this as permission to work through the task's broader `Testing` section during implementation.
 Do not finish this step until every unchecked subtask is complete or the task is honestly blocked.
 
 </task>
@@ -41,10 +42,11 @@ Do not finish this step until every unchecked subtask is complete or the task is
 
 - Work only on the selected task's `Subtasks` section until all unchecked subtasks are complete or the task is honestly blocked.
 - If the selected task has no unchecked subtasks, do not implement a later task in this step.
-- If the next honest action required to complete a subtask is to run a test, wrapper, or task-listed check, do that instead of stopping.
+- If the next honest action required to complete the current subtask is to run a test, wrapper, or task-listed check, do that instead of stopping.
 - Complete subtasks in `Subtasks` list order unless a later item is strictly required first to complete the current one honestly.
 - Mark each completed subtask complete immediately.
 - If a command or wrapper honestly completes a directly corresponding `Testing` item while you are finishing a subtask, mark that `Testing` item complete immediately as well.
+- Do not proactively execute unrelated `Testing` items just because they are available elsewhere in the task.
 - Add concise implementation notes as work progresses. Each note must say what changed, what was tried, or why the work is blocked.
 - Use this decision loop:
   1. Read the next unchecked subtask.

@@ -1985,21 +1985,23 @@ The current review found that the client-side flow and agent API error adapters 
 
 #### Task Exit Criteria
 
-- `client/src/api/flows.ts` and `client/src/api/agents.ts` preserve structured `reason` text whenever a run failure omits `message`, while still keeping the existing `code`, plain-text, and success-path parsing contracts intact.
-- At least one flow-facing and one agent-facing visible error proof show that the preserved recovery reason reaches the rendered UI instead of a generic status fallback.
+- `client/src/api/flows.ts` and `client/src/api/agents.ts` preserve structured `reason` text whenever a flow run, agent instruction run, or agent command run failure omits `message`, while still keeping the existing `code`, plain-text, and success-path parsing contracts intact.
+- Dedicated helper-level proof covers `runFlow`, `runAgentInstruction`, and `runAgentCommand` reason-only failures, and visible error proof shows the preserved recovery reason reaches both the flow-facing and agent-facing UI instead of a generic status fallback.
 
 #### Subtasks
 
-1. [ ] In [client/src/api/flows.ts](/home/d_a_s/code/codeInfo2/client/src/api/flows.ts) and [client/src/api/agents.ts](/home/d_a_s/code/codeInfo2/client/src/api/agents.ts), treat structured JSON `reason` as the user-facing message fallback when `message` is absent, without regressing the existing `code`, plain-text, or success parsing behavior.
-2. [ ] Extend [client/src/test/flowsApi.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/flowsApi.test.ts) and [client/src/test/agentsApi.errors.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/agentsApi.errors.test.ts) so the API-helper proof homes explicitly assert that `FlowApiError` and `AgentApiError` preserve server-provided `reason` text for run failures.
-3. [ ] Add or extend one flow-facing and one agent-facing UI error proof in [client/src/test/flowsPage.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/flowsPage.test.tsx) and [client/src/test/agentsPage.run.instructionError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx) so the rendered error banner shows the preserved recovery reason coming back from the server routes instead of a generic status-only fallback.
+1. [ ] In [client/src/api/flows.ts](/home/d_a_s/code/codeInfo2/client/src/api/flows.ts), update `parseFlowApiErrorResponse()` and `throwFlowApiError()` so a JSON body with `code` plus `reason` but no `message` still produces a `FlowApiError.message` containing that server-provided recovery guidance, while leaving plain-text and success parsing unchanged.
+2. [ ] In [client/src/api/agents.ts](/home/d_a_s/code/codeInfo2/client/src/api/agents.ts), apply the same `reason` fallback to `parseAgentApiErrorResponse()` and `throwAgentApiError()` so both `runAgentInstruction()` and `runAgentCommand()` preserve reason-only failures from `/agents/:agentName/run` and `/agents/:agentName/commands/run` without changing their existing `code` handling.
+3. [ ] Extend [client/src/test/flowsApi.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/flowsApi.test.ts) with a reason-only run failure that proves `runFlow()` keeps the server-provided recovery text when `message` is absent, and extend [client/src/test/agentsApi.errors.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/agentsApi.errors.test.ts) with separate reason-only assertions for both `runAgentInstruction()` and `runAgentCommand()`.
+4. [ ] Add or extend one flow-facing visible error proof in [client/src/test/flowsPage.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/flowsPage.test.tsx) and two agent-facing visible error proofs in [client/src/test/agentsPage.run.instructionError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx) plus [client/src/test/agentsPage.run.commandError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx) so the rendered banner shows the preserved server `reason` text instead of a generic status fallback on each user-facing path.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts` from the repository root. Use this targeted wrapper because it is the primary proof home for flow API error parsing.
 2. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsApi.errors.test.ts` from the repository root. Use this targeted wrapper because it is the closest existing proof home for structured agent run errors.
 3. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` from the repository root. Use this targeted wrapper because the review finding must reach a visible flow-facing UI error surface rather than staying helper-only.
-4. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx` from the repository root. Use this targeted wrapper because the review finding must also reach a visible agent-facing UI error surface.
+4. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx` from the repository root. Use this targeted wrapper because the review finding must reach the visible agent-instruction error surface.
+5. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.commandError.test.tsx` from the repository root. Use this targeted wrapper because the same adapter seam also feeds the visible agent-command error surface.
 
 #### Implementation notes
 
@@ -2032,13 +2034,14 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 #### Task Exit Criteria
 
 - The shared transitive-consumer marker names are emitted through one canonical payload helper instead of per-caller ad hoc context shapes.
-- Representative repository-backed and summary-backed emitters prove the same required keys, optional fields, and alias-fallback semantics under automated server proof.
+- Representative repository-backed and summary-backed emitters now publish one stable payload contract that always includes the same required keys for both marker names, uses optional fields rather than alternate schemas for emitter-specific details, and proves alias-fallback semantics under automated server proof.
 
 #### Subtasks
 
-1. [ ] Introduce one shared helper for `DEV-0000036:T11:transitive_consumer_contract_read` and `DEV-0000036:T11:transitive_consumer_alias_fallback` that defines the stable payload contract and how emitter-specific identity details are represented without changing the marker names.
-2. [ ] Update every current emitter in [server/src/agents/service.ts](/home/d_a_s/code/codeInfo2/server/src/agents/service.ts), [server/src/flows/service.ts](/home/d_a_s/code/codeInfo2/server/src/flows/service.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [server/src/chat/responders/McpResponder.ts](/home/d_a_s/code/codeInfo2/server/src/chat/responders/McpResponder.ts), and [server/src/ast/toolService.ts](/home/d_a_s/code/codeInfo2/server/src/ast/toolService.ts), plus any same-marker sibling surfaced by repository grep while implementing this task, so they all route through that shared helper instead of hand-rolling incompatible context shapes.
-3. [ ] Add a dedicated proof home such as [server/src/test/unit/transitive-consumer-logging.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/transitive-consumer-logging.test.ts) that captures appended entries from representative repository-backed and summary-backed emitters and asserts the shared required keys, optional fields, and alias-fallback semantics for both marker names.
+1. [ ] Introduce one shared helper, in a server-owned logging or support module near the current emitters, for `DEV-0000036:T11:transitive_consumer_contract_read` and `DEV-0000036:T11:transitive_consumer_alias_fallback` that defines the stable payload contract without renaming the markers. The helper should make `consumer` the universal required identity key, normalize the per-emitter subject identity into one consistent pair such as `subjectKind` plus `subjectId`, and expose emitter-specific metadata as optional fields instead of switching schemas by caller.
+2. [ ] Use that helper to normalize every current emitter in [server/src/agents/service.ts](/home/d_a_s/code/codeInfo2/server/src/agents/service.ts), [server/src/flows/service.ts](/home/d_a_s/code/codeInfo2/server/src/flows/service.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [server/src/chat/responders/McpResponder.ts](/home/d_a_s/code/codeInfo2/server/src/chat/responders/McpResponder.ts), and [server/src/ast/toolService.ts](/home/d_a_s/code/codeInfo2/server/src/ast/toolService.ts), plus any same-marker sibling found by repository grep during implementation, so repository-backed and summary-backed callers no longer hand-roll incompatible field sets.
+3. [ ] Keep the repaired contract concrete by choosing one stable set of required keys for `transitive_consumer_contract_read` and one stable set for `transitive_consumer_alias_fallback`, then map repository-backed fields like embedding identity and summary-backed fields like file counts into optional slots instead of publishing different top-level shapes under the same marker name.
+4. [ ] Add a dedicated proof home such as [server/src/test/unit/transitive-consumer-logging.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/transitive-consumer-logging.test.ts) that uses the shared log store capture helpers to collect appended entries from representative repository-backed and summary-backed emitters, then asserts the shared required keys, optional fields, and alias-fallback semantics for both marker names.
 
 #### Testing
 
@@ -2084,12 +2087,13 @@ This review-created block stays inside the current repository's client error-ada
 
 - Tasks 16 and 17 are implemented, their promised proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
 - The same final revalidation pass reruns the relevant server and client regression wrappers so the current review-created block plus this same review cycle's inline minor fixes are green together under one close-out owner.
-- Compose, browser, or cucumber reruns are either executed because implementation expanded the affected surface or left out explicitly because the repaired seams stayed inside client API parsing plus server log-contract proof homes.
+- If implementation stays inside client API parsing plus server log-contract proof homes, the task explicitly closes without compose, browser, or cucumber reruns; if implementation expands beyond those seams, the final proof must add the newly relevant wrapper or manual surfaces before this task can close.
 
 #### Subtasks
 
-1. [ ] Before the broad wrapper reruns, confirm Tasks 16 and 17 landed in the exact files and proof homes promised by this appended review-created block and did not quietly shift work into older pre-existing Story 57 tasks.
-2. [ ] Refresh only the reviewer-facing close-out text or routing state that becomes stale after Tasks 16 and 17 land, while keeping `## Minor Review Fixes` as the sole durable audit record for this review cycle's inline-resolved minor findings.
+1. [ ] Before the broad wrapper reruns, confirm Task 16 landed in [client/src/api/flows.ts](/home/d_a_s/code/codeInfo2/client/src/api/flows.ts), [client/src/api/agents.ts](/home/d_a_s/code/codeInfo2/client/src/api/agents.ts), [client/src/test/flowsApi.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/flowsApi.test.ts), [client/src/test/agentsApi.errors.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/agentsApi.errors.test.ts), [client/src/test/flowsPage.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/flowsPage.test.tsx), [client/src/test/agentsPage.run.instructionError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx), and [client/src/test/agentsPage.run.commandError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx), and that none of that review-created work was silently absorbed into older Story 57 tasks.
+2. [ ] Before the broad wrapper reruns, confirm Task 17 landed in the new shared transitive-consumer marker helper, the current emitters named in this review-created block, and [server/src/test/unit/transitive-consumer-logging.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/transitive-consumer-logging.test.ts), without shifting the shared marker contract into unrelated older tasks or leaving one same-marker emitter on the old schema.
+3. [ ] Refresh only the reviewer-facing close-out text or routing state that becomes stale after Tasks 16 and 17 land, while keeping `## Minor Review Fixes` as the sole durable audit record for this review cycle's inline-resolved minor findings and preserving Task 18 as the one final revalidation owner for review cycle `0000057-rc-20260512T042118Z-d34bf618`.
 
 #### Testing
 
@@ -2099,6 +2103,10 @@ This review-created block stays inside the current repository's client error-ada
 4. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because Task 16 and the inline-resolved client-side minor findings all live in client proof homes.
 5. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans both client and server source.
 6. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared helpers.
+
+#### Manual Testing Guidance
+
+- If Task 16 changes browser-visible error copy beyond what the targeted client proofs cover, optionally spot-check one flow-run failure and one agent-run or agent-command failure on the supported main stack so the preserved server `reason` text is visible in the rendered banner. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into `codeInfoTmp/manual-testing/0000057/18/`; do not treat `$CODEINFO_ROOT` as the target artifact root for this repository.
 
 #### Implementation notes
 

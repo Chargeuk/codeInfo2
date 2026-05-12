@@ -2396,6 +2396,17 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
 
     __resetCompletedInflightForTests();
 
+    setToolDeps({
+      chatFactory: () => {
+        throw new Error(
+          'replay should not rebuild websocket chat dependencies',
+        );
+      },
+      clientFactory: (() => {
+        throw new Error('replay should not rebuild websocket provider deps');
+      }) as never,
+    });
+
     const replayAfterCacheClear = await postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 52,
@@ -2421,6 +2432,15 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
     );
     assert.equal(calls.length, 1);
     assert.deepEqual(replayAfterCacheClearPayload, firstPayload);
+
+    setToolDeps({
+      chatFactory: () =>
+        new CapturingPinnedConversationChat(
+          calls,
+          'Durable websocket replay answer',
+        ),
+      clientFactory: makeLmStudioClientFactory(),
+    });
 
     const incompleteConversationId = 'mcp-ws-durable-replay-incomplete-1';
     memoryConversations.set(incompleteConversationId, {

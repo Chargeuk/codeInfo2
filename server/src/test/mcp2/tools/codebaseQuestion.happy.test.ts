@@ -1151,7 +1151,14 @@ test('codebase_question keeps the same caller-visible replay result after the co
       provider: 'copilot',
       model: 'copilot-gpt-5',
     },
-    deps,
+    {
+      chatFactory: () => {
+        throw new Error('replay should not rebuild chat dependencies');
+      },
+      copilotReadinessResolver: async () => {
+        throw new Error('replay should not probe provider readiness');
+      },
+    },
   );
   const replayAfterCacheClearPayload = JSON.parse(
     replayAfterCacheClear.content[0].text,

@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-12T04:42:12Z",
+  "generated_at_utc": "2026-05-12T04:48:43Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260512T022927Z-9715bd20",
-  "finding_id": "finding-03",
+  "finding_id": "finding-04",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "FlowsPage now revalidates detail-only disabled state before Run or Resume can submit.",
+  "summary": "FlowsPage now clears stale disabled detail cache after a later list refresh shows that flow recovered.",
   "changed_files": [
     "client/src/pages/FlowsPage.tsx",
     "client/src/test/flowsPage.runGuard.test.tsx"
@@ -16,10 +16,10 @@
     {
       "command": "npm run test:summary:client -- --file client/src/test/flowsPage.runGuard.test.tsx",
       "result": "passed",
-      "notes": "Focused client guard proof passed with tests run: 3, passed: 3, failed: 0 after adding no-info-popover Run and Resume coverage."
+      "notes": "Focused client guard proof passed with tests run: 4, passed: 4, failed: 0 after adding cache-recovery coverage for a flow that becomes enabled again."
     }
   ],
-  "commit_sha": "ef882c8c6c0f8fe225c57198716a467579e9ded2",
+  "commit_sha": "3d4a3e20d17084d088f2219c7824b14a487bc69d",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

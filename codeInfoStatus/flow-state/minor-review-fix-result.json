@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-05-12T04:42:12Z",
+  "story_number": "0000057",
+  "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
+  "review_pass_id": "0000057-20260512T022927Z-9715bd20",
+  "finding_id": "finding-03",
+  "repository": "current_repository",
+  "status": "fixed",
+  "summary": "FlowsPage now revalidates detail-only disabled state before Run or Resume can submit.",
+  "changed_files": [
+    "client/src/pages/FlowsPage.tsx",
+    "client/src/test/flowsPage.runGuard.test.tsx"
+  ],
+  "targeted_proof": [
+    {
+      "command": "npm run test:summary:client -- --file client/src/test/flowsPage.runGuard.test.tsx",
+      "result": "passed",
+      "notes": "Focused client guard proof passed with tests run: 3, passed: 3, failed: 0 after adding no-info-popover Run and Resume coverage."
+    }
+  ],
+  "commit_sha": "ef882c8c6c0f8fe225c57198716a467579e9ded2",
+  "reclassification_reason": null,
+  "blocker": null,
+  "blocker_scope": null
+}

@@ -2056,7 +2056,7 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/transitive-consumer-logging.test.ts` from the repository root. Use this targeted wrapper because the repaired seam is a shared logging contract rather than one single route or provider path.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/transitive-consumer-logging.test.ts` from the repository root. Use this targeted wrapper because the repaired seam is a shared logging contract rather than one single route or provider path.
 
 #### Implementation notes
 
@@ -2064,6 +2064,7 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 - Replaced the repository-backed ad hoc marker payloads in `server/src/agents/service.ts` and `server/src/flows/service.ts` with the shared helper so repo-root subjects always log the same required keys.
 - Replaced the summary-backed and remaining same-marker emitters in `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/responders/McpResponder.ts`, `server/src/ast/toolService.ts`, and `server/src/flows/discovery.ts`; a follow-up grep across `server/src` confirmed the direct old same-marker appends were gone.
 - Added `server/src/test/unit/transitive-consumer-logging.test.ts` to prove mixed repository-backed and summary-backed helper output survives the default `logStore.query()` path with one stable required-key schema and only optional field variation.
+- `npm run test:summary:server:unit -- --file server/src/test/unit/transitive-consumer-logging.test.ts` passed cleanly with `tests run: 1`, `passed: 1`, and `failed: 0`, so Task 17 now has no unchecked subtasks or testing items.
 
 ### Task 18. Revalidate review pass `0000057-20260512T022927Z-9715bd20` serious fixes and inline minor resolutions
 

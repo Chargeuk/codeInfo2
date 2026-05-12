@@ -1,25 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-12T04:53:41Z",
+  "generated_at_utc": "2026-05-12T04:58:06Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260512T022927Z-9715bd20",
-  "finding_id": "finding-05",
+  "finding_id": "finding-07",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "AgentsPage now clears stale disabled detail cache after a later agents list refresh shows that agent recovered.",
+  "summary": "README Codex auth guidance now matches the main-stack runtime mount topology and host-auth seeding contract.",
   "changed_files": [
-    "client/src/pages/AgentsPage.tsx",
-    "client/src/test/agentsPage.runGuard.test.tsx"
+    "README.md"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:client -- --file client/src/test/agentsPage.runGuard.test.tsx",
+      "command": "rg -n \"/host/codex|codex-data:/app/codex|read-only|seed|repair\" README.md docker-compose.yml docker-compose.e2e.yml docker-compose.local.yml",
       "result": "passed",
-      "notes": "Focused client guard proof passed with tests run: 3, passed: 3, failed: 0 after adding cache-recovery coverage for an agent that becomes enabled again."
+      "notes": "Focused repository-local proof confirmed the corrected README wording now matches the checked-in compose mounts: writable /app/codex runtime home, codex-data volume on the main stack, and read-only /host/codex host-auth seed mounts."
     }
   ],
-  "commit_sha": "8dcaf4ea2b646f3e2eda2e3dcb0092e801b89cec",
+  "commit_sha": "cfe49b6998a47d9c6ea3e02a10be916e06b037cf",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

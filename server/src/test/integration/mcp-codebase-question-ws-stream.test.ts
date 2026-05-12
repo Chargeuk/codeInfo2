@@ -1673,6 +1673,10 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
         'Fresh route-selected-repository Codex answer',
       ),
     clientFactory: makeLmStudioClientFactory(),
+    listIngestedRepositoriesFn: async () => ({
+      repos: [buildRepoEntry(advertisedHostPath)],
+      lockedModelId: null,
+    }),
   });
 
   const conversationsApp = express();

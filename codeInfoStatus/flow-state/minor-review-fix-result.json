@@ -1,24 +1,30 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-12T04:58:06Z",
+  "generated_at_utc": "2026-05-12T05:04:01Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260512T022927Z-9715bd20",
-  "finding_id": "finding-07",
+  "finding_id": "finding-09",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "README Codex auth guidance now matches the main-stack runtime mount topology and host-auth seeding contract.",
+  "summary": "Replay proof now directly shows completed replay reuse before provider or bootstrap dependency failures can matter.",
   "changed_files": [
-    "README.md"
+    "server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts",
+    "server/src/test/integration/mcp-codebase-question-ws-stream.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "rg -n \"/host/codex|codex-data:/app/codex|read-only|seed|repair\" README.md docker-compose.yml docker-compose.e2e.yml docker-compose.local.yml",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts --test-name \"completed replay survives a completed-cache clear\"",
       "result": "passed",
-      "notes": "Focused repository-local proof confirmed the corrected README wording now matches the checked-in compose mounts: writable /app/codex runtime home, codex-data volume on the main stack, and read-only /host/codex host-auth seed mounts."
+      "notes": "Focused unit replay proof passed with tests run: 1, passed: 1, failed: 0 after replaying the second call under intentionally broken Copilot readiness and chat dependencies."
+    },
+    {
+      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts --test-name \"completed replay survives a completed-cache clear\"",
+      "result": "passed",
+      "notes": "Focused websocket replay proof passed with tests run: 1, passed: 1, failed: 0 after replaying the second MCP call under intentionally broken websocket chat and provider dependencies, then restoring healthy deps for the fresh-path assertion."
     }
   ],
-  "commit_sha": "cfe49b6998a47d9c6ea3e02a10be916e06b037cf",
+  "commit_sha": "0a2f1ffc32bd645b10b0f07b11bf2bf8dfe11ec7",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

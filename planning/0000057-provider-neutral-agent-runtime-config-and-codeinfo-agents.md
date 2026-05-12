@@ -1986,14 +1986,15 @@ The current review found that the client-side flow and agent API error adapters 
 #### Task Exit Criteria
 
 - `client/src/api/flows.ts` and `client/src/api/agents.ts` preserve structured `reason` text whenever a flow run, agent instruction run, or agent command run failure omits `message`, while still keeping the existing `code`, plain-text, and success-path parsing contracts intact.
-- Dedicated helper-level proof covers `runFlow`, `runAgentInstruction`, and `runAgentCommand` reason-only failures, and visible error proof shows the preserved recovery reason reaches both the flow-facing and agent-facing UI instead of a generic status fallback.
+- Dedicated helper-level proof covers `runFlow`, `runAgentInstruction`, and `runAgentCommand` reason-only failures coming from `/flows/:name/run`, `/agents/:agentName/run`, and `/agents/:agentName/commands/run`, and visible error proof shows that producer text reaches both the flow-facing and agent-facing UI instead of a generic status fallback.
 
 #### Subtasks
 
 1. [ ] In [client/src/api/flows.ts](/home/d_a_s/code/codeInfo2/client/src/api/flows.ts), update `parseFlowApiErrorResponse()` and `throwFlowApiError()` so a JSON body with `code` plus `reason` but no `message` still produces a `FlowApiError.message` containing that server-provided recovery guidance, while leaving plain-text and success parsing unchanged.
 2. [ ] In [client/src/api/agents.ts](/home/d_a_s/code/codeInfo2/client/src/api/agents.ts), apply the same `reason` fallback to `parseAgentApiErrorResponse()` and `throwAgentApiError()` so both `runAgentInstruction()` and `runAgentCommand()` preserve reason-only failures from `/agents/:agentName/run` and `/agents/:agentName/commands/run` without changing their existing `code` handling.
-3. [ ] Extend [client/src/test/flowsApi.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/flowsApi.test.ts) with a reason-only run failure that proves `runFlow()` keeps the server-provided recovery text when `message` is absent, and extend [client/src/test/agentsApi.errors.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/agentsApi.errors.test.ts) with separate reason-only assertions for both `runAgentInstruction()` and `runAgentCommand()`.
-4. [ ] Add or extend one flow-facing visible error proof in [client/src/test/flowsPage.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/flowsPage.test.tsx) and two agent-facing visible error proofs in [client/src/test/agentsPage.run.instructionError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx) plus [client/src/test/agentsPage.run.commandError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx) so the rendered banner shows the preserved server `reason` text instead of a generic status fallback on each user-facing path.
+3. [ ] Extend [client/src/test/flowsApi.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/flowsApi.test.ts) with a reason-only `/flows/:name/run` failure that proves `runFlow()` keeps the server-provided recovery text when `message` is absent, and extend [client/src/test/agentsApi.errors.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/agentsApi.errors.test.ts) with separate reason-only assertions for both `/agents/:agentName/run` and `/agents/:agentName/commands/run`.
+4. [ ] Add or extend one flow-facing visible error proof in [client/src/test/flowsPage.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/flowsPage.test.tsx) so a run failure with `code` plus `reason` but no `message` renders the preserved recovery guidance on the default flow run surface instead of a status-only fallback.
+5. [ ] Add or extend one agent-instruction visible error proof in [client/src/test/agentsPage.run.instructionError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx) and one agent-command visible error proof in [client/src/test/agentsPage.run.commandError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.commandError.test.tsx) so both user-facing paths render the preserved server `reason` text instead of a generic status fallback.
 
 #### Testing
 
@@ -2034,7 +2035,7 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 #### Task Exit Criteria
 
 - The shared transitive-consumer marker names are emitted through one canonical payload helper instead of per-caller ad hoc context shapes.
-- Representative repository-backed and summary-backed emitters now publish one stable payload contract that always includes the same required keys for both marker names, uses optional fields rather than alternate schemas for emitter-specific details, and proves alias-fallback semantics under automated server proof.
+- Representative repository-backed and summary-backed emitters now publish one stable payload contract that always includes the same required keys for both marker names, uses optional fields rather than alternate schemas for emitter-specific details, and proves alias-fallback semantics under automated server proof plus the default `server/src/logStore.ts` query path that downstream log readers actually consume.
 
 #### Subtasks
 
@@ -2042,6 +2043,7 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 2. [ ] Use that helper to normalize every current emitter in [server/src/agents/service.ts](/home/d_a_s/code/codeInfo2/server/src/agents/service.ts), [server/src/flows/service.ts](/home/d_a_s/code/codeInfo2/server/src/flows/service.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [server/src/chat/responders/McpResponder.ts](/home/d_a_s/code/codeInfo2/server/src/chat/responders/McpResponder.ts), and [server/src/ast/toolService.ts](/home/d_a_s/code/codeInfo2/server/src/ast/toolService.ts), plus any same-marker sibling found by repository grep during implementation, so repository-backed and summary-backed callers no longer hand-roll incompatible field sets.
 3. [ ] Keep the repaired contract concrete by choosing one stable set of required keys for `transitive_consumer_contract_read` and one stable set for `transitive_consumer_alias_fallback`, then map repository-backed fields like embedding identity and summary-backed fields like file counts into optional slots instead of publishing different top-level shapes under the same marker name.
 4. [ ] Add a dedicated proof home such as [server/src/test/unit/transitive-consumer-logging.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/transitive-consumer-logging.test.ts) that uses the shared log store capture helpers to collect appended entries from representative repository-backed and summary-backed emitters, then asserts the shared required keys, optional fields, and alias-fallback semantics for both marker names.
+5. [ ] In that same proof home, assert the repaired entries are still reachable through the default `query()` consumption path in [server/src/logStore.ts](/home/d_a_s/code/codeInfo2/server/src/logStore.ts) so downstream log readers see the normalized schema instead of a helper-only object shape that never survives append-and-query.
 
 #### Testing
 
@@ -2106,7 +2108,7 @@ This review-created block stays inside the current repository's client error-ada
 
 #### Manual Testing Guidance
 
-- If Task 16 changes browser-visible error copy beyond what the targeted client proofs cover, optionally spot-check one flow-run failure and one agent-run or agent-command failure on the supported main stack so the preserved server `reason` text is visible in the rendered banner. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into `codeInfoTmp/manual-testing/0000057/18/`; do not treat `$CODEINFO_ROOT` as the target artifact root for this repository.
+- If Task 16 changes browser-visible error copy beyond what the targeted client proofs cover, optionally spot-check one flow-run failure and one agent-run or agent-command failure on the supported main stack. Use `npm run compose:build` then `npm run compose:up`, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, use the checked-in main-stack env and seed source rather than ad hoc local overrides, and retain any artifacts under `codeInfoTmp/manual-testing/0000057/18/`. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into that repository path; do not treat `$CODEINFO_ROOT` as the target artifact root for this repository.
 
 #### Implementation notes
 

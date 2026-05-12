@@ -284,9 +284,6 @@ export default function FlowsPage() {
   const selectedFlowDisabled = Boolean(
     selectedFlowDetails?.disabled ?? selectedFlow?.disabled,
   );
-  const selectedFlowDisabledReason =
-    selectedFlowDetails?.disabledReason?.message ??
-    (selectedFlow?.disabled ? selectedFlow?.error : undefined);
 
   const loadSelectedFlowDetails = useCallback(async () => {
     if (!selectedFlow) return undefined;
@@ -1202,7 +1199,6 @@ export default function FlowsPage() {
       resumeStepPath,
       selectedFlow,
       selectedFlowDetails,
-      selectedFlow?.sourceId,
       selectedFlowName,
       setConversation,
       setSuppressAutoSelect,

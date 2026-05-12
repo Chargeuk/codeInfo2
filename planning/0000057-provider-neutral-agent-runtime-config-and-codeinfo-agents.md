@@ -1963,7 +1963,7 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 15`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260512T022927Z-9715bd20`.
 

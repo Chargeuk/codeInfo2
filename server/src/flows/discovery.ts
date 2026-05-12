@@ -18,6 +18,7 @@ import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
 } from '../lmstudio/toolService.js';
+import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { append } from '../logStore.js';
 import { parseFlowFile, type FlowFile, type FlowStep } from './flowSchema.js';
 import {
@@ -480,31 +481,13 @@ export async function discoverFlows(params?: {
         const sourceLabel =
           repo.id?.trim() || path.posix.basename(sourceId.replace(/\\/g, '/'));
         if (!sourceLabel) return [];
-        const resolved = resolveRepoEmbeddingIdentity(repo);
-        append({
-          level: 'info',
-          message: 'DEV-0000036:T11:transitive_consumer_contract_read',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            consumer: 'flows.discovery',
-            sourceId,
-            embeddingProvider: resolved.embeddingProvider,
-            embeddingModel: resolved.embeddingModel,
-            embeddingDimensions: resolved.embeddingDimensions,
-            modelId: resolved.modelId,
-          },
-        });
-        append({
-          level: 'info',
-          message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            consumer: 'flows.discovery',
-            sourceId,
-            aliasFallbackUsed: resolved.aliasFallbackUsed,
-          },
+        appendRepoBackedTransitiveConsumerLogs({
+          consumer: 'flows.discovery',
+          subjectKind: 'repository',
+          subjectId: repo.containerPath,
+          sourceId,
+          containerPath: repo.containerPath,
+          repoIdentity: resolveRepoEmbeddingIdentity(repo),
         });
         const flowsRoot = path.join(sourceId, 'flows');
         return await listFlowsFromDir({

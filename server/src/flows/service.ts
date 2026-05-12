@@ -60,6 +60,7 @@ import {
   resolveRepoEmbeddingIdentity,
   type RepoEntry,
 } from '../lmstudio/toolService.js';
+import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
@@ -4201,31 +4202,13 @@ export async function startFlowRun(
       if (!sourceRepo) {
         throw toFlowRunError('FLOW_NOT_FOUND');
       }
-      const resolved = resolveRepoEmbeddingIdentity(sourceRepo);
-      append({
-        level: 'info',
-        message: 'DEV-0000036:T11:transitive_consumer_contract_read',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          consumer: 'flows.service.startFlowRun',
-          sourceId,
-          embeddingProvider: resolved.embeddingProvider,
-          embeddingModel: resolved.embeddingModel,
-          embeddingDimensions: resolved.embeddingDimensions,
-          modelId: resolved.modelId,
-        },
-      });
-      append({
-        level: 'info',
-        message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          consumer: 'flows.service.startFlowRun',
-          sourceId,
-          aliasFallbackUsed: resolved.aliasFallbackUsed,
-        },
+      appendRepoBackedTransitiveConsumerLogs({
+        consumer: 'flows.service.startFlowRun',
+        subjectKind: 'repository',
+        subjectId: sourceRepo.containerPath,
+        sourceId,
+        containerPath: sourceRepo.containerPath,
+        repoIdentity: resolveRepoEmbeddingIdentity(sourceRepo),
       });
       flowsRoot = path.resolve(sourceRepo.containerPath, 'flows');
     }

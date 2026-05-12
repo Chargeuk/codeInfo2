@@ -54,6 +54,7 @@ import {
   getAdvertisedRepositoryIdentityPaths,
   listIngestedRepositories,
 } from '../../lmstudio/toolService.js';
+import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -293,28 +294,14 @@ function logSummaryContractRead(params: {
       typeof file.modelId === 'string' &&
       typeof (file as { embeddingModel?: unknown }).embeddingModel !== 'string',
   );
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: 'mcp2.codebase_question.summary',
-      conversationId: params.conversationId,
-      canonicalFieldsConsumed,
-      summaryFileCount: files.length,
-    },
-  });
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: 'mcp2.codebase_question.summary',
-      conversationId: params.conversationId,
-      aliasFallbackUsed,
-    },
+  appendSummaryBackedTransitiveConsumerLogs({
+    consumer: 'mcp2.codebase_question.summary',
+    subjectKind: 'conversation',
+    subjectId: params.conversationId,
+    conversationId: params.conversationId,
+    canonicalFieldsConsumed,
+    aliasFallbackUsed,
+    summaryFileCount: files.length,
   });
 }
 

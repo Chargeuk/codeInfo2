@@ -1,4 +1,5 @@
 import { isTransientReconnect } from '../../agents/transientReconnect.js';
+import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
 import { append } from '../../logStore.js';
 
 import type {
@@ -300,26 +301,13 @@ function buildVectorSummary(
       fileCount: summaryFiles.length,
     },
   });
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: 'mcp_responder.vector_summary',
-      canonicalFieldsConsumed: canonicalConsumed,
-      fileCount: summaryFiles.length,
-    },
-  });
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: 'mcp_responder.vector_summary',
-      aliasFallbackUsed,
-    },
+  appendSummaryBackedTransitiveConsumerLogs({
+    consumer: 'mcp_responder.vector_summary',
+    subjectKind: 'summary_surface',
+    subjectId: 'vector_summary',
+    canonicalFieldsConsumed: canonicalConsumed,
+    aliasFallbackUsed,
+    fileCount: summaryFiles.length,
   });
 
   return {

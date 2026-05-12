@@ -1990,13 +1990,13 @@ The current review found that the client-side flow and agent API error adapters 
 
 #### Subtasks
 
-1. [ ] In `client/src/api/flows.ts`, update `parseFlowApiErrorResponse()` and `throwFlowApiError()` so a JSON body with `code` plus `reason` but no `message` still produces a `FlowApiError.message` containing that server-provided recovery guidance, while leaving plain-text and success parsing unchanged.
-2. [ ] In `client/src/api/agents.ts`, apply the same `reason` fallback to `parseAgentApiErrorResponse()` and `throwAgentApiError()` so both `runAgentInstruction()` and `runAgentCommand()` preserve reason-only failures from `/agents/:agentName/run` and `/agents/:agentName/commands/run` without changing their existing `code` handling.
-3. [ ] Extend `client/src/test/flowsApi.test.ts` with a distinct reason-only `/flows/:name/run` case, or split the existing generic structured-error case if needed, so the final test title explicitly claims that `runFlow()` preserves the server `reason`, retains the structured `code`, and leaves the missing-`message` fallback behavior unchanged for the flow helper path.
-4. [ ] Extend `client/src/test/agentsApi.errors.test.ts` with distinct reason-only `/agents/:agentName/run` and `/agents/:agentName/commands/run` cases, or rename and split the existing `RUN_IN_PROGRESS` cases if needed, so the final test titles explicitly claim preserved `reason`, retained `code`, and unchanged missing-`message` fallback behavior on the instruction and command helper paths.
-5. [ ] Add or extend `client/src/test/flowsPage.test.tsx` with a dedicated default-run error case whose title explicitly says the server recovery guidance reaches the flow run surface, rather than hiding that new invariant inside an adjacent flow-details or warning-rendering assertion.
-6. [ ] Add or extend `client/src/test/agentsPage.run.instructionError.test.tsx` with a dedicated instruction-start error case whose title explicitly says the preserved server `reason` reaches the visible instruction error area, rather than overloading the existing `RUN_IN_PROGRESS` or `AGENT_NOT_FOUND` cases.
-7. [ ] Add or extend `client/src/test/agentsPage.run.commandError.test.tsx` with a dedicated command-start error case whose title explicitly says the preserved server `reason` reaches the visible command error area, rather than overloading the existing `RUN_IN_PROGRESS`, `COMMAND_NOT_FOUND`, or `INVALID_START_STEP` cases.
+1. [x] In `client/src/api/flows.ts`, update `parseFlowApiErrorResponse()` and `throwFlowApiError()` so a JSON body with `code` plus `reason` but no `message` still produces a `FlowApiError.message` containing that server-provided recovery guidance, while leaving plain-text and success parsing unchanged.
+2. [x] In `client/src/api/agents.ts`, apply the same `reason` fallback to `parseAgentApiErrorResponse()` and `throwAgentApiError()` so both `runAgentInstruction()` and `runAgentCommand()` preserve reason-only failures from `/agents/:agentName/run` and `/agents/:agentName/commands/run` without changing their existing `code` handling.
+3. [x] Extend `client/src/test/flowsApi.test.ts` with a distinct reason-only `/flows/:name/run` case, or split the existing generic structured-error case if needed, so the final test title explicitly claims that `runFlow()` preserves the server `reason`, retains the structured `code`, and leaves the missing-`message` fallback behavior unchanged for the flow helper path.
+4. [x] Extend `client/src/test/agentsApi.errors.test.ts` with distinct reason-only `/agents/:agentName/run` and `/agents/:agentName/commands/run` cases, or rename and split the existing `RUN_IN_PROGRESS` cases if needed, so the final test titles explicitly claim preserved `reason`, retained `code`, and unchanged missing-`message` fallback behavior on the instruction and command helper paths.
+5. [x] Add or extend `client/src/test/flowsPage.test.tsx` with a dedicated default-run error case whose title explicitly says the server recovery guidance reaches the flow run surface, rather than hiding that new invariant inside an adjacent flow-details or warning-rendering assertion.
+6. [x] Add or extend `client/src/test/agentsPage.run.instructionError.test.tsx` with a dedicated instruction-start error case whose title explicitly says the preserved server `reason` reaches the visible instruction error area, rather than overloading the existing `RUN_IN_PROGRESS` or `AGENT_NOT_FOUND` cases.
+7. [x] Add or extend `client/src/test/agentsPage.run.commandError.test.tsx` with a dedicated command-start error case whose title explicitly says the preserved server `reason` reaches the visible command error area, rather than overloading the existing `RUN_IN_PROGRESS`, `COMMAND_NOT_FOUND`, or `INVALID_START_STEP` cases.
 
 #### Testing
 
@@ -2008,7 +2008,9 @@ The current review found that the client-side flow and agent API error adapters 
 
 #### Implementation notes
 
-- Pending implementation.
+- Added JSON `reason` fallback handling to `client/src/api/flows.ts` and `client/src/api/agents.ts` so reason-only run failures now populate the same `Error.message` surface the existing UI already renders, without changing structured `code` handling or the plain-text fallback path.
+- Added a dedicated `runFlow()` reason-only helper case in `client/src/test/flowsApi.test.ts` and matching `runAgentInstruction()` / `runAgentCommand()` reason-only helper cases in `client/src/test/agentsApi.errors.test.ts` so the repaired adapter contract is claimed directly at the API seam instead of being implied by existing structured-error coverage.
+- Added visible UI proof cases in `client/src/test/flowsPage.test.tsx`, `client/src/test/agentsPage.run.instructionError.test.tsx`, and `client/src/test/agentsPage.run.commandError.test.tsx` that show reason-only server recovery guidance reaches the rendered error banners on the flow, instruction, and command surfaces instead of collapsing back to generic HTTP-status fallback text.
 
 ### Task 17. Normalize shared transitive-consumer log marker schemas across emitters
 

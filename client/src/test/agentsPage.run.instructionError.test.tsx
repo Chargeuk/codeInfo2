@@ -182,4 +182,78 @@ describe('Agents page - instruction start errors', () => {
       'Failed to run agent instruction (404)',
     );
   });
+
+  it('shows the preserved server reason in the visible instruction error area', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        } as Response);
+      }
+
+      if (target.includes('/agents') && !target.includes('/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+        } as Response);
+      }
+
+      if (target.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [] }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/coding_agent/run')) {
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          headers: { get: () => 'application/json' },
+          json: async () => ({
+            code: 'PROVIDER_UNAVAILABLE',
+            reason: 'Copilot is unavailable. Re-authenticate and try again.',
+          }),
+        } as unknown as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    await user.type(input, 'Question');
+
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-send'));
+    });
+
+    const errorBanner = await screen.findByTestId('agents-run-error');
+    expect(errorBanner).toHaveTextContent(
+      'Copilot is unavailable. Re-authenticate and try again.',
+    );
+  });
 });

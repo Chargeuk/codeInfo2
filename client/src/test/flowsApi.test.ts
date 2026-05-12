@@ -189,4 +189,22 @@ describe('Flows API helpers', () => {
       code: 'RUN_IN_PROGRESS',
     });
   });
+
+  it('runFlow preserves server reason text when /flows/:name/run omits message', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          code: 'PROVIDER_UNAVAILABLE',
+          reason: 'Codex is unavailable. Re-authenticate and try again.',
+        },
+        { status: 503 },
+      ),
+    );
+
+    await expect(runFlow({ flowName: 'daily' })).rejects.toMatchObject({
+      status: 503,
+      code: 'PROVIDER_UNAVAILABLE',
+      message: 'Codex is unavailable. Re-authenticate and try again.',
+    });
+  });
 });

@@ -78,7 +78,11 @@ async function parseFlowApiErrorResponse(res: Response): Promise<{
         return {
           code: typeof record.code === 'string' ? record.code : undefined,
           message:
-            typeof record.message === 'string' ? record.message : undefined,
+            typeof record.message === 'string'
+              ? record.message
+              : typeof record.reason === 'string'
+                ? record.reason
+                : undefined,
         };
       }
       return {};

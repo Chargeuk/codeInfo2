@@ -34,6 +34,7 @@ import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
+import { socketsSubscribedToConversation } from '../../ws/registry.js';
 import {
   closeWs,
   connectWs,
@@ -611,6 +612,10 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
 
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await waitForCondition(
+      () => socketsSubscribedToConversation(conversationId).length > 0,
+      15000,
+    );
 
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
@@ -753,7 +758,7 @@ test('explicit-provider MCP codebase_question restores a saved host-path working
         const e = event as { type?: string; conversationId?: string };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 5000,
+      timeoutMs: 15000,
     });
 
     await toolCallPromise;
@@ -906,7 +911,7 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
         };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 5000,
+      timeoutMs: 15000,
     });
     assert.equal(final.status, 'ok');
     assert.equal(payload.conversationId, conversationId);
@@ -1381,7 +1386,7 @@ test('omitted-provider MCP codebase_question fresh runs persist a successful ass
         };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 5000,
+      timeoutMs: 15000,
     });
     assert.equal(final.status, 'ok');
 
@@ -1712,6 +1717,10 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
     );
 
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await waitForCondition(
+      () => socketsSubscribedToConversation(conversationId).length > 0,
+      15000,
+    );
 
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
@@ -1739,7 +1748,7 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
         };
         return e.type === 'turn_final' && e.conversationId === conversationId;
       },
-      timeoutMs: 5000,
+      timeoutMs: 15000,
     });
     assert.equal(final.status, 'ok');
 

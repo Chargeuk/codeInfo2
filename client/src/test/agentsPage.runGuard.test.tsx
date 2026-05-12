@@ -17,9 +17,11 @@ beforeEach(() => {
 });
 
 const { default: App } = await import('../App');
-const { default: AgentsPage, isExecutePromptEnabled } = await import(
-  '../pages/AgentsPage'
-);
+const {
+  default: AgentsPage,
+  isExecutePromptEnabled,
+  reconcileAgentDetailsCache,
+} = await import('../pages/AgentsPage');
 const { default: HomePage } = await import('../pages/HomePage');
 
 const routes = [
@@ -34,6 +36,34 @@ const routes = [
 ];
 
 describe('Agents page run guards', () => {
+  it('drops cached disabled agent details after a later agents list refresh marks the agent enabled', () => {
+    const previousCache = {
+      coding_agent: {
+        name: 'coding_agent',
+        description: '# Coding agent',
+        disabled: true,
+        warnings: [
+          {
+            code: 'provider_unavailable',
+            message: 'No usable provider remains',
+          },
+        ],
+        fallbackCandidates: [],
+        disabledReason: {
+          code: 'provider_unavailable',
+          message: 'No usable provider remains',
+        },
+      },
+    };
+
+    const nextCache = reconcileAgentDetailsCache(previousCache, [
+      { name: 'coding_agent', disabled: false },
+    ]);
+
+    expect(nextCache).toEqual({});
+    expect(nextCache).not.toBe(previousCache);
+  });
+
   it('blocks direct agent submission once selected-agent details mark the target disabled', async () => {
     const user = userEvent.setup();
     let runRequests = 0;

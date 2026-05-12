@@ -71,6 +71,34 @@ const buildCommandKey = (params: { name: string; sourceId?: string }) =>
 const EXECUTE_PROMPT_INSTRUCTION_TEMPLATE =
   'Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>';
 
+type AgentListEntry = {
+  name: string;
+  description?: string;
+  disabled?: boolean;
+  warnings?: string[];
+};
+
+export const reconcileAgentDetailsCache = (
+  agentDetailsByName: Record<string, AgentDetails | undefined>,
+  agents: AgentListEntry[],
+) => {
+  let nextAgentDetailsByName:
+    | Record<string, AgentDetails | undefined>
+    | undefined;
+
+  for (const agent of agents) {
+    if (agent.disabled !== false) continue;
+    const cachedDetails = agentDetailsByName[agent.name];
+    if (!cachedDetails?.disabled) continue;
+    if (!nextAgentDetailsByName) {
+      nextAgentDetailsByName = { ...agentDetailsByName };
+    }
+    delete nextAgentDetailsByName[agent.name];
+  }
+
+  return nextAgentDetailsByName ?? agentDetailsByName;
+};
+
 export const isExecutePromptEnabled = (params: {
   selectedPromptEntry: AgentPromptEntry | null;
   selectedAgentName: string;
@@ -95,14 +123,7 @@ export default function AgentsPage() {
   );
   const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
 
-  const [agents, setAgents] = useState<
-    Array<{
-      name: string;
-      description?: string;
-      disabled?: boolean;
-      warnings?: string[];
-    }>
-  >([]);
+  const [agents, setAgents] = useState<AgentListEntry[]>([]);
   const [agentDetailsByName, setAgentDetailsByName] = useState<
     Record<string, AgentDetails | undefined>
   >({});
@@ -513,10 +534,13 @@ export default function AgentsPage() {
     void listAgents()
       .then((result) => {
         if (cancelled) return;
-        setAgents(result.agents ?? []);
+        const nextAgents = result.agents ?? [];
+        setAgents(nextAgents);
+        setAgentDetailsByName((prev) =>
+          reconcileAgentDetailsCache(prev, nextAgents),
+        );
         setSelectedAgentName(
-          (prev) =>
-            prev || (result.agents.length > 0 ? result.agents[0].name : ''),
+          (prev) => prev || (nextAgents.length > 0 ? nextAgents[0].name : ''),
         );
       })
       .catch((err) => {

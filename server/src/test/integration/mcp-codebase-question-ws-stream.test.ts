@@ -787,7 +787,7 @@ test('explicit-provider MCP codebase_question restores a saved host-path working
     });
     assert.deepEqual(calls[0]?.flags.repositoryContext, {
       selectedRepositoryPath: resolvedSelectedPath,
-      defaultExecutionRoot: '/mounted/ws-default-root',
+      defaultExecutionRoot: resolveAgentHomeEnv().codeInfoRoot,
       workingDirectoryOverride: resolvedSelectedPath,
       fallbackUsed: false,
       workingRepositoryAvailable: true,

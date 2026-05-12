@@ -878,7 +878,6 @@ async function executeCodebaseQuestion(
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: effectiveWorkingFolder,
     defaultRepositoryRoot:
-      !explicitProviderSelected &&
       agentHomeResolution.activeEnvName !== 'default'
         ? agentHomeResolution.codeInfoRoot
         : undefined,

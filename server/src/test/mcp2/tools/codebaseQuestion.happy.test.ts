@@ -815,6 +815,93 @@ test('codebase_question uses the configured repository root for omitted-provider
   }
 });
 
+test('codebase_question uses the configured repository root for explicit-provider current-repo file questions', async () => {
+  class CurrentRepoChat extends ChatInterface {
+    lastFlags?: Record<string, unknown>;
+
+    async execute(
+      _message: string,
+      flags: Record<string, unknown>,
+      conversationId: string,
+      _model: string,
+    ) {
+      void _model;
+      this.lastFlags = flags;
+      const repositoryContext = flags.repositoryContext as
+        | {
+            selectedRepositoryPath?: string;
+          }
+        | undefined;
+      const selectedRepositoryPath =
+        repositoryContext?.selectedRepositoryPath ?? '';
+      const agentsPath = path.join(selectedRepositoryPath, 'AGENTS.md');
+      const exists = await fs
+        .access(agentsPath)
+        .then(() => true)
+        .catch(() => false);
+      this.emit('thread', { type: 'thread', threadId: conversationId });
+      this.emit('final', {
+        type: 'final',
+        content: exists ? `Found ${agentsPath}` : 'AGENTS missing',
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+    }
+  }
+
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-current-repo-explicit-'),
+  );
+  const agentHome = path.join(repoRoot, 'codeinfo_agents');
+  const chat = new CurrentRepoChat();
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
+  process.env.CODEINFO_AGENT_HOME = agentHome;
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(repoRoot, 'AGENTS.md'), '# temp repo\n', 'utf8');
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'What does AGENTS.md say in the current repository?',
+        provider: 'codex',
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.match(result.content[0].text, /Found .*AGENTS\.md/);
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: repoRoot,
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: repoRoot,
+      defaultExecutionRoot: repoRoot,
+      workingDirectoryOverride: repoRoot,
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    if (originalAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = originalAgentHome;
+    }
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('codebase_question current-repo fallback does not claim repo-root files when the configured repository root lacks AGENTS.md', async () => {
   class CurrentRepoChat extends ChatInterface {
     lastFlags?: Record<string, unknown>;

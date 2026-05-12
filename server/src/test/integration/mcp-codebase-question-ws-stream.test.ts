@@ -590,7 +590,15 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
     conversationId: string;
   }> = [];
   const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'mcp-ws-explicit-current-repo-'),
+  );
+  const agentHome = path.join(repoRoot, 'codeinfo_agents');
   process.env.CODEINFO_CODEX_WORKDIR = '/mounted/ws-default-root';
+  process.env.CODEINFO_AGENT_HOME = agentHome;
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(repoRoot, 'AGENTS.md'), '# temp repo\n', 'utf8');
 
   setToolDeps({
     chatFactory: () => new CapturingRuntimeChat(calls),
@@ -645,15 +653,15 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0]?.flags.runtime, {
       lookupSummary: {
-        selectedRepositoryPath: '/mounted/ws-default-root',
+        selectedRepositoryPath: repoRoot,
         fallbackUsed: true,
         workingRepositoryAvailable: false,
       },
     });
     assert.deepEqual(calls[0]?.flags.repositoryContext, {
-      selectedRepositoryPath: '/mounted/ws-default-root',
-      defaultExecutionRoot: '/mounted/ws-default-root',
-      workingDirectoryOverride: '/mounted/ws-default-root',
+      selectedRepositoryPath: repoRoot,
+      defaultExecutionRoot: repoRoot,
+      workingDirectoryOverride: repoRoot,
       fallbackUsed: true,
       workingRepositoryAvailable: false,
     });
@@ -663,6 +671,12 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
     } else {
       process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
     }
+    if (originalAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = originalAgentHome;
+    }
+    await fs.rm(repoRoot, { recursive: true, force: true });
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();

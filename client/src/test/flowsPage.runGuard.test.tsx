@@ -133,4 +133,181 @@ describe('Flows page run guards', () => {
       mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),
     ).toBe(false);
   });
+
+  it('revalidates selected flow details before starting a new run', async () => {
+    const user = userEvent.setup();
+    let runRequests = 0;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: true,
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'No usable provider remains',
+            },
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await screen.findByText('No usable provider remains');
+    await waitFor(() => expect(runButton).toBeDisabled());
+
+    expect(runRequests).toBe(0);
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),
+    ).toBe(false);
+  });
+
+  it('revalidates selected flow details before resuming a flow', async () => {
+    const user = userEvent.setup();
+    let runRequests = 0;
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: true,
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'No usable provider remains',
+            },
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: { flow: { stepPath: [2, 0] } },
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const resumeButton = await screen.findByTestId('flow-resume');
+    await waitFor(() => expect(resumeButton).toBeEnabled());
+    await user.click(resumeButton);
+
+    await screen.findByText('No usable provider remains');
+    await waitFor(() => expect(resumeButton).toBeDisabled());
+
+    expect(runRequests).toBe(0);
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),
+    ).toBe(false);
+  });
 });

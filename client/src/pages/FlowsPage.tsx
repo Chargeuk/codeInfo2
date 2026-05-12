@@ -268,6 +268,24 @@ export default function FlowsPage() {
     selectedFlowDetails?.disabledReason?.message ??
     (selectedFlow?.disabled ? selectedFlow?.error : undefined);
 
+  const loadSelectedFlowDetails = useCallback(async () => {
+    if (!selectedFlow) return undefined;
+
+    const cached = flowDetailsByKey[selectedFlow.key];
+    if (cached) return cached;
+
+    setFlowDetailsError(null);
+    const result = await getFlowDetails({
+      flowName: selectedFlow.name,
+      sourceId: selectedFlow.sourceId,
+    });
+    setFlowDetailsByKey((prev) => ({
+      ...prev,
+      [selectedFlow.key]: result.flow,
+    }));
+    return result.flow;
+  }, [flowDetailsByKey, selectedFlow]);
+
   const flowConversations = useMemo(
     () => (selectedFlowName.trim() ? conversations : []),
     [conversations, selectedFlowName],
@@ -613,20 +631,11 @@ export default function FlowsPage() {
 
   useEffect(() => {
     if (!flowInfoOpen || !selectedFlow) return;
-    if (flowDetailsByKey[selectedFlow.key]) return;
 
     let cancelled = false;
-    setFlowDetailsError(null);
-    void getFlowDetails({
-      flowName: selectedFlow.name,
-      sourceId: selectedFlow.sourceId,
-    })
+    void loadSelectedFlowDetails()
       .then((result) => {
-        if (cancelled) return;
-        setFlowDetailsByKey((prev) => ({
-          ...prev,
-          [selectedFlow.key]: result.flow,
-        }));
+        if (cancelled || !result) return;
       })
       .catch((error) => {
         if (cancelled) return;
@@ -638,7 +647,7 @@ export default function FlowsPage() {
     return () => {
       cancelled = true;
     };
-  }, [flowDetailsByKey, flowInfoOpen, selectedFlow]);
+  }, [flowInfoOpen, loadSelectedFlowDetails, selectedFlow]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;
@@ -1033,10 +1042,27 @@ export default function FlowsPage() {
     async (mode: 'run' | 'resume') => {
       if (!selectedFlowName) return;
       setRunError(null);
-      if (selectedFlowDisabled) {
-        setRunError(
-          selectedFlowDisabledReason ?? 'This flow is currently disabled.',
-        );
+
+      let details = selectedFlowDetails;
+      if (!details) {
+        try {
+          details = await loadSelectedFlowDetails();
+        } catch (error) {
+          setRunError(
+            (error as Error).message ?? 'Failed to load flow details.',
+          );
+          return;
+        }
+      }
+
+      const guardDisabled = Boolean(
+        details?.disabled ?? selectedFlow?.disabled,
+      );
+      const guardDisabledReason =
+        details?.disabledReason?.message ??
+        (selectedFlow?.disabled ? selectedFlow.error : undefined);
+      if (guardDisabled) {
+        setRunError(guardDisabledReason ?? 'This flow is currently disabled.');
         return;
       }
       if (persistenceUnavailable || !wsTranscriptReady) {
@@ -1146,12 +1172,13 @@ export default function FlowsPage() {
       customTitle,
       hydrateHistory,
       log,
+      loadSelectedFlowDetails,
       messages,
       persistenceUnavailable,
       refreshConversations,
       resumeStepPath,
-      selectedFlowDisabled,
-      selectedFlowDisabledReason,
+      selectedFlow,
+      selectedFlowDetails,
       selectedFlow?.sourceId,
       selectedFlowName,
       setConversation,

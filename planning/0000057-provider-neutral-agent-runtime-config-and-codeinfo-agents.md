@@ -2000,16 +2000,21 @@ The current review found that the client-side flow and agent API error adapters 
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts` from the repository root. Use this targeted wrapper because it is the primary proof home for flow API error parsing.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsApi.errors.test.ts` from the repository root. Use this targeted wrapper because it is the closest existing proof home for structured agent run errors.
-3. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` from the repository root. Use this targeted wrapper because the review finding must reach a visible flow-facing UI error surface rather than staying helper-only.
-4. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx` from the repository root. Use this targeted wrapper because the review finding must reach the visible agent-instruction error surface.
-5. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.commandError.test.tsx` from the repository root. Use this targeted wrapper because the same adapter seam also feeds the visible agent-command error surface.
+1. [x] Run `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts` from the repository root. Use this targeted wrapper because it is the primary proof home for flow API error parsing.
+2. [x] Run `npm run test:summary:client -- --file client/src/test/agentsApi.errors.test.ts` from the repository root. Use this targeted wrapper because it is the closest existing proof home for structured agent run errors.
+3. [x] Run `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` from the repository root. Use this targeted wrapper because the review finding must reach a visible flow-facing UI error surface rather than staying helper-only.
+4. [x] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx` from the repository root. Use this targeted wrapper because the review finding must reach the visible agent-instruction error surface.
+5. [x] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.commandError.test.tsx` from the repository root. Use this targeted wrapper because the same adapter seam also feeds the visible agent-command error surface.
 
 #### Implementation notes
 
 - Added JSON `reason` fallback handling to `client/src/api/flows.ts` and `client/src/api/agents.ts` so reason-only run failures now populate the same `Error.message` surface the existing UI already renders, without changing structured `code` handling or the plain-text fallback path.
 - Added a dedicated `runFlow()` reason-only helper case in `client/src/test/flowsApi.test.ts` and matching `runAgentInstruction()` / `runAgentCommand()` reason-only helper cases in `client/src/test/agentsApi.errors.test.ts` so the repaired adapter contract is claimed directly at the API seam instead of being implied by existing structured-error coverage.
+- Automated proof: `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts` passed cleanly with `tests run: 7`, `passed: 7`, `failed: 0`, so the flow API helper now preserves reason-only run failures without reopening any helper-level parsing drift.
+- Automated proof: `npm run test:summary:client -- --file client/src/test/agentsApi.errors.test.ts` passed cleanly with `tests run: 4`, `passed: 4`, `failed: 0`, confirming both instruction and command helper paths now preserve reason-only structured failures while retaining their existing `code` handling.
+- Automated proof: `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` initially failed because the new visible error case did not mock the details-route revalidation fetch that the page performs before posting a run. After adding that exact details-route fixture, the required rerun passed cleanly with `tests run: 12`, `passed: 12`, `failed: 0`, so the visible flow error surface now preserves the server recovery guidance without relying on generic fallback text.
+- Automated proof: `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx` passed cleanly with `tests run: 3`, `passed: 3`, `failed: 0`, confirming the visible instruction-start error surface now renders preserved reason-only guidance instead of generic HTTP-status fallback text.
+- Automated proof: `npm run test:summary:client -- --file client/src/test/agentsPage.run.commandError.test.tsx` passed cleanly with `tests run: 4`, `passed: 4`, `failed: 0`, confirming the same preserved reason-only guidance now reaches the visible command-start error surface too.
 - Added visible UI proof cases in `client/src/test/flowsPage.test.tsx`, `client/src/test/agentsPage.run.instructionError.test.tsx`, and `client/src/test/agentsPage.run.commandError.test.tsx` that show reason-only server recovery guidance reaches the rendered error banners on the flow, instruction, and command surfaces instead of collapsing back to generic HTTP-status fallback text.
 
 ### Task 17. Normalize shared transitive-consumer log marker schemas across emitters

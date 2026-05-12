@@ -364,6 +364,17 @@ describe('Flows page basics', () => {
         );
       }
 
+      if (target.includes('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: false,
+            warnings: [],
+          },
+        });
+      }
+
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],

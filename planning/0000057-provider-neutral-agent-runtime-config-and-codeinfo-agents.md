@@ -2071,7 +2071,7 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16, Task 17`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260512T042118Z-d34bf618`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
 

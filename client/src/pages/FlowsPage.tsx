@@ -77,6 +77,26 @@ const buildFlowLabel = (flow: FlowSummary) => {
 const buildFlowKey = (flow: FlowSummary) =>
   `${flow.name}::${flow.sourceId ?? 'local'}`;
 
+export const reconcileFlowDetailsCache = (
+  flowDetailsByKey: Record<string, FlowDetails | undefined>,
+  flows: FlowSummary[],
+) => {
+  let nextFlowDetailsByKey: Record<string, FlowDetails | undefined> | undefined;
+
+  for (const flow of flows) {
+    if (flow.disabled !== false) continue;
+    const flowKey = buildFlowKey(flow);
+    const cachedDetails = flowDetailsByKey[flowKey];
+    if (!cachedDetails?.disabled) continue;
+    if (!nextFlowDetailsByKey) {
+      nextFlowDetailsByKey = { ...flowDetailsByKey };
+    }
+    delete nextFlowDetailsByKey[flowKey];
+  }
+
+  return nextFlowDetailsByKey ?? flowDetailsByKey;
+};
+
 type FlowOption = FlowSummary & { key: string; label: string };
 
 type FlowResumeState = {
@@ -606,6 +626,9 @@ export default function FlowsPage() {
     try {
       const result = await listFlows();
       setFlows(result.flows);
+      setFlowDetailsByKey((prev) =>
+        reconcileFlowDetailsCache(prev, result.flows),
+      );
       const flowKeys = result.flows.map((flow) => buildFlowKey(flow));
       if (!selectedFlowKey || !flowKeys.includes(selectedFlowKey)) {
         const firstAvailable = result.flows.find((flow) => !flow.disabled);

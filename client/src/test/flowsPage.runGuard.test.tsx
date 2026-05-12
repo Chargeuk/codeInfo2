@@ -18,7 +18,9 @@ beforeEach(() => {
 });
 
 const { default: App } = await import('../App');
-const { default: FlowsPage } = await import('../pages/FlowsPage');
+const { default: FlowsPage, reconcileFlowDetailsCache } = await import(
+  '../pages/FlowsPage'
+);
 const { default: HomePage } = await import('../pages/HomePage');
 
 const routes = [
@@ -42,6 +44,33 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
 }
 
 describe('Flows page run guards', () => {
+  it('drops cached disabled flow details after a later list refresh marks the flow enabled', () => {
+    const previousCache = {
+      'daily::local': {
+        name: 'daily',
+        description: 'Daily flow',
+        disabled: true,
+        warnings: [
+          {
+            code: 'provider_unavailable',
+            message: 'No usable provider remains',
+          },
+        ],
+        disabledReason: {
+          code: 'provider_unavailable',
+          message: 'No usable provider remains',
+        },
+      },
+    };
+
+    const nextCache = reconcileFlowDetailsCache(previousCache, [
+      { name: 'daily', description: 'Daily flow', disabled: false },
+    ]);
+
+    expect(nextCache).toEqual({});
+    expect(nextCache).not.toBe(previousCache);
+  });
+
   it('blocks new runs after the selected flow details surface marks the flow disabled', async () => {
     const user = userEvent.setup();
     let runRequests = 0;

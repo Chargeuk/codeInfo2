@@ -1,30 +1,24 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-12T05:04:01Z",
+  "generated_at_utc": "2026-05-12T05:09:46Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260512T022927Z-9715bd20",
-  "finding_id": "finding-09",
+  "finding_id": "finding-10",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Replay proof now directly shows completed replay reuse before provider or bootstrap dependency failures can matter.",
+  "summary": "The changed flow metadata proof now waits on the existing turn_final websocket boundary instead of sleeping for a fixed delay.",
   "changed_files": [
-    "server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts",
-    "server/src/test/integration/mcp-codebase-question-ws-stream.test.ts"
+    "server/src/test/integration/flows.turn-metadata.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts --test-name \"completed replay survives a completed-cache clear\"",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/flows.turn-metadata.test.ts --test-name \"top-level flow markdown persists runtime lookupSummary metadata\"",
       "result": "passed",
-      "notes": "Focused unit replay proof passed with tests run: 1, passed: 1, failed: 0 after replaying the second call under intentionally broken Copilot readiness and chat dependencies."
-    },
-    {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts --test-name \"completed replay survives a completed-cache clear\"",
-      "result": "passed",
-      "notes": "Focused websocket replay proof passed with tests run: 1, passed: 1, failed: 0 after replaying the second MCP call under intentionally broken websocket chat and provider dependencies, then restoring healthy deps for the fresh-path assertion."
+      "notes": "Focused server-unit proof passed with tests run: 1, passed: 1, failed: 0 after replacing the fixed delay with the websocket turn_final event boundary already used elsewhere in the file."
     }
   ],
-  "commit_sha": "0a2f1ffc32bd645b10b0f07b11bf2bf8dfe11ec7",
+  "commit_sha": "ef7420deed839918d48b8a8964ae894ff878cb36",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

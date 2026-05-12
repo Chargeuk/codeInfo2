@@ -2049,7 +2049,6 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/transitive-consumer-logging.test.ts` from the repository root. Use this targeted wrapper because the repaired seam is a shared logging contract rather than one single route or provider path.
-2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this broader wrapper because the repaired logging contract spans multiple server emitters that already live in different unit and integration proof homes.
 
 #### Implementation notes
 

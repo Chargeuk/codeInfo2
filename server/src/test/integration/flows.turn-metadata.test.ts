@@ -340,6 +340,7 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
   assert(address && typeof address === 'object');
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const conversationId = 'flow-markdown-metadata-conv-1';
+  const wsPrimary = await connectWs({ baseUrl });
 
   try {
     __setMarkdownFileResolverDepsForTests({
@@ -354,12 +355,24 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
         }) as never,
     });
 
+    sendJson(wsPrimary, { type: 'subscribe_conversation', conversationId });
+    const finalPromise = waitForEvent({
+      ws: wsPrimary,
+      predicate: (
+        event: unknown,
+      ): event is { type: 'turn_final'; conversationId: string } => {
+        const e = event as { type?: string; conversationId?: string };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 8000,
+    });
+
     await supertest(baseUrl)
       .post('/flows/flow-markdown-metadata/run')
       .send({ conversationId, working_folder: workingRepo })
       .expect(202);
 
-    await delay(2000);
+    await finalPromise;
 
     const turnsRes = await supertest(baseUrl)
       .get(`/conversations/${conversationId}/turns`)
@@ -384,6 +397,7 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
     __resetMarkdownFileResolverDepsForTests();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
+    await closeWs(wsPrimary);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;

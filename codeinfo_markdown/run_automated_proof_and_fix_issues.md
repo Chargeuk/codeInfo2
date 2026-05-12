@@ -71,6 +71,12 @@ Do not perform manual testing in this step.
 - Use targeted wrapper reruns for diagnosis when the repository workflow supports them, but rerun the original task-listed proof step honestly after any repair.
 - If a testing step fails, diagnose the exact failure, fix it if it is within the task's scope, and rerun the affected proof honestly.
 - Keep implementation notes concise as you work so later steps can see what changed and why.
+- If the selected task still has unchecked `Testing` items at the end of this step, then one of the following must be true:
+  - every unchecked `Testing` item that can be completed honestly within this automated-proof step, without depending on later manual-testing-agent validation, later automated-proof passes, or a missing capability outside this step, is now complete; or
+  - you added a live `**BLOCKER**` note explaining exactly why the first unchecked `Testing` item in `Testing` list order could not be completed honestly.
+- It is not valid to stop this step merely because partial progress was made, one or more testing steps were completed, a targeted rerun passed, the remaining broad rerun feels safer to leave for a later pass, or the work is risky but still in scope and fixable.
+- It is not valid to leave the task with remaining unchecked `Testing` items that could be completed honestly in this step, and no live `**BLOCKER**`.
+- If a mandatory wrapper-backed `Testing` step has been started in this step, do not finish this step while that wrapper is still running. Wait for its terminal result, or record a live `**BLOCKER**` if it becomes honestly blocked.
 
 </proof_rules>
 
@@ -135,6 +141,7 @@ Return a concise summary that includes:
 3. which testing steps now pass;
 4. whether any blocker remains;
 5. any important commands or outputs that indicate success.
+6. if any unchecked `Testing` items remain, the first remaining unchecked `Testing` item in list order and whether it is blocked by a live `**BLOCKER**`.
 
 Do not mark the task `__done__` in this step. The later audit step decides that.
 
@@ -152,6 +159,9 @@ Before finishing:
 - confirm any newly added subtasks stayed within implementation, proof-authoring, documentation, config, or explicitly allowed code-hygiene work;
 - confirm any newly added `Testing` steps remain automated-only and wrapper-level when repository guidance expects that;
 - confirm you did not raise a blocker for an ordinary failing test without first inspecting the failure evidence, attempting at least one concrete in-scope repair when appropriate, and rerunning the affected proof;
+- confirm that if unchecked `Testing` items remain, the first unchecked `Testing` item in list order that could be completed honestly in this automated-proof step was either completed or covered by a live `**BLOCKER**`;
+- confirm you did not treat partial progress alone as a valid reason to stop with remaining unchecked `Testing` items that could be completed honestly in this automated-proof step;
+- confirm you did not finish this step while a mandatory wrapper started for a `Testing` item was still running;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;
 - confirm you did not add manual-testing work to `Subtasks` or `Testing`;

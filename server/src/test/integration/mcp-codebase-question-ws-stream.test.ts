@@ -7,7 +7,6 @@ import path from 'node:path';
 import test from 'node:test';
 
 import express from 'express';
-import type { RepoEntry } from '../../lmstudio/toolService.js';
 
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
@@ -23,6 +22,7 @@ import {
   recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { resetStore } from '../../logStore.js';
 import { handleRpc } from '../../mcp2/router.js';
@@ -33,8 +33,8 @@ import {
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
-import { attachWs } from '../../ws/server.js';
 import { socketsSubscribedToConversation } from '../../ws/registry.js';
+import { attachWs } from '../../ws/server.js';
 import {
   closeWs,
   connectWs,

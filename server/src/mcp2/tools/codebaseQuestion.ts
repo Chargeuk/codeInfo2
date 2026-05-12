@@ -7,9 +7,9 @@ import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
 import { z } from 'zod';
 
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
+import { buildConversationFlags } from '../../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
 import { normalizeImplicitCopilotRequestedModel } from '../../chat/copilotModelSupport.js';
-import { buildConversationFlags } from '../../chat/agentFlags.js';
 import {
   UnsupportedProviderError,
   getChatInterface,

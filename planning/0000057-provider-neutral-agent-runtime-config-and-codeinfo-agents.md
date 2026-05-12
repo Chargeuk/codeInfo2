@@ -2066,7 +2066,7 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 
 This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260512T022927Z-9715bd20`, and it must also revalidate the inline-resolved minor fixes already recorded for findings `finding-01`, `finding-02`, `finding-03`, `finding-04`, `finding-05`, `finding-07`, `finding-09`, and `finding-10`.
 
-This review-created block stays inside the current repository's client error-adapter and shared server logging seams, so broad compose, browser, and cucumber reruns are not the honest default proof scope here unless Task 16 or Task 17 expands the affected surface while landing the repair.
+This review-created block stays inside the current repository's client error-adapter and shared server logging seams. Tasks 16 and 17 therefore keep compact targeted proof, while this final review task owns the broader compose, Cucumber, Playwright, and main-stack smoke reruns that close the current review-created findings block on the repository's normal supported paths.
 
 #### Highest-Risk Invariant
 
@@ -2089,7 +2089,7 @@ This review-created block stays inside the current repository's client error-ada
 
 - Tasks 16 and 17 are implemented, their promised proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
 - The same final revalidation pass reruns the relevant server and client regression wrappers so the current review-created block plus this same review cycle's inline minor fixes are green together under one close-out owner.
-- If implementation stays inside client API parsing plus server log-contract proof homes, the task explicitly closes without compose, browser, or cucumber reruns; if implementation expands beyond those seams, the final proof must add the newly relevant wrapper or manual surfaces before this task can close.
+- This final review task owns the broad regression proof for the current review-created findings block in the current repository: targeted Task 16 and Task 17 proof stays local to those tasks, while this close-out pass reruns server Cucumber coverage, automated Playwright end-to-end coverage, and the supported main-stack compose smoke path so the repaired seams still hold through the repository's normal execution routes.
 - Review-loop close-out state still treats Task 18 as the sole final revalidation owner for review cycle `0000057-rc-20260512T042118Z-d34bf618`, and `## Minor Review Fixes` remains the durable audit home for this cycle's inline-resolved findings instead of spawning a second final-task owner.
 
 #### Subtasks
@@ -2100,12 +2100,17 @@ This review-created block stays inside the current repository's client error-ada
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 17 changes shared server logging emitters and proof helpers.
-2. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because Task 16 changes shared client API error adapters that feed visible run surfaces.
-3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because Task 17 and the inline-resolved server-side minor findings all live in server unit or integration proof homes.
-4. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because Task 16 and the inline-resolved client-side minor findings all live in client proof homes.
-5. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans both client and server source.
-6. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared helpers.
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower workspace or test reruns.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 17 changes shared server logging emitters and proof helpers.
+3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because Task 16 changes shared client API error adapters that feed visible run surfaces.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because Task 17 and the inline-resolved server-side minor findings all live in server unit or integration proof homes.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the final review task owns broad back-end regression proof through the repository's supported Cucumber plus Testcontainers path, not just the targeted unit seam.
+6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because Task 16 and the inline-resolved client-side minor findings all live in client proof homes.
+7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because the final review task owns broad automated browser regression proof for the repaired run surfaces instead of leaving browser-managed proof implied.
+8. [ ] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
+9. [ ] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
+10. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans both client and server source.
+11. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared helpers.
 
 #### Manual Testing Guidance
 

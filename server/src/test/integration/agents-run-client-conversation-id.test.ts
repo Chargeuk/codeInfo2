@@ -593,6 +593,206 @@ test('runtime step-count drift rejects stale startStep with deterministic INVALI
   }
 });
 
+test('runAgentCommand rejects invalid startStep before provider preparation on zero-work paths', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'zero-work.json'),
+    JSON.stringify(
+      {
+        Description: 'Zero work ordering guard',
+        items: [{ type: 'message', role: 'user', content: ['step 1'] }],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      cliPath: undefined,
+      reason: 'codex unavailable for ordering guard',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access' as const,
+        approvalPolicy: 'never' as const,
+        modelReasoningEffort: 'high' as const,
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled' as const,
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication' as const,
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated' as const,
+    }),
+    getMcpStatus: async () => ({ available: false }),
+  });
+
+  try {
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'zero-work',
+          startStep: 2,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code === 'INVALID_START_STEP' &&
+            (error as { reason?: string }).reason ===
+              'startStep must be between 1 and 1',
+        ),
+    );
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('startAgentCommand rejects invalid startStep before provider preparation on zero-work paths', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'zero-work.json'),
+    JSON.stringify(
+      {
+        Description: 'Zero work ordering guard',
+        items: [{ type: 'message', role: 'user', content: ['step 1'] }],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      cliPath: undefined,
+      reason: 'codex unavailable for ordering guard',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access' as const,
+        approvalPolicy: 'never' as const,
+        modelReasoningEffort: 'high' as const,
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled' as const,
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication' as const,
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated' as const,
+    }),
+    getMcpStatus: async () => ({ available: false }),
+  });
+
+  try {
+    await assert.rejects(
+      async () =>
+        startAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'zero-work',
+          startStep: 2,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code === 'INVALID_START_STEP' &&
+            (error as { reason?: string }).reason ===
+              'startStep must be between 1 and 1',
+        ),
+    );
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
 test('Agents runs fail when agent config contains invalid supported key types (resolver regression guard)', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const tmpAgentsHome = await fs.mkdtemp(

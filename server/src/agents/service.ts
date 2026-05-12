@@ -1644,6 +1644,18 @@ async function prepareDirectCommandBootstrap(params: {
   };
 }
 
+function validateDirectCommandStartStepOrThrow(
+  startStep: number,
+  totalSteps: number,
+) {
+  if (!Number.isInteger(startStep) || startStep < 1 || startStep > totalSteps) {
+    throw toRunAgentError(
+      'INVALID_START_STEP',
+      `startStep must be between 1 and ${totalSteps}`,
+    );
+  }
+}
+
 export async function startAgentCommand(params: {
   agentName: string;
   commandName: string;
@@ -1786,6 +1798,10 @@ export async function startAgentCommand(params: {
     if (!parsed.ok) {
       throw toRunAgentError('COMMAND_INVALID');
     }
+    validateDirectCommandStartStepOrThrow(
+      startStep,
+      parsed.command.items.length,
+    );
 
     const prepared = await prepareDirectAgentExecution({
       agentName: params.agentName,
@@ -1997,6 +2013,17 @@ export async function runAgentCommand(params: {
     sourceId,
     repos: ingestRoots,
   });
+
+  const parsed = await loadAgentCommandFile({
+    filePath: resolution.commandFilePath,
+  }).catch(() => ({ ok: false }) as const);
+  if (!parsed.ok) {
+    throw toRunAgentError('COMMAND_INVALID');
+  }
+  validateDirectCommandStartStepOrThrow(
+    startStep,
+    parsed.command.items.length,
+  );
 
   const { initialModelId } = await prepareDirectCommandBootstrap({
     agentName: params.agentName,

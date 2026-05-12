@@ -1948,3 +1948,158 @@ Run the automated Playwright wrapper once here, not on each individual review-cr
 - Ran `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts --test-name "route-selected-repository Codex answer"` because Subtask 14 needed one honest proof-home rerun before the broader reopened server-unit task step can be handed back to automated proof. The first targeted wrapper failed at build time on an incomplete mocked `RepoEntry` fixture in the new route-backed test, I filled in the required ingest metadata shape, and the exact rerun then passed cleanly with `tests run: 1`, `passed: 1`, `failed: 0`, and `agent_action: skip_log`.
 - **RESOLVED ISSUE** Testing step 4 (`npm run test:summary:server:unit`) reopened because the route-backed omitted-provider Codex websocket proof in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` mocked repository lookup only for `POST /conversations/:id/working-folder`, not for the later `codebase_question` restore path. I aligned that proof fixture by giving the MCP tool the same `listIngestedRepositoriesFn` repository entry, then reran the exact failing wrapper target cleanly (`tests run: 1`, `passed: 1`, `failed: 0`), reran the whole websocket proof file cleanly (`tests run: 15`, `passed: 15`, `failed: 0`), and reran the full server-unit wrapper cleanly (`tests run: 2039`, `passed: 2039`, `failed: 0`), so the blocker was a bounded automated-proof setup mismatch rather than an open-ended product or websocket timing defect.
 - Manual testing expanded to full-story scope on a restarted checked-in main stack from a prior stopped state (`npm run compose:down`, `npm run compose:build`, `npm run compose:up`) and shut that same stack back down with `npm run compose:down` after proof. Browser proof on `http://localhost:5001/agents` kept `Re-authenticate` visible, the current shipped `manual_testing` seed still exposed no disabled agent to exercise a live `Execute Prompt` blocked click path, and the retained browser artifacts landed under `codeInfoTmp/manual-testing/0000057/15/` (`support-browser-console.txt`, `support-browser-network.txt`); I first staged a Playwright screenshot at `manual-testing/0000057/15/proof-01-agents-page.png`, but the current runtime did not expose a usable copy-out path from that staging location, so the retained final screenshot was saved through Chrome DevTools at `codeInfoTmp/manual-testing/0000057/15/proof-01-agents-page.png`. The repository-backed `/chat` continuation seam passed on the shipped runtime path: `manual-chat-0000057-15-1778552120` kept `provider: codex`, `model: gpt-5.1-codex-max`, `flags.workingFolder: /data/story55-manual-proof/queued-repo`, and `flags.threadId: 019e19f7-a8fb-7ad0-8864-353fc5509654` across the contradictory follow-up, with retained summaries in `support-chat-turns-after-resume.json` and `support-chat-summary-after-resume.json`. The selected-repository MCP seam also held on the repaired main-stack path: conversation `ee6b2486-c0c1-439e-95c7-25280cf2fcdb` saved the mounted working folder through `POST /conversations/:id/working-folder`, completed its first omitted-provider Codex turn with an `ok` assistant result, persisted `flags.threadId: 019e19f8-ce64-7b41-a35c-52717c4395c5`, and kept the same `provider: codex` plus `model: gpt-5.3-codex` on the contradictory follow-up, with retained evidence in `support-mcp-turns-after-first.json`, `support-mcp-summary-after-first.json`, and `support-manual-proof-summary.json`. No new subtasks were needed because the task-owned startup, browser-visible context, `/chat` continuation, and selected-repository `codebase_question` persistence seams all proved cleanly on the supported main-stack path.
+
+## Code Review Findings
+
+### Review Pass `0000057-20260512T022927Z-9715bd20`
+
+- Review cycle id: `0000057-rc-20260512T042118Z-d34bf618`
+- Review routing source: `codeInfoStatus/flow-state/review-disposition-state.json`
+- Comparison context: local `HEAD` `9715bd20f483c2db06b2b50b5aa30a2665df078c` versus resolved remote base `origin/main` at `a8f5436227ab7af297bdbf725ca2eba137aee247` using `local_head_vs_resolved_base`; no local-fallback base inference was needed.
+- Unresolved task-required findings now requiring numbered follow-up tasks: `finding-06` and `finding-08`.
+- Inline-resolved minor findings already handled in this same review cycle and therefore not re-tasked here: `finding-01`, `finding-02`, `finding-03`, `finding-04`, `finding-05`, `finding-07`, `finding-09`, and `finding-10`.
+
+### Task 16. Preserve server-provided failure reasons across agent and flow run surfaces
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 15`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260512T022927Z-9715bd20`.
+
+#### Overview
+
+The current review found that the client-side flow and agent API error adapters still drop the server-provided `reason` field on run failures, which turns actionable provider-unavailable and disabled-surface guidance back into generic HTTP status text. This task keeps that cross-surface error-contract repair self-contained instead of scattering it into older Story 57 UI tasks.
+
+#### Highest-Risk Invariant
+
+- When the server returns a structured run failure with an actionable `reason`, the client-side flow and agent run surfaces must preserve that reason all the way to the visible error state instead of collapsing it to a generic `Failed to run ... (<status>)` fallback.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `finding-06` - client error adapters drop server-provided reason text for changed agents and flows run failures.
+
+#### Task Exit Criteria
+
+- `client/src/api/flows.ts` and `client/src/api/agents.ts` preserve structured `reason` text whenever a run failure omits `message`, while still keeping the existing `code`, plain-text, and success-path parsing contracts intact.
+- At least one flow-facing and one agent-facing visible error proof show that the preserved recovery reason reaches the rendered UI instead of a generic status fallback.
+
+#### Subtasks
+
+1. [ ] In [client/src/api/flows.ts](/home/d_a_s/code/codeInfo2/client/src/api/flows.ts) and [client/src/api/agents.ts](/home/d_a_s/code/codeInfo2/client/src/api/agents.ts), treat structured JSON `reason` as the user-facing message fallback when `message` is absent, without regressing the existing `code`, plain-text, or success parsing behavior.
+2. [ ] Extend [client/src/test/flowsApi.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/flowsApi.test.ts) and [client/src/test/agentsApi.errors.test.ts](/home/d_a_s/code/codeInfo2/client/src/test/agentsApi.errors.test.ts) so the API-helper proof homes explicitly assert that `FlowApiError` and `AgentApiError` preserve server-provided `reason` text for run failures.
+3. [ ] Add or extend one flow-facing and one agent-facing UI error proof in [client/src/test/flowsPage.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/flowsPage.test.tsx) and [client/src/test/agentsPage.run.instructionError.test.tsx](/home/d_a_s/code/codeInfo2/client/src/test/agentsPage.run.instructionError.test.tsx) so the rendered error banner shows the preserved recovery reason coming back from the server routes instead of a generic status-only fallback.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts` from the repository root. Use this targeted wrapper because it is the primary proof home for flow API error parsing.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsApi.errors.test.ts` from the repository root. Use this targeted wrapper because it is the closest existing proof home for structured agent run errors.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.test.tsx` from the repository root. Use this targeted wrapper because the review finding must reach a visible flow-facing UI error surface rather than staying helper-only.
+4. [ ] Run `npm run test:summary:client -- --file client/src/test/agentsPage.run.instructionError.test.tsx` from the repository root. Use this targeted wrapper because the review finding must also reach a visible agent-facing UI error surface.
+
+#### Implementation notes
+
+- Pending implementation.
+
+### Task 17. Normalize shared transitive-consumer log marker schemas across emitters
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 15`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260512T022927Z-9715bd20`.
+
+#### Overview
+
+The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_read` and `DEV-0000036:T11:transitive_consumer_alias_fallback` markers now carry incompatible payload shapes across repository-backed and summary-backed emitters. This task keeps that logging-contract repair as one shared seam so downstream log consumers no longer have to guess which schema a reused marker name produced.
+
+#### Highest-Risk Invariant
+
+- Every emitter of `DEV-0000036:T11:transitive_consumer_contract_read` and `DEV-0000036:T11:transitive_consumer_alias_fallback` must publish one stable payload contract, so downstream proof and operational consumers can key off the marker name without schema guessing.
+
+#### Likely Blocker Family
+
+- `shared wrapper or baseline seam`
+
+#### Addresses Findings
+
+- `finding-08` - shared transitive-consumer log markers now carry incompatible payload schemas across emitters.
+
+#### Task Exit Criteria
+
+- The shared transitive-consumer marker names are emitted through one canonical payload helper instead of per-caller ad hoc context shapes.
+- Representative repository-backed and summary-backed emitters prove the same required keys, optional fields, and alias-fallback semantics under automated server proof.
+
+#### Subtasks
+
+1. [ ] Introduce one shared helper for `DEV-0000036:T11:transitive_consumer_contract_read` and `DEV-0000036:T11:transitive_consumer_alias_fallback` that defines the stable payload contract and how emitter-specific identity details are represented without changing the marker names.
+2. [ ] Update every current emitter in [server/src/agents/service.ts](/home/d_a_s/code/codeInfo2/server/src/agents/service.ts), [server/src/flows/service.ts](/home/d_a_s/code/codeInfo2/server/src/flows/service.ts), [server/src/mcp2/tools/codebaseQuestion.ts](/home/d_a_s/code/codeInfo2/server/src/mcp2/tools/codebaseQuestion.ts), [server/src/chat/responders/McpResponder.ts](/home/d_a_s/code/codeInfo2/server/src/chat/responders/McpResponder.ts), and [server/src/ast/toolService.ts](/home/d_a_s/code/codeInfo2/server/src/ast/toolService.ts), plus any same-marker sibling surfaced by repository grep while implementing this task, so they all route through that shared helper instead of hand-rolling incompatible context shapes.
+3. [ ] Add a dedicated proof home such as [server/src/test/unit/transitive-consumer-logging.test.ts](/home/d_a_s/code/codeInfo2/server/src/test/unit/transitive-consumer-logging.test.ts) that captures appended entries from representative repository-backed and summary-backed emitters and asserts the shared required keys, optional fields, and alias-fallback semantics for both marker names.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/transitive-consumer-logging.test.ts` from the repository root. Use this targeted wrapper because the repaired seam is a shared logging contract rather than one single route or provider path.
+2. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this broader wrapper because the repaired logging contract spans multiple server emitters that already live in different unit and integration proof homes.
+
+#### Implementation notes
+
+- Pending implementation.
+
+### Task 18. Revalidate review pass `0000057-20260512T022927Z-9715bd20` serious fixes and inline minor resolutions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 16, Task 17`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created final revalidation task for review cycle `0000057-rc-20260512T042118Z-d34bf618`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
+
+#### Overview
+
+This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260512T022927Z-9715bd20`, and it must also revalidate the inline-resolved minor fixes already recorded for findings `finding-01`, `finding-02`, `finding-03`, `finding-04`, `finding-05`, `finding-07`, `finding-09`, and `finding-10`.
+
+This review-created block stays inside the current repository's client error-adapter and shared server logging seams, so broad compose, browser, and cucumber reruns are not the honest default proof scope here unless Task 16 or Task 17 expands the affected surface while landing the repair.
+
+#### Highest-Risk Invariant
+
+- The final review-cycle close-out must prove the repaired client error-contract and shared log-marker seams while also confirming this same review cycle's inline minor proof homes still hold, without inventing a second final-task owner for the already-resolved minor findings.
+
+#### Likely Blocker Family
+
+- `proof or test harness seam`
+
+#### Addresses Findings
+
+- Revalidates the serious review-created findings block for `finding-06` and `finding-08`.
+- Revalidates the inline-resolved minor fixes already recorded for `finding-01`, `finding-02`, `finding-03`, `finding-04`, `finding-05`, `finding-07`, `finding-09`, and `finding-10` in review cycle `0000057-rc-20260512T042118Z-d34bf618`.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the serious review-created repairs, the inline minor proof homes already recorded for this same review cycle, and the full broad regression proof that closes this appended review-created block.
+
+#### Task Exit Criteria
+
+- Tasks 16 and 17 are implemented, their promised proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
+- The same final revalidation pass reruns the relevant server and client regression wrappers so the current review-created block plus this same review cycle's inline minor fixes are green together under one close-out owner.
+- Compose, browser, or cucumber reruns are either executed because implementation expanded the affected surface or left out explicitly because the repaired seams stayed inside client API parsing plus server log-contract proof homes.
+
+#### Subtasks
+
+1. [ ] Before the broad wrapper reruns, confirm Tasks 16 and 17 landed in the exact files and proof homes promised by this appended review-created block and did not quietly shift work into older pre-existing Story 57 tasks.
+2. [ ] Refresh only the reviewer-facing close-out text or routing state that becomes stale after Tasks 16 and 17 land, while keeping `## Minor Review Fixes` as the sole durable audit record for this review cycle's inline-resolved minor findings.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because Task 17 changes shared server logging emitters and proof helpers.
+2. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because Task 16 changes shared client API error adapters that feed visible run surfaces.
+3. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because Task 17 and the inline-resolved server-side minor findings all live in server unit or integration proof homes.
+4. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because Task 16 and the inline-resolved client-side minor findings all live in client proof homes.
+5. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans both client and server source.
+6. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared helpers.
+
+#### Implementation notes
+
+- Pending implementation.

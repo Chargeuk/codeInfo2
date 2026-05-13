@@ -2225,7 +2225,7 @@ The review found that provider-neutral fallback normalization warnings still dis
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 
@@ -2271,6 +2271,7 @@ The direct-service agent and command entrypoints no longer share the same prefli
 - Split provider-free command bootstrap from provider-backed command bootstrap in `server/src/agents/service.ts`: reingest-only remaining suffixes now skip provider preparation entirely, keep a deterministic fallback identity for conversation bootstrap when needed, and still preserve the existing provider path when a later command item actually needs runtime execution.
 - Added dedicated Task 20 ordering proofs in `server/src/test/integration/agents-run-client-conversation-id.test.ts` for invalid direct-run and direct-command working folders, and added a provider-free command bootstrap proof in `server/src/test/unit/agent-commands-runner.test.ts` that keeps the real provider bootstrap deps at zero calls while a reingest-only command still succeeds.
 - `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` passed cleanly with `tests run: 22`, `passed: 22`, and `failed: 0`; `npm run test:summary:server:unit -- --file server/src/test/unit/agent-commands-runner.test.ts` initially failed because the new proof still hit the real reingest backend, but swapping that one test onto the existing fake `runReingestRepository` dependency made the rerun pass cleanly with `tests run: 45`, `passed: 45`, and `failed: 0`.
+- Audit normalization closed Task 20 as `__done__` because all four subtasks, both automated testing steps, and the recorded targeted server proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 20` reported no live blockers.
 
 ### Task 21. Normalize flow start and resume admission before execution begins
 

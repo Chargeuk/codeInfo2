@@ -1377,18 +1377,7 @@ export async function startAgentInstruction(
       throw toRunAgentError('AGENT_NOT_FOUND');
     }
 
-    const listedReposResult = await agentServiceDeps
-      .listIngestedRepositories()
-      .then((result) => ({
-        repos: result.repos,
-        knownRepositoryPathsState: knownRepositoryPathsAvailable(
-          result.repos.map((repo) => repo.containerPath),
-        ),
-      }))
-      .catch((error) => ({
-        repos: [] as RepoEntry[],
-        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
-      }));
+    const listedReposResult = await loadKnownRepositoryPathsStateForAgentRuns();
     const existingConversation = await getConversation(conversationId);
     const isNewConversation = !existingConversation;
     startPathWasNewConversation = isNewConversation;
@@ -1405,10 +1394,20 @@ export async function startAgentInstruction(
       throw toRunAgentError('AGENT_MISMATCH');
     }
 
+    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
+      {
+        conversationId,
+        conversation: existingConversation,
+        requestedWorkingFolder: params.working_folder,
+        surface: 'agent_run',
+        knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
+      },
+    );
+
     const prepared = await prepareDirectAgentExecution({
       agentName: params.agentName,
       configPath: agent.configPath,
-      workingFolder: params.working_folder,
+      workingFolder: effectiveWorkingFolder,
       source: params.source,
       surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
       pinnedProviderId: existingConversation?.provider,
@@ -1421,16 +1420,6 @@ export async function startAgentInstruction(
 
     const title =
       params.instruction.trim().slice(0, 80) || 'Untitled conversation';
-
-    const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
-      {
-        conversationId,
-        conversation: existingConversation,
-        requestedWorkingFolder: params.working_folder,
-        surface: 'agent_run',
-        knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
-      },
-    );
 
     if (isNewConversation) {
       await ensureAgentConversation({
@@ -1525,9 +1514,20 @@ export async function runAgentInstruction(
     },
   });
 
+  const listedReposResult = await loadKnownRepositoryPathsStateForAgentRuns();
+  const existingConversation = await getConversation(conversationId);
+  const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun({
+    conversationId,
+    conversation: existingConversation,
+    requestedWorkingFolder: params.working_folder,
+    surface: 'agent_run',
+    knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
+  });
+
   return await runAgentInstructionUnlocked({
     ...params,
     conversationId,
+    working_folder: effectiveWorkingFolder,
     mustExist,
     runToken,
   });
@@ -1542,6 +1542,20 @@ function isSafeAgentCommandName(raw: string): boolean {
 }
 
 const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.1-codex-max';
+
+const loadKnownRepositoryPathsStateForAgentRuns = async () =>
+  await agentServiceDeps
+    .listIngestedRepositories()
+    .then((result) => ({
+      repos: result.repos,
+      knownRepositoryPathsState: knownRepositoryPathsAvailable(
+        result.repos.map((repo) => repo.containerPath),
+      ),
+    }))
+    .catch((error) => ({
+      repos: [] as RepoEntry[],
+      knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
+    }));
 
 function buildCommandConversationTitle(params: {
   commandName: string;
@@ -1580,6 +1594,7 @@ async function prepareDirectCommandBootstrap(params: {
 }): Promise<{
   providerId: ChatProviderId;
   initialModelId: string;
+  conversationEnsured: boolean;
 }> {
   const parsed = await loadAgentCommandFile({
     filePath: params.commandFilePath,
@@ -1588,13 +1603,15 @@ async function prepareDirectCommandBootstrap(params: {
     return {
       providerId: 'codex',
       initialModelId: FALLBACK_COMMAND_MODEL_ID,
+      conversationEnsured: false,
     };
   }
 
   const remainingItems = parsed.command.items.slice(params.startStep - 1);
-  const needsSyntheticBootstrap = remainingItems.some(
-    (item) => item.type === 'reingest',
+  const suffixNeedsProvider = remainingItems.some(
+    (item) => item.type !== 'reingest',
   );
+  const startsWithProviderFreeItem = remainingItems[0]?.type === 'reingest';
 
   const existingConversation = await getConversation(params.conversationId);
   if (existingConversation?.archivedAt) {
@@ -1605,6 +1622,35 @@ async function prepareDirectCommandBootstrap(params: {
     (existingConversation.agentName ?? '') !== params.agentName
   ) {
     throw toRunAgentError('AGENT_MISMATCH');
+  }
+
+  const title = buildCommandConversationTitle({
+    commandName: params.commandName,
+    parsedCommand: parsed,
+    startIndex: params.startStep - 1,
+  });
+
+  if (!suffixNeedsProvider) {
+    const providerId =
+      (existingConversation?.provider as ChatProviderId | undefined) ?? 'codex';
+    const initialModelId =
+      existingConversation?.model ?? FALLBACK_COMMAND_MODEL_ID;
+    if (!existingConversation) {
+      await ensureAgentConversation({
+        conversationId: params.conversationId,
+        agentName: params.agentName,
+        providerId,
+        modelId: initialModelId,
+        title,
+        source: params.source,
+        workingFolder: params.workingFolder,
+      });
+    }
+    return {
+      providerId,
+      initialModelId,
+      conversationEnsured: !existingConversation,
+    };
   }
 
   const prepared = await prepareDirectAgentExecution({
@@ -1619,18 +1665,13 @@ async function prepareDirectCommandBootstrap(params: {
   });
   const initialModelId = prepared.modelId ?? FALLBACK_COMMAND_MODEL_ID;
 
-  if (!needsSyntheticBootstrap || existingConversation) {
+  if (!startsWithProviderFreeItem || existingConversation) {
     return {
       providerId: prepared.executionProviderId,
       initialModelId,
+      conversationEnsured: false,
     };
   }
-
-  const title = buildCommandConversationTitle({
-    commandName: params.commandName,
-    parsedCommand: parsed,
-    startIndex: params.startStep - 1,
-  });
 
   await ensureAgentConversation({
     conversationId: params.conversationId,
@@ -1645,6 +1686,7 @@ async function prepareDirectCommandBootstrap(params: {
   return {
     providerId: prepared.executionProviderId,
     initialModelId,
+    conversationEnsured: true,
   };
 }
 
@@ -1738,18 +1780,7 @@ export async function startAgentCommand(params: {
   let providerId: ChatProviderId = 'codex';
 
   try {
-    const ingestRootsResult = await agentServiceDeps
-      .listIngestedRepositories()
-      .then((result) => ({
-        repos: result.repos,
-        knownRepositoryPathsState: knownRepositoryPathsAvailable(
-          result.repos.map((repo) => repo.containerPath),
-        ),
-      }))
-      .catch((error) => ({
-        repos: [] as RepoEntry[],
-        knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
-      }));
+    const ingestRootsResult = await loadKnownRepositoryPathsStateForAgentRuns();
     const ingestRoots = ingestRootsResult.repos;
     const matchingRoot = sourceId
       ? ingestRoots.find((repo) => repo.containerPath === sourceId)
@@ -1807,31 +1838,26 @@ export async function startAgentCommand(params: {
       parsed.command.items.length,
     );
 
-    const prepared = await prepareDirectAgentExecution({
+    const bootstrap = await prepareDirectCommandBootstrap({
       agentName: params.agentName,
+      commandName,
+      agentHome: agent.home,
       configPath: agent.configPath,
-      workingFolder: effectiveWorkingFolder,
+      conversationId,
+      commandFilePath: resolution.commandFilePath,
+      startStep,
       source: params.source,
-      surface:
-        params.source === 'MCP' ? 'mcp.agents.run' : 'agents.commands.run',
-      pinnedProviderId: existingConversation?.provider,
-      pinnedModelId: existingConversation?.model,
-      allowFallback: !existingConversation,
+      workingFolder: effectiveWorkingFolder,
     });
-    modelId = prepared.modelId;
-    providerId = prepared.executionProviderId;
+    modelId = bootstrap.initialModelId;
+    providerId = bootstrap.providerId;
 
-    const firstItem = parsed.command.items[0];
-    const firstInstruction =
-      firstItem?.type === 'message'
-        ? 'content' in firstItem
-          ? firstItem.content.join('\n')
-          : ''
-        : '';
-    const title =
-      firstInstruction.trim().slice(0, 80) || 'Command: ' + commandName;
-
-    if (isNewConversation) {
+    if (isNewConversation && !bootstrap.conversationEnsured) {
+      const title = buildCommandConversationTitle({
+        commandName,
+        parsedCommand: parsed,
+        startIndex: startStep - 1,
+      });
       await ensureAgentConversation({
         conversationId,
         agentName: params.agentName,
@@ -1974,18 +2000,7 @@ export async function runAgentCommand(params: {
     },
   });
 
-  const ingestRootsResult = await agentServiceDeps
-    .listIngestedRepositories()
-    .then((result) => ({
-      repos: result.repos,
-      knownRepositoryPathsState: knownRepositoryPathsAvailable(
-        result.repos.map((repo) => repo.containerPath),
-      ),
-    }))
-    .catch((error) => ({
-      repos: [] as RepoEntry[],
-      knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
-    }));
+  const ingestRootsResult = await loadKnownRepositoryPathsStateForAgentRuns();
   const ingestRoots = ingestRootsResult.repos;
   const matchingRoot = sourceId
     ? ingestRoots.find((repo) => repo.containerPath === sourceId)

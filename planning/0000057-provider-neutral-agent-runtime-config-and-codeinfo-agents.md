@@ -2183,7 +2183,7 @@ The review found that provider-neutral fallback normalization warnings still dis
 
 #### Likely Blocker Family
 
-- `shared runtime-config and availability seam`
+- `shared wrapper or baseline seam`
 
 #### Addresses Findings
 
@@ -2193,15 +2193,15 @@ The review found that provider-neutral fallback normalization warnings still dis
 #### Task Exit Criteria
 
 - The runtime-config resolver returns warning data in a durable shape that direct agents, flows, and their route-facing availability or run payload builders can still surface after fallback succeeds.
-- Startup bootstrap keeps the supported server entrypoint alive when one provider home or chat-config seed fails, while still marking the affected provider unavailable and surfacing the relevant warning or degraded-state evidence through the normal availability APIs.
-- Proof explicitly covers both the warning-preservation path and the degraded-startup path in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`, so the repaired seam is claimed at the runtime-config, startup, agent-run, and flow-run layers instead of being left to adjacent happy-path coverage.
+- Startup bootstrap keeps the supported default server entrypoint alive when one provider home or chat-config seed fails, while still marking the affected provider unavailable and surfacing the relevant warning or degraded-state evidence through the normal availability APIs.
+- Proof explicitly covers both the warning-preservation path and the degraded-startup path in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`, so the repaired seam is claimed at the runtime-config, supported default-entrypoint, agent-run, and flow-run layers instead of being left to adjacent happy-path coverage.
 
 #### Subtasks
 
 1. [ ] Refactor the provider-neutral runtime-config resolution seam so successful fallback resolution preserves actionable warning metadata instead of returning only the sanitized config object.
 2. [ ] Thread that warning metadata through the agent and flow availability or run-result seams that already expose warning-capable payloads, extending the shared warning vocabulary only where the route or stream contract honestly needs an additional fallback-warning case.
 3. [ ] Rework the blocking startup bootstrap sequence so one provider's config-home or seed-file failure degrades that provider without aborting the default server listen path, while still keeping the existing bootstrap health logging and explicit unavailable-state semantics.
-4. [ ] Update the repository-owned proof homes so they directly claim warning preservation after fallback success and survival of the default server startup path under bootstrap failure, rather than leaving either invariant to adjacent happy-path or availability-only coverage.
+4. [ ] Update the repository-owned proof homes so they directly claim warning preservation after fallback success and survival of the supported default server startup path under bootstrap failure, rather than leaving either invariant to adjacent happy-path or availability-only coverage.
 
 #### Testing
 
@@ -2228,7 +2228,7 @@ The direct-service agent and command entrypoints no longer share the same prefli
 
 #### Likely Blocker Family
 
-- `execution admission and bootstrap ordering seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2237,15 +2237,15 @@ The direct-service agent and command entrypoints no longer share the same prefli
 
 #### Task Exit Criteria
 
-- `runAgentInstruction()` and the related unlocked direct path reuse the same working-folder validation or restoration rules already enforced by the deferred route-backed admission path.
-- Direct command bootstrap can prove that a remaining suffix is provider-free and skip provider preparation in that case, while still keeping the existing provider-pinned path intact when later steps do require runtime execution.
-- Proof explicitly covers invalid or stale working-folder restoration and provider-free command suffixes in `server/src/test/integration/agents-run-client-conversation-id.test.ts` and the most relevant command bootstrap proof home, such as `server/src/test/unit/agent-commands-runner.test.ts` or a new targeted service-level test file if that is the narrower honest seam.
+- `runAgentInstruction()` and the related unlocked direct path reuse the same working-folder validation or restoration rules already enforced by the deferred route-backed admission path, and they do so before provider preparation or other direct-run side effects begin.
+- Direct command bootstrap can prove from the parsed remaining suffix that the request is provider-free and skip provider preparation in that case, while still keeping the existing provider-pinned path intact when later steps do require runtime execution.
+- Proof explicitly covers invalid or stale working-folder restoration before provider preparation in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and it separately covers provider-free command suffixes skipping provider bootstrap on the normal command path in `server/src/test/unit/agent-commands-runner.test.ts` or a new narrower service-level proof home if that is the honest seam.
 
 #### Subtasks
 
-1. [ ] Reuse the shared working-folder validation or restoration helper for the direct unlocked agent-run path so saved or requested folders are normalized before provider preparation.
-2. [ ] Refactor direct command bootstrap so it can prove a remaining suffix is provider-free before choosing the provider-preparation path, without widening the behavior of provider-backed command suffixes.
-3. [ ] Update or split the direct agent and command proof homes so they each claim the repaired admission ordering explicitly instead of hiding the new invariant in generic conversation-id or runner-retry coverage.
+1. [ ] Reuse the shared working-folder validation or restoration helper for the direct unlocked agent-run path so saved or requested folders are normalized before provider preparation or other direct-run side effects begin.
+2. [ ] Refactor direct command bootstrap so it proves from the parsed remaining suffix whether the request is provider-free before choosing the provider-preparation path, without widening the behavior of provider-backed command suffixes.
+3. [ ] Update or split the direct agent and command proof homes so one exact ordering assertion fails if an invalid working folder reaches provider preparation and another exact ordering assertion fails if a provider-free suffix still bootstraps a provider first.
 
 #### Testing
 
@@ -2270,7 +2270,7 @@ The flow start or resume admission path still mixes selector authority, resume i
 
 #### Likely Blocker Family
 
-- `flow admission and resume lifecycle seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2281,15 +2281,15 @@ The flow start or resume admission path still mixes selector authority, resume i
 #### Task Exit Criteria
 
 - Flow start admission enforces the canonical repository selector promised by the discovery and list surfaces, rather than accepting equivalent alternate path aliases on execution.
-- Resume startup chooses execution identity from the resumed or remaining step set and does not mutate persisted flow flags until child-conversation ownership validation has already succeeded.
-- Proof explicitly covers canonical-selector enforcement plus resume admission ordering in `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `server/src/test/integration/flows.run.resume.backfill.test.ts`, so the repaired selector authority is claimed at both the discovery-facing and execution-start seams.
+- Resume startup chooses execution identity from the resumed or remaining step set, and rejected start or resume attempts stay side-effect free until canonical selector validation and child-conversation ownership validation have both succeeded.
+- Proof explicitly covers canonical-selector enforcement plus resume admission ordering in `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `server/src/test/integration/flows.run.resume.backfill.test.ts`, so the repaired selector authority is claimed at both the discovery-facing and normal execution-start seams and rejected resume attempts cannot hide behind adjacent happy-path coverage.
 
 #### Subtasks
 
 1. [ ] Tighten the repo-backed flow start selector seam so execution requires the same canonical `sourceId` contract the repository-discovery surfaces advertise.
-2. [ ] Refactor resume admission so startup identity is derived from the resumed or remaining step set instead of the flow's first agent globally.
-3. [ ] Delay flow-flag backfill persistence until child-conversation ownership validation has already succeeded, keeping rejected resume attempts side-effect free on disk.
-4. [ ] Split or retitle the flow start or resume proof homes where needed so canonical selector authority, resume identity choice, and persistence ordering each stay explicit and junior-readable.
+2. [ ] Refactor resume admission so startup identity and any downstream provider choice are derived from the resumed or remaining step set instead of the flow's first agent globally.
+3. [ ] Delay flow-flag backfill persistence until child-conversation ownership validation has already succeeded, keeping rejected start or resume attempts side-effect free on disk.
+4. [ ] Split or retitle the flow start or resume proof homes where needed so canonical selector authority, resumed-step identity choice, and side-effect-free persistence ordering each stay explicit and junior-readable.
 
 #### Testing
 
@@ -2316,7 +2316,7 @@ The repository-backed `/chat` Codex path still has three related problems at the
 
 #### Likely Blocker Family
 
-- `repository-backed chat runtime-home seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2326,17 +2326,17 @@ The repository-backed `/chat` Codex path still has three related problems at the
 
 #### Task Exit Criteria
 
-- Repository-backed `/chat` runtime-home writes occur only after the conversation lock or equivalent admission barrier proves the run can proceed.
-- Distinct raw conversation ids preserve one-to-one runtime-home identity instead of collapsing through a lossy filesystem key mapping.
+- Repository-backed `/chat` runtime-home writes occur only after the conversation lock or equivalent admission barrier proves the winning request can proceed, so losing concurrent or replay-rejected requests stay side-effect free.
+- Distinct raw conversation ids preserve one-to-one runtime-home identity instead of collapsing through a lossy filesystem key mapping, including ids that only differ in characters the old sanitizer would have erased.
 - Route-level error handling distinguishes real runtime-config-invalid parsing failures from broader filesystem, auth-bootstrap, or runtime-home materialization failures.
-- Proof explicitly covers lock ordering, runtime-home identity, and failure classification in `server/src/test/integration/chat-codex.test.ts` plus the closest repository-backed runtime-config proof homes touched during implementation.
+- Proof explicitly covers one losing concurrent-request ordering case, one same-sanitized-but-distinct conversation-id identity case, and one non-config filesystem or bootstrap failure-classification case in `server/src/test/integration/chat-codex.test.ts` plus the closest repository-backed runtime-config proof homes touched during implementation.
 
 #### Subtasks
 
-1. [ ] Move repository-backed `/chat` runtime-home materialization behind the conversation admission or locking point so losing or replay-rejected requests stay side-effect free.
+1. [ ] Move repository-backed `/chat` runtime-home materialization behind the conversation admission or locking point so losing concurrent or replay-rejected requests stay side-effect free.
 2. [ ] Replace the lossy runtime-home key derivation with one that preserves one-to-one identity for every accepted raw `conversationId`.
 3. [ ] Narrow the repository-backed `/chat` failure mapping so only genuine runtime-config-invalid faults use that code, while filesystem or bootstrap failures surface under an honest separate classification.
-4. [ ] Extend the repository-backed `/chat` proof homes so they fail if pre-lock writes, identity collisions, or misclassified failures come back later.
+4. [ ] Extend the repository-backed `/chat` proof homes so they include one losing-concurrent-request ordering assertion, one same-sanitized-but-distinct identity assertion, and one non-config failure-classification assertion instead of leaving those regressions to adjacent happy-path coverage.
 
 #### Testing
 
@@ -2361,7 +2361,7 @@ The client still lets stale or contradictory UI state outrank the real execution
 
 #### Likely Blocker Family
 
-- `client selection-state and resumed-identity seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2406,7 +2406,7 @@ The current replay seam still relies on process-local or completed-state checks 
 
 #### Likely Blocker Family
 
-- `replay durability and persistence seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2414,14 +2414,14 @@ The current replay seam still relies on process-local or completed-state checks 
 
 #### Task Exit Criteria
 
-- The `codebase_question` replay seam persists or otherwise durably claims in-progress ownership before provider work starts, and later retries for the same conversation id plus replay id reuse that claim instead of reissuing provider work.
-- Proof explicitly covers same-process retries, cache-loss retries, and concurrent retry windows in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and the websocket or route-facing replay proof home that exercises the same logical conversation seam.
+- The `codebase_question` replay seam persists or otherwise durably claims in-progress ownership before the first provider call or stream bootstrap starts, and later retries for the same conversation id plus replay id reuse that claim instead of reissuing provider work.
+- Proof explicitly covers same-process retries, cache-loss retries, and one overlapping concurrent retry window where only the winning claimant reaches provider work in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and the websocket or route-facing replay proof home that exercises the same logical conversation seam.
 
 #### Subtasks
 
-1. [ ] Refactor the `codebase_question` replay seam so it records durable in-progress ownership before provider work starts and reuses that state across later retries.
+1. [ ] Refactor the `codebase_question` replay seam so it records durable in-progress ownership before the first provider call or stream bootstrap starts and reuses that state across later retries.
 2. [ ] Keep the persisted replay identity scoped to one logical conversation id plus replay id pair so contradictory or fresh replay ids still take the intended fresh path.
-3. [ ] Update the replay proof homes so they claim cache-loss and concurrent retry durability explicitly instead of only proving completed-result reuse after a successful first pass.
+3. [ ] Update the replay proof homes so they separately claim same-process retry reuse, cache-loss retry reuse, and overlapping concurrent-retry durability instead of only proving completed-result reuse after a successful first pass.
 
 #### Testing
 
@@ -2448,7 +2448,7 @@ This review-created block stays inside the current repository's runtime-config, 
 
 #### Likely Blocker Family
 
-- `proof or test harness seam`
+- `manual or runtime environment seam`
 
 #### Addresses Findings
 
@@ -2470,7 +2470,7 @@ This review-created block stays inside the current repository's runtime-config, 
 
 1. [ ] Before the broad wrapper reruns, review the final server-side diff from Tasks 19, 20, 21, 22, and 24 plus the inline-resolved minor server fixes, and keep the proof surface explicitly limited to `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, `server/src/test/integration/flows.run.resume.backfill.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`. If implementation honestly expands beyond those proof homes, add the exact new file to this task's proof-surface list and add the matching targeted wrapper step to `Testing` before broad reruns.
 2. [ ] Before the broad wrapper reruns, review the final client-side diff from Task 23 plus the inline-resolved minor client fixes, and keep the proof surface explicitly limited to `client/src/test/agentsPage.runGuard.test.tsx`, `client/src/test/flowsPage.runGuard.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.newConversation.test.tsx`. If implementation honestly expands beyond those proof homes, add the exact new file to this task's proof-surface list and add the matching targeted wrapper step to `Testing` before broad reruns.
-3. [ ] Before the broad wrapper reruns, read `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the final review-cycle proof remains explicit about the checked-in auth-seeding and mount-topology guidance, the supported compose startup contract, the readiness checks, the repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/25/`, and this task's sole-owner role for review cycle `0000057-rc-20260513T174514Z-67ee8439`.
+3. [ ] Before the broad wrapper reruns, read `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the final review-cycle proof remains explicit about the checked-in auth-seeding guidance, the supported compose startup contract, the mounted proof-agent namespaces `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, the readiness checks on `http://localhost:5010/health` and `http://localhost:5001`, the repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/25/`, and this task's sole-owner role for review cycle `0000057-rc-20260513T174514Z-67ee8439`.
 
 #### Testing
 

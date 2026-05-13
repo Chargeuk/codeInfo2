@@ -239,8 +239,10 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - the required proof surface should already exist, but the current runtime instance is stale, the documented startup path was not followed yet, readiness is not yet established, or a narrow in-scope startup or environment issue still looks credibly repairable in this step;
     - in this case, do one bounded recovery pass before considering a blocker.
   - `structural_proof_gap`:
-    - the candidate task's required proof surface cannot honestly be exercised because a prerequisite runtime, harness, startup contract, environment contract, dependency contract, or other enabling capability does not yet exist or is clearly planner-owned;
-    - in this case, stop retrying manual testing and either record an honest blocker for planner repair or use the documented skip path below when the limitation is not honestly repairable within this step.
+    - the candidate task's required proof surface cannot honestly be exercised because a prerequisite runtime, harness, startup contract, environment contract, dependency contract, or other enabling capability is unavailable;
+    - in this case, stop retrying manual testing and decide between:
+      - a real `**BLOCKER**` when the missing capability is something this workflow is expected to repair before later manual proof; or
+      - the documented skip path below when the limitation is not honestly repairable within this step after the bounded setup-recovery pass.
 - The need to inspect or start a supporting repository outside the story's declared repository list is not, by itself, a `structural_proof_gap`.
 - Classify a blocker only when the required proof path remains genuinely undiscoverable, unreadable, or unsupported after bounded investigation.
 - If `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines a repository-specific skip condition and that condition is what currently prevents part of the manual proof, honor that repository policy. In that case, record the skipped surface honestly, do not reopen or fail the task for that reason alone, and do not add implementation work, blockers, or planner repair work for that reason alone.

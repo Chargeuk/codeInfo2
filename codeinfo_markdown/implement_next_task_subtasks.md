@@ -101,7 +101,7 @@ Return a concise summary that includes:
 4. any important commands or outputs that directly affected completion;
 5. if blocked, the first remaining unchecked subtask in `Subtasks` list order and the blocker reason.
 
-Do not claim the task is fully complete unless the `Subtasks` section is honestly complete.
+Do not claim the overall task is fully complete in this step; at most, state that the `Subtasks` section is honestly complete and the task is ready for automated proof.
 Do not describe open subtasks as reserved for later proof.
 
 </output_contract>

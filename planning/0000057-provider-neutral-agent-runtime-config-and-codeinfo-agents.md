@@ -2194,7 +2194,7 @@ The review found that provider-neutral fallback normalization warnings still dis
 
 - The runtime-config resolver returns warning data in a durable shape that direct agents, flows, and their route-facing availability or run payload builders can still surface after fallback succeeds.
 - Startup bootstrap keeps the supported server entrypoint alive when one provider home or chat-config seed fails, while still marking the affected provider unavailable and surfacing the relevant warning or degraded-state evidence through the normal availability APIs.
-- Proof explicitly covers both the warning-preservation path and the degraded-startup path in repository-owned homes such as `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and any touched client warning-surface proof home that becomes necessary during implementation.
+- Proof explicitly covers both the warning-preservation path and the degraded-startup path in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`, so the repaired seam is claimed at the runtime-config, startup, agent-run, and flow-run layers instead of being left to adjacent happy-path coverage.
 
 #### Subtasks
 
@@ -2206,8 +2206,9 @@ The review found that provider-neutral fallback normalization warnings still dis
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts` from the repository root. Use this targeted wrapper because the repaired warning and bootstrap seam is rooted in runtime-config behavior.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` from the repository root. Use this targeted wrapper because direct agent fallback runs are one primary warning-carrying surface.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root. Use this targeted wrapper because the same warning and degraded-state contract must still reach flow-facing execution errors.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` from the repository root. Use this targeted wrapper because the degraded-startup contract must stay honest at the supported server-entrypoint seam too.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` from the repository root. Use this targeted wrapper because direct agent fallback runs are one primary warning-carrying surface.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root. Use this targeted wrapper because the same warning and degraded-state contract must still reach flow-facing execution errors.
 
 ### Task 20. Normalize direct agent and command admission before runtime bootstrap
 
@@ -2281,7 +2282,7 @@ The flow start or resume admission path still mixes selector authority, resume i
 
 - Flow start admission enforces the canonical repository selector promised by the discovery and list surfaces, rather than accepting equivalent alternate path aliases on execution.
 - Resume startup chooses execution identity from the resumed or remaining step set and does not mutate persisted flow flags until child-conversation ownership validation has already succeeded.
-- Proof explicitly covers canonical-selector enforcement plus resume admission ordering in `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, `server/src/test/integration/flows.run.resume.backfill.test.ts`, and the most relevant start-path integration seam touched during implementation.
+- Proof explicitly covers canonical-selector enforcement plus resume admission ordering in `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `server/src/test/integration/flows.run.resume.backfill.test.ts`, so the repaired selector authority is claimed at both the discovery-facing and execution-start seams.
 
 #### Subtasks
 
@@ -2293,8 +2294,9 @@ The flow start or resume admission path still mixes selector authority, resume i
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` from the repository root. Use this targeted wrapper because the canonical repository selector contract must stay aligned with the discovery surfaces.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root. Use this targeted wrapper because resumed-step identity selection is one primary repaired seam.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root. Use this targeted wrapper because the backfill ordering and rejected-resume side-effect boundary must stay explicit.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root. Use this targeted wrapper because the canonical-selector contract must still hold at the normal flow-start execution seam too.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root. Use this targeted wrapper because resumed-step identity selection is one primary repaired seam.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root. Use this targeted wrapper because the backfill ordering and rejected-resume side-effect boundary must stay explicit.
 
 ### Task 22. Stabilize repository-backed `/chat` runtime-home identity and failure boundaries
 
@@ -2369,8 +2371,8 @@ The client still lets stale or contradictory UI state outrank the real execution
 #### Task Exit Criteria
 
 - Agents and Flows selected-detail caches fail closed whenever a newer summary row says the target is disabled, instead of letting an older enabled detail snapshot stay authoritative.
-- Resumed chat either locks provider and model selectors to the saved execution identity or explicitly resets the conversation before those values can change, so the visible affordance matches the actual send payload.
-- Proof explicitly covers stale detail precedence and resumed selector parity in `client/src/test/agentsPage.runGuard.test.tsx`, `client/src/test/flowsPage.runGuard.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, and whichever conversation-selection proof home most directly captures the visible selector state during resumed sends.
+- Resumed chat either locks provider and model selectors to the saved execution identity or routes the user through an explicit new-conversation reset before those values can change, so the visible affordance matches the actual send payload.
+- Proof explicitly covers stale detail precedence and resumed selector parity in `client/src/test/agentsPage.runGuard.test.tsx`, `client/src/test/flowsPage.runGuard.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.newConversation.test.tsx`.
 
 #### Subtasks
 
@@ -2384,6 +2386,7 @@ The client still lets stale or contradictory UI state outrank the real execution
 2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.runGuard.test.tsx` from the repository root. Use this targeted wrapper because it already owns the selected-flow stale-submit guard seam.
 3. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.resumeIdentity.test.tsx` from the repository root. Use this targeted wrapper because resumed provider or model identity is the primary repaired chat seam.
 4. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx` from the repository root. Use this targeted wrapper because the visible provider-selection affordance must now stay honest during resumed sends too.
+5. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.newConversation.test.tsx` from the repository root. Use this targeted wrapper because any honest reset path for changing resumed provider or model state must stay executable too.
 
 ### Task 24. Make `codebase_question` replay claims durable before provider work begins
 
@@ -2465,8 +2468,8 @@ This review-created block stays inside the current repository's runtime-config, 
 
 #### Subtasks
 
-1. [ ] Before the broad wrapper reruns, review the final server-side diff from Tasks 19, 20, 21, 22, and 24 plus the inline-resolved minor server fixes, and keep the proof surface explicitly limited to the exact runtime and proof files those tasks claim. If the implementation changes any other server runtime or proof file, add that file to this task's proof-surface list and add any newly needed targeted wrapper step to `Testing` before broad reruns.
-2. [ ] Before the broad wrapper reruns, review the final client-side diff from Task 23 plus the inline-resolved minor client fixes, and keep the proof surface explicitly limited to the exact runtime and proof files those tasks claim. If the implementation changes any other client runtime or proof file, add that file to this task's proof-surface list and add any newly needed targeted wrapper step to `Testing` before broad reruns.
+1. [ ] Before the broad wrapper reruns, review the final server-side diff from Tasks 19, 20, 21, 22, and 24 plus the inline-resolved minor server fixes, and keep the proof surface explicitly limited to `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, `server/src/test/integration/flows.run.resume.backfill.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, and `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`. If implementation honestly expands beyond those proof homes, add the exact new file to this task's proof-surface list and add the matching targeted wrapper step to `Testing` before broad reruns.
+2. [ ] Before the broad wrapper reruns, review the final client-side diff from Task 23 plus the inline-resolved minor client fixes, and keep the proof surface explicitly limited to `client/src/test/agentsPage.runGuard.test.tsx`, `client/src/test/flowsPage.runGuard.test.tsx`, `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.newConversation.test.tsx`. If implementation honestly expands beyond those proof homes, add the exact new file to this task's proof-surface list and add the matching targeted wrapper step to `Testing` before broad reruns.
 3. [ ] Before the broad wrapper reruns, read `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the final review-cycle proof remains explicit about the checked-in auth-seeding and mount-topology guidance, the supported compose startup contract, the readiness checks, the repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/25/`, and this task's sole-owner role for review cycle `0000057-rc-20260513T174514Z-67ee8439`.
 
 #### Testing

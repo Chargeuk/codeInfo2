@@ -332,4 +332,100 @@ describe('Agents page run guards', () => {
       }),
     ).toBe(false);
   });
+
+  it('fails closed when selected-agent details return a malformed success payload', async () => {
+    const user = userEvent.setup();
+    let runRequests = 0;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        } as Response);
+      }
+
+      if (
+        target.includes('/agents/coding_agent') &&
+        !target.includes('/commands')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            agent: {
+              name: 'coding_agent',
+              warnings: [],
+              fallbackCandidates: [],
+            },
+          }),
+        } as Response);
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            agents: [{ name: 'coding_agent', disabled: false }],
+          }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/coding_agent/commands')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ commands: [] }),
+        } as Response);
+      }
+
+      if (target.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [] }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/coding_agent/run')) {
+        runRequests += 1;
+        return Promise.resolve({
+          ok: true,
+          status: 202,
+          json: async () => ({
+            status: 'started',
+            agentName: 'coding_agent',
+            conversationId: 'c1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          }),
+        } as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
+    await waitFor(() => expect(agentSelect).toHaveTextContent('coding_agent'));
+    const input = await screen.findByTestId('agent-input');
+    const send = screen.getByTestId('agent-send');
+    await user.type(input, 'Do work');
+    await waitFor(() => expect(send).toBeEnabled());
+
+    await user.click(send);
+
+    await screen.findByText('Invalid agent details response');
+    expect(runRequests).toBe(0);
+  });
 });

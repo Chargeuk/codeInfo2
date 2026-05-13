@@ -1265,7 +1265,16 @@ export default function AgentsPage() {
       return false;
     }
 
-    const details = await loadSelectedAgentDetails(selectedAgentName);
+    let details;
+    try {
+      details = await loadSelectedAgentDetails(selectedAgentName);
+    } catch (error) {
+      clearSelectedAgentRunState('agent_unrunnable');
+      setRunError(
+        (error as Error).message ?? 'Failed to load agent details.',
+      );
+      return false;
+    }
     if (!details.disabled) {
       return true;
     }

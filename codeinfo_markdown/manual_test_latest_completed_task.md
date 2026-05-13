@@ -240,9 +240,12 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - in this case, do one bounded recovery pass before considering a blocker.
   - `structural_proof_gap`:
     - the candidate task's required proof surface cannot honestly be exercised because a prerequisite runtime, harness, startup contract, environment contract, dependency contract, or other enabling capability is unavailable;
-    - in this case, stop retrying manual testing and decide between:
-      - a real `**BLOCKER**` when the missing capability is something this workflow is expected to repair before later manual proof; or
-      - the documented skip path below when the limitation is not honestly repairable within this step after the bounded recovery pass.
+    - in this case:
+      - perform at most one bounded recovery pass using only obvious, supported, low-complexity adjustments;
+      - if that recovery pass restores the proof surface, continue manual testing normally;
+      - if the proof surface is still unavailable after that recovery pass, stop retrying and choose exactly one outcome:
+        - record a real `**BLOCKER**` only when the missing capability is something this workflow is expected to repair before later manual proof; or
+        - use the documented skip path below when the limitation is not honestly repairable within this step.
 - The need to inspect or start a supporting repository outside the story's declared repository list is not, by itself, a `structural_proof_gap`.
 - Classify a blocker only when the required proof path remains genuinely undiscoverable, unreadable, or unsupported after bounded investigation.
 - If `AGENTS.md` or, if it exists, `codeinfo_markdown/repository_information.md` defines a repository-specific skip condition and that condition is what currently prevents part of the manual proof, honor that repository policy. In that case, record the skipped surface honestly, do not reopen or fail the task for that reason alone, and do not add implementation work, blockers, or planner repair work for that reason alone.
@@ -326,8 +329,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 - If the diagnosis pass does not identify a concrete next fix honestly:
   - do not invent speculative subtasks;
-  - if the remaining limitation is not honestly repairable within this step after the bounded recovery pass, use the documented skip path above instead of adding a blocker;
-  - add `**BLOCKER**` and set that candidate task's `Task Status` to `__in_progress__` only when the missing capability is a concrete blocker that this workflow is expected to repair;
+  - if the situation is a `structural_proof_gap`, follow the `structural_proof_gap` decision rule above;
+  - only record `**BLOCKER**` and set that candidate task's `Task Status` to `__in_progress__` when that rule leads to a real blocker outcome;
   - when a real blocker is recorded, include:
     - the failing manual repro;
     - what was inspected;
@@ -350,11 +353,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - if that recovery pass restores the proof surface, continue manual testing normally and do not add `**BLOCKER**`;
   - if that recovery pass exhausts cleanly and the missing capability is clearly planner-owned or structurally absent, reclassify the outcome as `structural_proof_gap`.
 
-- If the non-run reason is `structural_proof_gap`:
-  - add `**BLOCKER**` only when the diagnosis identifies a concrete missing capability, contract, or proof surface that this workflow is expected to repair before later manual proof;
-  - do not use `**BLOCKER**` for limitations caused only by later-task-owned observability, queue-management, UI, cleanup, or convenience surfaces;
-  - if the limitation is not honestly repairable within this step after the bounded recovery pass, use the documented skip path above instead of reopening the task;
-  - only add `**BLOCKER**` to the implementation notes and set the candidate task's `Task Status` to `__in_progress__` when a real blocker is being recorded.
+- If the non-run reason is `structural_proof_gap`, apply the `structural_proof_gap` decision rule above.
 
 - If manual testing does not run for any reason, add one concise implementation note stating whether it was skipped or assessed as not applicable, and why, unless that exact latest-loop outcome is already recorded and would be duplicated.
 - When the outcome is a repository-defined skip or the general structural/environmental skip, use the required simple note shape from the skip-condition rule above.

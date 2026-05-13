@@ -2071,7 +2071,7 @@ The review found that the shared `DEV-0000036:T11:transitive_consumer_contract_r
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 16, Task 17`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260512T042118Z-d34bf618`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
 
@@ -2147,3 +2147,4 @@ This review-created block stays inside the current repository's client error-ada
 - `npm run compose:down` cleanly stopped and removed the checked-in main stack containers plus the `codeinfo2_internal` network immediately after smoke startup, so the same supported compose path also shuts down cleanly.
 - `npm run lint` initially failed only on server-side `import/order` warnings left behind in the shared transitive-consumer logging seams and proof homes; reordering those imports without changing behavior made the full repo lint pass cleanly.
 - `npm run format:check` then failed only on Prettier drift in `client/src/test/chatPage.newConversation.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/flowsPage.test.tsx`; rewriting those files with Prettier made the follow-up formatting check pass cleanly.
+- Audit normalization: after re-reading the bound task, parser output, latest proof notes, the latest clean commit `dfdbd29b`, and the saved wrapper artifacts, Task 18 had all subtasks checked, all automated `Testing` items checked, and no live blocker, so this audit marked the task `__done__` instead of leaving an outdated `__in_progress__` status behind.

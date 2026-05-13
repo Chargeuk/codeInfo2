@@ -674,7 +674,7 @@ Provider authentication in this product is controlled by external systems and ma
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -2278,7 +2278,7 @@ The direct-service agent and command entrypoints no longer share the same prefli
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 
@@ -2318,7 +2318,7 @@ The flow start or resume admission path still mixes selector authority, resume i
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` from the repository root. Use this targeted wrapper because the canonical repository selector contract must stay aligned with the discovery surfaces.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts` from the repository root. Use this targeted wrapper because the canonical-selector contract must still hold at the normal flow-start execution seam too.
 3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root. Use this targeted wrapper because resumed-step identity selection is one primary repaired seam.
-4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root. Use this targeted wrapper because the backfill ordering and rejected-resume side-effect boundary must stay explicit.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root. Use this targeted wrapper because the backfill ordering and rejected-resume side-effect boundary must stay explicit.
 
 #### Implementation Notes
 
@@ -2328,6 +2328,8 @@ The flow start or resume admission path still mixes selector authority, resume i
 - Updated `server/src/test/integration/flows.run.resume.identity.test.ts` and `server/src/test/integration/flows.run.resume.backfill.test.ts` to prove resume startup ignores a missing skipped-step agent, uses the remaining-step identity, and avoids persisting parent or child execution-id repairs before a mismatched child-agent resume is rejected.
 - Ran all four targeted Task 21 wrappers; `flows.list`, `flows.run.basic`, and `flows.run.resume.backfill` passed on the first run, and `flows.run.resume.identity` passed after replacing an unnecessary async callback wait with a direct startup-identity assertion.
 - Audit normalization closed Task 21 as `__done__` because all four subtasks, all four automated testing steps, and the recorded targeted server proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 21` reported no live blockers.
+- Manual proof restarted the freshness-unknown main compose stack, verified `/health`, and saved runtime artifacts under `codeInfoTmp/manual-testing/0000057/21/`.
+- **BLOCKER** Task 21 could not be fully manually proved on the supported main stack: `/flows` exposed only `echo` and `smoke`, repo-backed `review_plan` detail and run requests returned `not_found` for both `/home/d_a_s/code/codeInfo2` and `/data/codeInfo2/codeInfo2`, and `docker exec codeinfo2-server-1` showed only `/app/flows-sandbox/*` with neither repo path mounted. That fresher `docker-compose.yml` and container evidence overrode the stale story-guidance claim that the main stack mounts the working repository, so the canonical repo-backed flow-start seam and the multi-step resume/backfill seam remain structurally unavailable outside the test-only fixtures and seeded in-memory state from the Task 21 integration tests; Testing step 4 was reopened and the task returned to `__in_progress__` pending a planner-owned manual-proof surface.
 
 ### Task 22. Stabilize repository-backed `/chat` runtime-home identity and failure boundaries
 

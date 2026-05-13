@@ -7,8 +7,9 @@ Run the selected task's automated proof, fix issues that arise, and leave the ta
 Read the stored current-plan handoff and use only that scope for this step.
 Re-open the exact plan file from disk before doing any work.
 Identify the current candidate task for automated proof.
-Run only the unchecked items in that task's `Testing` section.
+Run the unchecked items in that task's `Testing` section.
 Fix issues that arise where possible, rerun proof honestly, and keep the plan up to date.
+Do not finish this step until every unchecked `Testing` item is complete or the task is honestly blocked.
 Do not perform manual testing in this step.
 
 </task>
@@ -48,29 +49,31 @@ Do not perform manual testing in this step.
 
 - If `selected_task.live_blockers` is non-empty, do not run automated proof.
 - If the candidate task still has unchecked subtasks that require additional non-proof implementation work, do not run automated proof.
-- If every remaining unchecked subtask explicitly depends on testing-wrapper outputs, retained proof-home paths, or rerun-generated artifacts from the task's `Testing` section, you may continue with automated proof and close those proof-owned subtasks as the corresponding testing work completes.
 - If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.
-- If the candidate task has no unchecked `Testing` items left because the testing section is already honestly complete, skip automated proof and leave final completion to the later audit step.
-- Do not skip an unchecked `Testing` item merely because its text says `optional`, `if needed`, `diagnostic`, or similar. If it is still an unchecked checklist item, it is mandatory blocking proof for this step.
+- Do not skip an unchecked `Testing` item merely because it is difficult, broad, slow, or currently failing.
 - If you skip automated proof for any of these reasons, return a concise explanation and leave the task `__in_progress__`.
 
 </skip_rules>
 
 <proof_rules>
 
-- Run only the unchecked items in the candidate task's `Testing` section in this step.
-- Treat every unchecked `Testing` checklist item as mandatory blocking proof in this step, even when the line text describes it as optional, conditional, or diagnosis-only.
+- Run the unchecked items in the candidate task's `Testing` section until all are complete or the task is honestly blocked.
+- Treat every unchecked `Testing` checklist item as mandatory blocking proof in this step.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
 - Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.
-- When a testing step fails, inspect the concrete failure evidence first and identify the failing assertion, error, or command before deciding whether a blocker exists.
 - Mark each unchecked testing step complete immediately after it honestly passes.
 - If a testing step honestly closes one or more remaining proof-owned subtasks, mark those subtasks complete immediately as well and update the implementation notes before starting the next testing step.
-- Do not batch proof-owned subtask updates until the end of the full rerun chain. Each completed wrapper-backed checkpoint must be recorded as soon as it is honest.
-- For an ordinary failing test that appears to be in scope, attempt at least one concrete repair and rerun of the affected proof before considering a blocker.
-- Use targeted wrapper reruns for diagnosis when the repository workflow supports them, but rerun the original task-listed proof step honestly after any repair.
-- If a testing step fails, diagnose the exact failure, fix it if it is within the task's scope, and rerun the affected proof honestly.
-- Keep implementation notes concise as you work so later steps can see what changed and why.
+- Use this decision loop:
+  1. Run the next unchecked `Testing` item.
+  2. If it passes, mark it complete immediately and continue.
+  3. If it fails, inspect the exact failure evidence.
+  4. Attempt bounded in-scope repair.
+  5. Rerun the affected proof honestly.
+  6. If the issue is honestly blocked under `blocker_rules`, write a live `**BLOCKER**` and stop.
+- Do not stop this step merely because partial progress was made, a targeted rerun passed, or a broad rerun is still in flight.
+- Do not finish this step while a mandatory wrapper-backed `Testing` step started in this step is still running.
+- Do not leave unchecked `Testing` items and no live `**BLOCKER**`.
 
 </proof_rules>
 
@@ -88,10 +91,9 @@ Do not perform manual testing in this step.
 <fix_rules>
 
 - You may fix code, tests, config, wrappers, or task-owned proof files as needed to make the candidate task's automated proof pass honestly.
-- If automated proof reveals additional in-scope work that should be tracked explicitly, you may add:
-  - concise new unchecked implementation or proof-authoring subtasks; or
-  - concise new unchecked automated-only testing steps.
-- If you add new unchecked subtasks or testing steps to a task that was somehow already marked `__done__`, reopen that task to `__in_progress__` immediately before continuing. A task must not remain `__done__` while new unchecked work has been added to it.
+- Do not add new `Subtasks` in this step.
+- Do not add new `Testing` items in this step.
+- If automated proof reveals missing implementation work, missing proof coverage, or malformed task shape that is not already represented honestly in the checklist, stop and write a live `**BLOCKER**` note instead of reshaping the task in this step.
 - Do not invent fake proof, fake passing output, fake runtime seams, fake containers, or fake harnesses.
 
 </fix_rules>
@@ -99,13 +101,16 @@ Do not perform manual testing in this step.
 <blocker_rules>
 
 - If a testing step becomes honestly blocked, stop and write a `**BLOCKER**` note into the task's `Implementation Notes`.
-- Do not raise a `**BLOCKER**` for a normal failing test until you have inspected the failure evidence, attempted at least one concrete in-scope repair when the failure appears task-owned, and rerun the affected proof honestly.
-- Treat a testing step as honestly blocked only when the failure depends on a missing capability, an out-of-scope contract contradiction, an environment or harness defect you cannot repair in this step, or a bounded repair attempt has exhausted without a credible next in-scope fix.
+- A blocker is honest only when at least one of the following is true:
+  - you have made up to 3 credible in-scope repair attempts and still cannot close the issue honestly;
+  - you cannot identify a credible next in-scope fix after inspecting the failure evidence;
+  - the honest fix requires re-architecture, task split/reorder/re-own, or another out-of-scope change;
+  - a required external capability, prerequisite, environment, or harness dependency is missing and cannot be repaired in this step.
 - The blocker note must include:
   - the exact testing step where work stopped;
   - what you tried;
-  - the exact missing capability, failing contract, or contradiction;
-  - whether the task should be split, reordered, or rewritten before work continues.
+  - the exact reason the work is blocked;
+  - whether the task should be split, reordered, re-owned, or rewritten before work continues.
 - If blocked, leave the task `__in_progress__`.
 - Do not mark blocked testing steps complete.
 
@@ -131,10 +136,10 @@ Do not perform manual testing in this step.
 Return a concise summary that includes:
 
 1. which task you evaluated;
-2. whether automated proof ran or was skipped;
-3. which testing steps now pass;
-4. whether any blocker remains;
-5. any important commands or outputs that indicate success.
+2. which `Testing` steps now pass;
+3. whether all `Testing` items are now complete;
+4. whether a blocker exists;
+5. if blocked, the first remaining unchecked `Testing` item in list order and the blocker reason.
 
 Do not mark the task `__done__` in this step. The later audit step decides that.
 
@@ -148,14 +153,13 @@ Before finishing:
 - confirm you used the task already resolved into `current-task.json`;
 - confirm you ran only the `Testing` section or honestly skipped it;
 - confirm each completed testing step was marked immediately;
-- confirm any proof-owned subtasks closed by a testing step were marked immediately instead of being deferred until the end of the rerun chain;
-- confirm any newly added subtasks stayed within implementation, proof-authoring, documentation, config, or explicitly allowed code-hygiene work;
-- confirm any newly added `Testing` steps remain automated-only and wrapper-level when repository guidance expects that;
-- confirm you did not raise a blocker for an ordinary failing test without first inspecting the failure evidence, attempting at least one concrete in-scope repair when appropriate, and rerunning the affected proof;
+- confirm any proof-owned subtasks closed by a testing step were marked immediately;
+- confirm you did not stop with unchecked `Testing` items and no live `**BLOCKER**`;
+- confirm you did not treat partial progress alone as a valid reason to stop;
+- confirm you did not finish this step while a mandatory wrapper started for a `Testing` item was still running;
+- confirm you inspected the concrete failure evidence before declaring a normal failing test blocked;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;
-- confirm you did not add manual-testing work to `Subtasks` or `Testing`;
-- confirm you did not add subtasks that depend on future manual-testing-agent or automated-proof outputs;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

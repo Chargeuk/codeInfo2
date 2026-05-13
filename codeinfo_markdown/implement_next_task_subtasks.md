@@ -7,10 +7,10 @@ Implement the active task's `Subtasks` section only.
 Read the stored current-plan handoff and use only that scope for this step.
 Re-open the exact plan file from disk before doing any work.
 Identify the active task from the current plan.
-Work through that task's `Subtasks` section fully and honestly when implementation work still remains there.
-Do not run the task's `Testing` section in this step unless an unchecked subtask explicitly requires a testing-wrapper output, retained proof-home path, or rerun-generated artifact.
-Do not mark any `Testing` section items complete in this step unless they were honestly completed through that explicit subtask-required path.
-Leave the task ready for the later automated-proof step.
+Work through that task's `Subtasks` section fully and honestly.
+If completing the current subtask honestly requires running a test, wrapper, or other task-listed check, run only the minimum command(s) needed for that subtask and record the result immediately.
+Do not treat this as permission to work through the task's broader `Testing` section during implementation.
+Do not finish this step until every unchecked subtask is complete or the task is honestly blocked.
 
 </task>
 
@@ -40,42 +40,45 @@ Leave the task ready for the later automated-proof step.
 
 <execution_rules>
 
-- Work only through the selected task's `Subtasks` section.
+- Work only on the selected task's `Subtasks` section until all unchecked subtasks are complete or the task is honestly blocked.
 - If the selected task has no unchecked subtasks, do not implement a later task in this step.
-- Complete implementation subtasks, proof-authoring subtasks, and any lint, format, or static-analysis subtasks that are listed inside `Subtasks`.
-- Do not run the task's `Testing` section wrappers in this step unless an unchecked subtask explicitly requires their outputs.
-- When an unchecked subtask explicitly depends on a testing-wrapper output, retained proof-home path, or rerun-generated artifact, you may run only the minimum testing-wrapper steps needed to complete that subtask.
-- When you use that exception:
-  - mark the required `Testing` section items complete immediately after they honestly finish;
-  - add an implementation note that the testing wrapper was run because the subtask explicitly required it;
-  - leave any unrelated unchecked `Testing` section items for the later automated-proof step.
-- Keep the plan honest while you work:
-  - mark each completed subtask complete immediately;
-  - add concise implementation notes as work progresses;
-  - keep notes specific about what changed, what issue was overcome, or why work is blocked.
-- Do not batch plan updates until the whole rerun chain finishes. If a reread, setup, wording, or proof-authoring subtask is honestly complete before later wrapper-backed subtasks begin, mark it complete immediately before moving on.
-- Treat each subtask-required wrapper run as its own checkpoint. When one wrapper reaches a terminal state that honestly closes a subtask or a directly corresponding `Testing` item, update the plan and implementation notes before starting the next wrapper.
-- It is not valid to say work was completed \"in practice\" while deferring the checkbox or note update until later in the same pass. If the work is complete enough to rely on, it is complete enough to record immediately.
-- If the task needs additional in-scope implementation work to stay honest, you may add concise new unchecked subtasks to the same task before completing that work, but only when those subtasks are implementation work, proof-authoring work, documentation updates, config changes, or explicitly allowed code-hygiene work that can be completed before formal proof runs.
-- Do not add subtasks that run automated proof commands, depend on later screenshots or logs, or require later manual-testing-agent validation in order to become complete.
-- If the task needs additional automated proof obligations to stay honest, do not run them here; leave those for the later automated-proof step.
-- If the selected task still has unchecked subtasks at the end of this step, then one of the following must be true:
-  - at least one previously unchecked subtask was completed in this step; or
-  - you added a live `**BLOCKER**` note explaining exactly why the remaining subtasks could not be completed honestly.
-- It is not valid to leave the task with the same unchecked subtasks and no newly completed subtask and no live `**BLOCKER**`.
-- If the remaining unchecked subtasks are open-ended diagnosis, narrowing, isolation, or investigation work and this pass did not isolate the owner, repair the owner, or close a subtask, stop and add a live `**BLOCKER**` note instead of repeating another partial narrowing pass.
-- If the active task is a bounded diagnostic task and the bounded search is exhausted cleanly, do not keep the same task alive by inventing more ad hoc narrowing inside this step; raise a live `**BLOCKER**` so planner repair can either close the exhausted branch or create a fresh successor task.
+- If the next honest action required to complete the current subtask is to run a test, wrapper, or task-listed check, do that instead of stopping.
+- Complete subtasks in `Subtasks` list order unless a later item is strictly required first to complete the current one honestly.
+- Mark each completed subtask complete immediately.
+- If a command or wrapper honestly completes a directly corresponding `Testing` item while you are finishing a subtask, mark that `Testing` item complete immediately as well.
+- Do not add new `Subtasks` in this step.
+- You may add a new unchecked `Testing` item only when implementation in this step created a genuinely new automated proof obligation for the current task and the existing `Testing` section does not already cover that same harness or check.
+- Do not add a `Testing` item merely to capture screenshots, logs, proof-home paths, reruns, or other outputs from a harness that is already covered by an existing `Testing` item.
+- Do not proactively execute unrelated `Testing` items just because they are available elsewhere in the task.
+- Add concise implementation notes as work progresses. Each note must say what changed, what was tried, or why the work is blocked.
+- Use this decision loop:
+  1. Read the next unchecked subtask.
+  2. Perform the next honest in-scope action to complete it.
+  3. If that action succeeds, mark the subtask complete immediately and continue.
+  4. If that action fails, attempt bounded in-scope repair.
+  5. If the repair succeeds, continue.
+  6. If the subtask is honestly blocked under `blocker_rules`, write a live `**BLOCKER**` and stop.
+- Do not stop this step merely because partial progress was made, one or more subtasks were completed, tests were started, or the remaining work feels safer to leave for later.
+- Do not leave the task with unchecked subtasks and no live `**BLOCKER**`.
+- Do not leave unchecked subtasks open because they are supposedly reserved for later automated proof.
+- If additional work is discovered while resolving the current task, either complete that work within the existing subtask flow or stop with a live `**BLOCKER**`; do not create follow-on `Subtasks` in this step.
+- Do not add new subtasks that depend on future screenshots, logs, later manual-testing-agent outputs, or later automated-proof outputs in order to become complete.
 
 </execution_rules>
 
 <blocker_rules>
 
 - If a blocker is hit, stop and write it into the task's `Implementation Notes` marked as `**BLOCKER**`.
+- A blocker is honest only when at least one of the following is true:
+  - you have made up to 3 credible in-scope repair attempts and still cannot close the issue honestly;
+  - you cannot identify a credible next in-scope fix after inspecting the evidence;
+  - the honest fix requires re-architecture, task split/reorder/re-own, or another out-of-scope change;
+  - a required external capability, prerequisite, environment, or harness dependency is missing and cannot be repaired in this step.
 - The blocker note must include:
   - the exact subtask where work stopped;
   - what you tried;
-  - the exact missing capability or contradiction;
-  - whether the task should be split, reordered, or rewritten before work continues.
+  - the exact reason the work is blocked;
+  - whether the task should be split, reordered, re-owned, or rewritten before work continues.
 - If blocked, leave the task as `__in_progress__`.
 - Do not invent fake runtime seams, fake containers, fake health checks, or fake proof.
 
@@ -94,11 +97,12 @@ Return a concise summary that includes:
 
 1. which task you worked on;
 2. whether all subtasks are now complete;
-3. whether the task is ready for automated proof, still needs implementation work, or is blocked;
-4. any important gotchas encountered.
+3. whether the task is ready for automated proof or is blocked;
+4. any important commands or outputs that directly affected completion;
+5. if blocked, the first remaining unchecked subtask in `Subtasks` list order and the blocker reason.
 
-Do not claim the task is fully complete unless the `Testing` section has also been run later.
-Do not claim unrelated automated proof was completed if you only ran subtask-required testing-wrapper steps in this step.
+Do not claim the overall task is fully complete in this step; at most, state that the `Subtasks` section is honestly complete and the task is ready for automated proof.
+Do not describe open subtasks as reserved for later proof.
 
 </output_contract>
 
@@ -109,14 +113,13 @@ Before finishing:
 - confirm you re-read the plan from disk;
 - confirm you used the same bound task already resolved in the immediately preceding gotchas step;
 - confirm you worked only on the selected task's `Subtasks`;
-- confirm any newly added subtasks stayed within implementation, proof-authoring, documentation, config, or explicitly allowed code-hygiene work;
-- confirm you did not add subtasks that run automated proof commands or depend on future manual-testing-agent or automated-proof outputs;
 - confirm you did not advance to a later task when the active task was still `__in_progress__`;
-- confirm you did not run or check off unrelated `Testing` section items, and only used testing-wrapper steps when an unchecked subtask explicitly required them;
+- confirm you ran the next honest test, wrapper, or command when that was required to complete a subtask;
 - confirm completed subtasks were marked immediately;
-- confirm you did not defer completed subtask or directly corresponding testing updates until the end of a longer wrapper chain;
-- confirm that if unchecked subtasks remain, either at least one subtask was completed in this pass or a live `**BLOCKER**` was added;
-- confirm you did not leave the task in a stalled no-progress state;
+- confirm any honestly completed directly corresponding `Testing` items were marked immediately;
+- confirm you did not stop with unchecked subtasks and no live `**BLOCKER**`;
+- confirm you did not treat partial progress alone as a valid reason to stop;
+- confirm you did not leave subtasks open because they were supposedly reserved for later proof;
 - confirm any blocker was written into `Implementation Notes` as `**BLOCKER**`;
 - confirm tracked changes were committed if any were made.
 

@@ -1270,9 +1270,7 @@ export default function AgentsPage() {
       details = await loadSelectedAgentDetails(selectedAgentName);
     } catch (error) {
       clearSelectedAgentRunState('agent_unrunnable');
-      setRunError(
-        (error as Error).message ?? 'Failed to load agent details.',
-      );
+      setRunError((error as Error).message ?? 'Failed to load agent details.');
       return false;
     }
     if (!details.disabled) {

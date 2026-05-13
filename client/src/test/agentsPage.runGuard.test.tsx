@@ -192,104 +192,106 @@ describe('Agents page run guards', () => {
     const user = userEvent.setup();
     let commandRunRequests = 0;
 
-    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-      const target = typeof url === 'string' ? url : url.toString();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-      if (target.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        } as Response);
-      }
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
 
-      if (
-        target.includes('/agents/coding_agent') &&
-        !target.includes('/commands')
-      ) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            agent: {
-              name: 'coding_agent',
-              description: '# Coding agent',
-              disabled: true,
-              warnings: [
+        if (
+          target.includes('/agents/coding_agent') &&
+          !target.includes('/commands')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              agent: {
+                name: 'coding_agent',
+                description: '# Coding agent',
+                disabled: true,
+                warnings: [
+                  {
+                    code: 'invalid_provider',
+                    message:
+                      'Agent config requested unsupported provider "not-a-provider".',
+                  },
+                ],
+                disabledReason: {
+                  code: 'provider_unavailable',
+                  message: 'No usable provider remains',
+                },
+                fallbackCandidates: [],
+              },
+            }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/commands')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (
+          target.includes('/agents/coding_agent/commands') &&
+          !target.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              commands: [
                 {
-                  code: 'invalid_provider',
-                  message:
-                    'Agent config requested unsupported provider "not-a-provider".',
+                  name: 'improve_plan',
+                  description: 'Improve',
+                  disabled: false,
+                  stepCount: 1,
                 },
               ],
-              disabledReason: {
-                code: 'provider_unavailable',
-                message: 'No usable provider remains',
-              },
-              fallbackCandidates: [],
-            },
-          }),
-        } as Response);
-      }
+            }),
+          } as Response);
+        }
 
-      if (target.includes('/agents') && !target.includes('/commands')) {
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/commands/run')) {
+          commandRunRequests += 1;
+          expect(init?.method).toBe('POST');
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId: 'c1',
+              inflightId: 'i1',
+              modelId: 'gpt-5',
+            }),
+          } as Response);
+        }
+
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          json: async () => ({}),
         } as Response);
-      }
-
-      if (
-        target.includes('/agents/coding_agent/commands') &&
-        !target.includes('/run')
-      ) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            commands: [
-              {
-                name: 'improve_plan',
-                description: 'Improve',
-                disabled: false,
-                stepCount: 1,
-              },
-            ],
-          }),
-        } as Response);
-      }
-
-      if (target.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [] }),
-        } as Response);
-      }
-
-      if (target.includes('/agents/coding_agent/commands/run')) {
-        commandRunRequests += 1;
-        expect(init?.method).toBe('POST');
-        return Promise.resolve({
-          ok: true,
-          status: 202,
-          json: async () => ({
-            status: 'started',
-            agentName: 'coding_agent',
-            conversationId: 'c1',
-            inflightId: 'i1',
-            modelId: 'gpt-5',
-          }),
-        } as Response);
-      }
-
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      } as Response);
-    });
+      },
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);

@@ -37,6 +37,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Follow the repository run workflow and prefer documented wrapper commands where available.
 - Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence.
 - If `AGENTS.md` does not define wrapper guidance, prefer the highest-level safe command discoverable from repository evidence.
+- Before escalating a manual-testing problem into a blocker, task reopen, or follow-up implementation work, check whether `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines repository-specific conditions that allow manual proof to be narrowed or skipped. If such a repository-defined skip condition is currently being met, follow that repository policy instead of inventing broader repair work.
 - Remember that the manual testing agent container and the Playwright MCP server both use Docker host networking, so they can reach the host system through `localhost` when the host system exposes the relevant ports there.
 - When repository evidence is not enough to use the browser-testing tools correctly, gather the minimum extra documentation needed before proceeding:
   - use Context7 for current Playwright documentation and examples;
@@ -239,9 +240,32 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - in this case, do one bounded recovery pass before considering a blocker.
   - `structural_proof_gap`:
     - the candidate task's required proof surface cannot honestly be exercised because a prerequisite runtime, harness, startup contract, environment contract, dependency contract, or other enabling capability does not yet exist or is clearly planner-owned;
-    - in this case, stop retrying manual testing and record an honest blocker for planner repair.
+    - in this case, stop retrying manual testing and either record an honest blocker for planner repair or use the documented skip path below when the limitation is not honestly repairable within this step.
 - The need to inspect or start a supporting repository outside the story's declared repository list is not, by itself, a `structural_proof_gap`.
 - Classify a blocker only when the required proof path remains genuinely undiscoverable, unreadable, or unsupported after bounded investigation.
+- If `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines a repository-specific skip condition and that condition is what currently prevents part of the manual proof, honor that repository policy. In that case, record the skipped surface honestly, do not reopen or fail the task for that reason alone, and do not add implementation work, blockers, or planner repair work for that reason alone.
+- Also allow this general manual-proof skip condition: after a bounded diagnosis pass, if the remaining proof surface is structurally or environmentally unavailable in the supported runtime, and that limitation cannot honestly be repaired within this step using supported repository workflows, treat the outcome as a documented skip rather than a blocker.
+- Before using that general structural/environmental skip condition, perform one bounded setup-recovery pass.
+- That pass may include only obvious, supported, low-complexity adjustments such as:
+  - restarting the documented runtime;
+  - using another repository-documented supported variant;
+  - using a paired repository or companion surface already supported by repository evidence;
+  - refreshing a stale but repairable prerequisite;
+  - or using a documented wrapper or startup path that better matches the proof surface.
+- Do not invent new harnesses, ad hoc runtime variants, unsupported mounts, or broad environment surgery.
+- Before using the general structural/environmental skip condition, the diagnosis pass must identify:
+  - the exact surface that could not be tested;
+  - one concrete example request, route, or user action that was attempted;
+  - the observed result;
+  - and the reason that fuller proof was not possible in this step.
+- When manual testing is skipped under either a repository-defined skip condition or the general structural/environmental skip condition:
+  - add one concise implementation note using this shape:
+    - `Manual testing skipped for <surface>.`
+    - `Tried: <simple example action/request>.`
+    - `Observed: <what happened>.`
+    - `Why fuller proof was not possible: <plain-English reason>.`
+  - do not add implementation work, do not add `**BLOCKER**`, and do not reopen the task for that reason alone.
+  - if no other incomplete work remains, keep the task `__done__` or set it to `__done__`.
 
 - If you can honestly prove the candidate task's own changed behavior, but a later-task-owned surface prevents additional convenience, observability, cleanup, or exploratory checks, do not add `**BLOCKER**`.
 - Instead, add a concise implementation note stating:
@@ -300,14 +324,14 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 - If the diagnosis pass does not identify a concrete next fix honestly:
   - do not invent speculative subtasks;
-  - add `**BLOCKER**` instead;
-  - record:
+  - if the remaining limitation is not honestly repairable within this step after the bounded setup-recovery pass, use the documented skip path above instead of adding a blocker;
+  - add `**BLOCKER**` and set that candidate task's `Task Status` to `__in_progress__` only when the missing capability is a concrete blocker that this workflow is expected to repair;
+  - when a real blocker is recorded, include:
     - the failing manual repro;
     - what was inspected;
     - what temporary instrumentation or restarts were tried;
     - what remains unknown;
-    - what evidence is still missing;
-  - set that candidate task's `Task Status` to `__in_progress__`.
+    - and what evidence is still missing.
 
 - If manual testing succeeds without finding further work:
   - set the candidate task's `Task Status` to `__done__`;
@@ -325,12 +349,13 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - if that recovery pass exhausts cleanly and the missing capability is clearly planner-owned or structurally absent, reclassify the outcome as `structural_proof_gap`.
 
 - If the non-run reason is `structural_proof_gap`:
-  - add `**BLOCKER**` only when you cannot honestly prove a behavior that is required by the candidate task's own exit criteria using supported surfaces that should already exist at this point in the plan;
+  - add `**BLOCKER**` only when the diagnosis identifies a concrete missing capability, contract, or proof surface that this workflow is expected to repair before later manual proof;
   - do not use `**BLOCKER**` for limitations caused only by later-task-owned observability, queue-management, UI, cleanup, or convenience surfaces;
-  - add `**BLOCKER**` to the implementation notes for that candidate task with a concise explanation of what prevented manual testing;
-  - set that candidate task's `Task Status` to `__in_progress__`.
+  - if the limitation is not honestly repairable within this step after the bounded setup-recovery pass, use the documented skip path above instead of reopening the task;
+  - only add `**BLOCKER**` to the implementation notes and set the candidate task's `Task Status` to `__in_progress__` when a real blocker is being recorded.
 
-- If manual testing does not run for any reason, add one concise implementation note stating that manual testing was skipped or assessed as not applicable, and why, unless that exact latest-loop outcome is already recorded and would be duplicated.
+- If manual testing does not run for any reason, add one concise implementation note stating whether it was skipped or assessed as not applicable, and why, unless that exact latest-loop outcome is already recorded and would be duplicated.
+- When the outcome is a repository-defined skip or the general structural/environmental skip, use the required simple note shape from the skip-condition rule above.
 - Keep the implementation notes concise.
 - If you make tracked changes in this step, you MUST commit them, but do not push.
 
@@ -375,5 +400,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Confirm any task-overrides-story decision was recorded honestly.
 - Confirm any conflict between story-level or bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
+- Confirm a bounded setup-recovery pass was attempted before using the general structural/environmental skip condition.
+- Confirm the recorded skip note includes a simple example of what was attempted, what happened, and why fuller proof was not possible.
 
 </verification_loop>

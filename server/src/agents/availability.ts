@@ -253,6 +253,13 @@ export async function evaluateAgentAvailability(params: {
 
   const warnings = (params.discoveryWarnings ?? []).map(mapDiscoveryWarning);
   const requestedProviderId = runtimeConfig.requestedProviderId;
+  for (const message of runtimeConfig.warnings) {
+    warnings.push({
+      code: 'discovery_warning',
+      message,
+      visibility: 'details',
+    });
+  }
 
   if (requestedProviderId && !isChatProviderId(requestedProviderId)) {
     warnings.push({

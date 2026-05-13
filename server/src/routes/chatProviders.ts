@@ -36,6 +36,9 @@ import {
   buildLmStudioAgentFlags,
   buildProviderInfo,
   buildProvidersResponse,
+  getProviderBootstrapReason,
+  getProviderBootstrapWarnings,
+  isProviderBootstrapHealthy,
   toCompatibilityCodexWarnings,
 } from './chatDiscovery.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
@@ -68,6 +71,9 @@ export function createChatProvidersRouter({
   const router = Router();
 
   router.get('/providers', async (_req, res) => {
+    const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
+    const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
+    const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
     const codex = getCodexDetection();
     const mcp = await getMcpStatus();
     const capabilities = await codexCapabilityResolver({
@@ -131,23 +137,27 @@ export function createChatProvidersRouter({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
       requestedModel,
       codex: {
-        available: codex.available,
+        available: codex.available && codexBootstrapHealthy,
         models: capabilities.models.map((entry) => entry.model),
-        reason: codex.reason ?? 'codex unavailable',
+        reason:
+          getProviderBootstrapReason('codex') ??
+          codex.reason ??
+          'codex unavailable',
       },
       copilot: {
-        available: copilot.available,
+        available: copilot.available && copilotBootstrapHealthy,
         models: copilot.models,
-        reason: copilot.reason,
+        reason: getProviderBootstrapReason('copilot') ?? copilot.reason,
       },
       lmstudio: {
-        available: lmstudioModels.length > 0,
+        available: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
         models: lmstudioModels,
-        reason: lmstudioReason,
+        reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
       },
     });
 
     const codexWarnings = [...capabilities.warnings];
+    codexWarnings.push(...getProviderBootstrapWarnings('codex'));
     if (
       capabilities.defaults.webSearchEnabled &&
       !(codex.available && mcp.available)
@@ -167,11 +177,14 @@ export function createChatProvidersRouter({
     const providerMap = {
       copilot: buildProviderInfo({
         provider: 'copilot',
-        available: copilot.available,
-        toolsAvailable: copilot.toolsAvailable,
-        reason: copilot.reason,
+        available: copilot.available && copilotBootstrapHealthy,
+        toolsAvailable: copilot.toolsAvailable && copilotBootstrapHealthy,
+        reason: copilotBootstrapHealthy
+          ? copilot.reason
+          : (getProviderBootstrapReason('copilot') ?? copilot.reason),
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings: [
+          ...getProviderBootstrapWarnings('copilot'),
           ...(copilot.reason ? [copilot.reason] : []),
           ...copilotAgentFlags.warnings,
         ],
@@ -184,11 +197,14 @@ export function createChatProvidersRouter({
       }),
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',
-        available: lmstudioModels.length > 0,
-        toolsAvailable: lmstudioModels.length > 0,
-        reason: lmstudioReason,
+        available: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
+        toolsAvailable: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
+        reason: lmstudioBootstrapHealthy
+          ? lmstudioReason
+          : (getProviderBootstrapReason('lmstudio') ?? lmstudioReason),
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: [
+          ...getProviderBootstrapWarnings('lmstudio'),
           ...(lmstudioReason ? [lmstudioReason] : []),
           ...lmstudioAgentFlags.warnings,
         ],
@@ -196,9 +212,14 @@ export function createChatProvidersRouter({
       }),
       codex: buildProviderInfo({
         provider: 'codex',
-        available: codex.available,
-        toolsAvailable: codex.available && mcp.available,
-        reason: codex.reason ?? (mcp.available ? undefined : mcp.reason),
+        available: codex.available && codexBootstrapHealthy,
+        toolsAvailable:
+          codex.available && codexBootstrapHealthy && mcp.available,
+        reason: codexBootstrapHealthy
+          ? (codex.reason ?? (mcp.available ? undefined : mcp.reason))
+          : (getProviderBootstrapReason('codex') ??
+            codex.reason ??
+            (mcp.available ? undefined : mcp.reason)),
         codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
         agentFlags: buildCodexAgentFlags({

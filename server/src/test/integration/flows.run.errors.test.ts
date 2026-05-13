@@ -11,6 +11,10 @@ import supertest from 'supertest';
 import type WebSocket from 'ws';
 
 import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
+import {
   tryAcquireConversationLock,
   releaseConversationLock,
 } from '../../agents/runLock.js';
@@ -59,6 +63,7 @@ afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   memoryConversations.clear();
   memoryTurns.clear();
+  __resetAgentServiceDepsForTests();
 });
 
 class MinimalChat extends ChatInterface {
@@ -1207,6 +1212,126 @@ test('shared prestart formatter fallback stays aligned for dedicated flow failur
     assert.equal(turns[1]?.status, 'failed');
     assert.match(turns[1]?.content ?? '', /INVALID_PARAMS: INVALID_SOURCE_ID/);
   });
+});
+
+test('Task 19 preserves fallback runtime warnings on successful flow starts', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-home-'),
+  );
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "copilot"',
+      'model = "copilot-model"',
+      'top_level_unknown = "ignored"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  try {
+    await withFlowHarness(async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'fallback-warning-flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'fallback-warning',
+            messages: [{ role: 'user', content: ['after'] }],
+          },
+        ],
+      });
+
+      const result = await startFlowRun({
+        flowName: 'fallback-warning-flow',
+        source: 'REST',
+      });
+
+      assert.equal(
+        result.warnings?.some((warning) =>
+          warning.includes('Unknown key agent.top_level_unknown'),
+        ) ?? false,
+        true,
+      );
+    });
+  } finally {
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
 });
 
 test('unexpected thrown exceptions fail the current dedicated flow', async () => {

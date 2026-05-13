@@ -164,6 +164,7 @@ export function createAgentsRunRouter(
         inflightId: result.inflightId,
         providerId: result.providerId,
         modelId: result.modelId,
+        ...(result.warnings ? { warnings: result.warnings } : {}),
       });
     } catch (err) {
       if (isAgentRunError(err)) {

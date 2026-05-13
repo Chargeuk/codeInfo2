@@ -27,6 +27,7 @@ import {
   toCodexDefaultSource,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
+import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import { baseLogger } from '../logger.js';
 import { validateRequestedWorkingFolder } from '../workingFolders/state.js';
 
@@ -410,6 +411,16 @@ export async function validateChatRequest(
       : resolvedDefaults.model;
 
   const warnings: string[] = [...resolvedDefaults.warnings];
+  const bootstrapStatus = getProviderBootstrapStatus(provider);
+  if (bootstrapStatus.warnings.length > 0) {
+    warnings.push(...bootstrapStatus.warnings);
+  }
+  if (!bootstrapStatus.healthy) {
+    throw new ChatValidationError(
+      bootstrapStatus.reason ??
+        `Provider "${provider}" is unavailable because startup bootstrap degraded.`,
+    );
+  }
   const modelSource =
     requestedModel !== undefined
       ? 'request'

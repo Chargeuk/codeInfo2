@@ -17,6 +17,7 @@ export type AgentRuntimeExecutionConfig = {
   modelId?: string;
   providerId: ChatProviderId;
   requestedProviderId?: string;
+  warnings: string[];
 };
 
 const isChatProviderId = (value: string): value is ChatProviderId =>
@@ -42,7 +43,7 @@ export async function resolveAgentRuntimeExecutionConfig(params: {
       requestedProviderId && isChatProviderId(requestedProviderId)
         ? requestedProviderId
         : 'codex';
-    const { config } = await resolveAgentRuntimeConfig({
+    const { config, warnings } = await resolveAgentRuntimeConfig({
       provider: providerId,
       codexHome: params.codexHome,
       agentConfigPath: params.configPath,
@@ -63,6 +64,7 @@ export async function resolveAgentRuntimeExecutionConfig(params: {
       modelId,
       providerId,
       requestedProviderId,
+      warnings: warnings.map((warning) => warning.message),
     };
   } catch (error) {
     const code =

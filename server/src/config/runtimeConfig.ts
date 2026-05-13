@@ -137,6 +137,20 @@ export type ProviderChatDefaultsSnapshot = {
   config?: RuntimeTomlConfig;
 };
 
+export type ProviderBootstrapStatus = {
+  provider: ChatProviderId;
+  healthy: boolean;
+  reason?: string;
+  warnings: string[];
+};
+
+const providerBootstrapStatuses: Record<ChatProviderId, ProviderBootstrapStatus> =
+  {
+    codex: { provider: 'codex', healthy: true, warnings: [] },
+    copilot: { provider: 'copilot', healthy: true, warnings: [] },
+    lmstudio: { provider: 'lmstudio', healthy: true, warnings: [] },
+  };
+
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
 const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
   'REPLACE_WITH_CONTEXT7_API_KEY',
@@ -1651,32 +1665,93 @@ export async function ensureAllProviderChatConfigsBootstrapped(params?: {
   copilotHome?: string;
   lmstudioHome?: string;
 }): Promise<ProviderChatDefaultsSnapshot[]> {
-  ensureCodexConfigSeeded();
-  await Promise.all([
-    ensureCopilotBaseConfigSeeded(params?.copilotHome),
-    ensureLmStudioBaseConfigSeeded(params?.lmstudioHome),
-  ]);
   const providers: ChatProviderId[] = ['codex', 'copilot', 'lmstudio'];
   const results = await Promise.all(
     providers.map(async (provider) => {
-      const seeded = await ensureProviderChatConfigBootstrapped({
-        provider,
-        codexHome: params?.codexHome,
-        copilotHome: params?.copilotHome,
-        lmstudioHome: params?.lmstudioHome,
-      });
-      return readProviderChatConfigSync({
-        provider,
-        codexHome:
-          provider === 'codex' ? seeded.providerHome : params?.codexHome,
-        copilotHome:
-          provider === 'copilot' ? seeded.providerHome : params?.copilotHome,
-        lmstudioHome:
-          provider === 'lmstudio' ? seeded.providerHome : params?.lmstudioHome,
-      });
+      try {
+        if (provider === 'codex') {
+          ensureCodexConfigSeeded();
+        } else if (provider === 'copilot') {
+          await ensureCopilotBaseConfigSeeded(params?.copilotHome);
+        } else {
+          await ensureLmStudioBaseConfigSeeded(params?.lmstudioHome);
+        }
+
+        const seeded = await ensureProviderChatConfigBootstrapped({
+          provider,
+          codexHome: params?.codexHome,
+          copilotHome: params?.copilotHome,
+          lmstudioHome: params?.lmstudioHome,
+        });
+        const snapshot = readProviderChatConfigSync({
+          provider,
+          codexHome:
+            provider === 'codex' ? seeded.providerHome : params?.codexHome,
+          copilotHome:
+            provider === 'copilot' ? seeded.providerHome : params?.copilotHome,
+          lmstudioHome:
+            provider === 'lmstudio'
+              ? seeded.providerHome
+              : params?.lmstudioHome,
+        });
+        providerBootstrapStatuses[provider] = {
+          provider,
+          healthy: true,
+          warnings: [],
+        };
+        return snapshot;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        providerBootstrapStatuses[provider] = {
+          provider,
+          healthy: false,
+          reason,
+          warnings: [
+            `Provider "${provider}" bootstrap degraded during startup: ${reason}`,
+          ],
+        };
+        console.warn(
+          `[runtime-config] provider bootstrap degraded provider=${provider} reason=${reason}`,
+        );
+        return undefined;
+      }
     }),
   );
-  return results;
+  return results.filter(Boolean) as ProviderChatDefaultsSnapshot[];
+}
+
+export function getProviderBootstrapStatus(
+  provider: ChatProviderId,
+): ProviderBootstrapStatus {
+  const status = providerBootstrapStatuses[provider];
+  return {
+    provider,
+    healthy: status.healthy,
+    ...(status.reason ? { reason: status.reason } : {}),
+    warnings: [...status.warnings],
+  };
+}
+
+export function __setProviderBootstrapStatusForTests(
+  provider: ChatProviderId,
+  status: Partial<ProviderBootstrapStatus>,
+) {
+  providerBootstrapStatuses[provider] = {
+    provider,
+    healthy: status.healthy ?? true,
+    reason: status.reason,
+    warnings: [...(status.warnings ?? [])],
+  };
+}
+
+export function __resetProviderBootstrapStatusForTests() {
+  for (const provider of ['codex', 'copilot', 'lmstudio'] as const) {
+    providerBootstrapStatuses[provider] = {
+      provider,
+      healthy: true,
+      warnings: [],
+    };
+  }
 }
 
 type ProjectTrustTable = Record<string, { trust_level?: unknown }>;

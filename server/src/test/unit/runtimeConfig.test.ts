@@ -2954,4 +2954,59 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it('keeps structured warnings when agent runtime resolution succeeds through a fallback-provider config path', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'runtime-config-fallback-warnings-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+    const copilotHome = path.join(tempRoot, 'copilot');
+    const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
+
+    try {
+      await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+      await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+      await fs.mkdir(path.dirname(agentConfigPath), { recursive: true });
+      await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(codexHome, 'chat', 'config.toml'),
+        'model = "gpt-5.3-codex"\n',
+        'utf8',
+      );
+      await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+      await fs.writeFile(
+        path.join(copilotHome, 'chat', 'config.toml'),
+        'model = "copilot-gpt-5"\n',
+        'utf8',
+      );
+      await fs.writeFile(
+        agentConfigPath,
+        [
+          'codeinfo_provider = "copilot"',
+          'model = "copilot-gpt-5"',
+          'top_level_unknown = "ignored"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const resolved = await resolveAgentRuntimeConfig({
+        provider: 'codex',
+        codexHome,
+        copilotHome,
+        agentConfigPath,
+      });
+
+      assert.equal(resolved.config.model, 'copilot-gpt-5');
+      assert.equal(
+        resolved.warnings.some((warning) =>
+          warning.path.endsWith('top_level_unknown') &&
+          warning.message.includes('Unknown key'),
+        ),
+        true,
+      );
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

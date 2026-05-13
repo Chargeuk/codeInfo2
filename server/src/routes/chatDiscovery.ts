@@ -27,7 +27,10 @@ import type {
   CodexModelCapability,
 } from '../codex/capabilityResolver.js';
 import { ORDERED_CHAT_PROVIDERS } from '../config/chatDefaults.js';
-import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
+import {
+  getProviderBootstrapStatus,
+  loadProviderChatDefaultsSnapshotSync,
+} from '../config/runtimeConfig.js';
 
 const toChoice = (
   value: ChatAgentFlagValue,
@@ -138,6 +141,10 @@ export function buildCodexCompatibilityDefaults(params: {
   codexHome?: string;
   warnings?: string[];
 }): CodexDefaults {
+  const bootstrapStatus = getProviderBootstrapStatus('codex');
+  if (bootstrapStatus.warnings.length > 0) {
+    params.warnings?.push(...bootstrapStatus.warnings);
+  }
   let config: Record<string, unknown> = {};
 
   try {
@@ -179,6 +186,20 @@ export function buildCodexCompatibilityDefaults(params: {
         ? webSearchMode
         : (params.capabilities.defaults.webSearchMode ?? 'live'),
   };
+}
+
+export function getProviderBootstrapWarnings(provider: ChatProviderId): string[] {
+  return getProviderBootstrapStatus(provider).warnings;
+}
+
+export function isProviderBootstrapHealthy(provider: ChatProviderId): boolean {
+  return getProviderBootstrapStatus(provider).healthy;
+}
+
+export function getProviderBootstrapReason(
+  provider: ChatProviderId,
+): string | undefined {
+  return getProviderBootstrapStatus(provider).reason;
 }
 
 export function buildCodexAgentFlags(params: {

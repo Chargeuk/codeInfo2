@@ -178,6 +178,7 @@ export function createFlowsRunRouter(
         conversationId: result.conversationId,
         inflightId: result.inflightId,
         modelId: result.modelId,
+        ...(result.warnings ? { warnings: result.warnings } : {}),
       });
     } catch (err) {
       if (isFlowRunError(err)) {

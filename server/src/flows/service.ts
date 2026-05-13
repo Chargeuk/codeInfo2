@@ -915,6 +915,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
       requestedProviderId: resolved.requestedProviderId,
       runtimeConfig: resolved.runtimeConfig as CodexOptions['config'],
       workingDirectoryOverride: resolved.workingDirectoryOverride,
+      warnings: resolved.warnings,
     };
   } catch (error) {
     if (params.source) {
@@ -4176,6 +4177,7 @@ export async function startFlowRun(
   let resumeState: FlowResumeState | null = null;
   let repositoryContext: FlowCommandRepositoryContext | null = null;
   let executionId: string = crypto.randomUUID();
+  let startupWarnings: string[] = [];
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -4309,6 +4311,7 @@ export async function startFlowRun(
       });
       modelId = prepared.modelId;
       providerId = prepared.providerId;
+      startupWarnings = prepared.warnings ?? [];
     }
 
     const codeInfo2Root = codeInfo2RootForRun();
@@ -4467,5 +4470,11 @@ export async function startFlowRun(
     context: { flowName, conversationId, inflightId },
   });
 
-  return { flowName, conversationId, inflightId, modelId };
+  return {
+    flowName,
+    conversationId,
+    inflightId,
+    modelId,
+    ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
+  };
 }

@@ -200,6 +200,7 @@ export type RunAgentInstructionResult = {
   providerId: ChatProviderId;
   modelId: string;
   segments: unknown[];
+  warnings?: string[];
 };
 
 type AgentServiceDeps = {
@@ -314,6 +315,7 @@ type DirectAgentPreparedExecution = {
   executionProviderId: ChatProviderId;
   modelId: string;
   runtimeConfig: CodexOptions['config'];
+  warnings: string[];
   availability: Awaited<ReturnType<typeof evaluateAgentAvailability>>;
   executionContext: SharedExecutionContext;
   repositoryContext: RepositoryExecutionContextMetadata;
@@ -525,12 +527,15 @@ async function collectDirectAgentProviderStates(): Promise<
 async function resolveProviderRuntimeConfig(params: {
   agentConfigPath: string;
   providerId: ChatProviderId;
-}): Promise<CodexOptions['config']> {
+}): Promise<{ config: CodexOptions['config']; warnings: string[] }> {
   const resolved = await resolveAgentRuntimeConfig({
     provider: params.providerId,
     agentConfigPath: params.agentConfigPath,
   });
-  return resolved.config as CodexOptions['config'];
+  return {
+    config: resolved.config as CodexOptions['config'],
+    warnings: resolved.warnings.map((warning) => warning.message),
+  };
 }
 
 async function resolveDirectAgentRuntimeExecution(params: {
@@ -680,12 +685,15 @@ async function prepareDirectAgentExecution(params: {
       modelId:
         params.pinnedModelId ?? providerState.models[0] ?? 'unknown-model',
       runtimeConfig: cloneRuntimeConfigWithModel(
-        await resolveProviderRuntimeConfig({
-          agentConfigPath: params.configPath,
-          providerId: params.pinnedProviderId,
-        }),
+        (
+          await resolveProviderRuntimeConfig({
+            agentConfigPath: params.configPath,
+            providerId: params.pinnedProviderId,
+          })
+        ).config,
         params.pinnedModelId ?? providerState.models[0] ?? 'unknown-model',
       ),
+      warnings: [],
       availability,
       executionContext,
       repositoryContext: executionContext.repositoryMetadata,
@@ -724,9 +732,12 @@ async function prepareDirectAgentExecution(params: {
   for (const providerId of executionOrder) {
     const providerState = providerStates[providerId];
     if (!providerState?.available) continue;
-    const providerRuntimeConfig =
+    const providerRuntimeResolution =
       providerId === requestedRuntime.providerId
-        ? (requestedRuntime.runtimeConfig as CodexOptions['config'])
+        ? {
+            config: requestedRuntime.runtimeConfig as CodexOptions['config'],
+            warnings: requestedRuntime.warnings,
+          }
         : await resolveProviderRuntimeConfig({
             agentConfigPath: params.configPath,
             providerId,
@@ -735,7 +746,7 @@ async function prepareDirectAgentExecution(params: {
       providerId === requestedRuntime.providerId
         ? requestedRuntime.modelId
         : normalizeModel(
-            (providerRuntimeConfig as Record<string, unknown>)?.model,
+            (providerRuntimeResolution.config as Record<string, unknown>)?.model,
           );
     const modelId = resolveProviderModelForExecution({
       providerId,
@@ -748,9 +759,10 @@ async function prepareDirectAgentExecution(params: {
       executionProviderId: providerId,
       modelId,
       runtimeConfig: cloneRuntimeConfigWithModel(
-        providerRuntimeConfig,
+        providerRuntimeResolution.config,
         modelId,
       ),
+      warnings: providerRuntimeResolution.warnings,
       availability,
       executionContext,
       repositoryContext: executionContext.repositoryMetadata,
@@ -1318,6 +1330,7 @@ export async function startAgentInstruction(
   inflightId: string;
   providerId: ChatProviderId;
   modelId: string;
+  warnings?: string[];
 }> {
   const clientProvidedConversationId = Boolean(params.conversationId);
   const conversationId = params.conversationId ?? crypto.randomUUID();
@@ -1354,6 +1367,7 @@ export async function startAgentInstruction(
 
   let modelId = 'gpt-5.1-codex-max';
   let providerId: ChatProviderId = 'codex';
+  let warnings: string[] = [];
   let startPathWasNewConversation = false;
 
   try {
@@ -1403,6 +1417,7 @@ export async function startAgentInstruction(
     });
     modelId = prepared.modelId;
     providerId = prepared.executionProviderId;
+    warnings = [...prepared.warnings];
 
     const title =
       params.instruction.trim().slice(0, 80) || 'Untitled conversation';
@@ -1468,7 +1483,13 @@ export async function startAgentInstruction(
     }
   })();
 
-  return { conversationId, inflightId, providerId, modelId };
+  return {
+    conversationId,
+    inflightId,
+    providerId,
+    modelId,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }
 
 export async function runAgentInstruction(
@@ -2431,6 +2452,10 @@ export async function runAgentInstructionUnlocked(params: {
       providerId: executionProviderId,
       modelId,
       segments,
+      warnings:
+        preparedExecution.warnings.length > 0
+          ? [...preparedExecution.warnings]
+          : undefined,
     };
   } catch (err) {
     finalizeInstructionRuntime();

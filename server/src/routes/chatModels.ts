@@ -33,6 +33,9 @@ import {
   buildCodexModelFlagOverrides,
   buildCopilotAgentFlags,
   buildCopilotModelFlagOverrides,
+  getProviderBootstrapReason,
+  getProviderBootstrapWarnings,
+  isProviderBootstrapHealthy,
   buildLmStudioAgentFlags,
   buildModelsResponse,
   buildProviderInfo,
@@ -209,6 +212,9 @@ export function createChatModelsRouter({
   };
 
   router.get('/models', async (req, res) => {
+    const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
+    const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
+    const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
     const requestId = res.locals.requestId as string | undefined;
     const parsedProvider = parseChatModelProvider(req.query.provider);
     if ('error' in parsedProvider) {
@@ -223,14 +229,19 @@ export function createChatModelsRouter({
     const capabilities = await codexCapabilityResolver({
       consumer: 'chat_models',
     });
-    const codexToolsAvailable = detection.available && mcp.available;
+    const codexToolsAvailable =
+      detection.available && codexBootstrapHealthy && mcp.available;
     const codexRuntimeWarnings: string[] = [];
     if (capabilities.defaults.webSearchEnabled && !codexToolsAvailable) {
       codexRuntimeWarnings.push(
         'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
       );
     }
-    const codexWarnings = [...capabilities.warnings, ...codexRuntimeWarnings];
+    const codexWarnings = [
+      ...capabilities.warnings,
+      ...getProviderBootstrapWarnings('codex'),
+      ...codexRuntimeWarnings,
+    ];
     const codexConfigWarnings: string[] = [];
     const codexDefaults = buildCodexCompatibilityDefaults({
       capabilities,
@@ -317,7 +328,9 @@ export function createChatModelsRouter({
       copilotModelMetadata.defaultModel,
     );
     const copilotAvailable =
-      readiness.available && prioritizedCopilotModels.length > 0;
+      readiness.available &&
+      copilotBootstrapHealthy &&
+      prioritizedCopilotModels.length > 0;
     logCopilotModelMapping({
       requestId,
       mappedModelCount: prioritizedCopilotModels.length,
@@ -410,9 +423,12 @@ export function createChatModelsRouter({
     const providerMap = {
       codex: buildProviderInfo({
         provider: 'codex',
-        available: detection.available,
+        available: detection.available && codexBootstrapHealthy,
         toolsAvailable: codexToolsAvailable,
-        reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
+        reason:
+          getProviderBootstrapReason('codex') ??
+          detection.reason ??
+          (mcp.available ? undefined : mcp.reason),
         codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
         agentFlags: buildCodexAgentFlags({
@@ -429,16 +445,29 @@ export function createChatModelsRouter({
         provider: 'copilot',
         available: copilotAvailable,
         toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
-        reason: copilotAvailable
-          ? readiness.reason
-          : (readiness.reason ?? COPILOT_MODELS_REASON),
+        reason:
+          getProviderBootstrapReason('copilot') ??
+          (copilotAvailable
+            ? readiness.reason
+            : (readiness.reason ?? COPILOT_MODELS_REASON)),
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings:
           copilotAvailable && readiness.reason
-            ? [readiness.reason, ...copilotAgentFlags.warnings]
+            ? [
+                ...getProviderBootstrapWarnings('copilot'),
+                readiness.reason,
+                ...copilotAgentFlags.warnings,
+              ]
             : readiness.reason
-              ? [readiness.reason, ...copilotAgentFlags.warnings]
-              : [...copilotAgentFlags.warnings],
+              ? [
+                  ...getProviderBootstrapWarnings('copilot'),
+                  readiness.reason,
+                  ...copilotAgentFlags.warnings,
+                ]
+              : [
+                  ...getProviderBootstrapWarnings('copilot'),
+                  ...copilotAgentFlags.warnings,
+                ],
         modelMetadata: {
           defaultModel: copilotModelMetadata.defaultModel,
           defaultModelSource: copilotModelMetadata.defaultModelSource,
@@ -448,11 +477,13 @@ export function createChatModelsRouter({
       }),
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',
-        available: lmstudioAvailable,
-        toolsAvailable: lmstudioAvailable,
-        reason: lmstudioReason,
+        available: lmstudioAvailable && lmstudioBootstrapHealthy,
+        toolsAvailable: lmstudioAvailable && lmstudioBootstrapHealthy,
+        reason:
+          getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: [
+          ...getProviderBootstrapWarnings('lmstudio'),
           ...(lmstudioReason ? [lmstudioReason] : []),
           ...lmstudioAgentFlags.warnings,
         ],
@@ -465,10 +496,13 @@ export function createChatModelsRouter({
     if (provider === 'codex') {
       const response = buildModelsResponse({
         provider: 'codex',
-        available: detection.available,
+        available: detection.available && codexBootstrapHealthy,
         toolsAvailable: codexToolsAvailable,
-        reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
-        models: detection.available ? codexModels : [],
+        reason:
+          getProviderBootstrapReason('codex') ??
+          detection.reason ??
+          (mcp.available ? undefined : mcp.reason),
+        models: detection.available && codexBootstrapHealthy ? codexModels : [],
         providers,
         providerInfo: providerMap.codex,
         compatibility: providerMap.codex.compatibility,

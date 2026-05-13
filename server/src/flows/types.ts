@@ -59,6 +59,7 @@ export type FlowRunStartResult = {
   conversationId: string;
   inflightId: string;
   modelId: string;
+  warnings?: string[];
 };
 
 export type FlowAgentState = {

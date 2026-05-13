@@ -416,11 +416,18 @@ const start = async () => {
     baseLogger.error('CODEINFO_MONGO_URI is required but missing');
     process.exit(1);
   }
-  await ensureAllProviderChatConfigsBootstrapped({
+  const bootstrapSnapshots = await ensureAllProviderChatConfigsBootstrapped({
     codexHome: process.env.CODEINFO_CODEX_HOME,
     copilotHome: process.env.CODEINFO_COPILOT_HOME,
     lmstudioHome: resolveLmStudioChatDefaultsHome(),
   });
+  baseLogger.info(
+    {
+      event: 'story.0000057.task19.provider_bootstrap_complete',
+      providerCount: bootstrapSnapshots.length,
+    },
+    'story.0000057.task19.provider_bootstrap_complete',
+  );
   try {
     await connectMongo(mongoUri);
   } catch (err) {

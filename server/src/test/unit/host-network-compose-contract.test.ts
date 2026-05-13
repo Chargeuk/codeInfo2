@@ -219,3 +219,21 @@ test('checked-in default launcher awaits provider bootstrap before listen instea
     /const start = async \(\) => \{[\s\S]*await ensureAllProviderChatConfigsBootstrapped\([\s\S]*const httpServer = http\.createServer\(app\);/u,
   );
 });
+
+test('checked-in default launcher keeps listening reachable after degraded provider bootstrap is recorded', () => {
+  const indexSource = readRepoFile('server/src/index.ts');
+  const runtimeConfigSource = readRepoFile('server/src/config/runtimeConfig.ts');
+
+  assert.match(
+    runtimeConfigSource,
+    /providerBootstrapStatuses\[provider\] = \{\s*provider,\s*healthy: false,/u,
+  );
+  assert.match(
+    runtimeConfigSource,
+    /return results\.filter\(Boolean\) as ProviderChatDefaultsSnapshot\[\];/u,
+  );
+  assert.match(
+    indexSource,
+    /const bootstrapSnapshots = await ensureAllProviderChatConfigsBootstrapped\([\s\S]*const httpServer = http\.createServer\(app\);/u,
+  );
+});

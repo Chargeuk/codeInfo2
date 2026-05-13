@@ -2200,9 +2200,9 @@ The review found that provider-neutral fallback normalization warnings still dis
 
 1. [ ] Patch provider-neutral fallback warning preservation in `server/src/config/runtimeConfig.ts` and the downstream warning-consuming seams in `server/src/agents/service.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatValidators.ts` so successful fallback resolution still carries user-visible warning data instead of dropping it at normalization time.
 2. [ ] Patch startup bootstrap in `server/src/index.ts` plus the shared runtime-config loader seam it calls so one provider's config-home or seed failure marks only that provider unavailable and keeps the supported default server entrypoint alive.
-3. [ ] Prove the fallback-warning producer invariant for `server/src/config/runtimeConfig.ts` in `server/src/test/unit/runtimeConfig.test.ts`: successful fallback normalization keeps structured warning data instead of returning only a sanitized config object.
-4. [ ] Prove warning propagation through the supported consumers for `server/src/agents/service.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatValidators.ts` in `server/src/test/integration/agents-run-client-conversation-id.test.ts` and `server/src/test/integration/flows.run.errors.test.ts`: direct agent and flow-facing execution surfaces still expose the preserved fallback warnings.
-5. [ ] Prove degraded default-startup survival for `server/src/index.ts` and its runtime-config bootstrap seam in `server/src/test/unit/host-network-compose-contract.test.ts`: one provider bootstrap failure keeps the supported entrypoint alive while marking only that provider unavailable.
+3. [ ] Author or update `server/src/test/unit/runtimeConfig.test.ts` as the fallback-warning producer proof for `server/src/config/runtimeConfig.ts`, asserting that successful fallback normalization keeps structured warning data instead of returning only a sanitized config object.
+4. [ ] Author or update the supported consumer proof surface in `server/src/test/integration/agents-run-client-conversation-id.test.ts` and `server/src/test/integration/flows.run.errors.test.ts` for `server/src/agents/service.ts`, `server/src/routes/chatDiscovery.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatValidators.ts`, asserting that direct agent and flow-facing execution surfaces still expose the preserved fallback warnings.
+5. [ ] Author or update `server/src/test/unit/host-network-compose-contract.test.ts` as the degraded default-startup proof for `server/src/index.ts` and its runtime-config bootstrap seam, asserting that one provider bootstrap failure keeps the supported entrypoint alive while marking only that provider unavailable.
 
 #### Testing
 
@@ -2246,8 +2246,8 @@ The direct-service agent and command entrypoints no longer share the same prefli
 
 1. [ ] Patch direct admission in `server/src/agents/service.ts` and the direct command request seam in `server/src/routes/agentsCommands.ts` so direct runs reuse the deferred working-folder validation or restore contract before provider preparation or other direct-run side effects begin.
 2. [ ] Patch the command bootstrap branch in `server/src/agents/service.ts` so the parsed remaining suffix can bypass provider preparation when it is provider-free, while provider-backed suffixes keep the current runtime path.
-3. [ ] Prove the direct admission ordering invariant for `server/src/agents/service.ts` and `server/src/routes/agentsCommands.ts` in `server/src/test/integration/agents-run-client-conversation-id.test.ts`: invalid or stale working folders are rejected or restored before provider preparation begins.
-4. [ ] Prove the provider-free command bootstrap invariant for `server/src/agents/service.ts` in `server/src/test/unit/agent-commands-runner.test.ts`: provider-free suffixes skip provider bootstrap while provider-backed suffixes still take the existing runtime path.
+3. [ ] Author or update `server/src/test/integration/agents-run-client-conversation-id.test.ts` as the direct admission ordering proof for `server/src/agents/service.ts` and `server/src/routes/agentsCommands.ts`, asserting that invalid or stale working folders are rejected or restored before provider preparation begins.
+4. [ ] Author or update `server/src/test/unit/agent-commands-runner.test.ts` as the provider-free command bootstrap proof for `server/src/agents/service.ts`, asserting that provider-free suffixes skip provider bootstrap while provider-backed suffixes still take the existing runtime path.
 
 #### Testing
 
@@ -2290,8 +2290,8 @@ The flow start or resume admission path still mixes selector authority, resume i
 
 1. [ ] Patch repo-backed flow admission in `server/src/flows/service.ts` and the request seam in `server/src/routes/flowsRun.ts` so start requests accept only the canonical `sourceId` selector and derive execution identity from the resumed or remaining step set instead of the flow's first agent globally.
 2. [ ] Patch resume and backfill ordering in `server/src/flows/service.ts` so child-conversation ownership validation finishes before flow-flag persistence or repaired state writes occur, keeping rejected start or resume attempts side-effect free on disk.
-3. [ ] Prove the canonical-selector requirement for `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.basic.test.ts`: discovery advertises the same canonical `sourceId` that normal execution now requires.
-4. [ ] Prove the resumed-step identity and side-effect-free backfill ordering invariants for `server/src/flows/service.ts` in `server/src/test/integration/flows.run.resume.identity.test.ts` and `server/src/test/integration/flows.run.resume.backfill.test.ts`: resume startup uses the remaining-step identity and rejected resume or backfill attempts do not persist repaired state first.
+3. [ ] Author or update the canonical-selector proof surface in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.basic.test.ts` for `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts`, asserting that discovery advertises the same canonical `sourceId` that normal execution now requires.
+4. [ ] Author or update the resume-ordering proof surface in `server/src/test/integration/flows.run.resume.identity.test.ts` and `server/src/test/integration/flows.run.resume.backfill.test.ts` for `server/src/flows/service.ts`, asserting that resume startup uses the remaining-step identity and rejected resume or backfill attempts do not persist repaired state first.
 
 #### Testing
 
@@ -2337,8 +2337,8 @@ The repository-backed `/chat` Codex path still has three related problems at the
 
 1. [ ] Patch repository-backed `/chat` materialization in `server/src/routes/chat.ts` so runtime-home creation happens only after lock or admission success and uses a one-to-one raw `conversationId` key instead of the lossy sanitized directory mapping.
 2. [ ] Patch the shared runtime-config and `/chat` failure-mapping seam in `server/src/config/runtimeConfig.ts` and `server/src/routes/chat.ts` so only genuine config-invalid faults emit `RUNTIME_CONFIG_INVALID`, while filesystem or bootstrap failures keep an honest separate classification.
-3. [ ] Prove the lock-ordering and one-to-one runtime-home identity invariants for `server/src/routes/chat.ts` in `server/src/test/integration/chat-codex.test.ts`: losing concurrent requests stay side-effect free and raw conversation ids that previously sanitized the same way no longer collide.
-4. [ ] Prove the honest failure-classification invariant for `server/src/config/runtimeConfig.ts` and `server/src/routes/chat.ts` in `server/src/test/unit/runtimeConfig.test.ts` plus any narrowly added repository-backed runtime-config proof helper: non-config filesystem or bootstrap failures no longer report `RUNTIME_CONFIG_INVALID`.
+3. [ ] Author or update `server/src/test/integration/chat-codex.test.ts` as the repository-backed `/chat` lock-ordering and runtime-home identity proof for `server/src/routes/chat.ts`, asserting that losing concurrent requests stay side-effect free and raw conversation ids that previously sanitized the same way no longer collide.
+4. [ ] Author or update `server/src/test/unit/runtimeConfig.test.ts` plus any narrowly added repository-backed runtime-config proof helper as the honest failure-classification proof for `server/src/config/runtimeConfig.ts` and `server/src/routes/chat.ts`, asserting that non-config filesystem or bootstrap failures no longer report `RUNTIME_CONFIG_INVALID`.
 
 #### Testing
 
@@ -2380,8 +2380,8 @@ The client still lets stale or contradictory UI state outrank the real execution
 
 1. [ ] Patch selected-detail precedence in `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx` so a fresher disabled summary row overrides any older enabled detail snapshot until a newer detail fetch proves the target recovered.
 2. [ ] Patch resumed-send identity handling in `client/src/pages/ChatPage.tsx` so provider and model controls either lock to the saved execution identity or force an explicit new-conversation reset before those values can change.
-3. [ ] Prove stale disabled-summary precedence for `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx` in `client/src/test/agentsPage.runGuard.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx`: a fresher disabled summary row outranks any older enabled detail snapshot until recovery is re-fetched.
-4. [ ] Prove resumed selector parity for `client/src/pages/ChatPage.tsx` in `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.newConversation.test.tsx`: resumed sends either lock provider or model controls to saved execution identity or force the explicit new-conversation reset path before those values can change.
+3. [ ] Author or update the stale disabled-summary proof surface in `client/src/test/agentsPage.runGuard.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx` for `client/src/pages/AgentsPage.tsx` and `client/src/pages/FlowsPage.tsx`, asserting that a fresher disabled summary row outranks any older enabled detail snapshot until recovery is re-fetched.
+4. [ ] Author or update the resumed selector parity proof surface in `client/src/test/chatPage.resumeIdentity.test.tsx`, `client/src/test/chatPage.provider.conversationSelection.test.tsx`, and `client/src/test/chatPage.newConversation.test.tsx` for `client/src/pages/ChatPage.tsx`, asserting that resumed sends either lock provider or model controls to saved execution identity or force the explicit new-conversation reset path before those values can change.
 
 #### Testing
 
@@ -2424,8 +2424,8 @@ The current replay seam still relies on process-local or completed-state checks 
 
 1. [ ] Patch `server/src/mcp2/tools/codebaseQuestion.ts` so one `conversationId` plus `replayId` pair records durable in-progress ownership before the first provider call or stream bootstrap starts and reuses that claim across later retries.
 2. [ ] Keep the claim scoped to one logical `conversationId` plus `replayId` pair so contradictory or fresh replay ids still take the intended fresh path; if a second implementation surface must change, keep it limited to the existing persistence helper already used by `codebase_question`.
-3. [ ] Prove same-process and cache-loss replay reuse for `server/src/mcp2/tools/codebaseQuestion.ts` in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`: one logical `conversationId` plus `replayId` pair reuses the durable in-progress claim instead of duplicating provider work after local retry or persisted-state reload.
-4. [ ] Prove overlapping concurrent retry ownership for `server/src/mcp2/tools/codebaseQuestion.ts` in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`: one claimant reaches provider work while the losing retry reuses or observes the existing in-progress claim.
+3. [ ] Author or update `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` as the replay reuse proof for `server/src/mcp2/tools/codebaseQuestion.ts`, asserting that one logical `conversationId` plus `replayId` pair reuses the durable in-progress claim after same-process retry or persisted-state reload instead of duplicating provider work.
+4. [ ] Author or update `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` as the overlapping retry ownership proof for `server/src/mcp2/tools/codebaseQuestion.ts`, asserting that one claimant reaches provider work while the losing retry reuses or observes the existing in-progress claim.
 
 #### Testing
 

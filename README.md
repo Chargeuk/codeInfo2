@@ -174,10 +174,11 @@ Corporate certificate directory requirements:
   - startup guard requires exact `0.107.0`; pre-release, lower, and higher versions are rejected.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
-## GitHub Copilot chat provider
+## GitHub Copilot and provider-neutral runtime
 
-- Story `0000051` adds GitHub Copilot as a third chat-only provider alongside Codex and LM Studio. Provider ordering is now one shared contract everywhere the chat stack uses it: `codex`, then `copilot`, then `lmstudio`.
-- Copilot support is intentionally limited to chat in this story. Agents, commands, and flows still keep their existing Codex-oriented execution paths.
+- Story `0000051` added GitHub Copilot as a third chat provider alongside Codex and LM Studio. Story `0000057` extends the same provider-neutral runtime contract across chat, agents, commands, and flows.
+- Provider ordering remains one shared contract everywhere runtime selection uses it: `codex`, then `copilot`, then `lmstudio`.
+- Chat still uses the selected chat provider directly, while agents and flow-owned agent runs resolve their provider from the agent's `config.toml` and fall back through the configured provider order when needed.
 - The runtime resolves `CODEINFO_COPILOT_HOME` in the same style as `CODEINFO_CODEX_HOME`:
   - checked-in development default: `server/.env` uses `../copilot`
   - local compose runtime override: `/app/copilot` backed by repo-root `./copilot`
@@ -230,23 +231,23 @@ Corporate certificate directory requirements:
 - The server container starts a **headless** Chrome instance on boot with remote debugging enabled.
 - `docker-compose.local.yml` exposes the Chrome DevTools endpoint on port `9222` (e.g., `http://localhost:9222`) so the DevTools MCP server can attach.
 
-## Codex agents (folder layout)
+## Agent folders (provider-neutral layout)
 
-Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`. Each direct subfolder is treated as an agent when it contains a `config.toml` file.
+Agents are discovered from the directory set by `CODEINFO_AGENT_HOME`, with `CODEINFO_CODEX_AGENT_HOME` retained as a legacy fallback alias. The preferred repository folder is `codeinfo_agents`, while `codex_agents` remains supported for compatibility and loses precedence when both roots are present. Each direct subfolder is treated as an agent when it contains a `config.toml` file.
 
 Example layout:
 
 ```text
-codex_agents/<agentName>/
+codeinfo_agents/<agentName>/
   config.toml          # required
   description.md       # optional (Markdown shown in UI/MCP listings)
   system_prompt.txt    # optional (used only on first turn of a new agent conversation)
 ```
 
-- Agent defaults: `codex_agents/<agentName>/config.toml` is the source of truth for agent execution defaults (e.g. `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, and web-search/network feature toggles). The UI does not provide model/provider selection for agents.
+- Agent defaults: `codeinfo_agents/<agentName>/config.toml` is the source of truth for agent execution defaults (e.g. `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, and web-search/network feature toggles). The optional `codeinfo_provider` field selects the preferred execution provider for that agent, defaulting to `codex` when omitted. The UI does not provide direct model/provider overrides for agents.
 - Server-owned defaults: the server still sets `workingDirectory=/data` (or `CODEX_WORKDIR`) and `skipGitRepoCheck:true` for agent runs.
-- Auth seeding: on each agent discovery read, if `codex_agents/<agentName>/auth.json` is missing but the primary Codex home (`CODEINFO_CODEX_HOME`) has `auth.json`, the server will best-effort copy it into the agent folder. It never overwrites existing agent auth, and `auth.json` must never be committed.
-- Docker/Compose: local compose live-mounts `./codex_agents` → `/app/codex_agents` (rw) so agent configs can be edited while the stack is running. Main and e2e still read the checked-in agent configs from the image and set `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
+- Auth seeding: on each agent discovery read, if an agent-specific `auth.json` is missing but the primary provider home already has the required auth state, the runtime can best-effort seed that provider-owned auth into the runtime agent home. It never overwrites existing agent auth, and auth artifacts must never be committed.
+- Docker/Compose: local compose live-mounts `./codeinfo_agents` and the legacy `./codex_agents` into the container so agent configs can be edited while the stack is running. Main and e2e keep the same provider-neutral precedence while still honoring the legacy root when it is the only one present.
 - Agents MCP (port 5012): JSON-RPC endpoint on `http://localhost:5012` (exposed by Compose).
 
 ## Features at a Glance
@@ -254,7 +255,7 @@ codex_agents/<agentName>/
 - Chat workspace with provider/model selection, streaming responses, conversation history, and tool/citation rendering.
 - Shared chat provider ordering now uses one contract-first order across defaults and provider listing: `codex`, then `copilot`, then `lmstudio`. Copilot stays visible in provider lists even when unavailable, and the current server model route now returns Copilot model metadata only when readiness and verified model discovery succeed.
 - Copilot chat now runs through the same `/chat` transport and stop flow as the existing providers. New Copilot conversations reuse `conversationId` as the session id, follow-up turns resume that same session, unavailable Copilot requests follow the shared provider fallback rules, and resume mismatches fail clearly instead of silently switching to a fresh hidden session.
-- Agents workspace for running Codex agent instructions and reusable command macros with history and stop/resume controls.
+- Agents workspace for running provider-neutral agent instructions and reusable command macros with history and stop/resume controls.
 - Flows workspace to execute JSON-defined multi-step flows and resume interrupted runs.
   Previously rendered Flow assistant bubbles now stay visible while later steps stream because the client ignores stale earlier-step websocket transcript events instead of rebinding the active bubble.
 - Ingest workspace for embedding repositories, monitoring ingest progress, and managing re-embed/remove operations.

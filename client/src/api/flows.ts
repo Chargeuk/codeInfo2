@@ -176,6 +176,9 @@ export async function getFlowDetails(params: {
   if (!name) {
     throw new Error('Invalid flow details response');
   }
+  if (typeof record.disabled !== 'boolean') {
+    throw new Error('Invalid flow details response');
+  }
 
   const warnings = Array.isArray(record.warnings)
     ? record.warnings
@@ -232,7 +235,7 @@ export async function getFlowDetails(params: {
       name,
       description:
         typeof record.description === 'string' ? record.description : undefined,
-      disabled: typeof record.disabled === 'boolean' ? record.disabled : false,
+      disabled: record.disabled,
       warnings: warnings as FlowWarningDetails[],
       disabledReason,
       sourceId:

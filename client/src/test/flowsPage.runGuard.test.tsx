@@ -163,6 +163,99 @@ describe('Flows page run guards', () => {
     ).toBe(false);
   });
 
+  it('keeps a disabled summary flow unrunnable when the details payload omits disabled', async () => {
+    const user = userEvent.setup();
+    let runRequests = 0;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: true,
+              error: 'No usable provider remains',
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        runRequests += 1;
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-1',
+            inflightId: 'i1',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeDisabled());
+
+    await act(async () => {
+      await user.click(screen.getByTestId('flow-info'));
+    });
+
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some(([url]) => {
+          const target = String(url);
+          return (
+            target.includes('/flows/daily?') || target.endsWith('/flows/daily')
+          );
+        }),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(runButton).toBeDisabled());
+
+    expect(runRequests).toBe(0);
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),
+    ).toBe(false);
+  });
+
   it('revalidates selected flow details before starting a new run', async () => {
     const user = userEvent.setup();
     let runRequests = 0;

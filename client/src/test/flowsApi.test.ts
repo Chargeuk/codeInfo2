@@ -143,6 +143,21 @@ describe('Flows API helpers', () => {
     });
   });
 
+  it('throws when flow details omit the disabled flag', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        flow: {
+          name: 'daily',
+          description: 'Daily flow',
+        },
+      }),
+    );
+
+    await expect(getFlowDetails({ flowName: 'daily' })).rejects.toThrow(
+      'Invalid flow details response',
+    );
+  });
+
   it('calls POST /flows/:flowName/run and parses success payload', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse(

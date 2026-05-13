@@ -349,6 +349,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   await skipIfUnreachable(page);
 
   const runBodies: Array<Record<string, unknown>> = [];
+  const commandRunBodies: Array<Record<string, unknown>> = [];
 
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
@@ -409,7 +410,16 @@ test('agents warning timing and disabled-state guard stay visible at the browser
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ commands: [] }),
+        body: JSON.stringify({
+          commands: [
+            {
+              name: 'improve_plan',
+              description: 'Improve',
+              disabled: false,
+              stepCount: 1,
+            },
+          ],
+        }),
       });
       return;
     }
@@ -419,6 +429,24 @@ test('agents warning timing and disabled-state guard stay visible at the browser
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ items: [] }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
+      commandRunBodies.push(
+        (req.postDataJSON?.() ?? {}) as Record<string, unknown>,
+      );
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          inflightId: 'i2',
+          modelId: 'gpt-5.3-codex',
+        }),
       });
       return;
     }
@@ -446,12 +474,17 @@ test('agents warning timing and disabled-state guard stay visible at the browser
 
   const infoButton = page.getByTestId('agent-info');
   const sendButton = page.getByTestId('agent-send');
+  const commandSelect = page.getByRole('combobox', { name: 'Command' });
+  const executeCommandButton = page.getByTestId('agent-command-execute');
   const folder = page.getByRole('textbox', { name: 'working_folder' });
 
   await expect(infoButton).toBeVisible({ timeout: 20000 });
   await expect(
     page.getByText(/unsupported provider "not-a-provider"/i),
   ).toHaveCount(0);
+  await commandSelect.click();
+  await page.getByRole('option', { name: 'Improve' }).click();
+  await expect(executeCommandButton).toBeEnabled();
 
   await folder.fill('/tmp/stale');
   await infoButton.click();
@@ -463,5 +496,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
     'No usable provider remains',
   );
   await expect(sendButton).toBeDisabled();
+  await expect(executeCommandButton).toBeDisabled();
   expect(runBodies).toHaveLength(0);
+  expect(commandRunBodies).toHaveLength(0);
 });

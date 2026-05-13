@@ -652,9 +652,21 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
   expect(chatBodies[0]?.message).toBe(raw);
 
   await input.fill('   \n   ');
+  await expect(send).toBeEnabled();
   await send.click();
-  await page.waitForTimeout(300);
-  expect(chatBodies).toHaveLength(1);
+
+  const followUp = 'follow-up after blocked whitespace';
+  await input.fill(followUp);
+  await send.click();
+
+  await expect
+    .poll(() => chatBodies.length, {
+      timeout: 10000,
+      message:
+        'Expected exactly one follow-up chat POST request after blocked whitespace submit',
+    })
+    .toBe(2);
+  expect(chatBodies[1]?.message).toBe(followUp);
 });
 
 test('chat renders user markdown list/code with same structure as assistant markdown', async ({

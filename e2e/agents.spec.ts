@@ -163,7 +163,6 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
 
   await input.fill('   \n   ');
   await expect(send).toBeDisabled();
-  await page.waitForTimeout(300);
   expect(runBodies).toHaveLength(1);
 });
 

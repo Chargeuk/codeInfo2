@@ -38,11 +38,12 @@ Do not treat this step as automated-proof completion.
 <audit_rules>
 
 - Audit the coding agent's implementation-only work on the current task honestly.
-- Check whether completed subtasks were implemented but left unmarked, and correct subtask status if the evidence supports it.
+- Normalize checklist state from evidence before deciding whether a blocker is needed.
+- Mark completed subtasks complete when the repository evidence shows they were honestly completed but left unchecked.
+- Mark `Testing` items complete when the repository evidence shows they were honestly completed earlier or were honestly completed during the immediately preceding implementation pass.
+- A bookkeeping omission is not a blocker by itself.
+- After normalizing completed checklist items, recompute which subtasks and `Testing` items are truly still open.
 - A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
-- Do not mark any `Testing` section items complete in this audit unless either:
-  - the plan already honestly shows they were completed earlier; or
-  - the immediately preceding implementation pass honestly completed them because an unchecked subtask explicitly required those testing-wrapper outputs.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
 - Before appending an audit note, re-read the latest existing audit or implementation note for this task.
@@ -55,15 +56,16 @@ Do not treat this step as automated-proof completion.
 
 <stall_detection_rules>
 
-- Compare the current task's open subtasks and implementation notes against the latest implementation pass.
-- If the task still has unchecked subtasks, no previously unchecked subtask was completed in the latest implementation pass, and there is no live `**BLOCKER**` note, treat that as a stalled invalid state.
-- If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as a stalled invalid state too.
-- In that stalled invalid state, add a live `**BLOCKER**` note immediately rather than letting the loop continue silently.
+- Compare the current task's checklist state and implementation notes against the repository evidence from the latest implementation pass.
+- If unchecked subtasks still remain after normalization and there is no live `**BLOCKER**` note, treat that as an invalid unresolved implementation state.
+- Open `Testing` items alone are not an invalid implementation state in this audit when all subtasks are complete and automated proof has not yet been completed.
+- If the task contains vague manual-test-created investigation subtasks without a bounded stopping rule, treat that as an invalid task-shape state too.
+- In an invalid unresolved implementation state, add a live `**BLOCKER**` note immediately rather than letting the loop continue silently.
 - That blocker note must state:
-  - the exact remaining subtasks;
-  - that the latest implementation pass made no subtask-closing progress;
-  - the narrowing, investigation, or implementation work attempted;
-  - and that planner intervention is now required to split, narrow, re-own, or concretize the task before implementation continues honestly.
+  - the exact remaining unchecked subtasks;
+  - that they remained open after audit normalization;
+  - what evidence was checked;
+  - and that implementation cannot continue honestly without repair, narrower ownership, or planner intervention.
 
 </stall_detection_rules>
 
@@ -71,8 +73,9 @@ Do not treat this step as automated-proof completion.
 
 - The task just worked in this loop must not remain hidden as `__to_do__`.
 - After this audit, the task just worked in this loop must remain `__in_progress__`, because automated proof has not yet been completed in this loop.
-- A task with unchecked subtasks must not continue through repeated implementation passes without either subtask closure or a live `**BLOCKER**`.
-- If this audit detects that stalled state, preserve the task as `__in_progress__` and make the blocker visible so the planner loop can take over.
+- If all subtasks are complete after normalization, do not create a blocker merely because `Testing` items remain for later proof.
+- If unchecked subtasks remain after normalization, the task must not continue without a live `**BLOCKER**`.
+- If this audit detects that invalid unresolved implementation state, preserve the task as `__in_progress__` and make the blocker visible so the planner or deeper repair loop can take over.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.
 
 </task_status_rules>
@@ -89,9 +92,9 @@ Do not treat this step as automated-proof completion.
 Return a concise summary that includes:
 
 1. which task you audited;
-2. whether any subtasks were newly marked complete;
+2. whether any subtasks or `Testing` items were newly marked complete from evidence;
 3. whether a blocker exists;
-4. what still remains incomplete before automated proof.
+4. whether all subtasks are now complete and the task is ready for automated proof, or what real implementation work still remains open.
 
 </output_contract>
 
@@ -101,12 +104,14 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you audited implementation-only work rather than treating the task as fully proved;
-- confirm no `Testing` section items were newly marked complete unless they were already honestly complete or were honestly completed in the immediately preceding implementation pass because an unchecked subtask explicitly required them;
+- confirm you normalized checklist state from repository evidence before deciding whether a blocker was needed;
+- confirm no `Testing` section items were newly marked complete unless the evidence honestly showed they were already completed or were honestly completed during the immediately preceding implementation pass;
 - confirm the just-worked task was left `__in_progress__`;
-- confirm you did not leave a stalled task with open subtasks and no live `**BLOCKER**`;
+- confirm you did not treat a bookkeeping omission by itself as a blocker;
+- confirm you did not leave real unchecked subtasks after normalization and no live `**BLOCKER**`;
 - confirm you did not allow vague manual-testing investigation subtasks to pass through as honest implementation-ready tasking;
 - confirm you did not append a duplicate audit note when the task state was materially unchanged;
-- confirm any blocker was preserved and made visible in the plan;
+- confirm any blocker was preserved or added visibly in the plan;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

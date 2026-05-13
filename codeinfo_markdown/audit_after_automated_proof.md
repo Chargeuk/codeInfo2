@@ -38,11 +38,15 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 <audit_rules>
 
 - Audit the coding agent's implementation and automated-proof work on the current task honestly.
-- Check whether completed work was implemented or proved but left unmarked, and correct task, subtask, and testing statuses if the evidence supports it.
+- Normalize checklist state from evidence before deciding whether a blocker is needed.
+- Mark completed subtasks and completed `Testing` items complete when the repository evidence shows they were honestly completed but left unchecked.
+- A bookkeeping omission is not a blocker by itself.
+- After normalizing completed checklist items, recompute which subtasks and `Testing` items are truly still open.
 - A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
-- Treat unchecked subtasks, unchecked testing steps, and a live standalone `**BLOCKER**` note as the only valid reasons for the just-worked task to remain `__in_progress__` after this automated-proof audit.
+- Treat real unchecked subtasks, real unchecked testing steps, and a live standalone `**BLOCKER**` note as the only valid reasons for the task to remain `__in_progress__` after normalization.
+- If real unchecked checklist items still remain after normalization and no live standalone `**BLOCKER**` exists, treat that as an invalid end state for the just-worked proof pass and add a blocker rather than preserving it as ordinary `__in_progress__`.
 - If prose notes, exit-criteria text, or other non-checklist text still claim remaining work after all subtasks and testing are checked and no live standalone `**BLOCKER**` remains, treat that as invalid task shape rather than as a reason to keep the task open.
 - In that invalid task-shape case, either:
   - mark the task `__done__` if current repository evidence shows the prose-only remainder is already satisfied or is not an honest remaining gate; or
@@ -68,7 +72,8 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - This audit is the step that should flip the task to `__done__` when planner repair or earlier proof work has already made the task honestly complete.
 - Do not require a new automated-proof execution in this pass if the task's testing section is already honestly complete from earlier work.
 - Do not keep the task `__in_progress__` solely because prose notes or exit-criteria text still mention remaining work when no unchecked subtasks, unchecked testing steps, or live standalone `**BLOCKER**` note remain.
-- If it is blocked or still requires work, ensure its `Task Status` is `__in_progress__`.
+- If real unchecked subtasks or real unchecked `Testing` items remain after normalization and a live blocker exists, ensure the task remains `__in_progress__`.
+- If real unchecked subtasks or real unchecked `Testing` items remain after normalization and no live blocker exists, add a blocker and leave the task `__in_progress__`.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.
 
 </task_status_rules>
@@ -85,9 +90,9 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 Return a concise summary that includes:
 
 1. which task you audited;
-2. whether any testing steps were newly marked complete;
+2. whether any subtasks or `Testing` items were newly marked complete from evidence;
 3. whether a blocker exists;
-4. whether the task is now `__done__` or remains `__in_progress__`.
+4. whether the task is now `__done__` or remains `__in_progress__`, and why.
 
 </output_contract>
 
@@ -97,8 +102,10 @@ Before finishing:
 
 - confirm you re-read the plan from disk;
 - confirm you audited both implementation and automated proof honestly;
-- confirm task, subtask, and testing status were normalized to match evidence;
+- confirm you normalized task, subtask, and testing status from evidence before deciding whether a blocker was needed;
 - confirm the task was set to `__done__` only when both subtasks and testing were honestly complete and no blocker remained;
+- confirm you did not treat a bookkeeping omission by itself as a blocker;
+- confirm you did not leave real unchecked subtasks or real unchecked `Testing` items after normalization and no live `**BLOCKER**`;
 - confirm any prose-only remaining-work note was either converted into an unchecked checklist item or blocker, or ignored for completion because it was not an honest remaining gate;
 - confirm any newly created subtasks stayed within implementation or proof-authoring work;
 - confirm any newly created `Testing` items remain automated-only;
@@ -106,7 +113,7 @@ Before finishing:
 - confirm you did not create subtasks that depend on future manual-testing-agent or automated-proof outputs;
 - confirm any added `Manual Testing Guidance` is optional, non-blocking, and checkbox-free;
 - confirm you did not append a duplicate audit note when the task state was materially unchanged;
-- confirm any blocker was preserved and made visible in the plan;
+- confirm any blocker was preserved or added visibly in the plan;
 - confirm tracked changes were committed if any were made.
 
 </verification_loop>

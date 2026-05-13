@@ -4,7 +4,9 @@ import { installMockChatWs, type MockChatWsServer } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
-const mockModels = [{ key: 'mock-chat', displayName: 'Mock Chat Model' }];
+const mockModels = [
+  { key: 'mock-chat', displayName: 'Mock Chat Model', type: 'chat' },
+];
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 type ToolEvent = Record<string, unknown>;
@@ -64,7 +66,7 @@ function sendLegacyStreamEvent(
 }
 
 async function mockChatModels(page: Page, toolsAvailable = true) {
-  await page.route('**/chat/providers', (route) =>
+  await page.route('**/chat/providers*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -88,7 +90,7 @@ async function mockChatModels(page: Page, toolsAvailable = true) {
     }),
   );
 
-  await page.route('**/chat/models', (route) => {
+  await page.route('**/chat/models*', (route) => {
     const url = new URL(route.request().url());
     const provider = url.searchParams.get('provider') ?? 'lmstudio';
 

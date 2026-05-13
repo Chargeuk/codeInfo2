@@ -60,9 +60,9 @@ import {
   resolveRepoEmbeddingIdentity,
   type RepoEntry,
 } from '../lmstudio/toolService.js';
-import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type {
   Conversation,
@@ -86,6 +86,7 @@ import type {
   TurnUsageMetadata,
 } from '../mongo/turn.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
+import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 
 const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   const pendingCancel = getPendingConversationCancel(conversationId);
@@ -96,7 +97,6 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
     pendingCancelInflightId: pendingCancel?.boundInflightId ?? null,
   };
 };
-import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 import {
   appendWorkingFolderDecisionLog,
   getConversationRecordType,

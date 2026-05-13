@@ -65,9 +65,9 @@ import {
   resolveRepoEmbeddingIdentity,
   type RepoEntry,
 } from '../lmstudio/toolService.js';
-import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type {
   Conversation,

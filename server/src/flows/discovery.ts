@@ -18,8 +18,8 @@ import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
 } from '../lmstudio/toolService.js';
-import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { append } from '../logStore.js';
+import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { parseFlowFile, type FlowFile, type FlowStep } from './flowSchema.js';
 import {
   buildRepositoryCandidateOrder,

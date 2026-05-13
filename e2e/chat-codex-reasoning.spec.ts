@@ -119,11 +119,7 @@ test('renders Codex thought process when analysis frames stream', async ({
         available: true,
         toolsAvailable: true,
         models: [
-          {
-            key: 'mock-chat',
-            displayName: 'Mock Chat Model',
-            type: 'gguf',
-          },
+          { key: 'mock-chat', displayName: 'Mock Chat Model', type: 'chat' },
         ],
       }),
     });

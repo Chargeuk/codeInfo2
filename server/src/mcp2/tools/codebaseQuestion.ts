@@ -54,8 +54,8 @@ import {
   getAdvertisedRepositoryIdentityPaths,
   listIngestedRepositories,
 } from '../../lmstudio/toolService.js';
-import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
 import { append } from '../../logStore.js';
+import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {

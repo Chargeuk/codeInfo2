@@ -54,6 +54,39 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
   );
 }
 
+function mockDailyFlowListOrDetailsResponse(
+  target: string,
+  flows: Array<{
+    name: string;
+    description: string;
+    disabled: boolean;
+    sourceId?: string;
+    sourceLabel?: string;
+  }> = [{ name: 'daily', description: 'Daily flow', disabled: false }],
+) {
+  if (!target.includes('/flows') || target.includes('/run')) {
+    return null;
+  }
+  if (target.includes('/flows/daily')) {
+    const dailyFlow = flows.find((flow) => flow.name === 'daily') ?? {
+      name: 'daily',
+      description: 'Daily flow',
+      disabled: false,
+    };
+    return mockJsonResponse({
+      flow: {
+        name: dailyFlow.name,
+        description: dailyFlow.description,
+        disabled: dailyFlow.disabled,
+        warnings: [],
+        sourceId: dailyFlow.sourceId,
+        sourceLabel: dailyFlow.sourceLabel,
+      },
+    });
+  }
+  return mockJsonResponse({ flows });
+}
+
 function mockFlowsFetch(options?: {
   dirs?: typeof defaultDirs | ((path: string | undefined) => unknown) | unknown;
 }) {
@@ -79,10 +112,9 @@ function mockFlowsFetch(options?: {
       return mockJsonResponse({ mongoConnected: true });
     }
 
-    if (target.includes('/flows') && !target.includes('/run')) {
-      return mockJsonResponse({
-        flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
-      });
+    const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+    if (flowListOrDetails) {
+      return flowListOrDetails;
     }
 
     if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -213,12 +245,20 @@ function setupFlowsRunHarness(options?: {
           ? url.method
           : undefined);
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: options?.flows ?? [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(
+        target,
+        (options?.flows ?? [
+          { name: 'daily', description: 'Daily flow', disabled: false },
+        ]) as Array<{
+          name: string;
+          description: string;
+          disabled: boolean;
+          sourceId?: string;
+          sourceLabel?: string;
+        }>,
+      );
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/flows/daily/run')) {
@@ -302,12 +342,9 @@ describe('Flows page run/resume controls', () => {
           return mockJsonResponse({ mongoConnected: true });
         }
 
-        if (target.includes('/flows') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flows: [
-              { name: 'daily', description: 'Daily flow', disabled: false },
-            ],
-          });
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
         }
 
         if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -386,12 +423,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -475,12 +509,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -553,12 +584,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -642,12 +670,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -733,12 +758,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -794,12 +816,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -1073,12 +1092,9 @@ describe('Flows page run/resume controls', () => {
           return mockJsonResponse({ mongoConnected: true });
         }
 
-        if (target.includes('/flows') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flows: [
-              { name: 'daily', description: 'Daily flow', disabled: false },
-            ],
-          });
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
         }
 
         const turnsMatch = target.match(/\/conversations\/([^/]+)\/turns/);
@@ -1186,12 +1202,9 @@ describe('Flows page run/resume controls', () => {
           return mockJsonResponse({ mongoConnected: true });
         }
 
-        if (target.includes('/flows') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flows: [
-              { name: 'daily', description: 'Daily flow', disabled: false },
-            ],
-          });
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
         }
 
         if (target.includes('/conversations/flow-1/turns')) {
@@ -1485,12 +1498,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/flow-1/turns')) {
@@ -1560,12 +1570,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -1616,12 +1623,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -1929,12 +1933,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -2000,12 +2001,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {

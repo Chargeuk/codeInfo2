@@ -346,47 +346,51 @@ describe('Flows page basics', () => {
   it('shows the server recovery guidance in the visible flow run error area', async () => {
     const user = userEvent.setup();
 
-    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-      const target = typeof url === 'string' ? url : url.toString();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-      if (target.includes('/health')) {
-        return mockJsonResponse({ mongoConnected: true });
-      }
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
 
-      if (target.includes('/flows/daily/run')) {
-        expect(init?.method).toBe('POST');
-        return mockJsonResponse(
-          {
-            code: 'PROVIDER_UNAVAILABLE',
-            reason: 'Codex is unavailable. Re-authenticate and try again.',
-          },
-          { status: 503 },
-        );
-      }
+        if (target.includes('/flows/daily/run')) {
+          expect(init?.method).toBe('POST');
+          return mockJsonResponse(
+            {
+              code: 'PROVIDER_UNAVAILABLE',
+              reason: 'Codex is unavailable. Re-authenticate and try again.',
+            },
+            { status: 503 },
+          );
+        }
 
-      if (target.includes('/flows/daily')) {
-        return mockJsonResponse({
-          flow: {
-            name: 'daily',
-            description: 'Daily flow',
-            disabled: false,
-            warnings: [],
-          },
-        });
-      }
+        if (target.includes('/flows/daily')) {
+          return mockJsonResponse({
+            flow: {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: false,
+              warnings: [],
+            },
+          });
+        }
 
-      if (target.includes('/flows')) {
-        return mockJsonResponse({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
-        });
-      }
+        if (target.includes('/flows')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
 
-      if (target.includes('/conversations')) {
-        return mockJsonResponse({ items: [] });
-      }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [] });
+        }
 
-      return mockJsonResponse({});
-    });
+        return mockJsonResponse({});
+      },
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);

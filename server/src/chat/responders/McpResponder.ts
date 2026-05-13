@@ -1,6 +1,6 @@
 import { isTransientReconnect } from '../../agents/transientReconnect.js';
-import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
 import { append } from '../../logStore.js';
+import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
 
 import type {
   ChatAnalysisEvent,

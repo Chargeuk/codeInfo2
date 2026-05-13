@@ -124,10 +124,10 @@ test.describe.serial('Chat tools citations', () => {
       : null;
 
     const mockChatModels = [
-      { key: 'mock-chat', displayName: 'Mock Chat Model' },
+      { key: 'mock-chat', displayName: 'Mock Chat Model', type: 'chat' },
     ];
 
-    await page.route('**/chat/providers', (route) =>
+    await page.route('**/chat/providers*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -151,7 +151,7 @@ test.describe.serial('Chat tools citations', () => {
       }),
     );
 
-    await page.route('**/chat/models', (route) => {
+    await page.route('**/chat/models*', (route) => {
       const url = new URL(route.request().url());
       const provider = url.searchParams.get('provider') ?? 'lmstudio';
 
@@ -285,10 +285,10 @@ test.describe.serial('Chat tools citations', () => {
     const mockWs = await installMockChatWs(page);
 
     const mockChatModels = [
-      { key: 'mock-chat', displayName: 'Mock Chat Model' },
+      { key: 'mock-chat', displayName: 'Mock Chat Model', type: 'chat' },
     ];
 
-    await page.route('**/chat/providers', (route) =>
+    await page.route('**/chat/providers*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -312,7 +312,7 @@ test.describe.serial('Chat tools citations', () => {
       }),
     );
 
-    await page.route('**/chat/models', (route) => {
+    await page.route('**/chat/models*', (route) => {
       const url = new URL(route.request().url());
       const provider = url.searchParams.get('provider') ?? 'lmstudio';
 

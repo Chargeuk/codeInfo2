@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, test } from 'node:test';
 
+import { query, resetStore } from '../../logStore.js';
 import {
   appendRepoBackedTransitiveConsumerLogs,
   appendSummaryBackedTransitiveConsumerLogs,
   TRANSITIVE_CONSUMER_ALIAS_FALLBACK_MARKER,
   TRANSITIVE_CONSUMER_CONTRACT_READ_MARKER,
 } from '../../logging/transitiveConsumerMarkers.js';
-import { query, resetStore } from '../../logStore.js';
 
 describe('transitive consumer marker logging', () => {
   afterEach(() => {

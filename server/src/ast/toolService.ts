@@ -6,9 +6,9 @@ import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
 } from '../lmstudio/toolService.js';
-import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { AstCoverageModel } from '../mongo/astCoverage.js';
 import { type AstEdge, AstEdgeModel } from '../mongo/astEdge.js';
 import {

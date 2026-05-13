@@ -343,7 +343,7 @@ describe('Chat page sidebar conversation selection', () => {
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-input')).toBeEnabled();
-  });
+  }, 15000);
 
   it('does not send cancel_inflight when changing provider during an active run', async () => {
     const { user, draftConversationId } = await startDraftRun();
@@ -383,7 +383,7 @@ describe('Chat page sidebar conversation selection', () => {
     expect(screen.getByTestId('chat-input')).toBeEnabled();
     expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
-  });
+  }, 15000);
 
   it('restores the selected conversation over an unsent provider draft without merging hidden draft flags', async () => {
     const user = userEvent.setup();

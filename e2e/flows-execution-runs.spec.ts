@@ -68,6 +68,22 @@ test('flows and agents show stable run clues for repeated fresh executions', asy
       return;
     }
 
+    if (path === '/flows/daily' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+
     if (path === '/agents' && method === 'GET') {
       await route.fulfill({
         status: 200,

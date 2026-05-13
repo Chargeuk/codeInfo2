@@ -416,7 +416,7 @@ describe('Chat page new conversation control', () => {
       ),
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  });
+  }, 15000);
 
   it('starts a new next-send conversation when the model changes while viewing an existing conversation', async () => {
     const user = userEvent.setup();

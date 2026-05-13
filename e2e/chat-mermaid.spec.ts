@@ -5,7 +5,9 @@ import { installMockChatWs } from './support/mockChatWs';
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
-const mockChatModels = [{ key: 'mock-chat', displayName: 'Mock Chat Model' }];
+const mockChatModels = [
+  { key: 'mock-chat', displayName: 'Mock Chat Model', type: 'chat' },
+];
 
 const mermaidMessage = [
   'Here is a mermaid diagram:',
@@ -32,7 +34,7 @@ test('renders mermaid diagrams safely for assistant and user bubbles', async ({
 }) => {
   const mockWs = await installMockChatWs(page);
 
-  await page.route('**/chat/providers', (route) =>
+  await page.route('**/chat/providers*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -56,7 +58,7 @@ test('renders mermaid diagrams safely for assistant and user bubbles', async ({
     }),
   );
 
-  await page.route('**/chat/models', (route) => {
+  await page.route('**/chat/models*', (route) => {
     const url = new URL(route.request().url());
     const provider = url.searchParams.get('provider') ?? 'lmstudio';
 
@@ -144,7 +146,7 @@ test('shows safe fallback for malformed user mermaid input', async ({
 }) => {
   const mockWs = await installMockChatWs(page);
 
-  await page.route('**/chat/providers', (route) =>
+  await page.route('**/chat/providers*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -168,7 +170,7 @@ test('shows safe fallback for malformed user mermaid input', async ({
     }),
   );
 
-  await page.route('**/chat/models', (route) =>
+  await page.route('**/chat/models*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',

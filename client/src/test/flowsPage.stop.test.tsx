@@ -75,6 +75,39 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
   );
 }
 
+function mockSmokeFlowListOrDetailsResponse(
+  target: string,
+  flows: Array<{
+    name: string;
+    description: string;
+    disabled: boolean;
+    sourceId?: string;
+    sourceLabel?: string;
+  }>,
+) {
+  if (!target.includes('/flows') || target.includes('/run')) {
+    return null;
+  }
+  if (target.includes('/flows/smoke')) {
+    const smokeFlow = flows.find((flow) => flow.name === 'smoke') ?? {
+      name: 'smoke',
+      description: 'Smoke flow',
+      disabled: false,
+    };
+    return mockJsonResponse({
+      flow: {
+        name: smokeFlow.name,
+        description: smokeFlow.description,
+        disabled: smokeFlow.disabled,
+        warnings: [],
+        sourceId: smokeFlow.sourceId,
+        sourceLabel: smokeFlow.sourceLabel,
+      },
+    });
+  }
+  return mockJsonResponse({ flows });
+}
+
 function renderFlowsPage() {
   const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
   render(<RouterProvider router={router} />);
@@ -199,8 +232,9 @@ function setupFlowsFetch(params?: {
       return mockJsonResponse({ mongoConnected: true });
     }
 
-    if (target.includes('/flows') && !target.includes('/run')) {
-      return mockJsonResponse({ flows });
+    const flowListOrDetails = mockSmokeFlowListOrDetailsResponse(target, flows);
+    if (flowListOrDetails) {
+      return flowListOrDetails;
     }
 
     if (target.includes('/conversations/') && target.includes('/turns')) {

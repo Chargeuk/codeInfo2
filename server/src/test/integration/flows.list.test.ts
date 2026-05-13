@@ -556,6 +556,55 @@ describe('GET /flows', () => {
     await fs.rm(ingestedRoot, { recursive: true, force: true });
   });
 
+  test('ingested flow discovery advertises the canonical containerPath sourceId instead of a host alias', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-canonical-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-canonical-'),
+    );
+    const hostAliasPath = path.join(
+      '/host-alias',
+      path.basename(ingestedRoot),
+    );
+    await writeFlowFile(
+      path.join(ingestedRoot, 'flows'),
+      'canonical-release',
+      'Canonical release',
+    );
+
+    await withFlowsDir(tmpDir, async () => {
+      const response = await supertest(
+        buildApp({
+          listIngestedRepositories: async () => ({
+            repos: [
+              {
+                ...buildRepoEntry({
+                  id: 'Canonical Repo',
+                  containerPath: ingestedRoot,
+                }),
+                hostPath: hostAliasPath,
+              },
+            ],
+            lockedModelId: null,
+          }),
+        }),
+      ).get('/flows');
+
+      assert.equal(response.status, 200);
+      const ingested = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'canonical-release',
+      );
+      assert.ok(ingested);
+      assert.equal(ingested.sourceId, ingestedRoot);
+      assert.notEqual(ingested.sourceId, hostAliasPath);
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
   test('duplicate ingested flow names are retained and sorted by label', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(

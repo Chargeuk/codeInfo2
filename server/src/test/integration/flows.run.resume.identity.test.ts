@@ -66,6 +66,32 @@ const writeResumeFlow = async (dir: string) => {
   );
 };
 
+const writeDualAgentResumeFlow = async (dir: string) => {
+  const flow = {
+    description: 'Resume dual-agent identity flow',
+    steps: [
+      {
+        type: 'llm',
+        label: 'Step 1',
+        agentType: 'missing_agent',
+        identifier: 'resume-missing',
+        messages: [{ role: 'user', content: ['Missing Step 1'] }],
+      },
+      {
+        type: 'llm',
+        label: 'Step 2',
+        agentType: 'planning_agent',
+        identifier: 'resume-plan',
+        messages: [{ role: 'user', content: ['Plan Step 2'] }],
+      },
+    ],
+  };
+  await fs.writeFile(
+    path.join(dir, 'resume-dual-identity.json'),
+    JSON.stringify(flow, null, 2),
+  );
+};
+
 class MinimalChat extends ChatInterface {
   async execute(
     _message: string,
@@ -330,6 +356,98 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
     const childTurns = memoryTurns.get(childConversationId) ?? [];
     assert.equal(childTurns.at(-1)?.model, 'gpt-5.2-codex');
     assert.equal(childTurns.at(-1)?.provider, 'codex');
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun derives resumed runtime identity from the remaining step set instead of the first flow step', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-remaining-identity-'),
+  );
+  await writeDualAgentResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-remaining-identity-1';
+  const childConversationId = 'agent-conv-resume-remaining-plan-1';
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.4',
+    title: 'Flow: resume-dual-identity',
+    flowName: 'resume-dual-identity',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-execution-remaining-identity-1',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'planning_agent:resume-plan': childConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-4.1',
+    title: 'Flow: resume-dual-identity (resume-plan)',
+    agentName: 'planning_agent',
+    source: 'REST',
+    flags: {
+      flowChild: {
+        executionId: 'resume-execution-remaining-identity-1',
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName: 'resume-dual-identity',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.equal(result.conversationId, conversationId);
+    assert.equal(
+      memoryConversations.get(conversationId)?.flowName,
+      'resume-dual-identity',
+    );
+    assert.equal(
+      memoryConversations.get(childConversationId)?.agentName,
+      'planning_agent',
+    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

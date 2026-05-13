@@ -1254,7 +1254,7 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
   }
 });
 
-test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', async () => {
+test('POST /flows/:flowName/run requires the canonical sourceId instead of a host alias payload', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -1268,6 +1268,7 @@ test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', a
     path.join(process.cwd(), 'tmp-flows-run-ingested-legacy-'),
   );
   const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
+  const hostAliasPath = path.join('/host-alias', path.basename(tmpRepoRoot));
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
 
@@ -1287,7 +1288,7 @@ test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', a
                 id: 'Legacy',
                 description: null,
                 containerPath: tmpRepoRoot,
-                hostPath: tmpRepoRoot,
+                hostPath: hostAliasPath,
                 lastIngestAt: null,
                 model: 'legacy-model',
                 modelId: 'legacy-model',
@@ -1302,16 +1303,30 @@ test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', a
   );
 
   try {
-    const conversationId = 'flow-ingested-conv-legacy';
-    const res = await supertest(app)
+    const rejected = await supertest(app)
       .post('/flows/llm-basic/run')
-      .send({ conversationId, sourceId: tmpRepoRoot })
+      .send({
+        conversationId: 'flow-ingested-conv-legacy-alias',
+        sourceId: hostAliasPath,
+      })
+      .expect(404);
+
+    assert.equal(rejected.body.error, 'not_found');
+
+    const accepted = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: 'flow-ingested-conv-legacy-canonical',
+        sourceId: tmpRepoRoot,
+      })
       .expect(202);
 
-    assert.equal(res.body.status, 'started');
-    assert.equal(res.body.flowName, 'llm-basic');
-    memoryConversations.delete(conversationId);
-    memoryTurns.delete(conversationId);
+    assert.equal(accepted.body.status, 'started');
+    assert.equal(accepted.body.flowName, 'llm-basic');
+    memoryConversations.delete('flow-ingested-conv-legacy-alias');
+    memoryTurns.delete('flow-ingested-conv-legacy-alias');
+    memoryConversations.delete('flow-ingested-conv-legacy-canonical');
+    memoryTurns.delete('flow-ingested-conv-legacy-canonical');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {

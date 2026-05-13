@@ -439,7 +439,7 @@ const ensureFlowChildConversationOwnership = async (params: {
   conversationId: string;
   agentType: string;
   executionId: string;
-}) => {
+}): Promise<{ needsExecutionIdBackfill: boolean }> => {
   const conversation = await getConversation(params.conversationId);
   if (!conversation) {
     throw toFlowRunError(
@@ -465,12 +465,9 @@ const ensureFlowChildConversationOwnership = async (params: {
     );
   }
 
-  if (!childExecutionId) {
-    await persistFlowChildExecutionId({
-      conversationId: params.conversationId,
-      executionId: params.executionId,
-    });
-  }
+  return {
+    needsExecutionIdBackfill: !childExecutionId,
+  };
 };
 
 const persistConversationWorkingFolder = async (params: {
@@ -2254,6 +2251,66 @@ const findFirstAgentStep = (
   return undefined;
 };
 
+const findRuntimeIdentityStep = (
+  steps: FlowStep[],
+  resumeStepPath?: number[] | null,
+):
+  | FlowLlmStep
+  | FlowBreakStep
+  | FlowContinueStep
+  | FlowCommandStep
+  | undefined => {
+  let resumePathRemaining =
+    resumeStepPath && resumeStepPath.length > 0 ? [...resumeStepPath] : null;
+  let resumeIndex = resumePathRemaining?.[0];
+
+  for (const [index, step] of steps.entries()) {
+    if (
+      resumePathRemaining &&
+      resumeIndex !== undefined &&
+      index < resumeIndex
+    ) {
+      continue;
+    }
+
+    if (resumePathRemaining && resumeIndex === index) {
+      if (resumePathRemaining.length === 1) {
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        continue;
+      }
+      if (step.type !== 'startLoop') {
+        return undefined;
+      }
+      const nested = findRuntimeIdentityStep(
+        step.steps,
+        resumePathRemaining.slice(1),
+      );
+      if (nested) {
+        return nested;
+      }
+      resumePathRemaining = null;
+      resumeIndex = undefined;
+      continue;
+    }
+
+    if (
+      step.type === 'llm' ||
+      step.type === 'break' ||
+      step.type === 'continue' ||
+      step.type === 'command'
+    ) {
+      return step;
+    }
+    if (step.type === 'startLoop') {
+      const nested = findRuntimeIdentityStep(step.steps, null);
+      if (nested) return nested;
+    }
+  }
+
+  return undefined;
+};
+
 const validateCommandSteps = async (
   steps: FlowStep[],
   agentByName: Map<string, { home: string }>,
@@ -2317,17 +2374,22 @@ const validateResumeStepPath = (
 
 const validateResumeAgentConversations = async (
   resumeState: FlowResumeState | null,
-): Promise<void> => {
-  if (!resumeState) return;
+): Promise<string[]> => {
+  if (!resumeState) return [];
+  const childExecutionBackfills: string[] = [];
   const entries = Object.entries(resumeState.agentConversations);
   for (const [key, conversationId] of entries) {
     const agentType = key.split(':')[0] ?? '';
-    await ensureFlowChildConversationOwnership({
+    const validation = await ensureFlowChildConversationOwnership({
       conversationId,
       agentType,
       executionId: resumeState.executionId,
     });
+    if (validation.needsExecutionIdBackfill) {
+      childExecutionBackfills.push(conversationId);
+    }
   }
+  return childExecutionBackfills;
 };
 
 type LoadCommandResult =
@@ -4178,6 +4240,7 @@ export async function startFlowRun(
   let repositoryContext: FlowCommandRepositoryContext | null = null;
   let executionId: string = crypto.randomUUID();
   let startupWarnings: string[] = [];
+  let childExecutionBackfills: string[] = [];
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -4197,7 +4260,7 @@ export async function startFlowRun(
     const listedRepos = listedReposResult.repos;
     const sourceRepo = sourceId
       ? listedRepos.find(
-          (item) => path.resolve(item.containerPath) === path.resolve(sourceId),
+          (item) => item.containerPath === sourceId,
         )
       : undefined;
     if (sourceId) {
@@ -4257,9 +4320,6 @@ export async function startFlowRun(
       | undefined;
     const trustedPersistedFlowState =
       existingConversation?.flowName === flowName ? existingFlags : undefined;
-    const persistedResumeExecutionId = getFlowExecutionId(
-      trustedPersistedFlowState,
-    );
     resumeState = parseFlowResumeState(trustedPersistedFlowState);
     if (resumeStepPath) {
       if (!resumeState) {
@@ -4269,30 +4329,17 @@ export async function startFlowRun(
         );
       }
       validateResumeStepPath(flow.steps, resumeStepPath);
-      if (!persistedResumeExecutionId) {
-        await persistFlowResumeState({
-          conversationId,
-          executionId: resumeState.executionId,
-          runtimeState: hydrateFlowAgentState(resumeState),
-          stepPath: resumeState.stepPath,
-          loopStack: resumeState.loopStack.map((frame) => ({
-            loopStepPath: [...frame.loopStepPath],
-            iteration: frame.iteration,
-          })),
-          pendingLoopControl: resumeState.pendingLoopControl
-            ? {
-                kind: resumeState.pendingLoopControl.kind,
-                loopStepPath: [...resumeState.pendingLoopControl.loopStepPath],
-              }
-            : null,
-          workingFolder: effectiveWorkingFolder ?? resumeState.workingFolder,
-        });
-      }
-      await validateResumeAgentConversations(resumeState);
+      childExecutionBackfills =
+        await validateResumeAgentConversations(resumeState);
     }
     executionId = resumeState?.executionId ?? executionId;
 
-    const firstAgentStep = findFirstAgentStep(flow.steps);
+    const runtimeIdentityStep = findRuntimeIdentityStep(
+      flow.steps,
+      resumeStepPath,
+    );
+    const firstAgentStep =
+      runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
     if (firstAgentStep) {
@@ -4362,6 +4409,14 @@ export async function startFlowRun(
         decisionReason: 'request_value_persisted_on_create',
         workingFolder: effectiveWorkingFolder,
       });
+    }
+    if (resumeStepPath) {
+      for (const childConversationId of childExecutionBackfills) {
+        await persistFlowChildExecutionId({
+          conversationId: childConversationId,
+          executionId,
+        });
+      }
     }
     await persistFlowResumeState({
       conversationId,

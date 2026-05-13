@@ -289,7 +289,7 @@ test('startFlowRun backfills legacy child executionId on resume', async () => {
   }
 });
 
-test('startFlowRun persists legacy parent executionId before child backfill validation failures', async () => {
+test('startFlowRun keeps legacy parent and child execution backfills side-effect free until resume validation succeeds', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -374,11 +374,17 @@ test('startFlowRun persists legacy parent executionId before child backfill vali
       },
     );
 
-    const backfilledExecutionId = getFlowExecutionId(conversationId);
-    assert.equal(
-      getFlowChildExecutionId(firstChildConversationId),
-      backfilledExecutionId,
-    );
+    const rejectedConversation = memoryConversations.get(conversationId);
+    const rejectedFlags = (rejectedConversation?.flags ?? {}) as {
+      flow?: { executionId?: string };
+    };
+    assert.equal(rejectedFlags.flow?.executionId, undefined);
+
+    const rejectedChild = memoryConversations.get(firstChildConversationId);
+    const rejectedChildFlags = (rejectedChild?.flags ?? {}) as {
+      flowChild?: { executionId?: string };
+    };
+    assert.equal(rejectedChildFlags.flowChild?.executionId, undefined);
 
     memoryConversations.set(secondChildConversationId, {
       ...(memoryConversations.get(secondChildConversationId) ?? {
@@ -408,7 +414,7 @@ test('startFlowRun persists legacy parent executionId before child backfill vali
       () => (memoryTurns.get(conversationId) ?? []).length >= 2,
       5000,
     );
-    assert.equal(getFlowExecutionId(conversationId), backfilledExecutionId);
+    const backfilledExecutionId = getFlowExecutionId(conversationId);
     assert.equal(
       getFlowChildExecutionId(firstChildConversationId),
       backfilledExecutionId,

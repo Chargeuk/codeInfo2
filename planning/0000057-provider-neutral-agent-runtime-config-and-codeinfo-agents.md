@@ -2169,7 +2169,7 @@ This review-created block stays inside the current repository's client error-ada
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 
@@ -2218,6 +2218,7 @@ The review found that provider-neutral fallback normalization warnings still dis
 - Added Task 19 proof coverage in `server/src/test/unit/runtimeConfig.test.ts`, `server/src/test/unit/host-network-compose-contract.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts` so runtime-config, supported startup, direct-agent, and flow-run layers all claim the repaired warning and degraded-bootstrap seam explicitly.
 - The first targeted `runtimeConfig.test.ts` wrapper exposed Task 19 type mismatches and an overly strict warning-message assertion; mapping runtime warnings to strings in the direct-agent seam, extending the route start result shape to carry warnings, moving the flow proof onto `__setAgentServiceDepsForTests`, and keying the assertions to the actual `agent.top_level_unknown` warning path fixed those issues before the targeted reruns.
 - Targeted Task 19 proof now passes cleanly: `runtimeConfig.test.ts` `94/94`, `host-network-compose-contract.test.ts` `5/5`, `agents-run-client-conversation-id.test.ts` `20/20`, and `flows.run.errors.test.ts` `26/26`.
+- Audit normalization closed Task 19 as `__done__` because all five subtasks, all four automated testing steps, and the recorded targeted proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 19` reported no live blockers.
 
 ### Task 20. Normalize direct agent and command admission before runtime bootstrap
 

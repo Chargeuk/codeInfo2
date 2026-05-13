@@ -6,12 +6,13 @@
 2. Users can rely on layered runtime config and neutral agent-folder discovery without breaking older `codex_agents` layouts or legacy env aliases.
 3. Users can see clear warnings, disabled states, fallback behavior, and resumed-conversation rules when a provider is missing, invalid, or changed after a conversation already started.
 4. Users and support reviewers can trust resumed `/chat` and `codebase_question` runs to stay pinned to the stored execution identity instead of silently switching providers or models.
-5. Users can see the real server-provided recovery reason when an agent or flow run fails, rather than a generic HTTP-status fallback.
-6. Support and engineering reviewers can trust the final rollout because the story closes with wrapper-first server, client, browser, and compose-backed regression proof.
+5. Users can trust startup warnings, agent or flow admission, disabled-state handling, and replay behavior to fail safely when config, provider, or state problems occur.
+6. Users can see the real server-provided recovery reason when an agent or flow run fails, rather than a generic HTTP-status fallback.
+7. Support and engineering reviewers can trust the final rollout because the story closes with wrapper-first server, client, browser, and compose-backed regression proof.
 
 # Description
 
-This story finishes the shift from a Codex-shaped runtime to a provider-neutral one for agents, flows, chat, and repository-aware execution. It lets teams configure different providers through one consistent contract, keeps compatibility with older folder and env layouts, preserves the right execution identity when conversations resume, and makes warning or failure behavior clearer when providers are missing or misconfigured. The later review-fix tasks harden resumed runs, visible error copy, and logging consistency so the finished rollout is safer for both users and support teams.
+This story finishes the shift from a Codex-shaped runtime to a provider-neutral one for agents, flows, chat, and repository-aware execution. It lets teams configure different providers through one consistent contract, keeps compatibility with older folder and env layouts, preserves the right execution identity when conversations resume, and makes warning or failure behavior clearer when providers are missing or misconfigured. The later review-fix tasks harden startup warnings, admission ordering, visible client state, replay durability, and final proof ownership so the finished rollout is safer for both users and support teams.
 
 # Tasks
 
@@ -86,3 +87,31 @@ This story finishes the shift from a Codex-shaped runtime to a provider-neutral 
 18. [codeInfo2] - Revalidate review pass `0000057-20260512T022927Z-9715bd20` serious fixes and inline minor resolutions
 
 - Own the final broad regression rerun for the current review-created findings block and the inline minor fixes already recorded in that same review cycle.
+
+19. [codeInfo2] - Restore provider-neutral fallback warnings and degraded bootstrap surfaces
+
+- Repair startup warning and degraded-run surfaces so fallback and invalid-provider behavior stays visible instead of silently disappearing.
+
+20. [codeInfo2] - Normalize direct agent and command admission before runtime bootstrap
+
+- Prevent direct agent and command paths from starting work before the shared runtime and repository selector state are valid.
+
+21. [codeInfo2] - Normalize flow start and resume admission before execution begins
+
+- Make flow start and resume paths reject bad selector or resume state before execution side effects begin.
+
+22. [codeInfo2] - Stabilize repository-backed `/chat` runtime-home identity and failure boundaries
+
+- Keep repository-backed `/chat` runs pinned to the right runtime-home identity and stop partial losing requests from leaving unsafe state behind.
+
+23. [codeInfo2] - Make visible client execution state authoritative across selected details and resumed chat controls
+
+- Keep stale detail caches and resumed provider or model selectors from showing runnable states that the real send path will ignore or reject.
+
+24. [codeInfo2] - Make `codebase_question` replay claims durable before provider work begins
+
+- Persist or claim replay ownership early enough that retries reuse one logical run instead of duplicating provider work.
+
+25. [codeInfo2] - Revalidate review pass `0000057-20260513T150955Z-67ee8439` serious fixes and inline minor resolutions
+
+- Own the final broad regression rerun for the latest review-created findings block and its inline minor fixes through server, client, browser, and compose-backed proof.

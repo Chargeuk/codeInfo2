@@ -2278,7 +2278,7 @@ The direct-service agent and command entrypoints no longer share the same prefli
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 
@@ -2327,6 +2327,7 @@ The flow start or resume admission path still mixes selector authority, resume i
 - Updated `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.basic.test.ts` so discovery still advertises the canonical selector while the run route now rejects a host-path alias payload and accepts the canonical `sourceId`.
 - Updated `server/src/test/integration/flows.run.resume.identity.test.ts` and `server/src/test/integration/flows.run.resume.backfill.test.ts` to prove resume startup ignores a missing skipped-step agent, uses the remaining-step identity, and avoids persisting parent or child execution-id repairs before a mismatched child-agent resume is rejected.
 - Ran all four targeted Task 21 wrappers; `flows.list`, `flows.run.basic`, and `flows.run.resume.backfill` passed on the first run, and `flows.run.resume.identity` passed after replacing an unnecessary async callback wait with a direct startup-identity assertion.
+- Audit normalization closed Task 21 as `__done__` because all four subtasks, all four automated testing steps, and the recorded targeted server proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 21` reported no live blockers.
 
 ### Task 22. Stabilize repository-backed `/chat` runtime-home identity and failure boundaries
 

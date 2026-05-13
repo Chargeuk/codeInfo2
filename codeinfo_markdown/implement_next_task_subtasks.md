@@ -46,6 +46,9 @@ Do not finish this step until every unchecked subtask is complete or the task is
 - Complete subtasks in `Subtasks` list order unless a later item is strictly required first to complete the current one honestly.
 - Mark each completed subtask complete immediately.
 - If a command or wrapper honestly completes a directly corresponding `Testing` item while you are finishing a subtask, mark that `Testing` item complete immediately as well.
+- Do not add new `Subtasks` in this step.
+- You may add a new unchecked `Testing` item only when implementation in this step created a genuinely new automated proof obligation for the current task and the existing `Testing` section does not already cover that same harness or check.
+- Do not add a `Testing` item merely to capture screenshots, logs, proof-home paths, reruns, or other outputs from a harness that is already covered by an existing `Testing` item.
 - Do not proactively execute unrelated `Testing` items just because they are available elsewhere in the task.
 - Add concise implementation notes as work progresses. Each note must say what changed, what was tried, or why the work is blocked.
 - Use this decision loop:
@@ -58,6 +61,7 @@ Do not finish this step until every unchecked subtask is complete or the task is
 - Do not stop this step merely because partial progress was made, one or more subtasks were completed, tests were started, or the remaining work feels safer to leave for later.
 - Do not leave the task with unchecked subtasks and no live `**BLOCKER**`.
 - Do not leave unchecked subtasks open because they are supposedly reserved for later automated proof.
+- If additional work is discovered while resolving the current task, either complete that work within the existing subtask flow or stop with a live `**BLOCKER**`; do not create follow-on `Subtasks` in this step.
 - Do not add new subtasks that depend on future screenshots, logs, later manual-testing-agent outputs, or later automated-proof outputs in order to become complete.
 
 </execution_rules>

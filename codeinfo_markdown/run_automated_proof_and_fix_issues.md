@@ -91,10 +91,9 @@ Do not perform manual testing in this step.
 <fix_rules>
 
 - You may fix code, tests, config, wrappers, or task-owned proof files as needed to make the candidate task's automated proof pass honestly.
-- If automated proof reveals additional in-scope work that should be tracked explicitly, you may add:
-  - concise new unchecked implementation or proof-authoring subtasks; or
-  - concise new unchecked automated-only testing steps.
-- If you add new unchecked subtasks or testing steps to a task that was somehow already marked `__done__`, reopen that task to `__in_progress__` immediately before continuing. A task must not remain `__done__` while new unchecked work has been added to it.
+- Do not add new `Subtasks` in this step.
+- Do not add new `Testing` items in this step.
+- If automated proof reveals missing implementation work, missing proof coverage, or malformed task shape that is not already represented honestly in the checklist, stop and write a live `**BLOCKER**` note instead of reshaping the task in this step.
 - Do not invent fake proof, fake passing output, fake runtime seams, fake containers, or fake harnesses.
 
 </fix_rules>

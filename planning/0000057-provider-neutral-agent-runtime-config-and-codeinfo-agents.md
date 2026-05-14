@@ -2745,7 +2745,7 @@ The review found that flow-owned `agentType` values can currently reach filesyst
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
 
@@ -2803,6 +2803,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 - `server/src/chat/agentFlags.ts` now preserves trimmed `requestedProviderId` during conversation-flag sanitization, which also keeps the value intact for the Mongo-backed `createConversation(...)` and `updateConversationMeta(...)` paths because both repository writes already funnel through that shared sanitizer.
 - Added a test-only Mongo conversation persistence stub and used it in `server/src/test/integration/agents-run-client-conversation-id.test.ts` so the direct continuation proof now seeds a persisted Codex conversation with `flags.requestedProviderId = "copilot"` and confirms the later continuation keeps that field through the non-memory persistence path; `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` then passed cleanly (`24` passed).
 - Reused the same Mongo persistence stub in `server/src/test/integration/flows.run.resume.identity.test.ts` so the resumed child conversation keeps `flags.requestedProviderId = "copilot"` through the non-memory flow-resume write path while the parent flow state still records `agentRequestedProviders`; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` then passed cleanly (`10` passed).
+- Implementation-plus-proof audit confirmed Task 28 now has all 8 subtasks and all 3 targeted automated-proof steps honestly complete on disk with no live blocker, so the task was closed as `__done__`.
 
 ### Task 29. Revalidate review pass `0000057-20260514T044937Z-54ba77ee` serious fixes and inline minor resolutions
 

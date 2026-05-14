@@ -456,6 +456,34 @@ const ensureFlowChildConversationOwnership = async (params: {
   };
 };
 
+type FlowResumeTestDeps = {
+  ensureFlowChildConversationOwnership: typeof ensureFlowChildConversationOwnership;
+  persistFlowChildExecutionId: typeof persistFlowChildExecutionId;
+};
+
+const defaultFlowResumeTestDeps: FlowResumeTestDeps = {
+  ensureFlowChildConversationOwnership,
+  persistFlowChildExecutionId,
+};
+
+const flowResumeTestDeps: FlowResumeTestDeps = {
+  ...defaultFlowResumeTestDeps,
+};
+
+export function __setFlowResumeTestDepsForTests(
+  overrides: Partial<FlowResumeTestDeps>,
+) {
+  Object.assign(flowResumeTestDeps, overrides);
+}
+
+export function __resetFlowResumeTestDepsForTests() {
+  Object.assign(flowResumeTestDeps, defaultFlowResumeTestDeps);
+}
+
+export function __getFlowResumeTestDepsForTests(): FlowResumeTestDeps {
+  return defaultFlowResumeTestDeps;
+}
+
 const persistConversationWorkingFolder = async (params: {
   conversationId: string;
   workingFolder?: string | null;
@@ -2366,7 +2394,7 @@ const validateResumeAgentConversations = async (
   const entries = Object.entries(resumeState.agentConversations);
   for (const [key, conversationId] of entries) {
     const agentType = key.split(':')[0] ?? '';
-    const validation = await ensureFlowChildConversationOwnership({
+    const validation = await flowResumeTestDeps.ensureFlowChildConversationOwnership({
       conversationId,
       agentType,
       executionId: resumeState.executionId,
@@ -4398,7 +4426,7 @@ export async function startFlowRun(
     }
     if (resumeStepPath) {
       for (const childConversationId of childExecutionBackfills) {
-        await persistFlowChildExecutionId({
+        await flowResumeTestDeps.persistFlowChildExecutionId({
           conversationId: childConversationId,
           executionId,
         });

@@ -9,7 +9,12 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __getFlowResumeTestDepsForTests,
+  __resetFlowResumeTestDepsForTests,
+  __setFlowResumeTestDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
@@ -34,6 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetFlowResumeTestDepsForTests();
 });
 
 const writeResumeFlow = async (dir: string) => {
@@ -422,6 +428,137 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
     assert.equal(
       getFlowChildExecutionId(secondChildConversationId),
       backfilledExecutionId,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(firstChildConversationId);
+    memoryTurns.delete(firstChildConversationId);
+    memoryConversations.delete(secondChildConversationId);
+    memoryTurns.delete(secondChildConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun validates each resumed child once and only backfills missing child execution ids', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-child-cardinality-'),
+  );
+  await writeResumeDualAgentFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-conv-child-cardinality';
+  const firstChildConversationId = 'agent-resume-conv-child-cardinality-first';
+  const secondChildConversationId =
+    'agent-resume-conv-child-cardinality-second';
+  const executionId = 'resume-execution-child-cardinality';
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-dual-agent',
+    flowName: 'resume-dual-agent',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId,
+        stepPath: [],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': firstChildConversationId,
+          'coding_agent:resume-test-2': secondChildConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(firstChildConversationId, {
+    _id: firstChildConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-dual-agent (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      flowChild: {
+        executionId,
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(secondChildConversationId, {
+    _id: secondChildConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-dual-agent (resume-test-2)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {},
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const resumeDeps = __getFlowResumeTestDepsForTests();
+  const ensureCalls: string[] = [];
+  const persistCalls: string[] = [];
+  __setFlowResumeTestDepsForTests({
+    ensureFlowChildConversationOwnership: async (params) => {
+      ensureCalls.push(params.conversationId);
+      return resumeDeps.ensureFlowChildConversationOwnership(params);
+    },
+    persistFlowChildExecutionId: async (params) => {
+      persistCalls.push(params.conversationId);
+      return resumeDeps.persistFlowChildExecutionId(params);
+    },
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'resume-dual-agent',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    await waitFor(
+      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+      5000,
+    );
+
+    assert.deepEqual(ensureCalls, [
+      firstChildConversationId,
+      secondChildConversationId,
+    ]);
+    assert.deepEqual(persistCalls, [secondChildConversationId]);
+    assert.equal(getFlowChildExecutionId(firstChildConversationId), executionId);
+    assert.equal(
+      getFlowChildExecutionId(secondChildConversationId),
+      executionId,
     );
   } finally {
     memoryConversations.delete(conversationId);

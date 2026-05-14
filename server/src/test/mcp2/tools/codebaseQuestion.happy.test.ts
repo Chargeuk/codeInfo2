@@ -423,6 +423,65 @@ class ReplayBarrierChat extends ChatInterface {
   }
 }
 
+class BlockingReplayClaimChat extends ChatInterface {
+  runs = 0;
+  private waitForStartPromise: Promise<void> | null = null;
+  private resolveStarted: (() => void) | null = null;
+  private releaseCurrentRun: (() => void) | null = null;
+
+  async waitForRunStart() {
+    while (!this.waitForStartPromise) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    await this.waitForStartPromise;
+  }
+
+  releaseRun() {
+    if (!this.releaseCurrentRun) {
+      throw new Error('releaseRun called before a run started');
+    }
+    this.releaseCurrentRun();
+  }
+
+  async execute(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ): Promise<void> {
+    void flags;
+    void model;
+    this.runs += 1;
+    this.waitForStartPromise = new Promise<void>((resolve) => {
+      this.resolveStarted = resolve;
+    });
+    const shouldBlock = this.runs === 1;
+    const releasePromise = shouldBlock
+      ? new Promise<void>((resolve) => {
+          this.releaseCurrentRun = resolve;
+        })
+      : Promise.resolve();
+    if (!shouldBlock) {
+      this.releaseCurrentRun = () => {};
+    }
+
+    this.emit('thread', {
+      type: 'thread',
+      threadId: conversationId,
+    });
+    this.resolveStarted?.();
+    await releasePromise;
+    this.emit('final', {
+      type: 'final',
+      content: `Replay answer ${this.runs}: ${message}`,
+    });
+    this.emit('complete', {
+      type: 'complete',
+      threadId: conversationId,
+    });
+  }
+}
+
 async function postJson(port: number, body: unknown) {
   const payload = JSON.stringify(body);
   return await new Promise<JsonRpcHttpResponse>((resolve, reject) => {
@@ -1027,8 +1086,8 @@ test('codebase_question reuses shared provider defaults when provider copilot is
   }
 });
 
-test('codebase_question replays one stable Copilot follow-up result for the same caller-visible replayId while a different replayId stays on the fresh path', async () => {
-  const chat = new ReplayBarrierChat();
+test('codebase_question reuses one durable Copilot replay claim before completion and keeps a fresh replayId on the fresh path', async () => {
+  const chat = new BlockingReplayClaimChat();
   const deps = {
     chatFactory: () => chat,
     copilotReadinessResolver: async () => ({
@@ -1041,7 +1100,7 @@ test('codebase_question replays one stable Copilot follow-up result for the same
     }),
   };
 
-  const firstResult = await runCodebaseQuestion(
+  const firstResultPromise = runCodebaseQuestion(
     {
       question: 'first logical follow-up',
       conversationId: 'mcp-replay-happy-1',
@@ -1051,7 +1110,8 @@ test('codebase_question replays one stable Copilot follow-up result for the same
     },
     deps,
   );
-  const firstPayload = JSON.parse(firstResult.content[0].text);
+
+  await chat.waitForRunStart();
 
   const sameReplayResult = await runCodebaseQuestion(
     {
@@ -1066,7 +1126,15 @@ test('codebase_question replays one stable Copilot follow-up result for the same
   const sameReplayPayload = JSON.parse(sameReplayResult.content[0].text);
 
   assert.equal(chat.runs, 1);
-  assert.deepEqual(sameReplayPayload, firstPayload);
+  assert.equal(sameReplayPayload.conversationId, 'mcp-replay-happy-1');
+  assert.equal(sameReplayPayload.replay?.replayId, 'replay-1');
+  assert.equal(sameReplayPayload.replay?.status, 'in_progress');
+  assert.equal(sameReplayPayload.modelId, 'copilot-gpt-5');
+
+  chat.releaseRun();
+  const firstResult = await firstResultPromise;
+  const firstPayload = JSON.parse(firstResult.content[0].text);
+  assert.equal(firstPayload.replay?.status, 'completed');
 
   const freshReplayResult = await runCodebaseQuestion(
     {
@@ -1086,9 +1154,25 @@ test('codebase_question replays one stable Copilot follow-up result for the same
     freshReplayPayload.segments[0].text,
     'Replay answer 2: fresh logical follow-up',
   );
+  assert.equal(freshReplayPayload.replay?.status, 'completed');
+
+  const completedReplayResult = await runCodebaseQuestion(
+    {
+      question: 'late stale retry',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const completedReplayPayload = JSON.parse(
+    completedReplayResult.content[0].text,
+  );
+  assert.deepEqual(completedReplayPayload, firstPayload);
 });
 
-test('codebase_question keeps the same caller-visible replay result after the completed cache is cleared while incomplete persisted replay state stays on the fresh path', async () => {
+test('codebase_question keeps the same caller-visible replay result after the completed cache is cleared while incomplete persisted replay state stays reader-visible instead of rebuilding provider work', async () => {
   resetStore();
   const conversationId = 'mcp-replay-durable-1';
   const replayId = 'replay-durable-1';
@@ -1165,7 +1249,11 @@ test('codebase_question keeps the same caller-visible replay result after the co
   );
 
   assert.equal(chatCalls.length, 1);
-  assert.deepEqual(replayAfterCacheClearPayload, firstPayload);
+  assert.equal(replayAfterCacheClearPayload.conversationId, firstPayload.conversationId);
+  assert.equal(replayAfterCacheClearPayload.modelId, firstPayload.modelId);
+  assert.deepEqual(replayAfterCacheClearPayload.segments, firstPayload.segments);
+  assert.equal(replayAfterCacheClearPayload.replay?.replayId, replayId);
+  assert.equal(replayAfterCacheClearPayload.replay?.status, 'completed');
 
   const incompleteConversationId = 'mcp-replay-durable-incomplete-1';
   memoryConversations.set(incompleteConversationId, {
@@ -1203,7 +1291,7 @@ test('codebase_question keeps the same caller-visible replay result after the co
 
   const freshAfterIncompletePersistedState = await runCodebaseQuestion(
     {
-      question: 'fresh run after incomplete persisted replay state',
+      question: 'retry after incomplete persisted replay state',
       conversationId: incompleteConversationId,
       replayId: 'replay-incomplete-1',
       provider: 'copilot',
@@ -1215,11 +1303,14 @@ test('codebase_question keeps the same caller-visible replay result after the co
     freshAfterIncompletePersistedState.content[0].text,
   );
 
-  assert.equal(chatCalls.length, 2);
+  assert.equal(chatCalls.length, 1);
   assert.equal(
-    freshAfterIncompletePayload.segments[0].text,
-    'Durable replay answer from persisted assistant turn',
+    freshAfterIncompletePayload.conversationId,
+    incompleteConversationId,
   );
+  assert.equal(freshAfterIncompletePayload.replay?.replayId, 'replay-incomplete-1');
+  assert.equal(freshAfterIncompletePayload.replay?.status, 'in_progress');
+  assert.deepEqual(freshAfterIncompletePayload.segments, []);
 });
 
 test('codebase_question keeps caller conversationId stable across Codex replay windows even when provider thread ids differ', async () => {

@@ -131,6 +131,17 @@ export type CodebaseQuestionResult = {
   conversationId: string | null;
   modelId: string;
   segments: Segment[];
+  replay?:
+    | {
+        replayId: string;
+        status: 'in_progress';
+        inflightId?: string;
+      }
+    | {
+        replayId: string;
+        status: 'completed';
+        inflightId?: string;
+      };
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -149,6 +160,39 @@ function buildReplayResult(params: {
         text: params.completedReplay.assistantText ?? '',
       },
     ],
+    ...(params.completedReplay.replayId
+      ? {
+          replay: {
+            replayId: params.completedReplay.replayId,
+            status: 'completed' as const,
+            ...(params.completedReplay.inflightId
+              ? { inflightId: params.completedReplay.inflightId }
+              : {}),
+          },
+        }
+      : {}),
+  };
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
+  };
+}
+
+function buildInProgressReplayResult(params: {
+  conversationId: string;
+  replayId: string;
+  modelId: string;
+  inflightId?: string;
+}): { content: [{ type: 'text'; text: string }] } {
+  const payload: CodebaseQuestionResult = {
+    conversationId: params.conversationId,
+    modelId: params.modelId,
+    segments: [],
+    replay: {
+      replayId: params.replayId,
+      status: 'in_progress',
+      ...(params.inflightId ? { inflightId: params.inflightId } : {}),
+    },
   };
 
   return {
@@ -235,21 +279,54 @@ async function getPersistedCompletedReplayResult(params: {
     }
   }
 
-  if (!matchedAssistant) return null;
-  return buildReplayResult({
+  if (matchedAssistant) {
+    return buildReplayResult({
+      conversationId: params.conversationId,
+      completedReplay: {
+        inflightId: `persisted-${params.replayId}`,
+        replayId: params.replayId,
+        model: matchedAssistant.model,
+        source: 'MCP',
+        assistantText: matchedAssistant.content,
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: matchedAssistant.createdAt.toISOString(),
+        finalStatus: matchedAssistant.status,
+        completedAt: matchedAssistant.createdAt.toISOString(),
+      },
+    });
+  }
+
+  let matchedInProgress:
+    | {
+        model: string;
+        inflightId?: string;
+        createdAt: Date;
+      }
+    | undefined;
+  for (const turn of turns) {
+    const replay = getReplayMetadata(turn.runtime);
+    if (!replay || replay.replayId !== params.replayId || replay.completed) {
+      continue;
+    }
+    if (
+      !matchedInProgress ||
+      turn.createdAt.getTime() > matchedInProgress.createdAt.getTime()
+    ) {
+      matchedInProgress = {
+        model: turn.model,
+        ...(replay.inflightId ? { inflightId: replay.inflightId } : {}),
+        createdAt: turn.createdAt,
+      };
+    }
+  }
+
+  if (!matchedInProgress) return null;
+  return buildInProgressReplayResult({
     conversationId: params.conversationId,
-    completedReplay: {
-      inflightId: `persisted-${params.replayId}`,
-      replayId: params.replayId,
-      model: matchedAssistant.model,
-      source: 'MCP',
-      assistantText: matchedAssistant.content,
-      assistantThink: '',
-      toolEvents: [],
-      startedAt: matchedAssistant.createdAt.toISOString(),
-      finalStatus: matchedAssistant.status,
-      completedAt: matchedAssistant.createdAt.toISOString(),
-    },
+    replayId: params.replayId,
+    modelId: matchedInProgress.model,
+    inflightId: matchedInProgress.inflightId,
   });
 }
 
@@ -259,7 +336,19 @@ async function getReplayResult(params: {
 }): Promise<{ content: [{ type: 'text'; text: string }] } | null> {
   const completedReplay = getCompletedReplayResult(params);
   if (completedReplay) return completedReplay;
-  return await getPersistedCompletedReplayResult(params);
+
+  const persistedReplay = await getPersistedCompletedReplayResult(params);
+  if (persistedReplay) return persistedReplay;
+
+  if (!params.conversationId || !params.replayId) return null;
+  const inflight = getInflight(params.conversationId);
+  if (inflight?.replayId !== params.replayId) return null;
+  return buildInProgressReplayResult({
+    conversationId: params.conversationId,
+    replayId: params.replayId,
+    modelId: inflight.model ?? 'unknown',
+    inflightId: inflight.inflightId,
+  });
 }
 
 function makeActiveReplayKey(conversationId: string, replayId: string) {
@@ -268,8 +357,50 @@ function makeActiveReplayKey(conversationId: string, replayId: string) {
 
 const activeReplayRuns = new Map<
   string,
-  Promise<{ content: [{ type: 'text'; text: string }] }>
+  {
+    claimReady: Promise<void>;
+    resolveClaimReady: () => void;
+    runPromise: Promise<{ content: [{ type: 'text'; text: string }] }>;
+  }
 >();
+
+function createReplayClaimGate() {
+  let resolveClaimReady = () => {};
+  const claimReady = new Promise<void>((resolve) => {
+    resolveClaimReady = resolve;
+  });
+  return {
+    claimReady,
+    resolveClaimReady,
+  };
+}
+
+async function waitForReplayClaimVisibility(params: {
+  conversationId: string;
+  replayId: string;
+  inflightId: string;
+  timeoutMs?: number;
+}) {
+  const timeoutMs = params.timeoutMs ?? 5000;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const inflight = getInflight(params.conversationId);
+    if (
+      inflight?.inflightId === params.inflightId &&
+      inflight.replayId === params.replayId &&
+      inflight.persisted?.user
+    ) {
+      return;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  }
+
+  throw new ToolExecutionError(
+    -32002,
+    'CODEBASE_QUESTION_REPLAY_CLAIM_UNAVAILABLE',
+  );
+}
 
 const getSavedCodexThreadId = (
   conversation: Conversation | null | undefined,
@@ -479,20 +610,37 @@ export async function runCodebaseQuestion(
   if (replayKey) {
     const activeReplay = activeReplayRuns.get(replayKey);
     if (activeReplay) {
-      return await activeReplay;
+      await activeReplay.claimReady;
+      const claimedReplay = await getReplayResult({
+        conversationId: parsed.conversationId,
+        replayId,
+      });
+      if (claimedReplay) {
+        return claimedReplay;
+      }
+      return await activeReplay.runPromise;
     }
   }
 
-  const runPromise = executeCodebaseQuestion(parsed, deps);
+  const replayClaimGate = replayKey ? createReplayClaimGate() : null;
+  const runPromise = executeCodebaseQuestion(parsed, deps, {
+    onReplayClaimVisible: replayClaimGate?.resolveClaimReady,
+  });
   if (!replayKey) {
     return await runPromise;
   }
 
-  activeReplayRuns.set(replayKey, runPromise);
+  activeReplayRuns.set(replayKey, {
+    claimReady: replayClaimGate!.claimReady,
+    resolveClaimReady: replayClaimGate!.resolveClaimReady,
+    runPromise,
+  });
   try {
     return await runPromise;
   } finally {
-    if (activeReplayRuns.get(replayKey) === runPromise) {
+    const activeReplay = activeReplayRuns.get(replayKey);
+    activeReplay?.resolveClaimReady();
+    if (activeReplay?.runPromise === runPromise) {
       activeReplayRuns.delete(replayKey);
     }
   }
@@ -501,6 +649,9 @@ export async function runCodebaseQuestion(
 async function executeCodebaseQuestion(
   parsed: CodebaseQuestionParams,
   deps: Partial<CodebaseQuestionDeps>,
+  options?: {
+    onReplayClaimVisible?: () => void;
+  },
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const replayId = parsed.replayId;
   const completedReplay = await getReplayResult({
@@ -999,29 +1150,36 @@ async function executeCodebaseQuestion(
 
   try {
     try {
-      if (executionProvider === 'codex') {
-        await chat.run(
-          question,
-          {
-            provider: executionProvider,
-            threadId: getSavedCodexThreadId(mutableConversation),
-            runtimeConfig: chatRuntimeConfig,
-            codexFlags: threadOpts,
-            workingDirectoryOverride: executionContext.workingDirectoryOverride,
-            repositoryContext: executionContext.repositoryMetadata,
-            runtime: runtimeMetadata,
-            signal: getInflight(resolvedConversationId)?.abortController.signal,
-            source: 'MCP',
-          },
-          resolvedConversationId,
-          executionModel,
-        );
-      } else {
+      const runChat = async () => {
+        if (executionProvider === 'codex') {
+          await chat.run(
+            question,
+            {
+              provider: executionProvider,
+              threadId: getSavedCodexThreadId(mutableConversation),
+              runtimeConfig: chatRuntimeConfig,
+              codexFlags: threadOpts,
+              inflightId,
+              workingDirectoryOverride:
+                executionContext.workingDirectoryOverride,
+              repositoryContext: executionContext.repositoryMetadata,
+              runtime: runtimeMetadata,
+              signal:
+                getInflight(resolvedConversationId)?.abortController.signal,
+              source: 'MCP',
+            },
+            resolvedConversationId,
+            executionModel,
+          );
+          return;
+        }
+
         await chat.run(
           question,
           {
             provider: executionProvider,
             baseUrl,
+            inflightId,
             repositoryContext: executionContext.repositoryMetadata,
             runtime: runtimeMetadata,
             signal: getInflight(resolvedConversationId)?.abortController.signal,
@@ -1040,8 +1198,20 @@ async function executeCodebaseQuestion(
           resolvedConversationId,
           executionModel,
         );
+      };
+
+      const runChatPromise = runChat();
+      if (conversationId && replayId) {
+        await waitForReplayClaimVisibility({
+          conversationId: resolvedConversationId,
+          replayId,
+          inflightId,
+        });
+        options?.onReplayClaimVisible?.();
       }
+      await runChatPromise;
     } catch (error) {
+      options?.onReplayClaimVisible?.();
       if (error instanceof ToolExecutionError) throw error;
       const message =
         error instanceof Error && error.message.trim().length > 0
@@ -1107,6 +1277,13 @@ async function executeCodebaseQuestion(
   );
   payload.segments =
     answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
+  if (replayId) {
+    payload.replay = {
+      replayId,
+      status: 'completed',
+      inflightId,
+    };
+  }
 
   append({
     level: 'info',

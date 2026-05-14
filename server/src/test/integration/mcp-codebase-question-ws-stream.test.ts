@@ -462,6 +462,57 @@ class ReplayBarrierStreamingChat extends ChatInterface {
   }
 }
 
+class BlockingReplayClaimStreamingChat extends ChatInterface {
+  runs = 0;
+  private waitForStartPromise: Promise<void> | null = null;
+  private resolveStarted: (() => void) | null = null;
+  private releaseCurrentRun: (() => void) | null = null;
+
+  async waitForRunStart() {
+    while (!this.waitForStartPromise) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    await this.waitForStartPromise;
+  }
+
+  releaseRun() {
+    this.releaseCurrentRun?.();
+  }
+
+  async execute(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void flags;
+    void _model;
+    this.runs += 1;
+    this.waitForStartPromise = new Promise<void>((resolve) => {
+      this.resolveStarted = resolve;
+    });
+    const shouldBlock = this.runs === 1;
+    const releasePromise = shouldBlock
+      ? new Promise<void>((resolve) => {
+          this.releaseCurrentRun = resolve;
+        })
+      : Promise.resolve();
+    if (!shouldBlock) {
+      this.releaseCurrentRun = () => {};
+    }
+
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('analysis', { type: 'analysis', content: 'replay-check...' });
+    this.resolveStarted?.();
+    await releasePromise;
+    this.emit('final', {
+      type: 'final',
+      content: `Replay-protected answer for ${message}`,
+    });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 async function postJson(port: number, body: unknown) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
     method: 'POST',
@@ -2191,10 +2242,10 @@ test('saved Copilot and LM Studio conversations pin omitted-provider follow-up c
   }
 });
 
-test('MCP codebase_question replays one stable follow-up result before cleanup and after cleanup for the same conversation replayId', async () => {
+test('MCP codebase_question exposes one deterministic in-progress replay claimant before provider completion and replays the completed result after cleanup', async () => {
   resetStore();
 
-  const chat = new ReplayBarrierStreamingChat();
+  const chat = new BlockingReplayClaimStreamingChat();
   setToolDeps({
     chatFactory: () => chat,
     clientFactory: makeLmStudioClientFactory(),
@@ -2234,26 +2285,7 @@ test('MCP codebase_question replays one stable follow-up result before cleanup a
       },
     });
 
-    const firstFinal = await waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is { type: string; status: string } => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return e.type === 'turn_final' && e.conversationId === conversationId;
-      },
-      timeoutMs: 5000,
-    });
-    assert.equal(firstFinal.status, 'ok');
-
-    await waitForCondition(
-      () =>
-        getCompletedInflightByReplayId({ conversationId, replayId }) !== null,
-    );
+    await chat.waitForRunStart();
     assert.ok(getInflight(conversationId));
 
     const immediateReplay = await postJson(mcpAddr.port, {
@@ -2277,14 +2309,40 @@ test('MCP codebase_question replays one stable follow-up result before cleanup a
         .result.content[0].text,
     );
     assert.equal(chat.runs, 1);
-    assert.equal(
-      immediateReplayPayload.segments[0].text,
-      'Replay-protected answer for first logical follow-up',
-    );
+    assert.equal(immediateReplayPayload.conversationId, conversationId);
+    assert.equal(immediateReplayPayload.replay?.replayId, replayId);
+    assert.equal(immediateReplayPayload.replay?.status, 'in_progress');
+    assert.deepEqual(immediateReplayPayload.segments, []);
 
-    chat.allowFirstCleanup();
+    chat.releaseRun();
     const firstResponse = await firstCallPromise;
     assert.ok((firstResponse as { result?: unknown }).result);
+    const firstPayload = JSON.parse(
+      (firstResponse as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+    assert.equal(firstPayload.replay?.status, 'completed');
+
+    const firstFinal = await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is { type: string; status: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(firstFinal.status, 'ok');
+
+    await waitForCondition(
+      () =>
+        getCompletedInflightByReplayId({ conversationId, replayId }) !== null,
+    );
 
     await waitForCondition(() => getInflight(conversationId) === undefined);
 
@@ -2309,9 +2367,9 @@ test('MCP codebase_question replays one stable follow-up result before cleanup a
         .content[0].text,
     );
     assert.equal(chat.runs, 1);
-    assert.deepEqual(cleanupReplayPayload, immediateReplayPayload);
+    assert.deepEqual(cleanupReplayPayload, firstPayload);
   } finally {
-    chat.allowFirstCleanup();
+    chat.releaseRun();
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
@@ -2320,7 +2378,7 @@ test('MCP codebase_question replays one stable follow-up result before cleanup a
   }
 });
 
-test('MCP codebase_question completed replay survives a completed-cache clear while incomplete persisted replay state stays on the fresh path', async () => {
+test('MCP codebase_question completed replay survives a completed-cache clear while incomplete persisted replay state stays reader-visible instead of rebuilding websocket provider work', async () => {
   resetStore();
 
   const calls: Array<{
@@ -2431,7 +2489,11 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
       ).result.content[0].text,
     );
     assert.equal(calls.length, 1);
-    assert.deepEqual(replayAfterCacheClearPayload, firstPayload);
+    assert.equal(replayAfterCacheClearPayload.conversationId, firstPayload.conversationId);
+    assert.equal(replayAfterCacheClearPayload.modelId, firstPayload.modelId);
+    assert.deepEqual(replayAfterCacheClearPayload.segments, firstPayload.segments);
+    assert.equal(replayAfterCacheClearPayload.replay?.replayId, replayId);
+    assert.equal(replayAfterCacheClearPayload.replay?.status, 'completed');
 
     setToolDeps({
       chatFactory: () =>
@@ -2483,8 +2545,7 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
       params: {
         name: 'codebase_question',
         arguments: {
-          question:
-            'fresh websocket run after incomplete persisted replay state',
+          question: 'retry after incomplete persisted replay state',
           conversationId: incompleteConversationId,
           replayId: 'incomplete-replay-1',
           provider: 'lmstudio',
@@ -2502,11 +2563,17 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
         }
       ).result.content[0].text,
     );
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 1);
     assert.equal(
-      freshAfterIncompletePayload.segments[0].text,
-      'Durable websocket replay answer',
+      freshAfterIncompletePayload.conversationId,
+      incompleteConversationId,
     );
+    assert.equal(
+      freshAfterIncompletePayload.replay?.replayId,
+      'incomplete-replay-1',
+    );
+    assert.equal(freshAfterIncompletePayload.replay?.status, 'in_progress');
+    assert.deepEqual(freshAfterIncompletePayload.segments, []);
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

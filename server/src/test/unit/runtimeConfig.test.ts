@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import type { PathLike } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -23,9 +24,11 @@ import {
 } from '../../config/copilotConfig.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import {
+  __resetProviderBootstrapStatusForTests,
   ensureAllProviderChatConfigsBootstrapped,
   ensureChatRuntimeConfigBootstrapped,
   ensureProviderChatConfigBootstrapped,
+  getProviderBootstrapStatus,
   getProviderChatConfigPath,
   loadProviderChatDefaultsSnapshotSync,
   loadRuntimeConfigSnapshot,
@@ -59,6 +62,7 @@ const repoRoot = path.resolve(
 
 afterEach(() => {
   mock.restoreAll();
+  __resetProviderBootstrapStatusForTests();
   if (originalContext7ApiKey === undefined) {
     delete process.env.CODEINFO_CONTEXT7_API_KEY;
   } else {
@@ -2641,6 +2645,84 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       assert.match(copilotConfig, /model = "copilot-gpt-5"/u);
       assert.match(lmstudioConfig, /model = "model-1"/u);
     } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('records degraded provider bootstrap and still allows a live listener to bind afterward', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'provider-chat-degraded-'),
+    );
+    const codexHome = path.join(tempRoot, 'codex');
+    const copilotHome = path.join(tempRoot, 'copilot');
+    const lmstudioHome = path.join(tempRoot, 'lmstudio');
+    const originalWriteFile = fs.writeFile.bind(fs);
+    const warningLogs: unknown[][] = [];
+    let server: http.Server | null = null;
+
+    mock.method(console, 'warn', (...args: unknown[]) => {
+      warningLogs.push(args);
+    });
+    mock.method(
+      fs,
+      'writeFile',
+      async (...args: Parameters<typeof fs.writeFile>) => {
+        const filePath = String(args[0]);
+        if (filePath.startsWith(`${copilotHome}${path.sep}`)) {
+          const error = new Error('copilot home read-only') as
+            | Error
+            | NodeJS.ErrnoException;
+          (error as NodeJS.ErrnoException).code = 'EROFS';
+          throw error;
+        }
+        return originalWriteFile(...args);
+      },
+    );
+
+    try {
+      const snapshots = await ensureAllProviderChatConfigsBootstrapped({
+        codexHome,
+        copilotHome,
+        lmstudioHome,
+      });
+
+      assert.equal(snapshots.length, 2);
+      assert.deepEqual(
+        snapshots.map((snapshot) => snapshot.provider).sort(),
+        ['codex', 'lmstudio'],
+      );
+
+      const copilotStatus = getProviderBootstrapStatus('copilot');
+      assert.equal(copilotStatus.healthy, false);
+      assert.match(copilotStatus.reason ?? '', /copilot home read-only/u);
+      assert.match(
+        copilotStatus.warnings.join('\n'),
+        /Provider "copilot" bootstrap degraded during startup/u,
+      );
+      assert(
+        warningLogs.some((entry) =>
+          String(entry[0]).includes(
+            '[runtime-config] provider bootstrap degraded provider=copilot',
+          ),
+        ),
+      );
+
+      server = http.createServer((_req, res) => {
+        res.statusCode = 200;
+        res.end('ok');
+      });
+      await new Promise<void>((resolve) => server!.listen(0, resolve));
+      const address = server.address();
+      assert.ok(address && typeof address === 'object');
+      assert.ok(address.port > 0);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        if (!server) {
+          resolve();
+          return;
+        }
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });

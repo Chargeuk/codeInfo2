@@ -2335,7 +2335,7 @@ The flow start or resume admission path still mixes selector authority, resume i
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 
@@ -2382,6 +2382,7 @@ The repository-backed `/chat` Codex path still has three related problems at the
 - Replaced the lossy runtime-home segment sanitizer in `server/src/config/runtimeConfig.ts` with a reversible base64url conversation-id key, and added cleanup plus `RuntimeConfigResolutionError` wrapping so partial runtime homes are removed and filesystem/bootstrap failures surface as non-`RUNTIME_CONFIG_INVALID` codes.
 - Expanded `server/src/test/integration/chat-codex.test.ts` to prove repository-backed lock losers leave no runtime-home state, raw conversation ids that previously sanitized the same way now receive distinct runtime homes, and route-level filesystem materialization failures return `RUNTIME_CONFIG_UNREADABLE`.
 - Added a repository-backed runtime-home unit proof in `server/src/test/unit/runtimeConfig.test.ts`; the first `chat-codex` wrapper failed in build on a test-only `node:fs` type annotation, and after narrowing that annotation the rerun passed cleanly with `24/24` tests while the runtime-config wrapper passed cleanly with `95/95`.
+- Audit normalization closed Task 22 as `__done__` because all four subtasks, both automated testing steps, and the recorded targeted repository-backed `/chat` proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 22` reported no live blockers.
 
 ### Task 23. Make visible client execution state authoritative across selected details and resumed chat controls
 

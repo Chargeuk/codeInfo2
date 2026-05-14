@@ -241,17 +241,17 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - `structural_proof_gap`:
     - the candidate task's required proof surface cannot honestly be exercised because a prerequisite runtime, harness, startup contract, environment contract, dependency contract, or other enabling capability is unavailable;
     - in this case:
-      - perform at most one bounded recovery pass using only obvious, supported, low-complexity adjustments;
-      - if that recovery pass restores the proof surface, continue manual testing normally;
-      - if the proof surface is still unavailable after that same single recovery pass, keep the classification as `structural_proof_gap` and choose exactly one outcome:
+      - perform at most one single bounded recovery/diagnosis pass using only obvious, supported, low-complexity adjustments;
+      - if that pass restores the proof surface, continue manual testing normally;
+      - if the proof surface is still unavailable after that same single pass, keep the classification as `structural_proof_gap` and choose exactly one outcome:
         - record a real `**BLOCKER**` only when the missing capability is within the active plan/task repair scope and this workflow is expected to repair it now using supported repository workflows; or
         - use the documented skip path below when that is not true.
 - The need to inspect or start a supporting repository outside the story's declared repository list is not, by itself, a `structural_proof_gap`.
 - Classify a blocker only when the required proof path remains genuinely undiscoverable, unreadable, or unsupported after bounded investigation.
 - If `AGENTS.md` or, if it exists, `codeinfo_markdown/repository_information.md` defines a repository-specific skip condition and that condition is what currently prevents part of the manual proof, honor that repository policy. In that case, record the skipped surface honestly, do not reopen or fail the task for that reason alone, and do not add implementation work, blockers, or planner repair work for that reason alone.
-- Under `structural_proof_gap`, also allow this general structural/environmental documented skip outcome: after a bounded diagnosis pass, if the remaining proof surface is structurally or environmentally unavailable in the supported runtime, and that limitation is outside the active plan/task repair scope or cannot honestly be repaired within this step using supported repository workflows, treat the outcome as a documented skip rather than a blocker.
+- Under `structural_proof_gap`, also allow this general structural/environmental documented skip outcome: after that same single bounded recovery/diagnosis pass, if the remaining proof surface is structurally or environmentally unavailable in the supported runtime, and that limitation is outside the active plan/task repair scope or cannot honestly be repaired within this step using supported repository workflows, treat the outcome as a documented skip rather than a blocker.
 - Do not treat that documented skip as a fourth classification bucket; it is an allowed outcome under `structural_proof_gap`.
-- Do not perform a second recovery pass for that documented skip outcome; use the same single bounded recovery pass already required above for `structural_proof_gap`.
+- Do not perform a second recovery pass or a separate second diagnosis pass for that documented skip outcome; use the same single bounded recovery/diagnosis pass already required above for `structural_proof_gap`.
 - That pass may include only obvious, supported, low-complexity adjustments such as:
   - restarting the documented runtime;
   - using another repository-documented supported variant;
@@ -259,7 +259,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - refreshing a stale but repairable prerequisite;
   - or using a documented wrapper or startup path that better matches the proof surface.
 - Do not invent new harnesses, ad hoc runtime variants, unsupported mounts, or broad environment surgery.
-- Before using the general structural/environmental skip condition, the diagnosis pass must identify:
+- Before using the general structural/environmental skip condition, that same bounded recovery/diagnosis pass must identify:
   - the exact surface that could not be tested;
   - one concrete example request, route, or user action that was attempted;
   - the observed result;
@@ -331,6 +331,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If the diagnosis pass does not identify a concrete next fix honestly:
   - do not invent speculative subtasks;
   - if the situation is a `structural_proof_gap`, follow the `structural_proof_gap` decision rule above;
+  - if the situation is not a `structural_proof_gap`, treat the outcome as a real blocker on the candidate task because manual testing found a task-owned failure but bounded diagnosis still could not reduce it to an honest concrete next fix in this step;
   - only record `**BLOCKER**` and set that candidate task's `Task Status` to `__in_progress__` when that rule leads to a real blocker outcome;
   - when a real blocker is recorded, include:
     - the failing manual repro;

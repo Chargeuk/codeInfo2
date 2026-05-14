@@ -209,23 +209,23 @@ test('updateConversationFlowChildExecution persists flags.flowChild.executionId 
     configurable: true,
   });
 
-  const original = ConversationModel.findByIdAndUpdate;
+  const original = ConversationModel.findOneAndUpdate;
   const captured: Array<{
-    id: unknown;
+    filter: unknown;
     update: unknown;
     options: unknown;
   }> = [];
 
-  ConversationModel.findByIdAndUpdate = ((
-    id: unknown,
+  ConversationModel.findOneAndUpdate = ((
+    filter: unknown,
     update: unknown,
     options: unknown,
   ) => {
-    captured.push({ id, update, options });
+    captured.push({ filter, update, options });
     return { exec: async () => null } as unknown as ReturnType<
-      typeof ConversationModel.findByIdAndUpdate
+      typeof ConversationModel.findOneAndUpdate
     >;
-  }) as typeof ConversationModel.findByIdAndUpdate;
+  }) as typeof ConversationModel.findOneAndUpdate;
 
   try {
     await updateConversationFlowChildExecution({
@@ -233,7 +233,7 @@ test('updateConversationFlowChildExecution persists flags.flowChild.executionId 
       executionId: 'execution-child-1',
     });
   } finally {
-    ConversationModel.findByIdAndUpdate = original;
+    ConversationModel.findOneAndUpdate = original;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,
       configurable: true,
@@ -241,7 +241,21 @@ test('updateConversationFlowChildExecution persists flags.flowChild.executionId 
   }
 
   assert.equal(captured.length, 1);
-  assert.equal(captured[0]?.id, 'agent-1');
+  assert.deepEqual(captured[0]?.filter, {
+    _id: 'agent-1',
+    $expr: {
+      $eq: [
+        {
+          $trim: {
+            input: {
+              $ifNull: ['$flags.flowChild.executionId', ''],
+            },
+          },
+        },
+        '',
+      ],
+    },
+  });
   assert.deepEqual(captured[0]?.update, {
     $set: {
       'flags.flowChild.executionId': 'execution-child-1',

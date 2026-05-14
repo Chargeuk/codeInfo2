@@ -2650,7 +2650,7 @@ The review found that the new provider-neutral availability helper computes the 
 
 #### Likely Blocker Family
 
-- `user-visible contract seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2660,6 +2660,7 @@ The review found that the new provider-neutral availability helper computes the 
 
 - Direct agent, command, MCP, and flow start seams preserve availability-generated invalid-provider, unavailable-provider, and fallback-provider warnings all the way through the supported run-start response payloads instead of narrowing the result to config-only warnings.
 - The repaired warning shape remains coherent with the existing warning-capable run/list/detail surfaces, so the same provider-selection event can be understood without a second fetch or contradictory client interpretation.
+- `evaluateAgentAvailability(...)` remains the producer for this warning contract, and the meaningful consumers `startAgentInstruction(...)`, `runAgentCommand(...)`, `handleAgentsRpc`, and `startFlowRun(...)` each prove propagation through their default HTTP or MCP wrapper path instead of only through direct helper calls.
 - Proof explicitly covers the direct agent, command, MCP, and flow start paths in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`, and `server/src/test/unit/mcp-agents-commands-run.test.ts`, with retained case titles that say the warnings came back on the run-start response itself rather than only on a later list or detail fetch.
 
 #### Subtasks
@@ -2697,7 +2698,7 @@ The review found that flow-owned `agentType` values can currently reach filesyst
 
 #### Likely Blocker Family
 
-- `filesystem authority boundary seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2707,6 +2708,7 @@ The review found that flow-owned `agentType` values can currently reach filesyst
 
 - Flow discovery and flow execution reject traversal or otherwise unsafe `agentType` values before any `codeinfo_agents` / `codex_agents` path join is used to probe or load a command file.
 - `resolveAgentHomeForRepository(...)` and the direct fallback joins in `server/src/flows/discovery.ts` and `server/src/flows/service.ts` share one explicit allowlist or validation contract for flow-owned `agentType`.
+- The repaired guard is proven through the normal `GET /flows` discovery path and the normal flow command-step execution path, not only through a helper-only unit seam.
 - Proof explicitly covers the repaired `agentType` boundary in `server/src/test/unit/agents-discovery.test.ts`, `server/src/test/integration/flows.list.test.ts`, and `server/src/test/integration/flows.run.command.test.ts`, with retained case titles that mention `agentType` or agent-root confinement instead of only `commandName` traversal.
 
 #### Subtasks
@@ -2743,7 +2745,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 
 #### Likely Blocker Family
 
-- `replay or ownership seam`
+- `product or story seam`
 
 #### Addresses Findings
 
@@ -2754,13 +2756,14 @@ The review found that the continuation and resume seams still reconstruct durabl
 
 - Resume backfill only writes child execution ownership when the target record is still genuinely missing that ownership at write time, so a stale retry cannot overwrite a fresher child execution id that appeared after the earlier validation read.
 - Agent continuation and flow resume reconstruct requested-provider identity from the authoritative requested-provider state instead of reusing the mutable execution-provider or display-provider field from persisted conversation records.
+- Proof explicitly covers one interleaving where a fresher child execution id appears after the earlier ownership read but before the later backfill write, and one continuation or resume path where requested-provider and execution-provider intentionally differ because fallback happened earlier.
 - Proof explicitly covers the repaired backfill ordering and provider-identity reconstruction in `server/src/test/integration/flows.run.resume.backfill.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `server/src/test/integration/agents-run-client-conversation-id.test.ts`.
 
 #### Subtasks
 
 1. [ ] Patch the resume backfill write seam in `server/src/flows/service.ts` and `server/src/mongo/repo.ts` so `flags.flowChild.executionId` is written only when it is still missing at write time, using a compare-and-swap or equally explicit still-missing guard instead of an unconditional stale overwrite.
 2. [ ] Patch the direct-agent continuation seam in `server/src/agents/service.ts` and the flow-resume reconstruction seam in `server/src/flows/service.ts` so requested-provider identity is restored from authoritative requested-provider state, including `agentRequestedProviders`, rather than from the mutable execution-provider field on persisted conversations.
-3. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim resume success or execution-provider pinning, so the retained proof explicitly asserts both the write-time missing guard and the requested-versus-execution provider distinction on direct continuation and flow resume.
+3. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim resume success or execution-provider pinning, so the retained proof explicitly asserts the intervening-writer ordering case plus the requested-versus-execution provider distinction on direct continuation and flow resume.
 
 #### Testing
 
@@ -2814,7 +2817,7 @@ This review-created block stays inside the current repository's run-start warnin
 
 1. [ ] Record the server-side proof matrix for Tasks 26, 27, and 28 plus the inline-resolved minor server fixes: run-start warning propagation in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`, and `server/src/test/unit/mcp-agents-commands-run.test.ts`; flow `agentType` root confinement in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.command.test.ts`; continuation and resume identity ordering in `server/src/test/integration/flows.run.resume.backfill.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `server/src/test/integration/agents-run-client-conversation-id.test.ts`; plus the inline-resolved degraded bootstrap, malformed selector, abort-listener, malformed port, and Cucumber wording proof homes already recorded in `## Minor Review Fixes`. When any reused proof file still titles only the adjacent old behavior, rename, split, or replace that proof before counting it toward this matrix. If implementation honestly expands beyond those proof homes, add the exact new file to this task's proof-surface list and add the matching targeted wrapper step to `Testing` before broad reruns.
 2. [ ] If Tasks 26 through 28 expand into client-owned code, shared payload types that change browser-runtime behavior, or any other browser-visible surface, add the exact client or browser proof homes to this task's proof matrix and append the matching automated wrappers to `Testing` before implementation is marked complete; otherwise keep those categories explicitly out of scope for this review-created block.
-3. [ ] Record the runtime-handoff proof matrix for this close-out owner by reading `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the supported compose contract, mounted proof-agent namespaces `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, readiness checks on `http://localhost:5010/health` and `http://localhost:5001`, repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/29/`, and this task's sole-owner role for review cycle `0000057-rc-20260514T062516Z-54ba77ee` all remain explicit before the broad wrappers run.
+3. [ ] Record the runtime-handoff proof matrix for this close-out owner by reading `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the supported compose contract, the repository-owned env-file loading path through `scripts/docker-compose-with-env.sh`, mounted proof-agent namespaces `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, readiness checks on `http://localhost:5010/health` and `http://localhost:5001`, repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/29/`, and this task's sole-owner role for review cycle `0000057-rc-20260514T062516Z-54ba77ee` all remain explicit before the broad wrappers run.
 
 #### Testing
 

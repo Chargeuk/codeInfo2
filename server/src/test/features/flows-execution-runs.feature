@@ -7,7 +7,7 @@ Feature: Flow execution-scoped parent state
     When I start flow "resume-basic" with conversation id "story53-parent"
     Then the flow execution response status code is 202
     When I remember the started conversation as "firstRun"
-    And the stored flow execution id for "firstRun" is recorded as "firstExecution"
+    And I record the stored flow execution id for "firstRun" as "firstExecution"
     And the child conversation execution id for "firstRun" matches "firstExecution"
     When I start flow "resume-basic" with remembered conversation "firstRun"
     Then the flow execution response status code is 202

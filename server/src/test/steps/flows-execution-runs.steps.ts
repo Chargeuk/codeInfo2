@@ -298,7 +298,7 @@ When('I remember the started conversation as {string}', (key: string) => {
 });
 
 When(
-  'the stored flow execution id for {string} is recorded as {string}',
+  'I record the stored flow execution id for {string} as {string}',
   async (conversationKey: string, executionKey: string) => {
     const conversationId = rememberedConversationIds.get(conversationKey);
     assert(

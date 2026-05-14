@@ -2901,7 +2901,7 @@ This review-created block stays inside the current repository's run-start warnin
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 29`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Follow-up task for post-closeout PR review comments about early provider failure blocking fallback on `/chat`, direct agent runs, and flow-owned agent runs.
 

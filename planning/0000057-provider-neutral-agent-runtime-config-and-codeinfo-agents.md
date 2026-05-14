@@ -674,7 +674,7 @@ Provider authentication in this product is controlled by external systems and ma
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -2780,12 +2780,15 @@ The review found that the continuation and resume seams still reconstruct durabl
 3. [x] Prove the backfill-write proof surface in `server/src/test/integration/flows.run.resume.backfill.test.ts` against `server/src/flows/service.ts` and `server/src/mongo/repo.ts` by asserting one combined deterministic scenario: `flags.flowChild.executionId` is still blank at the earlier validation read, a fresher child execution id appears before the later write, and the stale resume retry leaves that fresher id intact instead of overwriting it. Do not rely on separate adjacent assertions for the earlier missing-only state and the later overwritten-or-not outcome; keep the ordering claim inside one retained proof sequence, and rename or split reused cases whose titles only promise generic legacy backfill behavior.
 4. [x] Prove the flow-resume requested-provider reconstruction requirement in `server/src/test/integration/flows.run.resume.identity.test.ts` against `server/src/flows/service.ts` by asserting that resumed runtime identity comes from authoritative requested-provider state, including `agentRequestedProviders`, even when requested-provider and execution-provider intentionally differ after an earlier fallback. If a reused case title still only promises resume success, provider pinning, or remaining-step identity, rename or split it so the retained title matches requested-versus-execution provider reconstruction.
 5. [x] Prove the direct-agent continuation requested-provider reconstruction requirement in `server/src/test/integration/agents-run-client-conversation-id.test.ts` against `server/src/agents/service.ts` by asserting that direct continuation restores the saved requested-provider identity instead of reusing the mutable execution-provider field from the persisted conversation. If a reused case title still only promises resumed provider/model values or generic continuation success, rename or split it so the retained title claims requested-provider reconstruction explicitly.
+6. [ ] Update `server/src/chat/agentFlags.ts` so `sanitizeConversationFlagsForProvider(...)` and `buildConversationFlags(...)` preserve persisted `requestedProviderId` alongside `workingFolder`, `flow`, `flowChild`, and Codex `threadId`, then confirm the Mongo-backed `createConversation(...)` and `updateConversationMeta(...)` paths in `server/src/mongo/repo.ts` no longer strip saved requested-provider state from direct-agent or flow-child conversations.
+7. [ ] Extend `server/src/test/integration/agents-run-client-conversation-id.test.ts` to exercise the direct continuation requested-provider assertion through the Mongo-backed persistence path by seeding a persisted `coding_agent` conversation with `flags.requestedProviderId = "copilot"` and asserting a later `/agents/:agentName/run` continuation keeps that field intact while execution stays pinned to the saved Codex provider.
+8. [ ] Extend `server/src/test/integration/flows.run.resume.identity.test.ts` to exercise the flow-child requested-provider preservation seam through the Mongo-backed persistence path by seeding a resumed child conversation with `flags.requestedProviderId = "copilot"` plus parent `agentRequestedProviders`, then asserting the later flow resume keeps the saved requested-provider field instead of losing it during conversation meta persistence.
 
 #### Testing
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root. Use this targeted wrapper because the stale backfill ordering seam already lives there.
-2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root. Use this targeted wrapper because resumed provider-identity reconstruction already lives there.
-3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` from the repository root. Use this targeted wrapper because direct continuation identity also needs the requested-provider repair.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root. Use this targeted wrapper because resumed provider-identity reconstruction already lives there.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` from the repository root. Use this targeted wrapper because direct continuation identity also needs the requested-provider repair.
 
 #### Implementation Notes
 
@@ -2795,6 +2798,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 - Added flow resume requested-versus-execution provider proof in `server/src/test/integration/flows.run.resume.identity.test.ts` and confirmed it with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` (`10` passed).
 - Added direct-agent continuation requested-provider proof in `server/src/test/integration/agents-run-client-conversation-id.test.ts` and confirmed it with `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` (`24` passed).
 - Implementation-plus-proof audit confirmed all Task 28 subtasks and targeted server-wrapper proof were already complete on disk with no live blocker, so the task was closed as `__done__` without further checklist changes.
+- Manual testing found a Mongo-backed persistence regression on the direct continuation seam: after seeding `flags.requestedProviderId = "copilot"` on conversation `task28-direct-continuation-requested-provider`, `POST /agents/coding_agent/run` returned `202` with execution still pinned to Codex, but the persisted conversation kept only `flags.threadId` and dropped `requestedProviderId`. A bounded diagnosis pass inspected `server/src/chat/agentFlags.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/mongo/repo.ts` and traced the failure to `sanitizeConversationFlagsForProvider(...)` / `buildConversationFlags(...)` stripping `requestedProviderId` on Mongo-backed conversation writes, so follow-up implementation subtasks were added and the flow-resume/direct-continuation wrapper steps were reopened because automated proof must rerun before later manual retest.
 
 ### Task 29. Revalidate review pass `0000057-20260514T044937Z-54ba77ee` serious fixes and inline minor resolutions
 

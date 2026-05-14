@@ -9,6 +9,10 @@ import request from 'supertest';
 
 import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
@@ -130,6 +134,56 @@ test('copilot chat still falls back automatically when provider resolution is om
     assert.equal(response.body.provider, 'lmstudio');
     assert.equal(memoryConversations.get(conversationId)?.provider, 'lmstudio');
   } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    await server.stop();
+  }
+});
+
+test('implicit degraded-bootstrap chat requests fall back at the route and keep warning context', async () => {
+  __setProviderBootstrapStatusForTests('copilot', {
+    healthy: false,
+    reason: 'copilot bootstrap degraded',
+    warnings: ['copilot bootstrap degraded warning'],
+  });
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-degraded-bootstrap-fallback',
+    },
+    lmstudioAvailable: true,
+  });
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  try {
+    const response = await request(server.httpServer).post('/chat').send({
+      conversationId: 'copilot-bootstrap-fallback',
+      message: 'Fallback from degraded bootstrap',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'lmstudio');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('copilot bootstrap degraded warning'),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fell back to provider "lmstudio"'),
+      ),
+      true,
+    );
+    assert.equal(
+      memoryConversations.get('copilot-bootstrap-fallback')?.provider,
+      'lmstudio',
+    );
+  } finally {
+    __resetProviderBootstrapStatusForTests();
     if (originalDefaultProvider === undefined) {
       delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
     } else {

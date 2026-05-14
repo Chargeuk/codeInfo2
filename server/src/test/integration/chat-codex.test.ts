@@ -25,6 +25,10 @@ import {
 } from '../../chat/memoryPersistence.js';
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
@@ -160,6 +164,7 @@ beforeEach(async () => {
     configPresent: false,
     reason: 'not detected',
   });
+  __resetProviderBootstrapStatusForTests();
   conversationSeq = 0;
 });
 
@@ -189,6 +194,7 @@ afterEach(async () => {
   }
 
   setWorkingFolderStatForTests(undefined);
+  __resetProviderBootstrapStatusForTests();
 });
 
 let conversationSeq = 0;
@@ -1533,6 +1539,29 @@ test('codex request returns PROVIDER_UNAVAILABLE when fallback provider has no s
   assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
+test('explicit degraded-bootstrap chat requests fail clearly without silent provider switching', async () => {
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+    warnings: ['codex bootstrap degraded warning'],
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  const response = await request(app).post('/chat').send(buildCodexBody());
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+  assert.match(String(response.body.message), /codex bootstrap degraded/i);
+});
+
 test('POST /chat persists turns without WS subscribers (run continues)', async () => {
   setCodexDetection({
     available: true,
@@ -1761,11 +1790,17 @@ test('repository-backed codex chat keeps distinct runtime homes for conversation
   assert.notEqual(firstHome, secondHome);
   assert.equal(
     firstHome,
-    buildRepositoryBackedRuntimeHome(String(tempCodexHomeForTest), firstConversationId),
+    buildRepositoryBackedRuntimeHome(
+      String(tempCodexHomeForTest),
+      firstConversationId,
+    ),
   );
   assert.equal(
     secondHome,
-    buildRepositoryBackedRuntimeHome(String(tempCodexHomeForTest), secondConversationId),
+    buildRepositoryBackedRuntimeHome(
+      String(tempCodexHomeForTest),
+      secondConversationId,
+    ),
   );
   await assert.doesNotReject(async () => {
     await fs.access(path.join(String(firstHome), 'chat', 'config.toml'));

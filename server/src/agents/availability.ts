@@ -17,7 +17,7 @@ import {
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
 
-import { resolveAgentRuntimeExecutionConfig } from './config.js';
+import { readAgentRequestedProviderMetadata } from './config.js';
 
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
 
@@ -81,7 +81,7 @@ type AvailabilityDeps = {
   ) => Promise<CopilotReadinessResult>;
   copilotRuntimeFactory?: () => CopilotReadinessRuntime;
   resolveAgentProviderFallbackOrder: typeof resolveAgentProviderFallbackOrder;
-  resolveAgentRuntimeExecutionConfig: typeof resolveAgentRuntimeExecutionConfig;
+  readAgentRequestedProviderMetadata: typeof readAgentRequestedProviderMetadata;
   lmstudioClientFactory: (baseUrl: string) => LMStudioClient;
   getLmStudioBaseUrl: () => string | undefined;
 };
@@ -91,7 +91,7 @@ const availabilityDeps: AvailabilityDeps = {
   getMcpStatus,
   resolveCopilotReadiness,
   resolveAgentProviderFallbackOrder,
-  resolveAgentRuntimeExecutionConfig,
+  readAgentRequestedProviderMetadata,
   lmstudioClientFactory: (baseUrl: string) =>
     new LMStudioClient({
       baseUrl,
@@ -245,15 +245,14 @@ export async function evaluateAgentAvailability(params: {
   context?: AvailabilityContext;
 }): Promise<AgentAvailabilitySnapshot> {
   const context = params.context ?? (await createAgentAvailabilityContext());
-  const runtimeConfig =
-    await availabilityDeps.resolveAgentRuntimeExecutionConfig({
+  const requestedMetadata =
+    await availabilityDeps.readAgentRequestedProviderMetadata({
       configPath: params.configPath,
-      entrypoint: params.entrypoint ?? 'agents.service',
     });
 
   const warnings = (params.discoveryWarnings ?? []).map(mapDiscoveryWarning);
-  const requestedProviderId = runtimeConfig.requestedProviderId;
-  for (const message of runtimeConfig.warnings) {
+  const requestedProviderId = requestedMetadata.requestedProviderId;
+  for (const message of requestedMetadata.warnings) {
     warnings.push({
       code: 'discovery_warning',
       message,
@@ -312,7 +311,7 @@ export async function evaluateAgentAvailability(params: {
   const requestedChatProvider =
     requestedProviderId && isChatProviderId(requestedProviderId)
       ? requestedProviderId
-      : runtimeConfig.providerId;
+      : requestedMetadata.providerId;
   const requestedState = context.providerStates[requestedChatProvider];
   const { candidates, executionProviderId } = resolveFallbackExecutionProvider({
     requestedProviderId: requestedChatProvider,
@@ -389,8 +388,8 @@ export function __resetAgentAvailabilityDepsForTests() {
   availabilityDeps.copilotRuntimeFactory = undefined;
   availabilityDeps.resolveAgentProviderFallbackOrder =
     resolveAgentProviderFallbackOrder;
-  availabilityDeps.resolveAgentRuntimeExecutionConfig =
-    resolveAgentRuntimeExecutionConfig;
+  availabilityDeps.readAgentRequestedProviderMetadata =
+    readAgentRequestedProviderMetadata;
   availabilityDeps.lmstudioClientFactory = (baseUrl: string) =>
     new LMStudioClient({
       baseUrl,

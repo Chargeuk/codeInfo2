@@ -984,13 +984,13 @@ test('startAgentCommand rejects invalid working_folder before provider preparati
     );
 
     assert.equal(
-      memoryConversations.has(
-        'task20-invalid-command-working-folder-ordering',
-      ),
+      memoryConversations.has('task20-invalid-command-working-folder-ordering'),
       false,
     );
   } finally {
-    memoryConversations.delete('task20-invalid-command-working-folder-ordering');
+    memoryConversations.delete(
+      'task20-invalid-command-working-folder-ordering',
+    );
     memoryTurns.delete('task20-invalid-command-working-folder-ordering');
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
@@ -2376,11 +2376,9 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    [
-      'codeinfo_provider = "bad-provider"',
-      'model = "copilot-model"',
-      '',
-    ].join('\n'),
+    ['codeinfo_provider = "bad-provider"', 'model = "copilot-model"', ''].join(
+      '\n',
+    ),
     'utf8',
   );
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
@@ -2480,6 +2478,227 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
     await fs.rm(tempAgentsHome, { recursive: true, force: true });
     await fs.rm(tempCodexHome, { recursive: true, force: true });
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('direct agent run falls back before provider runtime load when the requested provider config cannot load', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-home-'),
+  );
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'model = "copilot-gpt-5"', ''].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.CODEINFO_COPILOT_HOME = tempCopilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  const app = express();
+  app.use(
+    createAgentsRunRouter({
+      startAgentInstruction: (params) =>
+        startAgentInstruction({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    }),
+  );
+
+  try {
+    const response = await supertest(app)
+      .post('/agents/coding_agent/run')
+      .send({ instruction: 'runtime-config fallback please' })
+      .expect(202);
+
+    assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          'requested provider "copilot" because its runtime config could not load',
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fallback provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousLegacyAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('provider-independent agent config failures still fail clearly instead of silently falling back', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'approval_policy = ['].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  const app = express();
+  app.use(
+    createAgentsRunRouter({
+      startAgentInstruction: (params) =>
+        startAgentInstruction({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    }),
+  );
+
+  try {
+    const response = await supertest(app)
+      .post('/agents/coding_agent/run')
+      .send({ instruction: 'do not hide invalid config' })
+      .expect(500);
+
+    assert.notEqual(response.body.code, 'PROVIDER_UNAVAILABLE');
+  } finally {
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousLegacyAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
 });
 

@@ -116,7 +116,7 @@ import {
   loadAgentCommandSummary,
 } from './commandsLoader.js';
 import { runAgentCommandRunner } from './commandsRunner.js';
-import { resolveAgentRuntimeExecutionConfig } from './config.js';
+import { readAgentRequestedProviderMetadata } from './config.js';
 import { discoverAgents } from './discovery.js';
 import { resolveAgentHomeEnv, resolveAgentHomeForRepository } from './roots.js';
 import {
@@ -420,7 +420,8 @@ async function persistDirectAgentConversation(params: {
     threadId: params.threadId,
   });
   const savedRequestedProviderId =
-    params.requestedProviderId?.trim() || getSavedRequestedProviderId(params.existingConversation);
+    params.requestedProviderId?.trim() ||
+    getSavedRequestedProviderId(params.existingConversation);
   if (savedRequestedProviderId) {
     flags.requestedProviderId = savedRequestedProviderId;
   }
@@ -567,8 +568,9 @@ async function resolveProviderRuntimeConfig(params: {
   };
 }
 
-async function resolveDirectAgentRuntimeExecution(params: {
+async function resolveProviderRuntimeConfigForExecution(params: {
   configPath: string;
+  providerId: ChatProviderId;
   source: 'REST' | 'MCP';
   surface:
     | 'agents.run'
@@ -577,21 +579,27 @@ async function resolveDirectAgentRuntimeExecution(params: {
     | 'flows.run';
 }) {
   try {
-    const resolved = await resolveAgentRuntimeExecutionConfig({
-      configPath: params.configPath,
-      entrypoint: 'agents.service',
+    const resolved = await resolveProviderRuntimeConfig({
+      agentConfigPath: params.configPath,
+      providerId: params.providerId,
     });
     if (params.source === 'REST') {
       console.info(T06_SUCCESS_LOG, {
         surface: params.surface,
         source: params.source,
-        hasModel: Boolean(resolved.modelId),
+        providerId: params.providerId,
+        hasModel:
+          typeof (resolved.config as Record<string, unknown>)?.model ===
+          'string',
       });
     } else {
       console.info(T07_SUCCESS_LOG, {
         surface: params.surface,
         source: params.source,
-        hasModel: Boolean(resolved.modelId),
+        providerId: params.providerId,
+        hasModel:
+          typeof (resolved.config as Record<string, unknown>)?.model ===
+          'string',
       });
     }
     return resolved;
@@ -669,11 +677,27 @@ async function prepareDirectAgentExecution(params: {
   pinnedRequestedProviderId?: string;
   allowFallback: boolean;
 }): Promise<DirectAgentPreparedExecution> {
-  const requestedRuntime = await resolveDirectAgentRuntimeExecution({
-    configPath: params.configPath,
-    source: params.source,
-    surface: params.surface,
-  });
+  let requestedMetadata;
+  try {
+    requestedMetadata = await readAgentRequestedProviderMetadata({
+      configPath: params.configPath,
+    });
+  } catch (error) {
+    const code =
+      error instanceof RuntimeConfigResolutionError
+        ? error.code
+        : 'UNKNOWN_ERROR';
+    if (params.source === 'REST') {
+      console.error(
+        `${T06_ERROR_LOG} surface=${params.surface} source=${params.source} code=${code}`,
+      );
+    } else {
+      console.error(
+        `${T07_ERROR_LOG} surface=${params.surface} source=${params.source} code=${code}`,
+      );
+    }
+    throw error;
+  }
   const availabilityContext =
     await agentServiceDeps.createAgentAvailabilityContext();
   const availability = await agentServiceDeps.evaluateAgentAvailability({
@@ -715,9 +739,11 @@ async function prepareDirectAgentExecution(params: {
         params.pinnedModelId ?? providerState.models[0] ?? 'unknown-model',
       runtimeConfig: cloneRuntimeConfigWithModel(
         (
-          await resolveProviderRuntimeConfig({
-            agentConfigPath: params.configPath,
+          await resolveProviderRuntimeConfigForExecution({
+            configPath: params.configPath,
             providerId: params.pinnedProviderId,
+            source: params.source,
+            surface: params.surface,
           })
         ).config,
         params.pinnedModelId ?? providerState.models[0] ?? 'unknown-model',
@@ -732,7 +758,7 @@ async function prepareDirectAgentExecution(params: {
   }
 
   const requestedProviderId =
-    requestedRuntime.requestedProviderId ?? availability.requestedProviderId;
+    requestedMetadata.requestedProviderId ?? availability.requestedProviderId;
   const fallbackOrder =
     agentServiceDeps.resolveAgentProviderFallbackOrder().normalizedProviders;
   const configuredRequestedProvider =
@@ -750,6 +776,10 @@ async function prepareDirectAgentExecution(params: {
     configuredRequestedProvider,
     ...(params.allowFallback ? filteredFallbackOrder : []),
   ];
+  const runtimeWarnings = [...requestedMetadata.warnings];
+  let lastRuntimeConfigFailure:
+    | { providerId: ChatProviderId; message: string }
+    | undefined;
 
   let invalidProviderReason: string | undefined;
   if (requestedProviderId && !isChatProviderId(requestedProviderId)) {
@@ -761,22 +791,33 @@ async function prepareDirectAgentExecution(params: {
   for (const providerId of executionOrder) {
     const providerState = providerStates[providerId];
     if (!providerState?.available) continue;
-    const providerRuntimeResolution =
-      providerId === requestedRuntime.providerId
-        ? {
-            config: requestedRuntime.runtimeConfig as CodexOptions['config'],
-            warnings: requestedRuntime.warnings,
-          }
-        : await resolveProviderRuntimeConfig({
-            agentConfigPath: params.configPath,
-            providerId,
-          });
-    const requestedModel =
-      providerId === requestedRuntime.providerId
-        ? requestedRuntime.modelId
-        : normalizeModel(
-            (providerRuntimeResolution.config as Record<string, unknown>)?.model,
-          );
+    let providerRuntimeResolution:
+      | { config: CodexOptions['config']; warnings: string[] }
+      | undefined;
+    try {
+      providerRuntimeResolution =
+        await resolveProviderRuntimeConfigForExecution({
+          configPath: params.configPath,
+          providerId,
+          source: params.source,
+          surface: params.surface,
+        });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error ?? 'unknown error');
+      runtimeWarnings.push(
+        providerId === configuredRequestedProvider
+          ? `Agent could not execute on requested provider "${providerId}" because its runtime config could not load: ${message}`
+          : `Fallback provider "${providerId}" was skipped because its runtime config could not load: ${message}`,
+      );
+      lastRuntimeConfigFailure = { providerId, message };
+      continue;
+    }
+    const requestedModel = normalizeModel(
+      (providerRuntimeResolution.config as Record<string, unknown>)?.model,
+    );
     const modelId = resolveProviderModelForExecution({
       providerId,
       requestedModel,
@@ -793,6 +834,12 @@ async function prepareDirectAgentExecution(params: {
       ),
       warnings: mergeWarningMessages(
         toAgentLaunchWarnings(availability),
+        runtimeWarnings,
+        providerId !== configuredRequestedProvider
+          ? [
+              `Agent will use fallback provider "${providerId}" because "${configuredRequestedProvider}" could not execute.`,
+            ]
+          : undefined,
         providerRuntimeResolution.warnings,
       ),
       availability,
@@ -810,9 +857,11 @@ async function prepareDirectAgentExecution(params: {
   const requestedState = providerStates[configuredRequestedProvider];
   throw toRunAgentError(
     'PROVIDER_UNAVAILABLE',
-    requestedState?.reason
-      ? `Provider "${configuredRequestedProvider}" is unavailable: ${requestedState.reason}.`
-      : `Provider "${configuredRequestedProvider}" is unavailable.`,
+    lastRuntimeConfigFailure?.providerId === configuredRequestedProvider
+      ? `Provider "${configuredRequestedProvider}" could not execute because its runtime config could not load: ${lastRuntimeConfigFailure.message}`
+      : requestedState?.reason
+        ? `Provider "${configuredRequestedProvider}" is unavailable: ${requestedState.reason}.`
+        : `Provider "${configuredRequestedProvider}" is unavailable.`,
   );
 }
 
@@ -2081,10 +2130,7 @@ export async function runAgentCommand(params: {
   if (!parsed.ok) {
     throw toRunAgentError('COMMAND_INVALID');
   }
-  validateDirectCommandStartStepOrThrow(
-    startStep,
-    parsed.command.items.length,
-  );
+  validateDirectCommandStartStepOrThrow(startStep, parsed.command.items.length);
 
   const { initialModelId, warnings } = await prepareDirectCommandBootstrap({
     agentName: params.agentName,
@@ -2260,7 +2306,8 @@ export async function runAgentInstructionUnlocked(params: {
       surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
       pinnedProviderId: existingConversation?.provider,
       pinnedModelId: existingConversation?.model,
-      pinnedRequestedProviderId: getSavedRequestedProviderId(existingConversation),
+      pinnedRequestedProviderId:
+        getSavedRequestedProviderId(existingConversation),
       allowFallback: !existingConversation,
     });
     const executionProviderId = preparedExecution.executionProviderId;

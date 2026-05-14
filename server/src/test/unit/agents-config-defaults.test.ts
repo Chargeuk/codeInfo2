@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
 
-import { resolveAgentRuntimeExecutionConfig } from '../../agents/config.js';
+import {
+  readAgentRequestedProviderMetadata,
+  resolveAgentRuntimeExecutionConfig,
+} from '../../agents/config.js';
 import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
@@ -203,6 +206,64 @@ describe('Agent config defaults', () => {
 
     assert.equal(resolved.providerId, 'codex');
     assert.equal(resolved.requestedProviderId, 'not-a-provider');
+  });
+
+  it('extracts unsupported codeinfo_provider metadata without resolving provider runtime config', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = "not-a-provider"\n',
+      'utf8',
+    );
+
+    const metadata = await readAgentRequestedProviderMetadata({ configPath });
+
+    assert.equal(metadata.providerId, 'codex');
+    assert.equal(metadata.requestedProviderId, 'not-a-provider');
+    assert.deepEqual(metadata.warnings, []);
+  });
+
+  it('fails immediately when agent config metadata cannot be parsed as TOML', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(configPath, 'approval_policy = [\n', 'utf8');
+
+    await assert.rejects(() =>
+      readAgentRequestedProviderMetadata({
+        configPath,
+      }),
+    );
+  });
+
+  it('reads valid requested-provider metadata without requiring provider config homes to exist', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'codeinfo_provider = "copilot"\nmodel = "copilot-gpt-5"\n',
+      'utf8',
+    );
+
+    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+    const previousLmStudioHome = process.env.CODEINFO_LMSTUDIO_HOME;
+    delete process.env.CODEINFO_CODEX_HOME;
+    delete process.env.CODEINFO_COPILOT_HOME;
+    delete process.env.CODEINFO_LMSTUDIO_HOME;
+
+    try {
+      const metadata = await readAgentRequestedProviderMetadata({ configPath });
+      assert.equal(metadata.providerId, 'copilot');
+      assert.equal(metadata.requestedProviderId, 'copilot');
+    } finally {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+      process.env.CODEINFO_LMSTUDIO_HOME = previousLmStudioHome;
+    }
   });
 
   it('emits deterministic T05 success log when runtime execution config resolves', async () => {
@@ -690,9 +751,7 @@ describe('Agent config defaults', () => {
             capturedFlags.push(flags);
           }),
       });
-      await waitFor(
-        () => (memoryTurns.get(conversationId)?.length ?? 0) >= 2,
-      );
+      await waitFor(() => (memoryTurns.get(conversationId)?.length ?? 0) >= 2);
 
       await startAgentInstruction({
         agentName: 'coding_agent',

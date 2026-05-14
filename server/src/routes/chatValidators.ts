@@ -64,9 +64,15 @@ export type ValidatedChatRequest = {
 };
 
 export class ChatValidationError extends Error {
-  constructor(message: string) {
+  readonly code: 'VALIDATION_FAILED' | 'PROVIDER_UNAVAILABLE';
+
+  constructor(
+    message: string,
+    code: 'VALIDATION_FAILED' | 'PROVIDER_UNAVAILABLE' = 'VALIDATION_FAILED',
+  ) {
     super(message);
     this.name = 'ChatValidationError';
+    this.code = code;
   }
 }
 
@@ -415,10 +421,11 @@ export async function validateChatRequest(
   if (bootstrapStatus.warnings.length > 0) {
     warnings.push(...bootstrapStatus.warnings);
   }
-  if (!bootstrapStatus.healthy) {
+  if (!bootstrapStatus.healthy && requestedProvider !== undefined) {
     throw new ChatValidationError(
       bootstrapStatus.reason ??
         `Provider "${provider}" is unavailable because startup bootstrap degraded.`,
+      'PROVIDER_UNAVAILABLE',
     );
   }
   const modelSource =

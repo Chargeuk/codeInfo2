@@ -44,6 +44,7 @@ import {
 } from '../config/chatDefaults.js';
 import {
   RuntimeConfigResolutionError,
+  getProviderBootstrapStatus,
   materializeRepositoryBackedCodexChatHome,
   resolveChatRuntimeConfig,
 } from '../config/runtimeConfig.js';
@@ -126,6 +127,41 @@ const isChatModel = (model: { type?: string; architecture?: string }) => {
   return kind !== 'embedding' && kind !== 'vector';
 };
 
+const mergeWarningMessages = (...groups: Array<string[] | undefined>) =>
+  Array.from(
+    new Set(
+      groups.flatMap((group) =>
+        (group ?? []).filter(
+          (warning): warning is string =>
+            typeof warning === 'string' && warning.trim().length > 0,
+        ),
+      ),
+    ),
+  );
+
+const applyBootstrapStatusToRuntimeProviderState = <
+  T extends {
+    available: boolean;
+    reason?: string;
+    models: string[];
+  },
+>(
+  provider: ChatDefaultProvider,
+  state: T,
+): T => {
+  const bootstrapStatus = getProviderBootstrapStatus(provider);
+  if (bootstrapStatus.healthy) {
+    return state;
+  }
+  return {
+    ...state,
+    available: false,
+    reason:
+      bootstrapStatus.reason ??
+      `Provider "${provider}" is unavailable because startup bootstrap degraded.`,
+  };
+};
+
 function buildCompletedReplayResponse(params: {
   conversationId: string;
   inflightId: string;
@@ -196,6 +232,13 @@ export function createChatRouter({
       });
     } catch (err) {
       if (err instanceof ChatValidationError) {
+        if (err.code === 'PROVIDER_UNAVAILABLE') {
+          return res.status(503).json({
+            status: 'error',
+            code: 'PROVIDER_UNAVAILABLE',
+            message: err.message,
+          });
+        }
         return res.status(400).json({
           status: 'error',
           code: 'VALIDATION_FAILED',
@@ -328,11 +371,11 @@ export function createChatRouter({
     const codexCapabilities = await codexCapabilityResolver({
       consumer: 'chat_validation',
     });
-    const codexState = {
+    const codexState = applyBootstrapStatusToRuntimeProviderState('codex', {
       available: codexDetection.available,
       models: codexCapabilities.models.map((entry) => entry.model),
       reason: codexDetection.reason ?? 'codex unavailable',
-    };
+    });
     const mcp = await getMcpStatus();
 
     let lmstudioState = buildUnavailableRuntimeProviderState(
@@ -372,6 +415,10 @@ export function createChatRouter({
         }
       }
     }
+    lmstudioState = applyBootstrapStatusToRuntimeProviderState(
+      'lmstudio',
+      lmstudioState,
+    );
     const copilotReadiness =
       !explicitProviderSelected || effectiveRequestedProvider === 'copilot'
         ? await resolveCopilotReadiness({
@@ -397,17 +444,26 @@ export function createChatRouter({
             requestedModelSource: defaultsResolution.modelSource,
           })
         : effectiveRequestedModel;
+    const copilotState = applyBootstrapStatusToRuntimeProviderState('copilot', {
+      available: copilotReadiness.available,
+      models: copilotReadiness.models,
+      reason: copilotReadiness.reason,
+    });
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: effectiveRequestedProvider,
       requestedModel: normalizedRequestedModel,
       codex: codexState,
-      copilot: {
-        available: copilotReadiness.available,
-        models: copilotReadiness.models,
-        reason: copilotReadiness.reason,
-      },
+      copilot: copilotState,
       lmstudio: lmstudioState,
     });
+    const responseWarnings = mergeWarningMessages(
+      warnings,
+      runtimeSelection.decision === 'fallback'
+        ? [
+            `Request fell back to provider "${runtimeSelection.executionProvider}" because "${runtimeSelection.requestedProvider}" could not execute${runtimeSelection.requestedReason ? `: ${runtimeSelection.requestedReason}` : '.'}`,
+          ]
+        : undefined,
+    );
 
     const executionProvider = runtimeSelection.executionProvider;
     const executionModel = runtimeSelection.executionModel;
@@ -434,7 +490,7 @@ export function createChatRouter({
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat',
       provider: executionProvider,
-      warningCount: warnings.length,
+      warningCount: responseWarnings.length,
       defaultsResolution,
     });
     let chatRuntimeConfig: CodexOptions['config'];
@@ -663,7 +719,7 @@ export function createChatRouter({
             .lean()
             .exec()) as Turn[]);
 
-    warnings.forEach((warning) => {
+    responseWarnings.forEach((warning) => {
       append({
         level: 'warn',
         message: 'chat validation warning',
@@ -949,6 +1005,7 @@ export function createChatRouter({
       inflightId,
       provider: executionProvider,
       model: executionModel,
+      warnings: responseWarnings,
     });
 
     void (async () => {

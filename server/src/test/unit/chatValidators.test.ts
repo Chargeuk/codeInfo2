@@ -6,6 +6,11 @@ import test, { afterEach, beforeEach } from 'node:test';
 
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
+import {
+  ChatValidationError,
   modelReasoningEfforts,
   validateChatRequest,
 } from '../../routes/chatValidators.js';
@@ -60,6 +65,7 @@ beforeEach(() => {
     originalEnv.set(key, process.env[key]);
     delete process.env[key];
   });
+  __resetProviderBootstrapStatusForTests();
 });
 
 afterEach(async () => {
@@ -76,6 +82,7 @@ afterEach(async () => {
       .splice(0)
       .map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
+  __resetProviderBootstrapStatusForTests();
 });
 
 test('resolver defaults apply when agentFlags are omitted', async () => {
@@ -159,6 +166,53 @@ test('omitted codex provider and model resolve through the chat-config-aware def
   assert.equal(result.model, 'config-model');
   assert.equal(result.defaultsResolution.providerSource, 'fallback');
   assert.equal(result.defaultsResolution.modelSource, 'config');
+});
+
+test('implicit degraded-bootstrap provider requests keep validated output and warnings for route-level fallback', async () => {
+  __setProviderBootstrapStatusForTests('copilot', {
+    healthy: false,
+    reason: 'copilot bootstrap degraded',
+    warnings: ['copilot bootstrap degraded warning'],
+  });
+  setEnv({
+    CODEINFO_CHAT_DEFAULT_PROVIDER: 'copilot',
+  });
+
+  const result = await validateChatRequest({
+    message: 'hello',
+    conversationId: 'degraded-bootstrap-implicit',
+  });
+
+  assert.equal(result.provider, 'copilot');
+  assert.equal(result.defaultsResolution.providerSource, 'env');
+  assert.equal(
+    result.warnings.includes('copilot bootstrap degraded warning'),
+    true,
+  );
+});
+
+test('explicit degraded-bootstrap provider requests fail with provider-unavailable validation code', async () => {
+  __setProviderBootstrapStatusForTests('copilot', {
+    healthy: false,
+    reason: 'copilot bootstrap degraded',
+    warnings: ['copilot bootstrap degraded warning'],
+  });
+
+  await assert.rejects(
+    () =>
+      validateChatRequest({
+        provider: 'copilot',
+        model: 'copilot-gpt-5',
+        message: 'hello',
+        conversationId: 'degraded-bootstrap-explicit',
+      }),
+    (error: unknown) => {
+      assert(error instanceof ChatValidationError);
+      assert.equal(error.code, 'PROVIDER_UNAVAILABLE');
+      assert.match(error.message, /copilot bootstrap degraded/i);
+      return true;
+    },
+  );
 });
 
 test('chat validation marker emits the shared warning_count and warnings fields alongside normalized model-source details', async () => {

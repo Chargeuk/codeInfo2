@@ -160,6 +160,31 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
   }
 });
 
+test('POST /flows/:flowName/run rejects resumeStepPath without conversationId before startFlowRun begins', async () => {
+  let startCalls = 0;
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: async () => {
+        startCalls += 1;
+        throw new Error('startFlowRun should not be reached');
+      },
+    }),
+  );
+
+  const res = await supertest(app)
+    .post('/flows/llm-basic/run')
+    .send({ resumeStepPath: [0] });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'invalid_request');
+  assert.equal(
+    res.body.message,
+    'resumeStepPath requires an existing conversationId',
+  );
+  assert.equal(startCalls, 0);
+});
+
 test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {
   const app = express();
   app.use(

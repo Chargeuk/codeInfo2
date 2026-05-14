@@ -83,6 +83,9 @@ const validateBody = (
   const resumeStepPath = Array.isArray(rawResumeStepPath)
     ? rawResumeStepPath
     : undefined;
+  if (resumeStepPath && !conversationId) {
+    throw new Error('resumeStepPath requires an existing conversationId');
+  }
 
   const rawCustomTitle = candidate.customTitle;
   if (rawCustomTitle !== undefined && rawCustomTitle !== null) {

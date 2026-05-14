@@ -259,6 +259,34 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
   }
 });
 
+test('startFlowRun rejects resumeStepPath without conversationId before repository discovery begins', async () => {
+  let repoListCalls = 0;
+
+  await assert.rejects(
+    () =>
+      startFlowRun({
+        flowName: 'resume-basic',
+        resumeStepPath: [0],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+        listIngestedRepositories: async () => {
+          repoListCalls += 1;
+          return { repos: [], lockedModelId: null };
+        },
+      }),
+    (error: unknown) => {
+      assert.equal((error as { code?: string }).code, 'INVALID_REQUEST');
+      assert.equal(
+        (error as { reason?: string }).reason,
+        'resumeStepPath requires an existing conversationId',
+      );
+      return true;
+    },
+  );
+
+  assert.equal(repoListCalls, 0);
+});
+
 test('startFlowRun keeps resumed child execution pinned to the saved provider and model', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

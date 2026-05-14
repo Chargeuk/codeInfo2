@@ -4225,6 +4225,12 @@ export async function startFlowRun(
   const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
+  if (resumeStepPath && !requestedConversationId) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      'resumeStepPath requires an existing conversationId',
+    );
+  }
   const listRepos = params.listIngestedRepositories ?? listIngestedRepositories;
   let existingConversation = requestedConversationId
     ? await getConversation(requestedConversationId)
@@ -4296,12 +4302,6 @@ export async function startFlowRun(
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
     }
 
-    if (resumeStepPath && !requestedConversationId) {
-      throw toFlowRunError(
-        'INVALID_REQUEST',
-        'resumeStepPath requires an existing conversationId',
-      );
-    }
     existingConversation =
       conversationId === requestedConversationId ? existingConversation : null;
     if (existingConversation?.archivedAt) {

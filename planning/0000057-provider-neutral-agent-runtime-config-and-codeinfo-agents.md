@@ -2804,7 +2804,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 26, Task 27, Task 28`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260514T062516Z-54ba77ee`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
 
@@ -2881,6 +2881,7 @@ This review-created block stays inside the current repository's run-start warnin
 - `npm run compose:down` completed cleanly after the smoke start, so the checked-in main stack also shuts down on the normal supported path.
 - `npm run lint` initially failed on one import-order warning in `server/src/test/integration/agents-run-client-conversation-id.test.ts`; reordering the `createAgentsRunRouter` and `createCodexDeviceAuthRouter` imports kept the repair bounded to proof-home hygiene, and the rerun then passed cleanly.
 - `npm run format:check` passed cleanly after the lint repair, so the proof-home updates and final close-out notes did not leave formatting drift.
+- Implementation-plus-proof audit confirmed all Task 29 subtasks and broad automated revalidation steps were already complete on disk with no live blocker, so the final review-cycle revalidation task was closed as `__done__` without further checklist changes.
 
 #### Manual Testing Guidance
 

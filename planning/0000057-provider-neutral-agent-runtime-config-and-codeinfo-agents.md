@@ -2691,7 +2691,7 @@ The review found that the new provider-neutral availability helper computes the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
 
@@ -2738,6 +2738,7 @@ The review found that flow-owned `agentType` values can currently reach filesyst
 - Added helper-level proof in `server/src/test/unit/agents-discovery.test.ts` and confirmed it with `npm run test:summary:server:unit -- --file server/src/test/unit/agents-discovery.test.ts` (`14` passed).
 - Added `GET /flows` discovery proof in `server/src/test/integration/flows.list.test.ts`; the first run still surfaced the older missing-agent wording, so `collectFlowAvailability(...)` now applies the same shared `agentType` guard before generic missing-agent handling and the rerun passed (`19` passed).
 - Added runtime route proof in `server/src/test/integration/flows.run.command.test.ts` and confirmed `POST /flows/:flowName/run` now rejects unsafe flow-owned `agentType` values before runtime fallback joins can probe repository-backed agent roots (`47` passed).
+- Implementation-plus-proof audit confirmed all Task 27 subtasks and targeted server-wrapper proof were already complete on disk with no live blocker, so the task was closed as `__done__` without further checklist changes.
 
 ### Task 28. Make continuation and resume state reconstruction authoritative before identity backfills
 

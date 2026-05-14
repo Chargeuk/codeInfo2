@@ -2745,7 +2745,7 @@ The review found that flow-owned `agentType` values can currently reach filesyst
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
 
@@ -2794,6 +2794,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 - Persisted saved requested-provider identity on direct-agent and flow child conversations, and flow resume now reloads that requested-provider state instead of inferring it back from the child execution provider.
 - Added flow resume requested-versus-execution provider proof in `server/src/test/integration/flows.run.resume.identity.test.ts` and confirmed it with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` (`10` passed).
 - Added direct-agent continuation requested-provider proof in `server/src/test/integration/agents-run-client-conversation-id.test.ts` and confirmed it with `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` (`24` passed).
+- Implementation-plus-proof audit confirmed all Task 28 subtasks and targeted server-wrapper proof were already complete on disk with no live blocker, so the task was closed as `__done__` without further checklist changes.
 
 ### Task 29. Revalidate review pass `0000057-20260514T044937Z-54ba77ee` serious fixes and inline minor resolutions
 

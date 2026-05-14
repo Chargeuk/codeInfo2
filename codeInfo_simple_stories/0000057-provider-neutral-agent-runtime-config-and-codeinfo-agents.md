@@ -115,3 +115,19 @@ This story finishes the shift from a Codex-shaped runtime to a provider-neutral 
 25. [codeInfo2] - Revalidate review pass `0000057-20260513T150955Z-67ee8439` serious fixes and inline minor resolutions
 
 - Own the final broad regression rerun for the latest review-created findings block and its inline minor fixes through server, client, browser, and compose-backed proof.
+
+26. [codeInfo2] - Preserve run-start availability diagnostics across agent, command, and flow launches
+
+- Keep provider fallback and invalid-provider warnings visible on direct agent, command, MCP, and flow run-start responses.
+
+27. [codeInfo2] - Constrain repository-backed flow `agentType` resolution to the intended agent roots
+
+- Reject unsafe flow-owned `agentType` values before repository-backed discovery or execution can escape the intended agent folders.
+
+28. [codeInfo2] - Make continuation and resume state reconstruction authoritative before identity backfills
+
+- Stop stale resume backfills from overwriting fresher child execution ownership and keep resumed provider identity pinned to the saved requested-provider state.
+
+29. [codeInfo2] - Revalidate review pass `0000057-20260514T044937Z-54ba77ee` serious fixes and inline minor resolutions
+
+- Own the latest broad review-cycle rerun across server, client, browser, compose, lint, and format proof for the new review-created findings block.

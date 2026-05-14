@@ -2636,7 +2636,7 @@ This review-created block stays inside the current repository's runtime-config, 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
 

@@ -2389,7 +2389,7 @@ The repository-backed `/chat` Codex path still has three related problems at the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 
@@ -2440,6 +2440,7 @@ The client still lets stale or contradictory UI state outrank the real execution
 - `npm run test:summary:client -- --file client/src/test/chatPage.resumeIdentity.test.tsx` initially failed because the new proof asserted a native disabled attribute on MUI select displays; after switching the proof to the rendered `aria-disabled="true"` contract, the rerun passed with 1 test.
 - `npm run test:summary:client -- --file client/src/test/chatPage.provider.conversationSelection.test.tsx` initially failed because two retained proofs still tried to change provider while a resumed conversation was selected; after moving those flows onto the explicit New conversation reset path, the rerun passed with 7 tests.
 - `npm run test:summary:client -- --file client/src/test/chatPage.newConversation.test.tsx` passed with 5 tests, confirming that the explicit reset path clears the restored selector lock before fresh provider or model changes submit.
+- Audit normalization closed Task 23 as `__done__` because all four subtasks, all five automated testing steps, and the recorded client proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 23` reported no live blockers.
 
 ### Task 24. Make `codebase_question` replay claims durable before provider work begins
 

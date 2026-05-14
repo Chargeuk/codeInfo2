@@ -2389,7 +2389,7 @@ The repository-backed `/chat` Codex path still has three related problems at the
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 

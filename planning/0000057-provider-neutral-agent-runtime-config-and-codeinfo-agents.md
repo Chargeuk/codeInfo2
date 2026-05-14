@@ -2500,7 +2500,7 @@ The current replay seam still relies on process-local or completed-state checks 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 19, Task 20, Task 21, Task 22, Task 23, Task 24`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260513T174514Z-67ee8439`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
 

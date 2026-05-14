@@ -29,6 +29,7 @@ import {
   getProviderChatConfigPath,
   loadProviderChatDefaultsSnapshotSync,
   loadRuntimeConfigSnapshot,
+  materializeRepositoryBackedCodexChatHome,
   mergeRuntimeConfigLayers,
   mergeProjectsFromBaseIntoRuntime,
   mergeRuntimeConfigWithBaseConfig,
@@ -2002,6 +2003,72 @@ describe('runtimeConfig deterministic resolver failures', () => {
           );
         },
       );
+    } finally {
+      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('classifies repository-backed chat runtime-home filesystem failures as unreadable and removes partial runtime-home state', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const authPath = path.join(codexHome, 'auth.json');
+    const originalWriteFile = fs.writeFile.bind(fs);
+    const runtimesRoot = path.join(codexHome, '.codeinfo-chat-runtimes');
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(baseConfigPath, '', 'utf8');
+      await fs.writeFile(chatConfigPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+      await fs.writeFile(authPath, '{}', 'utf8');
+
+      mock.method(
+        fs,
+        'writeFile',
+        async (
+          filePath: PathLike,
+          data: string | NodeJS.ArrayBufferView,
+          options?: BufferEncoding | Record<string, unknown>,
+        ) => {
+          const target = String(filePath);
+          if (
+            target.includes(`${path.sep}.codeinfo-chat-runtimes${path.sep}`) &&
+            target.endsWith(`${path.sep}chat${path.sep}config.toml`)
+          ) {
+            const error = new Error(
+              'permission denied',
+            ) as NodeJS.ErrnoException;
+            error.code = 'EACCES';
+            throw error;
+          }
+          return originalWriteFile(
+            filePath,
+            data,
+            options as Parameters<typeof fs.writeFile>[2],
+          );
+        },
+      );
+
+      await assert.rejects(
+        async () =>
+          materializeRepositoryBackedCodexChatHome({
+            conversationId: 'conv:repo-backed',
+            codexHome,
+            overrides: { model: 'gpt-5.3-codex' },
+          }),
+        (error) => {
+          const typed = error as RuntimeConfigResolutionError;
+          return (
+            typed?.code === 'RUNTIME_CONFIG_UNREADABLE' &&
+            typed?.surface === 'chat' &&
+            /repository-backed chat runtime home/u.test(typed?.message ?? '')
+          );
+        },
+      );
+
+      const runtimeEntries = await fs.readdir(runtimesRoot).catch(() => []);
+      assert.deepEqual(runtimeEntries, []);
     } finally {
       mock.restoreAll();
       await fs.rm(codexHome, { recursive: true, force: true });

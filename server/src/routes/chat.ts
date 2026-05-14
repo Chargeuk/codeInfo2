@@ -547,58 +547,6 @@ export function createChatRouter({
       executionProvider === 'codex' &&
       executionContext.repositoryMetadata.workingRepositoryAvailable;
     let repositoryBackedCodexHome: string | undefined;
-    if (repositoryBackedCodexRun) {
-      try {
-        const materializedRuntimeHome =
-          await materializeRepositoryBackedCodexChatHome({
-            conversationId,
-            overrides: {
-              model: executionModel,
-              sandbox_mode:
-                typeof effectiveCodexFlags.sandboxMode === 'string'
-                  ? effectiveCodexFlags.sandboxMode
-                  : undefined,
-              approval_policy:
-                typeof effectiveCodexFlags.approvalPolicy === 'string'
-                  ? effectiveCodexFlags.approvalPolicy
-                  : undefined,
-              model_reasoning_effort:
-                typeof effectiveCodexFlags.modelReasoningEffort === 'string'
-                  ? effectiveCodexFlags.modelReasoningEffort
-                  : undefined,
-              model_reasoning_summary:
-                typeof effectiveCodexFlags.modelReasoningSummary === 'string'
-                  ? effectiveCodexFlags.modelReasoningSummary
-                  : undefined,
-              model_verbosity:
-                typeof effectiveCodexFlags.modelVerbosity === 'string'
-                  ? effectiveCodexFlags.modelVerbosity
-                  : undefined,
-              network_access_enabled:
-                typeof effectiveCodexFlags.networkAccessEnabled === 'boolean'
-                  ? effectiveCodexFlags.networkAccessEnabled
-                  : undefined,
-              web_search_mode:
-                typeof effectiveCodexFlags.webSearchMode === 'string'
-                  ? effectiveCodexFlags.webSearchMode
-                  : undefined,
-            },
-          });
-        repositoryBackedCodexHome = materializedRuntimeHome.runtimeCodexHome;
-      } catch (error) {
-        console.error(
-          `${T06_ERROR_LOG} surface=/chat code=RUNTIME_CONFIG_INVALID`,
-        );
-        return res.status(500).json({
-          status: 'error',
-          code: 'RUNTIME_CONFIG_INVALID',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'repository-backed chat runtime config materialization failed',
-        });
-      }
-    }
 
     const ensureConversation = async (): Promise<Conversation | null> => {
       const buildRuntimeConversationFlags = (
@@ -838,6 +786,62 @@ export function createChatRouter({
           finalStatus: completedReplay.finalStatus,
         }),
       );
+    }
+
+    if (repositoryBackedCodexRun) {
+      try {
+        const materializedRuntimeHome =
+          await materializeRepositoryBackedCodexChatHome({
+            conversationId,
+            overrides: {
+              model: executionModel,
+              sandbox_mode:
+                typeof effectiveCodexFlags.sandboxMode === 'string'
+                  ? effectiveCodexFlags.sandboxMode
+                  : undefined,
+              approval_policy:
+                typeof effectiveCodexFlags.approvalPolicy === 'string'
+                  ? effectiveCodexFlags.approvalPolicy
+                  : undefined,
+              model_reasoning_effort:
+                typeof effectiveCodexFlags.modelReasoningEffort === 'string'
+                  ? effectiveCodexFlags.modelReasoningEffort
+                  : undefined,
+              model_reasoning_summary:
+                typeof effectiveCodexFlags.modelReasoningSummary === 'string'
+                  ? effectiveCodexFlags.modelReasoningSummary
+                  : undefined,
+              model_verbosity:
+                typeof effectiveCodexFlags.modelVerbosity === 'string'
+                  ? effectiveCodexFlags.modelVerbosity
+                  : undefined,
+              network_access_enabled:
+                typeof effectiveCodexFlags.networkAccessEnabled === 'boolean'
+                  ? effectiveCodexFlags.networkAccessEnabled
+                  : undefined,
+              web_search_mode:
+                typeof effectiveCodexFlags.webSearchMode === 'string'
+                  ? effectiveCodexFlags.webSearchMode
+                  : undefined,
+            },
+          });
+        repositoryBackedCodexHome = materializedRuntimeHome.runtimeCodexHome;
+      } catch (error) {
+        const code =
+          error instanceof RuntimeConfigResolutionError
+            ? error.code
+            : 'RUNTIME_CONFIG_VALIDATION_FAILED';
+        console.error(`${T06_ERROR_LOG} surface=/chat code=${code}`);
+        releaseConversationLockFn(conversationId, runToken);
+        return res.status(500).json({
+          status: 'error',
+          code,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'repository-backed chat runtime config materialization failed',
+        });
+      }
     }
 
     createInflight({

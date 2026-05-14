@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
   CodexOptions,
@@ -164,6 +164,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  mock.restoreAll();
   if (ORIGINAL_CODEX_WORKDIR === undefined) {
     delete process.env.CODEX_WORKDIR;
   } else {
@@ -198,6 +199,16 @@ const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
   message: 'Hi',
   ...overrides,
 });
+
+const buildRepositoryBackedRuntimeHome = (
+  codexHome: string,
+  conversationId: string,
+) =>
+  path.join(
+    codexHome,
+    '.codeinfo-chat-runtimes',
+    `conversation-${Buffer.from(conversationId, 'utf8').toString('base64url') || 'empty'}`,
+  );
 
 async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
   const deadline = Date.now() + timeoutMs;
@@ -1589,6 +1600,18 @@ test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged 
     cliPath: '/usr/bin/codex',
   });
 
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
   const app = express();
   app.use(express.json());
   app.use(
@@ -1597,6 +1620,11 @@ test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged 
       clientFactory: dummyClientFactory,
       codexFactory: () => new MockCodex('thread-lock'),
       copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
     }),
   );
 
@@ -1627,6 +1655,7 @@ test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged 
         conversationId,
         provider: 'lmstudio',
         model: 'model-1',
+        working_folder: workingRepo,
       }),
     );
   assert.equal(response.status, 409);
@@ -1645,6 +1674,172 @@ test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged 
     persistedConversation?.updatedAt?.toISOString(),
     originalConversation.updatedAt.toISOString(),
   );
+  const runtimesRoot = path.join(
+    String(tempCodexHomeForTest),
+    '.codeinfo-chat-runtimes',
+  );
+  const runtimeEntries = await fs.readdir(runtimesRoot).catch(() => []);
+  assert.deepEqual(runtimeEntries, []);
 
   releaseConversationLock(conversationId);
+});
+
+test('repository-backed codex chat keeps distinct runtime homes for conversation ids that previously sanitized the same way', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const capturedHomes = new Map<string, string>();
+  const firstConversationId = 'conv:shared-runtime-home';
+  const secondConversationId = 'conv-shared-runtime-home';
+  let lastCodexHome = '';
+
+  const recordingApp = express();
+  recordingApp.use(express.json());
+  recordingApp.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: (options?: CodexOptions) => {
+        lastCodexHome = String(options?.env?.CODEX_HOME ?? '');
+        return new MockCodex(`thread-${capturedHomes.size + 1}`);
+      },
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  await request(recordingApp)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: firstConversationId,
+        message: 'Reply with only READY.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+  await waitForAssistantTurn(firstConversationId);
+  capturedHomes.set(firstConversationId, lastCodexHome);
+
+  await request(recordingApp)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: secondConversationId,
+        message: 'Reply with only READY.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+  await waitForAssistantTurn(secondConversationId);
+  capturedHomes.set(secondConversationId, lastCodexHome);
+
+  const firstHome = capturedHomes.get(firstConversationId);
+  const secondHome = capturedHomes.get(secondConversationId);
+  assert.ok(firstHome);
+  assert.ok(secondHome);
+  assert.notEqual(firstHome, secondHome);
+  assert.equal(
+    firstHome,
+    buildRepositoryBackedRuntimeHome(String(tempCodexHomeForTest), firstConversationId),
+  );
+  assert.equal(
+    secondHome,
+    buildRepositoryBackedRuntimeHome(String(tempCodexHomeForTest), secondConversationId),
+  );
+  await assert.doesNotReject(async () => {
+    await fs.access(path.join(String(firstHome), 'chat', 'config.toml'));
+    await fs.access(path.join(String(secondHome), 'chat', 'config.toml'));
+  });
+});
+
+test('repository-backed codex chat reports filesystem materialization failures without mislabeling them as config-invalid', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const originalWriteFile = fs.writeFile.bind(fs);
+  mock.method(
+    fs,
+    'writeFile',
+    async (...args: Parameters<typeof fs.writeFile>) => {
+      const target = String(args[0]);
+      if (
+        target.includes(`${path.sep}.codeinfo-chat-runtimes${path.sep}`) &&
+        target.endsWith(`${path.sep}chat${path.sep}config.toml`)
+      ) {
+        const error = new Error('permission denied') as NodeJS.ErrnoException;
+        error.code = 'EACCES';
+        throw error;
+      }
+      return originalWriteFile(...args);
+    },
+  );
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex('thread-materialize-error'),
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  const response = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: 'conv-chat-runtime-home-permission',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(500);
+
+  assert.equal(response.body.code, 'RUNTIME_CONFIG_UNREADABLE');
+  assert.match(
+    String(response.body.message),
+    /repository-backed chat runtime home/u,
+  );
 });

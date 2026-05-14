@@ -202,12 +202,47 @@ const providerChatConfigDirRoot = path.resolve(
   '../../..',
 );
 
-const sanitizeCodexRuntimeHomeSegment = (value: string): string => {
-  const sanitized = value
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return sanitized.length > 0 ? sanitized : 'conversation';
+const encodeCodexRuntimeHomeSegment = (value: string): string => {
+  const encoded = Buffer.from(value, 'utf8').toString('base64url');
+  return `conversation-${encoded.length > 0 ? encoded : 'empty'}`;
 };
+
+function mapRepositoryBackedCodexHomeError(params: {
+  error: unknown;
+  configPath: string;
+}): RuntimeConfigResolutionError {
+  if (params.error instanceof RuntimeConfigResolutionError) {
+    return params.error;
+  }
+
+  const code = (params.error as NodeJS.ErrnoException)?.code;
+  const message =
+    params.error instanceof Error ? params.error.message : String(params.error);
+
+  if (
+    code === 'EACCES' ||
+    code === 'EPERM' ||
+    code === 'EISDIR' ||
+    code === 'ENOTDIR' ||
+    code === 'EMFILE' ||
+    code === 'ENFILE' ||
+    code === 'ELOOP'
+  ) {
+    return new RuntimeConfigResolutionError({
+      code: 'RUNTIME_CONFIG_UNREADABLE',
+      configPath: params.configPath,
+      surface: 'chat',
+      message: `RUNTIME_CONFIG_UNREADABLE: Unable to materialize repository-backed chat runtime home at ${params.configPath}: ${message}`,
+    });
+  }
+
+  return new RuntimeConfigResolutionError({
+    code: 'RUNTIME_CONFIG_VALIDATION_FAILED',
+    configPath: params.configPath,
+    surface: 'chat',
+    message: `RUNTIME_CONFIG_VALIDATION_FAILED: Unable to materialize repository-backed chat runtime home at ${params.configPath}: ${message}`,
+  });
+}
 
 export function resolveLmStudioChatDefaultsHome(): string {
   return path.join(providerChatConfigDirRoot, 'lmstudio');
@@ -1618,46 +1653,54 @@ export async function materializeRepositoryBackedCodexChatHome(params: {
   const runtimeCodexHome = path.join(
     sourceCodexHome,
     '.codeinfo-chat-runtimes',
-    sanitizeCodexRuntimeHomeSegment(params.conversationId),
+    encodeCodexRuntimeHomeSegment(params.conversationId),
   );
   const runtimeBaseConfigPath = getCodexConfigPathForHome(runtimeCodexHome);
   const runtimeChatConfigPath = getCodexChatConfigPathForHome(runtimeCodexHome);
   const runtimeAuthPath = getCodexAuthPathForHome(runtimeCodexHome);
 
-  await fs.mkdir(path.dirname(runtimeChatConfigPath), { recursive: true });
+  try {
+    await fs.mkdir(path.dirname(runtimeChatConfigPath), { recursive: true });
 
-  const [baseConfigRaw, chatConfigRaw] = await Promise.all([
-    fs.readFile(sourceBaseConfigPath, 'utf8'),
-    fs.readFile(sourceChatConfigPath, 'utf8'),
-  ]);
-  const runtimeChatConfig = applyCodexChatConfigRootOverrides(
-    chatConfigRaw,
-    params.overrides,
-  );
+    const [baseConfigRaw, chatConfigRaw] = await Promise.all([
+      fs.readFile(sourceBaseConfigPath, 'utf8'),
+      fs.readFile(sourceChatConfigPath, 'utf8'),
+    ]);
+    const runtimeChatConfig = applyCodexChatConfigRootOverrides(
+      chatConfigRaw,
+      params.overrides,
+    );
 
-  await Promise.all([
-    fs.writeFile(runtimeBaseConfigPath, baseConfigRaw, 'utf8'),
-    fs.writeFile(runtimeChatConfigPath, runtimeChatConfig, 'utf8'),
-  ]);
+    await Promise.all([
+      fs.writeFile(runtimeBaseConfigPath, baseConfigRaw, 'utf8'),
+      fs.writeFile(runtimeChatConfigPath, runtimeChatConfig, 'utf8'),
+    ]);
 
-  const authConfigRaw = await fs
-    .readFile(sourceAuthPath, 'utf8')
-    .catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return undefined;
-      }
-      throw error;
+    const authConfigRaw = await fs
+      .readFile(sourceAuthPath, 'utf8')
+      .catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          return undefined;
+        }
+        throw error;
+      });
+    if (typeof authConfigRaw === 'string') {
+      await fs.writeFile(runtimeAuthPath, authConfigRaw, 'utf8');
+    }
+
+    return {
+      sourceCodexHome,
+      runtimeCodexHome,
+      baseConfigPath: runtimeBaseConfigPath,
+      chatConfigPath: runtimeChatConfigPath,
+    };
+  } catch (error) {
+    await fs.rm(runtimeCodexHome, { recursive: true, force: true });
+    throw mapRepositoryBackedCodexHomeError({
+      error,
+      configPath: runtimeChatConfigPath,
     });
-  if (typeof authConfigRaw === 'string') {
-    await fs.writeFile(runtimeAuthPath, authConfigRaw, 'utf8');
   }
-
-  return {
-    sourceCodexHome,
-    runtimeCodexHome,
-    baseConfigPath: runtimeBaseConfigPath,
-    chatConfigPath: runtimeChatConfigPath,
-  };
 }
 
 export async function ensureAllProviderChatConfigsBootstrapped(params?: {

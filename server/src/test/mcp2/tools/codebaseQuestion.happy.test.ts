@@ -396,33 +396,6 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   lastError: null,
 });
 
-class ReplayBarrierChat extends ChatInterface {
-  runs = 0;
-
-  async execute(
-    message: string,
-    flags: Record<string, unknown>,
-    conversationId: string,
-    model: string,
-  ): Promise<void> {
-    void flags;
-    void model;
-    this.runs += 1;
-    this.emit('thread', {
-      type: 'thread',
-      threadId: conversationId,
-    });
-    this.emit('final', {
-      type: 'final',
-      content: `Replay answer ${this.runs}: ${message}`,
-    });
-    this.emit('complete', {
-      type: 'complete',
-      threadId: conversationId,
-    });
-  }
-}
-
 class BlockingReplayClaimChat extends ChatInterface {
   runs = 0;
   private waitForStartPromise: Promise<void> | null = null;

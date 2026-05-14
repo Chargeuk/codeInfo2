@@ -11,13 +11,13 @@ import supertest from 'supertest';
 import type WebSocket from 'ws';
 
 import {
-  __resetAgentServiceDepsForTests,
-  __setAgentServiceDepsForTests,
-} from '../../agents/service.js';
-import {
   tryAcquireConversationLock,
   releaseConversationLock,
 } from '../../agents/runLock.js';
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
 import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {

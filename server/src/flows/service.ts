@@ -397,20 +397,6 @@ const getFlowChildExecutionId = (
   return null;
 };
 
-const getFlowExecutionId = (
-  flags: Record<string, unknown> | undefined,
-): string | null => {
-  const flow = flags?.flow;
-  if (!isRecord(flow)) return null;
-  if (
-    typeof flow.executionId === 'string' &&
-    flow.executionId.trim().length > 0
-  ) {
-    return flow.executionId.trim();
-  }
-  return null;
-};
-
 const persistFlowChildExecutionId = async (params: {
   conversationId: string;
   executionId: string;

@@ -184,7 +184,9 @@ describe('Agents page run guards', () => {
     const folder = await screen.findByRole('textbox', {
       name: 'working_folder',
     });
-    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeDisabled());
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-send')).toBeDisabled(),
+    );
     await waitFor(() => expect(folder).toHaveValue(''));
 
     await user.type(await screen.findByTestId('agent-input'), 'Do work');
@@ -197,7 +199,9 @@ describe('Agents page run guards', () => {
         String(url).includes('/agents/coding_agent'),
       ),
     ).toBe(true);
-    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeDisabled());
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-send')).toBeDisabled(),
+    );
     expect(runRequests).toBe(0);
     expect(
       mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),

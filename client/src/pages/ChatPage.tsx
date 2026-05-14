@@ -836,9 +836,7 @@ export default function ChatPage() {
       providerOverride: resumedExecutionIdentityLocked
         ? resumedProvider
         : undefined,
-      modelOverride: resumedExecutionIdentityLocked
-        ? resumedModel
-        : undefined,
+      modelOverride: resumedExecutionIdentityLocked ? resumedModel : undefined,
     }).then(() => refreshConversations());
     setInput('');
   };

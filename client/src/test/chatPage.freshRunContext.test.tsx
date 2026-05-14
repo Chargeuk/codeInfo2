@@ -199,6 +199,16 @@ describe('Chat page fresh-run context', () => {
       ),
     );
 
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /provider/i })).toBeEnabled(),
+    );
+
     const providerSelect = screen.getByRole('combobox', { name: /provider/i });
     await user.click(providerSelect);
     await user.click(

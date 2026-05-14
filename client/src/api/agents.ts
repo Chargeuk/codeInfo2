@@ -162,8 +162,15 @@ export async function getAgentDetails(
   }
 
   const data = (await res.json()) as { agent?: unknown };
+  if (
+    data &&
+    typeof data === 'object' &&
+    Array.isArray((data as { agents?: unknown }).agents)
+  ) {
+    throw new Error('Agent details endpoint returned agent list payload');
+  }
   if (!data.agent || typeof data.agent !== 'object') {
-    throw new Error('Invalid agent details response');
+    throw new Error('Agent details response missing agent payload');
   }
 
   const record = data.agent as Record<string, unknown>;

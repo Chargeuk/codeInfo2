@@ -761,7 +761,9 @@ describe('Chat page sidebar conversation selection', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Transcript will appear here once you send a message/i),
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
       ).toBeInTheDocument(),
     );
 
@@ -850,7 +852,9 @@ describe('Chat page sidebar conversation selection', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Transcript will appear here once you send a message/i),
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
       ).toBeInTheDocument(),
     );
 

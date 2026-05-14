@@ -390,7 +390,9 @@ describe('Chat page new conversation control', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Transcript will appear here once you send a message/i),
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
       ).toBeInTheDocument(),
     );
     const providerSelect = await screen.findByRole('combobox', {
@@ -595,7 +597,9 @@ describe('Chat page new conversation control', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Transcript will appear here once you send a message/i),
+        screen.getByText(
+          /Transcript will appear here once you send a message/i,
+        ),
       ).toBeInTheDocument(),
     );
 

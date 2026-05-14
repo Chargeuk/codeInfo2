@@ -14,11 +14,11 @@ import {
   __setAgentServiceDepsForTests,
   runAgentCommand,
 } from '../../agents/service.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,

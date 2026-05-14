@@ -420,48 +420,6 @@ class RepositoryScopedLmStudioChat extends ChatInterface {
   }
 }
 
-class ReplayBarrierStreamingChat extends ChatInterface {
-  runs = 0;
-  private releaseCleanup: (() => void) | null = null;
-  private firstRunCleanupGate = new Promise<void>((resolve) => {
-    this.releaseCleanup = resolve;
-  });
-
-  allowFirstCleanup() {
-    this.releaseCleanup?.();
-  }
-
-  async execute(
-    message: string,
-    flags: Record<string, unknown>,
-    conversationId: string,
-    _model: string,
-  ) {
-    void _model;
-    const signal = (flags as { signal?: AbortSignal }).signal;
-    const abortIfNeeded = () => {
-      if (!signal?.aborted) return false;
-      this.emit('error', { type: 'error', message: 'aborted' });
-      return true;
-    };
-
-    this.runs += 1;
-    if (abortIfNeeded()) return;
-    this.emit('thread', { type: 'thread', threadId: conversationId });
-    this.emit('analysis', { type: 'analysis', content: 'replay-check...' });
-    if (abortIfNeeded()) return;
-    this.emit('final', {
-      type: 'final',
-      content: `Replay-protected answer for ${message}`,
-    });
-    this.emit('complete', { type: 'complete', threadId: conversationId });
-
-    if (this.runs === 1) {
-      await this.firstRunCleanupGate;
-    }
-  }
-}
-
 class BlockingReplayClaimStreamingChat extends ChatInterface {
   runs = 0;
   private waitForStartPromise: Promise<void> | null = null;

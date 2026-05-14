@@ -439,6 +439,9 @@ test('fresh chat after selecting history ignores restored resume-only provider s
   await historyConversationRow.click();
   await expect(page.getByTestId('provider-select')).toContainText(/LM Studio/i);
 
+  await page.getByRole('button', { name: /new conversation/i }).click();
+  await expect(page.getByRole('combobox', { name: /provider/i })).toBeEnabled();
+
   await page.getByRole('combobox', { name: /provider/i }).click();
   await page.getByRole('option', { name: /openai codex/i }).click();
   await expect(page.getByTestId('provider-select')).toContainText(

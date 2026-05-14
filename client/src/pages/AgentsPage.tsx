@@ -247,12 +247,14 @@ export default function AgentsPage() {
       }) => Promise<unknown>)
   >(null);
   const selectedConversationIdRef = useRef<string | undefined>(undefined);
+  const currentWorkingFolderRef = useRef('');
   const workingFolderDisabledRef = useRef(false);
   const promptsRequestSeqRef = useRef(0);
   const promptSelectorVisibilityLogRef = useRef('');
   const promptSelectionLogRef = useRef('');
   const workingFolderRestoreKeyRef = useRef<string | null>(null);
   const workingFolderLockKeyRef = useRef<string | null>(null);
+  const preserveEmptyWorkingFolderRestoreRef = useRef(false);
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
@@ -1276,6 +1278,15 @@ export default function AgentsPage() {
     try {
       details = await loadSelectedAgentDetails(selectedAgentName);
     } catch (error) {
+      const summaryAgent = agents.find(
+        (agent) => agent.name === selectedAgentName,
+      );
+      const malformedDetailsPayload =
+        error instanceof Error &&
+        error.message === 'Invalid agent details response';
+      if (!malformedDetailsPayload && summaryAgent?.disabled !== true) {
+        return true;
+      }
       clearSelectedAgentRunState('agent_unrunnable');
       setRunError((error as Error).message ?? 'Failed to load agent details.');
       return false;
@@ -1289,7 +1300,12 @@ export default function AgentsPage() {
       details.disabledReason?.message ?? 'This agent is currently disabled.',
     );
     return false;
-  }, [clearSelectedAgentRunState, loadSelectedAgentDetails, selectedAgentName]);
+  }, [
+    agents,
+    clearSelectedAgentRunState,
+    loadSelectedAgentDetails,
+    selectedAgentName,
+  ]);
 
   const handleAgentChange = useCallback(
     (event: SelectChangeEvent<string>) => {
@@ -1522,13 +1538,19 @@ export default function AgentsPage() {
     }
 
     const restoredWorkingFolder = readWorkingFolder(selectedConversation) ?? '';
+    const nextWorkingFolder =
+      !restoredWorkingFolder &&
+      currentWorkingFolderRef.current.trim().length > 0 &&
+      preserveEmptyWorkingFolderRestoreRef.current
+        ? currentWorkingFolderRef.current
+        : restoredWorkingFolder;
     setWorkingFolder((current) =>
-      current === restoredWorkingFolder ? current : restoredWorkingFolder,
+      current === nextWorkingFolder ? current : nextWorkingFolder,
     );
-    if (restoredWorkingFolder !== lastCommittedWorkingFolderRef.current) {
-      if (restoredWorkingFolder) {
-        lastCommittedWorkingFolderRef.current = restoredWorkingFolder;
-        setCommittedWorkingFolder(restoredWorkingFolder);
+    if (nextWorkingFolder !== lastCommittedWorkingFolderRef.current) {
+      if (nextWorkingFolder) {
+        lastCommittedWorkingFolderRef.current = nextWorkingFolder;
+        setCommittedWorkingFolder(nextWorkingFolder);
       } else {
         invalidatePromptDiscoveryState({
           reason: 'committed_working_folder_cleared',
@@ -1537,14 +1559,14 @@ export default function AgentsPage() {
       }
     }
 
-    const restoreKey = `${selectedConversationId}:${restoredWorkingFolder}`;
+    const restoreKey = `${selectedConversationId}:${nextWorkingFolder}`;
     if (workingFolderRestoreKeyRef.current === restoreKey) return;
     workingFolderRestoreKeyRef.current = restoreKey;
     emitWorkingFolderPickerSync({
       surface: 'agents',
       conversationId: selectedConversationId,
-      action: restoredWorkingFolder ? 'restore' : 'clear',
-      pickerState: restoredWorkingFolder,
+      action: nextWorkingFolder ? 'restore' : 'clear',
+      pickerState: nextWorkingFolder,
     });
   }, [
     emitWorkingFolderPickerSync,
@@ -1843,8 +1865,20 @@ export default function AgentsPage() {
   }, [selectedConversationId]);
 
   useEffect(() => {
+    currentWorkingFolderRef.current = workingFolder;
+  }, [workingFolder]);
+
+  useEffect(() => {
     workingFolderDisabledRef.current = isWorkingFolderDisabled;
   }, [isWorkingFolderDisabled]);
+
+  useEffect(() => {
+    preserveEmptyWorkingFolderRestoreRef.current =
+      startPending ||
+      isRunActive ||
+      Boolean(inflightSnapshot?.inflightId) ||
+      Boolean(serverVisibleInflightIdRef.current);
+  }, [inflightSnapshot?.inflightId, isRunActive, startPending]);
 
   useEffect(() => {
     if (!selectedAgentName) {

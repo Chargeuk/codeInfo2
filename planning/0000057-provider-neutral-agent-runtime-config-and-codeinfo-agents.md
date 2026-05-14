@@ -2896,3 +2896,74 @@ This review-created block stays inside the current repository's run-start warnin
 #### Manual Testing Guidance
 
 - Manual proof is optional unless Tasks 26 through 28 broaden into browser-visible warning copy or other externally observable surfaces that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, retain artifacts under `codeInfoTmp/manual-testing/0000057/29/`, and keep this task as the sole final revalidation owner for review cycle `0000057-rc-20260514T062516Z-54ba77ee`. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into that repository path instead of treating the Playwright staging directory as the final artifact destination.
+
+## Post-Implementation Code Review
+
+### Review Pass `0000057-20260514T122557Z-c371f9b1`
+
+- Review cycle id: `0000057-rc-20260514T125024Z-c371f9b1`
+- Closeout basis: `codeInfoStatus/flow-state/review-disposition-state.json` ended cleanly with no unresolved task-required findings, no unresolved minor-batchable findings, no incomplete-review blockers, no rerun requirement, no final minor-fix revalidation requirement, and no remaining review-created work for this review cycle.
+- Review handoff: `codeInfoTmp/reviews/0000057-current-review.json`
+
+#### Branch-Vs-Base Checks
+
+- `current_repository` (`/home/d_a_s/code/codeInfo2`) reviewed local branch `feature/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents` against remote-tracking base `origin/main`.
+- Stored comparison metadata for `current_repository`:
+  - `comparison_base_ref`: `origin/main`
+  - `comparison_base_commit`: `6fbf0c050b4d94f90c0858d4cac499629fdb9236`
+  - `comparison_head_ref`: `HEAD`
+  - `comparison_rule`: `local_head_vs_resolved_base`
+  - reviewed `HEAD`: `c371f9b1579828dcad9cd7af65f4a6518c83b725`
+  - `resolved_base_source`: `remote`
+  - `remote_fetch_status`: `success`
+  - `local_fallback_reason`: `null`
+- No additional repositories were in scope, so no cross-repository branch reconciliation was required for this closeout.
+
+#### Acceptance-Evidence Checks
+
+- Re-read the canonical story plan, the current review handoff, the findings artifact, the blind-spot challenge artifact, and the generated evidence artifact for this review pass before closing the review.
+- Checked the review evidence's scope validation, repo resolution record, changed-file classification, runtime-contract preservation matrix, risky-helper shortlist, and acceptance-criteria evidence map against the final on-disk story state.
+- Confirmed the canonical plan still shows every numbered task through Task 29 as `__done__`, with no unfinished task-up-owned final revalidation owner and no unfinished task titled `Re-Validate Story 0000057 After Inline Minor Review Fixes`.
+- Confirmed the clean review-disposition state still records `review_created_tasks_added_or_updated: false`, `needs_task_up_path: false`, `needs_minor_fix_path: false`, `needs_review_rerun_before_close: false`, `needs_final_minor_fix_revalidation_task: false`, and `safe_to_exit_review_loop_without_tasking: true`.
+
+#### Files And Surfaces Inspected At Review Time
+
+- Canonical plan and final review-owned tasks:
+  - `planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md`
+- Review artifacts:
+  - `codeInfoTmp/reviews/0000057-20260514T122557Z-c371f9b1-evidence.md`
+  - `codeInfoTmp/reviews/0000057-20260514T122557Z-c371f9b1-findings.md`
+  - `codeInfoTmp/reviews/0000057-20260514T122557Z-c371f9b1-findings-saturation.md`
+  - `codeInfoTmp/reviews/0000057-20260514T122557Z-c371f9b1-blind-spot-challenge.md`
+- Highest-risk implementation seams re-checked through the review artifacts:
+  - `server/src/config/runtimeConfig.ts`
+  - `server/src/agents/service.ts`
+  - `server/src/workingFolders/executionContext.ts`
+  - `server/src/routes/flowsRun.ts`
+  - `server/src/chat/inflightRegistry.ts`
+  - `server/src/mongo/repo.ts`
+  - `server/src/mcp2/tools/codebaseQuestion.ts`
+  - `client/src/api/codex.ts`
+- Proof and runtime surfaces relied on for completeness:
+  - the retained Story 57 task proof homes and broad revalidation already recorded on Task 29
+  - the repository-owned compose, build, unit, cucumber, client, e2e, lint, and format wrapper passes already recorded as complete on Task 29
+
+#### Completion Rationale
+
+- `current_repository` remains complete because the reviewed branch preserved the provider-neutral runtime contract, the review-created follow-up tasks for the earlier serious findings were completed and closed on disk, and the only newly endorsed item in this review pass was a cleanup-preference drift note rather than actionable unfinished work.
+- The overall story remains complete because all story and review-created tasks are `__done__`, the clean review-disposition state requires no further task-up, no inline minor rerun path, and no final minor-fix revalidation task, and the current review loop therefore has no remaining executable owner.
+- Cross-repository integration evidence was sufficient because `additional_repositories` was empty for this story; the reviewed seams were all internal contracts inside the current repository, and the evidence artifact already traced those contracts from runtime config/bootstrap through shared execution context, server execution surfaces, client warning/guard surfaces, and the broad proof homes recorded by Task 29.
+
+#### Residual Risk And Rejected Risk Notes
+
+- Rejected or non-actionable finding carried forward:
+  - `unparsed-1`: `client/src/api/codex.ts` still duplicates the shared provider-auth detected-state vocabulary from `common/src/api.ts`, but this review pass classified it as `cleanup_preference` only. The literals still match on the current head, no user-visible failure was reproduced, and no active-story requirement or approved scope expansion made it blocking.
+- Rejected-risk checks carried forward from the findings and challenge artifacts:
+  - degraded provider bootstrap still preserves a reachable standard runtime path instead of crashing startup
+  - persisted conversation identity remains pinned instead of drifting to changed agent config
+  - shared repository execution context still centralizes selected-repository metadata and working-directory override behavior instead of falling back to unrelated provider-local cwd rules
+  - `resumeStepPath` admission, inflight cleanup, stale resume backfill ordering, and disabled-agent Execute Prompt guard no longer reproduced as live defects on the reviewed head
+- Residual confidence limit preserved honestly:
+  - the blind-spot challenge still called out `server/src/mcp2/tools/codebaseQuestion.ts` as residual weak proof only, because the late replay fast-path still resolves shared execution context and Codex runtime config before the `lateCompletedReplay` early-return check. The review did not find a strong enough changed-path production failure to endorse as a new actionable finding, so this remains a documented confidence limit rather than a hidden clean bill of health.
+- Review-strength caveat:
+  - this closeout writes the durable no-findings review result from the stored review evidence and final on-disk task state; it does not claim a fresh rerun of wrappers or manual proof inside this clean-closeout step itself.

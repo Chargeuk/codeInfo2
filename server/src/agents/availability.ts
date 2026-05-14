@@ -404,3 +404,9 @@ export function toAgentListWarnings(snapshot: AgentAvailabilitySnapshot) {
     .filter((warning) => warning.visibility === 'list')
     .map((warning) => warning.message);
 }
+
+export function toAgentLaunchWarnings(snapshot: AgentAvailabilitySnapshot) {
+  return Array.from(
+    new Set(snapshot.warnings.map((warning) => warning.message)),
+  );
+}

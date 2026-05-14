@@ -201,6 +201,33 @@ test('POST /agents/:agentName/run returns 202 + a stable started payload shape',
   assert.equal(res.body.modelId.length > 0, true);
 });
 
+test('POST /agents/:agentName/run keeps warning-bearing started responses intact', async () => {
+  const res = await request(
+    buildApp({
+      startAgentInstruction: async () => {
+        return {
+          conversationId: 'conv-warning',
+          inflightId: 'inflight-warning',
+          providerId: 'codex',
+          modelId: 'gpt-5.3-codex',
+          warnings: [
+            'Agent config requested unsupported provider "bad-provider".',
+            'Agent will use fallback provider "codex" because "bad-provider" cannot execute.',
+          ],
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello' });
+
+  assert.equal(res.status, 202);
+  assert.deepEqual(res.body.warnings, [
+    'Agent config requested unsupported provider "bad-provider".',
+    'Agent will use fallback provider "codex" because "bad-provider" cannot execute.',
+  ]);
+});
+
 test('POST /agents/:agentName/run forwards working_folder to the service', async () => {
   let received: unknown;
   const res = await request(

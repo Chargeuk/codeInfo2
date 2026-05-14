@@ -37,6 +37,35 @@ test('callTool run_command success returns minimal JSON payload', async () => {
   assert.equal(parsed.modelId, 'm1');
 });
 
+test('callTool run_command keeps launch warnings in the MCP payload', async () => {
+  const result = await callTool(
+    'run_command',
+    { agentName: 'planning_agent', commandName: 'improve_plan' },
+    {
+      runAgentCommand: async () => ({
+        agentName: 'planning_agent',
+        commandName: 'improve_plan',
+        conversationId: 'c-warning',
+        providerId: 'codex',
+        modelId: 'gpt-5.3-codex',
+        warnings: [
+          'Provider "copilot" is unavailable: copilot unavailable.',
+          'Agent will use fallback provider "codex" because "copilot" cannot execute.',
+        ],
+      }),
+    },
+  );
+
+  const parsed = JSON.parse(result.content[0].text as string) as {
+    warnings?: string[];
+  };
+
+  assert.deepEqual(parsed.warnings, [
+    'Provider "copilot" is unavailable: copilot unavailable.',
+    'Agent will use fallback provider "codex" because "copilot" cannot execute.',
+  ]);
+});
+
 test('callTool run_command maps RUN_IN_PROGRESS to RunInProgressError', async () => {
   await assert.rejects(
     () =>

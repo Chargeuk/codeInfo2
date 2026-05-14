@@ -1334,6 +1334,133 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
   }
 });
 
+test('Task 26 keeps availability warnings on the initial flow run-start response payload', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-home-'),
+  );
+  const flowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "bad-provider"', 'model = "copilot-model"', ''].join(
+      '\n',
+    ),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.FLOWS_DIR = flowsDir;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir: flowsDir,
+      flowName: 'task26-flow-warning-start',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'warning-start',
+          messages: [{ role: 'user', content: ['after'] }],
+        },
+      ],
+    });
+
+    const response = await supertest(makeApp())
+      .post('/flows/task26-flow-warning-start/run')
+      .send({})
+      .expect(202);
+
+    assert.equal(response.body.status, 'started');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('unsupported provider "bad-provider"'),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fallback provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    process.env.FLOWS_DIR = previousFlowsDir;
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+    await fs.rm(flowsDir, { recursive: true, force: true });
+  }
+});
+
 test('unexpected thrown exceptions fail the current dedicated flow', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({

@@ -146,6 +146,34 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
   assert.equal(receivedStartStep, undefined);
 });
 
+test('POST /agents/:agentName/commands/run keeps warning-bearing started responses intact', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        return {
+          agentName: 'planning_agent',
+          commandName: 'improve_plan',
+          conversationId: 'conv-warning',
+          providerId: 'codex',
+          modelId: 'gpt-5.3-codex',
+          warnings: [
+            'Provider "copilot" is unavailable: copilot unavailable.',
+            'Agent will use fallback provider "codex" because "copilot" cannot execute.',
+          ],
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 202);
+  assert.deepEqual(res.body.warnings, [
+    'Provider "copilot" is unavailable: copilot unavailable.',
+    'Agent will use fallback provider "codex" because "copilot" cannot execute.',
+  ]);
+});
+
 test('POST /agents/:agentName/commands/run forwards sourceId for ingested command runs', async () => {
   let receivedSourceId: string | undefined;
   const res = await request(

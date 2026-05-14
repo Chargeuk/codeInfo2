@@ -25,6 +25,7 @@ import { startFlowRun } from '../../flows/service.js';
 import { resetStore } from '../../logStore.js';
 import { callTool } from '../../mcpAgents/tools.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
+import { createAgentsRunRouter } from '../../routes/agentsRun.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
@@ -2345,6 +2346,132 @@ test('Task 19 preserves fallback runtime warnings on successful direct agent run
     __resetAgentServiceDepsForTests();
     memoryConversations.delete('task19-fallback-warning-rest');
     memoryTurns.delete('task19-fallback-warning-rest');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 26 keeps availability warnings on the initial direct agent run-start response payload', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-home-'),
+  );
+
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "bad-provider"',
+      'model = "copilot-model"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCopilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.CODEINFO_COPILOT_HOME = tempCopilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  const app = express();
+  app.use(
+    createAgentsRunRouter({
+      startAgentInstruction: (params) =>
+        startAgentInstruction({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    }),
+  );
+
+  try {
+    const response = await supertest(app)
+      .post('/agents/coding_agent/run')
+      .send({ instruction: 'warning-bearing start' })
+      .expect(202);
+
+    assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('unsupported provider "bad-provider"'),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fallback provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;

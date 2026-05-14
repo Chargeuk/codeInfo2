@@ -108,6 +108,7 @@ import { publishUserTurn } from '../ws/server.js';
 import {
   createAgentAvailabilityContext,
   evaluateAgentAvailability,
+  toAgentLaunchWarnings,
   toAgentListWarnings,
 } from './availability.js';
 import {
@@ -355,6 +356,18 @@ const uniqueModels = (models: Array<string | undefined>) => {
   }
   return ordered;
 };
+
+const mergeWarningMessages = (...groups: Array<string[] | undefined>) =>
+  Array.from(
+    new Set(
+      groups.flatMap((group) =>
+        (group ?? []).filter(
+          (warning): warning is string =>
+            typeof warning === 'string' && warning.trim().length > 0,
+        ),
+      ),
+    ),
+  );
 
 const cloneRuntimeConfigWithModel = (
   runtimeConfig: CodexOptions['config'],
@@ -762,7 +775,10 @@ async function prepareDirectAgentExecution(params: {
         providerRuntimeResolution.config,
         modelId,
       ),
-      warnings: providerRuntimeResolution.warnings,
+      warnings: mergeWarningMessages(
+        toAgentLaunchWarnings(availability),
+        providerRuntimeResolution.warnings,
+      ),
       availability,
       executionContext,
       repositoryContext: executionContext.repositoryMetadata,
@@ -1595,6 +1611,7 @@ async function prepareDirectCommandBootstrap(params: {
   providerId: ChatProviderId;
   initialModelId: string;
   conversationEnsured: boolean;
+  warnings: string[];
 }> {
   const parsed = await loadAgentCommandFile({
     filePath: params.commandFilePath,
@@ -1604,6 +1621,7 @@ async function prepareDirectCommandBootstrap(params: {
       providerId: 'codex',
       initialModelId: FALLBACK_COMMAND_MODEL_ID,
       conversationEnsured: false,
+      warnings: [],
     };
   }
 
@@ -1650,6 +1668,7 @@ async function prepareDirectCommandBootstrap(params: {
       providerId,
       initialModelId,
       conversationEnsured: !existingConversation,
+      warnings: [],
     };
   }
 
@@ -1670,6 +1689,7 @@ async function prepareDirectCommandBootstrap(params: {
       providerId: prepared.executionProviderId,
       initialModelId,
       conversationEnsured: false,
+      warnings: prepared.warnings,
     };
   }
 
@@ -1687,6 +1707,7 @@ async function prepareDirectCommandBootstrap(params: {
     providerId: prepared.executionProviderId,
     initialModelId,
     conversationEnsured: true,
+    warnings: prepared.warnings,
   };
 }
 
@@ -1717,6 +1738,7 @@ export async function startAgentCommand(params: {
   conversationId: string;
   providerId: ChatProviderId;
   modelId: string;
+  warnings?: string[];
 }> {
   const discovered = await discoverAgents();
   const agent = discovered.find((item) => item.name === params.agentName);
@@ -1778,6 +1800,7 @@ export async function startAgentCommand(params: {
   let backgroundScheduled = false;
   let modelId = 'gpt-5.1-codex-max';
   let providerId: ChatProviderId = 'codex';
+  let warnings: string[] = [];
 
   try {
     const ingestRootsResult = await loadKnownRepositoryPathsStateForAgentRuns();
@@ -1851,6 +1874,7 @@ export async function startAgentCommand(params: {
     });
     modelId = bootstrap.initialModelId;
     providerId = bootstrap.providerId;
+    warnings = bootstrap.warnings ?? [];
 
     if (isNewConversation && !bootstrap.conversationEnsured) {
       const title = buildCommandConversationTitle({
@@ -1934,6 +1958,7 @@ export async function startAgentCommand(params: {
       conversationId,
       providerId,
       modelId,
+      ...(warnings.length > 0 ? { warnings } : {}),
     };
   } finally {
     if (!backgroundScheduled) {
@@ -1960,6 +1985,7 @@ export async function runAgentCommand(params: {
   conversationId: string;
   providerId: ChatProviderId;
   modelId: string;
+  warnings?: string[];
 }> {
   const discovered = await discoverAgents();
   const agent = discovered.find((item) => item.name === params.agentName);
@@ -2044,7 +2070,7 @@ export async function runAgentCommand(params: {
     parsed.command.items.length,
   );
 
-  const { initialModelId } = await prepareDirectCommandBootstrap({
+  const { initialModelId, warnings } = await prepareDirectCommandBootstrap({
     agentName: params.agentName,
     commandName: params.commandName.trim(),
     agentHome: agent.home,
@@ -2083,6 +2109,7 @@ export async function runAgentCommand(params: {
     ...result,
     providerId:
       (conversation?.provider as ChatProviderId | undefined) ?? 'codex',
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
 

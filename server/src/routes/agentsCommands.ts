@@ -388,6 +388,7 @@ export function createAgentsCommandsRouter(
         conversationId: result.conversationId,
         providerId: result.providerId,
         modelId: result.modelId,
+        ...(result.warnings ? { warnings: result.warnings } : {}),
       });
     } catch (err) {
       if (isAgentCommandsError(err)) {

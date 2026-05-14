@@ -41,6 +41,7 @@ function okJson(payload: unknown, init?: { status?: number }) {
 
 function setupExecutePromptFetch(params?: {
   agents?: Array<{ name: string }>;
+  agentDetails?: Record<string, unknown> | null;
   runResponse?:
     | { status: 202; payload?: Record<string, unknown> }
     | { status: number; payload: Record<string, unknown> };
@@ -71,6 +72,11 @@ function setupExecutePromptFetch(params?: {
       const runMatch = target.match(/\/agents\/([^/]+)\/run(?:\?|$)/);
 
       if (target.includes('/health')) return okJson({ mongoConnected: true });
+      if (/\/agents\/[^/]+(?:\?|$)/.test(target) && !target.includes('/prompts')) {
+        if (params?.agentDetails) {
+          return okJson({ agent: params.agentDetails });
+        }
+      }
       if (
         target.includes('/agents') &&
         !target.includes('/commands') &&
@@ -226,6 +232,50 @@ describe('Agents page - execute prompt', () => {
 
     await selectPrompt(user, prompt.relativePath);
     expect(executePromptButton).toBeEnabled();
+  });
+
+  it('blocks Execute Prompt once selected-agent details mark the target disabled', async () => {
+    const user = userEvent.setup();
+    const { runUrls, prompt } = setupExecutePromptFetch({
+      agentDetails: {
+        name: 'coding_agent',
+        description: '# Coding agent',
+        disabled: true,
+        warnings: [
+          {
+            code: 'invalid_provider',
+            message:
+              'Agent config requested unsupported provider "not-a-provider".',
+          },
+        ],
+        disabledReason: {
+          code: 'provider_unavailable',
+          message: 'No usable provider remains',
+        },
+        fallbackCandidates: [],
+      },
+    });
+    await mountAgentsPage();
+
+    await commitWorkingFolderByBlur('/workspace');
+    await selectPrompt(user, prompt.relativePath);
+
+    const executePromptButton = await screen.findByTestId(
+      'agent-prompt-execute',
+    );
+    expect(executePromptButton).toBeEnabled();
+
+    await user.click(await screen.findByTestId('agent-info'));
+
+    await screen.findByTestId('agent-disabled');
+    await waitFor(() => expect(executePromptButton).toBeDisabled());
+
+    expect(runUrls).toHaveLength(0);
+    expect(
+      mockFetch.mock.calls.some(([url]) =>
+        String(url).includes('/agents/coding_agent/run'),
+      ),
+    ).toBe(false);
   });
 
   it('surfaces RUN_IN_PROGRESS conflict UX for execute-prompt path', async () => {

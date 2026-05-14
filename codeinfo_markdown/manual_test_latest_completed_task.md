@@ -352,7 +352,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - repair only narrow in-scope runtime or environment issues that are realistically fixable in this step;
     - rerun the smallest honest proof path for the candidate task;
   - if that recovery pass restores the proof surface, continue manual testing normally and do not add `**BLOCKER**`;
-  - if that recovery pass exhausts cleanly and the missing capability is clearly planner-owned or structurally absent, reclassify the outcome as `structural_proof_gap`.
+  - if that recovery pass exhausts cleanly and the proof surface remains unavailable, reclassify the outcome as `structural_proof_gap`.
 
 - If the non-run reason is `structural_proof_gap`, apply the `structural_proof_gap` decision rule above.
 

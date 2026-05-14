@@ -2745,7 +2745,7 @@ The review found that flow-owned `agentType` values can currently reach filesyst
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
 
@@ -2799,6 +2799,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 - Added direct-agent continuation requested-provider proof in `server/src/test/integration/agents-run-client-conversation-id.test.ts` and confirmed it with `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` (`24` passed).
 - Implementation-plus-proof audit confirmed all Task 28 subtasks and targeted server-wrapper proof were already complete on disk with no live blocker, so the task was closed as `__done__` without further checklist changes.
 - Manual testing found a Mongo-backed persistence regression on the direct continuation seam: after seeding `flags.requestedProviderId = "copilot"` on conversation `task28-direct-continuation-requested-provider`, `POST /agents/coding_agent/run` returned `202` with execution still pinned to Codex, but the persisted conversation kept only `flags.threadId` and dropped `requestedProviderId`. A bounded diagnosis pass inspected `server/src/chat/agentFlags.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/mongo/repo.ts` and traced the failure to `sanitizeConversationFlagsForProvider(...)` / `buildConversationFlags(...)` stripping `requestedProviderId` on Mongo-backed conversation writes, so follow-up implementation subtasks were added and the flow-resume/direct-continuation wrapper steps were reopened because automated proof must rerun before later manual retest.
+- Planner normalization reopened Task 28 to `__in_progress__` because the Mongo-backed `requestedProviderId` preservation follow-up in Subtasks 6 through 8 and Testing 2 through 3 remains honest unfinished work, and leaving that checklist state under `__done__` was causing the selector to return `needs_plan_repair` instead of a real active owner.
 
 ### Task 29. Revalidate review pass `0000057-20260514T044937Z-54ba77ee` serious fixes and inline minor resolutions
 

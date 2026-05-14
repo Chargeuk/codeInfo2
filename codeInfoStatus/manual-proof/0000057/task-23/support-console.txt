@@ -1,0 +1,67 @@
+[info] DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG {apiBaseUrl: http://localhost:5010, apiBaseUrlSource: runtime, apiBaseUrlMode: browser_host, lmStudioBaseUrl: http://host.docker.internal:1234, lmStudioBaseUrlSource: runtime}
+[log] {level: info, message: chat.sidebar.selection_changed, timestamp: 2026-05-14T01:55:22.956Z, source: client, route: /chat}
+[log] {level: info, message: 0000023 conversationlist controls visible, timestamp: 2026-05-14T01:55:22.958Z, source: client, route: /chat}
+[log] {level: info, message: 0000023 sidebar list panel layout, timestamp: 2026-05-14T01:55:22.958Z, source: client, route: /chat}
+[info] [conversations] fetch start {mode: replace, agentName: __none__, flowName: __none__, filterState: active, cursor: undefined}
+[log] {level: info, message: flows.filter.requested, timestamp: 2026-05-14T01:55:22.960Z, source: client-flows, route: /chat}
+[log] {level: info, message: 0000023 drawer overflow guard applied, timestamp: 2026-05-14T01:55:22.961Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000028[T1] chat transcript layout ready, timestamp: 2026-05-14T01:55:22.961Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000028[T6] chat controls sizing applied, timestamp: 2026-05-14T01:55:22.961Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: d4549674-20c1-4b26-a717-d02f004dd16c, wsConnectionState: connecting, persistenceUnavailable: false, knownIds: Array(0), turnsConversationId: d4549674-20c1-4b26-a717-d02f004dd16c}
+[info] [chat-history] conversationId changed {conversationId: d4549674-20c1-4b26-a717-d02f004dd16c}
+[log] {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-14T01:55:22.963Z, source: client, route: /chat}
+[info] [chat-history] hydrating turns {activeConversationId: d4549674-20c1-4b26-a717-d02f004dd16c, count: 0, first: undefined, last: undefined}
+[log] {level: info, message: DEV-0000028[T8] regression baseline ready, timestamp: 2026-05-14T01:55:22.964Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: d4549674-20c1-4b26-a717-d02f004dd16c, wsConnectionState: connecting, persistenceUnavailable: false, knownIds: Array(0), turnsConversationId: d4549674-20c1-4b26-a717-d02f004dd16c}
+[log] {level: info, message: chat.ws.client_connect, timestamp: 2026-05-14T01:55:22.989Z, source: client, route: /chat}
+[log] {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-14T01:55:22.989Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: d4549674-20c1-4b26-a717-d02f004dd16c, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(0), turnsConversationId: d4549674-20c1-4b26-a717-d02f004dd16c}
+[info] [conversations] fetch success {mode: replace, received: 20, hasMore: true}
+[info] [chat-history] load-turns-state {activeConversationId: d4549674-20c1-4b26-a717-d02f004dd16c, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: d4549674-20c1-4b26-a717-d02f004dd16c}
+[info] story.0000051.task11.provider_selection_applied {selectionType: provider, chosenProvider: copilot, nextSendOnly: false, source: provider-bootstrap}
+[log] {level: info, message: DEV-0000049:T01:chat_shared_transcript_rendered, timestamp: 2026-05-14T01:55:24.972Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-14T01:55:24.973Z, source: client, route: /chat}
+[info] story.0000051.task11.provider_selection_applied {selectionType: model, chosenProvider: copilot, chosenModel: auto, nextSendOnly: false, source: model-bootstrap}
+[log] {level: info, message: DEV-0000049:T01:chat_shared_transcript_rendered, timestamp: 2026-05-14T01:55:26.880Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-14T01:55:26.882Z, source: client, route: /chat}
+[info] [chat-history] handleSelect {clickedId: task22-lock-runtime-home, activeConversationId: d4549674-20c1-4b26-a717-d02f004dd16c}
+[info] [chat-history] selecting conversation {conversation: task22-lock-runtime-home, provider: codex, model: gpt-5.1-codex-max}
+[info] story.0000051.task11.provider_selection_applied {selectionType: provider, chosenProvider: codex, nextSendOnly: false, source: conversation-select}
+[log] {level: info, message: DEV-0000046:T7:sidebar-selection-navigation, timestamp: 2026-05-14T01:55:27.518Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-14T01:55:27.549Z, source: client, route: /chat}
+[info] [turns] fetch start {conversationId: task22-lock-runtime-home}
+[info] [chat-history] load-turns-state {activeConversationId: task22-lock-runtime-home, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: task22-lock-runtime-home}
+[info] [chat-history] conversationId changed {conversationId: task22-lock-runtime-home}
+[log] {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-14T01:55:27.551Z, source: client, route: /chat}
+[info] DEV_0000048_T6_PICKER_SYNC {surface: chat, conversationId: task22-lock-runtime-home, action: restore, pickerState: /data/codeInfo2}
+[info] [chat-history] hydrating turns {activeConversationId: task22-lock-runtime-home, count: 0, first: undefined, last: undefined}
+[info] [chat-history] load-turns-state {activeConversationId: task22-lock-runtime-home, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: task22-lock-runtime-home}
+[info] [chat-history] post-select scheduled {clickedId: task22-lock-runtime-home, activeConversationId: d4549674-20c1-4b26-a717-d02f004dd16c}
+[log] {level: info, message: DEV-0000024:T7:rest_usage_mapped, timestamp: 2026-05-14T01:55:27.607Z, source: client, route: /chat}
+[info] [turns] fetch success {conversationId: task22-lock-runtime-home, count: 2, inflight: null}
+[info] [chat-history] load-turns-state {activeConversationId: task22-lock-runtime-home, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: task22-lock-runtime-home}
+[info] [chat-history] hydrating turns {activeConversationId: task22-lock-runtime-home, count: 2, first: 2026-05-14T01:15:16.815Z, last: 2026-05-14T01:15:38.952Z}
+[info] DEV-0000046:T12:hidden-run-rehydrated {conversationId: task22-lock-runtime-home, hasInflightSnapshot: false, inflightId: null, replacedVisibleDraft: true, turnCount: 2}
+[info] [chat-history] load-turns-state {activeConversationId: task22-lock-runtime-home, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: task22-lock-runtime-home}
+[log] {level: info, message: DEV-0000024:T9:ui_metadata_rendered, timestamp: 2026-05-14T01:55:27.657Z, source: client, route: /chat}
+[info] [codex-models-response] codexDefaults received {hasWarnings: true, codexDefaults: Object}
+[info] story.0000051.task11.provider_selection_applied {selectionType: model, chosenProvider: codex, chosenModel: gpt-5.3-codex, nextSendOnly: false, source: model-bootstrap}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-14T01:55:29.404Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_result, timestamp: 2026-05-14T01:55:29.417Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T09:virtualized_transcript_window_changed, timestamp: 2026-05-14T01:55:29.418Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T01:chat_shared_transcript_rendered, timestamp: 2026-05-14T01:55:29.418Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-14T01:55:29.419Z, source: client, route: /chat}
+[info] [codex-warnings] rendered {warnings: Array(1)}
+[info] story.0000051.task11.provider_selection_applied {selectionType: model, chosenProvider: codex, chosenModel: gpt-5.1-codex-max, nextSendOnly: false, source: conversation-sync}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-14T01:55:29.438Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-14T01:55:29.461Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-14T01:55:29.465Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-05-14T01:55:29.467Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000046:T8:new-conversation-local-reset, timestamp: 2026-05-14T01:55:29.661Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T01:chat_shared_transcript_rendered, timestamp: 2026-05-14T01:55:29.682Z, source: client, route: /chat}
+[log] {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-14T01:55:29.683Z, source: client, route: /chat}
+[info] [chat-history] load-turns-state {activeConversationId: 60220c82-79fa-4ee9-b5c4-3675825da7ca, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: 60220c82-79fa-4ee9-b5c4-3675825da7ca}
+[info] [chat-history] conversationId changed {conversationId: 60220c82-79fa-4ee9-b5c4-3675825da7ca}
+[log] {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-14T01:55:29.683Z, source: client, route: /chat}
+[info] [chat-history] hydrating turns {activeConversationId: 60220c82-79fa-4ee9-b5c4-3675825da7ca, count: 0, first: undefined, last: undefined}
+[info] [chat-history] load-turns-state {activeConversationId: 60220c82-79fa-4ee9-b5c4-3675825da7ca, wsConnectionState: open, persistenceUnavailable: false, knownIds: Array(20), turnsConversationId: 60220c82-79fa-4ee9-b5c4-3675825da7ca}

@@ -2500,7 +2500,7 @@ The current replay seam still relies on process-local or completed-state checks 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 19, Task 20, Task 21, Task 22, Task 23, Task 24`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260513T174514Z-67ee8439`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
 
@@ -2608,6 +2608,7 @@ This review-created block stays inside the current repository's runtime-config, 
 - `npm run compose:down` then removed the checked-in main-stack containers and network cleanly, so the supported compose smoke path now proves both startup and shutdown behavior for this review close-out.
 - `npm run lint` initially failed on one stale unused helper in `server/src/flows/service.ts`, two no-longer-used replay helper classes in the Task 24 proof homes, and two import-order warnings in server tests; removing the dead helpers and fixing the import order brought the repository-wide lint pass back to green.
 - `npm run format:check` then flagged only Prettier drift in the client files touched by the proof fixes; formatting those six files and rerunning the check restored a clean repository-wide formatting pass.
+- Audit normalization closed Task 25 as `__done__` because all three subtasks, all eleven automated testing steps, and the recorded broad review-closeout proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 25` reported no live blockers.
 
 #### Manual Testing Guidance
 

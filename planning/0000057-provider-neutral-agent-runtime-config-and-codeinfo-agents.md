@@ -2621,3 +2621,215 @@ This review-created block stays inside the current repository's runtime-config, 
 #### Manual Testing Guidance
 
 - If the implemented fixes change browser-visible warning copy, disabled-state rendering, or resumed-chat selector behavior beyond what the targeted client proofs cover, optionally spot-check `/chat`, `/agents`, and `/flows` on the supported main stack. Use `npm run compose:build` then `npm run compose:up`, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, use the checked-in main-stack env and seed source rather than ad hoc local overrides, and retain any artifacts under `codeInfoTmp/manual-testing/0000057/25/`. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into that repository path; do not treat `$CODEINFO_ROOT` as the target artifact root for this repository.
+
+## Code Review Findings
+
+### Review Pass `0000057-20260514T044937Z-54ba77ee`
+
+- Review cycle id: `0000057-rc-20260514T062516Z-54ba77ee`
+- Review routing source: `codeInfoStatus/flow-state/review-disposition-state.json`
+- Comparison context: the stored review compared local `HEAD` `54ba77ee181de6aad577aa77bd94c3d8b413bcee` versus resolved remote base `origin/main` at `6fbf0c050b4d94f90c0858d4cac499629fdb9236` using `local_head_vs_resolved_base`; the current branch still matches Story `0000057`, and later review-loop documentation commits only recorded disposition state rather than changing the reviewed implementation surface.
+- Unresolved task-required findings now requiring numbered follow-up tasks: `finding-06`, `finding-08`, `finding-09`, and `finding-10`.
+- Inline-resolved minor findings already handled in this same review cycle and therefore not re-tasked here: `finding-01`, `finding-02`, `finding-03`, `finding-04`, `finding-05`, `finding-07`, and `finding-11`.
+
+### Task 26. Preserve run-start availability diagnostics across agent, command, and flow launches
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 25`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
+
+#### Overview
+
+The review found that the new provider-neutral availability helper computes the user-facing fallback and invalid-provider diagnostics correctly, but the run-start seams drop those diagnostics before the supported response surfaces can return them. This task keeps the repair focused on the shared run-start warning propagation seam so the direct agent, command, MCP, and flow launch paths all preserve the same availability context instead of each inventing a different partial fix.
+
+#### Highest-Risk Invariant
+
+- Every supported run-start API that chooses, rejects, or repairs a provider at launch time must return the same actionable availability diagnostics that the underlying availability evaluation produced.
+
+#### Likely Blocker Family
+
+- `user-visible contract seam`
+
+#### Addresses Findings
+
+- `finding-06` - run-start APIs drop invalid-provider and fallback diagnostics produced by the shared availability helpers.
+
+#### Task Exit Criteria
+
+- Direct agent, command, MCP, and flow start seams preserve availability-generated invalid-provider, unavailable-provider, and fallback-provider warnings all the way through the supported run-start response payloads instead of narrowing the result to config-only warnings.
+- The repaired warning shape remains coherent with the existing warning-capable run/list/detail surfaces, so the same provider-selection event can be understood without a second fetch or contradictory client interpretation.
+- Proof explicitly covers the direct agent, command, MCP, and flow start paths in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`, and `server/src/test/unit/mcp-agents-commands-run.test.ts`.
+
+#### Subtasks
+
+1. [ ] Patch the shared run-start warning propagation seam in `server/src/agents/service.ts` and the closest route or MCP response builders so availability-generated invalid-provider, unavailable-provider, and fallback-provider diagnostics survive direct agent launches instead of being narrowed to config-only warnings before the response is built.
+2. [ ] Patch the command and MCP launch seams in the same owner surface so they reuse that repaired warning contract rather than inventing a separate command-only or MCP-only warning shape for the same provider-selection outcome.
+3. [ ] Patch the flow launch seam in `server/src/flows/service.ts` and its closest response builder so flow starts preserve the same availability-generated diagnostics that direct launches now return.
+4. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim config-warning behavior, so the retained proof explicitly asserts that the run-start responses themselves preserve the fallback or invalid-provider diagnostics.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` from the repository root. Use this targeted wrapper because direct launch warning propagation already lives there.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root. Use this targeted wrapper because the flow-start error and warning seam already lives there.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/agents-router-run.test.ts --file server/src/test/unit/agents-commands-router-run.test.ts --file server/src/test/unit/mcp-agents-router-run.test.ts --file server/src/test/unit/mcp-agents-commands-run.test.ts` from the repository root. Use this targeted wrapper because the route and MCP response builders need direct warning-contract proof too.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 27. Constrain repository-backed flow `agentType` resolution to the intended agent roots
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 25`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
+
+#### Overview
+
+The review found that flow-owned `agentType` values can currently reach filesystem joins without the same safety contract already applied to command names. This task keeps the repair centered on the repository-backed flow agent-root resolution seam so discovery and execution both reject traversal-shaped `agentType` values before command lookup can escape the intended `codeinfo_agents` or `codex_agents` roots.
+
+#### Highest-Risk Invariant
+
+- Repository-controlled flow `agentType` values must never broaden command lookup outside the intended checked-in agent roots, even when discovery or execution falls back to direct filesystem joins.
+
+#### Likely Blocker Family
+
+- `filesystem authority boundary seam`
+
+#### Addresses Findings
+
+- `finding-08` - repository-controlled flow `agentType` can escape the intended agent root.
+
+#### Task Exit Criteria
+
+- Flow discovery and flow execution reject traversal or otherwise unsafe `agentType` values before any `codeinfo_agents` / `codex_agents` path join is used to probe or load a command file.
+- `resolveAgentHomeForRepository(...)` and the direct fallback joins in `server/src/flows/discovery.ts` and `server/src/flows/service.ts` share one explicit allowlist or validation contract for flow-owned `agentType`.
+- Proof explicitly covers the repaired `agentType` boundary in `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.command.test.ts`, and the closest retained flow-discovery proof home if implementation adds one.
+
+#### Subtasks
+
+1. [ ] Patch the repository-backed flow discovery seam in `server/src/flows/discovery.ts` so unsafe `agentType` values are rejected before they reach canonical-home or fallback filesystem joins.
+2. [ ] Patch the matching flow execution seam in `server/src/flows/service.ts` and the closest shared helper in `server/src/agents/roots.ts` so the same validation contract applies when commands are resolved at runtime.
+3. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim `commandName` traversal rejection, so the retained proof explicitly asserts that unsafe `agentType` values cannot escape the intended agent roots.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts` from the repository root. Use this targeted wrapper because discovery-time command lookup already lives there.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.command.test.ts` from the repository root. Use this targeted wrapper because runtime command resolution already lives there.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 28. Make continuation and resume state reconstruction authoritative before identity backfills
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 25`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
+
+#### Overview
+
+The review found that the continuation and resume seams still reconstruct durable identity from the wrong persisted fields and can also overwrite fresher child ownership after an earlier validation read. This task keeps those two issues together because they are both failures of authoritative persisted-state reuse during continuation or resume, not unrelated one-off bugs.
+
+#### Highest-Risk Invariant
+
+- Continuation and resume paths must derive durable requested-provider and child-ownership state from authoritative persisted data, and later writes must not overwrite fresher identity that appeared after the earlier validation snapshot.
+
+#### Likely Blocker Family
+
+- `replay or ownership seam`
+
+#### Addresses Findings
+
+- `finding-09` - resume backfill can overwrite fresher child execution ownership after an earlier read.
+- `finding-10` - execution-provider fields are reused as requested-provider identity across continuation and resume seams.
+
+#### Task Exit Criteria
+
+- Resume backfill only writes child execution ownership when the target record is still genuinely missing that ownership at write time, so a stale retry cannot overwrite a fresher child execution id that appeared after the earlier validation read.
+- Agent continuation and flow resume reconstruct requested-provider identity from the authoritative requested-provider state instead of reusing the mutable execution-provider or display-provider field from persisted conversation records.
+- Proof explicitly covers the repaired backfill ordering and provider-identity reconstruction in `server/src/test/integration/flows.run.resume.backfill.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `server/src/test/integration/agents-run-client-conversation-id.test.ts`.
+
+#### Subtasks
+
+1. [ ] Patch the resume backfill write seam in `server/src/flows/service.ts` and `server/src/mongo/repo.ts` so child execution ownership is written with a still-missing guard or equivalent compare-and-swap contract instead of an unconditional stale overwrite.
+2. [ ] Patch the direct-agent continuation and flow-resume state reconstruction seams in `server/src/agents/service.ts` and `server/src/flows/service.ts` so requested-provider identity is restored from authoritative requested-provider state rather than from the mutable execution-provider field on persisted conversations.
+3. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim resume success or execution-provider pinning, so the retained proof explicitly asserts both the write-time missing guard and the requested-versus-execution provider distinction.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts` from the repository root. Use this targeted wrapper because the stale backfill ordering seam already lives there.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts` from the repository root. Use this targeted wrapper because resumed provider-identity reconstruction already lives there.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/agents-run-client-conversation-id.test.ts` from the repository root. Use this targeted wrapper because direct continuation identity also needs the requested-provider repair.
+
+#### Implementation Notes
+
+- Pending.
+
+### Task 29. Revalidate review pass `0000057-20260514T044937Z-54ba77ee` serious fixes and inline minor resolutions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 26, Task 27, Task 28`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created final revalidation task for review cycle `0000057-rc-20260514T062516Z-54ba77ee`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
+
+#### Overview
+
+This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260514T044937Z-54ba77ee`, and it must also revalidate the inline-resolved minor fixes already recorded for findings `finding-01`, `finding-02`, `finding-03`, `finding-04`, `finding-05`, `finding-07`, and `finding-11`.
+
+This review-created block stays inside the current repository's run-start warning, repository-backed flow command resolution, and continuation/resume identity seams. The individual review-fix tasks therefore keep compact targeted proof, while this final review task owns the broader build, wrapper, and supported main-stack reruns that close the current review-created findings block on the repository's normal supported paths. Client or browser-specific final revalidation is not part of this block unless implementation expands beyond the current server-owned seams.
+
+#### Highest-Risk Invariant
+
+- The final review-cycle close-out must prove the repaired serious findings block and this same review cycle's inline minor fixes together under one owner, without inventing a second final-task owner or leaving the review-created seams green only in isolated targeted tests.
+
+#### Likely Blocker Family
+
+- `manual or runtime environment seam`
+
+#### Addresses Findings
+
+- Revalidates the serious review-created findings block for `finding-06`, `finding-08`, `finding-09`, and `finding-10`.
+- Revalidates the inline-resolved minor fixes already recorded for `finding-01`, `finding-02`, `finding-03`, `finding-04`, `finding-05`, `finding-07`, and `finding-11` in review cycle `0000057-rc-20260514T062516Z-54ba77ee`.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the serious review-created repairs, the inline minor proof homes already recorded for this same review cycle, and the full broad regression proof that closes this appended review-created block.
+
+#### Task Exit Criteria
+
+- Tasks 26 through 28 are implemented, their promised proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
+- The same final revalidation pass reruns the relevant server regression wrappers so the current review-created block plus this same review cycle's inline minor fixes are green together under one close-out owner.
+- This final review task owns the broad regression proof for the current review-created findings block in the current repository: targeted Task 26 through Task 28 proof stays local to those tasks, while this close-out pass reruns the supported compose build, server and client builds, broad server regression wrappers, the supported main-stack smoke path, and repository-wide lint plus format checks so the repaired seams still hold through the repository's normal execution routes. Full client regression and automated browser reruns are not required unless implementation for Tasks 26 through 28 expands into client-owned surfaces.
+- Review-loop close-out state still treats Task 29 as the sole final revalidation owner for review cycle `0000057-rc-20260514T062516Z-54ba77ee`, and `## Minor Review Fixes` remains the durable audit home for this cycle's inline-resolved findings instead of spawning a second final-task owner.
+
+#### Subtasks
+
+1. [ ] Record the server-side proof matrix for Tasks 26, 27, and 28 plus the inline-resolved minor server fixes: run-start warning propagation in `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/agents-router-run.test.ts`, `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`, and `server/src/test/unit/mcp-agents-commands-run.test.ts`; flow `agentType` root confinement in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.command.test.ts`; continuation and resume identity ordering in `server/src/test/integration/flows.run.resume.backfill.test.ts`, `server/src/test/integration/flows.run.resume.identity.test.ts`, and `server/src/test/integration/agents-run-client-conversation-id.test.ts`; plus the inline-resolved degraded bootstrap, malformed selector, abort-listener, malformed port, and Cucumber wording proof homes already recorded in `## Minor Review Fixes`. When any reused proof file still titles only the adjacent old behavior, rename, split, or replace that proof before counting it toward this matrix. If implementation honestly expands beyond those proof homes, add the exact new file to this task's proof-surface list and add the matching targeted wrapper step to `Testing` before broad reruns.
+2. [ ] Record the runtime-handoff proof matrix for this close-out owner by reading `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the supported compose contract, mounted proof-agent namespaces `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, readiness checks on `http://localhost:5010/health` and `http://localhost:5001`, repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/29/`, and this task's sole-owner role for review cycle `0000057-rc-20260514T062516Z-54ba77ee` all remain explicit before the broad wrappers run.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the serious review-created block changes shared server runtime seams before the broader wrappers rerun.
+3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired server or common-package seams must still typecheck and build through the client workspace even though no client-owned review fix is planned yet.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the serious server-side review-created repairs and the inline-resolved server-side minor fixes all live in server unit or integration proof homes.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because inline-resolved minor finding `finding-11` changed the supported Cucumber proof contract and the final review task must keep that higher-level server feature surface green too.
+6. [ ] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
+7. [ ] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
+8. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server services plus flow and agent proof homes.
+9. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared helpers.
+
+#### Implementation Notes
+
+- Pending.
+
+#### Manual Testing Guidance
+
+- Manual proof is optional unless Tasks 26 through 28 broaden into browser-visible warning copy or other externally observable surfaces that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, retain artifacts under `codeInfoTmp/manual-testing/0000057/29/`, and keep this task as the sole final revalidation owner for review cycle `0000057-rc-20260514T062516Z-54ba77ee`.

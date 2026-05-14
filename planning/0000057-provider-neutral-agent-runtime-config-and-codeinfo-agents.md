@@ -2636,7 +2636,7 @@ This review-created block stays inside the current repository's runtime-config, 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 25`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260514T044937Z-54ba77ee`.
 
@@ -2684,6 +2684,7 @@ The review found that the new provider-neutral availability helper computes the 
 - Added shared launch-warning aggregation in `server/src/agents/service.ts` so successful direct-agent, command, and flow launches now preserve availability warnings from `evaluateAgentAvailability(...)` alongside runtime-config warnings instead of returning config-only warnings.
 - Updated the command-start REST payload in `server/src/routes/agentsCommands.ts` and the command-launch result shapes so REST and MCP command surfaces now serialize the same warning-bearing started payload contract as direct agent launches.
 - Added explicit Task 26 proof cases in the direct-agent, flow-start, REST serializer, and MCP serializer homes, including a flow test repair where the first harness version silently reset the custom agent home and therefore exercised the wrong agent catalog before the final targeted rerun passed.
+- Implementation-plus-proof audit confirmed all Task 26 subtasks and targeted server-wrapper proof were already complete on disk with no live blocker, so the task was closed as `__done__` without further checklist changes.
 
 ### Task 27. Constrain repository-backed flow `agentType` resolution to the intended agent roots
 

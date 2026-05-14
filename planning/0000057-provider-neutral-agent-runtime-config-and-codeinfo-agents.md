@@ -2882,6 +2882,7 @@ This review-created block stays inside the current repository's run-start warnin
 - `npm run lint` initially failed on one import-order warning in `server/src/test/integration/agents-run-client-conversation-id.test.ts`; reordering the `createAgentsRunRouter` and `createCodexDeviceAuthRouter` imports kept the repair bounded to proof-home hygiene, and the rerun then passed cleanly.
 - `npm run format:check` passed cleanly after the lint repair, so the proof-home updates and final close-out notes did not leave formatting drift.
 - Implementation-plus-proof audit confirmed all Task 29 subtasks and broad automated revalidation steps were already complete on disk with no live blocker, so the final review-cycle revalidation task was closed as `__done__` without further checklist changes.
+- Manual testing was assessed as not applicable for Task 29 and full-story close-out. The current plan body, runtime research, and task-scoped guidance all agree that Tasks 26 through 28 did not broaden into additional browser-visible warning copy or other externally observable seams beyond the retained automated proof and supported wrapper smoke path already recorded here, so no extra manual-proof surface remained to exercise honestly in this loop pass.
 
 #### Manual Testing Guidance
 

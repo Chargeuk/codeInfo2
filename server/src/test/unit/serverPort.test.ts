@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  resolveCodeinfoAgentsMcpPort,
+  resolveCodeinfoChatMcpPort,
+} from '../../config/mcpEndpoints.js';
+import {
   DEFAULT_SERVER_PORT,
   assertValidPortString,
   resolveServerPort,
 } from '../../config/serverPort.js';
-import {
-  resolveCodeinfoAgentsMcpPort,
-  resolveCodeinfoChatMcpPort,
-} from '../../config/mcpEndpoints.js';
 
 describe('resolveServerPort', () => {
   it('uses CODEINFO_SERVER_PORT when it is provided', () => {

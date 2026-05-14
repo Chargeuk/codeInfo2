@@ -72,7 +72,10 @@ function setupExecutePromptFetch(params?: {
       const runMatch = target.match(/\/agents\/([^/]+)\/run(?:\?|$)/);
 
       if (target.includes('/health')) return okJson({ mongoConnected: true });
-      if (/\/agents\/[^/]+(?:\?|$)/.test(target) && !target.includes('/prompts')) {
+      if (
+        /\/agents\/[^/]+(?:\?|$)/.test(target) &&
+        !target.includes('/prompts')
+      ) {
         if (params?.agentDetails) {
           return okJson({ agent: params.agentDetails });
         }

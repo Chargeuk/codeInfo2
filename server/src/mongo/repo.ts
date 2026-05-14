@@ -210,8 +210,22 @@ export async function updateConversationFlowChildExecution({
 }): Promise<Conversation | null> {
   if (mongoose.connection.readyState !== 1) return null;
 
-  const updated = await ConversationModel.findByIdAndUpdate(
-    conversationId,
+  const updated = await ConversationModel.findOneAndUpdate(
+    {
+      _id: conversationId,
+      $expr: {
+        $eq: [
+          {
+            $trim: {
+              input: {
+                $ifNull: ['$flags.flowChild.executionId', ''],
+              },
+            },
+          },
+          '',
+        ],
+      },
+    },
     { $set: { 'flags.flowChild.executionId': executionId } },
     { new: true },
   ).exec();

@@ -127,6 +127,23 @@ const getFlowChildExecutionId = (conversationId: string) => {
   return flags.flowChild?.executionId as string;
 };
 
+const updateChildExecution = (conversationId: string, executionId: string) => {
+  const conversation = memoryConversations.get(conversationId);
+  assert.ok(conversation);
+  memoryConversations.set(conversationId, {
+    ...conversation,
+    flags: {
+      ...(conversation.flags ?? {}),
+      flowChild: {
+        ...(((conversation.flags ?? {}) as { flowChild?: object }).flowChild ??
+          {}),
+        executionId,
+      },
+    },
+    updatedAt: new Date(),
+  });
+};
+
 test('startFlowRun backfills legacy executionId on resume', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -567,6 +584,107 @@ test('startFlowRun validates each resumed child once and only backfills missing 
     memoryTurns.delete(firstChildConversationId);
     memoryConversations.delete(secondChildConversationId);
     memoryTurns.delete(secondChildConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('startFlowRun leaves a fresher child execution id intact when it appears after resume validation but before the stale backfill write', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-child-interleaving-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-conv-child-interleaving';
+  const childConversationId = 'agent-resume-conv-child-interleaving';
+  const staleExecutionId = 'resume-execution-child-stale';
+  const fresherExecutionId = 'resume-execution-child-fresher';
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: staleExecutionId,
+        stepPath: [],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {},
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const resumeDeps = __getFlowResumeTestDepsForTests();
+  let persistCalls = 0;
+  __setFlowResumeTestDepsForTests({
+    persistFlowChildExecutionId: async (params) => {
+      persistCalls += 1;
+      updateChildExecution(params.conversationId, fresherExecutionId);
+      return resumeDeps.persistFlowChildExecutionId(params);
+    },
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'resume-basic',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    await waitFor(
+      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+      5000,
+    );
+
+    assert.equal(persistCalls, 1);
+    assert.equal(
+      getFlowChildExecutionId(childConversationId),
+      fresherExecutionId,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

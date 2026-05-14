@@ -398,6 +398,16 @@ const getFlowChildExecutionId = (
   return null;
 };
 
+const getSavedRequestedProviderId = (
+  conversation: Conversation | null | undefined,
+): string | undefined => {
+  const requestedProviderId = conversation?.flags?.requestedProviderId;
+  return typeof requestedProviderId === 'string' &&
+    requestedProviderId.trim().length > 0
+    ? requestedProviderId.trim()
+    : undefined;
+};
+
 const persistFlowChildExecutionId = async (params: {
   conversationId: string;
   executionId: string;
@@ -405,6 +415,7 @@ const persistFlowChildExecutionId = async (params: {
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
     if (!existing) return;
+    if (getFlowChildExecutionId(existing)) return;
     updateMemoryConversationMeta(params.conversationId, {
       flags: {
         ...(existing.flags ?? {}),
@@ -629,6 +640,7 @@ const ensureFlowAgentConversation = async (params: {
   executionId: string;
   providerId: ConversationProvider;
   modelId: string;
+  requestedProviderId?: string;
   customTitle?: string;
   source: 'REST' | 'MCP';
   workingFolder?: string;
@@ -646,6 +658,12 @@ const ensureFlowAgentConversation = async (params: {
         provider: params.providerId,
         model: params.modelId,
         agentName: params.agentType,
+        flags: {
+          ...(existing.flags ?? {}),
+          ...(params.requestedProviderId?.trim()
+            ? { requestedProviderId: params.requestedProviderId.trim() }
+            : {}),
+        },
         lastMessageAt: now,
       });
       if (params.workingFolder) {
@@ -666,6 +684,9 @@ const ensureFlowAgentConversation = async (params: {
       flags: {
         ...(params.workingFolder
           ? { workingFolder: params.workingFolder }
+          : {}),
+        ...(params.requestedProviderId?.trim()
+          ? { requestedProviderId: params.requestedProviderId.trim() }
           : {}),
         flowChild: { executionId: params.executionId },
       },
@@ -696,6 +717,12 @@ const ensureFlowAgentConversation = async (params: {
       conversationId: params.conversationId,
       provider: params.providerId,
       model: params.modelId,
+      flags: {
+        ...(existing.flags ?? {}),
+        ...(params.requestedProviderId?.trim()
+          ? { requestedProviderId: params.requestedProviderId.trim() }
+          : {}),
+      },
       lastMessageAt: now,
     });
     if (params.workingFolder) {
@@ -716,6 +743,9 @@ const ensureFlowAgentConversation = async (params: {
     source: params.source,
     flags: {
       ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
+      ...(params.requestedProviderId?.trim()
+        ? { requestedProviderId: params.requestedProviderId.trim() }
+        : {}),
       flowChild: { executionId: params.executionId },
     },
     lastMessageAt: now,
@@ -819,6 +849,7 @@ const ensureAgentState = async (params: {
       executionId: params.executionId,
       providerId: params.providerId,
       modelId: params.modelId,
+      requestedProviderId: params.requestedProviderId,
       customTitle: params.customTitle,
       source: params.source,
       workingFolder: params.workingFolder,
@@ -853,6 +884,7 @@ const ensureAgentState = async (params: {
     executionId: params.executionId,
     providerId: params.providerId,
     modelId: params.modelId,
+    requestedProviderId: params.requestedProviderId,
     customTitle: params.customTitle,
     source: params.source,
     workingFolder: params.workingFolder,
@@ -2938,7 +2970,8 @@ async function runFlowUnlocked(params: {
       if (persistedConversation?.agentName === params.agentType) {
         agentState.providerId = persistedConversation.provider;
         agentState.modelId = persistedConversation.model;
-        agentState.requestedProviderId = persistedConversation.provider;
+        agentState.requestedProviderId =
+          getSavedRequestedProviderId(persistedConversation);
       }
     }
 

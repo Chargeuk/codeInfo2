@@ -491,6 +491,110 @@ test('startFlowRun derives resumed runtime identity from the remaining step set 
   }
 });
 
+test('startFlowRun restores requested-provider identity from saved flow-agent state instead of reusing the child execution provider', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-requested-provider-'),
+  );
+  await writeResumeFlow(tmpDir);
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const conversationId = 'flow-resume-requested-provider';
+  const childConversationId = 'agent-resume-requested-provider';
+  const executionId = 'resume-execution-requested-provider';
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic',
+    flowName: 'resume-basic',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId,
+        stepPath: [],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-basic (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      requestedProviderId: 'copilot',
+      flowChild: {
+        executionId,
+      },
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    await startFlowRun({
+      flowName: 'resume-basic',
+      conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    await waitFor(
+      () => (memoryTurns.get(conversationId) ?? []).length >= 2,
+      5000,
+    );
+
+    const flowConversation = memoryConversations.get(conversationId);
+    const flowFlags = (flowConversation?.flags ?? {}) as {
+      flow?: { agentRequestedProviders?: Record<string, string> };
+    };
+    assert.equal(
+      flowFlags.flow?.agentRequestedProviders?.['coding_agent:resume-test'],
+      'copilot',
+    );
+    assert.equal(
+      (memoryConversations.get(childConversationId)?.flags ?? {})[
+        'requestedProviderId'
+      ],
+      'copilot',
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('startFlowRun ignores stale parent flow metadata on an ordinary conversation without flow ownership', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

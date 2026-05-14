@@ -2481,6 +2481,114 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
   }
 });
 
+test('Task 28 direct continuation restores the saved requested-provider identity instead of reusing the execution provider field', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'model = "copilot-model"', ''].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  const conversationId = 'task28-direct-continuation-requested-provider';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'Saved continuation',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      requestedProviderId: 'copilot',
+    },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  try {
+    const result = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'continue with saved requested provider',
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.equal(result.providerId, 'codex');
+    assert.equal(
+      memoryConversations.get(conversationId)?.flags?.requestedProviderId,
+      'copilot',
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
 test('T18 invalid-type policy hard-fails across REST, flow, and MCP surfaces and emits error log', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;

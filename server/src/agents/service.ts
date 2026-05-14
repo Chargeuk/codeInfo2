@@ -381,6 +381,16 @@ const cloneRuntimeConfigWithModel = (
   return next as CodexOptions['config'];
 };
 
+const getSavedRequestedProviderId = (
+  conversation: Conversation | null | undefined,
+): string | undefined => {
+  const requestedProviderId = conversation?.flags?.requestedProviderId;
+  return typeof requestedProviderId === 'string' &&
+    requestedProviderId.trim().length > 0
+    ? requestedProviderId.trim()
+    : undefined;
+};
+
 async function loadTurnsChronological(conversationId: string): Promise<Turn[]> {
   return shouldUseMemoryPersistence()
     ? getMemoryTurns(conversationId)
@@ -396,6 +406,7 @@ async function persistDirectAgentConversation(params: {
   agentName: string;
   providerId: ConversationProvider;
   modelId: string;
+  requestedProviderId?: string;
   title: string;
   source: 'REST' | 'MCP';
   workingFolder?: string;
@@ -408,6 +419,11 @@ async function persistDirectAgentConversation(params: {
     workingFolder: params.workingFolder,
     threadId: params.threadId,
   });
+  const savedRequestedProviderId =
+    params.requestedProviderId?.trim() || getSavedRequestedProviderId(params.existingConversation);
+  if (savedRequestedProviderId) {
+    flags.requestedProviderId = savedRequestedProviderId;
+  }
 
   if (shouldUseMemoryPersistence()) {
     const existing =
@@ -2244,7 +2260,7 @@ export async function runAgentInstructionUnlocked(params: {
       surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
       pinnedProviderId: existingConversation?.provider,
       pinnedModelId: existingConversation?.model,
-      pinnedRequestedProviderId: existingConversation?.provider,
+      pinnedRequestedProviderId: getSavedRequestedProviderId(existingConversation),
       allowFallback: !existingConversation,
     });
     const executionProviderId = preparedExecution.executionProviderId;
@@ -2257,6 +2273,7 @@ export async function runAgentInstructionUnlocked(params: {
       agentName: params.agentName,
       providerId: executionProviderId,
       modelId,
+      requestedProviderId: preparedExecution.requestedProviderId,
       title,
       source: params.source,
       workingFolder: effectiveWorkingFolder,

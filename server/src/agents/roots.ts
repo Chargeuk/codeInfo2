@@ -25,6 +25,16 @@ export type ResolvedAgentHome = {
   warnings: string[];
 };
 
+export type AgentTypeValidationResult =
+  | {
+      ok: true;
+      agentType: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 const normalizeOptionalEnvPath = (value: string | undefined) => {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -59,6 +69,34 @@ const buildDuplicateWarning = (params: {
   repositoryRoot: string;
 }) =>
   `Agent "${params.agentName}" exists in both codeinfo_agents and codex_agents under "${params.repositoryRoot}"; using codeinfo_agents and ignoring the legacy codex_agents copy.`;
+
+export const validateRepositoryBackedAgentType = (
+  raw: string,
+): AgentTypeValidationResult => {
+  const agentType = raw.trim();
+  if (!agentType) {
+    return {
+      ok: false,
+      message: 'agentType must be a valid agent root name',
+    };
+  }
+  if (agentType.includes('/') || agentType.includes('\\')) {
+    return {
+      ok: false,
+      message: 'agentType must be a valid agent root name',
+    };
+  }
+  if (agentType.includes('..')) {
+    return {
+      ok: false,
+      message: 'agentType must be a valid agent root name',
+    };
+  }
+  return {
+    ok: true,
+    agentType,
+  };
+};
 
 export const getAgentRootsForRepository = (repositoryRoot: string) => {
   const resolvedRepositoryRoot = path.resolve(repositoryRoot);
@@ -129,9 +167,23 @@ export const resolveAgentHomeForRepository = async (params: {
   repositoryRoot: string;
   agentName: string;
 }): Promise<ResolvedAgentHome> => {
+  const validatedAgentType = validateRepositoryBackedAgentType(params.agentName);
+  if (!validatedAgentType.ok) {
+    const error = new Error(validatedAgentType.message) as Error & {
+      code?: string;
+    };
+    error.code = 'INVALID_AGENT_NAME';
+    throw error;
+  }
   const roots = getAgentRootsForRepository(params.repositoryRoot);
-  const preferredHome = path.join(roots.preferredAgentsRoot, params.agentName);
-  const legacyHome = path.join(roots.legacyAgentsRoot, params.agentName);
+  const preferredHome = path.join(
+    roots.preferredAgentsRoot,
+    validatedAgentType.agentType,
+  );
+  const legacyHome = path.join(
+    roots.legacyAgentsRoot,
+    validatedAgentType.agentType,
+  );
   const [hasPreferred, hasLegacy] = await Promise.all([
     pathExistsAsDirectory(preferredHome),
     pathExistsAsDirectory(legacyHome),
@@ -141,7 +193,7 @@ export const resolveAgentHomeForRepository = async (params: {
     hasPreferred && hasLegacy
       ? [
           buildDuplicateWarning({
-            agentName: params.agentName,
+            agentName: validatedAgentType.agentType,
             repositoryRoot: roots.repositoryRoot,
           }),
         ]
@@ -150,7 +202,7 @@ export const resolveAgentHomeForRepository = async (params: {
   if (hasPreferred) {
     return {
       ...roots,
-      agentName: params.agentName,
+      agentName: validatedAgentType.agentType,
       home: preferredHome,
       rootKind: 'codeinfo_agents',
       warnings,
@@ -160,7 +212,7 @@ export const resolveAgentHomeForRepository = async (params: {
   if (hasLegacy) {
     return {
       ...roots,
-      agentName: params.agentName,
+      agentName: validatedAgentType.agentType,
       home: legacyHome,
       rootKind: 'codex_agents',
       warnings,
@@ -169,7 +221,7 @@ export const resolveAgentHomeForRepository = async (params: {
 
   return {
     ...roots,
-    agentName: params.agentName,
+    agentName: validatedAgentType.agentType,
     warnings,
   };
 };

@@ -208,6 +208,17 @@ test('resolveAgentHomeForRepository emits duplicate-warning metadata and discove
   assert.deepEqual(agents[0].warnings, resolved.warnings);
 });
 
+test('resolveAgentHomeForRepository rejects traversal-shaped flow agentType values before returning an agent root', async () => {
+  await assert.rejects(
+    () =>
+      resolveAgentHomeForRepository({
+        repositoryRoot: tmpDir,
+        agentName: '../planning_agent',
+      }),
+    /agentType must be a valid agent root name/u,
+  );
+});
+
 test('selected-agent details expose invalid-provider warnings and fallback candidates without widening the list entry', async () => {
   const agentHome = await writeAgent({
     rootDirName: 'codeinfo_agents',

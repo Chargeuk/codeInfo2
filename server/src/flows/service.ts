@@ -12,6 +12,7 @@ import { discoverAgents } from '../agents/discovery.js';
 import {
   resolveAgentHomeEnv,
   resolveAgentHomeForRepository,
+  validateRepositoryBackedAgentType,
 } from '../agents/roots.js';
 import {
   getActiveRunOwnership,
@@ -2336,6 +2337,15 @@ const validateCommandSteps = async (
       continue;
     }
     if (step.type === 'command') {
+      const validatedAgentType = validateRepositoryBackedAgentType(
+        step.agentType,
+      );
+      if (!validatedAgentType.ok) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          `Flow agent "${step.agentType}" ${validatedAgentType.message}.`,
+        );
+      }
       const agent = agentByName.get(step.agentType);
       if (!agent) {
         throw toFlowRunError(
@@ -2449,6 +2459,14 @@ const buildFlowCommandCandidates = (params: {
   orderedCandidates: RepositoryCandidateOrderResult;
   candidates: FlowCommandCandidate[];
 }> => {
+  const validatedAgentType = validateRepositoryBackedAgentType(
+    params.agentType,
+  );
+  if (!validatedAgentType.ok) {
+    return Promise.reject(
+      new Error(`Flow agent "${params.agentType}" ${validatedAgentType.message}.`),
+    );
+  }
   const ownerRepositoryPath = params.context.flowSourceId?.trim()
     ? params.context.flowSourceId
     : params.context.codeInfo2Root;
@@ -2472,7 +2490,7 @@ const buildFlowCommandCandidates = (params: {
         candidates.map(async (candidate) => {
           const resolvedAgentHome = await resolveAgentHomeForRepository({
             repositoryRoot: candidate.sourceId,
-            agentName: params.agentType,
+            agentName: validatedAgentType.agentType,
           });
           return {
             sourceId: candidate.sourceId,
@@ -2483,7 +2501,7 @@ const buildFlowCommandCandidates = (params: {
               path.join(
                 candidate.sourceId,
                 'codeinfo_agents',
-                params.agentType,
+                validatedAgentType.agentType,
               ),
           } satisfies FlowCommandCandidate;
         }),
@@ -2624,9 +2642,20 @@ const resolveFlowCommandForAgent = async (params: {
   context: FlowCommandRepositoryContext;
   phase: 'validation' | 'execution';
 }): Promise<LoadCommandResult> => {
+  const validatedAgentType = validateRepositoryBackedAgentType(
+    params.step.agentType,
+  );
+  if (!validatedAgentType.ok) {
+    return {
+      ok: false,
+      reason: 'INVALID_NAME',
+      message: `Flow agent "${params.step.agentType}" ${validatedAgentType.message}.`,
+    };
+  }
+
   const { orderedCandidates, candidates } = await buildFlowCommandCandidates({
     context: params.context,
-    agentType: params.step.agentType,
+    agentType: validatedAgentType.agentType,
   });
 
   for (const candidate of candidates) {
@@ -4357,6 +4386,15 @@ export async function startFlowRun(
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
     if (firstAgentStep) {
+      const validatedAgentType = validateRepositoryBackedAgentType(
+        firstAgentStep.agentType,
+      );
+      if (!validatedAgentType.ok) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          `Flow agent "${firstAgentStep.agentType}" ${validatedAgentType.message}.`,
+        );
+      }
       const agent = agentByName.get(firstAgentStep.agentType);
       if (!agent) {
         throw toFlowRunError(

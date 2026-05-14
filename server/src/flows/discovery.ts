@@ -13,6 +13,7 @@ import { discoverAgents } from '../agents/discovery.js';
 import {
   resolveAgentHomeForRepository,
   resolveAgentHomeEnv,
+  validateRepositoryBackedAgentType,
 } from '../agents/roots.js';
 import {
   listIngestedRepositories,
@@ -112,6 +113,16 @@ const resolveFlowCommandForDiscovery = async (params: {
   codeInfo2Root: string;
   repos: Array<{ sourceId: string; sourceLabel: string }>;
 }) => {
+  const validatedAgentType = validateRepositoryBackedAgentType(
+    params.step.agentType,
+  );
+  if (!validatedAgentType.ok) {
+    return {
+      ok: false as const,
+      message: `Flow agent "${params.step.agentType}" ${validatedAgentType.message}.`,
+    };
+  }
+
   const ownerRepositoryPath = params.flowSourceId?.trim()
     ? path.resolve(params.flowSourceId)
     : params.codeInfo2Root;
@@ -130,11 +141,15 @@ const resolveFlowCommandForDiscovery = async (params: {
   for (const candidate of orderedCandidates.candidates) {
     const resolvedAgentHome = await resolveAgentHomeForRepository({
       repositoryRoot: candidate.sourceId,
-      agentName: params.step.agentType,
+      agentName: validatedAgentType.agentType,
     });
     const agentHome =
       resolvedAgentHome.home ??
-      path.join(candidate.sourceId, 'codeinfo_agents', params.step.agentType);
+      path.join(
+        candidate.sourceId,
+        'codeinfo_agents',
+        validatedAgentType.agentType,
+      );
     const commandFilePath = path.join(
       agentHome,
       'commands',
@@ -199,6 +214,21 @@ const collectFlowAvailability = async (params: {
   let disabledReason: AgentDisabledReason | undefined;
 
   for (const agentName of collectAgentTypes(params.parsedFlow.steps)) {
+    const validatedAgentType = validateRepositoryBackedAgentType(agentName);
+    if (!validatedAgentType.ok) {
+      const message = `Flow agent "${agentName}" ${validatedAgentType.message}.`;
+      warningDetails.push({
+        code: 'discovery_warning',
+        message,
+        visibility: 'details',
+      });
+      disabledReason ??= {
+        code: 'agent_not_found',
+        message,
+      };
+      continue;
+    }
+
     const discovered = params.discoveredAgentsByName.get(agentName);
     if (!discovered) {
       const message = `Flow agent "${agentName}" is not available in the configured agent homes.`;

@@ -3859,6 +3859,36 @@ test('flow run rejects path traversal attempts', async () => {
   });
 });
 
+test('flow run rejects unsafe flow-owned agentType values before runtime fallback joins can probe repository-backed agent roots', async () => {
+  await withFlowServer(async ({ baseUrl, tmpDir }) => {
+    const flowName = 'unsafe-agent-type';
+    await fs.writeFile(
+      path.join(tmpDir, `${flowName}.json`),
+      JSON.stringify({
+        description: 'unsafe agent type',
+        steps: [
+          {
+            type: 'command',
+            agentType: '../escape',
+            identifier: 'command-main',
+            commandName: 'improve_plan',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const response = await supertest(baseUrl).post(`/flows/${flowName}/run`).send({});
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'invalid_request');
+    assert.match(
+      String(response.body.reason ?? response.body.message ?? ''),
+      /agentType must be a valid agent root name/u,
+    );
+  });
+});
+
 test('conversation-only stop prevents nested command handoff from starting', async () => {
   await withFlowServer(async ({ wsUrl, tmpDir }) => {
     const conversationId = 'flow-command-stop-before-handoff';

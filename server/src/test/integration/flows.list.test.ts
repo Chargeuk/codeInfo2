@@ -372,6 +372,36 @@ describe('GET /flows', () => {
     await fs.rm(ingestedRoot, { recursive: true, force: true });
   });
 
+  test('GET /flows rejects unsafe flow-owned agentType values before discovery probes repository-backed agent roots', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    await writeRawFlowFile(
+      tmpDir,
+      'unsafe-agent-type',
+      commandFlowTemplate({
+        description: 'unsafe agent type',
+        agentType: '../escape',
+        commandName: 'owner-command',
+      }),
+    );
+
+    await withFlowsDir(tmpDir, async () => {
+      const response = await supertest(buildApp()).get('/flows');
+
+      assert.equal(response.status, 200);
+      const listed = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'unsafe-agent-type',
+      );
+      assert.equal(listed.disabled, true);
+      assert.match(
+        String(listed.error ?? ''),
+        /agentType must be a valid agent root name/u,
+      );
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
   test('ingested command-step flows stay listable when the owner repo only provides command overlays without config.toml', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const flowsRoot = await fs.mkdtemp(

@@ -23,6 +23,7 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
 import { resetStore } from '../../logStore.js';
+import type { Conversation } from '../../mongo/conversation.js';
 import { callTool } from '../../mcpAgents/tools.js';
 import { createAgentsRunRouter } from '../../routes/agentsRun.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
@@ -30,6 +31,7 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -2548,40 +2550,44 @@ test('Task 28 direct continuation restores the saved requested-provider identity
   });
 
   const conversationId = 'task28-direct-continuation-requested-provider';
-  memoryConversations.set(conversationId, {
-    _id: conversationId,
-    provider: 'codex',
-    model: 'gpt-5.3-codex',
-    title: 'Saved continuation',
-    agentName: 'coding_agent',
-    source: 'REST',
-    flags: {
-      requestedProviderId: 'copilot',
-    },
-    lastMessageAt: new Date(),
-    archivedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
 
   try {
-    const result = await runAgentInstruction({
+    const seededConversation: Conversation = {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      title: 'Saved continuation',
       agentName: 'coding_agent',
-      instruction: 'continue with saved requested provider',
-      conversationId,
       source: 'REST',
-      chatFactory: () => new MinimalChat(),
-    });
+      flags: {
+        requestedProviderId: 'copilot',
+      },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    assert.equal(result.providerId, 'codex');
-    assert.equal(
-      memoryConversations.get(conversationId)?.flags?.requestedProviderId,
-      'copilot',
-    );
+    await withMockedMongoConversationPersistence({
+      seedConversations: [seededConversation],
+      run: async ({ conversations }) => {
+        const result = await runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'continue with saved requested provider',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        });
+
+        assert.equal(result.providerId, 'codex');
+        assert.equal(
+          conversations.get(conversationId)?.flags?.requestedProviderId,
+          'copilot',
+        );
+      },
+    });
   } finally {
     __resetAgentServiceDepsForTests();
-    memoryConversations.delete(conversationId);
-    memoryTurns.delete(conversationId);
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempAgentsHome, { recursive: true, force: true });

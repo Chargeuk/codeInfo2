@@ -1,0 +1,168 @@
+import mongoose from 'mongoose';
+import type { Conversation } from '../../mongo/conversation.js';
+import { ConversationModel } from '../../mongo/conversation.js';
+import { TurnModel } from '../../mongo/turn.js';
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const cloneConversation = (
+  conversation: Conversation | null,
+): Conversation | null =>
+  conversation ? (structuredClone(conversation) as Conversation) : null;
+
+const setNestedValue = (
+  target: Record<string, unknown>,
+  path: string,
+  value: unknown,
+) => {
+  const segments = path.split('.');
+  let cursor: Record<string, unknown> = target;
+  for (const segment of segments.slice(0, -1)) {
+    const existing = cursor[segment];
+    if (!isPlainObject(existing)) {
+      cursor[segment] = {};
+    }
+    cursor = cursor[segment] as Record<string, unknown>;
+  }
+  cursor[segments.at(-1) as string] = value;
+};
+
+const deleteNestedValue = (target: Record<string, unknown>, path: string) => {
+  const segments = path.split('.');
+  let cursor: Record<string, unknown> | undefined = target;
+  for (const segment of segments.slice(0, -1)) {
+    const existing: unknown = cursor?.[segment];
+    if (!isPlainObject(existing)) return;
+    cursor = existing;
+  }
+  if (!cursor) return;
+  delete cursor[segments.at(-1) as string];
+};
+
+const applyConversationUpdate = (
+  conversation: Conversation,
+  update: unknown,
+): Conversation => {
+  const next = structuredClone(conversation) as Conversation;
+
+  if (isPlainObject(update) && ('$set' in update || '$unset' in update)) {
+    if (isPlainObject(update.$set)) {
+      for (const [path, value] of Object.entries(update.$set)) {
+        setNestedValue(next as unknown as Record<string, unknown>, path, value);
+      }
+    }
+    if (isPlainObject(update.$unset)) {
+      for (const path of Object.keys(update.$unset)) {
+        deleteNestedValue(next as unknown as Record<string, unknown>, path);
+      }
+    }
+  } else if (isPlainObject(update)) {
+    Object.assign(next, structuredClone(update));
+  }
+
+  next.updatedAt = new Date();
+  return next;
+};
+
+const buildFindByIdResult = (store: Map<string, Conversation>, id: unknown) => ({
+  lean: () => ({
+    exec: async () => cloneConversation(store.get(String(id)) ?? null),
+  }),
+  exec: async () => cloneConversation(store.get(String(id)) ?? null),
+});
+
+const resolveConversationId = (value: unknown): string | undefined => {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (isPlainObject(value) && typeof value._id === 'string' && value._id.trim()) {
+    return value._id;
+  }
+  return undefined;
+};
+
+export async function withMockedMongoConversationPersistence<T>(params: {
+  seedConversations: Conversation[];
+  run: (state: {
+    conversations: Map<string, Conversation>;
+    turns: Array<Record<string, unknown>>;
+  }) => Promise<T>;
+}): Promise<T> {
+  const conversations = new Map(
+    params.seedConversations.map((conversation) => [
+      conversation._id,
+      structuredClone(conversation) as Conversation,
+    ]),
+  );
+  const turns: Array<Record<string, unknown>> = [];
+
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalReadyState = mongoose.connection.readyState;
+  const originalFindById = ConversationModel.findById;
+  const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+  const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
+  const originalTurnCreate = TurnModel.create;
+
+  process.env.NODE_ENV = 'production';
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    value: 1,
+    configurable: true,
+  });
+
+  ConversationModel.findById = ((id: unknown) =>
+    buildFindByIdResult(conversations, id)) as typeof ConversationModel.findById;
+
+  ConversationModel.findByIdAndUpdate = ((
+    id: unknown,
+    update: unknown,
+  ) => ({
+    exec: async () => {
+      const existing = conversations.get(String(id));
+      if (!existing) return null;
+      const next = applyConversationUpdate(existing, update);
+      conversations.set(String(id), next);
+      return cloneConversation(next);
+    },
+  })) as typeof ConversationModel.findByIdAndUpdate;
+
+  ConversationModel.findOneAndUpdate = ((
+    filter: unknown,
+    update: unknown,
+  ) => ({
+    exec: async () => {
+      const conversationId = resolveConversationId(filter);
+      if (!conversationId) return null;
+      const existing = conversations.get(conversationId);
+      if (!existing) return null;
+      const next = applyConversationUpdate(existing, update);
+      conversations.set(conversationId, next);
+      return cloneConversation(next);
+    },
+  })) as typeof ConversationModel.findOneAndUpdate;
+
+  TurnModel.create = ((async (input: Record<string, unknown>) => {
+    const turn = {
+      _id: `turn-${turns.length + 1}`,
+      ...structuredClone(input),
+    };
+    turns.push(turn);
+    return turn;
+  }) as unknown) as typeof TurnModel.create;
+
+  try {
+    return await params.run({ conversations, turns });
+  } finally {
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: originalReadyState,
+      configurable: true,
+    });
+    ConversationModel.findById = originalFindById;
+    ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+    ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
+    TurnModel.create = originalTurnCreate;
+  }
+}

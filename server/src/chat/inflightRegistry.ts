@@ -38,6 +38,8 @@ export type InflightState = {
   toolEvents: ToolEvent[];
   startedAt: string;
   abortController: AbortController;
+  externalAbortSignal?: AbortSignal;
+  externalAbortListener?: () => void;
   seq: number;
 };
 
@@ -228,11 +230,12 @@ export function createInflight(params: {
     if (params.externalSignal.aborted) {
       controller.abort();
     } else {
-      params.externalSignal.addEventListener(
-        'abort',
-        () => controller.abort(),
-        { once: true },
-      );
+      const externalAbortListener = () => controller.abort();
+      params.externalSignal.addEventListener('abort', externalAbortListener, {
+        once: true,
+      });
+      state.externalAbortSignal = params.externalSignal;
+      state.externalAbortListener = externalAbortListener;
     }
   }
 
@@ -513,6 +516,14 @@ export function cleanupInflight(params: {
       state,
       completedAt: state.assistantCreatedAt ?? new Date().toISOString(),
     });
+  }
+  if (state.externalAbortSignal && state.externalAbortListener) {
+    state.externalAbortSignal.removeEventListener(
+      'abort',
+      state.externalAbortListener,
+    );
+    state.externalAbortSignal = undefined;
+    state.externalAbortListener = undefined;
   }
   inflightByConversationId.delete(params.conversationId);
   const pending = pendingCancelByConversationId.get(params.conversationId);

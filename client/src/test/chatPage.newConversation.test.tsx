@@ -197,7 +197,7 @@ describe('Chat page new conversation control', () => {
     expect(input).toHaveValue('Fresh draft');
   });
 
-  it('starts a new next-send conversation when provider changes while viewing an existing conversation', async () => {
+  it('clears restored provider state after an explicit new-conversation reset before a fresh provider change sends', async () => {
     const user = userEvent.setup();
     const chatBodies: Array<Record<string, unknown>> = [];
 
@@ -377,10 +377,26 @@ describe('Chat page new conversation control', () => {
     expect(screen.getByTestId('provider-select')).toHaveTextContent(
       /openai codex/i,
     );
+    expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
 
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Transcript will appear here once you send a message/i),
+      ).toBeInTheDocument(),
+    );
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    expect(providerSelect).toBeEnabled();
     await user.click(providerSelect);
     await user.click(
       await screen.findByRole('option', { name: /^GitHub Copilot$/i }),
@@ -391,8 +407,6 @@ describe('Chat page new conversation control', () => {
         /github copilot/i,
       ),
     );
-    expect(screen.queryByText('Earlier reply')).not.toBeInTheDocument();
-
     const input = await screen.findByTestId('chat-input');
     await user.type(input, 'Use Copilot next');
     await act(async () => {
@@ -418,7 +432,7 @@ describe('Chat page new conversation control', () => {
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
   }, 15000);
 
-  it('starts a new next-send conversation when the model changes while viewing an existing conversation', async () => {
+  it('clears restored model state after an explicit new-conversation reset before a fresh model change sends', async () => {
     const user = userEvent.setup();
     const chatBodies: Array<Record<string, unknown>> = [];
 
@@ -568,17 +582,33 @@ describe('Chat page new conversation control', () => {
     });
 
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /model/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Transcript will appear here once you send a message/i),
+      ).toBeInTheDocument(),
+    );
 
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
+    expect(modelSelect).toBeEnabled();
     await user.click(modelSelect);
     await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.2/i),
     );
-    expect(screen.queryByText('Earlier reply')).not.toBeInTheDocument();
 
     const input = await screen.findByTestId('chat-input');
     await user.type(input, 'Use the newer model next');

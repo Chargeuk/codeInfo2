@@ -71,6 +71,24 @@ describe('Flows page run guards', () => {
     expect(nextCache).not.toBe(previousCache);
   });
 
+  it('drops cached enabled flow details after a later list refresh marks the flow disabled', () => {
+    const previousCache = {
+      'daily::local': {
+        name: 'daily',
+        description: 'Daily flow',
+        disabled: false,
+        warnings: [],
+      },
+    };
+
+    const nextCache = reconcileFlowDetailsCache(previousCache, [
+      { name: 'daily', description: 'Daily flow', disabled: true },
+    ]);
+
+    expect(nextCache).toEqual({});
+    expect(nextCache).not.toBe(previousCache);
+  });
+
   it('blocks new runs after the selected flow details surface marks the flow disabled', async () => {
     const user = userEvent.setup();
     let runRequests = 0;

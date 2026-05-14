@@ -84,10 +84,17 @@ export const reconcileFlowDetailsCache = (
   let nextFlowDetailsByKey: Record<string, FlowDetails | undefined> | undefined;
 
   for (const flow of flows) {
-    if (flow.disabled !== false) continue;
     const flowKey = buildFlowKey(flow);
     const cachedDetails = flowDetailsByKey[flowKey];
-    if (!cachedDetails?.disabled) continue;
+    if (!cachedDetails) continue;
+
+    const summaryDisabled = flow.disabled;
+    const cachedDisabled = cachedDetails.disabled;
+    const staleDisabledDetails =
+      summaryDisabled === false && cachedDisabled === true;
+    const staleEnabledDetails =
+      summaryDisabled === true && cachedDisabled === false;
+    if (!staleDisabledDetails && !staleEnabledDetails) continue;
     if (!nextFlowDetailsByKey) {
       nextFlowDetailsByKey = { ...flowDetailsByKey };
     }

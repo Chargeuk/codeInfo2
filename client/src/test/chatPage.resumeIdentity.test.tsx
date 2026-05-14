@@ -202,6 +202,14 @@ describe('Chat page resumed execution identity', () => {
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(/LM Model/i),
     );
+    expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('combobox', { name: /model/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
 
     await user.type(screen.getByTestId('chat-input'), 'Use stored identity');
     await act(async () => {

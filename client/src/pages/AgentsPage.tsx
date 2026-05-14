@@ -87,9 +87,16 @@ export const reconcileAgentDetailsCache = (
     | undefined;
 
   for (const agent of agents) {
-    if (agent.disabled !== false) continue;
     const cachedDetails = agentDetailsByName[agent.name];
-    if (!cachedDetails?.disabled) continue;
+    if (!cachedDetails) continue;
+
+    const summaryDisabled = agent.disabled;
+    const cachedDisabled = cachedDetails.disabled;
+    const staleDisabledDetails =
+      summaryDisabled === false && cachedDisabled === true;
+    const staleEnabledDetails =
+      summaryDisabled === true && cachedDisabled === false;
+    if (!staleDisabledDetails && !staleEnabledDetails) continue;
     if (!nextAgentDetailsByName) {
       nextAgentDetailsByName = { ...agentDetailsByName };
     }

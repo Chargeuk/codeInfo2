@@ -385,6 +385,44 @@ describe('Chat page sidebar conversation selection', () => {
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
   }, 15000);
 
+  it('keeps resumed provider and model selectors read-only while a stored conversation is selected', async () => {
+    const user = userEvent.setup();
+    mockApi();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const codexRowTitle = await screen.findByText('Codex conversation');
+    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
+    if (!codexRow) {
+      throw new Error('Codex conversation row not found');
+    }
+
+    await act(async () => {
+      await user.click(codexRow);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('provider-select')).toHaveTextContent(
+        /OpenAI Codex/i,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5\.1-codex-max/i,
+      ),
+    );
+    expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('combobox', { name: /model/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByText('codex reply')).toBeInTheDocument();
+  }, 15000);
+
   it('restores the selected conversation over an unsent provider draft without merging hidden draft flags', async () => {
     const user = userEvent.setup();
 
@@ -710,6 +748,22 @@ describe('Chat page sidebar conversation selection', () => {
     expect(
       screen.getByRole('combobox', { name: /sandbox mode/i }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Transcript will appear here once you send a message/i),
+      ).toBeInTheDocument(),
+    );
 
     await selectProvider(user, /^GitHub Copilot$/i);
     await waitFor(() =>
@@ -782,6 +836,22 @@ describe('Chat page sidebar conversation selection', () => {
       expect(screen.getByTestId('model-select')).toHaveTextContent(
         /gpt-5\.1-codex-max/i,
       ),
+    );
+    expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: /new conversation/i }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Transcript will appear here once you send a message/i),
+      ).toBeInTheDocument(),
     );
 
     await selectProvider(user, /^LM Studio$/i);

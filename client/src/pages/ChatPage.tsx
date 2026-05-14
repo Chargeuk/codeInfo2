@@ -783,6 +783,12 @@ export default function ChatPage() {
     stopRef.current = stop;
   }, [stop]);
 
+  const resumedProvider = selectedConversation?.provider?.trim() || undefined;
+  const resumedModel = selectedConversation?.model?.trim() || undefined;
+  const resumedExecutionIdentityLocked = Boolean(
+    selectedConversation?.conversationId && resumedProvider && resumedModel,
+  );
+
   useEffect(() => {
     return () => {
       stopRef.current();
@@ -792,11 +798,6 @@ export default function ChatPage() {
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const hasNonWhitespaceContent = input.trim().length > 0;
-    const resumedProvider = selectedConversation?.provider?.trim() || undefined;
-    const resumedModel = selectedConversation?.model?.trim() || undefined;
-    const useResumedExecutionIdentity = Boolean(
-      selectedConversation?.conversationId && resumedProvider && resumedModel,
-    );
     log('info', 'DEV-0000035:T9:chat_raw_send_evaluated', {
       source: 'ChatPage',
       rawLength: input.length,
@@ -804,7 +805,7 @@ export default function ChatPage() {
       hasNonWhitespaceContent,
       controlsDisabled,
       isSending,
-      useResumedExecutionIdentity,
+      useResumedExecutionIdentity: resumedExecutionIdentityLocked,
       resumedProvider: resumedProvider ?? null,
       resumedModel: resumedModel ?? null,
     });
@@ -832,10 +833,12 @@ export default function ChatPage() {
     });
     void send(input, {
       workingFolder: workingFolder.trim() || undefined,
-      providerOverride: useResumedExecutionIdentity
+      providerOverride: resumedExecutionIdentityLocked
         ? resumedProvider
         : undefined,
-      modelOverride: useResumedExecutionIdentity ? resumedModel : undefined,
+      modelOverride: resumedExecutionIdentityLocked
+        ? resumedModel
+        : undefined,
     }).then(() => refreshConversations());
     setInput('');
   };
@@ -942,7 +945,7 @@ export default function ChatPage() {
   const handleProviderChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    if (nextSendContextLocked) {
+    if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
@@ -969,7 +972,7 @@ export default function ChatPage() {
   const handleModelChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    if (nextSendContextLocked) {
+    if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
@@ -1501,7 +1504,9 @@ export default function ChatPage() {
                             value={provider ?? ''}
                             onChange={handleProviderChange}
                             disabled={
-                              providerStatus === 'loading' || providerLocked
+                              providerStatus === 'loading' ||
+                              providerLocked ||
+                              resumedExecutionIdentityLocked
                             }
                             sx={{
                               minWidth: { xs: 0, sm: 220 },
@@ -1544,7 +1549,8 @@ export default function ChatPage() {
                               isError ||
                               isEmpty ||
                               !providerAvailable ||
-                              nextSendContextLocked
+                              nextSendContextLocked ||
+                              resumedExecutionIdentityLocked
                             }
                             sx={{ minWidth: { xs: 0, sm: 260 }, flex: 1 }}
                             SelectProps={{ displayEmpty: true }}

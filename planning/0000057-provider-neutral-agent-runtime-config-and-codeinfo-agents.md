@@ -674,7 +674,7 @@ Provider authentication in this product is controlled by external systems and ma
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2804,7 +2804,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 26, Task 27, Task 28`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260514T062516Z-54ba77ee`. This task owns the whole current review cycle's close-out proof so the resolved inline minor fixes for this same cycle do not spawn a second final-task owner later.
 

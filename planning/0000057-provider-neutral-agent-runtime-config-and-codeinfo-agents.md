@@ -2666,8 +2666,8 @@ The review found that the new provider-neutral availability helper computes the 
 #### Subtasks
 
 1. [ ] Patch the shared run-start warning propagation seam in `server/src/agents/service.ts` and `server/src/routes/agentsRun.ts` so availability-generated invalid-provider, unavailable-provider, and fallback-provider diagnostics survive direct agent launches instead of being narrowed to config-only warnings before the HTTP response is built.
-2. [ ] Patch the command and MCP launch seams in `server/src/routes/agentsCommands.ts`, `server/src/mcpAgents/router.js`, and `server/src/mcpAgents/tools.js` so command and MCP launches reuse the same repaired warning contract rather than inventing separate response-only warning shapes for the same provider-selection outcome.
-3. [ ] Patch the flow launch seam in `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` so flow starts preserve the same availability-generated diagnostics that the direct launch seams now return.
+2. [ ] Patch the command and MCP launch seams in `server/src/agents/service.ts`, `server/src/routes/agentsCommands.ts`, and `server/src/mcpAgents/tools.ts` so `runAgentCommand(...)`, the REST command response, and the MCP `run_command` result serialization all carry the same availability-generated invalid-provider, unavailable-provider, and fallback-provider warnings instead of inventing separate response-only warning shapes for the same provider-selection outcome.
+3. [ ] Patch the flow launch seam in `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` so `resolveFlowAgentRuntimeExecution(...)`, `startFlowRun(...)`, and the `POST /flows/:flowName/run` response preserve the same availability-generated diagnostics that the direct launch seams now return.
 4. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim config-warning behavior, so the retained proof explicitly asserts that the run-start response payload itself preserves the fallback or invalid-provider diagnostics on each supported surface.
 
 #### Testing
@@ -2714,7 +2714,7 @@ The review found that flow-owned `agentType` values can currently reach filesyst
 #### Subtasks
 
 1. [ ] Patch the repository-backed flow discovery seam in `server/src/flows/discovery.ts` so unsafe `agentType` values are rejected before they reach `resolveAgentHomeForRepository(...)`, the canonical-home lookup, or the direct `path.join(candidate.sourceId, 'codeinfo_agents', params.step.agentType)` fallback.
-2. [ ] Patch the matching flow execution seam in `server/src/flows/service.ts` and the shared helper in `server/src/agents/roots.ts` so the same validation contract applies when command steps are resolved at runtime and no execution-only fallback can bypass the discovery-time guard.
+2. [ ] Patch the matching flow execution seam in `server/src/flows/service.ts` and the shared helper in `server/src/agents/roots.ts` so `buildFlowCommandCandidates(...)`, `resolveAgentHomeForRepository(...)`, and the runtime fallback join all share the same validation contract and no execution-only fallback can bypass the discovery-time guard.
 3. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim `commandName` traversal rejection, so the retained proof explicitly asserts that unsafe `agentType` values cannot escape the intended agent roots in helper, discovery, or runtime execution paths.
 
 #### Testing
@@ -2762,7 +2762,7 @@ The review found that the continuation and resume seams still reconstruct durabl
 #### Subtasks
 
 1. [ ] Patch the resume backfill write seam in `server/src/flows/service.ts` and `server/src/mongo/repo.ts` so `flags.flowChild.executionId` is written only when it is still missing at write time, using a compare-and-swap or equally explicit still-missing guard instead of an unconditional stale overwrite.
-2. [ ] Patch the direct-agent continuation seam in `server/src/agents/service.ts` and the flow-resume reconstruction seam in `server/src/flows/service.ts` so requested-provider identity is restored from authoritative requested-provider state, including `agentRequestedProviders`, rather than from the mutable execution-provider field on persisted conversations.
+2. [ ] Patch the direct-agent continuation seam in `server/src/agents/service.ts` and the flow-resume reconstruction seam in `server/src/flows/service.ts` so `parseFlowResumeState(...)`, `hydrateFlowAgentState(...)`, and the direct continuation bootstrap restore requested-provider identity from authoritative requested-provider state, including `agentRequestedProviders`, rather than from the mutable execution-provider field on persisted conversations.
 3. [ ] Author or update the retained proof homes named in `Task Exit Criteria`, and rename or split any reused cases whose current titles only claim resume success or execution-provider pinning, so the retained proof explicitly asserts the intervening-writer ordering case plus the requested-versus-execution provider distinction on direct continuation and flow resume.
 
 #### Testing

@@ -2967,3 +2967,14 @@ This review-created block stays inside the current repository's run-start warnin
   - the blind-spot challenge still called out `server/src/mcp2/tools/codebaseQuestion.ts` as residual weak proof only, because the late replay fast-path still resolves shared execution context and Codex runtime config before the `lateCompletedReplay` early-return check. The review did not find a strong enough changed-path production failure to endorse as a new actionable finding, so this remains a documented confidence limit rather than a hidden clean bill of health.
 - Review-strength caveat:
   - this closeout writes the durable no-findings review result from the stored review evidence and final on-disk task state; it does not claim a fresh rerun of wrappers or manual proof inside this clean-closeout step itself.
+
+## Final Summary
+
+1. What has been changed.
+   Story 57 now finishes with provider-neutral runtime layering, neutral agent-root precedence, shared repository execution context across chat, agents, flows, and `code_info`, pinned persisted execution identity for resumed work, the review-created follow-up fixes from Tasks 26 through 29, a clean post-implementation review closeout, and a curated durable manual-proof bundle under `codeInfoStatus/manual-proof/0000057/`.
+2. Why it changed.
+   The story was meant to move the product beyond Codex-only runtime assumptions so users can run repository-grounded agent and chat flows against Codex, Copilot, and LM Studio using one consistent contract, while still keeping fallback behavior, warning surfaces, and resumed conversation identity honest and predictable.
+3. A simple explanation of any complex logic that needed to be added.
+   The hardest part was separating setup-time choice from persisted identity: config now merges in a strict precedence order, fresh runs may repair provider or model selection only before a conversation is established, and later turns must stay pinned to the saved provider, model, agent, requested-provider, and flow-child ownership state instead of silently recomputing from newer config or stale execution fields.
+4. What a reviewer should take particular interest in.
+   Reviewers should focus on `server/src/config/runtimeConfig.ts`, `server/src/agents/service.ts`, `server/src/workingFolders/executionContext.ts`, `server/src/flows/service.ts`, `server/src/routes/flowsRun.ts`, `server/src/mongo/repo.ts`, and the client warning or disabled-state surfaces, then use Task 29’s recorded broad wrapper proof plus the curated manual-proof bundle in `codeInfoStatus/manual-proof/0000057/` as closeout evidence; the one explicit residual confidence limit still called out on disk is the non-actionable weak-proof note around the late replay fast-path in `server/src/mcp2/tools/codebaseQuestion.ts`.

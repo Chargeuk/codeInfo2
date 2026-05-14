@@ -243,14 +243,15 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - in this case:
       - perform at most one bounded recovery pass using only obvious, supported, low-complexity adjustments;
       - if that recovery pass restores the proof surface, continue manual testing normally;
-      - if the proof surface is still unavailable after that recovery pass, stop retrying and choose exactly one outcome:
-        - record a real `**BLOCKER**` only when the missing capability is something this workflow is expected to repair before later manual proof; or
-        - use the documented skip path below when the limitation is not honestly repairable within this step.
+      - if the proof surface is still unavailable after that same single recovery pass, keep the classification as `structural_proof_gap` and choose exactly one outcome:
+        - record a real `**BLOCKER**` only when the missing capability is within the active plan/task repair scope and this workflow is expected to repair it now using supported repository workflows; or
+        - use the documented skip path below when that is not true.
 - The need to inspect or start a supporting repository outside the story's declared repository list is not, by itself, a `structural_proof_gap`.
 - Classify a blocker only when the required proof path remains genuinely undiscoverable, unreadable, or unsupported after bounded investigation.
 - If `AGENTS.md` or, if it exists, `codeinfo_markdown/repository_information.md` defines a repository-specific skip condition and that condition is what currently prevents part of the manual proof, honor that repository policy. In that case, record the skipped surface honestly, do not reopen or fail the task for that reason alone, and do not add implementation work, blockers, or planner repair work for that reason alone.
-- Also allow this general manual-proof skip condition: after a bounded diagnosis pass, if the remaining proof surface is structurally or environmentally unavailable in the supported runtime, and that limitation cannot honestly be repaired within this step using supported repository workflows, treat the outcome as a documented skip rather than a blocker.
-- Before using that general structural/environmental skip condition, perform one bounded recovery pass.
+- Under `structural_proof_gap`, also allow this general structural/environmental documented skip outcome: after a bounded diagnosis pass, if the remaining proof surface is structurally or environmentally unavailable in the supported runtime, and that limitation is outside the active plan/task repair scope or cannot honestly be repaired within this step using supported repository workflows, treat the outcome as a documented skip rather than a blocker.
+- Do not treat that documented skip as a fourth classification bucket; it is an allowed outcome under `structural_proof_gap`.
+- Do not perform a second recovery pass for that documented skip outcome; use the same single bounded recovery pass already required above for `structural_proof_gap`.
 - That pass may include only obvious, supported, low-complexity adjustments such as:
   - restarting the documented runtime;
   - using another repository-documented supported variant;
@@ -403,5 +404,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.
 - Confirm a bounded recovery pass was attempted before using the general structural/environmental skip condition.
 - Confirm the recorded skip note includes a simple example of what was attempted, what happened, and why fuller proof was not possible.
+- Confirm the general structural/environmental documented skip was treated as an outcome under `structural_proof_gap`, not as a separate classification bucket.
+- Confirm no second bounded recovery pass was performed for the documented skip outcome.
 
 </verification_loop>

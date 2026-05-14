@@ -2450,7 +2450,7 @@ The client still lets stale or contradictory UI state outrank the real execution
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 18`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260513T150955Z-67ee8439`.
 
@@ -2493,6 +2493,7 @@ The current replay seam still relies on process-local or completed-state checks 
 - The replay claim still stays scoped to one `conversationId + replayId` pair: fresh replay ids keep the fresh path, while retries for the same replay id now observe the same persisted claim rather than launching duplicate provider work.
 - `npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` initially failed because the replay owner never passed `inflightId` into `ChatInterface.run`, so user-turn persistence could not mark the durable claim visible; after threading that flag through and tightening the proof around completed-versus-in-progress replay metadata, the rerun passed with 20 tests.
 - `npm run test:summary:server:unit -- --file server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` passed with 15 tests, confirming that overlapping websocket retries now observe the durable in-progress claim before provider completion and that completed replay survives later cache-clear retries without rebuilding provider work.
+- Audit normalization closed Task 24 as `__done__` because all four subtasks, both automated testing steps, and the recorded replay-claim proof were already complete on disk, and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 24` reported no live blockers.
 
 ### Task 25. Revalidate review pass `0000057-20260513T150955Z-67ee8439` serious fixes and inline minor resolutions
 

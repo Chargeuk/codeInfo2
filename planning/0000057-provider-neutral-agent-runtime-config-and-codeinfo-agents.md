@@ -2902,7 +2902,7 @@ This review-created block stays inside the current repository's run-start warnin
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 29`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Follow-up task for post-closeout PR review comments about early provider failure blocking fallback on `/chat`, direct agent runs, and flow-owned agent runs.
 
@@ -2991,6 +2991,7 @@ This task fixes both seams in one bounded change set so fallback decisions happe
 - Automated proof step 9 passed with `npm run compose:down`; the same supported main stack shut down cleanly, removing the client, server, datastore, tracing, and network resources on the normal path without any teardown error.
 - Automated proof step 10 passed with the full root `npm run lint` command; ESLint finished cleanly with `--max-warnings=0`, so the broader repository lint surface stayed green after the Task 30 repairs and plan updates.
 - Automated proof step 11 passed with the full root `npm run format:check` command; Prettier finished with `All matched files use Prettier code style!`, so the repaired fallback-ordering surfaces and the updated plan stayed format-clean at closeout.
+- Automated-proof audit confirmed Task 30 now has all implementation subtasks and all automated `Testing` steps honestly complete on disk, with no live blocker reported by `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 30`. The proof-recording commit `56ef2e32`, the checked testing matrix in this plan, and the wrapper artifacts under `logs/test-summaries/` plus `test-results/` were sufficient repository evidence to close the task as `__done__`; the remaining `Manual Testing Guidance` stays optional and is not a completion gate for this task.
 
 #### Manual Testing Guidance
 

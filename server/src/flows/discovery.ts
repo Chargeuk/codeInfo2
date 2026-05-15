@@ -42,6 +42,15 @@ export type FlowSummary = {
 const INVALID_DESCRIPTION = 'Invalid flow file';
 
 const isJsonFile = (entry: string) => entry.toLowerCase().endsWith('.json');
+const isSafeCommandName = (raw: string): boolean => {
+  const trimmed = raw.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed === path.posix.basename(trimmed) &&
+    !trimmed.includes('/') &&
+    !trimmed.includes('\\')
+  );
+};
 
 const resolveFlowsDir = (baseDir?: string): string => {
   if (baseDir) return path.resolve(baseDir);
@@ -120,6 +129,12 @@ const resolveFlowCommandForDiscovery = async (params: {
     return {
       ok: false as const,
       message: `Flow agent "${params.step.agentType}" ${validatedAgentType.message}.`,
+    };
+  }
+  if (!isSafeCommandName(params.step.commandName)) {
+    return {
+      ok: false as const,
+      message: 'commandName must be a valid file name',
     };
   }
 

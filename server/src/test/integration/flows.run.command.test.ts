@@ -3889,6 +3889,36 @@ test('flow run rejects unsafe flow-owned agentType values before runtime fallbac
   });
 });
 
+test('flow run rejects unsafe flow-owned commandName values before runtime fallback joins can probe repository-backed command paths', async () => {
+  await withFlowServer(async ({ baseUrl, tmpDir }) => {
+    const flowName = 'unsafe-command-name';
+    await fs.writeFile(
+      path.join(tmpDir, `${flowName}.json`),
+      JSON.stringify({
+        description: 'unsafe command name',
+        steps: [
+          {
+            type: 'command',
+            agentType: 'planning_agent',
+            identifier: 'command-main',
+            commandName: '../escape',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const response = await supertest(baseUrl).post(`/flows/${flowName}/run`).send({});
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'invalid_request');
+    assert.match(
+      String(response.body.reason ?? response.body.message ?? ''),
+      /valid file name/u,
+    );
+  });
+});
+
 test('conversation-only stop prevents nested command handoff from starting', async () => {
   await withFlowServer(async ({ wsUrl, tmpDir }) => {
     const conversationId = 'flow-command-stop-before-handoff';

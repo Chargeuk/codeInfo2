@@ -402,6 +402,32 @@ describe('GET /flows', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
+  test('GET /flows rejects unsafe flow-owned commandName values before discovery probes repository-backed command paths', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    await writeRawFlowFile(
+      tmpDir,
+      'unsafe-command-name',
+      commandFlowTemplate({
+        description: 'unsafe command name',
+        commandName: '../escape',
+      }),
+    );
+
+    await withFlowsDir(tmpDir, async () => {
+      const response = await supertest(buildApp()).get('/flows');
+
+      assert.equal(response.status, 200);
+      const listed = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'unsafe-command-name',
+      );
+      assert.equal(listed.disabled, true);
+      assert.match(String(listed.error ?? ''), /valid file name/u);
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
   test('ingested command-step flows stay listable when the owner repo only provides command overlays without config.toml', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const flowsRoot = await fs.mkdtemp(

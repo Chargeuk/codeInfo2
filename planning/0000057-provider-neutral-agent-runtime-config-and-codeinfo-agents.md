@@ -3088,3 +3088,253 @@ This task fixes both seams in one bounded change set so fallback decisions happe
    The hardest part was separating setup-time choice from persisted identity: config now merges in a strict precedence order, fresh runs may repair provider or model selection only before a conversation is established, and later turns must stay pinned to the saved provider, model, agent, requested-provider, and flow-child ownership state instead of silently recomputing from newer config or stale execution fields.
 4. What a reviewer should take particular interest in.
    Reviewers should focus on `server/src/config/runtimeConfig.ts`, `server/src/agents/service.ts`, `server/src/workingFolders/executionContext.ts`, `server/src/flows/service.ts`, `server/src/routes/flowsRun.ts`, `server/src/mongo/repo.ts`, and the client warning or disabled-state surfaces, then use Task 29’s recorded broad wrapper proof plus the curated manual-proof bundle in `codeInfoStatus/manual-proof/0000057/` as closeout evidence; the one explicit residual confidence limit still called out on disk is the non-actionable weak-proof note around the late replay fast-path in `server/src/mcp2/tools/codebaseQuestion.ts`.
+
+## Code Review Findings
+
+### Review Pass `0000057-20260515T064120Z-152411f0`
+
+- Review cycle id: `0000057-rc-20260515T221035Z-c2a6db20`
+- Review routing source: `codeInfoStatus/flow-state/review-disposition-state.json`
+- Comparison context: the stored review compared local `HEAD` `152411f0c64ccd3c5b08cbed320f979b970aef87` versus resolved remote base `origin/main` at `6fbf0c050b4d94f90c0858d4cac499629fdb9236` using `local_head_vs_resolved_base`; the current branch still matches Story `0000057`, and later documentation-only commits through current `HEAD` `99e19f48c2e984b615090b3eea8e7c85d2eba902` recorded disposition and plan-repair state rather than changing the reviewed implementation surface.
+- This later review pass supersedes the earlier closeout summary above and reopens Story `0000057` with review-created follow-up tasks that are still `__to_do__` on disk.
+- Unresolved task-required findings now requiring numbered follow-up tasks: `unparsed-2`, `unparsed-3`, `unparsed-4`, `unparsed-5`, `unparsed-6`, `unparsed-9`, and `unparsed-10`.
+- Inline-resolved minor findings already handled in this same review cycle and therefore not re-tasked here: `unparsed-1`, `unparsed-7`, and `unparsed-8`.
+
+### Task 31. Make `/chat` apply authoritative resumed execution state and replay dedupe before started responses are emitted
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 30`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
+
+#### Overview
+
+The review found that `/chat` still has three tightly related authority-ordering problems. Request admission can reject `threadId` too early based on the pre-fallback provider, resumed conversations can carry `agentFlags` validated for one provider into a different saved provider after the route returns `202`, and completed replay requests can still rewrite conversation metadata before the completed-inflight barrier returns `INFLIGHT_ALREADY_COMPLETED`.
+
+This task keeps those fixes together because they are all failures of the same seam: the `/chat` validator and route are not yet consistently treating the saved execution identity plus the completed replay barrier as the authoritative owner before the route returns a started response or mutates durable conversation state.
+
+#### Highest-Risk Invariant
+
+- `/chat` must not reject, mutate, or defer execution based on stale pre-resume or pre-fallback state once the saved execution identity or completed replay barrier has become authoritative for that request.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `unparsed-2` - resumed `/chat` requests can validate `agentFlags` against one provider and then execute under a different saved provider.
+- `unparsed-3` - `threadId` validation can fail before the route-level fallback selector gets the final say on the winning provider.
+- `unparsed-9` - completed `/chat` replays can still rewrite conversation metadata before the completed replay barrier returns the duplicate-run response.
+
+#### Task Exit Criteria
+
+- Implicit `/chat` requests that rely on route-level fallback no longer fail `threadId` admission solely because the pre-fallback provider was not Codex; explicit unsupported-provider requests still fail clearly.
+- Resumed conversations revalidate or otherwise normalize provider-specific `agentFlags` against the saved execution provider before the background provider run starts, so `202 started` is not returned for a request that only becomes invalid after repinning.
+- Completed replay requests hit the authoritative completed-inflight barrier before `ensureConversation()` or any later metadata write can rewrite provider, model, sanitized flags, or `lastMessageAt`.
+- Proof explicitly covers the validator seam, the resumed provider-repin seam, the fallback-plus-`threadId` seam, and the completed replay metadata seam in `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, and `server/src/test/integration/conversations.turns.test.ts`.
+
+#### Subtasks
+
+1. [ ] Refactor `server/src/routes/chatValidators.ts` and `server/src/routes/chat.ts` so provider-sensitive `threadId` admission no longer locks in the pre-fallback provider for implicit requests, while explicit provider requests still fail on the explicit provider contract without silent switching.
+2. [ ] Update the resumed `/chat` execution path in `server/src/routes/chat.ts` so the saved execution provider becomes authoritative before provider-specific `agentFlags` are reused for the background run, and fail the request before returning `202` when those flags are no longer valid for the saved provider.
+3. [ ] Move or guard the completed replay barrier in `server/src/routes/chat.ts` so completed replay requests do not call `ensureConversation()` or rewrite conversation metadata before returning `INFLIGHT_ALREADY_COMPLETED`.
+4. [ ] Update the retained proof homes in `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, and `server/src/test/integration/conversations.turns.test.ts` so the case titles explicitly describe fallback-aware `threadId` admission, resumed-provider `agentFlags` validation, and metadata-stable completed replays.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-codex.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts --file server/src/test/integration/conversations.turns.test.ts` from the repository root. Use this targeted wrapper because the repaired validator, resume, fallback, and replay seams all live in those retained proof homes.
+
+### Task 32. Preserve `/flows/:flowName/run` actual execution identity and launch diagnostics through the supported client contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 30`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
+
+#### Overview
+
+The review found one coherent flow start contract drift: the flow runtime computes the actual provider and warnings correctly, but the supported HTTP and client parsing contract still drops them before the page can use that launch-time truth. The missing `providerId` field and the dropped warning or error identifiers are two aspects of the same started-payload problem rather than separate implementation stories.
+
+This task keeps the repair centered on the one run-start contract seam shared by `server/src/routes/flowsRun.ts`, `server/src/flows/types.ts`, `client/src/api/flows.ts`, and the flow start UI consumers.
+
+#### Highest-Risk Invariant
+
+- The first supported `/flows/:flowName/run` response must tell the caller which provider actually ran and which launch-time warnings or machine-readable failure identifiers were produced, without requiring a second fetch or contradicting the persisted run record.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `unparsed-4` - the flow start payload drops the actual `providerId` even though the runtime computed and persisted it.
+- `unparsed-5` - server-provided launch warnings and normalized failure identifiers are still dropped by the client helper before the UI sees them.
+
+#### Task Exit Criteria
+
+- `FlowRunStartResult`, the `/flows/:flowName/run` route payload, and the client parser all preserve the actual started `providerId` alongside `modelId`.
+- Successful flow starts preserve launch warnings through the supported client helper and page consumer instead of discarding them after the HTTP response is parsed.
+- Provider-unavailable or similar normalized route failures preserve a machine-readable identifier through `client/src/api/flows.ts` so `FlowsPage` does not lose the route’s explicit error category.
+- Proof explicitly covers the server route payload and the client parser or page consumer seams in `server/src/test/integration/flows.run.errors.test.ts`, `client/src/test/flowsApi.test.ts`, `client/src/test/flowsApi.run.payload.test.ts`, and `client/src/test/flowsPage.run.test.tsx`.
+
+#### Subtasks
+
+1. [ ] Update `server/src/flows/types.ts` and `server/src/routes/flowsRun.ts` so the supported flow start payload preserves the actual started `providerId` plus launch warnings or normalized failure identifiers wherever the runtime already computed them.
+2. [ ] Update `client/src/api/flows.ts` and the consuming `client/src/pages/FlowsPage.tsx` start-path logic so the client preserves the repaired `providerId`, warning, and normalized error fields instead of narrowing them away.
+3. [ ] Refresh `server/src/test/integration/flows.run.errors.test.ts`, `client/src/test/flowsApi.test.ts`, `client/src/test/flowsApi.run.payload.test.ts`, and `client/src/test/flowsPage.run.test.tsx` so the retained proof titles and assertions explicitly describe actual-provider propagation plus warning or machine-code retention on the first run-start response.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root. Use this targeted wrapper because the repaired route payload seam lives there.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts --file client/src/test/flowsApi.run.payload.test.ts --file client/src/test/flowsPage.run.test.tsx` from the repository root. Use this targeted wrapper because the client parser and page launch consumers own the repaired flow contract.
+
+### Task 33. Align provider-specific `/chat/models` availability fields with the authoritative bootstrap-status contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 30`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
+
+#### Overview
+
+The review found that the authoritative bootstrap-status registry is already correct, but the provider-specific `/chat/models` top-level fields can drift away from it and re-advertise a degraded provider as healthy. This is one cross-surface contract seam: the route’s top-level provider availability and reason fields must stay aligned with the authoritative bootstrap owner and with the client hook that gates the chat UI from those exact top-level fields.
+
+#### Highest-Risk Invariant
+
+- When bootstrap has already marked a provider unavailable or degraded, no supported `/chat/models` payload or chat-model consumer may re-advertise that provider as fully healthy through a contradictory top-level `available`, `toolsAvailable`, or `reason` field.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `unparsed-6` - provider-specific `/chat/models` responses can drift from the authoritative bootstrap status and re-advertise degraded providers as healthy.
+
+#### Task Exit Criteria
+
+- The Copilot and LM Studio `/chat/models` top-level availability and reason fields stay aligned with the authoritative bootstrap status already exposed through `providerInfo` and `/chat/providers`.
+- The client hook path that gates chat-model availability from the top-level route fields no longer re-enables a provider whose bootstrap status is already degraded.
+- Proof explicitly covers the provider-specific route branches and the top-level client gating consumer in `server/src/test/unit/chatModels.copilot.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.test.tsx`.
+
+#### Subtasks
+
+1. [ ] Update the provider-specific availability and reason mapping in `server/src/routes/chatModels.ts` so the Copilot and LM Studio top-level response fields remain aligned with the authoritative bootstrap status already exposed through `providerInfo` and `/chat/providers`.
+2. [ ] Update the client gating seam in `client/src/hooks/useChatModel.ts` and any adjacent consumer state it feeds so contradictory top-level `/chat/models` fields cannot re-enable a bootstrap-degraded provider.
+3. [ ] Refresh `server/src/test/unit/chatModels.copilot.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.test.tsx` so the retained proof titles explicitly describe bootstrap-authoritative provider availability and reason alignment.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts` from the repository root. Use this targeted wrapper because the authoritative bootstrap and `/chat/models` route seams live there.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.models.test.tsx --file client/src/test/chatPage.provider.test.tsx` from the repository root. Use this targeted wrapper because the repaired client gating path for top-level provider availability lives there.
+
+### Task 34. Make bulk conversation UI state honor partial-success server outcomes
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 30`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
+
+#### Overview
+
+The review found that the server already exposes count-based partial-success semantics for bulk archive, restore, and delete operations, but the client still rewrites every requested conversation locally and clears selection as if the entire batch succeeded. This is one producer-consumer seam between the bulk server contract and the local UI state transitions that follow a `200` response.
+
+#### Highest-Risk Invariant
+
+- A partial-success bulk archive, restore, or delete response must not cause the client to pretend that every requested conversation changed successfully when the server explicitly reported a smaller affected count.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `unparsed-10` - bulk conversation client helpers rewrite every requested conversation locally even when the server reports only partial batch success.
+
+#### Task Exit Criteria
+
+- The bulk archive, restore, and delete client helpers respect the server’s count-based outcome instead of rewriting all requested rows after any `200` response.
+- `ConversationList.handleBulk(...)` no longer clears selection and logs a blanket success path when the server only reported partial success for the requested batch.
+- The repaired contract stays honest about what changed locally versus what still needs a later refresh when the server reports fewer updated or deleted rows than were requested.
+- Proof explicitly covers the server-side partial-success contract and the client-side local-state response in `server/src/test/integration/conversations.bulk.test.ts` and `client/src/test/chatSidebar.test.tsx`.
+
+#### Subtasks
+
+1. [ ] Update the bulk archive, restore, and delete helpers in `client/src/hooks/useConversations.ts` plus `client/src/components/chat/ConversationList.tsx` so a partial-success `200` response does not rewrite every requested conversation locally or clear selection as if the full batch succeeded.
+2. [ ] Keep the server-side aggregate contract in `server/src/routes/conversations.ts` and `server/src/mongo/repo.ts` explicit enough that the client can distinguish full success from partial success without inventing a new false-success branch.
+3. [ ] Refresh `server/src/test/integration/conversations.bulk.test.ts` and `client/src/test/chatSidebar.test.tsx` so the retained proof titles explicitly describe partial-success counts and the client-side state that must follow them.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.bulk.test.ts` from the repository root. Use this targeted wrapper because the count-based bulk contract lives there.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx` from the repository root. Use this targeted wrapper because the bulk conversation selection and local-state response lives there.
+
+### Task 35. Revalidate review pass `0000057-20260515T064120Z-152411f0` serious fixes and inline minor resolutions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 31, Task 32, Task 33, Task 34`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created final revalidation task for review cycle `0000057-rc-20260515T221035Z-c2a6db20`. This task now owns the whole current review cycle's close-out proof so the inline-resolved minor fixes for `unparsed-1`, `unparsed-7`, and `unparsed-8` do not spawn a second final-task owner later.
+
+#### Overview
+
+This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260515T064120Z-152411f0`, and it must also revalidate the inline-resolved minor fixes already recorded for `unparsed-1`, `unparsed-7`, and `unparsed-8` in review cycle `0000057-rc-20260515T221035Z-c2a6db20`.
+
+This review-created block stays inside the current repository's chat admission, replay, flow start payload, chat-model availability, and conversation-bulk state seams. The individual repair tasks therefore keep compact targeted proof, while this final review task owns the broader build, wrapper, browser, and supported main-stack reruns that close the current review-created findings block on the repository's normal supported paths.
+
+#### Highest-Risk Invariant
+
+- The final review-cycle close-out must prove the repaired serious findings block and this same review cycle's inline minor fixes together under one owner, without inventing a second final-task owner or leaving the review-created seams green only in isolated targeted tests.
+
+#### Likely Blocker Family
+
+- `manual or runtime environment seam`
+
+#### Addresses Findings
+
+- Revalidates the serious review-created findings block for `unparsed-2`, `unparsed-3`, `unparsed-4`, `unparsed-5`, `unparsed-6`, `unparsed-9`, and `unparsed-10`.
+- Revalidates the inline-resolved minor fixes already recorded for `unparsed-1`, `unparsed-7`, and `unparsed-8` in review cycle `0000057-rc-20260515T221035Z-c2a6db20`.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the serious review-created repairs, the inline minor proof homes already recorded for this same review cycle, and the full broad regression proof that closes this appended review-created block.
+
+#### Task Exit Criteria
+
+- Tasks 31 through 34 are implemented, their promised proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
+- The same final revalidation pass reruns the relevant server, client, browser, and supported main-stack wrappers so the current review-created block plus this same review cycle's inline minor fixes are green together under one close-out owner.
+- This final review task owns the broad regression proof for the current review-created findings block in the current repository: targeted Tasks 31 through 34 proof stays local to those tasks, while this close-out pass reruns the supported compose build, server and client builds, broad server regression wrappers, broad client regression wrappers, automated browser regression through the supported e2e wrapper, the supported main-stack smoke path, and repository-wide lint plus format checks so the repaired seams still hold through the repository's normal execution routes.
+- Review-loop close-out state still treats Task 35 as the sole final revalidation owner for review cycle `0000057-rc-20260515T221035Z-c2a6db20`, and `## Minor Review Fixes` remains the durable audit home for this cycle's inline-resolved findings instead of spawning a second final-task owner.
+
+#### Subtasks
+
+1. [ ] Record the Task 31 close-out proof matrix by verifying that `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, and `server/src/test/integration/conversations.turns.test.ts` still cover fallback-aware `threadId` admission, resumed-provider `agentFlags` validation, and metadata-stable completed replay handling on the supported `/chat` seams.
+2. [ ] Record the Task 32 close-out proof matrix by verifying that `server/src/test/integration/flows.run.errors.test.ts`, `client/src/test/flowsApi.test.ts`, `client/src/test/flowsApi.run.payload.test.ts`, and `client/src/test/flowsPage.run.test.tsx` still cover actual-provider propagation plus launch-warning and machine-readable error retention on the first supported flow start response.
+3. [ ] Record the Task 33 close-out proof matrix by verifying that `server/src/test/unit/chatModels.copilot.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.test.tsx` still cover bootstrap-authoritative `/chat/models` provider availability and reason alignment through the supported chat-model UI gate.
+4. [ ] Record the Task 34 close-out proof matrix by verifying that `server/src/test/integration/conversations.bulk.test.ts` and `client/src/test/chatSidebar.test.tsx` still cover partial-success bulk counts and the corresponding client-side local-state response instead of blanket success behavior.
+5. [ ] Record the inline-minor close-out proof matrix by verifying the retained proof homes already captured for this review cycle: `server/src/test/integration/flows.run.working-folder.test.ts` for `unparsed-1`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` for `unparsed-7`, and `server/src/test/integration/flows.list.test.ts` plus `server/src/test/integration/flows.run.command.test.ts` for `unparsed-8`.
+6. [ ] Record the runtime-handoff proof matrix for this close-out owner by reading `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the supported compose contract, repository-owned env-file loading path through `scripts/docker-compose-with-env.sh`, readiness checks on `http://localhost:5010/health` and `http://localhost:5001`, repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/35/`, and this task's sole-owner role for review cycle `0000057-rc-20260515T221035Z-c2a6db20` all remain explicit before the broad wrappers run.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the serious review-created block changes shared server runtime seams before the broader wrappers rerun.
+3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired server and client contract seams must still typecheck and build through the client workspace.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because every serious repair and every inline-resolved minor fix in this review cycle has retained server unit or integration proof homes.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the repository's broad server feature surface must still remain green when the review-created block is closed.
+6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because Tasks 32 through 34 and the repaired browser-facing flow or conversation surfaces all depend on the client regression surface staying green.
+7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because this repository's normal paired front-end and back-end close-out contract includes automated browser proof, and Task 35 owns that broad browser rerun for the current review-created findings block.
+8. [ ] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
+9. [ ] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
+10. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server services, client contract surfaces, and retained proof homes.
+11. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared contract files.
+
+#### Manual Testing Guidance
+
+- Manual proof is optional unless Tasks 31 through 34 broaden into browser-visible warning copy, chat-model availability states, or conversation-bulk behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, retain artifacts under `codeInfoTmp/manual-testing/0000057/35/`, and keep this task as the sole final revalidation owner for review cycle `0000057-rc-20260515T221035Z-c2a6db20`. If auth-dependent provider surfaces are unavailable because human-controlled login is missing or stale, skip only the affected seam honestly and rely on the broad automated proof plus the rest of the supported main-stack smoke surface.

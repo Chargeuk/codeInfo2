@@ -66,7 +66,11 @@ import {
   restoreSavedWorkingFolder,
 } from '../workingFolders/state.js';
 import { publishUserTurn } from '../ws/server.js';
-import { ChatValidationError, validateChatRequest } from './chatValidators.js';
+import {
+  ChatValidationError,
+  resolveChatAgentFlagsForProvider,
+  validateChatRequest,
+} from './chatValidators.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
@@ -267,6 +271,7 @@ export function createChatRouter({
       threadId,
       inflightId: requestedInflightId,
       working_folder: requestedWorkingFolder,
+      rawAgentFlags,
       agentFlags,
       warnings,
       defaultsResolution,
@@ -474,7 +479,45 @@ export function createChatRouter({
         message: runtimeSelection.requestedReason ?? 'provider unavailable',
       });
     }
-    const effectiveAgentFlags = { ...agentFlags };
+    if (threadId && executionProvider !== 'codex') {
+      return res.status(400).json({
+        status: 'error',
+        code: 'VALIDATION_FAILED',
+        message: `threadId is not supported for provider "${executionProvider}"`,
+      });
+    }
+
+    let resolvedAgentFlags;
+    try {
+      resolvedAgentFlags =
+        resumedExecutionIdentity !== null ||
+        executionProvider !== provider ||
+        executionModel !== model
+          ? await resolveChatAgentFlagsForProvider({
+              provider: executionProvider,
+              rawAgentFlags,
+              model: executionModel,
+              codexCapabilities:
+                executionProvider === 'codex' ? codexCapabilities : undefined,
+              codexCapabilityResolver,
+            })
+          : { agentFlags, warnings: [] };
+    } catch (error) {
+      if (error instanceof ChatValidationError) {
+        return res.status(400).json({
+          status: 'error',
+          code: 'VALIDATION_FAILED',
+          message: error.message,
+        });
+      }
+      throw error;
+    }
+
+    const effectiveAgentFlags = { ...resolvedAgentFlags.agentFlags };
+    const responseWarningsWithAgentFlags = mergeWarningMessages(
+      responseWarnings,
+      resolvedAgentFlags.warnings,
+    );
     const effectiveCodexFlags =
       executionProvider === 'codex'
         ? {
@@ -490,7 +533,7 @@ export function createChatRouter({
     console.info(TASK7_LOG_MARKER, {
       surface: '/chat',
       provider: executionProvider,
-      warningCount: responseWarnings.length,
+      warningCount: responseWarningsWithAgentFlags.length,
       defaultsResolution,
     });
     let chatRuntimeConfig: CodexOptions['config'];
@@ -719,7 +762,7 @@ export function createChatRouter({
             .lean()
             .exec()) as Turn[]);
 
-    responseWarnings.forEach((warning) => {
+    responseWarningsWithAgentFlags.forEach((warning) => {
       append({
         level: 'warn',
         message: 'chat validation warning',
@@ -803,6 +846,26 @@ export function createChatRouter({
     }
     const { runToken } = ownership;
 
+    const inflightId =
+      typeof requestedInflightId === 'string' && requestedInflightId.length > 0
+        ? requestedInflightId
+        : crypto.randomUUID();
+
+    const completedReplay = getCompletedInflight({
+      conversationId,
+      inflightId,
+    });
+    if (completedReplay) {
+      releaseConversationLockFn(conversationId, runToken);
+      return res.status(409).json(
+        buildCompletedReplayResponse({
+          conversationId,
+          inflightId,
+          finalStatus: completedReplay.finalStatus,
+        }),
+      );
+    }
+
     const ensuredConversation = await ensureConversation();
     if (!ensuredConversation) {
       releaseConversationLockFn(conversationId, runToken);
@@ -822,26 +885,6 @@ export function createChatRouter({
         decisionReason: 'request_value_persisted',
         workingFolder: requestedWorkingFolder,
       });
-    }
-
-    const inflightId =
-      typeof requestedInflightId === 'string' && requestedInflightId.length > 0
-        ? requestedInflightId
-        : crypto.randomUUID();
-
-    const completedReplay = getCompletedInflight({
-      conversationId,
-      inflightId,
-    });
-    if (completedReplay) {
-      releaseConversationLockFn(conversationId, runToken);
-      return res.status(409).json(
-        buildCompletedReplayResponse({
-          conversationId,
-          inflightId,
-          finalStatus: completedReplay.finalStatus,
-        }),
-      );
     }
 
     if (repositoryBackedCodexRun) {
@@ -1005,7 +1048,7 @@ export function createChatRouter({
       inflightId,
       provider: executionProvider,
       model: executionModel,
-      warnings: responseWarnings,
+      warnings: responseWarningsWithAgentFlags,
     });
 
     void (async () => {

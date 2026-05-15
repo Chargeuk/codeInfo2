@@ -168,7 +168,7 @@ test('omitted codex provider and model resolve through the chat-config-aware def
   assert.equal(result.defaultsResolution.modelSource, 'config');
 });
 
-test('implicit degraded-bootstrap provider requests keep validated output and warnings for route-level fallback', async () => {
+test('implicit degraded-bootstrap requests keep fallback-eligible threadId, provider, and warnings for route-level selection', async () => {
   __setProviderBootstrapStatusForTests('copilot', {
     healthy: false,
     reason: 'copilot bootstrap degraded',
@@ -181,9 +181,11 @@ test('implicit degraded-bootstrap provider requests keep validated output and wa
   const result = await validateChatRequest({
     message: 'hello',
     conversationId: 'degraded-bootstrap-implicit',
+    threadId: 'thread-fallback-eligible',
   });
 
   assert.equal(result.provider, 'copilot');
+  assert.equal(result.threadId, 'thread-fallback-eligible');
   assert.equal(result.defaultsResolution.providerSource, 'env');
   assert.equal(
     result.warnings.includes('copilot bootstrap degraded warning'),

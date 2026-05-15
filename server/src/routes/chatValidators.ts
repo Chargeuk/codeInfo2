@@ -53,6 +53,7 @@ export type ValidatedChatRequest = {
   threadId?: string;
   inflightId?: string;
   working_folder?: string;
+  rawAgentFlags: Record<string, unknown>;
   agentFlags: Record<string, unknown>;
   warnings: string[];
   defaultsResolution: {
@@ -332,6 +333,52 @@ const resolveCodexAgentFlags = async (params: {
   };
 };
 
+export async function resolveChatAgentFlagsForProvider(params: {
+  provider: Provider;
+  rawAgentFlags: Record<string, unknown>;
+  model: string;
+  codexCapabilities?: CodexCapabilityResolution;
+  codexCapabilityResolver?: (options: {
+    consumer: 'chat_models' | 'chat_validation';
+  }) => Promise<CodexCapabilityResolution>;
+}): Promise<{
+  agentFlags: Record<string, unknown>;
+  warnings: string[];
+}> {
+  if (params.provider === 'codex') {
+    const codexCapabilities =
+      params.codexCapabilities ??
+      (await (params.codexCapabilityResolver ?? resolveCodexCapabilities)({
+        consumer: 'chat_validation',
+      }));
+    const selectedModelCapability = getCodexCapabilityForModel(
+      codexCapabilities,
+      params.model,
+    );
+    return {
+      agentFlags: await resolveCodexAgentFlags({
+        rawAgentFlags: params.rawAgentFlags,
+        model: params.model,
+        codexCapabilities,
+        selectedModelCapability,
+      }),
+      warnings: [...codexCapabilities.warnings],
+    };
+  }
+
+  if (params.provider === 'copilot') {
+    return {
+      agentFlags: resolveCopilotAgentFlags(params.rawAgentFlags),
+      warnings: [],
+    };
+  }
+
+  return {
+    agentFlags: resolveLmStudioAgentFlags(params.rawAgentFlags),
+    warnings: [],
+  };
+}
+
 export async function validateChatRequest(
   body: ChatRequestBody | unknown,
   options?: {
@@ -442,7 +489,7 @@ export async function validateChatRequest(
   if (body.threadId !== undefined && threadId === undefined) {
     throw new ChatValidationError('threadId must be a non-empty string');
   }
-  if (threadId && provider !== 'codex') {
+  if (threadId && requestedProvider !== undefined && provider !== 'codex') {
     throw new ChatValidationError(
       `threadId is not supported for provider "${provider}"`,
     );
@@ -489,32 +536,14 @@ export async function validateChatRequest(
   }
 
   const rawAgentFlags = normalizeAgentFlagsObject(body.agentFlags);
-  const codexCapabilities =
-    provider === 'codex'
-      ? await (options?.codexCapabilityResolver ?? resolveCodexCapabilities)({
-          consumer: 'chat_validation',
-        })
-      : undefined;
-  const selectedModelCapability =
-    provider === 'codex' && codexCapabilities
-      ? getCodexCapabilityForModel(codexCapabilities, model)
-      : undefined;
-  if (codexCapabilities?.warnings.length) {
-    warnings.push(...codexCapabilities.warnings);
-  }
-  const agentFlags =
-    provider === 'codex'
-      ? await resolveCodexAgentFlags({
-          rawAgentFlags,
-          model,
-          codexCapabilities:
-            codexCapabilities ??
-            (await resolveCodexCapabilities({ consumer: 'chat_validation' })),
-          selectedModelCapability,
-        })
-      : provider === 'copilot'
-        ? resolveCopilotAgentFlags(rawAgentFlags)
-        : resolveLmStudioAgentFlags(rawAgentFlags);
+  const resolvedAgentFlags = await resolveChatAgentFlagsForProvider({
+    provider,
+    rawAgentFlags,
+    model,
+    codexCapabilityResolver: options?.codexCapabilityResolver,
+  });
+  warnings.push(...resolvedAgentFlags.warnings);
+  const agentFlags = resolvedAgentFlags.agentFlags;
 
   console.info(
     STORY_47_TASK_1_LOG_MARKER,
@@ -552,6 +581,7 @@ export async function validateChatRequest(
     threadId,
     inflightId,
     working_folder,
+    rawAgentFlags,
     agentFlags,
     warnings,
     defaultsResolution: {

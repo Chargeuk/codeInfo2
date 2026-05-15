@@ -1163,6 +1163,60 @@ test('codex chat preserves persisted thread when resuming the same conversation 
   );
 });
 
+test('implicit chat requests keep threadId until route-level fallback selects codex', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  const mockCodex = new MockCodex('thread-fallback-eligible');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const conversationId = 'conv-chat-threadid-fallback';
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        conversationId,
+        message: 'Resume the codex thread after fallback',
+        threadId: 'thread-fallback-eligible',
+      })
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-fallback-eligible');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fell back to provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+  }
+});
+
 test('resumed contradictory provider-model input cannot rewrite saved execution identity', async () => {
   setCodexDetection({
     available: true,

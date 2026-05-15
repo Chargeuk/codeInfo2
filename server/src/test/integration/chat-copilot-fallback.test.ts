@@ -193,6 +193,61 @@ test('implicit degraded-bootstrap chat requests fall back at the route and keep 
   }
 });
 
+test('resumed chats reject codex-only agentFlags before a saved copilot conversation can return 202 started', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-saved-provider-agentflags-repin',
+    },
+  });
+
+  try {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    const conversationId = 'copilot-saved-provider-agentflags-repin';
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+      title: 'Saved copilot execution',
+      source: 'REST',
+      flags: { agentFlags: { toolAccess: 'full' } },
+      lastMessageAt: new Date('2026-05-15T00:00:00.000Z'),
+      archivedAt: null,
+      createdAt: new Date('2026-05-15T00:00:00.000Z'),
+      updatedAt: new Date('2026-05-15T00:00:00.000Z'),
+    } as never);
+
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      conversationId,
+      message: 'Do not start with stale codex-only flags',
+      agentFlags: {
+        sandboxMode: 'danger-full-access',
+      },
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.code, 'VALIDATION_FAILED');
+    assert.match(
+      String(response.body.message),
+      /agentFlags\.sandboxMode is not supported for provider "copilot"/i,
+    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'copilot');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'copilot-gpt-5',
+    );
+    assert.equal(server.harness.getState().lastCreateSessionConfig, undefined);
+  } finally {
+    await server.stop();
+  }
+});
+
 test('explicit Copilot chat requests recover once startup seed import restores the missing runtime auth artifacts', async () => {
   const tempRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'copilot-chat-seed-import-'),

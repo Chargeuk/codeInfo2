@@ -1,25 +1,26 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-15T22:25:16Z",
+  "generated_at_utc": "2026-05-15T22:30:35Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260515T064120Z-152411f0",
-  "finding_id": "unparsed-7",
+  "finding_id": "unparsed-8",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Completed codebase_question retries now replay before later setup can fail once the persisted replay becomes visible.",
+  "summary": "Flow discovery now rejects unsafe flow-owned commandName values before probing repository-backed command paths.",
   "changed_files": [
-    "server/src/mcp2/tools/codebaseQuestion.ts",
-    "server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts"
+    "server/src/flows/discovery.ts",
+    "server/src/test/integration/flows.list.test.ts",
+    "server/src/test/integration/flows.run.command.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/flows.list.test.ts --file server/src/test/integration/flows.run.command.test.ts",
       "result": "passed",
-      "notes": "Focused codebase_question replay proof passed with 21 tests after adding the late completed-replay fast-path regression."
+      "notes": "Focused flow discovery and run-command proof passed with 68 tests after adding unsafe commandName traversal coverage."
     }
   ],
-  "commit_sha": "bf1193adbdfa4f20b1392d678a9704b00d955190",
+  "commit_sha": "45a7a05b76f7731fb917e948be21aff372005670",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

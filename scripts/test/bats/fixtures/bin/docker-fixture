@@ -41,7 +41,20 @@ case "${1:-}" in
     printf '%s\n' "${CODEINFO_TEST_DOCKER_COMPOSE_STDOUT:-fake compose execution}"
     exit "${CODEINFO_TEST_DOCKER_COMPOSE_EXIT_CODE:-0}"
     ;;
+  build)
+    printf '%s\n' "${CODEINFO_TEST_DOCKER_BUILD_STDOUT:-fake docker build}"
+    exit "${CODEINFO_TEST_DOCKER_BUILD_EXIT_CODE:-0}"
+    ;;
+  rm)
+    printf '%s\n' "${CODEINFO_TEST_DOCKER_RM_STDOUT:-fake docker rm}"
+    exit "${CODEINFO_TEST_DOCKER_RM_EXIT_CODE:-0}"
+    ;;
   run)
+    run_args=" $* "
+    if [[ "${run_args}" != *" --network host "* ]] || [[ "${run_args}" != *" --entrypoint node "* ]]; then
+      printf '%s\n' "${CODEINFO_TEST_DOCKER_RUN_STDOUT:-fake docker run}"
+      exit "${CODEINFO_TEST_DOCKER_RUN_EXIT_CODE:-0}"
+    fi
     if [ -n "${CODEINFO_TEST_DOCKER_RUN_STDERR:-}" ]; then
       printf '%s\n' "${CODEINFO_TEST_DOCKER_RUN_STDERR}" >&2
     fi

@@ -560,6 +560,77 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
   }
 });
 
+test('flow-owned llm steps default to the selected sourceId repository when working_folder is empty', async () => {
+  resetStore();
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-source-default-root-'),
+  );
+  const sourceRoot = path.join(tmpDir, 'source-root');
+  const calls: Array<{
+    message: string;
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
+  await fs.cp(fixturesDir, path.join(sourceRoot, 'flows'), { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new CapturingFlowChat(calls),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(sourceRoot)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: 'flow-source-default-root',
+        sourceId: sourceRoot,
+      })
+      .expect(202);
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (calls.length >= 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.message, 'Say hello from a flow step.');
+    assert.equal(calls[0]?.flags.workingDirectoryOverride, sourceRoot);
+    assert.equal(
+      memoryConversations.get('flow-source-default-root')?.flags?.workingFolder,
+      undefined,
+    );
+  } finally {
+    memoryConversations.delete('flow-source-default-root');
+    memoryTurns.delete('flow-source-default-root');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execution-context seam cannot validate the path', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

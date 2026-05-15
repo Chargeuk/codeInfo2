@@ -901,12 +901,14 @@ const getAgentModelId = async (params: {
   agentName: string;
   configPath: string;
   workingFolder?: string;
+  defaultRepositoryRoot?: string;
   source?: 'REST' | 'MCP';
 }): Promise<string> => {
   const { modelId } = await resolveFlowAgentRuntimeExecution({
     agentName: params.agentName,
     configPath: params.configPath,
     workingFolder: params.workingFolder,
+    defaultRepositoryRoot: params.defaultRepositoryRoot,
     source: params.source,
   });
   return modelId;
@@ -916,6 +918,7 @@ const getFailureModelId = async (params: {
   agentName: string;
   configPath: string;
   workingFolder?: string;
+  defaultRepositoryRoot?: string;
   source?: 'REST' | 'MCP';
 }): Promise<string> => {
   try {
@@ -929,6 +932,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   agentName: string;
   configPath: string;
   workingFolder?: string;
+  defaultRepositoryRoot?: string;
   source?: 'REST' | 'MCP';
   pinnedProviderId?: ConversationProvider;
   pinnedModelId?: string;
@@ -940,6 +944,7 @@ const resolveFlowAgentRuntimeExecution = async (params: {
       agentName: params.agentName,
       configPath: params.configPath,
       workingFolder: params.workingFolder,
+      defaultRepositoryRoot: params.defaultRepositoryRoot,
       source: params.source ?? 'REST',
       pinnedProviderId: params.pinnedProviderId,
       pinnedModelId: params.pinnedModelId,
@@ -2467,6 +2472,7 @@ type LoadCommandResult =
 type FlowCommandRepositoryContext = {
   flowName: string;
   workingRepositoryPath?: string;
+  defaultRepositoryRoot?: string;
   flowSourceId?: string;
   flowSourceLabel?: string;
   codeInfo2Root: string;
@@ -2941,6 +2947,7 @@ async function runFlowUnlocked(params: {
     identifier: string;
     configPath?: string;
     workingFolder?: string;
+    defaultRepositoryRoot?: string;
     source: 'REST' | 'MCP';
   }): Promise<{
     providerId: ConversationProvider;
@@ -2979,6 +2986,7 @@ async function runFlowUnlocked(params: {
       agentName: params.agentType,
       configPath: params.configPath ?? agent.configPath,
       workingFolder: params.workingFolder,
+      defaultRepositoryRoot: params.defaultRepositoryRoot,
       source: params.source,
       pinnedProviderId: agentState?.providerId as
         | ConversationProvider
@@ -3011,6 +3019,7 @@ async function runFlowUnlocked(params: {
       identifier: instructionParams.identifier,
       configPath: agent.configPath,
       workingFolder: params.repositoryContext.workingRepositoryPath,
+      defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
       source: params.source,
     });
     const modelId = runtime.modelId;
@@ -3219,6 +3228,8 @@ async function runFlowUnlocked(params: {
                   agentName: step.agentType,
                   configPath: agent.configPath,
                   workingFolder: params.repositoryContext.workingRepositoryPath,
+                  defaultRepositoryRoot:
+                    params.repositoryContext.defaultRepositoryRoot,
                   source: params.source,
                 })
               : FALLBACK_MODEL_ID,
@@ -3241,6 +3252,7 @@ async function runFlowUnlocked(params: {
       await resolveFlowInstructionPrerequisites({
         agentType: step.agentType,
         identifier: step.identifier,
+        defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
         source: params.source,
       });
       preparedMarkdownInstruction = await prepareMarkdownInstruction({
@@ -3268,6 +3280,8 @@ async function runFlowUnlocked(params: {
               agentName: step.agentType,
               configPath: agent.configPath,
               workingFolder: params.repositoryContext.workingRepositoryPath,
+              defaultRepositoryRoot:
+                params.repositoryContext.defaultRepositoryRoot,
               source: params.source,
             })
           : FALLBACK_MODEL_ID,
@@ -3533,6 +3547,7 @@ async function runFlowUnlocked(params: {
         identifier: step.identifier,
         configPath: agent.configPath,
         workingFolder: params.repositoryContext.workingRepositoryPath,
+        defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
         source: params.source,
       });
       return commandRuntimeIdentity;
@@ -4416,6 +4431,11 @@ export async function startFlowRun(
     );
     const firstAgentStep =
       runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
+    const flowDefaultRepositoryRoot = sourceRepo?.containerPath
+      ? path.resolve(sourceRepo.containerPath)
+      : sourceId
+        ? path.resolve(sourceId)
+        : undefined;
     const discovered = await discoverAgents();
     const agentByName = new Map(discovered.map((item) => [item.name, item]));
     if (firstAgentStep) {
@@ -4439,6 +4459,7 @@ export async function startFlowRun(
         agentName: firstAgentStep.agentType,
         configPath: agent.configPath,
         workingFolder: effectiveWorkingFolder,
+        defaultRepositoryRoot: flowDefaultRepositoryRoot,
         source: params.source,
       });
       modelId = prepared.modelId;
@@ -4450,6 +4471,7 @@ export async function startFlowRun(
     repositoryContext = {
       flowName,
       workingRepositoryPath: effectiveWorkingFolder,
+      defaultRepositoryRoot: flowDefaultRepositoryRoot,
       flowSourceId: sourceRepo?.containerPath
         ? path.resolve(sourceRepo.containerPath)
         : sourceId
@@ -4548,6 +4570,7 @@ export async function startFlowRun(
       const workingDirectoryOverride = (
         await resolveSharedExecutionContext({
           workingFolder: params.working_folder,
+          defaultRepositoryRoot: repositoryContext.defaultRepositoryRoot,
         })
       ).workingDirectoryOverride;
       await runFlowUnlocked({

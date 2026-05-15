@@ -666,6 +666,7 @@ async function prepareDirectAgentExecution(params: {
   agentName: string;
   configPath: string;
   workingFolder?: string;
+  defaultRepositoryRoot?: string;
   source: 'REST' | 'MCP';
   surface:
     | 'agents.run'
@@ -709,7 +710,8 @@ async function prepareDirectAgentExecution(params: {
   const providerStates = await collectDirectAgentProviderStates();
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
-    defaultRepositoryRoot: resolveAgentHomeEnv().codeInfoRoot,
+    defaultRepositoryRoot:
+      params.defaultRepositoryRoot ?? resolveAgentHomeEnv().codeInfoRoot,
   });
 
   if (params.pinnedProviderId) {
@@ -869,6 +871,7 @@ export async function prepareFlowOwnedAgentExecution(params: {
   agentName: string;
   configPath: string;
   workingFolder?: string;
+  defaultRepositoryRoot?: string;
   source: 'REST' | 'MCP';
   pinnedProviderId?: ConversationProvider;
   pinnedModelId?: string;

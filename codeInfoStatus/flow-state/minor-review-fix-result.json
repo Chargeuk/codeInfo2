@@ -1,26 +1,25 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-15T22:17:30Z",
+  "generated_at_utc": "2026-05-15T22:25:16Z",
   "story_number": "0000057",
   "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
   "review_pass_id": "0000057-20260515T064120Z-152411f0",
-  "finding_id": "unparsed-1",
+  "finding_id": "unparsed-7",
   "repository": "current_repository",
   "status": "fixed",
-  "summary": "Flow-owned runs now keep the selected sourceId repository as the default execution root when working_folder is omitted.",
+  "summary": "Completed codebase_question retries now replay before later setup can fail once the persisted replay becomes visible.",
   "changed_files": [
-    "server/src/agents/service.ts",
-    "server/src/flows/service.ts",
-    "server/src/test/integration/flows.run.working-folder.test.ts"
+    "server/src/mcp2/tools/codebaseQuestion.ts",
+    "server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts"
   ],
   "targeted_proof": [
     {
-      "command": "npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.working-folder.test.ts",
+      "command": "npm run test:summary:server:unit -- --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts",
       "result": "passed",
-      "notes": "Focused flow working-folder regression proof passed with 13 tests after adding the sourceId-without-working_folder coverage."
+      "notes": "Focused codebase_question replay proof passed with 21 tests after adding the late completed-replay fast-path regression."
     }
   ],
-  "commit_sha": "64b9ef97e131973d61a48c9aaa45af9fa4009bac",
+  "commit_sha": "bf1193adbdfa4f20b1392d678a9704b00d955190",
   "reclassification_reason": null,
   "blocker": null,
   "blocker_scope": null

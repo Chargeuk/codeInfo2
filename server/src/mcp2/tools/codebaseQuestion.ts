@@ -939,6 +939,8 @@ async function executeCodebaseQuestion(
   const executionModel = runtimeSelection.executionModel;
   const codexDefaults = codexCapabilities.defaults;
   let chatRuntimeConfig: CodexOptions['config'] | undefined;
+  const resolvedConversationId =
+    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
 
   let effectiveWorkingFolder: string | undefined;
   let mutableConversation = existingConversation;
@@ -1012,6 +1014,14 @@ async function executeCodebaseQuestion(
     throw error;
   }
 
+  const replayAfterWorkingFolderRestore = await getReplayResult({
+    conversationId: resolvedConversationId,
+    replayId,
+  });
+  if (replayAfterWorkingFolderRestore) {
+    return replayAfterWorkingFolderRestore;
+  }
+
   const agentHomeResolution = resolveAgentHomeEnv();
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: effectiveWorkingFolder,
@@ -1061,8 +1071,6 @@ async function executeCodebaseQuestion(
       codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'],
   } as ThreadOptions;
 
-  const resolvedConversationId =
-    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
   const lateCompletedReplay = await getReplayResult({
     conversationId: resolvedConversationId,
     replayId,

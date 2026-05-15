@@ -1286,6 +1286,128 @@ test('codebase_question keeps the same caller-visible replay result after the co
   assert.deepEqual(freshAfterIncompletePayload.segments, []);
 });
 
+test('codebase_question replays a completed retry before later setup can fail after the replay becomes visible', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  const conversationId = 'mcp-replay-late-fastpath-1';
+  const replayId = 'late-fastpath-1';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex-spark"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex-spark',
+    title: 'Late replay winner',
+    source: 'MCP',
+    flags: {},
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+  } as Conversation);
+
+  let persistedReplay = false;
+
+  try {
+    const replayResult = await runCodebaseQuestion(
+      {
+        question: 'retry after replay winner appears during setup',
+        conversationId,
+        replayId,
+        provider: 'codex',
+        model: 'gpt-5.3-codex-spark',
+      },
+      {
+        listIngestedRepositoriesFn: async () => {
+          if (!persistedReplay) {
+            persistedReplay = true;
+            recordMemoryTurn({
+              conversationId,
+              role: 'user',
+              content: 'persisted replay request',
+              model: 'gpt-5.3-codex-spark',
+              provider: 'codex',
+              source: 'MCP',
+              toolCalls: null,
+              status: 'ok',
+              runtime: {
+                replay: {
+                  replayId,
+                  inflightId: 'persisted-late-fastpath',
+                  completed: false,
+                },
+              },
+              createdAt: new Date('2025-01-01T00:00:01.000Z'),
+            } as never);
+            recordMemoryTurn({
+              conversationId,
+              role: 'assistant',
+              content: 'Persisted late replay answer',
+              model: 'gpt-5.3-codex-spark',
+              provider: 'codex',
+              source: 'MCP',
+              toolCalls: null,
+              status: 'ok',
+              runtime: {
+                replay: {
+                  replayId,
+                  inflightId: 'persisted-late-fastpath',
+                  completed: true,
+                },
+              },
+              createdAt: new Date('2025-01-01T00:00:02.000Z'),
+            } as never);
+          }
+          return { repos: [], lockedModelId: null };
+        },
+        chatRuntimeConfigResolver: async () => {
+          throw new Error(
+            'replay should return before rebuilding Codex runtime config',
+          );
+        },
+        chatFactory: () => {
+          throw new Error('replay should return before rebuilding chat deps');
+        },
+      },
+    );
+
+    const replayPayload = JSON.parse(replayResult.content[0].text);
+    assert.equal(replayPayload.conversationId, conversationId);
+    assert.equal(replayPayload.modelId, 'gpt-5.3-codex-spark');
+    assert.deepEqual(replayPayload.segments, [
+      {
+        type: 'answer',
+        text: 'Persisted late replay answer',
+      },
+    ]);
+    assert.equal(replayPayload.replay?.replayId, replayId);
+    assert.equal(replayPayload.replay?.status, 'completed');
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
+  }
+});
+
 test('codebase_question keeps caller conversationId stable across Codex replay windows even when provider thread ids differ', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;

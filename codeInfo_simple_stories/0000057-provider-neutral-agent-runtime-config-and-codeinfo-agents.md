@@ -131,3 +131,33 @@ This story finishes the shift from a Codex-shaped runtime to a provider-neutral 
 29. [codeInfo2] - Revalidate review pass `0000057-20260514T044937Z-54ba77ee` serious fixes and inline minor resolutions
 
 - Own the latest broad review-cycle rerun across server, client, browser, compose, lint, and format proof for the new review-created findings block.
+
+30. [codeInfo2] - Restore chat fallback and direct-agent fallback when the initially requested provider cannot bootstrap or load runtime config
+
+- Move fallback choice ahead of provider-specific runtime-config loading for implicit chat, direct agent runs, and flow-owned agent runs.
+- Keep explicit provider failures clear while adding proof that healthy fallback providers still run when the first provider cannot bootstrap.
+
+31. [codeInfo2] - Make `/chat` apply authoritative resumed execution state and replay dedupe before started responses are emitted
+
+- Fix the `/chat` validator and route so resumed-provider identity and duplicate replay barriers win before started responses or durable metadata writes.
+- Update the retained chat validator, fallback, and replay proof files so they describe the repaired ordering contract directly.
+
+32. [codeInfo2] - Preserve `/flows/:flowName/run` actual execution identity and launch diagnostics through the supported client contract
+
+- Keep the first flow-start response carrying the actual provider, warnings, and machine-readable failure details through the server and client contract.
+- Prove the page resets stale launch state correctly when a user starts a fresh run after an older failed or selected run.
+
+33. [codeInfo2] - Align provider-specific `/chat/models` availability fields with the authoritative bootstrap-status contract
+
+- Keep top-level provider availability, tools, and reason fields aligned with shared bootstrap status instead of letting provider-specific branches drift.
+- Update the chat-page proof so a degraded provider cannot stay hidden in runnable submission state after the UI refreshes availability.
+
+34. [codeInfo2] - Make bulk conversation UI state honor partial-success server outcomes
+
+- Keep sidebar bulk actions aligned with count-based server outcomes so only confirmed rows clear while unresolved rows stay selected or pending.
+- Update the server and sidebar proof so later bulk submissions exclude already-confirmed rows after a partial-success response.
+
+35. [codeInfo2] - Revalidate review pass `0000057-20260515T064120Z-152411f0` serious fixes and inline minor resolutions
+
+- Own one final broad regression pass across compose, build, server, client, browser, lint, and format proof for the current review-created findings block.
+- Re-check the inline-resolved minor fixes in the same review cycle so the story closes with one shared revalidation owner.

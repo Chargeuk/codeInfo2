@@ -3147,7 +3147,7 @@ This task keeps those fixes together because they are all failures of the same s
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-codex.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts --file server/src/test/integration/conversations.turns.test.ts` from the repository root. Use this targeted wrapper because the repaired validator, resume, fallback, and replay seams all live in those retained proof homes.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-codex.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts --file server/src/test/integration/conversations.turns.test.ts` from the repository root. Use this targeted wrapper because the repaired validator, resume, fallback, and replay seams all live in those retained proof homes; broad server regression, compose smoke, and repository-wide lint or format proof for this review-created findings block stay owned by Task 35.
 
 ### Task 32. Preserve `/flows/:flowName/run` actual execution identity and launch diagnostics through the supported client contract
 
@@ -3195,8 +3195,8 @@ This task keeps the repair centered on the one run-start contract seam shared by
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root. Use this targeted wrapper because the repaired route payload seam lives there.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts --file client/src/test/flowsApi.run.payload.test.ts --file client/src/test/flowsPage.run.test.tsx` from the repository root. Use this targeted wrapper because the client parser and page launch consumers own the repaired flow contract.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` from the repository root. Use this targeted wrapper because the repaired route payload seam lives there; broader server regression and compose-owned smoke proof for the review-created findings block stay owned by Task 35.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsApi.test.ts --file client/src/test/flowsApi.run.payload.test.ts --file client/src/test/flowsPage.run.test.tsx` from the repository root. Use this targeted wrapper because the client parser and page launch consumers own the repaired flow contract; broader client regression and automated browser proof for this review-created findings block stay owned by Task 35.
 
 #### Manual Testing Guidance
 
@@ -3243,8 +3243,8 @@ The review found that the authoritative bootstrap-status registry is already cor
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts` from the repository root. Use this targeted wrapper because the authoritative bootstrap and `/chat/models` route seams live there.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.models.test.tsx --file client/src/test/chatPage.provider.test.tsx` from the repository root. Use this targeted wrapper because the repaired client gating path for top-level provider availability lives there.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts` from the repository root. Use this targeted wrapper because the authoritative bootstrap and `/chat/models` route seams live there; broader server regression and compose-owned smoke proof for this review-created findings block stay owned by Task 35.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.models.test.tsx --file client/src/test/chatPage.provider.test.tsx` from the repository root. Use this targeted wrapper because the repaired client gating path for top-level provider availability lives there; broader client regression and automated browser proof for this review-created findings block stay owned by Task 35.
 
 #### Manual Testing Guidance
 
@@ -3291,8 +3291,8 @@ The review found that the server already exposes count-based partial-success sem
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.bulk.test.ts` from the repository root. Use this targeted wrapper because the count-based bulk contract lives there.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx` from the repository root. Use this targeted wrapper because the bulk conversation selection and local-state response lives there.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.bulk.test.ts` from the repository root. Use this targeted wrapper because the count-based bulk contract lives there; broader server regression and compose-owned smoke proof for this review-created findings block stay owned by Task 35.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx` from the repository root. Use this targeted wrapper because the bulk conversation selection and local-state response lives there; broader client regression and automated browser proof for this review-created findings block stay owned by Task 35.
 
 #### Manual Testing Guidance
 

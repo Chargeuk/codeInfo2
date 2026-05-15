@@ -3104,7 +3104,7 @@ This task fixes both seams in one bounded change set so fallback decisions happe
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 30`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
 

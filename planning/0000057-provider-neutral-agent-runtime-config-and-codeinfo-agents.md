@@ -3133,6 +3133,7 @@ This task keeps those fixes together because they are all failures of the same s
 - Implicit `/chat` requests that rely on route-level fallback no longer fail `threadId` admission solely because the pre-fallback provider was not Codex; explicit unsupported-provider requests still fail clearly.
 - Resumed conversations revalidate or otherwise normalize provider-specific `agentFlags` against the saved execution provider before the background provider run starts, so `202 started` is not returned for a request that only becomes invalid after repinning.
 - Completed replay requests hit the authoritative completed-inflight barrier before `ensureConversation()` or any later metadata write can rewrite provider, model, sanitized flags, or `lastMessageAt`.
+- Proof includes one exact ordering claim for the completed replay seam: a deterministic request path where the old order would have called `ensureConversation()` or rewritten metadata before the duplicate-run response, and the repaired order now returns `INFLIGHT_ALREADY_COMPLETED` before any durable mutation happens.
 - Proof explicitly covers the validator seam, the resumed provider-repin seam, the fallback-plus-`threadId` seam, and the completed replay metadata seam in `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, and `server/src/test/integration/conversations.turns.test.ts`.
 
 #### Subtasks
@@ -3141,7 +3142,8 @@ This task keeps those fixes together because they are all failures of the same s
 2. [ ] Refactor the route-level selection path in `server/src/routes/chat.ts` so `resolveRuntimeProviderSelection(...)` remains the first authoritative fallback decision for implicit `/chat` requests after validation succeeds. Preserve the degraded-provider warning context that explains why fallback happened, and keep explicit-provider failures classified as provider-unavailable route failures rather than validation-shape failures.
 3. [ ] Update the resumed `/chat` execution path in `server/src/routes/chat.ts` so the saved execution provider becomes authoritative before provider-specific `agentFlags` are reused for the background run. If the saved provider can no longer honor those flags, fail the request before returning `202` instead of starting a background run that only becomes invalid after repinning.
 4. [ ] Move or guard the completed replay barrier in `server/src/routes/chat.ts` so completed replay requests do not call `ensureConversation()` or rewrite provider, model, sanitized flags, or `lastMessageAt` before returning `INFLIGHT_ALREADY_COMPLETED`.
-5. [ ] Refresh the retained proof homes in `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, and `server/src/test/integration/conversations.turns.test.ts` so the case titles and assertions explicitly describe fallback-aware `threadId` admission, resumed-provider `agentFlags` validation, and metadata-stable completed replays on the supported `/chat` seams.
+5. [ ] Refresh `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-codex.test.ts`, and `server/src/test/integration/chat-copilot-fallback.test.ts` so the retained case titles and assertions explicitly describe fallback-aware `threadId` admission, explicit-provider failure, and resumed-provider `agentFlags` validation on the supported `/chat` default path rather than on helper-only seams.
+6. [ ] Refresh `server/src/test/integration/conversations.turns.test.ts` with one deterministic completed-replay ordering proof that seeds the durable conversation state, attempts the duplicate replay on the supported route path, and proves the duplicate-run response returns before any provider, model, sanitized-flag, or `lastMessageAt` mutation can happen.
 
 #### Testing
 
@@ -3179,6 +3181,7 @@ This task keeps the repair centered on the one run-start contract seam shared by
 - `FlowRunStartResult`, the `/flows/:flowName/run` route payload, and the client parser all preserve the actual started `providerId` alongside `modelId`.
 - Successful flow starts preserve launch warnings through the supported client helper and page consumer instead of discarding them after the HTTP response is parsed.
 - Provider-unavailable or similar normalized route failures preserve a machine-readable identifier through `client/src/api/flows.ts` so `FlowsPage` does not lose the route’s explicit error category.
+- The standard page start path proves producer-to-consumer propagation end to end: `server/src/routes/flowsRun.ts` produces the repaired fields, `client/src/api/flows.ts` preserves them, and `client/src/pages/FlowsPage.tsx` renders or stores that same launch-time truth without requiring a later run fetch.
 - Proof explicitly covers the server route payload and the client parser or page consumer seams in `server/src/test/integration/flows.run.errors.test.ts`, `client/src/test/flowsApi.test.ts`, `client/src/test/flowsApi.run.payload.test.ts`, and `client/src/test/flowsPage.run.test.tsx`.
 
 #### Subtasks
@@ -3187,7 +3190,7 @@ This task keeps the repair centered on the one run-start contract seam shared by
 2. [ ] Update `server/src/routes/flowsRun.ts` so the first supported `/flows/:flowName/run` response serializes the actual started `providerId` alongside `modelId`, and preserves launch warnings plus normalized failure identifiers without forcing the client to infer them from a later poll or a separate run record fetch.
 3. [ ] Update `client/src/api/flows.ts` so the parser keeps the repaired `providerId`, warning payload, and normalized failure identifier fields intact instead of narrowing them away or mapping them into a generic fallback error shape.
 4. [ ] Update the start-path consumer in `client/src/pages/FlowsPage.tsx` so the initial run-start state uses the repaired `providerId`, warning payload, and normalized failure identifier fields directly when it renders launch-time status, warnings, or failure messaging.
-5. [ ] Refresh `server/src/test/integration/flows.run.errors.test.ts`, `client/src/test/flowsApi.test.ts`, `client/src/test/flowsApi.run.payload.test.ts`, and `client/src/test/flowsPage.run.test.tsx` so retained proof titles and assertions explicitly describe actual-provider propagation plus warning and machine-code retention on the first supported run-start response.
+5. [ ] Refresh `server/src/test/integration/flows.run.errors.test.ts`, `client/src/test/flowsApi.test.ts`, `client/src/test/flowsApi.run.payload.test.ts`, and `client/src/test/flowsPage.run.test.tsx` so retained proof titles and assertions explicitly describe actual-provider propagation plus warning and machine-code retention on the first supported run-start response, including the standard page-driven start path instead of only parser-level fixture coverage.
 
 #### Testing
 
@@ -3196,7 +3199,7 @@ This task keeps the repair centered on the one run-start contract seam shared by
 
 #### Manual Testing Guidance
 
-- Manual proof is optional unless this task changes browser-visible start warnings, flow-start launch status copy, or the first-run failure banner in a way the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, verify the repaired flow-start surface through `http://localhost:5001`, and retain any later artifacts under `codeInfoTmp/manual-testing/0000057/32/`. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into that repository path instead of treating the Playwright staging directory as the final artifact destination.
+- Manual proof is optional unless this task changes browser-visible start warnings, flow-start launch status copy, or the first-run failure banner in a way the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env-file loading path through `scripts/docker-compose-with-env.sh`, wait for `http://localhost:5010/health` and `http://localhost:5001`, and verify the repaired flow-start surface through the standard app UI rather than hand-edited runtime files. When flow-start proof needs the mounted proof-agent catalogs, use the checked-in `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` namespaces that ship with the supported stack, retain artifacts under `codeInfoTmp/manual-testing/0000057/32/`, and if screenshots help capture them first with a relative staging filename in the Playwright output directory before transferring the retained files into that repository path.
 
 ### Task 33. Align provider-specific `/chat/models` availability fields with the authoritative bootstrap-status contract
 
@@ -3226,6 +3229,7 @@ The review found that the authoritative bootstrap-status registry is already cor
 
 - The Copilot and LM Studio `/chat/models` top-level availability and reason fields stay aligned with the authoritative bootstrap status already exposed through `providerInfo` and `/chat/providers`.
 - The client hook path that gates chat-model availability from the top-level route fields no longer re-enables a provider whose bootstrap status is already degraded.
+- Producer and consumer ownership stay explicit: `server/src/routes/chatModels.ts` remains the producer of the repaired top-level fields, `client/src/hooks/useChatModel.ts` remains the first meaningful consumer, and the supported chat-page provider-selection surface renders the repaired availability state through that same default path rather than through a helper-only assertion.
 - Proof explicitly covers the provider-specific route branches and the top-level client gating consumer in `server/src/test/unit/chatModels.copilot.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.test.tsx`.
 
 #### Subtasks
@@ -3234,7 +3238,7 @@ The review found that the authoritative bootstrap-status registry is already cor
 2. [ ] Preserve the existing provider-specific model-list payload shape in `server/src/routes/chatModels.ts` while removing only the contradictory top-level availability drift. Do not weaken model-list details, provider ordering, or non-bootstrap warning behavior that the current route already exposes honestly.
 3. [ ] Update the client gating seam in `client/src/hooks/useChatModel.ts` plus any adjacent consumer state it feeds so a contradictory top-level `/chat/models` field can no longer re-enable a provider whose authoritative bootstrap status is already degraded.
 4. [ ] Re-read the chat-model consumer path in `client/src/pages/ChatPage.tsx` or the nearest owning surface after the hook change, and keep the disabled-state, warning-copy, and provider-selection behavior aligned with the repaired bootstrap-authoritative contract instead of layering a second local availability interpretation on top.
-5. [ ] Refresh `server/src/test/unit/chatModels.copilot.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.test.tsx` so retained proof titles and assertions explicitly describe bootstrap-authoritative provider availability and reason alignment.
+5. [ ] Refresh `server/src/test/unit/chatModels.copilot.test.ts`, `server/src/test/unit/chatProviders.test.ts`, `client/src/test/chatPage.models.test.tsx`, and `client/src/test/chatPage.provider.test.tsx` so retained proof titles and assertions explicitly describe bootstrap-authoritative provider availability and reason alignment, including the supported chat-page default path that consumes the repaired top-level route fields through `useChatModel.ts`.
 
 #### Testing
 
@@ -3243,7 +3247,7 @@ The review found that the authoritative bootstrap-status registry is already cor
 
 #### Manual Testing Guidance
 
-- Manual proof is optional unless this task changes browser-visible provider disabled states, availability banners, or provider-picker copy that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, verify the repaired provider-availability surface through `http://localhost:5001`, and retain any later artifacts under `codeInfoTmp/manual-testing/0000057/33/`. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into that repository path instead of treating the Playwright staging directory as the final artifact destination.
+- Manual proof is optional unless this task changes browser-visible provider disabled states, availability banners, or provider-picker copy that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env-file loading path through `scripts/docker-compose-with-env.sh`, wait for `http://localhost:5010/health` and `http://localhost:5001`, and verify the repaired provider-availability surface through the standard chat page rather than a helper-only harness. When the proof surface depends on the checked-in provider catalogs, use the supported `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` mounts, retain artifacts under `codeInfoTmp/manual-testing/0000057/33/`, and if screenshots help capture them first with a relative staging filename in the Playwright output directory before transferring the retained files into that repository path.
 
 ### Task 34. Make bulk conversation UI state honor partial-success server outcomes
 
@@ -3274,6 +3278,7 @@ The review found that the server already exposes count-based partial-success sem
 - The bulk archive, restore, and delete client helpers respect the server’s count-based outcome instead of rewriting all requested rows after any `200` response.
 - `ConversationList.handleBulk(...)` no longer clears selection and logs a blanket success path when the server only reported partial success for the requested batch.
 - The repaired contract stays honest about what changed locally versus what still needs a later refresh when the server reports fewer updated or deleted rows than were requested.
+- The supported sidebar bulk path proves producer-to-consumer behavior end to end: the server-side aggregate count remains the producer, `client/src/hooks/useConversations.ts` remains the first consumer that classifies full versus partial success, and `client/src/components/chat/ConversationList.tsx` keeps selection, optimistic state, and user messaging aligned with that same outcome on the default UI path.
 - Proof explicitly covers the server-side partial-success contract and the client-side local-state response in `server/src/test/integration/conversations.bulk.test.ts` and `client/src/test/chatSidebar.test.tsx`.
 
 #### Subtasks
@@ -3282,7 +3287,7 @@ The review found that the server already exposes count-based partial-success sem
 2. [ ] Update the bulk archive, restore, and delete helpers in `client/src/hooks/useConversations.ts` so a partial-success `200` response no longer rewrites every requested conversation locally. Keep the hook's returned outcome explicit enough that the caller can tell the difference between full success, partial success, and hard failure.
 3. [ ] Update `client/src/components/chat/ConversationList.tsx` so `handleBulk(...)` uses the repaired hook outcome honestly: keep selected rows, success messaging, and local optimistic state aligned with only the conversations the client can safely treat as changed after a partial-success response.
 4. [ ] Keep any follow-up refresh or reload trigger bounded to the existing conversation-list refresh seams instead of inventing a second local source of truth. The repaired client path should either preserve still-uncertain rows for later refresh or explicitly request that refresh, rather than pretending the whole batch already converged.
-5. [ ] Refresh `server/src/test/integration/conversations.bulk.test.ts` and `client/src/test/chatSidebar.test.tsx` so retained proof titles and assertions explicitly describe partial-success counts, preserved selection or local-state honesty, and the client behavior that must follow them.
+5. [ ] Refresh `server/src/test/integration/conversations.bulk.test.ts` and `client/src/test/chatSidebar.test.tsx` so retained proof titles and assertions explicitly describe partial-success counts, preserved selection or local-state honesty, and the default sidebar bulk path that must follow them instead of a helper-only hook assertion.
 
 #### Testing
 
@@ -3291,7 +3296,7 @@ The review found that the server already exposes count-based partial-success sem
 
 #### Manual Testing Guidance
 
-- Manual proof is optional unless this task changes visible bulk-selection behavior, success or partial-success toast copy, or other browser-visible conversation-sidebar state that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, verify the repaired archive, restore, and delete bulk flows through `http://localhost:5001`, and retain any later artifacts under `codeInfoTmp/manual-testing/0000057/34/`. If screenshots help, capture them first with a relative staging filename in the Playwright output directory and then transfer the retained files into that repository path instead of treating the Playwright staging directory as the final artifact destination.
+- Manual proof is optional unless this task changes visible bulk-selection behavior, success or partial-success toast copy, or other browser-visible conversation-sidebar state that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env-file loading path through `scripts/docker-compose-with-env.sh`, wait for `http://localhost:5010/health` and `http://localhost:5001`, and verify the repaired archive, restore, and delete bulk flows through the standard sidebar UI path. Use the normal repository-backed app data and current Story 57 setup as the seed source instead of hand-editing storage, retain artifacts under `codeInfoTmp/manual-testing/0000057/34/`, and if screenshots help capture them first with a relative staging filename in the Playwright output directory before transferring the retained files into that repository path.
 
 ### Task 35. Revalidate review pass `0000057-20260515T064120Z-152411f0` serious fixes and inline minor resolutions
 
@@ -3313,7 +3318,7 @@ This review-created block stays inside the current repository's chat admission, 
 
 #### Likely Blocker Family
 
-- `manual or runtime environment seam`
+- `shared wrapper or baseline seam`
 
 #### Addresses Findings
 
@@ -3329,6 +3334,7 @@ This review-created block stays inside the current repository's chat admission, 
 - Tasks 31 through 34 are implemented, their promised proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
 - The same final revalidation pass reruns the relevant server, client, browser, and supported main-stack wrappers so the current review-created block plus this same review cycle's inline minor fixes are green together under one close-out owner.
 - This final review task owns the broad regression proof for the current review-created findings block in the current repository: targeted Tasks 31 through 34 proof stays local to those tasks, while this close-out pass reruns the supported compose build, server and client builds, broad server regression wrappers, broad client regression wrappers, automated browser regression through the supported e2e wrapper, the supported main-stack smoke path, and repository-wide lint plus format checks so the repaired seams still hold through the repository's normal execution routes.
+- If a broad wrapper, Compose action, browser bootstrap, or main-stack smoke step fails before the repaired proof homes or default surfaces are actually reached, the failure is classified as a shared wrapper, baseline, or runtime-handoff blocker rather than being silently blamed on Tasks 31 through 34 without evidence.
 - Review-loop close-out state still treats Task 35 as the sole final revalidation owner for review cycle `0000057-rc-20260515T221035Z-c2a6db20`, and `## Minor Review Fixes` remains the durable audit home for this cycle's inline-resolved findings instead of spawning a second final-task owner.
 
 #### Subtasks
@@ -3339,6 +3345,7 @@ This review-created block stays inside the current repository's chat admission, 
 4. [ ] Record the Task 34 close-out proof matrix by verifying that `server/src/test/integration/conversations.bulk.test.ts` and `client/src/test/chatSidebar.test.tsx` still cover partial-success bulk counts and the corresponding client-side local-state response instead of blanket success behavior.
 5. [ ] Record the inline-minor close-out proof matrix by verifying the retained proof homes already captured for this review cycle: `server/src/test/integration/flows.run.working-folder.test.ts` for `unparsed-1`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` for `unparsed-7`, and `server/src/test/integration/flows.list.test.ts` plus `server/src/test/integration/flows.run.command.test.ts` for `unparsed-8`.
 6. [ ] Record the runtime-handoff proof matrix for this close-out owner by reading `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the supported compose contract, repository-owned env-file loading path through `scripts/docker-compose-with-env.sh`, readiness checks on `http://localhost:5010/health` and `http://localhost:5001`, repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/35/`, and this task's sole-owner role for review cycle `0000057-rc-20260515T221035Z-c2a6db20` all remain explicit before the broad wrappers run.
+7. [ ] Record the shared-wrapper versus task-owned proof boundary for this close-out owner before the broad reruns start: treat failures inside the named proof homes or the default repaired UI paths as task-owned regression work, but treat failures in wrapper startup, env loading, Docker or Compose readiness, shared ports, browser bootstrap, or unrelated suites that fail before the repaired surfaces are reached as shared baseline or runtime-handoff blockers that must be called out explicitly instead of retried blindly.
 
 #### Testing
 
@@ -3356,4 +3363,4 @@ This review-created block stays inside the current repository's chat admission, 
 
 #### Manual Testing Guidance
 
-- Manual proof is optional unless Tasks 31 through 34 broaden into browser-visible warning copy, chat-model availability states, or conversation-bulk behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, retain artifacts under `codeInfoTmp/manual-testing/0000057/35/`, and keep this task as the sole final revalidation owner for review cycle `0000057-rc-20260515T221035Z-c2a6db20`. If auth-dependent provider surfaces are unavailable because human-controlled login is missing or stale, skip only the affected seam honestly and rely on the broad automated proof plus the rest of the supported main-stack smoke surface.
+- Manual proof is optional unless Tasks 31 through 34 broaden into browser-visible warning copy, chat-model availability states, or conversation-bulk behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env-file loading path through `scripts/docker-compose-with-env.sh`, use the checked-in `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` mounts when the repaired surface needs those namespaces, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, and use the current Story 57 repaired app state plus standard UI setup as the seed source instead of hand-editing runtime storage. Retain artifacts under `codeInfoTmp/manual-testing/0000057/35/`, keep this task as the sole final revalidation owner for review cycle `0000057-rc-20260515T221035Z-c2a6db20`, and if screenshots help capture them first with a relative staging filename in the Playwright output directory before transferring the retained files into that repository path. If auth-dependent provider surfaces are unavailable because human-controlled login is missing or stale, skip only the affected seam honestly and rely on the broad automated proof plus the rest of the supported main-stack smoke surface.

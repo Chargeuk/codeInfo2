@@ -3104,7 +3104,7 @@ This task fixes both seams in one bounded change set so fallback decisions happe
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 30`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
 
@@ -3157,6 +3157,7 @@ This task keeps those fixes together because they are all failures of the same s
 - Refreshed `server/src/test/integration/chat-codex.test.ts` and `server/src/test/integration/chat-copilot-fallback.test.ts` so the route proof homes now cover fallback-aware `threadId` admission to Codex, explicit-provider failure without silent switching, and resumed saved-provider `agentFlags` repinning that rejects stale Codex-only flags before a Copilot `202 started` response can escape.
 - Refreshed `server/src/test/integration/conversations.turns.test.ts` so the duplicate replay proof now asserts the `INFLIGHT_ALREADY_COMPLETED` response happens before any conversation provider, model, flags, or `lastMessageAt` rewrite can occur on the replayed request path.
 - Targeted proof passed with `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-codex.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts --file server/src/test/integration/conversations.turns.test.ts` after one bounded in-scope repair: `server/src/config/codexSdkUpgrade.ts` still required `0.125.0`, so the stale SDK guard was updated to the checked-in `@openai/codex-sdk` version `0.130.0` before the wrapper rerun finished green at `tests run: 79`, `passed: 79`, `failed: 0`.
+- Proof audit closed Task 31 as `__done__` because all five implementation subtasks and the task-owned targeted server wrapper were already complete on disk, no live `**BLOCKER**` remained, and no further task-local manual gate existed beyond the broader review-block revalidation owned by Task 35.
 
 ### Task 32. Preserve `/flows/:flowName/run` actual execution identity and launch diagnostics through the supported client contract
 

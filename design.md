@@ -3662,14 +3662,16 @@ flowchart LR
 
 ### Docker/Compose agent wiring
 
-- In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.
-- The server discovers agents via `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
+- In Compose, the preferred agent folder is bind-mounted into the server container at `/app/codeinfo_agents` (rw), with `/app/codex_agents` retained as the legacy compatibility root so auth seeding and duplicate-root warnings can still operate honestly when older trees are present.
+- The server discovers agents via `CODEINFO_AGENT_HOME=/app/codeinfo_agents`, with `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` retained only as the legacy fallback alias.
 - The Agents MCP server is exposed on port `5012` (configured via `CODEINFO_AGENTS_MCP_PORT=5012`).
 
 ```mermaid
 flowchart LR
-  Host[Host] -->|bind mount| AgentDir[./codex_agents]
-  AgentDir -->|rw to container| Server[codeinfo2-server\\n/app/codex_agents]
+  Host[Host] -->|bind mount| PreferredDir[./codeinfo_agents]
+  Host -->|legacy compatibility bind mount| LegacyDir[./codex_agents]
+  PreferredDir -->|rw to container| Server[codeinfo2-server\\n/app/codeinfo_agents]
+  LegacyDir -->|compat fallback| Server
   Server -->|expose| MCP5012[Agents MCP\\n:5012]
 ```
 
@@ -3853,7 +3855,7 @@ sequenceDiagram
 
 ### Agent discovery
 
-- Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.
+- Agents are discovered from the directory set by `CODEINFO_AGENT_HOME`, with `CODEINFO_CODEX_AGENT_HOME` retained only as a legacy fallback alias.
 - Only direct subfolders containing `config.toml` are treated as available agents; discovery does not recurse.
 - Optional metadata sources:
   - `description.md` is read as UTF-8 and surfaced to UIs/clients as the agent description.
@@ -3861,7 +3863,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  Root[CODEINFO_CODEX_AGENT_HOME] --> Scan[Scan direct subfolders]
+  Root[CODEINFO_AGENT_HOME\nlegacy alias: CODEINFO_CODEX_AGENT_HOME] --> Scan[Scan direct subfolders]
   Scan --> Check{config.toml exists?}
   Check -->|No| Skip[Skip folder]
   Check -->|Yes| Agent[Discovered agent]
@@ -6605,7 +6607,7 @@ flowchart TD
 - Canonical runtime ownership for this story:
   - shared auth/session home: `./codex` via shared `CODEX_HOME`.
   - chat behavior source: `./codex/chat/config.toml`.
-  - agent behavior source: `codex_agents/<agent>/config.toml`.
+  - agent behavior source: `codeinfo_agents/<agent>/config.toml`, with `codex_agents/<agent>/config.toml` retained as the legacy compatibility fallback when the preferred root is absent.
 - Agent behavior precedence remains deterministic:
   - only `[projects]` may inherit from shared base.
   - merge rule: `effectiveProjects = { ...baseProjects, ...agentProjects }`.
@@ -6658,7 +6660,7 @@ web_search = "live"
 flowchart TD
   A[Incoming run request] --> B{Surface}
   B -->|Chat| C[Load ./codex/chat/config.toml]
-  B -->|Agent/Flow/MCP| D[Load codex_agents/<agent>/config.toml]
+  B -->|Agent/Flow/MCP| D[Load codeinfo_agents/<agent>/config.toml\nlegacy fallback: codex_agents/<agent>/config.toml]
   C --> E[Apply shared CODEX_HOME ./codex]
   D --> F[Merge projects with base: { ...baseProjects, ...agentProjects }]
   F --> G[Apply shared CODEX_HOME ./codex]
@@ -6687,7 +6689,7 @@ sequenceDiagram
 - Final migration role split after Task 22:
   - shared auth/session home remains `./codex`.
   - chat behavior source remains `./codex/chat/config.toml`.
-  - agent behavior source remains `codex_agents/<agent>/config.toml`.
+  - agent behavior source remains `codeinfo_agents/<agent>/config.toml`, with `codex_agents/<agent>/config.toml` retained only as the legacy compatibility fallback.
   - shared base `./codex/config.toml` is minimized to `[projects]` trust metadata only.
 - Final isolated-step guard:
   - minimization must abort when `./codex/chat/config.toml` is missing.

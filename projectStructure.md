@@ -2302,7 +2302,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder with optional `CODEINFO_NPM_REGISTRY` override for the global install step
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams, including end-to-end corporate override flow (env source -> compose interpolation -> build overrides -> runtime gate -> startup/fail-fast)
-â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
+â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to the preferred `codeinfo_agents` root by default, with `codex_agents` retained as the legacy fallback sibling)
 â”œâ”€ flows-sandbox/ â€” safe flow JSON definitions for manual MCP/Playwright testing
 â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
 â”‚  â””â”€ otel-collector-config.yaml â€” OTLP->Zipkin/logging pipeline used by all compose stacks
@@ -2878,7 +2878,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/integration/mcp-vector-search.test.ts — integration coverage for classic MCP vector-search provider/model lock parity with REST.
 - server/src/test/integration/codex.device-auth.test.ts — integration coverage for device-auth route validation + responses
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
-- server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
+- server/src/agents/discovery.ts — discovers agents from `CODEINFO_AGENT_HOME`, with `CODEINFO_CODEX_AGENT_HOME` retained as the legacy fallback alias
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
 - server/src/agents/commandsSchema.ts — strict Zod v1 schema + safe parser for agent command JSON files
 - server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled, stepCount }` summaries (`stepCount >= 1`, sentinel `1` for disabled/invalid)

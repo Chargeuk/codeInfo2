@@ -410,7 +410,7 @@ export function useConversations(params?: {
   );
 
   const bulkArchive = useCallback(
-    async (conversationIds: string[]) => {
+    async (conversationIds: string[]): Promise<ConversationBulkResult> => {
       const payload = await postBulk('archive', conversationIds);
       const updatedCount =
         'updatedCount' in payload
@@ -440,7 +440,8 @@ export function useConversations(params?: {
         resolvedConversationIds,
         pendingConversationIds,
         outcome:
-          pendingConversationIds.length > 0 && updatedCount < conversationIds.length
+          pendingConversationIds.length > 0 &&
+          updatedCount < conversationIds.length
             ? 'partial'
             : 'full',
       };
@@ -449,7 +450,7 @@ export function useConversations(params?: {
   );
 
   const bulkRestore = useCallback(
-    async (conversationIds: string[]) => {
+    async (conversationIds: string[]): Promise<ConversationBulkResult> => {
       const payload = await postBulk('restore', conversationIds);
       const updatedCount =
         'updatedCount' in payload
@@ -479,7 +480,8 @@ export function useConversations(params?: {
         resolvedConversationIds,
         pendingConversationIds,
         outcome:
-          pendingConversationIds.length > 0 && updatedCount < conversationIds.length
+          pendingConversationIds.length > 0 &&
+          updatedCount < conversationIds.length
             ? 'partial'
             : 'full',
       };
@@ -488,7 +490,7 @@ export function useConversations(params?: {
   );
 
   const bulkDelete = useCallback(
-    async (conversationIds: string[]) => {
+    async (conversationIds: string[]): Promise<ConversationBulkResult> => {
       const payload = await postBulk('delete', conversationIds);
       const deletedCount =
         'deletedCount' in payload
@@ -516,7 +518,8 @@ export function useConversations(params?: {
         resolvedConversationIds,
         pendingConversationIds,
         outcome:
-          pendingConversationIds.length > 0 && deletedCount < conversationIds.length
+          pendingConversationIds.length > 0 &&
+          deletedCount < conversationIds.length
             ? 'partial'
             : 'full',
       };

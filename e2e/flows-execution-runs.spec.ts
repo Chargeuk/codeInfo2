@@ -172,6 +172,7 @@ test('flows and agents show stable run clues for repeated fresh executions', asy
           flowName: 'daily',
           conversationId,
           inflightId: `flow-inflight-${runIndex}`,
+          providerId: 'codex',
           modelId: 'gpt-5.2',
         }),
       });
@@ -315,6 +316,7 @@ test('flows warning rendering and disabled run guard stay visible at the browser
           flowName: 'daily',
           conversationId: 'flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5.2',
         }),
       });

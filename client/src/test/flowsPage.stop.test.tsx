@@ -269,6 +269,7 @@ function setupFlowsFetch(params?: {
           flowName: 'smoke',
           conversationId,
           inflightId: 'flow-inflight-1',
+          providerId: 'codex',
           modelId: 'm1',
         },
         { status: 202 },
@@ -342,6 +343,7 @@ describe('Flows page stop control', () => {
             flowName: 'smoke',
             conversationId,
             inflightId: 'flow-inflight-1',
+            providerId: 'codex',
             modelId: 'm1',
           }),
           {
@@ -418,6 +420,7 @@ describe('Flows page stop control', () => {
             flowName: 'smoke',
             conversationId,
             inflightId: 'flow-inflight-1',
+            providerId: 'codex',
             modelId: 'm1',
           }),
           {
@@ -486,6 +489,7 @@ describe('Flows page stop control', () => {
             flowName: 'smoke',
             conversationId,
             inflightId: 'flow-inflight-1',
+            providerId: 'codex',
             modelId: 'm1',
           }),
           {
@@ -532,6 +536,7 @@ describe('Flows page stop control', () => {
             flowName: 'smoke',
             conversationId,
             inflightId: 'flow-inflight-1',
+            providerId: 'codex',
             modelId: 'm1',
           }),
           {
@@ -668,6 +673,7 @@ describe('Flows page stop control', () => {
             flowName: 'smoke',
             conversationId,
             inflightId: 'flow-inflight-1',
+            providerId: 'codex',
             modelId: 'm1',
           }),
           {

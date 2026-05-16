@@ -594,12 +594,16 @@ describe('Chat page models list', () => {
     });
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
 
-    await waitFor(() => expect(providerSelect).toHaveTextContent(/github copilot/i));
+    await waitFor(() =>
+      expect(providerSelect).toHaveTextContent(/github copilot/i),
+    );
     await waitFor(() =>
       expect(modelSelect).toHaveAttribute('aria-disabled', 'true'),
     );
     expect(
-      await screen.findByText(/no chat-capable models available for this provider/i),
+      await screen.findByText(
+        /no chat-capable models available for this provider/i,
+      ),
     ).toBeVisible();
     expect(screen.getByRole('textbox', { name: /message/i })).toBeDisabled();
   });

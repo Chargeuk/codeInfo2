@@ -68,9 +68,7 @@ type Props = {
   onBulkRestore?: (
     conversationIds: string[],
   ) => Promise<ConversationBulkResult>;
-  onBulkDelete?: (
-    conversationIds: string[],
-  ) => Promise<ConversationBulkResult>;
+  onBulkDelete?: (conversationIds: string[]) => Promise<ConversationBulkResult>;
   onLoadMore: () => Promise<void> | void;
   onRefresh: () => void;
   onRetry: () => void;
@@ -284,8 +282,8 @@ export function ConversationList({
 
       const affectedCount =
         action === 'delete'
-          ? result.deletedCount ?? result.resolvedConversationIds.length
-          : result.updatedCount ?? result.resolvedConversationIds.length;
+          ? (result.deletedCount ?? result.resolvedConversationIds.length)
+          : (result.updatedCount ?? result.resolvedConversationIds.length);
       const actionVerb =
         action === 'archive'
           ? 'Archived'

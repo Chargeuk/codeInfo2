@@ -651,7 +651,10 @@ describe('Flows page run/resume controls', () => {
 
     const firstError = await screen.findByTestId('flows-run-error');
     expect(firstError).toHaveTextContent('First provider unavailable.');
-    expect(firstError).toHaveAttribute('data-error-code', 'PROVIDER_UNAVAILABLE');
+    expect(firstError).toHaveAttribute(
+      'data-error-code',
+      'PROVIDER_UNAVAILABLE',
+    );
 
     await waitFor(() => expect(runButton).toBeEnabled());
     await user.click(runButton);

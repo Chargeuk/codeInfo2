@@ -198,134 +198,136 @@ describe('Chat provider selection (WS transport)', () => {
     const user = userEvent.setup();
     const sentBodies: Record<string, unknown>[] = [];
 
-    mockFetch.mockImplementation(async (url: RequestInfo | URL, init?: RequestInit) => {
-      const href = typeof url === 'string' ? url : url.toString();
-      if (href.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/conversations') && init?.method !== 'POST') {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            providers: [
-              {
-                id: 'codex',
-                label: 'OpenAI Codex',
+    mockFetch.mockImplementation(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations') && init?.method !== 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [], nextCursor: null }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'copilot',
+                  label: 'GitHub Copilot',
+                  available: false,
+                  toolsAvailable: false,
+                  reason: 'copilot bootstrap degraded',
+                },
+                {
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+              selectedProvider: 'copilot',
+              selectedModel: 'copilot-gpt-5-mini',
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          const providerId = new URL(href, 'http://localhost').searchParams.get(
+            'provider',
+          );
+          if (providerId === 'codex') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                provider: 'codex',
                 available: true,
                 toolsAvailable: true,
-              },
-              {
+                defaultModel: 'gpt-5.3-codex',
+                providerInfo: {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                  defaultModel: 'gpt-5.3-codex',
+                },
+                models: [
+                  {
+                    key: 'gpt-5.3-codex',
+                    displayName: 'GPT-5.3 Codex',
+                    type: 'codex',
+                  },
+                ],
+              }),
+            }) as unknown as Response;
+          }
+
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'copilot',
+              available: false,
+              toolsAvailable: false,
+              reason: 'copilot bootstrap degraded',
+              providerInfo: {
                 id: 'copilot',
                 label: 'GitHub Copilot',
                 available: false,
                 toolsAvailable: false,
                 reason: 'copilot bootstrap degraded',
               },
-              {
-                id: 'lmstudio',
-                label: 'LM Studio',
-                available: true,
-                toolsAvailable: true,
-              },
-            ],
-            selectedProvider: 'copilot',
-            selectedModel: 'copilot-gpt-5-mini',
-          }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/models')) {
-        const providerId = new URL(href, 'http://localhost').searchParams.get(
-          'provider',
-        );
-        if (providerId === 'codex') {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: async () => ({
-              provider: 'codex',
-              available: true,
-              toolsAvailable: true,
-              defaultModel: 'gpt-5.3-codex',
-              providerInfo: {
-                id: 'codex',
-                label: 'OpenAI Codex',
-                available: true,
-                toolsAvailable: true,
-                defaultModel: 'gpt-5.3-codex',
-              },
-              models: [
-                {
-                  key: 'gpt-5.3-codex',
-                  displayName: 'GPT-5.3 Codex',
-                  type: 'codex',
-                },
-              ],
+              models: [],
             }),
           }) as unknown as Response;
         }
-
+        if (href.includes('/chat') && init?.method === 'POST') {
+          const body =
+            typeof init.body === 'string'
+              ? (JSON.parse(init.body) as Record<string, unknown>)
+              : {};
+          sentBodies.push(body);
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              conversationId: body.conversationId,
+              inflightId: 'inflight-1',
+              provider: body.provider,
+              model: body.model,
+            }),
+          }) as unknown as Response;
+        }
+        if (href.endsWith('/agents')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [] }),
+          }) as unknown as Response;
+        }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({
-            provider: 'copilot',
-            available: false,
-            toolsAvailable: false,
-            reason: 'copilot bootstrap degraded',
-            providerInfo: {
-              id: 'copilot',
-              label: 'GitHub Copilot',
-              available: false,
-              toolsAvailable: false,
-              reason: 'copilot bootstrap degraded',
-            },
-            models: [],
-          }),
+          json: async () => ({}),
         }) as unknown as Response;
-      }
-      if (href.includes('/chat') && init?.method === 'POST') {
-        const body =
-          typeof init.body === 'string'
-            ? (JSON.parse(init.body) as Record<string, unknown>)
-            : {};
-        sentBodies.push(body);
-        return Promise.resolve({
-          ok: true,
-          status: 202,
-          json: async () => ({
-            status: 'started',
-            conversationId: body.conversationId,
-            inflightId: 'inflight-1',
-            provider: body.provider,
-            model: body.model,
-          }),
-        }) as unknown as Response;
-      }
-      if (href.endsWith('/agents')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ agents: [] }),
-        }) as unknown as Response;
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+      },
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);

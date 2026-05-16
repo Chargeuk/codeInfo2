@@ -6,7 +6,10 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import ConversationList, {
   type ConversationListItem,
 } from '../components/chat/ConversationList';
-import type { ConversationFilterState } from '../hooks/useConversations';
+import type {
+  ConversationBulkResult,
+  ConversationFilterState,
+} from '../hooks/useConversations';
 import { createLogger } from '../logging/logger';
 import { setupChatWsHarness } from './support/mockChatWs';
 
@@ -84,9 +87,9 @@ const createBaseProps = (
   onFilterChange: jest.fn(),
   onArchive: jest.fn(),
   onRestore: jest.fn(),
-  onBulkArchive: async (ids) => ({ updatedCount: ids.length }),
-  onBulkRestore: async (ids) => ({ updatedCount: ids.length }),
-  onBulkDelete: async (ids) => ({ deletedCount: ids.length }),
+  onBulkArchive: async (ids) => makeBulkArchiveResult(ids),
+  onBulkRestore: async (ids) => makeBulkArchiveResult(ids),
+  onBulkDelete: async (ids) => makeBulkDeleteResult(ids),
   onLoadMore: async () => undefined,
   onRefresh: () => undefined,
   onRetry: () => undefined,
@@ -111,6 +114,24 @@ function filterConversations(
     if (filterState === 'archived') return Boolean(c.archived);
     return !c.archived;
   });
+}
+
+function makeBulkArchiveResult(ids: string[]): ConversationBulkResult {
+  return {
+    updatedCount: ids.length,
+    resolvedConversationIds: ids,
+    pendingConversationIds: [],
+    outcome: 'full',
+  };
+}
+
+function makeBulkDeleteResult(ids: string[]): ConversationBulkResult {
+  return {
+    deletedCount: ids.length,
+    resolvedConversationIds: ids,
+    pendingConversationIds: [],
+    outcome: 'full',
+  };
 }
 
 describe('ConversationList control gating', () => {
@@ -356,9 +377,9 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           onFilterChange={setFilterState}
           onArchive={() => undefined}
           onRestore={() => undefined}
-          onBulkArchive={async (ids) => ({ updatedCount: ids.length })}
-          onBulkRestore={async (ids) => ({ updatedCount: ids.length })}
-          onBulkDelete={async (ids) => ({ deletedCount: ids.length })}
+          onBulkArchive={async (ids) => makeBulkArchiveResult(ids)}
+          onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
+          onBulkDelete={async (ids) => makeBulkDeleteResult(ids)}
           onLoadMore={async () => {
             setAllConversations((prev) => [...prev]);
           }}
@@ -437,9 +458,9 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
             onFilterChange={setFilterState}
             onArchive={() => undefined}
             onRestore={() => undefined}
-            onBulkArchive={async (ids) => ({ updatedCount: ids.length })}
-            onBulkRestore={async (ids) => ({ updatedCount: ids.length })}
-            onBulkDelete={async (ids) => ({ deletedCount: ids.length })}
+            onBulkArchive={async (ids) => makeBulkArchiveResult(ids)}
+            onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
+            onBulkDelete={async (ids) => makeBulkDeleteResult(ids)}
             onLoadMore={async () => undefined}
             onRefresh={() => undefined}
             onRetry={() => undefined}
@@ -504,9 +525,9 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           onFilterChange={setFilterState}
           onArchive={() => undefined}
           onRestore={() => undefined}
-          onBulkArchive={async (ids) => ({ updatedCount: ids.length })}
-          onBulkRestore={async (ids) => ({ updatedCount: ids.length })}
-          onBulkDelete={async (ids) => ({ deletedCount: ids.length })}
+          onBulkArchive={async (ids) => makeBulkArchiveResult(ids)}
+          onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
+          onBulkDelete={async (ids) => makeBulkDeleteResult(ids)}
           onLoadMore={async () => undefined}
           onRefresh={() => undefined}
           onRetry={() => undefined}
@@ -546,9 +567,9 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
 
   it('requires confirmation before permanently deleting conversations', async () => {
     const user = userEvent.setup();
-    const bulkDelete = jest.fn(async (ids: string[]) => ({
-      deletedCount: ids.length,
-    }));
+    const bulkDelete = jest.fn(async (ids: string[]) =>
+      makeBulkDeleteResult(ids),
+    );
 
     function Wrapper() {
       const [filterState, setFilterState] =
@@ -579,8 +600,8 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           onFilterChange={setFilterState}
           onArchive={() => undefined}
           onRestore={() => undefined}
-          onBulkArchive={async (ids) => ({ updatedCount: ids.length })}
-          onBulkRestore={async (ids) => ({ updatedCount: ids.length })}
+          onBulkArchive={async (ids) => makeBulkArchiveResult(ids)}
+          onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
           onBulkDelete={bulkDelete}
           onLoadMore={async () => undefined}
           onRefresh={() => undefined}
@@ -612,48 +633,36 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
   it('keeps unresolved rows selected after partial bulk archive and excludes confirmed rows from the next request', async () => {
     const user = userEvent.setup();
     const bulkArchive = jest
-      .fn<
-        (ids: string[]) => Promise<{
-          updatedCount: number;
-          resolvedConversationIds: string[];
-          pendingConversationIds: string[];
-          outcome: 'full' | 'partial';
-        }>
-      >()
+      .fn<(ids: string[]) => Promise<ConversationBulkResult>>()
       .mockImplementationOnce(async (ids) => ({
         updatedCount: 1,
         resolvedConversationIds: ['c1'],
         pendingConversationIds: ids.filter((id) => id !== 'c1'),
-        outcome: 'partial',
+        outcome: 'partial' as const,
       }))
-      .mockImplementationOnce(async (ids) => ({
-        updatedCount: ids.length,
-        resolvedConversationIds: ids,
-        pendingConversationIds: [],
-        outcome: 'full',
-      }));
+      .mockImplementationOnce(async (ids) => makeBulkArchiveResult(ids));
 
     function Wrapper() {
-      const [conversations, setConversations] = useState<ConversationListItem[]>(
-        [
-          {
-            conversationId: 'c1',
-            title: 'First conversation',
-            provider: 'lmstudio',
-            model: 'm1',
-            lastMessageAt: '2025-01-02T00:00:00Z',
-            archived: false,
-          },
-          {
-            conversationId: 'c2',
-            title: 'Second conversation',
-            provider: 'lmstudio',
-            model: 'm1',
-            lastMessageAt: '2025-01-01T00:00:00Z',
-            archived: false,
-          },
-        ],
-      );
+      const [conversations, setConversations] = useState<
+        ConversationListItem[]
+      >([
+        {
+          conversationId: 'c1',
+          title: 'First conversation',
+          provider: 'lmstudio',
+          model: 'm1',
+          lastMessageAt: '2025-01-02T00:00:00Z',
+          archived: false,
+        },
+        {
+          conversationId: 'c2',
+          title: 'Second conversation',
+          provider: 'lmstudio',
+          model: 'm1',
+          lastMessageAt: '2025-01-01T00:00:00Z',
+          archived: false,
+        },
+      ]);
       const [filterState, setFilterState] =
         useState<ConversationFilterState>('all');
 
@@ -685,18 +694,8 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
             );
             return result;
           }}
-          onBulkRestore={async (ids) => ({
-            updatedCount: ids.length,
-            resolvedConversationIds: ids,
-            pendingConversationIds: [],
-            outcome: 'full',
-          })}
-          onBulkDelete={async (ids) => ({
-            deletedCount: ids.length,
-            resolvedConversationIds: ids,
-            pendingConversationIds: [],
-            outcome: 'full',
-          })}
+          onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
+          onBulkDelete={async (ids) => makeBulkDeleteResult(ids)}
           onLoadMore={async () => undefined}
           onRefresh={() => undefined}
           onRetry={() => undefined}
@@ -727,7 +726,9 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     await user.click(screen.getByTestId('conversation-bulk-archive'));
 
     expect(bulkArchive).toHaveBeenNthCalledWith(2, ['c2']);
-    expect(await screen.findByText('Archived 1 conversations')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Archived 1 conversations'),
+    ).toBeInTheDocument();
     expect(screen.getByText('0 selected')).toBeInTheDocument();
   });
 
@@ -756,9 +757,9 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
         onFilterChange={() => undefined}
         onArchive={() => undefined}
         onRestore={() => undefined}
-        onBulkArchive={async (ids) => ({ updatedCount: ids.length })}
-        onBulkRestore={async (ids) => ({ updatedCount: ids.length })}
-        onBulkDelete={async (ids) => ({ deletedCount: ids.length })}
+        onBulkArchive={async (ids) => makeBulkArchiveResult(ids)}
+        onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
+        onBulkDelete={async (ids) => makeBulkDeleteResult(ids)}
         onLoadMore={async () => undefined}
         onRefresh={() => undefined}
         onRetry={() => undefined}

@@ -157,7 +157,7 @@ test('POST /conversations/bulk/delete returns 200 with explicit deleted ids on f
 test('POST /conversations/bulk/archive keeps the count contract explicit on partial success', async () => {
   const res = await request(
     appWith({
-      bulkArchiveConversations: async (_conversationIds) => ({
+      bulkArchiveConversations: async () => ({
         status: 'ok',
         updatedCount: 1,
         updatedConversationIds: ['c1'],
@@ -176,7 +176,7 @@ test('POST /conversations/bulk/archive keeps the count contract explicit on part
 test('POST /conversations/bulk/restore keeps the count contract explicit on partial success', async () => {
   const res = await request(
     appWith({
-      bulkRestoreConversations: async (_conversationIds) => ({
+      bulkRestoreConversations: async () => ({
         status: 'ok',
         updatedCount: 1,
         updatedConversationIds: ['c2'],
@@ -195,7 +195,7 @@ test('POST /conversations/bulk/restore keeps the count contract explicit on part
 test('POST /conversations/bulk/delete keeps the count contract explicit on partial success', async () => {
   const res = await request(
     appWith({
-      bulkDeleteConversations: async (_conversationIds) => ({
+      bulkDeleteConversations: async () => ({
         status: 'ok',
         deletedCount: 1,
         deletedConversationIds: ['c1'],

@@ -3831,9 +3831,9 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 
 #### Subtasks
 
-1. [ ] Re-read the `## Minor Review Fixes` section in this plan, the current review pass findings artifact, and the resolved-minor entry in `codeInfoStatus/flow-state/review-disposition-state.json` so the final proof pass is explicitly checking the same inline documentation repair that was already recorded for this review cycle.
-2. [ ] Confirm the resolved minor finding still maps cleanly to `README.md`, `design.md`, and `projectStructure.md`, and that those user-facing documentation surfaces still agree on the preferred `codeinfo_agents` and `CODEINFO_AGENT_HOME` contract plus the retained legacy fallback wording before broad automated proof begins.
-3. [ ] Confirm the final proof pass still routes through this repository's supported wrapper surfaces for compose build, workspace builds, server regression, client regression, browser regression, smoke startup and shutdown, lint, and format checks so this task remains the single final automated revalidation owner for review cycle `0000057-rc-20260516T224545Z-508a950b`.
+1. [x] Re-read the `## Minor Review Fixes` section in this plan, the current review pass findings artifact, and the resolved-minor entry in `codeInfoStatus/flow-state/review-disposition-state.json` so the final proof pass is explicitly checking the same inline documentation repair that was already recorded for this review cycle.
+2. [x] Confirm the resolved minor finding still maps cleanly to `README.md`, `design.md`, and `projectStructure.md`, and that those user-facing documentation surfaces still agree on the preferred `codeinfo_agents` and `CODEINFO_AGENT_HOME` contract plus the retained legacy fallback wording before broad automated proof begins.
+3. [x] Confirm the final proof pass still routes through this repository's supported wrapper surfaces for compose build, workspace builds, server regression, client regression, browser regression, smoke startup and shutdown, lint, and format checks so this task remains the single final automated revalidation owner for review cycle `0000057-rc-20260516T224545Z-508a950b`.
 
 #### Testing
 
@@ -3854,3 +3854,6 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 - Review Task Role: `final_minor_fix_revalidation`
 - Review Cycle Id: `0000057-rc-20260516T224545Z-508a950b`
 - Inline minor fixes were already made and documented earlier in this review loop; this task owns only the final broad automated proof pass before clean story closeout.
+- Re-read the plan's `## Minor Review Fixes` audit entry, `codeInfoTmp/reviews/0000057-20260516T220521Z-2fec00ab-findings.md#resolved-minor-findings`, and `codeInfoStatus/flow-state/review-disposition-state.json`; all three still point to resolved minor finding `generic_engineering_issue-1` at commit `d6ea3500d1a8ab12b1632741299c2499cf8c167f` in review cycle `0000057-rc-20260516T224545Z-508a950b`.
+- Confirmed `README.md`, `design.md`, and `projectStructure.md` still agree that `codeinfo_agents` and `CODEINFO_AGENT_HOME` are the preferred agent-home contract, while `codex_agents` and `CODEINFO_CODEX_AGENT_HOME` remain legacy fallbacks only; no new documentation drift was found before broad proof.
+- Confirmed the final proof path still belongs to this repository's supported wrapper surfaces only: `compose:build:summary`, both workspace build summaries, broad server and client regression wrappers, the e2e wrapper, `compose:up`, `compose:down`, `lint`, and `format:check`, with Task 41 remaining the sole final automated revalidation owner for review cycle `0000057-rc-20260516T224545Z-508a950b`.

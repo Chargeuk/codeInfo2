@@ -3165,7 +3165,7 @@ This task keeps those fixes together because they are all failures of the same s
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 30`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
 
@@ -3223,6 +3223,7 @@ This task keeps the repair centered on the one run-start contract seam shared by
 - Updated `server/src/flows/types.ts`, `server/src/flows/service.ts`, and `server/src/routes/flowsRun.ts` so the first supported `/flows/:flowName/run` response now preserves the actual started `providerId` alongside `modelId`, carries launch warnings on the same initial payload, and keeps normalized machine-readable failure identifiers on route error responses instead of collapsing them into a reason-only shape.
 - Refreshed `server/src/test/integration/flows.run.errors.test.ts` so the retained route proof now asserts the started payload includes `providerId`, `modelId`, and launch warnings on the first response, and that provider-unavailable runtime-load failures keep the normalized `PROVIDER_UNAVAILABLE` identifier instead of dropping to a generic route error.
 - Targeted server proof passed with `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts`; the wrapper finished green at `tests run: 29`, `passed: 29`, `failed: 0`, so the server-owned started-payload seam is closed before the client parser and page consumer work continues.
+- Proof audit closed Task 32 as `__done__` because all five implementation subtasks and both task-owned targeted wrappers were already complete on disk, no live `**BLOCKER**` remained, and no further task-local manual gate existed beyond the broader review-block revalidation owned by Task 35.
 
 ### Task 33. Align provider-specific `/chat/models` availability fields with the authoritative bootstrap-status contract
 

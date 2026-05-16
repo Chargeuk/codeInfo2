@@ -3481,6 +3481,7 @@ This review task repairs the chat execution-identity contract on both sides of t
 - Implicit `/chat` requests that omit an explicit provider no longer fail in `validateChatRequest(...)` merely because the env-selected provider cannot produce a usable default model, and the route-level provider selector retains authority to choose a healthy provider when Story 57 fallback rules allow it.
 - Explicit-provider `/chat` requests still fail clearly and do not silently switch providers.
 - Resumed chat surfaces keep the visible provider and model state aligned with the stored resumed execution identity when that identity is unavailable, including disabled-state and warning-copy behavior, and the page does not visually relabel the conversation as another provider while the actual resumed send path stays pinned to the stored unavailable provider and model.
+- The repaired authority split propagates through the default producer-consumer path without drift: `server/src/routes/chatValidators.ts` and `server/src/routes/chat.ts` agree on implicit-versus-explicit provider authority, and `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, and `client/src/pages/ChatPage.tsx` agree on the same resumed execution identity that the page visibly presents and actually submits.
 - The repaired contract remains explicit in the existing proof homes: `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, `client/src/test/chatPage.resumeIdentity.test.tsx`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx`.
 
 #### Subtasks
@@ -3498,7 +3499,7 @@ This review task repairs the chat execution-identity contract on both sides of t
 
 #### Manual Testing Guidance
 
-- Manual proof is optional unless this task broadens into browser-visible warning-copy, disabled-state, or resumed-provider behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, verify the repaired chat surface on `http://localhost:5001/chat`, retain artifacts under `codeInfoTmp/manual-testing/0000057/36/`, and keep screenshots checkbox-free by capturing them first in the Playwright output directory before transferring any retained files into that task-scoped repository path.
+- Manual proof is optional unless this task broadens into browser-visible warning-copy, disabled-state, or resumed-provider behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env loading path through `scripts/docker-compose-with-env.sh`, use the checked-in `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` mounts when the repaired surface needs those namespaces, treat `http://localhost:5010/health` and `http://localhost:5001/chat` as the readiness and browser targets, use the current Story 57 repaired app state plus standard chat-page setup as the seed source instead of hand-editing runtime storage, retain artifacts under `codeInfoTmp/manual-testing/0000057/36/`, and keep screenshots checkbox-free by capturing them first in the Playwright output directory before transferring any retained files into that task-scoped repository path.
 
 #### Implementation Notes
 
@@ -3537,6 +3538,7 @@ This review task repairs the late-retry replay barrier ordering on the current r
 
 - `/chat` rechecks completed replay state before any provider detection, bootstrap-aware validation, or later setup can return a fresh failure for a retry whose result is already complete.
 - `codebase_question` rechecks completed replay state before provider readiness work, working-folder restoration, or shared execution-context resolution can return a fresh failure for a retry whose result is already complete.
+- The repaired replay ordering remains authoritative across both the producer and the default consumer seams: the route or tool-level replay owner returns the stored completed result before later provider/bootstrap/config branches can surface a competing error shape to the caller.
 - The repaired late-retry ordering remains explicit in the retained proof homes `server/src/test/integration/conversations.turns.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, plus any additional focused same-repository proof file needed to make the contradiction deterministic.
 
 #### Subtasks
@@ -3552,7 +3554,7 @@ This review task repairs the late-retry replay barrier ordering on the current r
 
 #### Manual Testing Guidance
 
-- Manual proof is optional unless this task broadens into externally visible replay, error-shape, or resumed-run behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, exercise the repaired replay surface through the standard app paths rather than ad hoc runtime edits, retain artifacts under `codeInfoTmp/manual-testing/0000057/37/`, and keep any screenshot or support-log capture optional and checkbox-free.
+- Manual proof is optional unless this task broadens into externally visible replay, error-shape, or resumed-run behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env loading path through `scripts/docker-compose-with-env.sh`, use the checked-in `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` mounts when the repaired surface needs those namespaces, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, exercise the repaired replay surface through the standard app paths rather than ad hoc runtime edits, use the current Story 57 repaired app state as the seed source, retain artifacts under `codeInfoTmp/manual-testing/0000057/37/`, and keep any screenshot or support-log capture optional and checkbox-free by staging screenshots first in the Playwright output directory before transferring retained files into that task-scoped repository path.
 
 #### Implementation Notes
 

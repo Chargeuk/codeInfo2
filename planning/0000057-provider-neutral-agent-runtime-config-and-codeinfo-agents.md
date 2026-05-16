@@ -3434,3 +3434,191 @@ This review-created block stays inside the current repository's chat admission, 
 - Final-story manual proof ran on the supported main stack because Task 35 is the final story owner. This pass restarted the checked-in stack with `npm run compose:build` then `npm run compose:up` because no repo-supported freshness marker can prove an earlier runtime is current, confirmed `GET /health` returned `mongoConnected=true`, saved visible and API proof under `codeInfoTmp/manual-testing/0000057/35/` including `proof-01-chat-surface.png` and `proof-02-flows-surface.png`, and will return the proof stack to the prior stopped state with `npm run compose:down`.
 - Final-story proof covered the repaired `/chat` and `/flows` seams on the live supported runtime without reopening work. `/chat` bootstrapped to `OpenAI Codex` with `gpt-5.3-codex`, rendered the legacy `web_search` warning plus the shipped `Re-authenticate` affordance, `POST /chat` explicit Copilot requests returned `503 PROVIDER_UNAVAILABLE` without silent switching, a fresh LM Studio conversation settled with stored provider or model identity and then rejected both repeat and contradictory replays with `INFLIGHT_ALREADY_COMPLETED`, and `/flows` direct plus page-driven `echo` starts preserved `providerId: codex`, `modelId: gpt-5.4`, normalized `FLOW_NOT_FOUND`, and reset `Launch provider` back to `unknown · unknown` on `New Flow` before the next fresh run repopulated the actual launch identity.
 - Manual testing skipped for the partial-success bulk sidebar surface. Tried: `POST /conversations/bulk/archive` with one live active conversation id and `00000000-0000-0000-0000-000000000000`. Observed: the supported main stack returned `409 BATCH_CONFLICT` with `invalidIds` instead of a partial-success `200`. Why fuller proof was not possible: the standard repository-backed runtime still exposes conflict behavior for this mixed input, so the deterministic partial-success UI branch from Task 34 is not honestly reachable here without unsupported setup.
+
+## Code Review Findings
+
+### Review Pass `0000057-20260516T133241Z-a7078ad4`
+
+- Review artifact: `codeInfoTmp/reviews/0000057-current-review.json`
+- Findings artifact: `codeInfoTmp/reviews/0000057-20260516T133241Z-a7078ad4-findings.md`
+- Disposition source: `codeInfoStatus/flow-state/review-disposition-state.json`
+- Comparison basis: local `HEAD` `a7078ad46e77402b4acbc49a6ce6779f6d4dde27` versus resolved base `origin/main` `6fbf0c050b4d94f90c0858d4cac499629fdb9236` using `local_head_vs_resolved_base`
+- Unresolved task-required findings that must be encoded into executable plan state here: `unparsed-1`, `unparsed-2`, `unparsed-3`, and `unparsed-4`
+- No inline-resolved minor findings are currently recorded in `review-disposition-state.json` for review cycle `0000057-rc-20260516T143140Z-a7078ad4`, so this appended review-created block currently contains only serious review-fix work plus its shared final revalidation owner.
+- Rejected or non-actionable findings not re-tasked here: `unparsed-5` remained a `cleanup_preference` documentation portability note with no reproduced runtime defect on the current head.
+
+### Task 36. Restore authoritative chat execution identity across implicit starts and resumed conversations
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 35`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260516T133241Z-a7078ad4` in review cycle `0000057-rc-20260516T143140Z-a7078ad4`.
+
+#### Overview
+
+This review task repairs the chat execution-identity contract on both sides of the current repository's chat surface. The server must stop killing implicit `/chat` requests before the route-level provider selector can apply the Story 57 fallback rules, and the resumed-chat UI must stop showing a fresh available provider identity when the actual send path is still pinned to an unavailable stored provider and model.
+
+#### Highest-Risk Invariant
+
+- The authoritative execution identity for chat must remain internally consistent across request admission, route-level provider fallback, visible resumed-chat state, and the actual resumed send payload; the product must not show one provider identity while silently executing or failing under another.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `unparsed-1` - implicit chat requests can fail in validator-owned default-model resolution before route-level provider fallback runs.
+- `unparsed-2` - resumed chat UI can relabel and re-enable an unavailable stored provider while sends remain pinned to the stored identity.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the `/chat` validator, default-resolution, resumed provider-selection UI, and resumed send-payload seams implicated by these findings.
+
+#### Task Exit Criteria
+
+- Implicit `/chat` requests that omit an explicit provider no longer fail in `validateChatRequest(...)` merely because the env-selected provider cannot produce a usable default model, and the route-level provider selector retains authority to choose a healthy provider when Story 57 fallback rules allow it.
+- Explicit-provider `/chat` requests still fail clearly and do not silently switch providers.
+- Resumed chat surfaces keep the visible provider and model state aligned with the stored resumed execution identity when that identity is unavailable, including disabled-state and warning-copy behavior, and the page does not visually relabel the conversation as another provider while the actual resumed send path stays pinned to the stored unavailable provider and model.
+- The repaired contract remains explicit in the existing proof homes: `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, `client/src/test/chatPage.resumeIdentity.test.tsx`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx`.
+
+#### Subtasks
+
+1. [ ] Update `server/src/routes/chatValidators.ts` and any directly supporting same-repository chat-default helpers so implicit `/chat` requests without an explicit provider stop failing in validator-owned default-model resolution before the route-level provider selector can apply the established healthy-provider fallback contract, while explicit-provider requests keep their current fail-clearly authority.
+2. [ ] Update the resumed-chat provider-selection and send-state seam across `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, and `client/src/pages/ChatPage.tsx` so provider refresh cannot visually relabel or re-enable a resumed conversation as another provider when the stored resumed execution identity is still unavailable, and so disabled explanatory UI state stays aligned with the actual resumed send payload.
+3. [ ] Refresh `server/src/test/unit/chatValidators.test.ts` and `server/src/test/integration/chat-copilot-fallback.test.ts` so they prove the repaired implicit-versus-explicit `/chat` authority split, including the contradiction where the env-selected provider lacks a usable default model while another provider remains healthy.
+4. [ ] Refresh `client/src/test/chatPage.resumeIdentity.test.tsx` and `client/src/test/chatPage.provider.conversationSelection.test.tsx` so they prove the repaired resumed-chat contract: refreshed visible state, disabled-state messaging, and the actual resumed send payload stay aligned to the stored execution identity instead of drifting toward a different available provider.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts` from the repository root. Use this targeted wrapper because the repaired implicit `/chat` authority seam lives in those proof homes; broader server regression remains owned by the final revalidation task for this review cycle.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.resumeIdentity.test.tsx --file client/src/test/chatPage.provider.conversationSelection.test.tsx` from the repository root. Use this targeted wrapper because the resumed chat identity drift and visible-state parity seam lives there; broader client and browser regression remains owned by the final revalidation task for this review cycle.
+
+#### Manual Testing Guidance
+
+- Manual proof is optional unless this task broadens into browser-visible warning-copy, disabled-state, or resumed-provider behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, verify the repaired chat surface on `http://localhost:5001/chat`, retain artifacts under `codeInfoTmp/manual-testing/0000057/36/`, and keep screenshots checkbox-free by capturing them first in the Playwright output directory before transferring any retained files into that task-scoped repository path.
+
+#### Implementation Notes
+
+- None yet.
+
+### Task 37. Move completed-replay short-circuits ahead of provider and execution-context setup on `/chat` and `codebase_question`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 35`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260516T133241Z-a7078ad4` in review cycle `0000057-rc-20260516T143140Z-a7078ad4`.
+
+#### Overview
+
+This review task repairs the late-retry replay barrier ordering on the current repository's two replay-capable execution surfaces: `/chat` and `codebase_question`. A retry that becomes replay-complete after the first probe must short-circuit to the stored completed result before any new provider bootstrap, provider validation, working-folder restoration, or shared execution-context setup can introduce a fresh failure.
+
+#### Highest-Risk Invariant
+
+- Once a retry's replay result is already complete, no later provider/bootstrap/config/setup branch may outrank that completed replay on either `/chat` or `codebase_question`.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `unparsed-3` - the `/chat` replay barrier still lets late retries hit provider/bootstrap validation before the final completed-replay short-circuit.
+- `unparsed-4` - late `codebase_question` retries still depend on provider/bootstrap and execution-context setup before replay can short-circuit.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the `/chat` replay route, the `codebase_question` late-retry path, and the proof homes for replay ordering on those seams.
+
+#### Task Exit Criteria
+
+- `/chat` rechecks completed replay state before any provider detection, bootstrap-aware validation, or later setup can return a fresh failure for a retry whose result is already complete.
+- `codebase_question` rechecks completed replay state before provider readiness work, working-folder restoration, or shared execution-context resolution can return a fresh failure for a retry whose result is already complete.
+- The repaired late-retry ordering remains explicit in the retained proof homes `server/src/test/integration/conversations.turns.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, plus any additional focused same-repository proof file needed to make the contradiction deterministic.
+
+#### Subtasks
+
+1. [ ] Update `server/src/routes/chat.ts` so the completed-replay fast path wins again before provider detection, bootstrap-aware validation, and later send setup can return a new error for a retry whose inflight result already completed after the first replay probe.
+2. [ ] Update `server/src/mcp2/tools/codebaseQuestion.ts` and any directly supporting same-repository replay helper seams so completed replay wins again before provider readiness, working-folder restoration, and shared execution-context resolution can return a new error for a retry whose result already exists.
+3. [ ] Refresh `server/src/test/integration/conversations.turns.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` so they prove the repaired late-retry contradiction explicitly instead of relying only on early in-progress claimant coverage.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because both repaired replay-ordering seams are server-owned and local to those proof homes; broader server regression remains owned by the final revalidation task for this review cycle.
+
+#### Manual Testing Guidance
+
+- Manual proof is optional unless this task broadens into externally visible replay, error-shape, or resumed-run behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, exercise the repaired replay surface through the standard app paths rather than ad hoc runtime edits, retain artifacts under `codeInfoTmp/manual-testing/0000057/37/`, and keep any screenshot or support-log capture optional and checkbox-free.
+
+#### Implementation Notes
+
+- None yet.
+
+### Task 38. Revalidate review pass `0000057-20260516T133241Z-a7078ad4` serious fixes and inline minor resolutions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 36, Task 37`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created final revalidation task for review cycle `0000057-rc-20260516T143140Z-a7078ad4`. This task now owns the whole current review cycle's close-out proof so later inline-resolved minor fixes for this same cycle do not spawn a second final-task owner.
+
+#### Overview
+
+This final review task owns the whole current review cycle's closing proof. It must revalidate the serious review-created repair block for review pass `0000057-20260516T133241Z-a7078ad4`, and it must remain the sole final revalidation owner for review cycle `0000057-rc-20260516T143140Z-a7078ad4` if later inline minor fixes are resolved inside the same cycle before closeout.
+
+No inline-resolved minor findings are currently recorded in `review-disposition-state.json` for this review cycle. That means this task currently closes only the serious review-created findings block, while still reserving sole final revalidation ownership for any later same-cycle inline minor resolutions if they occur before review closeout.
+
+#### Highest-Risk Invariant
+
+- The final review-cycle close-out must prove the repaired serious findings block together under one owner, and the cycle must not spawn a second final-task owner if later inline-resolved minor fixes are added before this review cycle closes.
+
+#### Likely Blocker Family
+
+- `shared wrapper or baseline seam`
+
+#### Addresses Findings
+
+- Revalidates the serious review-created findings block for `unparsed-1`, `unparsed-2`, `unparsed-3`, and `unparsed-4`.
+- No inline-resolved minor findings are currently recorded for review cycle `0000057-rc-20260516T143140Z-a7078ad4`; if that changes later in this same cycle, this task remains the one final revalidation owner for them too.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the review-created repairs and the full broad regression proof that closes this appended review-created findings block on the repository's normal supported paths.
+
+#### Task Exit Criteria
+
+- Tasks 36 and 37 are implemented, their promised proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
+- The same final revalidation pass reruns the relevant server, client, browser, and supported main-stack wrappers so the current review-created block is green together under one close-out owner.
+- This final review task owns the broad regression proof for the current review-created findings block in the current repository: targeted Tasks 36 and 37 proof stays local to those tasks, while this close-out pass reruns the supported compose build, server and client builds, broad server regression wrappers, broad client regression wrappers, automated browser regression through the supported e2e wrapper, the supported main-stack smoke path, and repository-wide lint plus format checks so the repaired seams still hold through the repository's normal execution routes.
+- If a broad wrapper, Compose action, browser bootstrap, or main-stack smoke step fails before the repaired proof homes or default surfaces are actually reached, the failure is classified as a shared wrapper, baseline, or runtime-handoff blocker rather than being silently blamed on Tasks 36 and 37 without evidence.
+- Review-loop close-out state still treats Task 38 as the sole final revalidation owner for review cycle `0000057-rc-20260516T143140Z-a7078ad4`, and `review-disposition-state.json` remains aligned to that same owner instead of spawning a second final revalidation path for this cycle.
+
+#### Subtasks
+
+1. [ ] Record one chat execution-identity proof matrix by verifying `server/src/test/unit/chatValidators.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, `client/src/test/chatPage.resumeIdentity.test.tsx`, and `client/src/test/chatPage.provider.conversationSelection.test.tsx` against the repaired implicit-start and resumed-conversation identity seams from Task 36.
+2. [ ] Record one replay fast-path proof matrix by verifying `server/src/test/integration/conversations.turns.test.ts` and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` against the repaired late-retry replay short-circuit seams from Task 37.
+3. [ ] Record one runtime-handoff and baseline-boundary matrix for this close-out owner by reading `README.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, and this task's `Manual Testing Guidance` together so the supported compose contract, wrapper-owned env loading through `scripts/docker-compose-with-env.sh`, mounted proof-agent namespaces, readiness checks on `http://localhost:5010/health` and `http://localhost:5001`, repository-relative artifact destination `codeInfoTmp/manual-testing/0000057/38/`, and the shared-wrapper versus task-owned failure boundary are all explicit before the broad reruns start.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the review-created block changes shared server runtime seams before the broader wrappers rerun.
+3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired server and client contract seams must still typecheck and build through the client workspace.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because every review-created repair in this cycle has retained server unit or integration proof homes.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the repository's broad server feature surface must still remain green when the review-created block is closed.
+6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the repaired chat UI and resumed-provider seams depend on the client regression surface staying green.
+7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because this repository's normal paired front-end and back-end close-out contract includes automated browser proof, and Task 38 owns that broad browser rerun for the current review-created findings block.
+8. [ ] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
+9. [ ] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
+10. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server services, client contract surfaces, and retained proof homes.
+11. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared contract files.
+
+#### Manual Testing Guidance
+
+- Manual proof is optional unless Tasks 36 and 37 broaden into browser-visible warning copy, resumed-chat identity states, replay error shapes, or other externally observable surfaces that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env-file loading path through `scripts/docker-compose-with-env.sh`, use the checked-in `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` mounts when the repaired surface needs those namespaces, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, and use the current Story 57 repaired app state plus standard UI setup as the seed source instead of hand-editing runtime storage. Retain artifacts under `codeInfoTmp/manual-testing/0000057/38/`, keep this task as the sole final revalidation owner for review cycle `0000057-rc-20260516T143140Z-a7078ad4`, and if screenshots help capture them first with a relative staging filename in the Playwright output directory before transferring the retained files into that repository path. If auth-dependent provider surfaces are unavailable because human-controlled login is missing or stale, skip only the affected seam honestly and rely on the broad automated proof plus the rest of the supported main-stack smoke surface.
+
+#### Implementation Notes
+
+- None yet.

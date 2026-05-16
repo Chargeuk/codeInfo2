@@ -176,3 +176,13 @@ This story finishes the shift from a Codex-shaped runtime to a provider-neutral 
 
 - Own the final broad regression rerun for the latest review-created findings block across compose, build, server, client, browser, lint, and format proof.
 - Keep this task as the sole close-out owner for the current review cycle so later same-cycle fixes do not create a second final revalidation path.
+
+39. [codeInfo2] - Restore Story 57 provider-model fallback precedence across shared chat and `codebase_question` selection
+
+- Keep same-provider model repair separate from true cross-provider fallback in the shared selector and server callers.
+- Prove the repaired provider-model pair stays consistent across `/chat`, `/chat/providers`, `/chat/models`, and `codebase_question`.
+
+40. [codeInfo2] - Revalidate review pass `0000057-20260516T174837Z-50e60126` serious fixes and inline minor resolutions
+
+- Own the final broad regression rerun for the latest review-created findings block plus the inline minor documentation fix from the same review cycle.
+- Re-check compose, build, server, client, browser, smoke, lint, and format proof under one shared close-out owner.

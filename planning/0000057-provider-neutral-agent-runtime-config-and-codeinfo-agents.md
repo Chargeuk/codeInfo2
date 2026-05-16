@@ -3514,7 +3514,7 @@ This review task repairs the chat execution-identity contract on both sides of t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 35`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260516T133241Z-a7078ad4` in review cycle `0000057-rc-20260516T143140Z-a7078ad4`.
 
@@ -3564,6 +3564,7 @@ This review task repairs the late-retry replay barrier ordering on the current r
 - Verified the `/chat` late-retry replay checkpoints were already present on the branch in `server/src/routes/chat.ts` and the retained proof home `server/src/test/integration/conversations.turns.test.ts` before touching the plan.
 - Verified the `codebase_question` late-retry replay checkpoints were already present on the branch in `server/src/mcp2/tools/codebaseQuestion.ts`, including the replay-read helpers, and the retained proof home `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` before touching the plan.
 - Marked both subtasks and the targeted testing item complete after `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` passed cleanly with 44/44 tests.
+- Closed Task 37 after the proof audit confirmed both replay-ordering subtasks and the targeted automated testing step were already complete on disk with no live blocker remaining.
 
 ### Task 38. Revalidate review pass `0000057-20260516T133241Z-a7078ad4` serious fixes and inline minor resolutions
 

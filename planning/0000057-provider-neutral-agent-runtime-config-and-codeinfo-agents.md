@@ -3451,7 +3451,7 @@ This review-created block stays inside the current repository's chat admission, 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 35`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260516T133241Z-a7078ad4` in review cycle `0000057-rc-20260516T143140Z-a7078ad4`.
 
@@ -3507,6 +3507,7 @@ This review task repairs the chat execution-identity contract on both sides of t
 - Verified the resumed identity and conversation-selection seams were already present on the branch in `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, and their retained proof homes before touching the plan.
 - Marked Subtasks 3 and 4 complete after `npm run test:summary:client -- --file client/src/test/chatPage.resumeIdentity.test.tsx --file client/src/test/chatPage.provider.conversationSelection.test.tsx` passed cleanly with 8/8 tests.
 - Marked both targeted Task 36 testing items complete immediately after their wrappers passed so the plan matches current proof state on disk.
+- Closed Task 36 after the proof audit confirmed all four subtasks and both targeted automated testing steps were already complete on disk with no live blocker remaining.
 
 ### Task 37. Move completed-replay short-circuits ahead of provider and execution-context setup on `/chat` and `codebase_question`
 

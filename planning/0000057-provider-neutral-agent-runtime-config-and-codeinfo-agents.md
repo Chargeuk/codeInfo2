@@ -3669,7 +3669,7 @@ No inline-resolved minor findings are currently recorded in `review-disposition-
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 38`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260516T174837Z-50e60126` in review cycle `0000057-rc-20260516T183428Z-240d99fb`.
 

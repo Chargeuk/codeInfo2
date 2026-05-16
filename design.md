@@ -3525,7 +3525,7 @@ flowchart LR
 
 - On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution.
 - Codex `mcp_tool_call` events are translated into WebSocket `tool_event` updates carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
-- Host auth bootstrap: docker-compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and `/app/codex` as the container Codex home. On startup, if `/app/codex/auth.json` is missing and `/host/codex/auth.json` exists, the server copies it once into `/app/codex` (no overwrite); `/app/codex` remains the primary home.
+- Host auth bootstrap: the checked-in main and e2e compose stacks mount `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` read-only at `/host/codex` and keep a separate writable `/app/codex` runtime home. On startup, if `/app/codex` is missing auth-bearing runtime files that exist in `/host/codex`, the server seeds or repairs the writable runtime home from that read-only host mount without replacing a complete runtime home.
 - Codex home selection:
   - The primary Codex home is `CODEINFO_CODEX_HOME` (default `./codex`).
   - Execution entrypoints use the shared home (`getCodexHome()`) so chat, agent, flow, and MCP runs all inherit shared auth/session semantics.

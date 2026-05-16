@@ -3652,3 +3652,133 @@ No inline-resolved minor findings are currently recorded in `review-disposition-
 - Saved Task 38 scratch proof under `codeInfoTmp/manual-testing/0000057/38/`: `support-health.json`, `support-providers.json`, `support-chat-models-lmstudio.json`, `support-implicit-default.json`, `support-explicit-copilot.json`, `support-chat-replay-same.json`, `support-chat-replay-contradictory.json`, `support-chat-turns-post.json`, `support-mcp-first.json`, `support-mcp-replay-same.json`, `support-mcp-replay-contradictory.json`, `support-browser-default-summary.json`, and `support-browser-resumed-summary.json` prove the final review block's external seams without adding follow-up work.
 - The full-story proof showed the default `/chat` surface still bootstraps under Codex with the legacy-web-search warning and visible `Re-authenticate` affordance, explicit Copilot chat requests still fail clearly with `PROVIDER_UNAVAILABLE`, resumed LM Studio chat keeps the saved provider and model locked in disabled comboboxes and submits later sends back through the stored `lmstudio` plus `huihui-qwen3.5-9b-abliterated` identity, completed `/chat` replays still short-circuit contradictory follow-up provider input with `INFLIGHT_ALREADY_COMPLETED`, and completed `codebase_question` replays on the dedicated chat MCP listener still return the stored completed payload even when the later retry asks for Copilot.
 - Playwright MCP screenshots were staged with the flat filenames `proof-01-chat-default-warning.png` and `proof-02-chat-resumed-identity.png` because nested task-path staging did not surface through the available runtime outputs; I then copied the retained images from `codeinfo2-playwright-mcp-local:/tmp/playwright-output/` into `codeInfoTmp/manual-testing/0000057/38/proof-01-chat-default-warning.png` and `codeInfoTmp/manual-testing/0000057/38/proof-02-chat-resumed-identity.png`, so no new subtasks or testing steps were needed and Task 38 remained `__done__`.
+
+## Code Review Findings
+
+### Review Pass `0000057-20260516T174837Z-50e60126`
+
+- Review artifact: `codeInfoTmp/reviews/0000057-current-review.json`
+- Findings artifact: `codeInfoTmp/reviews/0000057-20260516T174837Z-50e60126-findings.md`
+- Disposition source: `codeInfoStatus/flow-state/review-disposition-state.json`
+- Comparison basis: local `HEAD` `50e601269452b5c325ed5334a87181ec61789b59` versus resolved base `origin/main` `6fbf0c050b4d94f90c0858d4cac499629fdb9236` using `local_head_vs_resolved_base`
+- Unresolved task-required findings that must be encoded into executable plan state here: `plan_contract_issue-1`
+- Inline-resolved minor findings already handled in this same review cycle and therefore not re-tasked here: `generic_engineering_issue-1`
+- No unresolved minor-batchable findings remain in `review-disposition-state.json` for review cycle `0000057-rc-20260516T183428Z-240d99fb`, so this appended review-created block contains one serious repair task plus the shared final revalidation owner for both that serious repair and the already-resolved minor documentation fix.
+
+### Task 39. Restore Story 57 provider-model fallback precedence across shared chat and `codebase_question` selection
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 38`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created task for review pass `0000057-20260516T174837Z-50e60126` in review cycle `0000057-rc-20260516T183428Z-240d99fb`.
+
+#### Overview
+
+This review task repairs the shared provider-model selector so Story 57 runtime selection keeps the requested provider when only the model is invalid there, and on cross-provider fallback tries the same requested model before falling back to the next provider's chat-config model and then that provider's default model. The fix must stay coherent across the shared selector and every server-owned caller that advertises, persists, or executes the chosen provider-model pair.
+
+#### Highest-Risk Invariant
+
+- Provider availability and model availability must not collapse into one weaker selector rule; the runtime must keep same-provider model repair separate from cross-provider fallback so `/chat`, `/chat/providers`, and `codebase_question` all surface and persist the same intended execution pair.
+
+#### Likely Blocker Family
+
+- `product or story seam`
+
+#### Addresses Findings
+
+- `plan_contract_issue-1` - the shared provider-model selection helper still ignores same-provider model repair and same-model-first cross-provider fallback ordering, so `/chat`, `/chat/providers`, and `codebase_question` can advertise, persist, or execute the wrong model during fallback.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the shared selector, the chat-route and provider-discovery callers, the `codebase_question` caller, and the retained server proof homes for this provider-model precedence contract.
+
+#### Task Exit Criteria
+
+- `resolveRuntimeProviderSelection(...)` in `server/src/config/chatDefaults.ts` keeps provider availability and model repair distinct: when the requested provider is usable but the requested model is not, the selector stays on that provider and repairs the model there before considering cross-provider fallback.
+- When cross-provider fallback is required, the selector and its callers try the same requested model first on the fallback provider, then the fallback provider's chat-config model, then that provider's default model, instead of jumping straight to the first advertised model.
+- `/chat`, `/chat/providers`, and `codebase_question` agree on the repaired precedence contract so they do not advertise, persist, or execute a weaker model choice than the shared selector intended.
+- The repaired precedence remains explicit in the retained proof homes `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`.
+
+#### Subtasks
+
+1. [ ] Repair `resolveRuntimeProviderSelection(...)` in `server/src/config/chatDefaults.ts` so same-provider model repair happens before cross-provider fallback, and cross-provider fallback tries the same requested model before the fallback provider's chat-config model and then its default model; update `server/src/test/unit/config.chatDefaults.test.ts` to prove both precedence branches directly.
+2. [ ] Propagate the repaired provider-model precedence through the `/chat` and `/chat/providers` server-owned caller seams in `server/src/routes/chat.ts`, `server/src/routes/chatProviders.ts`, and `server/src/routes/chatModels.ts` so the started response and provider-discovery surfaces advertise and persist the same execution pair the shared selector now chooses; update `server/src/test/integration/chat-copilot-fallback.test.ts` and `server/src/test/unit/chatModels.copilot.test.ts` to prove that caller parity.
+3. [ ] Propagate the same repaired precedence through `server/src/mcp2/tools/codebaseQuestion.ts` so explicit and omitted-provider `codebase_question` runs resolve the same provider-model pair as the shared selector; update `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` to prove the repaired same-provider model fallback and cross-provider fallback ordering there.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/config.chatDefaults.test.ts --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because the repaired shared selector and its caller parity seams are server-owned and local to those retained proof homes; broader server, client, browser, and main-stack regression remains owned by the final revalidation task for this review cycle.
+
+#### Manual Testing Guidance
+
+- Manual proof is optional unless this task broadens into externally visible provider/model selection behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env loading path through `scripts/docker-compose-with-env.sh`, use the current Story 57 repaired app state rather than hand-editing runtime storage, exercise `/chat` and `codebase_question` through normal app entry paths, retain any scratch artifacts under `codeInfoTmp/manual-testing/0000057/39/`, and keep screenshots checkbox-free by staging them in the Playwright output directory before transferring retained files into that task-scoped repository path.
+
+#### Implementation Notes
+
+- Pending implementation.
+
+### Task 40. Revalidate review pass `0000057-20260516T174837Z-50e60126` serious fixes and inline minor resolutions
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 39`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Review-created final revalidation task for review cycle `0000057-rc-20260516T183428Z-240d99fb`. This task owns the whole current review cycle's close-out proof, including the serious review-created repair and the inline-resolved minor documentation fix already recorded for this same cycle.
+
+#### Overview
+
+This final review task owns the closing proof for review pass `0000057-20260516T174837Z-50e60126`. It must revalidate the new serious provider-model precedence repair and also keep the already-resolved minor documentation fix in scope so this review cycle does not spawn a second final revalidation owner later.
+
+#### Highest-Risk Invariant
+
+- The current review cycle must close under one final owner that proves both the repaired shared provider-model selector contract and the already-resolved same-cycle minor documentation drift, without splitting serious and minor close-out proof into competing final tasks.
+
+#### Likely Blocker Family
+
+- `shared wrapper or baseline seam`
+
+#### Addresses Findings
+
+- Revalidates the serious review-created findings block for `plan_contract_issue-1`.
+- Revalidates the inline-resolved same-cycle minor finding `generic_engineering_issue-1`, recorded at commit `194e28de43eef81b4a3807716edc476f9b6899a7`, so the documentation-drift repair stays covered under this same review cycle's one final owner.
+
+#### Affected Repositories
+
+- `Current Repository` - owns the shared selector repair, the caller parity proof, the broad regression wrappers, and the inline-resolved documentation drift that this same review cycle already recorded.
+
+#### Task Exit Criteria
+
+- Task 39 is implemented, its retained proof homes are updated in the exact files named by this review-created block, and the plan reflects that work honestly without absorbing it into older Story 57 tasks.
+- The same final revalidation pass reruns the relevant server, client, browser, and supported main-stack wrappers so the current review-created block is green together under one close-out owner.
+- This final review task owns the broad regression proof for review pass `0000057-20260516T174837Z-50e60126` in the current repository: Task 39 keeps targeted selector proof local, while this close-out pass reruns the supported compose build, server and client builds, broad server regression wrappers, broad client regression wrappers, automated browser regression through the supported e2e wrapper, the supported main-stack smoke path, and repository-wide lint plus format checks so the repaired selector contract and the already-resolved `design.md` runtime-home wording still hold through the repository's normal execution routes.
+- If a broad wrapper, Compose action, browser bootstrap, or main-stack smoke step fails before the repaired proof homes or default surfaces are actually reached, the failure is classified as a shared wrapper, baseline, or runtime-handoff blocker rather than being silently blamed on Task 39 or the already-resolved minor documentation fix without evidence.
+- Review-loop close-out state still treats this task as the sole final revalidation owner for review cycle `0000057-rc-20260516T183428Z-240d99fb`, and `review-disposition-state.json` remains aligned to this exact task title instead of spawning a second final revalidation path for the same cycle.
+
+#### Subtasks
+
+1. [ ] Keep Task 39's proof ownership explicit before broad revalidation by confirming that the same-provider model-repair and cross-provider same-model-first precedence invariants still map back to `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts`, with proof owned by `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/integration/chat-copilot-fallback.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`.
+2. [ ] Keep this close-out task's review-cycle ownership explicit by confirming that the already-resolved minor documentation fix for `generic_engineering_issue-1` still maps back to `design.md`, the matching `## Minor Review Fixes` audit entry, and the `Resolved Minor Findings` note in `codeInfoTmp/reviews/0000057-20260516T174837Z-50e60126-findings.md`, while broad proof ownership stays on the wrapper-owned surfaces in this task's `Testing` section.
+3. [ ] Keep this close-out task's default-path proof ownership explicit before broad revalidation by confirming that build reachability, server and client regression reachability, browser regression reachability, main-stack startup and shutdown reachability, repository-wide lint and format integrity, and review-cycle owner alignment still map to the wrapper-owned proof surfaces in this task's `Testing` section plus the runtime-handoff references in `README.md`, `design.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, and `docker-compose.local.yml`.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
+2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the review-created block changes shared server runtime selector seams before the broader wrappers rerun.
+3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired shared selection contract must still typecheck and build through the client workspace even though the serious fix is server-owned.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the repaired shared selector contract and its retained proof homes are server-owned and the current review-created block must rerun that broad server regression surface.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the repository's broad server feature surface must still remain green when the review-created block is closed.
+6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the repository's broad client regression surface still owns the visible consumer paths that must remain aligned with the repaired provider-model contract.
+7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because this repository's normal paired front-end and back-end close-out contract includes automated browser proof, and this final review task owns that broad browser rerun for the current review-created findings block.
+8. [ ] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
+9. [ ] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
+10. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server selection seams, retained proof homes, and the same-cycle documentation fix.
+11. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or the already-resolved documentation surface.
+
+#### Manual Testing Guidance
+
+- Manual proof is optional unless Task 39 broadens into externally visible provider-model selection behavior that the retained automated proof no longer covers honestly. If that happens, use the supported main stack with `npm run compose:build` then `npm run compose:up`, rely on the wrapper-owned env-file loading path through `scripts/docker-compose-with-env.sh`, use the current Story 57 repaired app state plus standard UI setup as the seed source instead of hand-editing runtime storage, treat `http://localhost:5010/health` and `http://localhost:5001` as the readiness checks, retain any scratch artifacts under `codeInfoTmp/manual-testing/0000057/40/`, keep this task as the sole final revalidation owner for review cycle `0000057-rc-20260516T183428Z-240d99fb`, and if screenshots help capture them first with a relative staging filename in the Playwright output directory before transferring the retained files into that repository path.
+
+#### Implementation Notes
+
+- Pending implementation.

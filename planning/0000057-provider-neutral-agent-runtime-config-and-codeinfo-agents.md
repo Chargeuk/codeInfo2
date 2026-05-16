@@ -3813,3 +3813,44 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 - `npm run compose:up` brought the supported main stack up cleanly, and the paired `npm run compose:down` step shut it down cleanly again, so the close-out smoke path remained healthy on the checked-in compose route.
 - `npm run lint` passed cleanly after the stale-proof expectation updates, so the final review block did not introduce repository-wide lint drift.
 - `npm run format:check` passed cleanly after the proof repair, so the review-cycle close-out finished without formatting drift.
+
+### Task 41. Re-Validate Story 0000057 After Inline Minor Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+- Git Commits:
+- Notes: Inline minor fixes were already made and documented during review cycle `0000057-rc-20260516T224545Z-508a950b`. This task owns the final broad automated proof pass before the story can close cleanly.
+
+#### Affected Repositories
+
+- `Current Repository` - validation scope is driven by this affected repository, which owns the resolved minor documentation fix and the repository-supported wrapper proof path required for final story confidence.
+
+#### Addresses Findings
+
+- `generic_engineering_issue-1` - `Current Repository` - `design.md` and `projectStructure.md` now describe `codeinfo_agents` and `CODEINFO_AGENT_HOME` as the primary agent-home contract, with `codex_agents` and `CODEINFO_CODEX_AGENT_HOME` retained as legacy fallbacks. Resolved at commit `d6ea3500d1a8ab12b1632741299c2499cf8c167f`.
+
+#### Subtasks
+
+1. [ ] Re-read the `## Minor Review Fixes` section in this plan, the current review pass findings artifact, and the resolved-minor entry in `codeInfoStatus/flow-state/review-disposition-state.json` so the final proof pass is explicitly checking the same inline documentation repair that was already recorded for this review cycle.
+2. [ ] Confirm the resolved minor finding still maps cleanly to `README.md`, `design.md`, and `projectStructure.md`, and that those user-facing documentation surfaces still agree on the preferred `codeinfo_agents` and `CODEINFO_AGENT_HOME` contract plus the retained legacy fallback wording before broad automated proof begins.
+3. [ ] Confirm the final proof pass still routes through this repository's supported wrapper surfaces for compose build, workspace builds, server regression, client regression, browser regression, smoke startup and shutdown, lint, and format checks so this task remains the single final automated revalidation owner for review cycle `0000057-rc-20260516T224545Z-508a950b`.
+
+#### Testing
+
+1. [ ] Run `npm run compose:build:summary` from the repository root so the supported compose build path is revalidated before narrower wrappers rerun.
+2. [ ] Run `npm run build:summary:server` from the repository root so the server workspace still builds cleanly on the final story-close path.
+3. [ ] Run `npm run build:summary:client` from the repository root so the client workspace still typechecks and builds cleanly on the final story-close path.
+4. [ ] Run `npm run test:summary:server:unit` from the repository root so the broad server unit and integration regression surface is rerun after the inline minor documentation repair.
+5. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the broad server Cucumber/Testcontainers regression surface is rerun on the final close-out path.
+6. [ ] Run `npm run test:summary:client` from the repository root so the broad client regression surface is rerun on the same final close-out path.
+7. [ ] Run `npm run test:summary:e2e` from the repository root so the repository's automated browser regression surface is rerun before story closure.
+8. [ ] Run `npm run compose:up` from the repository root so the supported main stack smoke-start path is revalidated after the broad automated wrappers pass.
+9. [ ] Run `npm run compose:down` from the repository root immediately after the smoke start so the supported main stack also proves a clean shutdown path.
+10. [ ] Run `npm run lint` from the repository root so repository-wide lint stays green across the final story-close proof pass.
+11. [ ] Run `npm run format:check` from the repository root so repository-wide formatting remains clean across the final story-close proof pass.
+
+#### Implementation Notes
+
+- Review Task Role: `final_minor_fix_revalidation`
+- Review Cycle Id: `0000057-rc-20260516T224545Z-508a950b`
+- Inline minor fixes were already made and documented earlier in this review loop; this task owns only the final broad automated proof pass before clean story closeout.

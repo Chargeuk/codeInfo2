@@ -3548,12 +3548,12 @@ This review task repairs the late-retry replay barrier ordering on the current r
 
 #### Subtasks
 
-1. [ ] Repair the `/chat` late-retry ordering invariant in `server/src/routes/chat.ts` so completed replay ownership is rechecked before provider detection, bootstrap-aware validation, and later send setup can emit a fresh `400` or `503`; prove that interleaving in `server/src/test/integration/conversations.turns.test.ts` for the case where replay completes after the first probe but before later validation work.
-2. [ ] Repair the `codebase_question` late-retry ordering invariant in `server/src/mcp2/tools/codebaseQuestion.ts` by keeping the completed-replay short-circuit ahead of the later provider/setup path in `runCodebaseQuestion(...)` and in the replay-read helpers `getReplayResult(...)` and `getPersistedCompletedReplayResult(...)`, so completed replay wins before provider readiness, working-folder restoration, or shared execution-context setup can surface a new setup failure; prove that interleaving in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` for the case where replay completes after the first probe but before later setup finishes.
+1. [x] Repair the `/chat` late-retry ordering invariant in `server/src/routes/chat.ts` so completed replay ownership is rechecked before provider detection, bootstrap-aware validation, and later send setup can emit a fresh `400` or `503`; prove that interleaving in `server/src/test/integration/conversations.turns.test.ts` for the case where replay completes after the first probe but before later validation work.
+2. [x] Repair the `codebase_question` late-retry ordering invariant in `server/src/mcp2/tools/codebaseQuestion.ts` by keeping the completed-replay short-circuit ahead of the later provider/setup path in `runCodebaseQuestion(...)` and in the replay-read helpers `getReplayResult(...)` and `getPersistedCompletedReplayResult(...)`, so completed replay wins before provider readiness, working-folder restoration, or shared execution-context setup can surface a new setup failure; prove that interleaving in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` for the case where replay completes after the first probe but before later setup finishes.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because both repaired replay-ordering seams are server-owned and local to those proof homes; broader server regression remains owned by the final revalidation task for this review cycle.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` from the repository root. Use this targeted wrapper because both repaired replay-ordering seams are server-owned and local to those proof homes; broader server regression remains owned by the final revalidation task for this review cycle.
 
 #### Manual Testing Guidance
 
@@ -3561,7 +3561,9 @@ This review task repairs the late-retry replay barrier ordering on the current r
 
 #### Implementation Notes
 
-- None yet.
+- Verified the `/chat` late-retry replay checkpoints were already present on the branch in `server/src/routes/chat.ts` and the retained proof home `server/src/test/integration/conversations.turns.test.ts` before touching the plan.
+- Verified the `codebase_question` late-retry replay checkpoints were already present on the branch in `server/src/mcp2/tools/codebaseQuestion.ts`, including the replay-read helpers, and the retained proof home `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` before touching the plan.
+- Marked both subtasks and the targeted testing item complete after `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.turns.test.ts --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` passed cleanly with 44/44 tests.
 
 ### Task 38. Revalidate review pass `0000057-20260516T133241Z-a7078ad4` serious fixes and inline minor resolutions
 

@@ -3347,7 +3347,7 @@ The review found that the server already exposes count-based partial-success sem
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 31, Task 32, Task 33, Task 34`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260515T221035Z-c2a6db20`. This task now owns the whole current review cycle's close-out proof so the inline-resolved minor fixes for `unparsed-1`, `unparsed-7`, and `unparsed-8` do not spawn a second final-task owner later.
 

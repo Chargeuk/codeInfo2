@@ -3573,7 +3573,7 @@ This review task repairs the late-retry replay barrier ordering on the current r
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 36, Task 37`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260516T143140Z-a7078ad4`. This task now owns the whole current review cycle's close-out proof so later inline-resolved minor fixes for this same cycle do not spawn a second final-task owner.
 
@@ -3646,3 +3646,4 @@ No inline-resolved minor findings are currently recorded in `review-disposition-
 - Marked the supported main-stack shutdown wrapper complete after `npm run compose:down` removed the checked-in server, client, mongo, chroma, telemetry, Playwright, and default network resources cleanly on the normal path.
 - Marked the repository-wide lint step complete after `npm run lint` exited cleanly with no reported ESLint violations.
 - Marked the repository-wide format gate complete after `npm run format:check` reported that all matched tracked files already used Prettier code style.
+- Closed Task 38 after the proof audit confirmed all owner-side preparation subtasks and all eleven broad automated proof steps were already complete on disk with no live blocker remaining.

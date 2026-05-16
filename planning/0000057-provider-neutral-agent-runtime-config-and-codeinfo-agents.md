@@ -3739,7 +3739,7 @@ This review task repairs the shared provider-model selector so Story 57 runtime 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 39`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260516T183428Z-240d99fb`. This task owns the whole current review cycle's close-out proof, including the serious review-created repair and the inline-resolved minor documentation fix already recorded for this same cycle.
 

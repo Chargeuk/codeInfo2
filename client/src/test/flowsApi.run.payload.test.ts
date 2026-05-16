@@ -16,6 +16,7 @@ beforeEach(() => {
         flowName: 'daily',
         conversationId: 'c1',
         inflightId: 'i1',
+        providerId: 'codex',
         modelId: 'gpt-5.2-codex',
       },
       { status: 202 },
@@ -88,5 +89,32 @@ describe('Flows API runFlow payload', () => {
       unknown
     >;
     expect(nextBody).not.toHaveProperty('customTitle');
+  });
+
+  it('keeps providerId and warnings from the run-start payload instead of narrowing them away', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse(
+        {
+          status: 'started',
+          flowName: 'daily',
+          conversationId: 'c1',
+          inflightId: 'i1',
+          providerId: 'lmstudio',
+          modelId: 'model-1',
+          warnings: ['fell back to lmstudio'],
+        },
+        { status: 202 },
+      ),
+    );
+
+    await expect(runFlow({ flowName: 'daily' })).resolves.toEqual({
+      status: 'started',
+      flowName: 'daily',
+      conversationId: 'c1',
+      inflightId: 'i1',
+      providerId: 'lmstudio',
+      modelId: 'model-1',
+      warnings: ['fell back to lmstudio'],
+    });
   });
 });

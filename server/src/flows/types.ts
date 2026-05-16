@@ -58,6 +58,7 @@ export type FlowRunStartResult = {
   flowName: string;
   conversationId: string;
   inflightId: string;
+  providerId: string;
   modelId: string;
   warnings?: string[];
 };

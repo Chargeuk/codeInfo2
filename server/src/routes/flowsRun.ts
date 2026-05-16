@@ -180,16 +180,21 @@ export function createFlowsRunRouter(
         flowName,
         conversationId: result.conversationId,
         inflightId: result.inflightId,
+        providerId: result.providerId,
         modelId: result.modelId,
         ...(result.warnings ? { warnings: result.warnings } : {}),
       });
     } catch (err) {
       if (isFlowRunError(err)) {
         if (err.code === 'FLOW_NOT_FOUND') {
-          return res.status(404).json({ error: 'not_found' });
+          return res
+            .status(404)
+            .json({ error: 'not_found', code: err.code, message: err.reason });
         }
         if (err.code === 'CONVERSATION_ARCHIVED') {
-          return res.status(410).json({ error: 'archived' });
+          return res
+            .status(410)
+            .json({ error: 'archived', code: err.code, message: err.reason });
         }
         if (err.code === 'RUN_IN_PROGRESS') {
           return res.status(409).json({
@@ -204,9 +209,11 @@ export function createFlowsRunRouter(
           err.code === 'CODEX_UNAVAILABLE' ||
           err.code === 'PROVIDER_UNAVAILABLE'
         ) {
-          return res
-            .status(503)
-            .json({ error: 'provider_unavailable', reason: err.reason });
+          return res.status(503).json({
+            error: 'provider_unavailable',
+            code: err.code,
+            reason: err.reason,
+          });
         }
         if (err.code === 'INVALID_PROVIDER') {
           return res.status(409).json({
@@ -244,11 +251,13 @@ export function createFlowsRunRouter(
         if (err.code === 'INVALID_REQUEST') {
           return res.status(400).json({
             error: 'invalid_request',
+            code: err.code,
             message: err.reason ?? 'flow run validation failed',
           });
         }
         return res.status(400).json({
           error: 'invalid_request',
+          code: err.code,
           message: err.reason ?? 'flow run validation failed',
         });
       }

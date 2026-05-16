@@ -1332,7 +1332,7 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
   }
 });
 
-test('Task 26 keeps availability warnings on the initial flow run-start response payload', async () => {
+test('flow run start payload keeps providerId, warnings, and machine-readable launch truth on the first response', async () => {
   const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -1432,6 +1432,8 @@ test('Task 26 keeps availability warnings on the initial flow run-start response
       .expect(202);
 
     assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
+    assert.equal(response.body.modelId, 'gpt-5.3-codex');
     assert.equal(
       response.body.warnings.some((warning: string) =>
         warning.includes('unsupported provider "bad-provider"'),
@@ -1563,6 +1565,7 @@ test('flow run survives provider-specific runtime-config failure by falling back
       .expect(202);
 
     assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
     assert.equal(
       memoryConversations.get(response.body.conversationId)?.provider,
       'codex',
@@ -1715,6 +1718,7 @@ test('flow run fails clearly when no fallback provider can execute after request
       .expect(503);
 
     assert.equal(response.body.error, 'provider_unavailable');
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
     assert.match(
       String(response.body.reason),
       /runtime config could not load/i,

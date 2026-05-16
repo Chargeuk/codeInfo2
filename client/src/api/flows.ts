@@ -76,7 +76,12 @@ async function parseFlowApiErrorResponse(res: Response): Promise<{
       if (data && typeof data === 'object') {
         const record = data as Record<string, unknown>;
         return {
-          code: typeof record.code === 'string' ? record.code : undefined,
+          code:
+            typeof record.code === 'string'
+              ? record.code
+              : typeof record.error === 'string'
+                ? record.error
+                : undefined,
           message:
             typeof record.message === 'string'
               ? record.message
@@ -261,7 +266,9 @@ export async function runFlow(params: {
   flowName: string;
   conversationId: string;
   inflightId: string;
+  providerId: string;
   modelId: string;
+  warnings?: string[];
 }> {
   log('info', 'flows.api.run', { flowName: params.flowName });
   const trimmedCustomTitle = params.customTitle?.trim();
@@ -312,15 +319,32 @@ export async function runFlow(params: {
   const conversationId =
     typeof data.conversationId === 'string' ? data.conversationId : '';
   const inflightId = typeof data.inflightId === 'string' ? data.inflightId : '';
+  const providerId =
+    typeof data.providerId === 'string' ? data.providerId : '';
   const modelId = typeof data.modelId === 'string' ? data.modelId : '';
+  const warnings = Array.isArray(data.warnings)
+    ? data.warnings.filter(
+        (warning): warning is string =>
+          typeof warning === 'string' && warning.trim().length > 0,
+      )
+    : [];
   if (
     status !== 'started' ||
     !flowName ||
     !conversationId ||
     !inflightId ||
+    !providerId ||
     !modelId
   ) {
     throw new Error('Invalid flow run response');
   }
-  return { status: 'started', flowName, conversationId, inflightId, modelId };
+  return {
+    status: 'started',
+    flowName,
+    conversationId,
+    inflightId,
+    providerId,
+    modelId,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }

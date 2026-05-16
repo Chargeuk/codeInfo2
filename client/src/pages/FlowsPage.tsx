@@ -168,7 +168,13 @@ export default function FlowsPage() {
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [runErrorCode, setRunErrorCode] = useState<string | null>(null);
+  const [launchWarnings, setLaunchWarnings] = useState<string[]>([]);
+  const [launchConversationId, setLaunchConversationId] = useState<
+    string | null
+  >(null);
   const [flowModelId, setFlowModelId] = useState('unknown');
+  const [flowProviderId, setFlowProviderId] = useState('unknown');
 
   const log = useMemo(() => createLogger('client-flows'), []);
   const assistantTranscriptVisibleRef = useRef(false);
@@ -247,7 +253,7 @@ export default function FlowsPage() {
     getInflightId,
     getConversationId,
     getAssistantMessageIdForInflight,
-  } = useChatStream(flowModelId, 'codex');
+  } = useChatStream(flowModelId, flowProviderId);
 
   const displayMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
@@ -791,11 +797,40 @@ export default function FlowsPage() {
   ]);
 
   useEffect(() => {
+    if (
+      launchConversationId &&
+      selectedConversation?.conversationId !== launchConversationId
+    ) {
+      return;
+    }
+    if (!selectedConversation?.provider) return;
+    if (selectedConversation.provider !== flowProviderId) {
+      setFlowProviderId(selectedConversation.provider);
+    }
+  }, [
+    flowProviderId,
+    launchConversationId,
+    selectedConversation?.conversationId,
+    selectedConversation?.provider,
+  ]);
+
+  useEffect(() => {
+    if (
+      launchConversationId &&
+      selectedConversation?.conversationId !== launchConversationId
+    ) {
+      return;
+    }
     if (!selectedConversation?.model) return;
     if (selectedConversation.model !== flowModelId) {
       setFlowModelId(selectedConversation.model);
     }
-  }, [flowModelId, selectedConversation?.model]);
+  }, [
+    flowModelId,
+    launchConversationId,
+    selectedConversation?.conversationId,
+    selectedConversation?.model,
+  ]);
 
   useEffect(() => {
     if (!activeConversationId || !inflightSnapshot) return;
@@ -947,10 +982,14 @@ export default function FlowsPage() {
   const resetConversation = useCallback(() => {
     setStartPending(false);
     setRunError(null);
+    setRunErrorCode(null);
+    setLaunchWarnings([]);
+    setLaunchConversationId(null);
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(reset(), { clearMessages: true });
     setFlowModelId('unknown');
+    setFlowProviderId('unknown');
     setWorkingFolder('');
     setCustomTitle('');
     serverVisibleInflightIdRef.current = null;
@@ -1012,6 +1051,11 @@ export default function FlowsPage() {
     const summary = flowConversations.find(
       (conversation) => conversation.conversationId === conversationId,
     );
+    setRunError(null);
+    setRunErrorCode(null);
+    setLaunchWarnings([]);
+    setLaunchConversationId(conversationId);
+    setFlowProviderId(summary?.provider ?? 'unknown');
     if (summary?.model) {
       setFlowModelId(summary.model);
     }
@@ -1069,6 +1113,8 @@ export default function FlowsPage() {
     async (mode: 'run' | 'resume') => {
       if (!selectedFlowName) return;
       setRunError(null);
+      setRunErrorCode(null);
+      setLaunchWarnings([]);
 
       let details = selectedFlowDetails;
       if (!details) {
@@ -1109,6 +1155,8 @@ export default function FlowsPage() {
       );
 
       setStartPending(true);
+      setFlowModelId('unknown');
+      setFlowProviderId('unknown');
 
       const nextConversationId =
         mode === 'run'
@@ -1126,6 +1174,7 @@ export default function FlowsPage() {
         trimmedCustomTitle.length > 0;
 
       if (isNewConversation) {
+        setLaunchConversationId(nextConversationId);
         setConversation(nextConversationId, { clearMessages: true });
         setActiveConversationId(nextConversationId);
       }
@@ -1150,6 +1199,12 @@ export default function FlowsPage() {
           resumeStepPath: mode === 'resume' ? resumeStepPath : undefined,
         });
         setActiveConversationId(result.conversationId);
+        setLaunchConversationId(result.conversationId);
+        setRunErrorCode(null);
+        setLaunchWarnings(result.warnings ?? []);
+        if (result.providerId) {
+          setFlowProviderId(result.providerId);
+        }
         if (result.modelId) {
           setFlowModelId(result.modelId);
         }
@@ -1174,6 +1229,7 @@ export default function FlowsPage() {
             : [...messages, errorMessage];
           hydrateHistory(nextConversationId, errorHistory, 'replace');
           setRunError(errorMessage.content);
+          setRunErrorCode(err.code ?? null);
           return;
         }
         const message = (err as Error).message || 'Failed to run flow.';
@@ -1190,6 +1246,9 @@ export default function FlowsPage() {
           : [...messages, errorMessage];
         hydrateHistory(nextConversationId, errorHistory, 'replace');
         setRunError(message);
+        setRunErrorCode(
+          err instanceof FlowApiError ? (err.code ?? null) : null,
+        );
       } finally {
         setStartPending(false);
       }
@@ -1313,8 +1372,17 @@ export default function FlowsPage() {
           </Alert>
         )}
         {runError && (
-          <Alert severity="error" data-testid="flows-run-error">
+          <Alert
+            severity="error"
+            data-testid="flows-run-error"
+            data-error-code={runErrorCode ?? ''}
+          >
             {runError}
+          </Alert>
+        )}
+        {launchWarnings.length > 0 && (
+          <Alert severity="warning" data-testid="flows-launch-warnings">
+            {launchWarnings.join(' ')}
           </Alert>
         )}
 
@@ -1589,6 +1657,13 @@ export default function FlowsPage() {
                       Resume step path: {resumeStepPath.join(' / ')}
                     </Typography>
                   )}
+                  <Typography
+                    color="text.secondary"
+                    variant="caption"
+                    data-testid="flow-launch-identity"
+                  >
+                    Launch provider: {flowProviderId} · Model: {flowModelId}
+                  </Typography>
                   <DirectoryPickerDialog
                     open={dirPickerOpen}
                     path={workingFolder}

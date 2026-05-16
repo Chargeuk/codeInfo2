@@ -268,6 +268,7 @@ function setupFlowsRunHarness(options?: {
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'i1',
+            providerId: 'codex',
             modelId: 'gpt-5',
           },
         );
@@ -487,6 +488,7 @@ describe('Flows page run/resume controls', () => {
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'i1',
+            providerId: 'codex',
             modelId: 'gpt-5',
           }),
           {
@@ -542,6 +544,7 @@ describe('Flows page run/resume controls', () => {
           flowName: 'daily',
           conversationId: 'flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -571,6 +574,130 @@ describe('Flows page run/resume controls', () => {
       expect(body.conversationId).toBe('flow-1');
       expect(body.working_folder).toBe('/tmp/work');
     });
+  });
+
+  it('clears stale launch state during a fresh pending run and repopulates providerId and warnings from the first response', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+    let runRequestCount = 0;
+    let resolveSecondRun: ((response: Response) => void) | null = null;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        runRequestCount += 1;
+        if (runRequestCount === 1) {
+          return mockJsonResponse(
+            {
+              error: 'provider_unavailable',
+              code: 'PROVIDER_UNAVAILABLE',
+              reason: 'First provider unavailable.',
+            },
+            { status: 503 },
+          );
+        }
+
+        return new Promise<Response>((resolve) => {
+          resolveSecondRun = resolve;
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    expect(await screen.findByTestId('flow-launch-identity')).toHaveTextContent(
+      'Launch provider: codex · Model: gpt-5',
+    );
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    const firstError = await screen.findByTestId('flows-run-error');
+    expect(firstError).toHaveTextContent('First provider unavailable.');
+    expect(firstError).toHaveAttribute('data-error-code', 'PROVIDER_UNAVAILABLE');
+
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('flow-launch-identity')).toHaveTextContent(
+      'Launch provider: unknown · Model: unknown',
+    );
+    expect(
+      screen.queryByTestId('flows-launch-warnings'),
+    ).not.toBeInTheDocument();
+
+    if (!resolveSecondRun) {
+      throw new Error('Expected the second flow run promise resolver');
+    }
+
+    await act(async () => {
+      resolveSecondRun?.(
+        new Response(
+          JSON.stringify({
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-2',
+            inflightId: 'i2',
+            providerId: 'lmstudio',
+            modelId: 'model-1',
+            warnings: ['fell back to provider "lmstudio"'],
+          }),
+          {
+            status: 202,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-launch-identity')).toHaveTextContent(
+        'Launch provider: lmstudio · Model: model-1',
+      ),
+    );
+    expect(screen.getByTestId('flows-launch-warnings')).toHaveTextContent(
+      'fell back to provider "lmstudio"',
+    );
   });
 
   it('starts a fresh run with a new conversation id and preserved custom title even when an older flow conversation is selected', async () => {
@@ -627,6 +754,7 @@ describe('Flows page run/resume controls', () => {
               ? body.conversationId
               : 'fresh-flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -717,6 +845,7 @@ describe('Flows page run/resume controls', () => {
               ? body.conversationId
               : 'fresh-flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -777,6 +906,7 @@ describe('Flows page run/resume controls', () => {
           flowName: 'daily',
           conversationId: 'flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -1253,6 +1383,7 @@ describe('Flows page run/resume controls', () => {
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'flow-step-2',
+            providerId: 'codex',
             modelId: 'gpt-5',
           });
         }
@@ -1966,6 +2097,7 @@ describe('Flows page run/resume controls', () => {
           flowName: 'daily',
           conversationId: 'flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }

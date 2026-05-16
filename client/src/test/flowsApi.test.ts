@@ -158,7 +158,7 @@ describe('Flows API helpers', () => {
     );
   });
 
-  it('calls POST /flows/:flowName/run and parses success payload', async () => {
+  it('preserves providerId and launch warnings from the first flow run-start response', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse(
         {
@@ -166,7 +166,9 @@ describe('Flows API helpers', () => {
           flowName: 'daily',
           conversationId: 'c1',
           inflightId: 'i1',
+          providerId: 'lmstudio',
           modelId: 'gpt-5.2-codex',
+          warnings: ['Primary provider unavailable, fell back to lmstudio.'],
         },
         { status: 202 },
       ),
@@ -184,7 +186,9 @@ describe('Flows API helpers', () => {
       flowName: 'daily',
       conversationId: 'c1',
       inflightId: 'i1',
+      providerId: 'lmstudio',
       modelId: 'gpt-5.2-codex',
+      warnings: ['Primary provider unavailable, fell back to lmstudio.'],
     });
   });
 
@@ -220,6 +224,24 @@ describe('Flows API helpers', () => {
       status: 503,
       code: 'PROVIDER_UNAVAILABLE',
       message: 'Codex is unavailable. Re-authenticate and try again.',
+    });
+  });
+
+  it('runFlow preserves the normalized error identifier when the route returns an error-only shape', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'provider_unavailable',
+          reason: 'Provider startup degraded.',
+        },
+        { status: 503 },
+      ),
+    );
+
+    await expect(runFlow({ flowName: 'daily' })).rejects.toMatchObject({
+      status: 503,
+      code: 'provider_unavailable',
+      message: 'Provider startup degraded.',
     });
   });
 });

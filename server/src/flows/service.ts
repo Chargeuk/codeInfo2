@@ -4637,6 +4637,7 @@ export async function startFlowRun(
     flowName,
     conversationId,
     inflightId,
+    providerId,
     modelId,
     ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
   };

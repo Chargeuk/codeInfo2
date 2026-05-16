@@ -3486,15 +3486,15 @@ This review task repairs the chat execution-identity contract on both sides of t
 
 #### Subtasks
 
-1. [ ] Repair the implicit `/chat` fallback invariant in `server/src/routes/chatValidators.ts`, `server/src/config/chatDefaults.ts`, and the route-owned selector handoff in `server/src/routes/chat.ts` so a request without an explicit provider keeps enough validated state to reach the healthy-provider fallback path; prove that contradiction in `server/src/test/unit/chatValidators.test.ts` for the case where the env-selected provider lacks a usable default model while another provider remains healthy.
-2. [ ] Preserve the explicit-provider fail-clearly invariant on the same server admission seam in `server/src/routes/chatValidators.ts` and `server/src/routes/chat.ts` so an explicitly requested unavailable or misconfigured provider never inherits the repaired implicit fallback path; prove that caller-visible contract in `server/src/test/integration/chat-copilot-fallback.test.ts`.
-3. [ ] Repair the resumed-chat visible-versus-submitted identity invariant in `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, and `client/src/pages/ChatPage.tsx` so refresh cannot overwrite the visible resumed provider or re-enable send controls while the stored resumed provider-model pair is still unavailable; prove the disabled-state, warning-copy, and submitted-payload alignment in `client/src/test/chatPage.resumeIdentity.test.tsx`.
-4. [ ] Preserve the resumed conversation-selection parity invariant across `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx` so a conversation pinned to an unavailable stored provider is not visually relabeled as a different available provider after provider refresh; prove that stale-versus-live precedence contract in `client/src/test/chatPage.provider.conversationSelection.test.tsx`.
+1. [x] Repair the implicit `/chat` fallback invariant in `server/src/routes/chatValidators.ts`, `server/src/config/chatDefaults.ts`, and the route-owned selector handoff in `server/src/routes/chat.ts` so a request without an explicit provider keeps enough validated state to reach the healthy-provider fallback path; prove that contradiction in `server/src/test/unit/chatValidators.test.ts` for the case where the env-selected provider lacks a usable default model while another provider remains healthy.
+2. [x] Preserve the explicit-provider fail-clearly invariant on the same server admission seam in `server/src/routes/chatValidators.ts` and `server/src/routes/chat.ts` so an explicitly requested unavailable or misconfigured provider never inherits the repaired implicit fallback path; prove that caller-visible contract in `server/src/test/integration/chat-copilot-fallback.test.ts`.
+3. [x] Repair the resumed-chat visible-versus-submitted identity invariant in `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, and `client/src/pages/ChatPage.tsx` so refresh cannot overwrite the visible resumed provider or re-enable send controls while the stored resumed provider-model pair is still unavailable; prove the disabled-state, warning-copy, and submitted-payload alignment in `client/src/test/chatPage.resumeIdentity.test.tsx`.
+4. [x] Preserve the resumed conversation-selection parity invariant across `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx` so a conversation pinned to an unavailable stored provider is not visually relabeled as a different available provider after provider refresh; prove that stale-versus-live precedence contract in `client/src/test/chatPage.provider.conversationSelection.test.tsx`.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts` from the repository root. Use this targeted wrapper because the repaired implicit `/chat` authority seam lives in those proof homes; broader server regression remains owned by the final revalidation task for this review cycle.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/chatPage.resumeIdentity.test.tsx --file client/src/test/chatPage.provider.conversationSelection.test.tsx` from the repository root. Use this targeted wrapper because the resumed chat identity drift and visible-state parity seam lives there; broader client and browser regression remains owned by the final revalidation task for this review cycle.
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts` from the repository root. Use this targeted wrapper because the repaired implicit `/chat` authority seam lives in those proof homes; broader server regression remains owned by the final revalidation task for this review cycle.
+2. [x] Run `npm run test:summary:client -- --file client/src/test/chatPage.resumeIdentity.test.tsx --file client/src/test/chatPage.provider.conversationSelection.test.tsx` from the repository root. Use this targeted wrapper because the resumed chat identity drift and visible-state parity seam lives there; broader client and browser regression remains owned by the final revalidation task for this review cycle.
 
 #### Manual Testing Guidance
 
@@ -3502,7 +3502,11 @@ This review task repairs the chat execution-identity contract on both sides of t
 
 #### Implementation Notes
 
-- None yet.
+- Verified the server-side Task 36 seams were already present on the branch in `server/src/routes/chatValidators.ts`, `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, and their retained proof homes before touching the plan.
+- Marked Subtasks 1 and 2 complete after `npm run test:summary:server:unit -- --file server/src/test/unit/chatValidators.test.ts --file server/src/test/integration/chat-copilot-fallback.test.ts` passed cleanly with 30/30 tests.
+- Verified the resumed identity and conversation-selection seams were already present on the branch in `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, and their retained proof homes before touching the plan.
+- Marked Subtasks 3 and 4 complete after `npm run test:summary:client -- --file client/src/test/chatPage.resumeIdentity.test.tsx --file client/src/test/chatPage.provider.conversationSelection.test.tsx` passed cleanly with 8/8 tests.
+- Marked both targeted Task 36 testing items complete immediately after their wrappers passed so the plan matches current proof state on disk.
 
 ### Task 37. Move completed-replay short-circuits ahead of provider and execution-context setup on `/chat` and `codebase_question`
 

@@ -3616,17 +3616,17 @@ No inline-resolved minor findings are currently recorded in `review-disposition-
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
-2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the review-created block changes shared server runtime seams before the broader wrappers rerun.
-3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired server and client contract seams must still typecheck and build through the client workspace.
-4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because every review-created repair in this cycle has retained server unit or integration proof homes.
-5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the repository's broad server feature surface must still remain green when the review-created block is closed.
-6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the repaired chat UI and resumed-provider seams depend on the client regression surface staying green.
-7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because this repository's normal paired front-end and back-end close-out contract includes automated browser proof, and Task 38 owns that broad browser rerun for the current review-created findings block.
-8. [ ] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
-9. [ ] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
-10. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server services, client contract surfaces, and retained proof homes.
-11. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared contract files.
+1. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
+2. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because the review-created block changes shared server runtime seams before the broader wrappers rerun.
+3. [x] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired server and client contract seams must still typecheck and build through the client workspace.
+4. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because every review-created repair in this cycle has retained server unit or integration proof homes.
+5. [x] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the repository's broad server feature surface must still remain green when the review-created block is closed.
+6. [x] Run `npm run test:summary:client` from the repository root. Use this wrapper because the repaired chat UI and resumed-provider seams depend on the client regression surface staying green.
+7. [x] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because this repository's normal paired front-end and back-end close-out contract includes automated browser proof, and Task 38 owns that broad browser rerun for the current review-created findings block.
+8. [x] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
+9. [x] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
+10. [x] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server services, client contract surfaces, and retained proof homes.
+11. [x] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or shared contract files.
 
 #### Manual Testing Guidance
 
@@ -3635,3 +3635,14 @@ No inline-resolved minor findings are currently recorded in `review-disposition-
 #### Implementation Notes
 
 - Confirmed from the current plan and repository files that Task 36, Task 37, and Task 38 still point at the intended implementation seams, retained proof homes, wrapper-owned broad proof surfaces, runtime-handoff references, and review-cycle ownership fields before broad automated revalidation begins.
+- Marked the compose-build wrapper complete after `npm run compose:build:summary` passed cleanly with 2/2 compose build items and no failed images.
+- Marked the server build wrapper complete after `npm run build:summary:server` passed cleanly with zero wrapper warnings.
+- Marked the client build wrapper complete after `npm run build:summary:client` passed cleanly through the wrapper-owned typecheck and build phases with zero wrapper warnings.
+- Marked the broad server unit wrapper complete after `npm run test:summary:server:unit` passed cleanly with 2097/2097 tests.
+- Marked the broad server cucumber wrapper complete after an initial `npm run test:summary:server:cucumber` attempt hit transient Chroma readiness timing in the test harness, then the immediate retry passed cleanly with 117/117 scenarios.
+- Marked the broad client wrapper complete after an initial `npm run test:summary:client` run reported three failing tests, both failure groups passed in isolated targeted reruns, and the immediate full-wrapper rerun then passed cleanly with 770/770 tests.
+- Marked the broad e2e wrapper complete after `npm run test:summary:e2e` passed cleanly with 51/51 browser scenarios and wrapper-managed teardown.
+- Marked the supported main-stack smoke-start wrapper complete after `npm run compose:up` created the default network and brought the checked-in server, client, mongo, chroma, telemetry, and Playwright services to healthy running state on the normal path.
+- Marked the supported main-stack shutdown wrapper complete after `npm run compose:down` removed the checked-in server, client, mongo, chroma, telemetry, Playwright, and default network resources cleanly on the normal path.
+- Marked the repository-wide lint step complete after `npm run lint` exited cleanly with no reported ESLint violations.
+- Marked the repository-wide format gate complete after `npm run format:check` reported that all matched tracked files already used Prettier code style.

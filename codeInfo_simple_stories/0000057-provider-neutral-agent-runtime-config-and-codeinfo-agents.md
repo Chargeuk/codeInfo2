@@ -12,7 +12,7 @@
 
 # Description
 
-This story finishes the shift from a Codex-shaped runtime to a provider-neutral one for agents, flows, chat, and repository-aware execution. It lets teams configure different providers through one consistent contract, keeps compatibility with older folder and env layouts, preserves the right execution identity when conversations resume, and makes warning or failure behavior clearer when providers are missing or misconfigured. The later review-fix tasks harden startup warnings, admission ordering, visible client state, replay durability, and final proof ownership so the finished rollout is safer for both users and support teams.
+This story finishes the shift from a Codex-shaped runtime to a provider-neutral one for agents, flows, chat, and repository-aware execution. It lets teams configure different providers through one consistent contract, keeps compatibility with older folder and env layouts, preserves the right execution identity when conversations resume, and makes warning or failure behavior clearer when providers are missing or misconfigured. The later review-fix tasks also harden resumed chat identity, replay ordering, startup warnings, visible client state, replay durability, and final proof ownership so the finished rollout is safer for both users and support teams.
 
 # Tasks
 
@@ -161,3 +161,18 @@ This story finishes the shift from a Codex-shaped runtime to a provider-neutral 
 
 - Own one final broad regression pass across compose, build, server, client, browser, lint, and format proof for the current review-created findings block.
 - Re-check the inline-resolved minor fixes in the same review cycle so the story closes with one shared revalidation owner.
+
+36. [codeInfo2] - Restore authoritative chat execution identity across implicit starts and resumed conversations
+
+- Keep implicit `/chat` fallback on the server from failing too early, while preserving explicit-provider fail-clearly behavior.
+- Keep resumed chat UI state aligned with the stored provider and model that the send path will actually use.
+
+37. [codeInfo2] - Move completed-replay short-circuits ahead of provider and execution-context setup on `/chat` and `codebase_question`
+
+- Make late retries return the stored completed replay result before later provider, bootstrap, or execution-context work can surface a fresh failure.
+- Prove the repaired ordering on both the `/chat` route and the `codebase_question` tool through the retained server proof files.
+
+38. [codeInfo2] - Revalidate review pass `0000057-20260516T133241Z-a7078ad4` serious fixes and inline minor resolutions
+
+- Own the final broad regression rerun for the latest review-created findings block across compose, build, server, client, browser, lint, and format proof.
+- Keep this task as the sole close-out owner for the current review cycle so later same-cycle fixes do not create a second final revalidation path.

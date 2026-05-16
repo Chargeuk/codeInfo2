@@ -3288,7 +3288,7 @@ The review found that the authoritative bootstrap-status registry is already cor
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 30`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
 
@@ -3340,6 +3340,7 @@ The review found that the server already exposes count-based partial-success sem
 - Refreshed `client/src/test/chatSidebar.test.tsx` so the retained sidebar proof home now uses one deterministic partial archive fixture that leaves unresolved selection in place and proves the second bulk request excludes already-confirmed rows.
 - The targeted server wrapper `npm run test:summary:server:unit -- --file server/src/test/integration/conversations.bulk.test.ts` passed cleanly with `tests run: 13`, `passed: 13`, `failed: 0`, so the repaired bulk producer contract stayed green on its retained route proof home.
 - The targeted client wrapper `npm run test:summary:client -- --file client/src/test/chatSidebar.test.tsx` passed cleanly with `tests run: 17`, `passed: 17`, `failed: 0`, so the repaired sidebar partial-success consumer path stayed green on its retained default-UI proof home.
+- Proof audit closed Task 34 because all subtasks and targeted automated checks were already complete on disk, and the remaining broader follow-up belongs to Task 35 rather than this task.
 
 ### Task 35. Revalidate review pass `0000057-20260515T064120Z-152411f0` serious fixes and inline minor resolutions
 

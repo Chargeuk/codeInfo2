@@ -557,11 +557,9 @@ export function createChatModelsRouter({
     if (provider === 'copilot') {
       const response = buildModelsResponse({
         provider: 'copilot',
-        available: copilotAvailable,
-        toolsAvailable: copilotAvailable ? readiness.toolsAvailable : false,
-        reason: copilotAvailable
-          ? readiness.reason
-          : (readiness.reason ?? COPILOT_MODELS_REASON),
+        available: providerMap.copilot.available,
+        toolsAvailable: providerMap.copilot.toolsAvailable,
+        reason: providerMap.copilot.reason,
         models: copilotAvailable ? prioritizedCopilotModels : [],
         providers,
         providerInfo: providerMap.copilot,
@@ -596,9 +594,9 @@ export function createChatModelsRouter({
       return res.status(503).json({
         error: 'lmstudio unavailable',
         provider: 'lmstudio',
-        available: false,
-        toolsAvailable: false,
-        reason: lmstudioReason ?? 'lmstudio unavailable',
+        available: providerMap.lmstudio.available,
+        toolsAvailable: providerMap.lmstudio.toolsAvailable,
+        reason: providerMap.lmstudio.reason,
         models: [],
         providers,
         providerInfo: providerMap.lmstudio,
@@ -611,8 +609,9 @@ export function createChatModelsRouter({
 
     const response = buildModelsResponse({
       provider: 'lmstudio',
-      available: true,
-      toolsAvailable: true,
+      available: providerMap.lmstudio.available,
+      toolsAvailable: providerMap.lmstudio.toolsAvailable,
+      reason: providerMap.lmstudio.reason,
       models: lmstudioModels,
       providers,
       providerInfo: providerMap.lmstudio,

@@ -12,6 +12,10 @@ import request from 'supertest';
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { TASK5_LOG_MARKER } from '../../providers/copilotReadiness.js';
@@ -163,12 +167,14 @@ async function setCopilotHome(chatToml?: string) {
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  __resetProviderBootstrapStatusForTests();
 });
 
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
+  __resetProviderBootstrapStatusForTests();
   await Promise.all(
     tempDirs
       .splice(0)
@@ -297,6 +303,45 @@ test('providers route surfaces unauthenticated Copilot with a stable blocking re
     assert.equal(
       res.body.providers[1].reason,
       'copilot authentication required',
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('providers route keeps degraded LM Studio bootstrap reason authoritative even when models are present', async () => {
+  await setCodexHome('model = "config-model"\n');
+  env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'lmstudio');
+  env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  __setProviderBootstrapStatusForTests('lmstudio', {
+    healthy: false,
+    reason: 'lmstudio bootstrap degraded',
+  });
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.providers[0].id, 'codex');
+    assert.equal(res.body.providers[2].id, 'lmstudio');
+    assert.equal(res.body.providers[2].available, false);
+    assert.equal(res.body.providers[2].toolsAvailable, false);
+    assert.equal(
+      res.body.providers[2].reason,
+      'lmstudio bootstrap degraded',
     );
   } finally {
     await stopServer(server);

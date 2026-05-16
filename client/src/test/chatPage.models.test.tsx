@@ -529,6 +529,81 @@ describe('Chat page models list', () => {
     expect(requestedProviders).toContain('copilot');
   });
 
+  it('does not re-enable a provider when /chat/models top-level availability is degraded', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+            selectedProvider: 'copilot',
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'copilot',
+            available: false,
+            toolsAvailable: false,
+            reason: 'copilot bootstrap degraded',
+            providerInfo: {
+              id: 'copilot',
+              label: 'GitHub Copilot',
+              available: false,
+              toolsAvailable: false,
+              reason: 'copilot bootstrap degraded',
+            },
+            models: [],
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+
+    await waitFor(() => expect(providerSelect).toHaveTextContent(/github copilot/i));
+    await waitFor(() =>
+      expect(modelSelect).toHaveAttribute('aria-disabled', 'true'),
+    );
+    expect(
+      await screen.findByText(/no chat-capable models available for this provider/i),
+    ).toBeVisible();
+    expect(screen.getByRole('textbox', { name: /message/i })).toBeDisabled();
+  });
+
   it('keeps model-specific Agent Flag narrowing aligned to the combined payload when the model changes', async () => {
     mockFetch.mockImplementation(
       asFetchImplementation(async (url: RequestInfo | URL) => {

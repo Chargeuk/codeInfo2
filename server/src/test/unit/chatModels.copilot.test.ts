@@ -10,6 +10,10 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { baseLogger } from '../../logger.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import {
@@ -102,11 +106,13 @@ async function stopServer(server: { httpServer: http.Server }) {
 
 beforeEach(() => {
   resetMcpStatusCache();
+  __resetProviderBootstrapStatusForTests();
 });
 
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
+  __resetProviderBootstrapStatusForTests();
   mock.restoreAll();
 });
 
@@ -144,6 +150,39 @@ test('copilot models route handles an empty model list deterministically', async
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);
     assert.equal(res.body.reason, 'copilot models unavailable');
+    assert.deepEqual(res.body.models, []);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('copilot models route keeps top-level availability aligned with degraded bootstrap status', async () => {
+  __setProviderBootstrapStatusForTests('copilot', {
+    healthy: false,
+    reason: 'copilot bootstrap degraded',
+  });
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'copilot');
+    assert.equal(res.body.available, false);
+    assert.equal(res.body.toolsAvailable, false);
+    assert.equal(res.body.reason, 'copilot bootstrap degraded');
+    assert.equal(res.body.providerInfo.available, false);
+    assert.equal(res.body.providerInfo.toolsAvailable, false);
+    assert.equal(res.body.providerInfo.reason, 'copilot bootstrap degraded');
     assert.deepEqual(res.body.models, []);
   } finally {
     await stopServer(server);

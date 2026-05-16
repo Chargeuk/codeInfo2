@@ -3230,7 +3230,7 @@ This task keeps the repair centered on the one run-start contract seam shared by
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 30`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260515T064120Z-152411f0`.
 
@@ -3280,6 +3280,7 @@ The review found that the authoritative bootstrap-status registry is already cor
 - Updated `client/src/hooks/useChatModel.ts` so provider bootstrap refresh keeps only runnable providers selected when alternatives exist, and so a degraded selected provider now clears stale models and submission state immediately while preserving the disabled explanatory state through the existing `ChatPage` consumer path.
 - Refreshed `server/src/test/unit/chatModels.copilot.test.ts` and `server/src/test/unit/chatProviders.test.ts` so the retained server proof homes now cover degraded-bootstrap Copilot `/chat/models` alignment plus degraded-bootstrap LM Studio `/chat/providers` authority, and the targeted server wrapper passed with `tests run: 26`, `passed: 26`, `failed: 0`.
 - Refreshed `client/src/test/chatPage.models.test.tsx` and `client/src/test/chatPage.provider.test.tsx` so the retained client proof homes now cover the degraded top-level `/chat/models` state that keeps the chat page disabled without re-enabling the provider, plus the bootstrap-selected unavailable provider case that falls back to Codex before the next request payload is sent. The first client wrapper pass failed only because the new degraded-state assertion checked a native `disabled` attribute instead of MUI's rendered `aria-disabled` contract on the combobox wrapper; tightening that assertion kept the repair bounded to the proof seam, and the rerun passed with `tests run: 31`, `passed: 31`, `failed: 0`.
+- Proof audit closed Task 33 as `__done__` because all four implementation subtasks and both task-owned targeted wrappers were already complete on disk, no live `**BLOCKER**` remained, and no further task-local manual gate existed beyond the broader review-block revalidation owned by Task 35.
 
 ### Task 34. Make bulk conversation UI state honor partial-success server outcomes
 

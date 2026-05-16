@@ -959,7 +959,7 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
   }
 });
 
-test('story57 explicit-provider LM Studio MCP codebase_question reuses the saved conversation model when model is omitted', async () => {
+test('story57 explicit-provider LM Studio MCP codebase_question keeps the saved provider and repairs the omitted model on that provider when needed', async () => {
   resetStore();
   const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   const originalHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
@@ -1059,11 +1059,7 @@ test('story57 explicit-provider LM Studio MCP codebase_question reuses the saved
 
     const response = await toolCallPromise;
     assert.equal(calls.length, 1, JSON.stringify({ response, calls }, null, 2));
-    assert.equal(
-      calls[0]?.model,
-      savedModel,
-      JSON.stringify({ response, calls }, null, 2),
-    );
+    assert.equal(calls[0]?.model, 'm', JSON.stringify({ response, calls }, null, 2));
     assert.ok(
       (response as { result?: unknown }).result,
       JSON.stringify({ response, calls }, null, 2),
@@ -1074,9 +1070,9 @@ test('story57 explicit-provider LM Studio MCP codebase_question reuses the saved
     );
     assert.equal(calls[0]?.conversationId, conversationId);
     assert.equal(payload.conversationId, conversationId);
-    assert.equal(payload.modelId, savedModel);
+    assert.equal(payload.modelId, 'm');
     assert.equal(payload.segments[0]?.text, repoId);
-    assert.equal(memoryConversations.get(conversationId)?.model, savedModel);
+    assert.equal(memoryConversations.get(conversationId)?.model, 'm');
 
     const persistedTurns = getMemoryTurns(conversationId);
     const assistantTurn = persistedTurns.find(
@@ -1084,7 +1080,7 @@ test('story57 explicit-provider LM Studio MCP codebase_question reuses the saved
     );
     assert.ok(assistantTurn);
     assert.equal(assistantTurn?.status, 'ok');
-    assert.equal(assistantTurn?.model, savedModel);
+    assert.equal(assistantTurn?.model, 'm');
   } finally {
     deleteMemoryConversation(conversationId);
     if (originalWorkdir === undefined) {
@@ -2046,13 +2042,14 @@ test('MCP codebase_question keeps Copilot provider parity after startup re-norma
   }
 });
 
-test('saved Copilot and LM Studio conversations pin omitted-provider follow-up calls to the stored execution identity on the streamed websocket path', async () => {
+test('saved Copilot and LM Studio conversations keep the stored provider and repair omitted-model follow-up calls on the streamed websocket path', async () => {
   resetStore();
   const cases = [
     {
       conversationId: 'mcp-ws-saved-copilot-follow-up',
       provider: 'copilot' as const,
       model: 'copilot-gpt-5',
+      expectedExecutionModel: 'copilot-gpt-5',
       finalContent: 'Saved Copilot follow-up answer',
       deps: {
         copilotReadinessResolver: async () => ({
@@ -2069,6 +2066,7 @@ test('saved Copilot and LM Studio conversations pin omitted-provider follow-up c
       conversationId: 'mcp-ws-saved-lmstudio-follow-up',
       provider: 'lmstudio' as const,
       model: 'huihui-qwen3.5-9b-abliterated',
+      expectedExecutionModel: 'm',
       finalContent: 'Saved LM Studio follow-up answer',
       deps: {},
     },
@@ -2161,21 +2159,21 @@ test('saved Copilot and LM Studio conversations pin omitted-provider follow-up c
         assert.equal(calls.length, 1);
         assert.equal(calls[0]?.conversationId, testCase.conversationId);
         assert.equal(calls[0]?.flags.provider, testCase.provider);
-        assert.equal(calls[0]?.model, testCase.model);
+        assert.equal(calls[0]?.model, testCase.expectedExecutionModel);
 
         const payload = JSON.parse(
           (response as { result: { content: Array<{ text: string }> } }).result
             .content[0].text,
         );
         assert.equal(payload.conversationId, testCase.conversationId);
-        assert.equal(payload.modelId, testCase.model);
+        assert.equal(payload.modelId, testCase.expectedExecutionModel);
         assert.equal(
           memoryConversations.get(testCase.conversationId)?.provider,
           testCase.provider,
         );
         assert.equal(
           memoryConversations.get(testCase.conversationId)?.model,
-          testCase.model,
+          testCase.expectedExecutionModel,
         );
 
         const persistedTurns = getMemoryTurns(testCase.conversationId);
@@ -2184,7 +2182,7 @@ test('saved Copilot and LM Studio conversations pin omitted-provider follow-up c
         );
         assert.ok(assistantTurn);
         assert.equal(assistantTurn?.status, 'ok');
-        assert.equal(assistantTurn?.model, testCase.model);
+        assert.equal(assistantTurn?.model, testCase.expectedExecutionModel);
       } finally {
         deleteMemoryConversation(testCase.conversationId);
         memoryTurns.delete(testCase.conversationId);

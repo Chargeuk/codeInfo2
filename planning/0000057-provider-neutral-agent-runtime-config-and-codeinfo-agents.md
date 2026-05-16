@@ -3781,17 +3781,17 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
-2. [ ] Run `npm run build:summary:server` from the repository root. Use this wrapper because the review-created block changes shared server runtime selector seams before the broader wrappers rerun.
-3. [ ] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired shared selection contract must still typecheck and build through the client workspace even though the serious fix is server-owned.
-4. [ ] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the repaired shared selector contract and its retained proof homes are server-owned and the current review-created block must rerun that broad server regression surface.
-5. [ ] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the repository's broad server feature surface must still remain green when the review-created block is closed.
-6. [ ] Run `npm run test:summary:client` from the repository root. Use this wrapper because the repository's broad client regression surface still owns the visible consumer paths that must remain aligned with the repaired provider-model contract.
-7. [ ] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because this repository's normal paired front-end and back-end close-out contract includes automated browser proof, and this final review task owns that broad browser rerun for the current review-created findings block.
-8. [ ] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
-9. [ ] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
-10. [ ] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server selection seams, retained proof homes, and the same-cycle documentation fix.
-11. [ ] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or the already-resolved documentation surface.
+1. [x] Run `npm run compose:build:summary` from the repository root. Use this wrapper first because the final review task owns the broad main-stack regression path and must prove the checked-in compose build still succeeds before narrower reruns.
+2. [x] Run `npm run build:summary:server` from the repository root. Use this wrapper because the review-created block changes shared server runtime selector seams before the broader wrappers rerun.
+3. [x] Run `npm run build:summary:client` from the repository root. Use this wrapper because the repaired shared selection contract must still typecheck and build through the client workspace even though the serious fix is server-owned.
+4. [x] Run `npm run test:summary:server:unit` from the repository root. Use this wrapper because the repaired shared selector contract and its retained proof homes are server-owned and the current review-created block must rerun that broad server regression surface.
+5. [x] Run `npm run test:summary:server:cucumber` from the repository root. Use this wrapper because the repository's broad server feature surface must still remain green when the review-created block is closed.
+6. [x] Run `npm run test:summary:client` from the repository root. Use this wrapper because the repository's broad client regression surface still owns the visible consumer paths that must remain aligned with the repaired provider-model contract.
+7. [x] Run `npm run test:summary:e2e` from the repository root. Use this wrapper because this repository's normal paired front-end and back-end close-out contract includes automated browser proof, and this final review task owns that broad browser rerun for the current review-created findings block.
+8. [x] Run `npm run compose:up` from the repository root. Use this wrapper as the normal supported main-stack smoke proof for the review-created block after the broader automated wrappers are green.
+9. [x] Run `npm run compose:down` from the repository root. Use this wrapper immediately after the smoke start so the final review task proves the checked-in main stack can also shut down cleanly on the normal path.
+10. [x] Run `npm run lint` from the repository root. Use this root command because the review-created block spans shared server selection seams, retained proof homes, and the same-cycle documentation fix.
+11. [x] Run `npm run format:check` from the repository root. Use this root command because the final review-cycle close-out must not leave formatting drift in the repaired proof homes or the already-resolved documentation surface.
 
 #### Manual Testing Guidance
 
@@ -3802,3 +3802,13 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 - Confirmed Task 39 still owns the repaired provider-model precedence seam in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/mcp2/tools/codebaseQuestion.ts`, with the retained proof homes still mapped to the renamed or split selector-parity tests recorded in Task 39.
 - Confirmed the inline-resolved minor documentation fix for `generic_engineering_issue-1` still maps cleanly across `README.md`, `design.md`, the plan's `## Minor Review Fixes` audit entry, and `codeInfoTmp/reviews/0000057-20260516T174837Z-50e60126-findings.md#resolved-minor-findings`, and all four surfaces still describe `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` as a read-only `/host/codex` mount plus a separate writable `/app/codex` runtime home.
 - Confirmed Task 40 remains the sole final revalidation owner for review cycle `0000057-rc-20260516T183428Z-240d99fb`, and that the wrapper-owned broad proof surfaces in this task's `Testing` section still map to the runtime-handoff references in `README.md`, `design.md`, `docker-compose.yml`, `docker-compose.e2e.yml`, and `docker-compose.local.yml` before the broad reruns begin.
+- `npm run compose:build:summary` passed cleanly and kept the main-stack image build path green before narrower revalidation wrappers.
+- `npm run build:summary:server` passed cleanly, keeping the shared server selector seams buildable before the broader regression reruns.
+- `npm run build:summary:client` passed cleanly, confirming the client workspace still typechecks and builds with the repaired shared selector contract in place.
+- `npm run test:summary:server:unit` initially failed on four stale broad-proof expectations that still asserted the pre-Task-39 provider-model behavior in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, and `server/src/test/unit/chatProviders.test.ts`; updating those tests to match same-provider model repair and live-model default normalization brought the targeted rerun to 64/64 and the full rerun to 2105/2105.
+- `npm run test:summary:server:cucumber` passed cleanly at 118/118 after the shared selector proof repair, so the broad server feature surface stayed green.
+- `npm run test:summary:client` passed cleanly at 770/770, keeping the consumer-facing client surface aligned with the repaired provider-model contract.
+- `npm run test:summary:e2e` passed cleanly at 51/51, keeping the paired browser close-out surface green for the current review cycle.
+- `npm run compose:up` brought the supported main stack up cleanly, and the paired `npm run compose:down` step shut it down cleanly again, so the close-out smoke path remained healthy on the checked-in compose route.
+- `npm run lint` passed cleanly after the stale-proof expectation updates, so the final review block did not introduce repository-wide lint drift.
+- `npm run format:check` passed cleanly after the proof repair, so the review-cycle close-out finished without formatting drift.

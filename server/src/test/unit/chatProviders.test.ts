@@ -711,7 +711,7 @@ test('providers route exposes the chat-config-aware Codex default and falls back
   }
 });
 
-test('providers route exposes shared resolver-backed codex defaults and warnings parity', async () => {
+test('providers route exposes shared resolver-backed codex defaults and warnings parity while normalizing the provider default model to the live list', async () => {
   await setCodexHome();
   const fixture: CodexCapabilityResolution = {
     defaults: {
@@ -765,7 +765,7 @@ test('providers route exposes shared resolver-backed codex defaults and warnings
     assert.ok((res.body.codexWarnings as string[]).includes('fixture warning'));
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(res.body.selectedModel, 'fixture-model');
-    assert.equal(res.body.providers[0].defaultModel, 'gpt-5.3-codex');
+    assert.equal(res.body.providers[0].defaultModel, 'fixture-model');
     assert.equal(res.body.providers[0].defaultModelSource, 'hardcoded');
     assert.deepEqual(
       res.body.providers[0].compatibility.codexDefaults,

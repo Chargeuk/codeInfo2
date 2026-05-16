@@ -3817,7 +3817,7 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 ### Task 41. Re-Validate Story 0000057 After Inline Minor Review Fixes
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Inline minor fixes were already made and documented during review cycle `0000057-rc-20260516T224545Z-508a950b`. This task owns the final broad automated proof pass before the story can close cleanly.
 

@@ -10,6 +10,8 @@ Identify the current candidate task for automated proof.
 Run the unchecked items in that task's `Testing` section.
 Fix issues that arise where possible, rerun proof honestly, and keep the plan up to date.
 Do not finish this step until every unchecked `Testing` item is complete or the task is honestly blocked.
+If you start a `Testing` step in this turn, you MUST stay in the turn until that step reaches a terminal outcome: pass, fail, or an honest blocker.
+Healthy wrapper heartbeats, growing logs, `agent_action: wait`, or long wall-clock runtime are never valid reasons to end the turn early while the current `Testing` step is still running.
 Do not perform manual testing in this step.
 
 </task>
@@ -71,6 +73,7 @@ Do not perform manual testing in this step.
   4. Attempt bounded in-scope repair.
   5. Rerun the affected proof honestly.
   6. If the issue is honestly blocked under `blocker_rules`, write a live `**BLOCKER**` and stop.
+- Long-running wrapper-backed proof is normal in this step. If the current wrapper is still emitting healthy wait heartbeats or otherwise shows ongoing progress, keep waiting inside this turn until that wrapper reaches a terminal result.
 - Do not stop this step merely because partial progress was made, a targeted rerun passed, or a broad rerun is still in flight.
 - Do not finish this step while a mandatory wrapper-backed `Testing` step started in this step is still running.
 - Do not leave unchecked `Testing` items and no live `**BLOCKER**`.
@@ -141,6 +144,7 @@ Return a concise summary that includes:
 4. whether a blocker exists;
 5. if blocked, the first remaining unchecked `Testing` item in list order and the blocker reason.
 
+Do not treat a mid-run progress update as a final answer. If the current `Testing` step is still running, the only valid action is to keep waiting inside this step.
 Do not mark the task `__done__` in this step. The later audit step decides that.
 
 </output_contract>
@@ -157,6 +161,7 @@ Before finishing:
 - confirm you did not stop with unchecked `Testing` items and no live `**BLOCKER**`;
 - confirm you did not treat partial progress alone as a valid reason to stop;
 - confirm you did not finish this step while a mandatory wrapper started for a `Testing` item was still running;
+- confirm you did not convert a healthy in-flight wrapper status into a final response for this step;
 - confirm you inspected the concrete failure evidence before declaring a normal failing test blocked;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;

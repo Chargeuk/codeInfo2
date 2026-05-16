@@ -3669,7 +3669,7 @@ No inline-resolved minor findings are currently recorded in `review-disposition-
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 38`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260516T174837Z-50e60126` in review cycle `0000057-rc-20260516T183428Z-240d99fb`.
 
@@ -3732,6 +3732,7 @@ This review task repairs the shared provider-model selector so Story 57 runtime 
 - Targeted `npm run test:summary:server:cucumber -- --feature server/src/test/features/chat_stream.feature --scenario "provider-model fallback"` passed with `1/1` after the default-path scenario text and step definitions were updated.
 - `npx eslint` passed on the touched runtime and proof files, keeping the task-local edits lint-clean ahead of Task 40's broader root lint gate.
 - `npx prettier --write` normalized the touched TypeScript files, and `npx prettier --check` passed on the supported touched files; the edited `.feature` file was kept manually consistent because the repository's current Prettier install does not resolve a Gherkin parser.
+- Automated-proof audit confirmed all Task 39 subtasks and targeted wrappers were already complete on disk with no live blocker, so the task was closed as `__done__` and the remaining broad review-cycle proof stays with Task 40.
 
 ### Task 40. Revalidate review pass `0000057-20260516T174837Z-50e60126` serious fixes and inline minor resolutions
 

@@ -9,7 +9,10 @@ import { z } from 'zod';
 import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import { buildConversationFlags } from '../../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
-import { normalizeImplicitCopilotRequestedModel } from '../../chat/copilotModelSupport.js';
+import {
+  normalizeImplicitCopilotRequestedModel,
+  resolveCopilotDefaultModel,
+} from '../../chat/copilotModelSupport.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
@@ -39,8 +42,10 @@ import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
   buildUnavailableRuntimeProviderState,
   buildDefaultsAppliedMarkerPayload,
+  prioritizeRuntimeProviderModels,
   resolveChatDefaults,
   resolveCodexChatDefaults,
+  resolveProviderRuntimePreferredModel,
   resolveRuntimeProviderSelection,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
@@ -746,7 +751,13 @@ async function executeCodebaseQuestion(
   ];
   const codexState = {
     available: codexAvailable,
-    models: codexCapabilities.models.map((entry) => entry.model),
+    models: prioritizeRuntimeProviderModels(
+      codexCapabilities.models.map((entry) => entry.model),
+      requestedProvider === 'codex'
+        ? requestedModel
+        : codexRequestedDefaults?.values.model,
+      { includeMissingPreferred: true },
+    ),
     reason: codexAvailable ? undefined : 'CODE_INFO_LLM_UNAVAILABLE',
   };
 
@@ -774,11 +785,18 @@ async function executeCodebaseQuestion(
           .filter(isChatModel)
           .map((entry) => entry.modelKey)
           .filter((value) => typeof value === 'string' && value.trim().length);
+        const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
+          provider: 'lmstudio',
+          lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+        }).model;
         lmstudioState =
           lmstudioModels.length > 0
             ? {
                 available: true,
-                models: lmstudioModels,
+                models: prioritizeRuntimeProviderModels(
+                  lmstudioModels,
+                  lmstudioPreferredModel,
+                ),
               }
             : buildUnavailableRuntimeProviderState('lmstudio unavailable');
       } catch {
@@ -812,6 +830,10 @@ async function executeCodebaseQuestion(
           requestedModelSource: resolvedDefaults.modelSource,
         })
       : requestedModel;
+  const copilotDefaultModel = resolveCopilotDefaultModel({
+    models: copilotReadiness.modelsRaw as ModelInfo[],
+    copilotHome: process.env.CODEINFO_COPILOT_HOME,
+  }).defaultModel;
 
   const runtimeSelection = resolveRuntimeProviderSelection({
     requestedProvider,
@@ -819,7 +841,10 @@ async function executeCodebaseQuestion(
     codex: codexState,
     copilot: {
       available: copilotReadiness.available,
-      models: copilotReadiness.models,
+      models: prioritizeRuntimeProviderModels(
+        copilotReadiness.models,
+        copilotDefaultModel,
+      ),
       reason: copilotReadiness.reason,
     },
     lmstudio: lmstudioState,
@@ -1093,7 +1118,7 @@ async function executeCodebaseQuestion(
       executionProvider === 'codex' &&
       mutableConversation?.provider === 'codex' &&
       mutableConversation.model === executionModel
-        ? getSavedCodexThreadId(mutableConversation) ?? null
+        ? (getSavedCodexThreadId(mutableConversation) ?? null)
         : null,
     preserveFlowState: false,
   });
@@ -1172,8 +1197,8 @@ async function executeCodebaseQuestion(
                 executionContext.workingDirectoryOverride,
               repositoryContext: executionContext.repositoryMetadata,
               runtime: runtimeMetadata,
-              signal:
-                getInflight(resolvedConversationId)?.abortController.signal,
+              signal: getInflight(resolvedConversationId)?.abortController
+                .signal,
               source: 'MCP',
             },
             resolvedConversationId,

@@ -14,7 +14,10 @@ import {
 import { buildConversationFlags } from '../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
-import { normalizeImplicitCopilotRequestedModel } from '../chat/copilotModelSupport.js';
+import {
+  normalizeImplicitCopilotRequestedModel,
+  resolveCopilotDefaultModel,
+} from '../chat/copilotModelSupport.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
   abortInflight,
@@ -39,6 +42,9 @@ import {
 } from '../codex/capabilityResolver.js';
 import {
   buildUnavailableRuntimeProviderState,
+  prioritizeRuntimeProviderModels,
+  resolveProviderRuntimePreferredModel,
+  resolveCodexChatDefaults,
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
@@ -376,9 +382,18 @@ export function createChatRouter({
     const codexCapabilities = await codexCapabilityResolver({
       consumer: 'chat_validation',
     });
+    const codexPreferredDefaults = await resolveCodexChatDefaults({
+      codexHome: process.env.CODEX_HOME,
+    });
     const codexState = applyBootstrapStatusToRuntimeProviderState('codex', {
       available: codexDetection.available,
-      models: codexCapabilities.models.map((entry) => entry.model),
+      models: prioritizeRuntimeProviderModels(
+        codexCapabilities.models.map((entry) => entry.model),
+        effectiveRequestedProvider === 'codex'
+          ? effectiveRequestedModel
+          : codexPreferredDefaults.values.model,
+        { includeMissingPreferred: true },
+      ),
       reason: codexDetection.reason ?? 'codex unavailable',
     });
     const mcp = await getMcpStatus();
@@ -406,11 +421,18 @@ export function createChatRouter({
             .filter(
               (value) => typeof value === 'string' && value.trim().length,
             );
+          const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
+            provider: 'lmstudio',
+            lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+          }).model;
           lmstudioState =
             lmstudioModels.length > 0
               ? {
                   available: true,
-                  models: lmstudioModels,
+                  models: prioritizeRuntimeProviderModels(
+                    lmstudioModels,
+                    lmstudioPreferredModel,
+                  ),
                 }
               : buildUnavailableRuntimeProviderState('lmstudio unavailable');
         } catch {
@@ -449,9 +471,16 @@ export function createChatRouter({
             requestedModelSource: defaultsResolution.modelSource,
           })
         : effectiveRequestedModel;
+    const copilotPreferredModel = resolveCopilotDefaultModel({
+      models: copilotReadiness.modelsRaw as ModelInfo[],
+      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    }).defaultModel;
     const copilotState = applyBootstrapStatusToRuntimeProviderState('copilot', {
       available: copilotReadiness.available,
-      models: copilotReadiness.models,
+      models: prioritizeRuntimeProviderModels(
+        copilotReadiness.models,
+        copilotPreferredModel,
+      ),
       reason: copilotReadiness.reason,
     });
     const runtimeSelection = resolveRuntimeProviderSelection({

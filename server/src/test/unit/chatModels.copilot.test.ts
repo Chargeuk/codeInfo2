@@ -20,6 +20,7 @@ import {
   createChatModelsRouter,
   TASK6_LOG_MARKER,
 } from '../../routes/chatModels.js';
+import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
@@ -48,10 +49,12 @@ const env = {
   },
 };
 
-function createClient(): LMStudioClient {
+function createClient(
+  models?: Array<{ modelKey: string; displayName: string; type: string }>,
+): LMStudioClient {
   return {
     system: {
-      listDownloadedModels: async () => [],
+      listDownloadedModels: async () => models ?? [],
     },
   } as unknown as LMStudioClient;
 }
@@ -60,6 +63,11 @@ async function startServer(params: {
   mcpAvailable?: boolean;
   copilotModels?: ModelInfo[];
   startError?: Error;
+  lmstudioModels?: Array<{
+    modelKey: string;
+    displayName: string;
+    type: string;
+  }>;
 }) {
   const app = express();
   app.use(express.json());
@@ -81,7 +89,14 @@ async function startServer(params: {
   app.use(
     '/chat',
     createChatModelsRouter({
-      clientFactory: () => createClient(),
+      clientFactory: () => createClient(params.lmstudioModels),
+      copilotRuntimeFactory: () => copilotHarness.createLifecycle(),
+    }),
+  );
+  app.use(
+    '/chat',
+    createChatProvidersRouter({
+      clientFactory: () => createClient(params.lmstudioModels),
       copilotRuntimeFactory: () => copilotHarness.createLifecycle(),
     }),
   );
@@ -303,7 +318,7 @@ test('copilot models route maps only verified shared-contract fields and logs ig
   }
 });
 
-test('copilot models route normalizes stale configured defaults to a live runnable model and avoids fake reasoning defaults on unsupported models', async () => {
+test('copilot models route keeps selector-aligned default-model metadata when a stale configured model must be repaired on the same provider', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-models-copilot-normalized-home-'),
   );
@@ -354,6 +369,57 @@ test('copilot models route normalizes stale configured defaults to a live runnab
       /normalized to "gpt-5-mini"/u,
     );
   } finally {
+    await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('chat providers route keeps same-model-first fallback metadata instead of surfacing the first advertised fallback model', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-providers-copilot-fallback-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  const server = await startServer({
+    startError: new Error('copilot offline'),
+    lmstudioModels: [
+      {
+        modelKey: 'lmstudio-test-model',
+        displayName: 'LM Studio Test Model',
+        type: 'llm',
+      },
+      {
+        modelKey: 'copilot-gpt-5',
+        displayName: 'Fallback Matches Requested Model',
+        type: 'llm',
+      },
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.selectedProvider, 'lmstudio');
+    assert.equal(res.body.selectedModel, 'copilot-gpt-5');
+    assert.equal(res.body.fallbackApplied, true);
+    assert.equal(res.body.providers[0]?.id, 'lmstudio');
+    assert.equal(res.body.providers[0]?.defaultModel, 'copilot-gpt-5');
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
     await stopServer(server);
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }

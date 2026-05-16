@@ -40,6 +40,10 @@ import {
 } from '../support/wsClient.js';
 
 const TASK17_LOG_MARKER = 'story.0000051.task17.cucumber_scenarios_registered';
+const ORIGINAL_CODEINFO_CHAT_DEFAULT_PROVIDER =
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+const ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL =
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL;
 
 type ChatStartResponse = {
   status: 'started';
@@ -221,6 +225,18 @@ After(async () => {
   } else {
     process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
   }
+  if (ORIGINAL_CODEINFO_CHAT_DEFAULT_PROVIDER === undefined) {
+    delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  } else {
+    process.env.CODEINFO_CHAT_DEFAULT_PROVIDER =
+      ORIGINAL_CODEINFO_CHAT_DEFAULT_PROVIDER;
+  }
+  if (ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL === undefined) {
+    delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  } else {
+    process.env.CODEINFO_CHAT_DEFAULT_MODEL =
+      ORIGINAL_CODEINFO_CHAT_DEFAULT_MODEL;
+  }
   if (tempCodexHomeForScenario) {
     await removeDirectoryWithRetry(tempCodexHomeForScenario);
     tempCodexHomeForScenario = null;
@@ -276,6 +292,42 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
     };
   }
 });
+
+When(
+  'I POST to the chat endpoint with the chat request fixture omitting provider and model',
+  async () => {
+    await ensureWsSubscribed('chat-fixture-conv');
+
+    const userMessage = Array.isArray(chatRequestFixture.messages)
+      ? String(
+          chatRequestFixture.messages.find(
+            (msg) => (msg as { role?: string }).role === 'user',
+          )?.content ?? 'Hello',
+        )
+      : 'Hello';
+
+    const res = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: 'chat-fixture-conv',
+        message: userMessage,
+      }),
+    });
+    statusCode = res.status;
+    const body = (await res.json()) as Record<string, unknown>;
+    if (statusCode === 202) {
+      startResponse = body as unknown as ChatStartResponse;
+      errorResponse = null;
+    } else {
+      startResponse = null;
+      errorResponse = {
+        code: body.code as string | undefined,
+        message: body.message as string | undefined,
+      };
+    }
+  },
+);
 
 Then('the chat stream status code is {int}', (status: number) => {
   assert.strictEqual(statusCode, status);
@@ -476,6 +528,14 @@ Then('the LM Studio chat history length is {int}', (expected: number) => {
   assert.strictEqual(getLastChatHistory().length, expected);
 });
 
+Given('chat default provider is {string}', (provider: string) => {
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = provider;
+});
+
+Given('chat default model is {string}', (model: string) => {
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = model;
+});
+
 Given('codex detection is unavailable', () => {
   setCodexDetection({
     available: false,
@@ -528,6 +588,11 @@ When(
 Then('the chat start response provider is {string}', (provider: string) => {
   assert.ok(startResponse);
   assert.equal(startResponse.provider, provider);
+});
+
+Then('the chat start response model is {string}', (model: string) => {
+  assert.ok(startResponse);
+  assert.equal(startResponse.model, model);
 });
 
 Then('the chat error code is {string}', (code: string) => {

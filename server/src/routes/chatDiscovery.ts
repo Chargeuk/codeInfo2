@@ -130,10 +130,24 @@ type BuildProviderInfoParams = ProviderHomeParams & {
   available: boolean;
   toolsAvailable: boolean;
   reason?: string;
+  liveModels?: string[];
   warnings?: string[];
   agentFlags?: ChatAgentFlagDescriptor[];
   compatibility?: ChatProviderInfo['compatibility'];
   modelMetadata?: ProviderConfigModel;
+};
+
+const pickLiveProviderModel = (
+  models: string[] | undefined,
+  preferredModel: string,
+): string | undefined => {
+  const normalizedModels = (models ?? [])
+    .map((model) => normalizeString(model))
+    .filter((model): model is string => model !== undefined);
+  if (normalizedModels.includes(preferredModel)) {
+    return preferredModel;
+  }
+  return normalizedModels[0];
 };
 
 export function buildCodexCompatibilityDefaults(params: {
@@ -188,7 +202,9 @@ export function buildCodexCompatibilityDefaults(params: {
   };
 }
 
-export function getProviderBootstrapWarnings(provider: ChatProviderId): string[] {
+export function getProviderBootstrapWarnings(
+  provider: ChatProviderId,
+): string[] {
   return getProviderBootstrapStatus(provider).warnings;
 }
 
@@ -293,7 +309,7 @@ export function buildCodexAgentFlags(params: {
 
 function buildProviderModelMetadata(
   provider: ChatProviderId,
-  params: ProviderHomeParams = {},
+  params: ProviderHomeParams & { liveModels?: string[] } = {},
 ): ProviderConfigModel {
   const seedModel = DEFAULT_PROVIDER_MODELS[provider];
 
@@ -306,16 +322,22 @@ function buildProviderModelMetadata(
     });
     const config = snapshot.config ?? {};
     const configuredModel = normalizeString(config.model);
-    if (configuredModel) {
+    const requestedModel = configuredModel ?? seedModel;
+    const resolvedModel =
+      pickLiveProviderModel(params.liveModels, requestedModel) ??
+      requestedModel;
+    if (resolvedModel !== requestedModel) {
       return {
-        defaultModel: configuredModel,
-        defaultModelSource: 'config',
-        warnings: [],
+        defaultModel: resolvedModel,
+        defaultModelSource: configuredModel ? 'config' : 'hardcoded',
+        warnings: [
+          `${provider} default model "${requestedModel}" is unavailable in the live model list; normalized to "${resolvedModel}".`,
+        ],
       };
     }
     return {
-      defaultModel: seedModel,
-      defaultModelSource: 'hardcoded',
+      defaultModel: resolvedModel,
+      defaultModelSource: configuredModel ? 'config' : 'hardcoded',
       warnings: [],
     };
   } catch (error) {

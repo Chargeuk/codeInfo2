@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import type { ModelInfo } from '@github/copilot-sdk';
 import express from 'express';
 import request from 'supertest';
 
@@ -143,6 +144,108 @@ test('copilot chat still falls back automatically when provider resolution is om
   }
 });
 
+test('chat started responses keep the requested provider and repair the model there when the provider is healthy but the requested model is missing', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-same-provider-model-repair',
+      models: [
+        {
+          id: 'gpt-5-mini',
+          name: 'GPT-5 Mini',
+        } as ModelInfo,
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+        } as ModelInfo,
+      ],
+    },
+  });
+
+  try {
+    const conversationId = 'copilot-same-provider-model-repair';
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      model: 'missing-copilot-model',
+      conversationId,
+      message: 'Repair the model on the selected provider',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.body.model, 'gpt-5-mini');
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'copilot');
+    assert.equal(memoryConversations.get(conversationId)?.model, 'gpt-5-mini');
+  } finally {
+    await server.stop();
+  }
+});
+
+test('chat started responses keep the same requested model first when cross-provider fallback is required', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-same-model-first-fallback',
+      startError: new Error('copilot unavailable'),
+      models: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+        } as ModelInfo,
+      ],
+    },
+    lmstudioAvailable: true,
+    lmstudioClientFactory: () =>
+      ({
+        system: {
+          listDownloadedModels: async () => [
+            {
+              modelKey: 'lmstudio-test-model',
+              displayName: 'LM Studio Test Model',
+              type: 'llm',
+            },
+            {
+              modelKey: 'copilot-gpt-5',
+              displayName: 'Fallback Matches Requested Model',
+              type: 'llm',
+            },
+          ],
+        },
+        llm: {
+          model: async () => ({
+            act: async () => undefined,
+          }),
+        },
+      }) as never,
+  });
+
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  try {
+    const conversationId = 'copilot-same-model-first-fallback';
+    const response = await request(server.httpServer).post('/chat').send({
+      conversationId,
+      model: 'copilot-gpt-5',
+      message: 'Keep the requested model on fallback',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'lmstudio');
+    assert.equal(response.body.model, 'copilot-gpt-5');
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'lmstudio');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'copilot-gpt-5',
+    );
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    await server.stop();
+  }
+});
+
 test('implicit degraded-bootstrap chat requests fall back at the route and keep warning context', async () => {
   __setProviderBootstrapStatusForTests('copilot', {
     healthy: false,
@@ -221,15 +324,17 @@ test('resumed chats reject codex-only agentFlags before a saved copilot conversa
       updatedAt: new Date('2026-05-15T00:00:00.000Z'),
     } as never);
 
-    const response = await request(server.httpServer).post('/chat').send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      conversationId,
-      message: 'Do not start with stale codex-only flags',
-      agentFlags: {
-        sandboxMode: 'danger-full-access',
-      },
-    });
+    const response = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'codex',
+        model: 'gpt-5.1-codex-max',
+        conversationId,
+        message: 'Do not start with stale codex-only flags',
+        agentFlags: {
+          sandboxMode: 'danger-full-access',
+        },
+      });
 
     assert.equal(response.status, 400);
     assert.equal(response.body.code, 'VALIDATION_FAILED');

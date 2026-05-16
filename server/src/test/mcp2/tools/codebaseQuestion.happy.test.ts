@@ -1222,9 +1222,15 @@ test('codebase_question keeps the same caller-visible replay result after the co
   );
 
   assert.equal(chatCalls.length, 1);
-  assert.equal(replayAfterCacheClearPayload.conversationId, firstPayload.conversationId);
+  assert.equal(
+    replayAfterCacheClearPayload.conversationId,
+    firstPayload.conversationId,
+  );
   assert.equal(replayAfterCacheClearPayload.modelId, firstPayload.modelId);
-  assert.deepEqual(replayAfterCacheClearPayload.segments, firstPayload.segments);
+  assert.deepEqual(
+    replayAfterCacheClearPayload.segments,
+    firstPayload.segments,
+  );
   assert.equal(replayAfterCacheClearPayload.replay?.replayId, replayId);
   assert.equal(replayAfterCacheClearPayload.replay?.status, 'completed');
 
@@ -1281,7 +1287,10 @@ test('codebase_question keeps the same caller-visible replay result after the co
     freshAfterIncompletePayload.conversationId,
     incompleteConversationId,
   );
-  assert.equal(freshAfterIncompletePayload.replay?.replayId, 'replay-incomplete-1');
+  assert.equal(
+    freshAfterIncompletePayload.replay?.replayId,
+    'replay-incomplete-1',
+  );
   assert.equal(freshAfterIncompletePayload.replay?.status, 'in_progress');
   assert.deepEqual(freshAfterIncompletePayload.segments, []);
 });
@@ -1597,6 +1606,143 @@ test('codebase_question normalizes implicit Copilot defaults and omits reasoning
     if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
     else process.env.CODEINFO_COPILOT_HOME = originalHome;
     await tempHome.cleanup();
+  }
+});
+
+test('codebase_question keeps the requested provider and repairs the model there when that provider is healthy but the requested model is missing', async () => {
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const chat = new CapturingSelectionChat(calls, 'Same-provider repair answer');
+
+  const result = await runCodebaseQuestion(
+    {
+      question: 'repair the model on copilot',
+      provider: 'copilot',
+      model: 'missing-copilot-model',
+    },
+    {
+      chatFactory: (provider) => {
+        assert.equal(provider, 'copilot');
+        return chat;
+      },
+      copilotReadinessResolver: async () => ({
+        available: true,
+        toolsAvailable: true,
+        blockingStage: 'ready',
+        models: ['gpt-5-mini', 'copilot-gpt-5'],
+        modelsRaw: [
+          {
+            id: 'gpt-5-mini',
+            name: 'GPT-5 Mini',
+          } as ModelInfo,
+          {
+            id: 'copilot-gpt-5',
+            name: 'Copilot GPT-5',
+          } as ModelInfo,
+        ],
+        authSource: 'env-token',
+      }),
+    },
+  );
+
+  const payload = JSON.parse(result.content[0].text);
+  assert.equal(payload.modelId, 'gpt-5-mini');
+  assert.equal(calls[0]?.model, 'gpt-5-mini');
+  assert.equal(
+    memoryConversations.get(payload.conversationId)?.provider,
+    'copilot',
+  );
+  assert.equal(
+    memoryConversations.get(payload.conversationId)?.model,
+    'gpt-5-mini',
+  );
+});
+
+test('codebase_question keeps the same requested model first when cross-provider fallback is required', async () => {
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const chat = new CapturingSelectionChat(
+    calls,
+    'Cross-provider same-model answer',
+  );
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalForceCodexAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'fallback with same requested model first',
+        model: 'copilot-gpt-5',
+      },
+      {
+        chatFactory: (provider) => {
+          assert.equal(provider, 'lmstudio');
+          return chat;
+        },
+        copilotReadinessResolver: async () => ({
+          available: false,
+          toolsAvailable: true,
+          blockingStage: 'connectivity',
+          models: ['copilot-gpt-5'],
+          modelsRaw: [
+            {
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+            } as ModelInfo,
+          ],
+          authSource: 'env-token',
+          reason: 'copilot unavailable',
+        }),
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [
+                {
+                  modelKey: 'lmstudio-test-model',
+                  displayName: 'LM Studio Test Model',
+                  type: 'llm',
+                },
+                {
+                  modelKey: 'copilot-gpt-5',
+                  displayName: 'Fallback Matches Requested Model',
+                  type: 'llm',
+                },
+              ],
+            },
+          }) as never,
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'copilot-gpt-5');
+    assert.equal(calls[0]?.model, 'copilot-gpt-5');
+    assert.equal(
+      memoryConversations.get(payload.conversationId)?.provider,
+      'lmstudio',
+    );
+    assert.equal(
+      memoryConversations.get(payload.conversationId)?.model,
+      'copilot-gpt-5',
+    );
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalForceCodexAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceCodexAvailable;
+    }
   }
 });
 

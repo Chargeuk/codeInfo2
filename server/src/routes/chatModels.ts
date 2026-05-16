@@ -14,8 +14,10 @@ import {
 import {
   buildDefaultsAppliedMarkerPayload,
   ChatDefaultsResolutionError,
+  prioritizeRuntimeProviderModels,
   resolveChatDefaults,
   resolveCodexChatDefaults,
+  resolveProviderRuntimePreferredModel,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
 } from '../config/chatDefaults.js';
@@ -365,15 +367,23 @@ export function createChatModelsRouter({
       try {
         const client = clientFactory(toWebSocketUrl(baseUrl));
         const models = await client.system.listDownloadedModels();
+        const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
+          provider: 'lmstudio',
+          lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+        }).model;
+        const prioritizedLmstudioModel = prioritizeRuntimeProviderModels(
+          models.filter(isChatModel).map((model) => model.modelKey),
+          requestedDefaults?.provider === 'lmstudio'
+            ? requestedDefaults.model
+            : lmstudioPreferredModel,
+        )[0];
         lmstudioModels = prioritizeModel(
           models.filter(isChatModel).map((model) => ({
             key: model.modelKey,
             displayName: model.displayName,
             type: model.type,
           })),
-          requestedDefaults?.provider === 'lmstudio'
-            ? requestedDefaults.model
-            : undefined,
+          prioritizedLmstudioModel,
         );
         lmstudioModelMetadata =
           lmstudioModels.length > 0
@@ -431,6 +441,7 @@ export function createChatModelsRouter({
           (mcp.available ? undefined : mcp.reason),
         codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
+        liveModels: capabilities.models.map((capability) => capability.model),
         agentFlags: buildCodexAgentFlags({
           capabilities,
           codexHome: process.env.CODEX_HOME,
@@ -473,20 +484,21 @@ export function createChatModelsRouter({
           defaultModelSource: copilotModelMetadata.defaultModelSource,
           warnings: copilotModelMetadata.warnings,
         },
+        liveModels: prioritizedCopilotModels.map((model) => model.key),
         agentFlags: copilotAgentFlags.agentFlags,
       }),
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',
         available: lmstudioAvailable && lmstudioBootstrapHealthy,
         toolsAvailable: lmstudioAvailable && lmstudioBootstrapHealthy,
-        reason:
-          getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
+        reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: [
           ...getProviderBootstrapWarnings('lmstudio'),
           ...(lmstudioReason ? [lmstudioReason] : []),
           ...lmstudioAgentFlags.warnings,
         ],
+        liveModels: lmstudioModels.map((model) => model.key),
         modelMetadata: lmstudioModelMetadata,
         agentFlags: lmstudioAgentFlags.agentFlags,
       }),

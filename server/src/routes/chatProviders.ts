@@ -14,8 +14,10 @@ import {
 } from '../codex/capabilityResolver.js';
 import {
   buildDefaultsAppliedMarkerPayload,
+  prioritizeRuntimeProviderModels,
   resolveChatDefaults,
   resolveCodexChatDefaults,
+  resolveProviderRuntimePreferredModel,
   resolveRuntimeProviderSelection,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
@@ -133,12 +135,40 @@ export function createChatProvidersRouter({
       models: copilot.modelsRaw,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
+    const lmstudioModelMetadata = resolveProviderRuntimePreferredModel({
+      provider: 'lmstudio',
+      lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+    });
+    const prioritizedLmstudioProviderModel =
+      prioritizeRuntimeProviderModels(lmstudioModels, requestedModel)[0] ??
+      lmstudioModelMetadata.model;
+    const lmstudioProviderModelMetadata =
+      prioritizedLmstudioProviderModel === undefined
+        ? undefined
+        : {
+            defaultModel: prioritizedLmstudioProviderModel,
+            defaultModelSource:
+              prioritizedLmstudioProviderModel === lmstudioModelMetadata.model
+                ? ('config' as const)
+                : ('hardcoded' as const),
+            warnings:
+              prioritizedLmstudioProviderModel !==
+                lmstudioModelMetadata.model && lmstudioModelMetadata.model
+                ? [
+                    `lmstudio default model "${lmstudioModelMetadata.model}" is unavailable in the live model list; normalized to "${prioritizedLmstudioProviderModel}".`,
+                  ]
+                : [],
+          };
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
       requestedModel,
       codex: {
         available: codex.available && codexBootstrapHealthy,
-        models: capabilities.models.map((entry) => entry.model),
+        models: prioritizeRuntimeProviderModels(
+          capabilities.models.map((entry) => entry.model),
+          codexRequestedDefaults?.values.model,
+          { includeMissingPreferred: true },
+        ),
         reason:
           getProviderBootstrapReason('codex') ??
           codex.reason ??
@@ -146,12 +176,18 @@ export function createChatProvidersRouter({
       },
       copilot: {
         available: copilot.available && copilotBootstrapHealthy,
-        models: copilot.models,
+        models: prioritizeRuntimeProviderModels(
+          copilot.models,
+          copilotModelMetadata.defaultModel,
+        ),
         reason: getProviderBootstrapReason('copilot') ?? copilot.reason,
       },
       lmstudio: {
         available: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
-        models: lmstudioModels,
+        models: prioritizeRuntimeProviderModels(
+          lmstudioModels,
+          lmstudioModelMetadata.model,
+        ),
         reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
       },
     });
@@ -188,11 +224,8 @@ export function createChatProvidersRouter({
           ...(copilot.reason ? [copilot.reason] : []),
           ...copilotAgentFlags.warnings,
         ],
-        modelMetadata: {
-          defaultModel: copilotModelMetadata.defaultModel,
-          defaultModelSource: copilotModelMetadata.defaultModelSource,
-          warnings: copilotModelMetadata.warnings,
-        },
+        liveModels: copilot.models,
+        modelMetadata: copilotModelMetadata,
         agentFlags: copilotAgentFlags.agentFlags,
       }),
       lmstudio: buildProviderInfo({
@@ -208,6 +241,8 @@ export function createChatProvidersRouter({
           ...(lmstudioReason ? [lmstudioReason] : []),
           ...lmstudioAgentFlags.warnings,
         ],
+        liveModels: lmstudioModels,
+        modelMetadata: lmstudioProviderModelMetadata,
         agentFlags: lmstudioAgentFlags.agentFlags,
       }),
       codex: buildProviderInfo({
@@ -222,6 +257,7 @@ export function createChatProvidersRouter({
             (mcp.available ? undefined : mcp.reason)),
         codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
+        liveModels: capabilities.models.map((entry) => entry.model),
         agentFlags: buildCodexAgentFlags({
           capabilities,
           codexHome: process.env.CODEX_HOME,

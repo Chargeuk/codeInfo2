@@ -57,9 +57,65 @@ test('explicit values win', () => {
   assert.equal(result.modelSource, 'request');
 });
 
-test('shared provider order is codex, copilot, lmstudio and fallback follows that order', () => {
+test('shared provider order is codex, copilot, lmstudio', () => {
   assert.deepEqual(ORDERED_CHAT_PROVIDERS, ['codex', 'copilot', 'lmstudio']);
+});
 
+test('same-provider model repair keeps the requested provider when that provider is healthy but the requested model is missing there', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5.3-codex',
+    codex: {
+      available: true,
+      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      reason: undefined,
+    },
+    copilot: {
+      available: true,
+      models: ['gpt-5'],
+      reason: undefined,
+    },
+    lmstudio: {
+      available: true,
+      models: ['qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'codex');
+  assert.equal(result.executionModel, 'gpt-5.1-codex-max');
+  assert.equal(result.fallbackApplied, false);
+  assert.equal(result.decision, 'selected');
+});
+
+test('cross-provider fallback keeps the same requested model first when the fallback provider supports it', () => {
+  const result = resolveRuntimeProviderSelection({
+    requestedProvider: 'codex',
+    requestedModel: 'gpt-5',
+    codex: {
+      available: false,
+      models: [],
+      reason: 'codex unavailable',
+    },
+    copilot: {
+      available: false,
+      models: [],
+      reason: 'copilot unavailable',
+    },
+    lmstudio: {
+      available: true,
+      models: ['gpt-5', 'qwen2.5'],
+      reason: undefined,
+    },
+  });
+
+  assert.equal(result.executionProvider, 'lmstudio');
+  assert.equal(result.executionModel, 'gpt-5');
+  assert.equal(result.fallbackApplied, true);
+  assert.equal(result.decision, 'fallback');
+});
+
+test('cross-provider fallback drops from the requested model to the fallback provider preferred model when the requested model is unavailable there', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
     requestedModel: 'gpt-5.3-codex',
@@ -75,14 +131,15 @@ test('shared provider order is codex, copilot, lmstudio and fallback follows tha
     },
     lmstudio: {
       available: true,
-      models: ['qwen2.5'],
+      models: ['llama-3.3', 'qwen2.5'],
       reason: undefined,
     },
   });
 
   assert.equal(result.executionProvider, 'lmstudio');
-  assert.equal(result.executionModel, 'qwen2.5');
+  assert.equal(result.executionModel, 'llama-3.3');
   assert.equal(result.fallbackApplied, true);
+  assert.equal(result.decision, 'fallback');
 });
 
 const createProviderHome = async (

@@ -3514,7 +3514,7 @@ This review task repairs the chat execution-identity contract on both sides of t
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 35`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created task for review pass `0000057-20260516T133241Z-a7078ad4` in review cycle `0000057-rc-20260516T143140Z-a7078ad4`.
 

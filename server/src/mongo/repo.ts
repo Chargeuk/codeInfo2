@@ -522,11 +522,19 @@ export type BulkConversationConflict = {
 };
 
 export type BulkConversationUpdateResult =
-  | { status: 'ok'; updatedCount: number }
+  | {
+      status: 'ok';
+      updatedCount: number;
+      updatedConversationIds: string[];
+    }
   | BulkConversationConflict;
 
 export type BulkConversationDeleteResult =
-  | { status: 'ok'; deletedCount: number }
+  | {
+      status: 'ok';
+      deletedCount: number;
+      deletedConversationIds: string[];
+    }
   | BulkConversationConflict;
 
 function uniqueStrings(values: string[]): string[] {
@@ -561,7 +569,7 @@ export async function bulkArchiveConversations(
     return { status: 'conflict', invalidIds, invalidStateIds: [] };
   }
 
-  const result = await ConversationModel.updateMany(
+  await ConversationModel.updateMany(
     { _id: { $in: uniqueIds } },
     { $set: { archivedAt: new Date() } },
   ).exec();
@@ -573,7 +581,15 @@ export async function bulkArchiveConversations(
     .exec()) as Conversation[];
   docs.forEach((doc) => emitConversationUpsert(toConversationEvent(doc)));
 
-  return { status: 'ok', updatedCount: result.matchedCount ?? 0 };
+  const archivedConversationIds = uniqueIds.filter((id) =>
+    docs.some((doc) => doc._id === id && doc.archivedAt != null),
+  );
+
+  return {
+    status: 'ok',
+    updatedCount: archivedConversationIds.length,
+    updatedConversationIds: archivedConversationIds,
+  };
 }
 
 export async function bulkRestoreConversations(
@@ -586,7 +602,7 @@ export async function bulkRestoreConversations(
     return { status: 'conflict', invalidIds, invalidStateIds: [] };
   }
 
-  const result = await ConversationModel.updateMany(
+  await ConversationModel.updateMany(
     { _id: { $in: uniqueIds } },
     { $set: { archivedAt: null } },
   ).exec();
@@ -598,7 +614,15 @@ export async function bulkRestoreConversations(
     .exec()) as Conversation[];
   docs.forEach((doc) => emitConversationUpsert(toConversationEvent(doc)));
 
-  return { status: 'ok', updatedCount: result.matchedCount ?? 0 };
+  const restoredConversationIds = uniqueIds.filter((id) =>
+    docs.some((doc) => doc._id === id && doc.archivedAt == null),
+  );
+
+  return {
+    status: 'ok',
+    updatedCount: restoredConversationIds.length,
+    updatedConversationIds: restoredConversationIds,
+  };
 }
 
 export async function bulkDeleteConversations(
@@ -616,13 +640,30 @@ export async function bulkDeleteConversations(
   }
 
   await TurnModel.deleteMany({ conversationId: { $in: uniqueIds } }).exec();
-  const deleted = await ConversationModel.deleteMany({
+  await ConversationModel.deleteMany({
     _id: { $in: uniqueIds },
   }).exec();
 
-  uniqueIds.forEach((conversationId) => emitConversationDelete(conversationId));
+  const remainingIds = new Set(
+    (
+      (await ConversationModel.find({
+        _id: { $in: uniqueIds },
+      })
+        .select({ _id: 1 })
+        .lean()
+        .exec()) as Pick<Conversation, '_id'>[]
+    ).map((doc) => doc._id),
+  );
+  const deletedConversationIds = uniqueIds.filter((id) => !remainingIds.has(id));
+  deletedConversationIds.forEach((conversationId) =>
+    emitConversationDelete(conversationId),
+  );
 
-  return { status: 'ok', deletedCount: deleted.deletedCount ?? 0 };
+  return {
+    status: 'ok',
+    deletedCount: deletedConversationIds.length,
+    deletedConversationIds,
+  };
 }
 
 function toDate(value: string | Date): Date {

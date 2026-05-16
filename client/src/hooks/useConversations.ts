@@ -27,6 +27,14 @@ export type ConversationFilterState = 'active' | 'all' | 'archived';
 
 export type ConversationBulkAction = 'archive' | 'restore' | 'delete';
 
+export type ConversationBulkResult = {
+  updatedCount?: number;
+  deletedCount?: number;
+  resolvedConversationIds: string[];
+  pendingConversationIds: string[];
+  outcome: 'full' | 'partial';
+};
+
 export type ConversationBulkError = Error & {
   code: string;
   httpStatus?: number;
@@ -46,9 +54,9 @@ type State = {
   loadMore: () => Promise<void>;
   archive: (conversationId: string) => Promise<void>;
   restore: (conversationId: string) => Promise<void>;
-  bulkArchive: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
-  bulkRestore: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
-  bulkDelete: (conversationIds: string[]) => Promise<{ deletedCount: number }>;
+  bulkArchive: (conversationIds: string[]) => Promise<ConversationBulkResult>;
+  bulkRestore: (conversationIds: string[]) => Promise<ConversationBulkResult>;
+  bulkDelete: (conversationIds: string[]) => Promise<ConversationBulkResult>;
   readWorkingFolder: (
     conversation?: ConversationSummary | null,
   ) => string | undefined;
@@ -74,8 +82,16 @@ type ApiResponse = {
 };
 
 type BulkOkResponse =
-  | { status: 'ok'; updatedCount: number }
-  | { status: 'ok'; deletedCount: number };
+  | {
+      status: 'ok';
+      updatedCount: number;
+      updatedConversationIds?: string[];
+    }
+  | {
+      status: 'ok';
+      deletedCount: number;
+      deletedConversationIds?: string[];
+    };
 
 type BulkErrorResponse = {
   status?: 'error';
@@ -400,18 +416,34 @@ export function useConversations(params?: {
         'updatedCount' in payload
           ? payload.updatedCount
           : conversationIds.length;
+      const resolvedConversationIds =
+        'updatedConversationIds' in payload &&
+        Array.isArray(payload.updatedConversationIds)
+          ? payload.updatedConversationIds
+          : conversationIds;
+      const pendingConversationIds = conversationIds.filter(
+        (conversationId) => !resolvedConversationIds.includes(conversationId),
+      );
       setConversations((prev) =>
         dedupeAndSort(
           applyFilter(
             prev.map((conv) =>
-              conversationIds.includes(conv.conversationId)
+              resolvedConversationIds.includes(conv.conversationId)
                 ? { ...conv, archived: true }
                 : conv,
             ),
           ),
         ),
       );
-      return { updatedCount };
+      return {
+        updatedCount,
+        resolvedConversationIds,
+        pendingConversationIds,
+        outcome:
+          pendingConversationIds.length > 0 && updatedCount < conversationIds.length
+            ? 'partial'
+            : 'full',
+      };
     },
     [applyFilter, dedupeAndSort, postBulk],
   );
@@ -423,18 +455,34 @@ export function useConversations(params?: {
         'updatedCount' in payload
           ? payload.updatedCount
           : conversationIds.length;
+      const resolvedConversationIds =
+        'updatedConversationIds' in payload &&
+        Array.isArray(payload.updatedConversationIds)
+          ? payload.updatedConversationIds
+          : conversationIds;
+      const pendingConversationIds = conversationIds.filter(
+        (conversationId) => !resolvedConversationIds.includes(conversationId),
+      );
       setConversations((prev) =>
         dedupeAndSort(
           applyFilter(
             prev.map((conv) =>
-              conversationIds.includes(conv.conversationId)
+              resolvedConversationIds.includes(conv.conversationId)
                 ? { ...conv, archived: false }
                 : conv,
             ),
           ),
         ),
       );
-      return { updatedCount };
+      return {
+        updatedCount,
+        resolvedConversationIds,
+        pendingConversationIds,
+        outcome:
+          pendingConversationIds.length > 0 && updatedCount < conversationIds.length
+            ? 'partial'
+            : 'full',
+      };
     },
     [applyFilter, dedupeAndSort, postBulk],
   );
@@ -446,16 +494,32 @@ export function useConversations(params?: {
         'deletedCount' in payload
           ? payload.deletedCount
           : conversationIds.length;
+      const resolvedConversationIds =
+        'deletedConversationIds' in payload &&
+        Array.isArray(payload.deletedConversationIds)
+          ? payload.deletedConversationIds
+          : conversationIds;
+      const pendingConversationIds = conversationIds.filter(
+        (conversationId) => !resolvedConversationIds.includes(conversationId),
+      );
       setConversations((prev) =>
         dedupeAndSort(
           applyFilter(
             prev.filter(
-              (conv) => !conversationIds.includes(conv.conversationId),
+              (conv) => !resolvedConversationIds.includes(conv.conversationId),
             ),
           ),
         ),
       );
-      return { deletedCount };
+      return {
+        deletedCount,
+        resolvedConversationIds,
+        pendingConversationIds,
+        outcome:
+          pendingConversationIds.length > 0 && deletedCount < conversationIds.length
+            ? 'partial'
+            : 'full',
+      };
     },
     [applyFilter, dedupeAndSort, postBulk],
   );

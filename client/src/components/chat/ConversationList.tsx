@@ -27,7 +27,10 @@ import {
 } from '@mui/material';
 import { type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
 import type { ConversationFlags } from '../../api/conversations';
-import type { ConversationFilterState } from '../../hooks/useConversations';
+import type {
+  ConversationBulkResult,
+  ConversationFilterState,
+} from '../../hooks/useConversations';
 import { createLogger } from '../../logging/logger';
 
 export type ConversationListItem = {
@@ -61,13 +64,13 @@ type Props = {
   onRestore: (conversationId: string) => void;
   onBulkArchive?: (
     conversationIds: string[],
-  ) => Promise<{ updatedCount: number }>;
+  ) => Promise<ConversationBulkResult>;
   onBulkRestore?: (
     conversationIds: string[],
-  ) => Promise<{ updatedCount: number }>;
+  ) => Promise<ConversationBulkResult>;
   onBulkDelete?: (
     conversationIds: string[],
-  ) => Promise<{ deletedCount: number }>;
+  ) => Promise<ConversationBulkResult>;
   onLoadMore: () => Promise<void> | void;
   onRefresh: () => void;
   onRetry: () => void;
@@ -264,37 +267,49 @@ export function ConversationList({
     });
 
     try {
+      let result: ConversationBulkResult | null = null;
       if (action === 'archive') {
         if (!onBulkArchive) return;
-        const result = await onBulkArchive(ids);
-        setToast({
-          severity: 'success',
-          message: `Archived ${result.updatedCount} conversations`,
-        });
+        result = await onBulkArchive(ids);
       }
       if (action === 'restore') {
         if (!onBulkRestore) return;
-        const result = await onBulkRestore(ids);
-        setToast({
-          severity: 'success',
-          message: `Restored ${result.updatedCount} conversations`,
-        });
+        result = await onBulkRestore(ids);
       }
       if (action === 'delete') {
         if (!onBulkDelete) return;
-        const result = await onBulkDelete(ids);
-        setToast({
-          severity: 'success',
-          message: `Deleted ${result.deletedCount} conversations`,
-        });
+        result = await onBulkDelete(ids);
       }
-      setSelectedIds(new Set());
+      if (!result) return;
+
+      const affectedCount =
+        action === 'delete'
+          ? result.deletedCount ?? result.resolvedConversationIds.length
+          : result.updatedCount ?? result.resolvedConversationIds.length;
+      const actionVerb =
+        action === 'archive'
+          ? 'Archived'
+          : action === 'restore'
+            ? 'Restored'
+            : 'Deleted';
+      const pendingCount = result.pendingConversationIds.length;
+
+      setToast({
+        severity: 'success',
+        message:
+          pendingCount > 0
+            ? `${actionVerb} ${affectedCount} conversations; ${pendingCount} still pending`
+            : `${actionVerb} ${affectedCount} conversations`,
+      });
+      setSelectedIds(new Set(result.pendingConversationIds));
 
       log('info', 'chat.sidebar.bulk_action_result', {
         filterState,
         selectedCount: ids.length,
         action,
-        status: 'ok',
+        status: pendingCount > 0 ? 'partial' : 'ok',
+        affectedCount,
+        pendingCount,
       });
     } catch (err) {
       const code =

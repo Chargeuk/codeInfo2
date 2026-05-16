@@ -609,6 +609,128 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     await waitFor(() => expect(bulkDelete).toHaveBeenCalledTimes(1));
   });
 
+  it('keeps unresolved rows selected after partial bulk archive and excludes confirmed rows from the next request', async () => {
+    const user = userEvent.setup();
+    const bulkArchive = jest
+      .fn<
+        (ids: string[]) => Promise<{
+          updatedCount: number;
+          resolvedConversationIds: string[];
+          pendingConversationIds: string[];
+          outcome: 'full' | 'partial';
+        }>
+      >()
+      .mockImplementationOnce(async (ids) => ({
+        updatedCount: 1,
+        resolvedConversationIds: ['c1'],
+        pendingConversationIds: ids.filter((id) => id !== 'c1'),
+        outcome: 'partial',
+      }))
+      .mockImplementationOnce(async (ids) => ({
+        updatedCount: ids.length,
+        resolvedConversationIds: ids,
+        pendingConversationIds: [],
+        outcome: 'full',
+      }));
+
+    function Wrapper() {
+      const [conversations, setConversations] = useState<ConversationListItem[]>(
+        [
+          {
+            conversationId: 'c1',
+            title: 'First conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-02T00:00:00Z',
+            archived: false,
+          },
+          {
+            conversationId: 'c2',
+            title: 'Second conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-01T00:00:00Z',
+            archived: false,
+          },
+        ],
+      );
+      const [filterState, setFilterState] =
+        useState<ConversationFilterState>('all');
+
+      return (
+        <ConversationList
+          conversations={filterConversations(conversations, filterState)}
+          selectedId={undefined}
+          isLoading={false}
+          isError={false}
+          error={undefined}
+          hasMore={false}
+          filterState={filterState}
+          mongoConnected={true}
+          disabled={false}
+          onSelect={() => undefined}
+          onFilterChange={setFilterState}
+          onArchive={() => undefined}
+          onRestore={() => undefined}
+          onBulkArchive={async (ids) => {
+            const result = await bulkArchive(ids);
+            setConversations((prev) =>
+              prev.map((conversation) =>
+                result.resolvedConversationIds.includes(
+                  conversation.conversationId,
+                )
+                  ? { ...conversation, archived: true }
+                  : conversation,
+              ),
+            );
+            return result;
+          }}
+          onBulkRestore={async (ids) => ({
+            updatedCount: ids.length,
+            resolvedConversationIds: ids,
+            pendingConversationIds: [],
+            outcome: 'full',
+          })}
+          onBulkDelete={async (ids) => ({
+            deletedCount: ids.length,
+            resolvedConversationIds: ids,
+            pendingConversationIds: [],
+            outcome: 'full',
+          })}
+          onLoadMore={async () => undefined}
+          onRefresh={() => undefined}
+          onRetry={() => undefined}
+        />
+      );
+    }
+
+    render(<Wrapper />);
+
+    await user.click(
+      within(rowByTitle('First conversation')).getByTestId(
+        'conversation-select',
+      ),
+    );
+    await user.click(
+      within(rowByTitle('Second conversation')).getByTestId(
+        'conversation-select',
+      ),
+    );
+    await user.click(screen.getByTestId('conversation-bulk-archive'));
+
+    expect(bulkArchive).toHaveBeenNthCalledWith(1, ['c1', 'c2']);
+    expect(
+      await screen.findByText('Archived 1 conversations; 1 still pending'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('conversation-bulk-archive'));
+
+    expect(bulkArchive).toHaveBeenNthCalledWith(2, ['c2']);
+    expect(await screen.findByText('Archived 1 conversations')).toBeInTheDocument();
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+  });
+
   it('disables bulk actions when mongoConnected is false and explains why', async () => {
     render(
       <ConversationList

@@ -762,10 +762,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           requestedCount,
           uniqueCount: uniqueConversationIds.length,
           updatedCount: result.updatedCount,
+          updatedConversationIdsCount: result.updatedConversationIds.length,
         },
       });
 
-      res.json({ status: 'ok', updatedCount: result.updatedCount });
+      res.json({
+        status: 'ok',
+        updatedCount: result.updatedCount,
+        updatedConversationIds: result.updatedConversationIds,
+      });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }
@@ -833,10 +838,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           requestedCount,
           uniqueCount: uniqueConversationIds.length,
           updatedCount: result.updatedCount,
+          updatedConversationIdsCount: result.updatedConversationIds.length,
         },
       });
 
-      res.json({ status: 'ok', updatedCount: result.updatedCount });
+      res.json({
+        status: 'ok',
+        updatedCount: result.updatedCount,
+        updatedConversationIds: result.updatedConversationIds,
+      });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }
@@ -904,10 +914,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           requestedCount,
           uniqueCount: uniqueConversationIds.length,
           deletedCount: result.deletedCount,
+          deletedConversationIdsCount: result.deletedConversationIds.length,
         },
       });
 
-      res.json({ status: 'ok', deletedCount: result.deletedCount });
+      res.json({
+        status: 'ok',
+        deletedCount: result.deletedCount,
+        deletedConversationIds: result.deletedConversationIds,
+      });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }

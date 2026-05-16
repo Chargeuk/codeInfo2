@@ -3739,7 +3739,7 @@ This review task repairs the shared provider-model selector so Story 57 runtime 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 39`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260516T183428Z-240d99fb`. This task owns the whole current review cycle's close-out proof, including the serious review-created repair and the inline-resolved minor documentation fix already recorded for this same cycle.
 
@@ -3808,6 +3808,7 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 - `npm run test:summary:server:unit` initially failed on four stale broad-proof expectations that still asserted the pre-Task-39 provider-model behavior in `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`, and `server/src/test/unit/chatProviders.test.ts`; updating those tests to match same-provider model repair and live-model default normalization brought the targeted rerun to 64/64 and the full rerun to 2105/2105.
 - `npm run test:summary:server:cucumber` passed cleanly at 118/118 after the shared selector proof repair, so the broad server feature surface stayed green.
 - `npm run test:summary:client` passed cleanly at 770/770, keeping the consumer-facing client surface aligned with the repaired provider-model contract.
+- Automated-proof audit confirmed all Task 40 subtasks and broad wrapper checks were already complete on disk with no live blocker, so the task was closed as `__done__`.
 - `npm run test:summary:e2e` passed cleanly at 51/51, keeping the paired browser close-out surface green for the current review cycle.
 - `npm run compose:up` brought the supported main stack up cleanly, and the paired `npm run compose:down` step shut it down cleanly again, so the close-out smoke path remained healthy on the checked-in compose route.
 - `npm run lint` passed cleanly after the stale-proof expectation updates, so the final review block did not introduce repository-wide lint drift.

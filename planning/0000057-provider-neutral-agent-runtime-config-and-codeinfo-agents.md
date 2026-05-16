@@ -3573,7 +3573,7 @@ This review task repairs the late-retry replay barrier ordering on the current r
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 36, Task 37`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 - Notes: Review-created final revalidation task for review cycle `0000057-rc-20260516T143140Z-a7078ad4`. This task now owns the whole current review cycle's close-out proof so later inline-resolved minor fixes for this same cycle do not spawn a second final-task owner.
 

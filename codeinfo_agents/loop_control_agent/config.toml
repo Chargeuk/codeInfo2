@@ -1,8 +1,9 @@
-model = "gpt-5.4"
+codeinfo_provider = "copilot"
+model = "gpt-5-mini"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
-web_search = "live" 
+web_search = "disabled"
 
 [features]
 view_image_tool = true
@@ -12,10 +13,6 @@ view_image_tool = true
 args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
 command = 'npx'
 startup_timeout_sec = 20.0
-
-[mcp_servers.mui]
-args = ['-y', '@mui/mcp@latest']
-command = 'npx'
 
 [mcp_servers.deepwiki]
 url = "https://mcp.deepwiki.com/mcp"
@@ -33,4 +30,3 @@ trust_level = "trusted"
 
 [projects."/app/server"]
 trust_level = "trusted"
-cli_auth_credentials_store = "file"

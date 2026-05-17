@@ -1,3 +1,4 @@
+codeinfo_provider = "codex"
 model = "openai/gpt-oss-20b"  # must match model name vLLM serves
 model_provider = "vllm"
 
@@ -5,5 +6,4 @@ model_provider = "vllm"
 name = "vLLM Local"
 base_url = "http://192.168.1.3:8000/v1"
 wire_api = "responses"           # can be "chat" or "responses" if your vLLM endpoint supports /v1/responses for your setup
-
 

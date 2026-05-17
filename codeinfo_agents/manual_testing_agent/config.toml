@@ -1,5 +1,4 @@
-codeinfo_provider = "copilot"
-model = "copilot-gpt-5"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"

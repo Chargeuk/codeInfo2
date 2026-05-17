@@ -53,6 +53,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
   - the failing task-owned proof step; or
   - when the live blocker is only that automated proof is still incomplete, the first unchecked task-owned `Testing` step.
 - If the blocker is only incomplete automated proof, treat the first unchecked `Testing` step as the next required action rather than as a passive blocked state. Run that step before deciding whether a narrower blocker still exists.
+- Before attempting a repair, re-run the exact failed task-owned proof step when one is identifiable from the blocker, task `Testing` section, wrapper summary, or saved log path. If the blocker is only that automated proof is incomplete, run the first unchecked task-owned `Testing` step first. Use that fresh rerun output as the primary debugging evidence unless rerunning is impossible or would be unsafe.
 - Inspect the concrete failure evidence first:
   - for a failed proof step, the failing assertion, error, stack, wrapper summary, or saved log path;
   - for an incomplete-proof blocker, the exact next unchecked `Testing` step and the wrapper or command it names.

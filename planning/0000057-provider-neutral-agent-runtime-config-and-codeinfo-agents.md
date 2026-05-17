@@ -3895,17 +3895,17 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 
 #### Testing
 
-1. [ ] Run `npm run compose:build:summary` from the repository root so the supported compose build path is revalidated before narrower wrappers rerun.
-2. [ ] Run `npm run build:summary:server` from the repository root so the server workspace still builds cleanly on the final story-close path.
-3. [ ] Run `npm run build:summary:client` from the repository root so the client workspace still typechecks and builds cleanly on the final story-close path.
-4. [ ] Run `npm run test:summary:server:unit` from the repository root so the broad server unit and integration regression surface is rerun after the inline minor documentation repair.
-5. [ ] Run `npm run test:summary:server:cucumber` from the repository root so the broad server Cucumber/Testcontainers regression surface is rerun on the final close-out path.
-6. [ ] Run `npm run test:summary:client` from the repository root so the broad client regression surface is rerun on the same final close-out path.
-7. [ ] Run `npm run test:summary:e2e` from the repository root so the repository's automated browser regression surface is rerun before story closure.
-8. [ ] Run `npm run compose:up` from the repository root so the supported main stack smoke-start path is revalidated after the broad automated wrappers pass.
-9. [ ] Run `npm run compose:down` from the repository root immediately after the smoke start so the supported main stack also proves a clean shutdown path.
-10. [ ] Run `npm run lint` from the repository root so repository-wide lint stays green across the final story-close proof pass.
-11. [ ] Run `npm run format:check` from the repository root so repository-wide formatting remains clean across the final story-close proof pass.
+1. [x] Run `npm run compose:build:summary` from the repository root so the supported compose build path is revalidated before narrower wrappers rerun.
+2. [x] Run `npm run build:summary:server` from the repository root so the server workspace still builds cleanly on the final story-close path.
+3. [x] Run `npm run build:summary:client` from the repository root so the client workspace still typechecks and builds cleanly on the final story-close path.
+4. [x] Run `npm run test:summary:server:unit` from the repository root so the broad server unit and integration regression surface is rerun after the inline minor documentation repair.
+5. [x] Run `npm run test:summary:server:cucumber` from the repository root so the broad server Cucumber/Testcontainers regression surface is rerun on the final close-out path.
+6. [x] Run `npm run test:summary:client` from the repository root so the broad client regression surface is rerun on the same final close-out path.
+7. [x] Run `npm run test:summary:e2e` from the repository root so the repository's automated browser regression surface is rerun before story closure.
+8. [x] Run `npm run compose:up` from the repository root so the supported main stack smoke-start path is revalidated after the broad automated wrappers pass.
+9. [x] Run `npm run compose:down` from the repository root immediately after the smoke start so the supported main stack also proves a clean shutdown path.
+10. [x] Run `npm run lint` from the repository root so repository-wide lint stays green across the final story-close proof pass.
+11. [x] Run `npm run format:check` from the repository root so repository-wide formatting remains clean across the final story-close proof pass.
 
 #### Implementation Notes
 
@@ -3917,3 +3917,14 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 - Confirmed `docs/developer-reference.md` still carries the repaired repository-relative markdown-link contract in the `CODEINFO_` env documentation block, and the current findings artifact still describes that same portable-link seam as the now-resolved inline documentation repair without widening into a new docs task.
 - Confirmed the final proof plan for this cycle still retains repository-wide lint coverage after the broader wrapper reruns through Task 42 Testing step 10, so final story-close hygiene remains part of this task's automated proof ownership instead of being split into another owner.
 - Confirmed the final proof plan still ends with repository-wide `format:check` after lint through Task 42 Testing step 11, and `package.json` still exposes the matching root scripts, so Task 42 remains the single final automated revalidation owner for review cycle `0000057-rc-20260517T021854Z-6354e95b`.
+- `npm run compose:build:summary` passed cleanly with `items passed: 2`, `items failed: 0`, and `agent_action: skip_log`, so the supported compose build path is green before the narrower final-cycle wrappers rerun.
+- `npm run build:summary:server` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the server workspace still builds on the final story-close path.
+- `npm run build:summary:client` passed cleanly with `warning_count: 0` and `agent_action: skip_log`, so the client workspace still typechecks and builds on the same final close-out path.
+- `npm run test:summary:server:unit` passed cleanly with `tests run: 2105`, `passed: 2105`, `failed: 0`, so the broad server unit and integration regression surface remains green after the inline documentation repair.
+- `npm run test:summary:server:cucumber` passed cleanly with `tests run: 118`, `passed: 118`, `failed: 0`, so the broad server Cucumber/Testcontainers surface remains green on the same final close-out path.
+- `npm run test:summary:client` passed cleanly with `tests run: 770`, `passed: 770`, `failed: 0`, so the broad client regression surface remains green on the same final close-out path.
+- `npm run test:summary:e2e` passed cleanly with `tests run: 51`, `passed: 51`, `failed: 0`, and the wrapper emitted `DEV-0000050:T13:e2e_host_network_config_verified`, so the repository's automated browser regression surface stayed green before final smoke and hygiene checks.
+- `npm run compose:up` brought the supported main stack up cleanly, and the paired readiness checks succeeded immediately afterward: `curl -fsS http://localhost:5010/health` returned `{\"status\":\"ok\",...\"mongoConnected\":true}` and `curl -I -fsS http://localhost:5001` returned `HTTP/1.1 200 OK`.
+- `npm run compose:down` then removed the supported main-stack containers and `codeinfo2_internal` network cleanly on the normal shutdown path, so the final smoke cycle did not leave the checked-in stack running.
+- `npm run lint` passed cleanly after the Task 42 proof path, so the repository-wide lint surface stayed green across the current final story-close pass.
+- `npm run format:check` passed cleanly with `All matched files use Prettier code style!`, so the current final story-close proof pass did not leave repository-wide formatting drift behind.

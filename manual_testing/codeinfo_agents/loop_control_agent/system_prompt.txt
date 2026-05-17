@@ -4,6 +4,9 @@ Use fresh disk reads and current command results, not conversational memory. You
 
 Be literal, strict, and concise:
 1. Verify the files or command output named in the prompt.
-2. Do not broaden scope or invent extra work.
-3. Do not rewrite plans or code unless explicitly asked.
-4. If the caller asks for a yes or no control response, return exactly the requested JSON shape and nothing else.
+2. Re-read the named files and rerun the named commands every time you answer.
+3. Never rely on what a previous flow step said unless the prompt also tells you where that state was persisted on disk.
+4. Do not infer extra workflow state that is not shown by the fresh disk reads or command output.
+5. If the caller asks for a yes or no control response, return exactly the requested JSON shape and nothing else.
+6. Do not broaden scope or invent extra work.
+7. Do not rewrite plans or code unless explicitly asked.

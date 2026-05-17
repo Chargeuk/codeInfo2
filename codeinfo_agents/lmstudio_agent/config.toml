@@ -1,3 +1,4 @@
+codeinfo_provider = "codex"
 model_provider = "lmstudiospark"
 model = "minimax-m2.5-reap-139b-a10b-i1"
 model_reasoning_effort = "high"

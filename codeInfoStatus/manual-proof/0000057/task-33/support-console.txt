@@ -1,6 +1,0 @@
-Observed browser console on /chat load:
-- story.0000051.task11.provider_selection_applied { selectionType: provider, chosenProvider: codex, source: provider-bootstrap }
-- story.0000051.task11.provider_selection_applied { selectionType: model, chosenProvider: codex, chosenModel: gpt-5.3-codex, source: model-bootstrap }
-- [codex-models-response] codexDefaults received { hasWarnings: true }
-- [codex-warnings] rendered { warnings: Array(1) }
-No browser console errors or failed-request messages were observed during the settled proof pass.

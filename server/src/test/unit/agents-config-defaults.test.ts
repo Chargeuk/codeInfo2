@@ -7,10 +7,69 @@ import { fileURLToPath } from 'node:url';
 
 import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
 
-import { resolveAgentRuntimeExecutionConfig } from '../../agents/config.js';
+import {
+  readAgentRequestedProviderMetadata,
+  resolveAgentRuntimeExecutionConfig,
+} from '../../agents/config.js';
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+  startAgentInstruction,
+} from '../../agents/service.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import { normalizeRuntimeConfig } from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+
+class ImmediateChat extends ChatInterface {
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+class CapturingImmediateChat extends ChatInterface {
+  constructor(
+    private readonly capture: (flags: Record<string, unknown>) => void,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    this.capture({ ...flags });
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return;
+    await delay(25);
+  }
+  throw new Error('Timed out waiting for condition');
+};
 
 describe('Agent config defaults', () => {
   it('normalizes features.view_image_tool alias to canonical output only', () => {
@@ -74,6 +133,137 @@ describe('Agent config defaults', () => {
     });
 
     assert.equal(resolved.modelId, 'gpt-5.2');
+    assert.equal(resolved.providerId, 'codex');
+  });
+
+  it('defaults a missing codeinfo_provider to codex', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(configPath, 'model = "gpt-5.2"\n', 'utf8');
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, undefined);
+  });
+
+  it('defaults a blank codeinfo_provider to codex', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = ""\n',
+      'utf8',
+    );
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, undefined);
+  });
+
+  it('defaults a whitespace-only codeinfo_provider to codex', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = "   "\n',
+      'utf8',
+    );
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, undefined);
+  });
+
+  it('preserves an invalid non-blank codeinfo_provider for later warning evaluation', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = "not-a-provider"\n',
+      'utf8',
+    );
+
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.providerId, 'codex');
+    assert.equal(resolved.requestedProviderId, 'not-a-provider');
+  });
+
+  it('extracts unsupported codeinfo_provider metadata without resolving provider runtime config', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.2"\ncodeinfo_provider = "not-a-provider"\n',
+      'utf8',
+    );
+
+    const metadata = await readAgentRequestedProviderMetadata({ configPath });
+
+    assert.equal(metadata.providerId, 'codex');
+    assert.equal(metadata.requestedProviderId, 'not-a-provider');
+    assert.deepEqual(metadata.warnings, []);
+  });
+
+  it('fails immediately when agent config metadata cannot be parsed as TOML', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(configPath, 'approval_policy = [\n', 'utf8');
+
+    await assert.rejects(() =>
+      readAgentRequestedProviderMetadata({
+        configPath,
+      }),
+    );
+  });
+
+  it('reads valid requested-provider metadata without requiring provider config homes to exist', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(
+      configPath,
+      'codeinfo_provider = "copilot"\nmodel = "copilot-gpt-5"\n',
+      'utf8',
+    );
+
+    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+    const previousLmStudioHome = process.env.CODEINFO_LMSTUDIO_HOME;
+    delete process.env.CODEINFO_CODEX_HOME;
+    delete process.env.CODEINFO_COPILOT_HOME;
+    delete process.env.CODEINFO_LMSTUDIO_HOME;
+
+    try {
+      const metadata = await readAgentRequestedProviderMetadata({ configPath });
+      assert.equal(metadata.providerId, 'copilot');
+      assert.equal(metadata.requestedProviderId, 'copilot');
+    } finally {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+      process.env.CODEINFO_LMSTUDIO_HOME = previousLmStudioHome;
+    }
   });
 
   it('emits deterministic T05 success log when runtime execution config resolves', async () => {
@@ -243,5 +433,349 @@ describe('Agent config defaults', () => {
     assert.equal('modelReasoningEffort' in captured.start, false);
     assert.equal('networkAccessEnabled' in captured.start, false);
     assert.equal('webSearchEnabled' in captured.start, false);
+  });
+
+  it('repairs an unavailable codex model before considering cross-provider fallback', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const agentsHome = path.join(tempRoot, 'agents');
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const codexHome = path.join(tempRoot, 'codex-home');
+    await fs.mkdir(path.join(agentHome), { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      'codeinfo_provider = "codex"\nmodel = "missing-codex-model"\napproval_policy = "never"\n',
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "codex-repaired"\n',
+      'utf8',
+    );
+
+    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+    const previousFallbackOrder =
+      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+    __setAgentServiceDepsForTests({
+      getCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+      }),
+      resolveCodexCapabilities: async () => ({
+        defaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: false,
+          webSearchMode: 'disabled',
+        },
+        models: [
+          {
+            model: 'codex-repaired',
+            supportedReasoningEfforts: ['high'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+        byModel: new Map(),
+        warnings: [],
+        fallbackUsed: false,
+      }),
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness: async () => ({
+        available: true,
+        toolsAvailable: true,
+        blockingStage: 'ready',
+        models: ['copilot-model'],
+        modelsRaw: [
+          {
+            id: 'copilot-model',
+            name: 'Copilot Model',
+            capabilities: {
+              supports: { vision: false, reasoningEffort: false },
+              limits: { max_context_window_tokens: 128000 },
+            },
+          },
+        ],
+        authSource: 'env-token',
+      }),
+    });
+
+    try {
+      const started = await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        source: 'REST',
+        chatFactory: () => new ImmediateChat(),
+      });
+
+      assert.equal(started.providerId, 'codex');
+      assert.equal(started.modelId, 'codex-repaired');
+      const conversation = memoryConversations.get(started.conversationId);
+      assert.equal(conversation?.provider, 'codex');
+      assert.equal(conversation?.model, 'codex-repaired');
+    } finally {
+      __resetAgentServiceDepsForTests();
+      memoryConversations.clear();
+      memoryTurns.clear();
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
+        previousFallbackOrder;
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('honors CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER when invalid-provider fallback chooses an execution provider', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const agentsHome = path.join(tempRoot, 'agents');
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const codexHome = path.join(tempRoot, 'codex-home');
+    const copilotHome = path.join(tempRoot, 'copilot-home');
+    await fs.mkdir(path.join(agentHome), { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      'codeinfo_provider = "bad-provider"\nmodel = "missing-model"\n',
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "codex-model"\n',
+      'utf8',
+    );
+    await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(copilotHome, 'chat', 'config.toml'),
+      'model = "copilot-model"\n',
+      'utf8',
+    );
+
+    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+    const previousFallbackOrder =
+      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+    process.env.CODEINFO_COPILOT_HOME = copilotHome;
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+    __setAgentServiceDepsForTests({
+      getCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+      }),
+      resolveCodexCapabilities: async () => ({
+        defaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: false,
+          webSearchMode: 'disabled',
+        },
+        models: [
+          {
+            model: 'codex-model',
+            supportedReasoningEfforts: ['high'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+        byModel: new Map(),
+        warnings: [],
+        fallbackUsed: false,
+      }),
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness: async () => ({
+        available: true,
+        toolsAvailable: true,
+        blockingStage: 'ready',
+        models: ['copilot-model'],
+        modelsRaw: [
+          {
+            id: 'copilot-model',
+            name: 'Copilot Model',
+            capabilities: {
+              supports: { vision: false, reasoningEffort: false },
+              limits: { max_context_window_tokens: 128000 },
+            },
+          },
+        ],
+        authSource: 'env-token',
+      }),
+    });
+
+    try {
+      const started = await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello',
+        source: 'REST',
+        chatFactory: () => new ImmediateChat(),
+      });
+
+      assert.equal(started.providerId, 'copilot');
+      assert.equal(started.modelId, 'copilot-model');
+      const conversation = memoryConversations.get(started.conversationId);
+      assert.equal(conversation?.provider, 'copilot');
+      assert.equal(conversation?.model, 'copilot-model');
+    } finally {
+      __resetAgentServiceDepsForTests();
+      memoryConversations.clear();
+      memoryTurns.clear();
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
+        previousFallbackOrder;
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('creates the first direct Copilot agent run before resuming later turns on the same conversation', async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const agentsHome = path.join(tempRoot, 'agents');
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const codexHome = path.join(tempRoot, 'codex-home');
+    const copilotHome = path.join(tempRoot, 'copilot-home');
+    const capturedFlags: Array<Record<string, unknown>> = [];
+
+    await fs.mkdir(agentHome, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      'codeinfo_provider = "copilot"\nmodel = "copilot-model"\n',
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "codex-model"\n',
+      'utf8',
+    );
+    await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(copilotHome, 'chat', 'config.toml'),
+      'model = "copilot-model"\n',
+      'utf8',
+    );
+
+    const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+    const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+    process.env.CODEINFO_COPILOT_HOME = copilotHome;
+
+    __setAgentServiceDepsForTests({
+      getCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+      }),
+      resolveCodexCapabilities: async () => ({
+        defaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: false,
+          webSearchMode: 'disabled',
+        },
+        models: [
+          {
+            model: 'codex-model',
+            supportedReasoningEfforts: ['high'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+        byModel: new Map(),
+        warnings: [],
+        fallbackUsed: false,
+      }),
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness: async () => ({
+        available: true,
+        toolsAvailable: true,
+        blockingStage: 'ready',
+        models: ['copilot-model'],
+        modelsRaw: [
+          {
+            id: 'copilot-model',
+            name: 'Copilot Model',
+            capabilities: {
+              supports: { vision: false, reasoningEffort: false },
+              limits: { max_context_window_tokens: 128000 },
+            },
+          },
+        ],
+        authSource: 'env-token',
+      }),
+    });
+
+    try {
+      const conversationId = 'copilot-first-run-create-then-resume';
+
+      await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello once',
+        conversationId,
+        source: 'REST',
+        chatFactory: () =>
+          new CapturingImmediateChat((flags) => {
+            capturedFlags.push(flags);
+          }),
+      });
+      await waitFor(() => (memoryTurns.get(conversationId)?.length ?? 0) >= 2);
+
+      await startAgentInstruction({
+        agentName: 'coding_agent',
+        instruction: 'Hello twice',
+        conversationId,
+        source: 'REST',
+        chatFactory: () =>
+          new CapturingImmediateChat((flags) => {
+            capturedFlags.push(flags);
+          }),
+      });
+
+      await waitFor(() => capturedFlags.length === 2);
+      assert.equal(capturedFlags.length, 2);
+      assert.equal(capturedFlags[0]?.resumeConversation, false);
+      assert.equal(capturedFlags[1]?.resumeConversation, true);
+    } finally {
+      __resetAgentServiceDepsForTests();
+      memoryConversations.clear();
+      memoryTurns.clear();
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+      await fs.rm(tempRoot, { recursive: true, force: true });
+    }
   });
 });

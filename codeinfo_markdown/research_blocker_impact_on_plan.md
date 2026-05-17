@@ -147,6 +147,10 @@ If the blocker exists because the current task assumes a missing runtime seam, d
 
 If this step turns the blocker into actionable next work for the current task, you MUST convert the old active blocker note titled exactly `**BLOCKER**` into a historical non-blocking note titled exactly `**RESOLVED ISSUE**` and preserve its details, even when no broader task split or story repair is required. Keep the `**BLOCKING ANSWER**` note as the proof of how the blocker was resolved. Only leave a note titled exactly `**BLOCKER**` in place when the task is still actively blocked after this step.
 
+If the latest `**BLOCKING ANSWER**` concludes that the current task still owns the work, no prerequisite task or task-shape repair is required, and coding, automated proof, or manual testing can continue on the same task, then you MUST retire the live `**BLOCKER**` note in this step. In that case, convert it to `**RESOLVED ISSUE**` even when unchecked `Testing` items still remain on the same task.
+
+Unchecked `Testing` items that are already listed on the current task are normal remaining work, not by themselves a reason to preserve a live `**BLOCKER**`, unless the `**BLOCKING ANSWER**` proves a separate still-active prerequisite, harness, runtime-handoff, baseline, or task-shape blocker.
+
 If this step rewrites, narrows, or re-owns a task in a way that makes all of that task's subtasks and testing steps honestly complete, do not set that task's `Task Status` directly to `__done__`. Leave it as `__in_progress__` so the normal automated-proof audit and manual-testing path can finalize it honestly in the implementation loop, and add an implementation note explaining that planner repair made the task ready for that final completion path.
 
 </repair_rules>
@@ -156,6 +160,7 @@ If this step rewrites, narrows, or re-owns a task in a way that makes all of tha
 - This step decides plan impact; it does not re-prove the blocker solution from scratch.
 - If no story repair is needed, state explicitly why not.
 - If the blocker is now answered well enough that coding, automated proof, or manual testing can continue, retire the live `**BLOCKER**` note in this step before the flow returns to the current-task rework loop.
+- You MUST NOT leave both of these true at the same time for the same issue: `no plan repair needed` and a live `**BLOCKER**` note that the latest `**BLOCKING ANSWER**` has already made actionable on the same task.
 - Do not bypass the normal audit and manual-testing completion path by setting a planner-repaired task directly to `__done__`.
 - Do not leave any task `__done__` after this step if you added unchecked subtasks, unchecked testing, or a live `**BLOCKER**` to that task during the repair.
 - Do not leave a known plan defect in place once the blocker has proved it.

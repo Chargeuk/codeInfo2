@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import mongoose from 'mongoose';
 
-import { sanitizeConversationFlagsForProvider } from '../../chat/agentFlags.js';
+import { buildConversationFlags } from '../../chat/agentFlags.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import {
   listConversations,
@@ -19,21 +19,75 @@ const restore = <T extends object, K extends keyof T>(
   (target as Record<string, unknown>)[key as string] = original as unknown;
 };
 
-test('ordinary conversation flag sanitization drops flow-owned metadata while nested flow writers remain the owner', () => {
+test('buildConversationFlags preserves server-owned flow flags across continuation writes', () => {
+  const currentFlags = {
+    flow: {
+      executionId: 'flow-execution-1',
+      stepPath: [1, 2],
+      loopStack: [{ loopStepPath: [1], iteration: 3 }],
+    },
+    flowChild: {
+      executionId: 'child-execution-1',
+    },
+    workingFolder: ' /repos/original-root ',
+    threadId: 'codex-thread-1',
+    agentFlags: {
+      sandboxMode: 'workspace-write',
+      toolAccess: 'user-supplied-and-invalid-for-codex',
+    },
+  };
+
   assert.deepEqual(
-    sanitizeConversationFlagsForProvider(
-      'codex',
-      {
-        flow: { executionId: 'smuggled-parent-1' },
-        flowChild: { executionId: 'smuggled-child-1' },
-        threadId: 'thread-1',
-        workingFolder: '/repos/flow-root',
+    buildConversationFlags({
+      provider: 'copilot',
+      currentFlags,
+      agentFlags: {
+        toolAccess: 'all',
+        sandboxMode: 'workspace-write',
       },
-      { preserveFlowState: false },
-    ),
+      workingFolder: ' /repos/next-root ',
+      preserveFlowState: true,
+    }),
     {
-      threadId: 'thread-1',
-      workingFolder: '/repos/flow-root',
+      flow: {
+        executionId: 'flow-execution-1',
+        stepPath: [1, 2],
+        loopStack: [{ loopStepPath: [1], iteration: 3 }],
+      },
+      flowChild: {
+        executionId: 'child-execution-1',
+      },
+      workingFolder: '/repos/next-root',
+      agentFlags: {
+        toolAccess: 'all',
+      },
+    },
+  );
+});
+
+test('buildConversationFlags strips flow-owned metadata when continuation writers do not preserve it', () => {
+  const currentFlags = {
+    flow: {
+      executionId: 'flow-execution-2',
+    },
+    flowChild: {
+      executionId: 'child-execution-2',
+    },
+    workingFolder: '/repos/kept-root',
+    threadId: 'codex-thread-2',
+  };
+
+  assert.deepEqual(
+    buildConversationFlags({
+      provider: 'codex',
+      currentFlags,
+      workingFolder: '/repos/kept-root',
+      threadId: 'codex-thread-2',
+      preserveFlowState: false,
+    }),
+    {
+      workingFolder: '/repos/kept-root',
+      threadId: 'codex-thread-2',
     },
   );
 });
@@ -155,23 +209,23 @@ test('updateConversationFlowChildExecution persists flags.flowChild.executionId 
     configurable: true,
   });
 
-  const original = ConversationModel.findByIdAndUpdate;
+  const original = ConversationModel.findOneAndUpdate;
   const captured: Array<{
-    id: unknown;
+    filter: unknown;
     update: unknown;
     options: unknown;
   }> = [];
 
-  ConversationModel.findByIdAndUpdate = ((
-    id: unknown,
+  ConversationModel.findOneAndUpdate = ((
+    filter: unknown,
     update: unknown,
     options: unknown,
   ) => {
-    captured.push({ id, update, options });
+    captured.push({ filter, update, options });
     return { exec: async () => null } as unknown as ReturnType<
-      typeof ConversationModel.findByIdAndUpdate
+      typeof ConversationModel.findOneAndUpdate
     >;
-  }) as typeof ConversationModel.findByIdAndUpdate;
+  }) as typeof ConversationModel.findOneAndUpdate;
 
   try {
     await updateConversationFlowChildExecution({
@@ -179,7 +233,7 @@ test('updateConversationFlowChildExecution persists flags.flowChild.executionId 
       executionId: 'execution-child-1',
     });
   } finally {
-    ConversationModel.findByIdAndUpdate = original;
+    ConversationModel.findOneAndUpdate = original;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,
       configurable: true,
@@ -187,7 +241,21 @@ test('updateConversationFlowChildExecution persists flags.flowChild.executionId 
   }
 
   assert.equal(captured.length, 1);
-  assert.equal(captured[0]?.id, 'agent-1');
+  assert.deepEqual(captured[0]?.filter, {
+    _id: 'agent-1',
+    $expr: {
+      $eq: [
+        {
+          $trim: {
+            input: {
+              $ifNull: ['$flags.flowChild.executionId', ''],
+            },
+          },
+        },
+        '',
+      ],
+    },
+  });
   assert.deepEqual(captured[0]?.update, {
     $set: {
       'flags.flowChild.executionId': 'execution-child-1',

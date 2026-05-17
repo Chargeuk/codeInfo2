@@ -19,6 +19,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { query, resetStore } from '../../logStore.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createAgentsCommandsRouter } from '../../routes/agentsCommands.js';
 
 const repoRoot = path.resolve(
@@ -100,6 +101,14 @@ function buildApp(deps?: {
   return app;
 }
 
+setCodexDetection({
+  available: true,
+  authPresent: true,
+  configPresent: true,
+  cliPath: '/usr/bin/codex',
+  reason: undefined,
+});
+
 test('POST /agents/:agentName/commands/run returns 202 + a stable started payload shape', async () => {
   let receivedSourceId: string | undefined;
   let receivedStartStep: number | undefined;
@@ -116,6 +125,7 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
           agentName: 'planning_agent',
           commandName: 'improve_plan',
           conversationId: 'conv-1',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -129,10 +139,39 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
   assert.equal(res.body.agentName, 'planning_agent');
   assert.equal(res.body.commandName, 'improve_plan');
   assert.equal(res.body.conversationId, 'conv-1');
+  assert.equal(res.body.providerId, 'copilot');
   assert.equal(typeof res.body.modelId, 'string');
   assert.equal(res.body.modelId.length > 0, true);
   assert.equal(receivedSourceId, undefined);
   assert.equal(receivedStartStep, undefined);
+});
+
+test('POST /agents/:agentName/commands/run keeps warning-bearing started responses intact', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        return {
+          agentName: 'planning_agent',
+          commandName: 'improve_plan',
+          conversationId: 'conv-warning',
+          providerId: 'codex',
+          modelId: 'gpt-5.3-codex',
+          warnings: [
+            'Provider "copilot" is unavailable: copilot unavailable.',
+            'Agent will use fallback provider "codex" because "copilot" cannot execute.',
+          ],
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 202);
+  assert.deepEqual(res.body.warnings, [
+    'Provider "copilot" is unavailable: copilot unavailable.',
+    'Agent will use fallback provider "codex" because "copilot" cannot execute.',
+  ]);
 });
 
 test('POST /agents/:agentName/commands/run forwards sourceId for ingested command runs', async () => {
@@ -145,6 +184,7 @@ test('POST /agents/:agentName/commands/run forwards sourceId for ingested comman
           agentName: 'planning_agent',
           commandName: 'build',
           conversationId: 'conv-2',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -168,6 +208,7 @@ test('POST /agents/:agentName/commands/run forwards startStep when provided', as
           agentName: 'planning_agent',
           commandName: 'build',
           conversationId: 'conv-2',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -311,11 +352,11 @@ test("POST /agents/:agentName/commands/run maps AGENT_MISMATCH to 400 { error: '
   assert.deepEqual(res.body, { error: 'agent_mismatch' });
 });
 
-test('POST /agents/:agentName/commands/run maps CODEX_UNAVAILABLE to 503', async () => {
+test('POST /agents/:agentName/commands/run maps PROVIDER_UNAVAILABLE to 503', async () => {
   const res = await request(
     buildApp({
       startAgentCommand: async () => {
-        throw { code: 'CODEX_UNAVAILABLE', reason: 'missing codex config' };
+        throw { code: 'PROVIDER_UNAVAILABLE', reason: 'copilot unavailable' };
       },
     }),
   )
@@ -324,8 +365,32 @@ test('POST /agents/:agentName/commands/run maps CODEX_UNAVAILABLE to 503', async
 
   assert.equal(res.status, 503);
   assert.deepEqual(res.body, {
-    error: 'codex_unavailable',
-    reason: 'missing codex config',
+    error: 'provider_unavailable',
+    reason: 'copilot unavailable',
+  });
+});
+
+test('POST /agents/:agentName/commands/run maps AGENT_DISABLED to 409 disabled payload', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        throw {
+          code: 'AGENT_DISABLED',
+          reason:
+            'Provider "copilot" is unavailable: copilot connectivity unavailable.',
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 409);
+  assert.deepEqual(res.body, {
+    error: 'agent_disabled',
+    code: 'AGENT_DISABLED',
+    reason:
+      'Provider "copilot" is unavailable: copilot connectivity unavailable.',
   });
 });
 
@@ -585,12 +650,31 @@ test('direct command execution restores the saved folder from the owning agent c
   );
   const savedWorkingRoot = path.join(tmpDir, 'saved-working-repo');
   const sourceRoot = path.join(tmpDir, 'source-repo');
+  const agentsHome = path.join(tmpDir, 'codeinfo_agents');
+  const planningAgentHome = path.join(agentsHome, 'planning_agent');
+  const codexHome = path.join(tmpDir, 'codex-home');
   const commandName = 'task5_direct_command_saved_folder';
   const conversationId = 'task5-direct-command-saved-folder';
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
 
   try {
-    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+    await fs.mkdir(planningAgentHome, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(planningAgentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(planningAgentHome, 'config.toml'),
+      ['model = "auto"', 'approval_policy = "never"'].join('\n'),
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), '', 'utf8');
+
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
     await writeRepoCommand({
       repoRoot: savedWorkingRoot,
       commandName,
@@ -615,6 +699,32 @@ test('direct command execution restores the saved folder from the owning agent c
       archivedAt: null,
     });
     __setAgentServiceDepsForTests({
+      getCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+      }),
+      resolveCodexCapabilities: async () => ({
+        defaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: false,
+          webSearchMode: 'disabled',
+        },
+        models: [
+          {
+            model: 'gpt-5.1-codex-max',
+            supportedReasoningEfforts: ['high'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+        byModel: new Map(),
+        warnings: [],
+        fallbackUsed: false,
+      }),
+      getMcpStatus: async () => ({ available: true }),
       listIngestedRepositories: async () =>
         ({
           repos: [
@@ -670,10 +780,20 @@ test('direct command execution restores the saved folder from the owning agent c
     __resetAgentServiceDepsForTests();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
     if (previousAgentsHome === undefined) {
       delete process.env.CODEINFO_CODEX_AGENT_HOME;
     } else {
       process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

@@ -41,6 +41,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
   - startup order where relevant;
   - any needed login, seed, or setup path;
   - where credentials or access come from without inlining secrets.
+- If `AGENTS.md` or `codeinfo_markdown/repository_information.md` defines repository-specific conditions that allow manual proof to be narrowed or skipped for certain surfaces, verify that the relevant task-level `Manual Testing Guidance` carries those conditions forward whenever that task could realistically hit them.
 - Verify that the final task's manual-testing proof guidance still writes task-scoped artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and that the story closeout path points durable curated proof at `codeInfoStatus/manual-proof/<story-number>/`.
 - Check that any Playwright MCP screenshot guidance explains the staging-and-transfer flow instead of treating `$CODEINFO_ROOT/playwright-output-local` or the Playwright output directory as the final target repository artifact destination.
 - Verify that manual-testing guidance prefers the unmodified human Docker stack whenever repository evidence shows it is runnable, and only falls back to minimal test-only enablement when the normal stack is not enough.

@@ -21,7 +21,7 @@ function assertTask20DesignCoverage(content: string): void {
   const requiredMarkers = [
     '## Story 0000037 Task 20: shared-home runtime architecture and API contract sync',
     'chat behavior source: `./codex/chat/config.toml`.',
-    'agent behavior source: `codex_agents/<agent>/config.toml`.',
+    'agent behavior source: `codeinfo_agents/<agent>/config.toml`, with `codex_agents/<agent>/config.toml` retained as the legacy compatibility fallback when the preferred root is absent.',
     '`effectiveProjects = { ...baseProjects, ...agentProjects }`',
     '`features.view_image_tool` normalizes to canonical `tools.view_image`.',
     '`POST /codex/device-auth` with `{}` only.',

@@ -1,6 +1,6 @@
 import { append } from '../logStore.js';
 
-import { resolveServerPort } from './serverPort.js';
+import { assertValidPortString, resolveServerPort } from './serverPort.js';
 
 const CODEINFO_ENV_PLACEHOLDER_PATTERN = /\$\{([A-Z0-9_]+)\}/g;
 const DIRECT_PLACEHOLDER_KEYS = new Set(['CODEINFO_PLAYWRIGHT_MCP_URL']);
@@ -71,19 +71,25 @@ const isPlaceholderFree = (value: string | null): boolean =>
 export function resolveCodeinfoChatMcpPort(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return assertPlaceholderFreeValue({
-    label: 'CODEINFO_CHAT_MCP_PORT',
-    value: readNonEmpty(env.CODEINFO_CHAT_MCP_PORT) ?? '5011',
-  });
+  return assertValidPortString(
+    'CODEINFO_CHAT_MCP_PORT',
+    assertPlaceholderFreeValue({
+      label: 'CODEINFO_CHAT_MCP_PORT',
+      value: readNonEmpty(env.CODEINFO_CHAT_MCP_PORT) ?? '5011',
+    }),
+  );
 }
 
 export function resolveCodeinfoAgentsMcpPort(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  return assertPlaceholderFreeValue({
-    label: 'CODEINFO_AGENTS_MCP_PORT',
-    value: readNonEmpty(env.CODEINFO_AGENTS_MCP_PORT) ?? '5012',
-  });
+  return assertValidPortString(
+    'CODEINFO_AGENTS_MCP_PORT',
+    assertPlaceholderFreeValue({
+      label: 'CODEINFO_AGENTS_MCP_PORT',
+      value: readNonEmpty(env.CODEINFO_AGENTS_MCP_PORT) ?? '5012',
+    }),
+  );
 }
 
 export function resolveOptionalCodeinfoPlaywrightMcpUrl(

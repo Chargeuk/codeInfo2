@@ -87,6 +87,25 @@ function pickProvider(
     preferredProvider?: ChatProviderId;
   },
 ): ChatProviderId | undefined {
+  const currentProvider =
+    options?.currentProvider &&
+    list.find((provider) => provider.id === options.currentProvider);
+  if (currentProvider?.available) {
+    return currentProvider.id;
+  }
+
+  const preferredProvider =
+    options?.preferredProvider &&
+    list.find((provider) => provider.id === options.preferredProvider);
+  if (preferredProvider?.available) {
+    return preferredProvider.id;
+  }
+
+  const firstAvailable = list.find((provider) => provider.available);
+  if (firstAvailable) {
+    return firstAvailable.id;
+  }
+
   if (
     options?.currentProvider &&
     list.some((provider) => provider.id === options.currentProvider)
@@ -100,9 +119,7 @@ function pickProvider(
   ) {
     return options.preferredProvider;
   }
-
-  const firstAvailable = list.find((provider) => provider.available);
-  return firstAvailable?.id ?? list[0]?.id;
+  return list[0]?.id;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -802,6 +819,25 @@ export function useChatModel() {
     const selectedProvider = providerState
       ? providers.find((entry) => entry.id === providerState)
       : undefined;
+
+    if (
+      providerState &&
+      providerStatus === 'success' &&
+      !legacyBootstrapRef.current &&
+      selectedProvider &&
+      !selectedProvider.available
+    ) {
+      hydratedModelsProviderRef.current = undefined;
+      setAvailable(false);
+      setToolsAvailable(Boolean(selectedProvider.toolsAvailable));
+      setProviderReason(selectedProvider.reason);
+      setProviderInfo(selectedProvider);
+      setCodexDefaults(selectedProvider.compatibility?.codexDefaults);
+      setCodexWarnings(selectedProvider.compatibility?.codexWarnings);
+      setModels([]);
+      setSelected(undefined, { source: 'model-fallback' });
+      return;
+    }
 
     if (
       providerState &&

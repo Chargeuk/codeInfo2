@@ -27,39 +27,37 @@ function makeTempDir(prefix: string) {
   return dir;
 }
 
-test('startup copy copies once and does not overwrite on subsequent calls', () => {
+test('shared-home startup keeps one writable auth authority across repeated calls', () => {
   const containerHome = makeTempDir('codex-container-');
-  const hostHome = makeTempDir('codex-host-');
-  const hostAuth = path.join(hostHome, 'auth.json');
-  fs.writeFileSync(hostAuth, '{"token":"host"}');
+  const sharedAuth = path.join(containerHome, 'auth.json');
+  fs.writeFileSync(sharedAuth, '{"token":"shared"}');
 
-  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
-  const containerAuthPath = path.join(containerHome, 'auth.json');
-  assert.equal(fs.readFileSync(containerAuthPath, 'utf8'), '{"token":"host"}');
+  ensureCodexAuthFromHost({
+    containerHome,
+    hostHome: containerHome,
+    logger,
+  });
+  ensureCodexAuthFromHost({
+    containerHome,
+    hostHome: containerHome,
+    logger,
+  });
 
-  // change host auth and rerun; container should stay the same
-  fs.writeFileSync(hostAuth, '{"token":"new-host"}');
-  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
-
-  assert.equal(fs.readFileSync(containerAuthPath, 'utf8'), '{"token":"host"}');
+  assert.equal(fs.readFileSync(sharedAuth, 'utf8'), '{"token":"shared"}');
 });
 
-test('shared-home refresh detection transitions to available after host auth copy', () => {
+test('shared-home refresh detection stays available when auth lives in the runtime home', () => {
   const containerHome = makeTempDir('codex-container-');
-  const hostHome = makeTempDir('codex-host-');
   const configPath = path.join(containerHome, 'config.toml');
-  const hostAuth = path.join(hostHome, 'auth.json');
 
   fs.writeFileSync(configPath, 'model = "gpt-5.3-codex"\n');
-  fs.writeFileSync(hostAuth, '{"token":"host"}');
+  fs.writeFileSync(path.join(containerHome, 'auth.json'), '{"token":"shared"}');
 
-  const before = refreshCodexDetection({
-    codexHome: containerHome,
-    resolveCliPath: () => '/usr/local/bin/codex',
+  ensureCodexAuthFromHost({
+    containerHome,
+    hostHome: containerHome,
+    logger,
   });
-  assert.equal(before.available, false);
-
-  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
 
   const after = refreshCodexDetection({
     codexHome: containerHome,
@@ -70,10 +68,9 @@ test('shared-home refresh detection transitions to available after host auth cop
   assert.equal(after.configPresent, true);
 });
 
-test('host auth copy does not execute destructive delete operations', () => {
+test('shared-home auth validation does not execute destructive delete operations', () => {
   const containerHome = makeTempDir('codex-container-');
-  const hostHome = makeTempDir('codex-host-');
-  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+  fs.writeFileSync(path.join(containerHome, 'auth.json'), '{"token":"shared"}');
   const unlinkCalls: string[] = [];
   const rmCalls: string[] = [];
   mock.method(fs, 'unlinkSync', (targetPath: fs.PathLike) => {
@@ -84,7 +81,11 @@ test('host auth copy does not execute destructive delete operations', () => {
   });
 
   try {
-    ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+    ensureCodexAuthFromHost({
+      containerHome,
+      hostHome: containerHome,
+      logger,
+    });
     assert.equal(unlinkCalls.length, 0);
     assert.equal(rmCalls.length, 0);
   } finally {
@@ -92,10 +93,9 @@ test('host auth copy does not execute destructive delete operations', () => {
   }
 });
 
-test('host auth copy does not execute rename/move operations', () => {
+test('shared-home auth validation does not execute rename or move operations', () => {
   const containerHome = makeTempDir('codex-container-');
-  const hostHome = makeTempDir('codex-host-');
-  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+  fs.writeFileSync(path.join(containerHome, 'auth.json'), '{"token":"shared"}');
   const renameCalls: Array<{ from: string; to: string }> = [];
   mock.method(
     fs,
@@ -106,21 +106,54 @@ test('host auth copy does not execute rename/move operations', () => {
   );
 
   try {
-    ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+    ensureCodexAuthFromHost({
+      containerHome,
+      hostHome: containerHome,
+      logger,
+    });
     assert.equal(renameCalls.length, 0);
   } finally {
     mock.restoreAll();
   }
 });
 
-test('container auth file remains present across repeated host-copy runs', () => {
+test('split host auth seeds the runtime home before detection runs', () => {
   const containerHome = makeTempDir('codex-container-');
   const hostHome = makeTempDir('codex-host-');
-  const hostAuth = path.join(hostHome, 'auth.json');
-  fs.writeFileSync(hostAuth, '{"token":"host"}');
+  const configPath = path.join(containerHome, 'config.toml');
+
+  fs.writeFileSync(configPath, 'model = "gpt-5.3-codex"\n');
+  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
 
   ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+  assert.equal(
+    fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
+    '{"token":"host"}',
+  );
+
+  const after = refreshCodexDetection({
+    codexHome: containerHome,
+    resolveCliPath: () => '/usr/local/bin/codex',
+  });
+  assert.equal(after.available, true);
+  assert.equal(after.authPresent, true);
+  assert.equal(after.configPresent, true);
+});
+
+test('split host and runtime auth preserves the runtime copy when both are present', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  fs.writeFileSync(
+    path.join(containerHome, 'auth.json'),
+    '{"token":"container"}',
+  );
+  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+
   ensureCodexAuthFromHost({ containerHome, hostHome, logger });
 
-  assert.equal(fs.existsSync(path.join(containerHome, 'auth.json')), true);
+  assert.equal(
+    fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
+    '{"token":"container"}',
+  );
 });

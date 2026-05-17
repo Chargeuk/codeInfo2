@@ -5,6 +5,7 @@ import { getCodexHome } from '../config/codexConfig.js';
 import { baseLogger } from '../logger.js';
 
 import { ensureAgentAuthSeeded } from './authSeed.js';
+import { listConfiguredAgentHomes } from './roots.js';
 import type { DiscoveredAgent } from './types.js';
 
 const fileExists = async (filePath: string) => {
@@ -20,28 +21,22 @@ const fileExists = async (filePath: string) => {
 export const discoverAgents = async (options?: {
   seedAuth?: boolean;
 }): Promise<DiscoveredAgent[]> => {
-  const agentsHomeEnv = process.env.CODEINFO_CODEX_AGENT_HOME;
-  if (!agentsHomeEnv) {
-    throw new Error('CODEINFO_CODEX_AGENT_HOME is not set');
-  }
-
-  const agentsHome = path.resolve(agentsHomeEnv);
   const primaryCodexHome = getCodexHome();
-  const dirents = await fs.readdir(agentsHome, { withFileTypes: true });
+  const configuredHomes = await listConfiguredAgentHomes();
 
   const agents: DiscoveredAgent[] = [];
-  for (const dirent of dirents) {
-    if (!dirent.isDirectory()) continue;
+  for (const entry of configuredHomes.agents) {
+    if (!entry.home) continue;
 
-    const name = dirent.name;
-    const home = path.join(agentsHome, name);
+    const name = entry.agentName;
+    const home = entry.home;
     const configPath = path.join(home, 'config.toml');
     if (!(await fileExists(configPath))) continue;
 
     const descriptionPath = path.join(home, 'description.md');
     const systemPromptPath = path.join(home, 'system_prompt.txt');
 
-    const warnings: string[] = [];
+    const warnings = [...entry.warnings];
 
     if (options?.seedAuth !== false) {
       const seedResult = await ensureAgentAuthSeeded({

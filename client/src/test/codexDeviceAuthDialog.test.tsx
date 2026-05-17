@@ -51,6 +51,13 @@ function renderDialog(props?: {
   );
 }
 
+function expectCliOutputToContain(expectedText: string) {
+  const cliOutputHeading = screen.getByText('CLI output');
+  const cliOutputContainer = cliOutputHeading.nextElementSibling;
+  expect(cliOutputContainer).not.toBeNull();
+  expect(cliOutputContainer).toHaveTextContent(expectedText);
+}
+
 describe('CodexDeviceAuthDialog', () => {
   beforeEach(() => {
     postProviderDeviceAuth.mockReset();
@@ -70,7 +77,7 @@ describe('CodexDeviceAuthDialog', () => {
     expect(buttons).toEqual(['Codex Auth', 'Copilot Auth', 'Close']);
   });
 
-  it('renders verification URL and one-time code below the shared buttons without replacing the outer dialog tree', async () => {
+  it('renders verification URL and CLI output below the shared buttons without replacing the outer dialog tree', async () => {
     const user = userEvent.setup();
     postProviderDeviceAuth.mockResolvedValue(
       buildAuthResponse({
@@ -98,11 +105,46 @@ describe('CodexDeviceAuthDialog', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText('Verification URL')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'https://github.com/login/device' }),
-    ).toHaveAttribute('href', 'https://github.com/login/device');
+      screen
+        .getAllByRole('link', { name: 'https://github.com/login/device' })
+        .every(
+          (link) =>
+            link.getAttribute('href') === 'https://github.com/login/device',
+        ),
+    ).toBe(true);
+    expect(screen.getByText('CLI output')).toBeInTheDocument();
+    expectCliOutputToContain(
+      'Open https://github.com/login/device and enter COPILOT-CODE.',
+    );
+  });
+
+  it('shows advisory detected-auth messaging while still rendering the real login flow', async () => {
+    const user = userEvent.setup();
+    postProviderDeviceAuth.mockResolvedValue(
+      buildAuthResponse({
+        provider: 'copilot',
+        state: 'verification_ready',
+        payload: {
+          verificationUrl: 'https://github.com/login/device',
+          userCode: 'COPILOT-CODE',
+          detectedAuthState: 'already_authenticated',
+        },
+      }),
+    );
+
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Copilot Auth' }));
+
     expect(
-      screen.getByText('COPILOT-CODE', { selector: 'code' }),
+      await screen.findByText(
+        'GitHub Copilot appears to already be authenticated for this runtime, but a fresh login was still attempted.',
+      ),
     ).toBeInTheDocument();
+    expect(await screen.findByText('Verification URL')).toBeInTheDocument();
+    expect(screen.getByText('CLI output')).toBeInTheDocument();
+    expectCliOutputToContain(
+      'Open https://github.com/login/device and enter COPILOT-CODE.',
+    );
   });
 
   it('renders already-authenticated state without relying on raw output blocks', async () => {
@@ -141,7 +183,7 @@ describe('CodexDeviceAuthDialog', () => {
     expect(
       await screen.findByText('GitHub login required'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Status details')).toBeNull();
+    expect(screen.queryByText('CLI output')).toBeNull();
   });
 
   it('renders completion-pending state without collapsing back to the chooser view', async () => {
@@ -166,7 +208,7 @@ describe('CodexDeviceAuthDialog', () => {
         'Authentication is still pending. Finish the browser step, then refresh again if needed.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Status details')).toBeInTheDocument();
+    expect(screen.getByText('CLI output')).toBeInTheDocument();
     expect(
       screen.getByText('Authentication is still pending.'),
     ).toBeInTheDocument();
@@ -212,6 +254,8 @@ describe('CodexDeviceAuthDialog', () => {
           payload: {
             verificationUrl: 'https://github.com/login/device',
             userCode: 'FRESH-CODE',
+            displayOutput:
+              'Open https://github.com/login/device and enter FRESH-CODE.',
           },
         }),
       );
@@ -227,11 +271,17 @@ describe('CodexDeviceAuthDialog', () => {
 
     expect(await screen.findByText('Verification URL')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'https://github.com/login/device' }),
-    ).toHaveAttribute('href', 'https://github.com/login/device');
-    expect(
-      screen.getByText('FRESH-CODE', { selector: 'code' }),
-    ).toBeInTheDocument();
+      screen
+        .getAllByRole('link', { name: 'https://github.com/login/device' })
+        .every(
+          (link) =>
+            link.getAttribute('href') === 'https://github.com/login/device',
+        ),
+    ).toBe(true);
+    expect(screen.getByText('CLI output')).toBeInTheDocument();
+    expectCliOutputToContain(
+      'Open https://github.com/login/device and enter FRESH-CODE.',
+    );
     expect(
       screen.queryByText('device code expired or was declined'),
     ).toBeNull();
@@ -245,7 +295,8 @@ describe('CodexDeviceAuthDialog', () => {
         state: 'verification_ready',
         payload: {
           verificationUrl: 'https://example.com/device',
-          userCode: 'CODEX-CODE',
+          displayOutput:
+            'Open https://example.com/device and follow the CLI output.',
         },
       }),
     );
@@ -256,11 +307,16 @@ describe('CodexDeviceAuthDialog', () => {
     expect(postProviderDeviceAuth).toHaveBeenCalledWith('codex');
     expect(await screen.findByText('OpenAI Codex')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'https://example.com/device' }),
-    ).toHaveAttribute('href', 'https://example.com/device');
-    expect(
-      screen.getByText('CODEX-CODE', { selector: 'code' }),
-    ).toBeInTheDocument();
+      screen
+        .getAllByRole('link', { name: 'https://example.com/device' })
+        .every(
+          (link) => link.getAttribute('href') === 'https://example.com/device',
+        ),
+    ).toBe(true);
+    expect(screen.getByText('CLI output')).toBeInTheDocument();
+    expectCliOutputToContain(
+      'Open https://example.com/device and follow the CLI output.',
+    );
   });
 
   it('emits the Task 12 render marker with secret-safe provider and auth-state context', async () => {

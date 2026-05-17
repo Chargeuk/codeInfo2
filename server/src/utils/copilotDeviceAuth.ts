@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 
 import type {
+  ProviderAuthDetectedState,
   ProviderAuthAlreadyAuthenticatedResponse,
   ProviderAuthCompletionPendingResponse,
   ProviderAuthFailedResponse,
@@ -100,6 +101,7 @@ export function createCopilotVerificationReadyResponse(params: {
   verificationUrl: string;
   userCode: string;
   displayOutput: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 }): CopilotDeviceAuthVerificationReady {
   return normalizeCopilotAuthResponse({
     provider: 'copilot',
@@ -107,13 +109,16 @@ export function createCopilotVerificationReadyResponse(params: {
     verificationUrl: params.verificationUrl,
     userCode: params.userCode,
     displayOutput: params.displayOutput,
+    ...(params.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
 export function createCopilotCompletionPendingResponse(
   source: Pick<
     CopilotDeviceAuthCompletionPending,
-    'verificationUrl' | 'userCode' | 'displayOutput'
+    'verificationUrl' | 'userCode' | 'displayOutput' | 'detectedAuthState'
   >,
 ): CopilotDeviceAuthCompletionPending {
   return normalizeCopilotAuthResponse({
@@ -122,42 +127,59 @@ export function createCopilotCompletionPendingResponse(
     verificationUrl: source.verificationUrl,
     userCode: source.userCode,
     displayOutput: source.displayOutput,
+    ...(source.detectedAuthState
+      ? { detectedAuthState: source.detectedAuthState }
+      : {}),
   });
 }
 
-export function createCopilotCompletedResponse(): CopilotDeviceAuthCompleted {
+export function createCopilotCompletedResponse(params?: {
+  detectedAuthState?: ProviderAuthDetectedState;
+}): CopilotDeviceAuthCompleted {
   return normalizeCopilotAuthResponse({
     provider: 'copilot',
     state: 'completed',
+    ...(params?.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
-export function createCopilotAlreadyAuthenticatedResponse(): CopilotDeviceAuthAlreadyAuthenticated {
+export function createCopilotAlreadyAuthenticatedResponse(params?: {
+  detectedAuthState?: ProviderAuthDetectedState;
+}): CopilotDeviceAuthAlreadyAuthenticated {
   return normalizeCopilotAuthResponse({
     provider: 'copilot',
     state: 'already_authenticated',
+    ...(params?.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
 export function createCopilotFailedResponse(
   reason: string,
   displayOutput?: string,
+  detectedAuthState?: ProviderAuthDetectedState,
 ): CopilotDeviceAuthFailure {
   return normalizeCopilotAuthResponse({
     provider: 'copilot',
     state: 'failed',
     reason,
     ...(displayOutput ? { displayOutput } : {}),
+    ...(detectedAuthState ? { detectedAuthState } : {}),
   });
 }
 
 export function createCopilotUnavailableBeforeStartResponse(
   reason: string,
+  detectedAuthState?: ProviderAuthDetectedState,
 ): CopilotDeviceAuthUnavailableBeforeStart {
   return normalizeCopilotAuthResponse({
     provider: 'copilot',
     state: 'unavailable_before_start',
     reason,
+    ...(detectedAuthState ? { detectedAuthState } : {}),
   });
 }
 

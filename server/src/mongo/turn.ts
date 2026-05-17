@@ -40,9 +40,16 @@ export interface TurnLookupSummaryMetadata {
   workingRepositoryAvailable: boolean;
 }
 
+export interface TurnReplayMetadata {
+  replayId: string;
+  inflightId?: string;
+  completed: boolean;
+}
+
 export interface TurnRuntimeMetadata {
   workingFolder?: string;
   lookupSummary?: TurnLookupSummaryMetadata;
+  replay?: TurnReplayMetadata;
 }
 
 export interface Turn {
@@ -107,6 +114,17 @@ const turnRuntimeSchema = new Schema<TurnRuntimeMetadata>(
   {
     workingFolder: { type: String, required: false },
     lookupSummary: { type: turnLookupSummarySchema, required: false },
+    replay: {
+      type: new Schema<TurnReplayMetadata>(
+        {
+          replayId: { type: String, required: true },
+          inflightId: { type: String, required: false },
+          completed: { type: Boolean, required: true },
+        },
+        { _id: false },
+      ),
+      required: false,
+    },
   },
   { _id: false },
 );

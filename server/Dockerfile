@@ -44,12 +44,14 @@ RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22.21.1-slim AS runtime
 ARG HOME
+ARG CODEINFO_RUNTIME_UID=1000
+ARG CODEINFO_RUNTIME_GID=1000
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
 ARG CODEINFO_PIP_TRUSTED_HOST
 ARG CODEINFO_NODE_EXTRA_CA_CERTS
-RUN mkdir -p ${HOME}/tmp
-RUN mkdir -p ${HOME}/.docker
+RUN mkdir -p "${HOME}" "${HOME}/tmp" "${HOME}/.docker" && \
+    chown "${CODEINFO_RUNTIME_UID}:${CODEINFO_RUNTIME_GID}" "${HOME}" "${HOME}/tmp" "${HOME}/.docker"
 # Install prerequisites
 RUN apt-get update && apt-get install -y \
     curl \
@@ -185,7 +187,10 @@ COPY --from=build /app/server/src/ast/queries ./src/ast/queries
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
+COPY AGENTS.md /app/AGENTS.md
+COPY planning /app/planning
 COPY codex_agents /app/codex_agents
+RUN cp -R /app/codex_agents /app/codeinfo_agents
 COPY flows /app/flows
 COPY flows-sandbox /app/flows-sandbox
 COPY e2e/fixtures /fixtures
@@ -201,10 +206,9 @@ RUN npx playwright install chromium
 RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 
 # Prepare the mutable provider homes even when the gitignored repo-local directories are absent.
-RUN mkdir -p /app/codex /app/copilot /app/lmstudio && chmod 777 /app/codex /app/copilot /app/lmstudio
-
-# Make HOME and all subfolders read/write for all users
-RUN chmod -R 777 "${HOME}"
+RUN mkdir -p /app/codex/.agents/skills /app/copilot /app/lmstudio && chmod -R 777 /app/codex /app/copilot /app/lmstudio
+ENV HOME=/app/codex
+ENV CODEX_HOME=/app/codex
 ENV CODEINFO_CODEX_HOME=/app/codex
 ENV CODEINFO_COPILOT_HOME=/app/copilot
 ENV CODEINFO_LMSTUDIO_HOME=/app/lmstudio

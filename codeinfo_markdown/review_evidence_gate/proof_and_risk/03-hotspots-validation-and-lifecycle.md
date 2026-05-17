@@ -26,6 +26,10 @@ Capture the validation, execution-timing, and lifecycle hotspots that the findin
   - dead-field or dead-branch risk;
   - any helper that could hide misconfiguration by defaulting too early.
 - For any changed queued, deferred, retried, or promoted execution path, explicitly compare request-admission validation against execution-time validation. Record a hotspot whenever model-lock checks, allowlist checks, invalid-state checks, authorization checks, or equivalent preconditions are enforced on one path but skipped on another.
+- For any changed route, validator, selector, fallback helper, availability helper, or execution-preparation helper that participates in multi-step execution choice, record whether:
+  - an earlier layer can reject, classify, or lock in a decision before the later authoritative selection layer runs;
+  - candidate-specific config loading, client creation, bootstrap probing, or runtime resolution happens before final selection is complete;
+  - explicit and implicit modes, or fresh and resumed modes, are controlled by different authority boundaries.
 - For any changed route, service, or orchestration boundary whose tests mock a downstream seam to produce the expected contract error, record whether there is also direct proof that the production boundary itself performs the validation. If not, mark that proof as indirect and add a review hotspot for mocked-seam false confidence.
 - For each changed orchestration function that initializes external providers, clients, dispatchers, locks, or other runtime dependencies, record whether any no-op, metadata-only, delete-only, or zero-work fast path can complete before that initialization happens. If the answer is unclear, add that ordering question to the review hotspots and the `Risk-Invariant Matrix`.
 - For any changed startup, bootstrap, or recovery entrypoint whose normal operational paths already map dependency outage into a retryable or service-unavailable contract, record whether that entrypoint preserves the same degraded behavior or can still terminate the process before the standard contract is reachable.

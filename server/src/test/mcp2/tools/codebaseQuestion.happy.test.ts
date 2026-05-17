@@ -4,16 +4,70 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
+import { resolveAgentHomeEnv } from '../../../agents/roots.js';
+import { __resetCompletedInflightForTests } from '../../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  memoryTurns,
+  recordMemoryTurn,
+} from '../../../chat/memoryPersistence.js';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
+import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
+import {
+  __deleteCodebaseQuestionMemoryConversationForTests,
+  __setCodebaseQuestionMemoryConversationForTests,
+} from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
+import type { Conversation } from '../../../mongo/conversation.js';
 import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
+
+const ENV_KEYS = [
+  'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_CHAT_DEFAULT_MODEL',
+  'CODEINFO_CODEX_HOME',
+  'CODEX_HOME',
+  'CODEINFO_CODEX_WORKDIR',
+  'MCP_FORCE_CODEX_AVAILABLE',
+] as const;
+const originalEnv = new Map<string, string | undefined>();
+const defaultCodexHome = path.resolve(process.cwd(), '../codex');
+
+const setCodexHomes = (codexHome: string) => {
+  process.env.CODEX_HOME = codexHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+};
+
+beforeEach(() => {
+  originalEnv.clear();
+  for (const key of ENV_KEYS) {
+    originalEnv.set(key, process.env[key]);
+    delete process.env[key];
+  }
+  setCodexHomes(defaultCodexHome);
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const value = originalEnv.get(key);
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  originalEnv.clear();
+  __resetCompletedInflightForTests();
+  memoryConversations.clear();
+  memoryTurns.clear();
+});
 
 type ThreadEvent = {
   type: string;
@@ -107,6 +161,32 @@ class MockCodex {
   }
 }
 
+class CapturingSelectionChat extends ChatInterface {
+  constructor(
+    private readonly calls: Array<{
+      flags: Record<string, unknown>;
+      conversationId: string;
+      model: string;
+    }>,
+    private readonly finalContent: string,
+  ) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ) {
+    void _message;
+    this.calls.push({ flags, conversationId, model });
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: this.finalContent });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 class BlockingReplayThread {
   id: string;
   private answerText: string;
@@ -155,6 +235,12 @@ class DivergentReplayCodex extends MockCodex {
   constructor(providerThreadId = 'provider-thread-xyz') {
     super(providerThreadId);
     this.providerThreadId = providerThreadId;
+  }
+
+  override startThread(opts?: unknown) {
+    this.lastStartOptions = opts;
+    this.runs += 1;
+    return this.createThread();
   }
 
   override resumeThread(threadId: string, opts?: unknown) {
@@ -296,8 +382,39 @@ class CapturingChat extends ChatInterface {
   }
 }
 
-class ReplayBarrierChat extends ChatInterface {
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: '2025-01-01T00:00:00.000Z',
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'text-embedding-nomic-embed-text-v1.5',
+  embeddingDimensions: 768,
+  modelId: 'text-embedding-nomic-embed-text-v1.5',
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
+
+class BlockingReplayClaimChat extends ChatInterface {
   runs = 0;
+  private waitForStartPromise: Promise<void> | null = null;
+  private resolveStarted: (() => void) | null = null;
+  private releaseCurrentRun: (() => void) | null = null;
+
+  async waitForRunStart() {
+    while (!this.waitForStartPromise) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    await this.waitForStartPromise;
+  }
+
+  releaseRun() {
+    if (!this.releaseCurrentRun) {
+      throw new Error('releaseRun called before a run started');
+    }
+    this.releaseCurrentRun();
+  }
 
   async execute(
     message: string,
@@ -308,10 +425,25 @@ class ReplayBarrierChat extends ChatInterface {
     void flags;
     void model;
     this.runs += 1;
+    this.waitForStartPromise = new Promise<void>((resolve) => {
+      this.resolveStarted = resolve;
+    });
+    const shouldBlock = this.runs === 1;
+    const releasePromise = shouldBlock
+      ? new Promise<void>((resolve) => {
+          this.releaseCurrentRun = resolve;
+        })
+      : Promise.resolve();
+    if (!shouldBlock) {
+      this.releaseCurrentRun = () => {};
+    }
+
     this.emit('thread', {
       type: 'thread',
       threadId: conversationId,
     });
+    this.resolveStarted?.();
+    await releasePromise;
     this.emit('final', {
       type: 'final',
       content: `Replay answer ${this.runs}: ${message}`,
@@ -417,7 +549,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
       '',
     ].join('\n'),
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   process.env.Codex_network_access_enabled = 'false';
 
   const server = http.createServer(handleRpc);
@@ -503,6 +635,397 @@ test('codebase_question returns answer-only payloads and preserves conversationI
   }
 });
 
+test('codebase_question reuses saved selected-repository metadata when provider is omitted', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-working-folder-'),
+  );
+  const chat = new CapturingChat();
+  const conversationId = 'mcp-working-folder-selected';
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'Saved MCP conversation',
+    source: 'MCP',
+    flags: { workingFolder: repoRoot },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Conversation);
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Use the saved repo context',
+        conversationId,
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+        listIngestedRepositoriesFn: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      },
+    );
+
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      workingFolder: repoRoot,
+      lookupSummary: {
+        selectedRepositoryPath: repoRoot,
+        fallbackUsed: false,
+        workingRepositoryAvailable: true,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: repoRoot,
+      defaultExecutionRoot: expectedRepoRoot,
+      workingDirectoryOverride: repoRoot,
+      fallbackUsed: false,
+      workingRepositoryAvailable: true,
+    });
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('codebase_question uses the shared default execution root when no working_folder is selected', async () => {
+  const chat = new CapturingChat();
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Use the default repo context',
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: expectedRepoRoot,
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: expectedRepoRoot,
+      defaultExecutionRoot: expectedRepoRoot,
+      workingDirectoryOverride: expectedRepoRoot,
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  }
+});
+
+test('codebase_question uses the configured repository root for omitted-provider current-repo file questions', async () => {
+  class CurrentRepoChat extends ChatInterface {
+    lastFlags?: Record<string, unknown>;
+
+    async execute(
+      _message: string,
+      flags: Record<string, unknown>,
+      conversationId: string,
+      _model: string,
+    ) {
+      void _model;
+      this.lastFlags = flags;
+      const repositoryContext = flags.repositoryContext as
+        | {
+            selectedRepositoryPath?: string;
+          }
+        | undefined;
+      const selectedRepositoryPath =
+        repositoryContext?.selectedRepositoryPath ?? '';
+      const agentsPath = path.join(selectedRepositoryPath, 'AGENTS.md');
+      const exists = await fs
+        .access(agentsPath)
+        .then(() => true)
+        .catch(() => false);
+      this.emit('thread', { type: 'thread', threadId: conversationId });
+      this.emit('final', {
+        type: 'final',
+        content: exists ? `Found ${agentsPath}` : 'AGENTS missing',
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+    }
+  }
+
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-current-repo-'),
+  );
+  const agentHome = path.join(repoRoot, 'codeinfo_agents');
+  const chat = new CurrentRepoChat();
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
+  process.env.CODEINFO_AGENT_HOME = agentHome;
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(repoRoot, 'AGENTS.md'), '# temp repo\n', 'utf8');
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'What does AGENTS.md say in the current repository?',
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.match(result.content[0].text, /Found .*AGENTS\.md/);
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: repoRoot,
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: repoRoot,
+      defaultExecutionRoot: repoRoot,
+      workingDirectoryOverride: repoRoot,
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    if (originalAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = originalAgentHome;
+    }
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('codebase_question uses the configured repository root for explicit-provider current-repo file questions', async () => {
+  class CurrentRepoChat extends ChatInterface {
+    lastFlags?: Record<string, unknown>;
+
+    async execute(
+      _message: string,
+      flags: Record<string, unknown>,
+      conversationId: string,
+      _model: string,
+    ) {
+      void _model;
+      this.lastFlags = flags;
+      const repositoryContext = flags.repositoryContext as
+        | {
+            selectedRepositoryPath?: string;
+          }
+        | undefined;
+      const selectedRepositoryPath =
+        repositoryContext?.selectedRepositoryPath ?? '';
+      const agentsPath = path.join(selectedRepositoryPath, 'AGENTS.md');
+      const exists = await fs
+        .access(agentsPath)
+        .then(() => true)
+        .catch(() => false);
+      this.emit('thread', { type: 'thread', threadId: conversationId });
+      this.emit('final', {
+        type: 'final',
+        content: exists ? `Found ${agentsPath}` : 'AGENTS missing',
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+    }
+  }
+
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-current-repo-explicit-'),
+  );
+  const agentHome = path.join(repoRoot, 'codeinfo_agents');
+  const chat = new CurrentRepoChat();
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
+  process.env.CODEINFO_AGENT_HOME = agentHome;
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(repoRoot, 'AGENTS.md'), '# temp repo\n', 'utf8');
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'What does AGENTS.md say in the current repository?',
+        provider: 'codex',
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.match(result.content[0].text, /Found .*AGENTS\.md/);
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: repoRoot,
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: repoRoot,
+      defaultExecutionRoot: repoRoot,
+      workingDirectoryOverride: repoRoot,
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    if (originalAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = originalAgentHome;
+    }
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('codebase_question current-repo fallback does not claim repo-root files when the configured repository root lacks AGENTS.md', async () => {
+  class CurrentRepoChat extends ChatInterface {
+    lastFlags?: Record<string, unknown>;
+
+    async execute(
+      _message: string,
+      flags: Record<string, unknown>,
+      conversationId: string,
+      _model: string,
+    ) {
+      void _model;
+      this.lastFlags = flags;
+      const repositoryContext = flags.repositoryContext as
+        | {
+            selectedRepositoryPath?: string;
+          }
+        | undefined;
+      const selectedRepositoryPath =
+        repositoryContext?.selectedRepositoryPath ?? '';
+      const agentsPath = path.join(selectedRepositoryPath, 'AGENTS.md');
+      const exists = await fs
+        .access(agentsPath)
+        .then(() => true)
+        .catch(() => false);
+      this.emit('thread', { type: 'thread', threadId: conversationId });
+      this.emit('final', {
+        type: 'final',
+        content: exists ? `Found ${agentsPath}` : `Missing ${agentsPath}`,
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+    }
+  }
+
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codebase-question-current-repo-missing-'),
+  );
+  const agentHome = path.join(repoRoot, 'codeinfo_agents');
+  const chat = new CurrentRepoChat();
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'lmstudio';
+  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
+  process.env.CODEINFO_AGENT_HOME = agentHome;
+  await fs.mkdir(agentHome, { recursive: true });
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'What does AGENTS.md say in the current repository?',
+      },
+      {
+        chatFactory: () => chat,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.match(result.content[0].text, /Missing .*AGENTS\.md/);
+    assert.deepEqual(chat.lastFlags?.runtime, {
+      lookupSummary: {
+        selectedRepositoryPath: repoRoot,
+        fallbackUsed: true,
+        workingRepositoryAvailable: false,
+      },
+    });
+    assert.deepEqual(chat.lastFlags?.repositoryContext, {
+      selectedRepositoryPath: repoRoot,
+      defaultExecutionRoot: repoRoot,
+      workingDirectoryOverride: repoRoot,
+      fallbackUsed: true,
+      workingRepositoryAvailable: false,
+    });
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalWorkdir === undefined) {
+      delete process.env.CODEINFO_CODEX_WORKDIR;
+    } else {
+      process.env.CODEINFO_CODEX_WORKDIR = originalWorkdir;
+    }
+    if (originalAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = originalAgentHome;
+    }
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test('codebase_question reuses shared provider defaults when provider copilot is selected', async () => {
   const originalHome = process.env.CODEINFO_COPILOT_HOME;
   const tempHome = await withTempCopilotHome(
@@ -536,8 +1059,8 @@ test('codebase_question reuses shared provider defaults when provider copilot is
   }
 });
 
-test('codebase_question replays one stable Copilot follow-up result for the same caller-visible replayId while a different replayId stays on the fresh path', async () => {
-  const chat = new ReplayBarrierChat();
+test('codebase_question reuses one durable Copilot replay claim before completion and keeps a fresh replayId on the fresh path', async () => {
+  const chat = new BlockingReplayClaimChat();
   const deps = {
     chatFactory: () => chat,
     copilotReadinessResolver: async () => ({
@@ -550,7 +1073,7 @@ test('codebase_question replays one stable Copilot follow-up result for the same
     }),
   };
 
-  const firstResult = await runCodebaseQuestion(
+  const firstResultPromise = runCodebaseQuestion(
     {
       question: 'first logical follow-up',
       conversationId: 'mcp-replay-happy-1',
@@ -560,7 +1083,8 @@ test('codebase_question replays one stable Copilot follow-up result for the same
     },
     deps,
   );
-  const firstPayload = JSON.parse(firstResult.content[0].text);
+
+  await chat.waitForRunStart();
 
   const sameReplayResult = await runCodebaseQuestion(
     {
@@ -575,7 +1099,15 @@ test('codebase_question replays one stable Copilot follow-up result for the same
   const sameReplayPayload = JSON.parse(sameReplayResult.content[0].text);
 
   assert.equal(chat.runs, 1);
-  assert.deepEqual(sameReplayPayload, firstPayload);
+  assert.equal(sameReplayPayload.conversationId, 'mcp-replay-happy-1');
+  assert.equal(sameReplayPayload.replay?.replayId, 'replay-1');
+  assert.equal(sameReplayPayload.replay?.status, 'in_progress');
+  assert.equal(sameReplayPayload.modelId, 'copilot-gpt-5');
+
+  chat.releaseRun();
+  const firstResult = await firstResultPromise;
+  const firstPayload = JSON.parse(firstResult.content[0].text);
+  assert.equal(firstPayload.replay?.status, 'completed');
 
   const freshReplayResult = await runCodebaseQuestion(
     {
@@ -595,6 +1127,294 @@ test('codebase_question replays one stable Copilot follow-up result for the same
     freshReplayPayload.segments[0].text,
     'Replay answer 2: fresh logical follow-up',
   );
+  assert.equal(freshReplayPayload.replay?.status, 'completed');
+
+  const completedReplayResult = await runCodebaseQuestion(
+    {
+      question: 'late stale retry',
+      conversationId: 'mcp-replay-happy-1',
+      replayId: 'replay-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const completedReplayPayload = JSON.parse(
+    completedReplayResult.content[0].text,
+  );
+  assert.deepEqual(completedReplayPayload, firstPayload);
+});
+
+test('codebase_question keeps the same caller-visible replay result after the completed cache is cleared while incomplete persisted replay state stays reader-visible instead of rebuilding provider work', async () => {
+  resetStore();
+  const conversationId = 'mcp-replay-durable-1';
+  const replayId = 'replay-durable-1';
+  const chatCalls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const chat = new CapturingSelectionChat(
+    chatCalls,
+    'Durable replay answer from persisted assistant turn',
+  );
+  const deps = {
+    chatFactory: () => chat,
+    copilotReadinessResolver: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready' as const,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [],
+      authSource: 'env-token' as const,
+    }),
+  };
+
+  const firstResult = await runCodebaseQuestion(
+    {
+      question: 'first durable replay follow-up',
+      conversationId,
+      replayId,
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const firstPayload = JSON.parse(firstResult.content[0].text);
+
+  const persistedTurns = getMemoryTurns(conversationId);
+  const persistedUserTurn = persistedTurns.find((turn) => turn.role === 'user');
+  const persistedAssistantTurn = persistedTurns.find(
+    (turn) => turn.role === 'assistant',
+  );
+  assert.equal(
+    persistedUserTurn?.runtime?.replay?.completed,
+    false,
+    JSON.stringify(persistedTurns, null, 2),
+  );
+  assert.equal(
+    persistedAssistantTurn?.runtime?.replay?.completed,
+    true,
+    JSON.stringify(persistedTurns, null, 2),
+  );
+
+  __resetCompletedInflightForTests();
+
+  const replayAfterCacheClear = await runCodebaseQuestion(
+    {
+      question: 'contradictory retry after completed cache clear',
+      conversationId,
+      replayId,
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    {
+      chatFactory: () => {
+        throw new Error('replay should not rebuild chat dependencies');
+      },
+      copilotReadinessResolver: async () => {
+        throw new Error('replay should not probe provider readiness');
+      },
+    },
+  );
+  const replayAfterCacheClearPayload = JSON.parse(
+    replayAfterCacheClear.content[0].text,
+  );
+
+  assert.equal(chatCalls.length, 1);
+  assert.equal(
+    replayAfterCacheClearPayload.conversationId,
+    firstPayload.conversationId,
+  );
+  assert.equal(replayAfterCacheClearPayload.modelId, firstPayload.modelId);
+  assert.deepEqual(
+    replayAfterCacheClearPayload.segments,
+    firstPayload.segments,
+  );
+  assert.equal(replayAfterCacheClearPayload.replay?.replayId, replayId);
+  assert.equal(replayAfterCacheClearPayload.replay?.status, 'completed');
+
+  const incompleteConversationId = 'mcp-replay-durable-incomplete-1';
+  memoryConversations.set(incompleteConversationId, {
+    _id: incompleteConversationId,
+    provider: 'copilot',
+    model: 'copilot-gpt-5',
+    title: 'Incomplete persisted replay conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {},
+  } as Conversation);
+  recordMemoryTurn({
+    conversationId: incompleteConversationId,
+    role: 'user',
+    content: 'persisted incomplete replay request',
+    model: 'copilot-gpt-5',
+    provider: 'copilot',
+    source: 'MCP',
+    toolCalls: null,
+    status: 'ok',
+    runtime: {
+      replay: {
+        replayId: 'replay-incomplete-1',
+        inflightId: 'persisted-incomplete',
+        completed: false,
+      },
+    },
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+  } as never);
+
+  __resetCompletedInflightForTests();
+
+  const freshAfterIncompletePersistedState = await runCodebaseQuestion(
+    {
+      question: 'retry after incomplete persisted replay state',
+      conversationId: incompleteConversationId,
+      replayId: 'replay-incomplete-1',
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+    },
+    deps,
+  );
+  const freshAfterIncompletePayload = JSON.parse(
+    freshAfterIncompletePersistedState.content[0].text,
+  );
+
+  assert.equal(chatCalls.length, 1);
+  assert.equal(
+    freshAfterIncompletePayload.conversationId,
+    incompleteConversationId,
+  );
+  assert.equal(
+    freshAfterIncompletePayload.replay?.replayId,
+    'replay-incomplete-1',
+  );
+  assert.equal(freshAfterIncompletePayload.replay?.status, 'in_progress');
+  assert.deepEqual(freshAfterIncompletePayload.segments, []);
+});
+
+test('codebase_question replays a completed retry before later setup can fail after the replay becomes visible', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  const conversationId = 'mcp-replay-late-fastpath-1';
+  const replayId = 'late-fastpath-1';
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex-spark"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex-spark',
+    title: 'Late replay winner',
+    source: 'MCP',
+    flags: {},
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+  } as Conversation);
+
+  let persistedReplay = false;
+
+  try {
+    const replayResult = await runCodebaseQuestion(
+      {
+        question: 'retry after replay winner appears during setup',
+        conversationId,
+        replayId,
+        provider: 'codex',
+        model: 'gpt-5.3-codex-spark',
+      },
+      {
+        listIngestedRepositoriesFn: async () => {
+          if (!persistedReplay) {
+            persistedReplay = true;
+            recordMemoryTurn({
+              conversationId,
+              role: 'user',
+              content: 'persisted replay request',
+              model: 'gpt-5.3-codex-spark',
+              provider: 'codex',
+              source: 'MCP',
+              toolCalls: null,
+              status: 'ok',
+              runtime: {
+                replay: {
+                  replayId,
+                  inflightId: 'persisted-late-fastpath',
+                  completed: false,
+                },
+              },
+              createdAt: new Date('2025-01-01T00:00:01.000Z'),
+            } as never);
+            recordMemoryTurn({
+              conversationId,
+              role: 'assistant',
+              content: 'Persisted late replay answer',
+              model: 'gpt-5.3-codex-spark',
+              provider: 'codex',
+              source: 'MCP',
+              toolCalls: null,
+              status: 'ok',
+              runtime: {
+                replay: {
+                  replayId,
+                  inflightId: 'persisted-late-fastpath',
+                  completed: true,
+                },
+              },
+              createdAt: new Date('2025-01-01T00:00:02.000Z'),
+            } as never);
+          }
+          return { repos: [], lockedModelId: null };
+        },
+        chatRuntimeConfigResolver: async () => {
+          throw new Error(
+            'replay should return before rebuilding Codex runtime config',
+          );
+        },
+        chatFactory: () => {
+          throw new Error('replay should return before rebuilding chat deps');
+        },
+      },
+    );
+
+    const replayPayload = JSON.parse(replayResult.content[0].text);
+    assert.equal(replayPayload.conversationId, conversationId);
+    assert.equal(replayPayload.modelId, 'gpt-5.3-codex-spark');
+    assert.deepEqual(replayPayload.segments, [
+      {
+        type: 'answer',
+        text: 'Persisted late replay answer',
+      },
+    ]);
+    assert.equal(replayPayload.replay?.replayId, replayId);
+    assert.equal(replayPayload.replay?.status, 'completed');
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
+  }
 });
 
 test('codebase_question keeps caller conversationId stable across Codex replay windows even when provider thread ids differ', async () => {
@@ -617,7 +1437,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
       '',
     ].join('\n'),
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   process.env.Codex_network_access_enabled = 'false';
 
   const server = http.createServer(handleRpc);
@@ -671,7 +1491,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
     assert.equal(firstPayload.conversationId, 'caller-follow-up-1');
     assert.equal(sameReplayPayload.conversationId, 'caller-follow-up-1');
     assert.deepEqual(sameReplayPayload, firstPayload);
-    assert.equal(divergentCodex.lastResumeId, 'caller-follow-up-1');
+    assert.equal(divergentCodex.lastResumeId, undefined);
 
     const afterCleanupCall = await postJson(port, {
       jsonrpc: '2.0',
@@ -715,6 +1535,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
       freshReplayCall.result.content[0].text,
     );
     assert.equal(divergentCodex.runs, 2);
+    assert.equal(divergentCodex.lastResumeId, 'provider-thread-xyz');
     assert.equal(freshReplayPayload.conversationId, 'caller-follow-up-1');
     assert.equal(freshReplayPayload.segments[0].text, 'Codex replay answer 2');
   } finally {
@@ -788,6 +1609,143 @@ test('codebase_question normalizes implicit Copilot defaults and omits reasoning
   }
 });
 
+test('codebase_question keeps the requested provider and repairs the model there when that provider is healthy but the requested model is missing', async () => {
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const chat = new CapturingSelectionChat(calls, 'Same-provider repair answer');
+
+  const result = await runCodebaseQuestion(
+    {
+      question: 'repair the model on copilot',
+      provider: 'copilot',
+      model: 'missing-copilot-model',
+    },
+    {
+      chatFactory: (provider) => {
+        assert.equal(provider, 'copilot');
+        return chat;
+      },
+      copilotReadinessResolver: async () => ({
+        available: true,
+        toolsAvailable: true,
+        blockingStage: 'ready',
+        models: ['gpt-5-mini', 'copilot-gpt-5'],
+        modelsRaw: [
+          {
+            id: 'gpt-5-mini',
+            name: 'GPT-5 Mini',
+          } as ModelInfo,
+          {
+            id: 'copilot-gpt-5',
+            name: 'Copilot GPT-5',
+          } as ModelInfo,
+        ],
+        authSource: 'env-token',
+      }),
+    },
+  );
+
+  const payload = JSON.parse(result.content[0].text);
+  assert.equal(payload.modelId, 'gpt-5-mini');
+  assert.equal(calls[0]?.model, 'gpt-5-mini');
+  assert.equal(
+    memoryConversations.get(payload.conversationId)?.provider,
+    'copilot',
+  );
+  assert.equal(
+    memoryConversations.get(payload.conversationId)?.model,
+    'gpt-5-mini',
+  );
+});
+
+test('codebase_question keeps the same requested model first when cross-provider fallback is required', async () => {
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const chat = new CapturingSelectionChat(
+    calls,
+    'Cross-provider same-model answer',
+  );
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalForceCodexAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'fallback with same requested model first',
+        model: 'copilot-gpt-5',
+      },
+      {
+        chatFactory: (provider) => {
+          assert.equal(provider, 'lmstudio');
+          return chat;
+        },
+        copilotReadinessResolver: async () => ({
+          available: false,
+          toolsAvailable: true,
+          blockingStage: 'connectivity',
+          models: ['copilot-gpt-5'],
+          modelsRaw: [
+            {
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+            } as ModelInfo,
+          ],
+          authSource: 'env-token',
+          reason: 'copilot unavailable',
+        }),
+        clientFactory: () =>
+          ({
+            system: {
+              listDownloadedModels: async () => [
+                {
+                  modelKey: 'lmstudio-test-model',
+                  displayName: 'LM Studio Test Model',
+                  type: 'llm',
+                },
+                {
+                  modelKey: 'copilot-gpt-5',
+                  displayName: 'Fallback Matches Requested Model',
+                  type: 'llm',
+                },
+              ],
+            },
+          }) as never,
+      },
+    );
+
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'copilot-gpt-5');
+    assert.equal(calls[0]?.model, 'copilot-gpt-5');
+    assert.equal(
+      memoryConversations.get(payload.conversationId)?.provider,
+      'lmstudio',
+    );
+    assert.equal(
+      memoryConversations.get(payload.conversationId)?.model,
+      'copilot-gpt-5',
+    );
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalForceCodexAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceCodexAvailable;
+    }
+  }
+});
+
 class MockThreadNoAnswer {
   id: string;
 
@@ -838,7 +1796,7 @@ test('codebase_question returns an empty answer segment when no answer emitted',
   const tempHome = await withTempCodexHome({
     chatToml: 'web_search_request = false\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
 
   const server = http.createServer(handleRpc);
   server.listen(0);
@@ -934,7 +1892,7 @@ test('codebase_question marker emits the shared warning_count and warnings field
       '',
     ].join('\n'),
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   const mockCodex = new MockCodex('thread-parity');
   setToolDeps({
     codexFactory: () => mockCodex,
@@ -1022,7 +1980,7 @@ test('codebase_question keeps an explicit request model override over the chat-c
   const tempHome = await withTempCodexHome({
     chatToml: 'model = "config-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   const mockCodex = new MockCodex('thread-override');
   setToolDeps({
     codexFactory: () => mockCodex,
@@ -1088,8 +2046,7 @@ test('codebase_question keeps inherited base runtime settings in the resolved Co
     ].join('\n'),
     chatToml: 'model = "chat-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
-  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   setToolDeps({
     clientFactory: makeLmStudioClientFactory(),
     chatFactory: () => capturingChat,
@@ -1148,6 +2105,229 @@ test('codebase_question keeps inherited base runtime settings in the resolved Co
   }
 });
 
+test('codebase_question pins omitted-provider Codex runs to the saved conversation model', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'gpt-5.1-codex-max';
+  resetStore();
+  const capturingChat = new CapturingChat();
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.1-codex-max"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  const conversationId = 'saved-codex-model-pin';
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'Saved Codex model pin conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {
+      workingFolder: '/data/story55-manual-proof/queued-repo',
+    },
+  } as Conversation);
+
+  setToolDeps({
+    clientFactory: makeLmStudioClientFactory(),
+    chatFactory: () => capturingChat,
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 132,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'Keep the saved Codex model pinned',
+          conversationId,
+        },
+      },
+    });
+
+    assert.ok(response.result);
+    const payload = JSON.parse(
+      (response as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+    const runtimeConfig = capturingChat.lastFlags?.runtimeConfig as
+      | Record<string, unknown>
+      | undefined;
+
+    assert.equal(payload.modelId, 'gpt-5.3-codex');
+    assert.equal(runtimeConfig?.model, 'gpt-5.3-codex');
+    assert.equal(
+      (capturingChat.lastFlags as { provider?: string; threadId?: unknown })
+        ?.provider,
+      'codex',
+    );
+    assert.equal(
+      (capturingChat.lastFlags as { provider?: string; threadId?: unknown })
+        ?.threadId,
+      undefined,
+    );
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeinfoHome === undefined)
+      delete process.env.CODEINFO_CODEX_HOME;
+    else process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    if (originalDefaultProvider === undefined)
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    else process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    if (originalDefaultModel === undefined)
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    else process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
+test('codebase_question keeps the saved execution identity authoritative over contradictory follow-up provider-model input', async () => {
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  resetStore();
+  const calls: Array<{
+    flags: Record<string, unknown>;
+    conversationId: string;
+    model: string;
+  }> = [];
+  const conversationId = 'saved-codex-identity-pin';
+  const savedModel = 'gpt-5.3-codex';
+
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'codex';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'gpt-5.1-codex-max';
+  const tempHome = await withTempCodexHome({
+    chatToml: `model = "${savedModel}"\n`,
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  __setCodebaseQuestionMemoryConversationForTests({
+    _id: conversationId,
+    provider: 'codex',
+    model: savedModel,
+    title: 'Saved Codex identity pin conversation',
+    source: 'MCP',
+    lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+    createdAt: new Date('2025-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2025-01-01T00:00:00.000Z'),
+    archivedAt: null,
+    flags: {
+      workingFolder: '/data/story55-manual-proof/queued-repo',
+    },
+  } as Conversation);
+
+  setToolDeps({
+    chatFactory: () =>
+      new CapturingSelectionChat(
+        calls,
+        'Saved Codex identity stayed authoritative',
+      ),
+    copilotReadinessResolver: async () => ({
+      available: false,
+      toolsAvailable: true,
+      blockingStage: 'connectivity',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+      reason: 'copilot unavailable for contradictory request',
+    }),
+  });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 133,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: {
+          question: 'Ignore the contradictory follow-up identity',
+          conversationId,
+          provider: 'copilot',
+          model: 'copilot-contradictory-model',
+        },
+      },
+    });
+
+    assert.ok((response as { result?: unknown }).result);
+    assert.equal(calls.length, 1, JSON.stringify({ response, calls }, null, 2));
+    assert.equal(calls[0]?.conversationId, conversationId);
+    assert.equal(calls[0]?.model, savedModel);
+    assert.equal(calls[0]?.flags.provider, 'codex');
+    const payload = JSON.parse(
+      (response as { result: { content: Array<{ text: string }> } }).result
+        .content[0].text,
+    );
+    assert.equal(payload.conversationId, conversationId);
+    assert.equal(payload.modelId, savedModel);
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
+    assert.equal(memoryConversations.get(conversationId)?.model, savedModel);
+  } finally {
+    __deleteCodebaseQuestionMemoryConversationForTests(conversationId);
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    if (originalDefaultModel === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    }
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    resetToolDeps();
+    await tempHome.cleanup();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  }
+});
+
 test('codebase_question receives the same inherited overlaid Context7 definition', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
@@ -1166,8 +2346,7 @@ test('codebase_question receives the same inherited overlaid Context7 definition
     ].join('\n'),
     chatToml: 'model = "chat-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
-  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   setToolDeps({
     clientFactory: makeLmStudioClientFactory(),
     chatFactory: () => capturingChat,
@@ -1235,8 +2414,7 @@ test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key
     ].join('\n'),
     chatToml: 'model = "chat-model"\n',
   });
-  process.env.CODEX_HOME = tempHome.codexHome;
-  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
+  setCodexHomes(tempHome.codexHome);
   setToolDeps({
     clientFactory: makeLmStudioClientFactory(),
     chatFactory: () => capturingChat,

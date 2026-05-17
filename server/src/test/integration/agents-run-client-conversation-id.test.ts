@@ -2,15 +2,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
 import supertest from 'supertest';
 
 import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
   runAgentCommand,
   runAgentInstruction,
+  startAgentInstruction,
   startAgentCommand,
 } from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -21,7 +24,14 @@ import {
 import { startFlowRun } from '../../flows/service.js';
 import { resetStore } from '../../logStore.js';
 import { callTool } from '../../mcpAgents/tools.js';
+import type { Conversation } from '../../mongo/conversation.js';
+import { createAgentsRunRouter } from '../../routes/agentsRun.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -58,6 +68,25 @@ class CapturingChat extends ChatInterface {
   }
 }
 
+class DeferredChat extends ChatInterface {
+  constructor(private readonly release: Promise<void>) {
+    super();
+  }
+
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    await this.release;
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
@@ -74,6 +103,12 @@ const toRuntimeConfigSnapshot = (flags: Record<string, unknown>) =>
     (flags.runtimeConfig as Record<string, unknown> | undefined) ?? {},
   );
 
+const withoutModel = (runtimeConfig: Record<string, unknown>) => {
+  const snapshot = structuredClone(runtimeConfig);
+  delete snapshot.model;
+  return snapshot;
+};
+
 const T18_SUCCESS_LOG =
   '[DEV-0000037][T18] event=precedence_normalization_regressions_executed result=success';
 const T18_ERROR_LOG =
@@ -82,6 +117,23 @@ const T19_SUCCESS_LOG =
   '[DEV-0000037][T19] event=migration_safety_regressions_executed result=success';
 const T19_ERROR_LOG =
   '[DEV-0000037][T19] event=migration_safety_regressions_executed result=error';
+
+let previousPreferredAgentsHome: string | undefined;
+
+beforeEach(() => {
+  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+  if (previousPreferredAgentsHome === undefined) {
+    delete process.env.CODEINFO_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+  }
+  previousPreferredAgentsHome = undefined;
+});
 
 test('Agents runs accept a client-supplied conversationId even when it does not exist yet', async () => {
   resetStore();
@@ -107,6 +159,204 @@ test('Agents runs accept a client-supplied conversationId even when it does not 
     assert.equal(result.agentName, 'coding_agent');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+  }
+});
+
+test('direct agent execution uses the legacy CODEINFO_CODEX_AGENT_HOME alias for the default repository root', async () => {
+  resetStore();
+
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const capturedFlags: Array<Record<string, unknown>> = [];
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "gpt-5.3-codex"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+
+  delete process.env.CODEINFO_AGENT_HOME;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  try {
+    await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Use the default repository root',
+      conversationId: 'legacy-alias-default-root',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          capturedFlags.push(flags);
+        }),
+    });
+
+    const flags = capturedFlags.at(-1) as Record<string, unknown>;
+    const expectedRepositoryRoot = path.resolve(tempAgentsHome, '..');
+    assert.equal(flags.workingDirectoryOverride, expectedRepositoryRoot);
+    assert.notEqual(flags.workingDirectoryOverride, process.cwd());
+  } finally {
+    memoryConversations.delete('legacy-alias-default-root');
+    memoryTurns.delete('legacy-alias-default-root');
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('direct agent start persists the final execution identity before background completion, and later runs ignore contradictory config drift', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-run-'));
+  const agentsHome = path.join(tempRoot, 'agents');
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  await fs.mkdir(path.join(agentHome), { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'codeinfo_provider = "codex"\nmodel = "missing-codex-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "codex-repaired"\n',
+    'utf8',
+  );
+
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'codex-repaired',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  let releaseRun!: () => void;
+  const releasePromise = new Promise<void>((resolve) => {
+    releaseRun = resolve;
+  });
+
+  try {
+    const started = await startAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId: 'task5-persisted-identity',
+      source: 'REST',
+      chatFactory: () => new DeferredChat(releasePromise),
+    });
+
+    const persisted = memoryConversations.get(started.conversationId);
+    assert.equal(started.providerId, 'codex');
+    assert.equal(started.modelId, 'codex-repaired');
+    assert.equal(persisted?.provider, 'codex');
+    assert.equal(persisted?.model, 'codex-repaired');
+
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      'codeinfo_provider = "copilot"\nmodel = "copilot-new-model"\n',
+      'utf8',
+    );
+
+    releaseRun();
+    await waitFor(
+      () => (memoryTurns.get(started.conversationId) ?? []).length > 0,
+      5000,
+    );
+
+    const resumed = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'Hello again',
+      conversationId: started.conversationId,
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.equal(resumed.providerId, 'codex');
+    assert.equal(resumed.modelId, 'codex-repaired');
+    const resumedConversation = memoryConversations.get(started.conversationId);
+    assert.equal(resumedConversation?.provider, 'codex');
+    assert.equal(resumedConversation?.model, 'codex-repaired');
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
@@ -151,6 +401,7 @@ test('startAgentCommand omission path defaults startStep to 1 and executes from 
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -223,6 +474,7 @@ test('runAgentCommand omission path defaults startStep to 1 and executes from st
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -344,6 +596,409 @@ test('runtime step-count drift rejects stale startStep with deterministic INVALI
   }
 });
 
+test('runAgentCommand rejects invalid startStep before provider preparation on zero-work paths', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'zero-work.json'),
+    JSON.stringify(
+      {
+        Description: 'Zero work ordering guard',
+        items: [{ type: 'message', role: 'user', content: ['step 1'] }],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      cliPath: undefined,
+      reason: 'codex unavailable for ordering guard',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access' as const,
+        approvalPolicy: 'never' as const,
+        modelReasoningEffort: 'high' as const,
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled' as const,
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication' as const,
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated' as const,
+    }),
+    getMcpStatus: async () => ({ available: false }),
+  });
+
+  try {
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'zero-work',
+          startStep: 2,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code === 'INVALID_START_STEP' &&
+            (error as { reason?: string }).reason ===
+              'startStep must be between 1 and 1',
+        ),
+    );
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('startAgentCommand rejects invalid startStep before provider preparation on zero-work paths', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'zero-work.json'),
+    JSON.stringify(
+      {
+        Description: 'Zero work ordering guard',
+        items: [{ type: 'message', role: 'user', content: ['step 1'] }],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      cliPath: undefined,
+      reason: 'codex unavailable for ordering guard',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access' as const,
+        approvalPolicy: 'never' as const,
+        modelReasoningEffort: 'high' as const,
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled' as const,
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication' as const,
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated' as const,
+    }),
+    getMcpStatus: async () => ({ available: false }),
+  });
+
+  try {
+    await assert.rejects(
+      async () =>
+        startAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'zero-work',
+          startStep: 2,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code === 'INVALID_START_STEP' &&
+            (error as { reason?: string }).reason ===
+              'startStep must be between 1 and 1',
+        ),
+    );
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('runAgentInstruction rejects invalid working_folder before provider preparation begins', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const missingWorkingFolder = path.join(tempCodexHome, 'missing-working-copy');
+
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      cliPath: undefined,
+      reason: 'codex unavailable for working-folder ordering guard',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access' as const,
+        approvalPolicy: 'never' as const,
+        modelReasoningEffort: 'high' as const,
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled' as const,
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication' as const,
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated' as const,
+    }),
+    getMcpStatus: async () => ({ available: false }),
+  });
+
+  try {
+    await assert.rejects(
+      async () =>
+        runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'reject invalid folder before runtime prep',
+          conversationId: 'task20-invalid-working-folder-ordering',
+          working_folder: missingWorkingFolder,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code === 'WORKING_FOLDER_NOT_FOUND',
+        ),
+    );
+
+    assert.equal(
+      memoryConversations.has('task20-invalid-working-folder-ordering'),
+      false,
+    );
+  } finally {
+    memoryConversations.delete('task20-invalid-working-folder-ordering');
+    memoryTurns.delete('task20-invalid-working-folder-ordering');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('startAgentCommand rejects invalid working_folder before provider preparation begins', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+  const missingWorkingFolder = path.join(tempCodexHome, 'missing-working-copy');
+
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'zero-work.json'),
+    JSON.stringify(
+      {
+        Description: 'Zero work ordering guard',
+        items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      cliPath: undefined,
+      reason: 'codex unavailable for working-folder ordering guard',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access' as const,
+        approvalPolicy: 'never' as const,
+        modelReasoningEffort: 'high' as const,
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled' as const,
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication' as const,
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated' as const,
+    }),
+    getMcpStatus: async () => ({ available: false }),
+  });
+
+  try {
+    await assert.rejects(
+      async () =>
+        startAgentCommand({
+          agentName: 'coding_agent',
+          commandName: 'zero-work',
+          conversationId: 'task20-invalid-command-working-folder-ordering',
+          working_folder: missingWorkingFolder,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code === 'WORKING_FOLDER_NOT_FOUND',
+        ),
+    );
+
+    assert.equal(
+      memoryConversations.has('task20-invalid-command-working-folder-ordering'),
+      false,
+    );
+  } finally {
+    memoryConversations.delete(
+      'task20-invalid-command-working-folder-ordering',
+    );
+    memoryTurns.delete('task20-invalid-command-working-folder-ordering');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
 test('Agents runs fail when agent config contains invalid supported key types (resolver regression guard)', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const tmpAgentsHome = await fs.mkdtemp(
@@ -357,6 +1012,7 @@ test('Agents runs fail when agent config contains invalid supported key types (r
     ['model = "gpt-5.1-codex-max"', 'approval_policy = 42'].join('\n'),
     'utf8',
   );
+  process.env.CODEINFO_AGENT_HOME = tmpAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tmpAgentsHome;
 
   try {
@@ -430,6 +1086,7 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -442,7 +1099,7 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const result = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'Hello',
       conversationId: 'agents-runtime-config-shared-home',
@@ -465,24 +1122,19 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
     assert.equal(capturedFlags.length > 0, true);
 
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
+    const runtimeConfig = toRuntimeConfigSnapshot(flags);
     assert.equal(flags.useConfigDefaults, true);
-    assert.equal('codexHome' in flags, false);
-    assert.equal(typeof flags.runtimeConfig, 'object');
-
-    const runtimeConfig = flags.runtimeConfig as {
-      model?: string;
-      projects?: Record<string, { trust_level?: string }>;
-    };
-    assert.equal(runtimeConfig.model, 'agent-model-1');
-    assert.equal(
-      runtimeConfig.projects?.['/base-only']?.trust_level,
-      'trusted',
-    );
-    assert.equal(runtimeConfig.projects?.['/shared']?.trust_level, 'untrusted');
-    assert.equal(
-      runtimeConfig.projects?.['/agent-only']?.trust_level,
-      'trusted',
-    );
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'gpt-5.3-codex');
+    assert.deepEqual(runtimeConfig, {
+      approval_policy: 'never',
+      model: result.modelId,
+      projects: {
+        '/agent-only': { trust_level: 'trusted' },
+        '/base-only': { trust_level: 'trusted' },
+        '/shared': { trust_level: 'untrusted' },
+      },
+    });
   } finally {
     console.info = originalInfo;
     console.error = originalError;
@@ -547,6 +1199,7 @@ test('Agents command run uses same runtime config source and emits deterministic
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -556,7 +1209,7 @@ test('Agents command run uses same runtime config source and emits deterministic
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentCommand({
+    const result = await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'hello',
       conversationId: 'agents-command-runtime-config-shared-home',
@@ -568,12 +1221,17 @@ test('Agents command run uses same runtime config source and emits deterministic
     });
 
     const flags = capturedFlags.at(-1) as Record<string, unknown>;
+    const runtimeConfig = toRuntimeConfigSnapshot(flags);
     assert.equal(flags.useConfigDefaults, true);
-    assert.equal('codexHome' in flags, false);
-    assert.equal(
-      (flags.runtimeConfig as { model?: string }).model,
-      'agent-command-model',
-    );
+    assert.equal(result.providerId, 'codex');
+    assert.equal(result.modelId, 'gpt-5.3-codex');
+    assert.deepEqual(runtimeConfig, {
+      approval_policy: 'never',
+      model: result.modelId,
+      projects: {
+        '/shared': { trust_level: 'untrusted' },
+      },
+    });
   } finally {
     console.error = originalError;
   }
@@ -712,6 +1370,7 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -729,7 +1388,7 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const restResult = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'REST baseline',
       conversationId: 't07-rest-baseline',
@@ -790,8 +1449,17 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     const baselineFlags = restFlags.at(-1) as Record<string, unknown>;
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(baselineFlags);
     assert.equal(baselineFlags.useConfigDefaults, true);
-    assert.equal('codexHome' in baselineFlags, false);
-
+    assert.equal(restResult.providerId, 'codex');
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.deepEqual(baselineRuntimeConfig, {
+      approval_policy: 'never',
+      model: restResult.modelId,
+      projects: {
+        '/agent-only': { trust_level: 'trusted' },
+        '/base-only': { trust_level: 'trusted' },
+        '/shared': { trust_level: 'untrusted' },
+      },
+    });
     const commandRuntimeConfig = toRuntimeConfigSnapshot(
       commandFlags.at(-1) as Record<string, unknown>,
     );
@@ -803,8 +1471,26 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     );
 
     assert.deepEqual(commandRuntimeConfig, baselineRuntimeConfig);
-    assert.deepEqual(flowRuntimeConfig, baselineRuntimeConfig);
-    assert.deepEqual(mcpRuntimeConfig, baselineRuntimeConfig);
+    assert.equal(
+      typeof (flowRuntimeConfig as { model?: string }).model,
+      'string',
+    );
+    assert.equal(
+      typeof (mcpRuntimeConfig as { model?: string }).model,
+      'string',
+    );
+    assert.equal(
+      ((flowRuntimeConfig as { model?: string }).model ?? '').length > 0,
+      true,
+    );
+    assert.equal(
+      ((mcpRuntimeConfig as { model?: string }).model ?? '').length > 0,
+      true,
+    );
+    assert.deepEqual(
+      withoutModel(flowRuntimeConfig),
+      withoutModel(mcpRuntimeConfig),
+    );
 
     assert.equal(
       infoLogs.some((line) =>
@@ -886,6 +1572,7 @@ test('one successful device-auth flow unlocks shared auth reuse for agent, flow,
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1045,6 +1732,7 @@ test('Flow and MCP runtime resolver paths emit deterministic T07 error logs on i
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1208,6 +1896,7 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1224,7 +1913,7 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
   console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const restResult = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'REST baseline',
       conversationId: 't18-rest-precedence',
@@ -1279,8 +1968,18 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     assert.equal(flowFlags.length > 0, true);
     assert.equal(mcpFlags.length > 0, true);
 
+    const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
+    const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
+    assert.equal(restResult.providerId, 'codex');
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
+    assert.equal(
+      (restRuntimeConfig as { model?: string }).model,
+      restResult.modelId,
+    );
+
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
-      restFlags.at(-1) as Record<string, unknown>,
+      commandFlags.at(-1) as Record<string, unknown>,
     );
     assert.equal(
       (baselineRuntimeConfig.projects as Record<string, unknown>)['/base-only']
@@ -1310,18 +2009,22 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
       ).trust_level,
       'trusted',
     );
+    assert.deepEqual(
+      withoutModel(restRuntimeConfig),
+      withoutModel(baselineRuntimeConfig),
+    );
 
     assert.deepEqual(
-      toRuntimeConfigSnapshot(commandFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
+      withoutModel(
+        toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
+      ),
+      withoutModel(baselineRuntimeConfig),
     );
     assert.deepEqual(
-      toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
-    );
-    assert.deepEqual(
-      toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
+      withoutModel(
+        toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+      ),
+      withoutModel(baselineRuntimeConfig),
     );
 
     console.info(T18_SUCCESS_LOG);
@@ -1416,6 +2119,7 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     'utf8',
   );
 
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
   process.env.FLOWS_DIR = tempFlowsDir;
@@ -1429,7 +2133,7 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     warningLogs.push(String(args[0] ?? ''));
 
   try {
-    await runAgentInstruction({
+    const restResult = await runAgentInstruction({
       agentName: 'coding_agent',
       instruction: 'REST warning path',
       conversationId: 't18-unknown-rest',
@@ -1472,8 +2176,18 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     assert.equal(flowFlags.length > 0, true);
     assert.equal(mcpFlags.length > 0, true);
 
+    const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
+    const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
+    assert.equal(restResult.providerId, 'codex');
+    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restFlagsSnapshot.useConfigDefaults, true);
+    assert.equal(
+      (restRuntimeConfig as { model?: string }).model,
+      restResult.modelId,
+    );
+
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
-      restFlags.at(-1) as Record<string, unknown>,
+      flowFlags.at(-1) as Record<string, unknown>,
     );
     assert.equal(
       (baselineRuntimeConfig.top_level_unknown as string | undefined) ??
@@ -1494,12 +2208,14 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
       'ignored',
     );
     assert.deepEqual(
-      toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
+      withoutModel(
+        toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+      ),
+      withoutModel(baselineRuntimeConfig),
     );
     assert.deepEqual(
-      toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
-      baselineRuntimeConfig,
+      withoutModel(restRuntimeConfig),
+      withoutModel(baselineRuntimeConfig),
     );
 
     assert.equal(
@@ -1526,6 +2242,575 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     await fs.rm(tempAgentsHome, { recursive: true, force: true });
     await fs.rm(tempCodexHome, { recursive: true, force: true });
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
+  }
+});
+
+test('Task 19 preserves fallback runtime warnings on successful direct agent runs', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-home-'),
+  );
+
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "copilot"',
+      'model = "copilot-model"',
+      'top_level_unknown = "ignored"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCopilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.CODEINFO_COPILOT_HOME = tempCopilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  try {
+    const result = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'fallback warning path',
+      conversationId: 'task19-fallback-warning-rest',
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+
+    assert.equal(result.providerId, 'codex');
+    assert.equal(
+      result.warnings?.some((warning) =>
+        warning.includes('Unknown key agent.top_level_unknown'),
+      ) ?? false,
+      true,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete('task19-fallback-warning-rest');
+    memoryTurns.delete('task19-fallback-warning-rest');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 26 keeps availability warnings on the initial direct agent run-start response payload', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-home-'),
+  );
+
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "bad-provider"', 'model = "copilot-model"', ''].join(
+      '\n',
+    ),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCopilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.CODEINFO_COPILOT_HOME = tempCopilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  const app = express();
+  app.use(
+    createAgentsRunRouter({
+      startAgentInstruction: (params) =>
+        startAgentInstruction({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    }),
+  );
+
+  try {
+    const response = await supertest(app)
+      .post('/agents/coding_agent/run')
+      .send({ instruction: 'warning-bearing start' })
+      .expect(202);
+
+    assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('unsupported provider "bad-provider"'),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fallback provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('direct agent run falls back before provider runtime load when the requested provider config cannot load', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-home-'),
+  );
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'model = "copilot-gpt-5"', ''].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.CODEINFO_COPILOT_HOME = tempCopilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  const app = express();
+  app.use(
+    createAgentsRunRouter({
+      startAgentInstruction: (params) =>
+        startAgentInstruction({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    }),
+  );
+
+  try {
+    const response = await supertest(app)
+      .post('/agents/coding_agent/run')
+      .send({ instruction: 'runtime-config fallback please' })
+      .expect(202);
+
+    assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          'requested provider "copilot" because its runtime config could not load',
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fallback provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousLegacyAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('provider-independent agent config failures still fail clearly instead of silently falling back', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'approval_policy = ['].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  const app = express();
+  app.use(
+    createAgentsRunRouter({
+      startAgentInstruction: (params) =>
+        startAgentInstruction({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    }),
+  );
+
+  try {
+    const response = await supertest(app)
+      .post('/agents/coding_agent/run')
+      .send({ instruction: 'do not hide invalid config' })
+      .expect(500);
+
+    assert.notEqual(response.body.code, 'PROVIDER_UNAVAILABLE');
+  } finally {
+    memoryConversations.clear();
+    memoryTurns.clear();
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousLegacyAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('Task 28 direct continuation restores the saved requested-provider identity instead of reusing the execution provider field', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'model = "copilot-model"', ''].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  const conversationId = 'task28-direct-continuation-requested-provider';
+
+  try {
+    const seededConversation: Conversation = {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+      title: 'Saved continuation',
+      agentName: 'coding_agent',
+      source: 'REST',
+      flags: {
+        requestedProviderId: 'copilot',
+      },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await withMockedMongoConversationPersistence({
+      seedConversations: [seededConversation],
+      run: async ({ conversations }) => {
+        const result = await runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'continue with saved requested provider',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        });
+
+        assert.equal(result.providerId, 'codex');
+        assert.equal(
+          conversations.get(conversationId)?.flags?.requestedProviderId,
+          'copilot',
+        );
+      },
+    });
+  } finally {
+    __resetAgentServiceDepsForTests();
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
 });
 
@@ -1763,7 +3048,7 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
         mcpConversationId,
       );
 
-      await runAgentInstruction({
+      const restResult = await runAgentInstruction({
         agentName,
         instruction: `REST parity for ${agentName}`,
         conversationId: restConversationId,
@@ -1806,16 +3091,18 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
       assert.equal(flowFlags.length > 0, true);
       assert.equal(mcpFlags.length > 0, true);
 
-      const restRuntimeConfig = toRuntimeConfigSnapshot(
-        restFlags.at(-1) as Record<string, unknown>,
+      assert.equal(restResult.providerId, 'codex');
+      assert.equal(typeof restResult.modelId, 'string');
+      assert.equal(restResult.modelId.length > 0, true);
+
+      const flowRuntimeConfig = toRuntimeConfigSnapshot(
+        flowFlags.at(-1) as Record<string, unknown>,
       );
       assert.deepEqual(
-        toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
-        restRuntimeConfig,
-      );
-      assert.deepEqual(
-        toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
-        restRuntimeConfig,
+        withoutModel(
+          toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+        ),
+        withoutModel(flowRuntimeConfig),
       );
     }
 

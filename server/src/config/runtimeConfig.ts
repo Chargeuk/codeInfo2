@@ -10,11 +10,21 @@ import { discoverAgents } from '../agents/discovery.js';
 import { append } from '../logStore.js';
 
 import {
+  buildDefaultCodexConfig,
+  ensureCodexConfigSeeded,
+  getCodexAuthPathForHome,
   getCodexChatConfigPathForHome,
   getCodexConfigPathForHome,
   resolveCodexHome,
 } from './codexConfig.js';
-import { resolveCopilotHome } from './copilotConfig.js';
+import {
+  ensureCopilotBaseConfigSeeded,
+  ensureLmStudioBaseConfigSeeded,
+  getCopilotConfigPathForHome,
+  getLmStudioConfigPathForHome,
+  resolveCopilotHome,
+  resolveLmStudioHome,
+} from './copilotConfig.js';
 import { resolveRequiredCodeinfoPlaceholderValue } from './mcpEndpoints.js';
 
 const T03_SUCCESS_LOG =
@@ -39,9 +49,13 @@ const T07_CHECKED_IN_MCP_CONTRACT_LOADED =
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
+export type RuntimeConfigAppMetadata = {
+  codeinfoProvider?: string;
+};
 export type RuntimeConfigValidationResult = {
   config: RuntimeTomlConfig;
   warnings: RuntimeConfigWarning[];
+  appMetadata?: RuntimeConfigAppMetadata;
 };
 export type RuntimeConfigSurface = 'agent' | 'chat';
 type RuntimeMergeResult = {
@@ -57,6 +71,16 @@ type Context7NormalizationMode =
 type Context7NormalizationResult = {
   config: RuntimeTomlConfig;
   mode: Context7NormalizationMode;
+};
+type CodexChatConfigRootOverrides = {
+  model?: string;
+  approval_policy?: string;
+  sandbox_mode?: string;
+  network_access_enabled?: boolean;
+  web_search_mode?: string;
+  model_reasoning_effort?: string;
+  model_reasoning_summary?: string;
+  model_verbosity?: string;
 };
 
 export class RuntimeConfigResolutionError extends Error {
@@ -94,10 +118,14 @@ type ChatBootstrapBranch =
   | 'chat_dir_create_failed';
 
 export type RuntimeConfigSnapshot = {
-  codexHome: string;
+  provider: ChatProviderId;
+  providerHome: string;
+  codexHome?: string;
   baseConfigPath: string;
+  repoLocalConfigPath: string;
   chatConfigPath: string;
   agentConfigPath?: string;
+  repoLocalConfig?: RuntimeTomlConfig;
   baseConfig?: RuntimeTomlConfig;
   chatConfig?: RuntimeTomlConfig;
   agentConfig?: RuntimeTomlConfig;
@@ -109,6 +137,20 @@ export type ProviderChatDefaultsSnapshot = {
   config?: RuntimeTomlConfig;
 };
 
+export type ProviderBootstrapStatus = {
+  provider: ChatProviderId;
+  healthy: boolean;
+  reason?: string;
+  warnings: string[];
+};
+
+const providerBootstrapStatuses: Record<ChatProviderId, ProviderBootstrapStatus> =
+  {
+    codex: { provider: 'codex', healthy: true, warnings: [] },
+    copilot: { provider: 'copilot', healthy: true, warnings: [] },
+    lmstudio: { provider: 'lmstudio', healthy: true, warnings: [] },
+  };
+
 const WEB_SEARCH_MODES = new Set(['live', 'cached', 'disabled']);
 const CONTEXT7_PLACEHOLDER_API_KEYS = new Set([
   'REPLACE_WITH_CONTEXT7_API_KEY',
@@ -118,6 +160,10 @@ const CODEINFO_ENV_PLACEHOLDER_PATTERN = /\$\{([A-Z0-9_]+)\}/g;
 const DIRECT_CODEINFO_ENV_PLACEHOLDERS = new Set([
   'CODEINFO_PLAYWRIGHT_MCP_URL',
 ]);
+const CODEINFO_CONFIG_DIRNAME = 'codeinfo_config';
+const CODEINFO_CONFIG_BASENAME = 'config.toml';
+const CODEINFO_PROVIDER_METADATA_KEY = 'codeinfo_provider';
+const CODEINFO_METADATA_PREFIX = 'codeinfo_';
 const REQUIRED_MCP_PLACEHOLDER_KEYS = new Set([
   'CODEINFO_SERVER_PORT',
   'CODEINFO_CHAT_MCP_PORT',
@@ -156,6 +202,48 @@ const providerChatConfigDirRoot = path.resolve(
   '../../..',
 );
 
+const encodeCodexRuntimeHomeSegment = (value: string): string => {
+  const encoded = Buffer.from(value, 'utf8').toString('base64url');
+  return `conversation-${encoded.length > 0 ? encoded : 'empty'}`;
+};
+
+function mapRepositoryBackedCodexHomeError(params: {
+  error: unknown;
+  configPath: string;
+}): RuntimeConfigResolutionError {
+  if (params.error instanceof RuntimeConfigResolutionError) {
+    return params.error;
+  }
+
+  const code = (params.error as NodeJS.ErrnoException)?.code;
+  const message =
+    params.error instanceof Error ? params.error.message : String(params.error);
+
+  if (
+    code === 'EACCES' ||
+    code === 'EPERM' ||
+    code === 'EISDIR' ||
+    code === 'ENOTDIR' ||
+    code === 'EMFILE' ||
+    code === 'ENFILE' ||
+    code === 'ELOOP'
+  ) {
+    return new RuntimeConfigResolutionError({
+      code: 'RUNTIME_CONFIG_UNREADABLE',
+      configPath: params.configPath,
+      surface: 'chat',
+      message: `RUNTIME_CONFIG_UNREADABLE: Unable to materialize repository-backed chat runtime home at ${params.configPath}: ${message}`,
+    });
+  }
+
+  return new RuntimeConfigResolutionError({
+    code: 'RUNTIME_CONFIG_VALIDATION_FAILED',
+    configPath: params.configPath,
+    surface: 'chat',
+    message: `RUNTIME_CONFIG_VALIDATION_FAILED: Unable to materialize repository-backed chat runtime home at ${params.configPath}: ${message}`,
+  });
+}
+
 export function resolveLmStudioChatDefaultsHome(): string {
   return path.join(providerChatConfigDirRoot, 'lmstudio');
 }
@@ -191,10 +279,73 @@ export function getProviderChatConfigPath(params: {
   };
 }
 
+export function getProviderBaseConfigPath(params: {
+  provider: ChatProviderId;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): {
+  providerHome: string;
+  baseConfigPath: string;
+  repoLocalConfigPath: string;
+} {
+  if (params.provider === 'codex') {
+    const providerHome = resolveCodexHome(params.codexHome);
+    return {
+      providerHome,
+      baseConfigPath: getCodexConfigPathForHome(providerHome),
+      repoLocalConfigPath: path.join(
+        path.dirname(providerHome),
+        CODEINFO_CONFIG_DIRNAME,
+        CODEINFO_CONFIG_BASENAME,
+      ),
+    };
+  }
+
+  if (params.provider === 'copilot') {
+    const providerHome = resolveCopilotHome(params.copilotHome);
+    return {
+      providerHome,
+      baseConfigPath: getCopilotConfigPathForHome(providerHome),
+      repoLocalConfigPath: path.join(
+        path.dirname(providerHome),
+        CODEINFO_CONFIG_DIRNAME,
+        CODEINFO_CONFIG_BASENAME,
+      ),
+    };
+  }
+
+  const providerHome = resolveLmStudioHome(params.lmstudioHome);
+  return {
+    providerHome,
+    baseConfigPath: getLmStudioConfigPathForHome(providerHome),
+    repoLocalConfigPath: path.join(
+      path.dirname(providerHome),
+      CODEINFO_CONFIG_DIRNAME,
+      CODEINFO_CONFIG_BASENAME,
+    ),
+  };
+}
+
 function buildChatConfigTempPath(chatConfigPath: string): string {
   return `${chatConfigPath}.${process.pid}.${Date.now()}.${Math.random()
     .toString(16)
     .slice(2)}.tmp`;
+}
+
+async function commitTempFileIfMissing(
+  tempPath: string,
+  targetPath: string,
+): Promise<'written' | 'existing'> {
+  try {
+    await fs.link(tempPath, targetPath);
+    return 'written';
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      return 'existing';
+    }
+    throw error;
+  }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -633,103 +784,154 @@ export function mergeProjectsFromBaseIntoRuntime(
   return merged;
 }
 
-function mergeNamedTables(baseValue: unknown, runtimeValue: unknown): unknown {
-  if (runtimeValue !== undefined && !isRecord(runtimeValue)) {
+function mergeConfigValue(baseValue: unknown, runtimeValue: unknown): unknown {
+  if (runtimeValue === undefined) {
+    return baseValue === undefined ? undefined : structuredClone(baseValue);
+  }
+  if (baseValue === undefined) {
     return structuredClone(runtimeValue);
   }
-  if (baseValue !== undefined && !isRecord(baseValue)) {
-    return structuredClone(baseValue);
+  if (Array.isArray(runtimeValue) || Array.isArray(baseValue)) {
+    return structuredClone(runtimeValue);
   }
-  const baseTable = isRecord(baseValue)
-    ? { ...(baseValue as Record<string, unknown>) }
-    : {};
-  const runtimeTable = isRecord(runtimeValue)
-    ? { ...(runtimeValue as Record<string, unknown>) }
-    : {};
-  const mergedTable = { ...baseTable, ...runtimeTable };
-  if (Object.keys(mergedTable).length === 0) {
-    return undefined;
+  if (isRecord(baseValue) && isRecord(runtimeValue)) {
+    const mergedRecord: Record<string, unknown> = {};
+    const keys = new Set([
+      ...Object.keys(baseValue),
+      ...Object.keys(runtimeValue),
+    ]);
+    for (const key of keys) {
+      const mergedEntry = mergeConfigValue(baseValue[key], runtimeValue[key]);
+      if (mergedEntry !== undefined) {
+        mergedRecord[key] = mergedEntry;
+      }
+    }
+    return mergedRecord;
   }
-  return mergedTable;
+  return structuredClone(runtimeValue);
 }
 
 export function mergeRuntimeConfigWithBaseConfig(
   baseConfig: RuntimeTomlConfig | undefined,
   runtimeConfig: RuntimeTomlConfig,
 ): RuntimeMergeResult {
-  const merged = cloneConfig(runtimeConfig);
+  const merged: RuntimeTomlConfig = {};
   const inheritedKeys: string[] = [];
   const runtimeOverrideKeys: string[] = [];
-
-  const recordOverride = (key: string) => {
-    if (
-      baseConfig &&
-      hasOwn(baseConfig, key) &&
-      hasOwn(runtimeConfig, key) &&
-      !runtimeOverrideKeys.includes(key)
-    ) {
-      runtimeOverrideKeys.push(key);
+  const keys = new Set<string>([
+    ...Object.keys(baseConfig ?? {}),
+    ...Object.keys(runtimeConfig),
+  ]);
+  for (const key of keys) {
+    const mergedValue = mergeConfigValue(baseConfig?.[key], runtimeConfig[key]);
+    if (mergedValue !== undefined) {
+      merged[key] = mergedValue;
     }
-  };
-
-  const inheritTopLevel = (key: string) => {
-    if (!baseConfig || !hasOwn(baseConfig, key)) {
-      return;
-    }
-    if (hasOwn(runtimeConfig, key)) {
-      recordOverride(key);
-      return;
-    }
-    merged[key] = cloneConfig({ [key]: baseConfig[key] })[key];
-    inheritedKeys.push(key);
-  };
-
-  const mergeTopLevelTable = (key: string) => {
-    const mergedTable = mergeNamedTables(baseConfig?.[key], runtimeConfig[key]);
-    if (mergedTable === undefined) {
-      delete merged[key];
-      return;
-    }
-    merged[key] = mergedTable;
     if (baseConfig && hasOwn(baseConfig, key) && !hasOwn(runtimeConfig, key)) {
       inheritedKeys.push(key);
-      return;
+      continue;
     }
-    if (
-      baseConfig &&
-      hasOwn(baseConfig, key) &&
-      hasOwn(runtimeConfig, key) &&
-      !runtimeOverrideKeys.includes(key)
-    ) {
+    if (baseConfig && hasOwn(baseConfig, key) && hasOwn(runtimeConfig, key)) {
       runtimeOverrideKeys.push(key);
-    }
-  };
-
-  merged.projects = mergeNamedTables(
-    baseConfig?.projects,
-    runtimeConfig.projects,
-  );
-  if (merged.projects === undefined) {
-    delete merged.projects;
-  } else if (baseConfig && hasOwn(baseConfig, 'projects')) {
-    if (hasOwn(runtimeConfig, 'projects')) {
-      runtimeOverrideKeys.push('projects');
-    } else {
-      inheritedKeys.push('projects');
     }
   }
 
-  mergeTopLevelTable('mcp_servers');
-  mergeTopLevelTable('tools');
-  mergeTopLevelTable('model_providers');
-  inheritTopLevel('personality');
-  inheritTopLevel('model_provider');
-
-  ['model', 'approval_policy', 'sandbox_mode', 'web_search'].forEach(
-    recordOverride,
-  );
-
   return { merged, inheritedKeys, runtimeOverrideKeys };
+}
+
+export function mergeRuntimeConfigLayers(
+  layers: readonly (RuntimeTomlConfig | undefined)[],
+): RuntimeMergeResult {
+  const definedLayers = layers.filter(
+    (layer): layer is RuntimeTomlConfig => layer !== undefined,
+  );
+  if (definedLayers.length === 0) {
+    return {
+      merged: createNullPrototypeRecord(),
+      inheritedKeys: [],
+      runtimeOverrideKeys: [],
+    };
+  }
+
+  let merged = cloneConfig(definedLayers[0]);
+  const inheritedKeys = new Set<string>();
+  const runtimeOverrideKeys = new Set<string>();
+  for (const layer of definedLayers.slice(1)) {
+    const result = mergeRuntimeConfigWithBaseConfig(merged, layer);
+    merged = result.merged;
+    result.inheritedKeys.forEach((key) => inheritedKeys.add(key));
+    result.runtimeOverrideKeys.forEach((key) => runtimeOverrideKeys.add(key));
+  }
+
+  return {
+    merged,
+    inheritedKeys: [...inheritedKeys],
+    runtimeOverrideKeys: [...runtimeOverrideKeys],
+  };
+}
+
+export function extractRuntimeConfigAppMetadata(params: {
+  config: RuntimeTomlConfig;
+  surface: RuntimeConfigSurface;
+  warnings?: RuntimeConfigWarning[];
+  pathLabel?: string;
+}): RuntimeConfigAppMetadata {
+  const pathLabel = params.pathLabel ?? params.surface;
+  const warnings = params.warnings;
+  const metadata: RuntimeConfigAppMetadata = {};
+  const rawProvider = params.config[CODEINFO_PROVIDER_METADATA_KEY];
+
+  if (rawProvider === undefined) {
+    return metadata;
+  }
+
+  if (typeof rawProvider !== 'string') {
+    warnings?.push({
+      path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
+      message: `${CODEINFO_PROVIDER_METADATA_KEY} must be a string when present; ignoring non-string metadata value`,
+    });
+    return metadata;
+  }
+
+  const trimmedProvider = rawProvider.trim();
+  if (!trimmedProvider) {
+    return metadata;
+  }
+
+  if (params.surface !== 'agent') {
+    warnings?.push({
+      path: `${pathLabel}.${CODEINFO_PROVIDER_METADATA_KEY}`,
+      message: `${CODEINFO_PROVIDER_METADATA_KEY} is only supported on agent runtime config and was ignored on ${params.surface}`,
+    });
+    return metadata;
+  }
+
+  metadata.codeinfoProvider = trimmedProvider;
+  return metadata;
+}
+
+function stripAppOwnedRuntimeMetadata(params: {
+  config: RuntimeTomlConfig;
+  surface: RuntimeConfigSurface;
+  warnings: RuntimeConfigWarning[];
+}): { config: RuntimeTomlConfig; appMetadata: RuntimeConfigAppMetadata } {
+  const appMetadata = extractRuntimeConfigAppMetadata({
+    config: params.config,
+    surface: params.surface,
+    warnings: params.warnings,
+    pathLabel: params.surface,
+  });
+  const sanitized = createNullPrototypeRecord();
+  for (const [key, value] of Object.entries(params.config)) {
+    if (key.startsWith(CODEINFO_METADATA_PREFIX)) {
+      continue;
+    }
+    sanitized[key] = value;
+  }
+  return {
+    config: sanitized,
+    appMetadata,
+  };
 }
 
 export function validateRuntimeConfig(
@@ -1006,6 +1208,42 @@ async function cleanupPartialChatConfig(chatConfigPath: string) {
   await fs.rm(chatConfigPath, { force: true }).catch(() => undefined);
 }
 
+const toTomlScalar = (value: string | boolean): string =>
+  typeof value === 'boolean' ? String(value) : toTomlQuoted(value);
+
+const upsertRootTomlScalar = (
+  rawConfig: string,
+  key: string,
+  value: string | boolean,
+): string => {
+  const rendered = `${key} = ${toTomlScalar(value)}`;
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const existingLine = new RegExp(`^${escapedKey}\\s*=.*$`, 'mu');
+  if (existingLine.test(rawConfig)) {
+    return rawConfig.replace(existingLine, rendered);
+  }
+
+  const lines = rawConfig.split('\n');
+  const firstTableIndex = lines.findIndex((line) =>
+    line.trimStart().startsWith('['),
+  );
+  const insertIndex = firstTableIndex === -1 ? lines.length : firstTableIndex;
+  lines.splice(insertIndex, 0, rendered);
+  return lines.join('\n');
+};
+
+const applyCodexChatConfigRootOverrides = (
+  rawConfig: string,
+  overrides: CodexChatConfigRootOverrides,
+): string => {
+  let next = rawConfig;
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) continue;
+    next = upsertRootTomlScalar(next, key, value);
+  }
+  return next;
+};
+
 function readProviderChatConfigSync(params: {
   provider: ChatProviderId;
   codexHome?: string;
@@ -1045,32 +1283,52 @@ export function loadProviderChatDefaultsSnapshotSync(params: {
 
 export async function resolveMergedAndValidatedRuntimeConfig(params: {
   surface: RuntimeConfigSurface;
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
   runtimeConfigPath: string;
 }): Promise<RuntimeConfigValidationResult> {
-  const codexHome = resolveCodexHome(params.codexHome);
-  const baseConfigPath = getCodexConfigPathForHome(codexHome);
+  const provider = params.provider ?? 'codex';
+  const { providerHome, baseConfigPath, repoLocalConfigPath } =
+    getProviderBaseConfigPath({
+      provider,
+      codexHome: params.codexHome,
+      copilotHome: params.copilotHome,
+      lmstudioHome: params.lmstudioHome,
+    });
   try {
-    const [baseConfig, runtimeConfig] = await Promise.all([
+    const [repoLocalConfig, baseConfig, runtimeConfig] = await Promise.all([
+      readAndNormalizeRuntimeTomlConfig(repoLocalConfigPath),
       readAndNormalizeRuntimeTomlConfig(baseConfigPath),
       readAndNormalizeRuntimeTomlConfig(params.runtimeConfigPath, {
         required: true,
       }),
     ]);
-    const mergeResult = mergeRuntimeConfigWithBaseConfig(
+    const mergeResult = mergeRuntimeConfigLayers([
+      repoLocalConfig,
       baseConfig,
       runtimeConfig!,
-    );
+    ]);
+    const metadataWarnings: RuntimeConfigWarning[] = [];
+    const stripped = stripAppOwnedRuntimeMetadata({
+      config: mergeResult.merged,
+      surface: params.surface,
+      warnings: metadataWarnings,
+    });
     const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
-      mergeResult.merged,
+      stripped.config,
     );
     const context7Result = normalizeContext7RuntimeConfig(placeholderResult);
     const validated = validateRuntimeConfig(context7Result.config, {
       pathLabel: params.surface,
     });
+    validated.warnings.unshift(...metadataWarnings);
+    validated.appMetadata = stripped.appMetadata;
     logValidationWarnings(validated.warnings);
     console.info(T04_RUNTIME_INHERITANCE_MARKER, {
       surface: params.surface,
+      provider,
       inherited_keys: mergeResult.inheritedKeys,
       runtime_override_keys: mergeResult.runtimeOverrideKeys,
       success: true,
@@ -1086,7 +1344,8 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
     });
     console.info(T04_SUCCESS_LOG, {
       surface: params.surface,
-      codexHome,
+      provider,
+      providerHome,
       runtimeConfigPath: params.runtimeConfigPath,
       warningCount: validated.warnings.length,
     });
@@ -1104,24 +1363,42 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
 }
 
 export async function resolveAgentRuntimeConfig(params: {
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
   agentConfigPath: string;
 }): Promise<RuntimeConfigValidationResult> {
   return resolveMergedAndValidatedRuntimeConfig({
     surface: 'agent',
+    provider: params.provider,
     codexHome: params.codexHome,
+    copilotHome: params.copilotHome,
+    lmstudioHome: params.lmstudioHome,
     runtimeConfigPath: params.agentConfigPath,
   });
 }
 
 export async function resolveChatRuntimeConfig(params?: {
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
 }): Promise<RuntimeConfigValidationResult> {
-  const codexHome = resolveCodexHome(params?.codexHome);
+  const provider = params?.provider ?? 'codex';
+  const { providerHome, chatConfigPath } = getProviderChatConfigPath({
+    provider,
+    codexHome: params?.codexHome,
+    copilotHome: params?.copilotHome,
+    lmstudioHome: params?.lmstudioHome,
+  });
   return resolveMergedAndValidatedRuntimeConfig({
     surface: 'chat',
-    codexHome,
-    runtimeConfigPath: getCodexChatConfigPathForHome(codexHome),
+    provider,
+    codexHome: provider === 'codex' ? providerHome : params?.codexHome,
+    copilotHome: provider === 'copilot' ? providerHome : params?.copilotHome,
+    lmstudioHome: provider === 'lmstudio' ? providerHome : params?.lmstudioHome,
+    runtimeConfigPath: chatConfigPath,
   });
 }
 
@@ -1246,7 +1523,32 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       encoding: 'utf8',
       flag: 'wx',
     });
-    await fs.rename(tempPath, chatConfigPath);
+    const commitResult = await commitTempFileIfMissing(
+      tempPath,
+      chatConfigPath,
+    );
+    if (commitResult === 'existing') {
+      logTask9Bootstrap({
+        branch: 'existing_noop',
+        codexHome: providerHome,
+        baseConfigPath,
+        chatConfigPath,
+        copied: false,
+        generatedTemplate: false,
+      });
+      logTask3Bootstrap({
+        chatConfigPath,
+        outcome: 'existing',
+        success: true,
+      });
+      return {
+        provider: params.provider,
+        providerHome,
+        chatConfigPath,
+        generatedTemplate: false,
+        branch: 'existing_noop',
+      };
+    }
     logTask9Bootstrap({
       branch: 'generated_template',
       codexHome: providerHome,
@@ -1268,7 +1570,6 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       branch: 'generated_template',
     };
   } catch (error) {
-    await cleanupPartialChatConfig(tempPath);
     if ((error as { code?: string }).code === 'EEXIST') {
       logTask9Bootstrap({
         branch: 'existing_noop',
@@ -1313,6 +1614,92 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       warningCode: code,
     });
     throw error;
+  } finally {
+    await cleanupPartialChatConfig(tempPath);
+  }
+}
+
+export async function materializeRepositoryBackedCodexChatHome(params: {
+  conversationId: string;
+  codexHome?: string;
+  overrides: CodexChatConfigRootOverrides;
+}): Promise<{
+  sourceCodexHome: string;
+  runtimeCodexHome: string;
+  baseConfigPath: string;
+  chatConfigPath: string;
+}> {
+  const sourceCodexHome = resolveCodexHome(params.codexHome);
+  const sourceBaseConfigPath = getCodexConfigPathForHome(sourceCodexHome);
+  const sourceChatConfigPath = getCodexChatConfigPathForHome(sourceCodexHome);
+  const sourceAuthPath = getCodexAuthPathForHome(sourceCodexHome);
+
+  await fs.mkdir(sourceCodexHome, { recursive: true });
+  await fs
+    .writeFile(sourceBaseConfigPath, buildDefaultCodexConfig(), {
+      encoding: 'utf8',
+      flag: 'wx',
+    })
+    .catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw error;
+      }
+    });
+  await ensureProviderChatConfigBootstrapped({
+    provider: 'codex',
+    codexHome: sourceCodexHome,
+  });
+
+  const runtimeCodexHome = path.join(
+    sourceCodexHome,
+    '.codeinfo-chat-runtimes',
+    encodeCodexRuntimeHomeSegment(params.conversationId),
+  );
+  const runtimeBaseConfigPath = getCodexConfigPathForHome(runtimeCodexHome);
+  const runtimeChatConfigPath = getCodexChatConfigPathForHome(runtimeCodexHome);
+  const runtimeAuthPath = getCodexAuthPathForHome(runtimeCodexHome);
+
+  try {
+    await fs.mkdir(path.dirname(runtimeChatConfigPath), { recursive: true });
+
+    const [baseConfigRaw, chatConfigRaw] = await Promise.all([
+      fs.readFile(sourceBaseConfigPath, 'utf8'),
+      fs.readFile(sourceChatConfigPath, 'utf8'),
+    ]);
+    const runtimeChatConfig = applyCodexChatConfigRootOverrides(
+      chatConfigRaw,
+      params.overrides,
+    );
+
+    await Promise.all([
+      fs.writeFile(runtimeBaseConfigPath, baseConfigRaw, 'utf8'),
+      fs.writeFile(runtimeChatConfigPath, runtimeChatConfig, 'utf8'),
+    ]);
+
+    const authConfigRaw = await fs
+      .readFile(sourceAuthPath, 'utf8')
+      .catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          return undefined;
+        }
+        throw error;
+      });
+    if (typeof authConfigRaw === 'string') {
+      await fs.writeFile(runtimeAuthPath, authConfigRaw, 'utf8');
+    }
+
+    return {
+      sourceCodexHome,
+      runtimeCodexHome,
+      baseConfigPath: runtimeBaseConfigPath,
+      chatConfigPath: runtimeChatConfigPath,
+    };
+  } catch (error) {
+    await fs.rm(runtimeCodexHome, { recursive: true, force: true });
+    throw mapRepositoryBackedCodexHomeError({
+      error,
+      configPath: runtimeChatConfigPath,
+    });
   }
 }
 
@@ -1324,24 +1711,90 @@ export async function ensureAllProviderChatConfigsBootstrapped(params?: {
   const providers: ChatProviderId[] = ['codex', 'copilot', 'lmstudio'];
   const results = await Promise.all(
     providers.map(async (provider) => {
-      const seeded = await ensureProviderChatConfigBootstrapped({
-        provider,
-        codexHome: params?.codexHome,
-        copilotHome: params?.copilotHome,
-        lmstudioHome: params?.lmstudioHome,
-      });
-      return readProviderChatConfigSync({
-        provider,
-        codexHome:
-          provider === 'codex' ? seeded.providerHome : params?.codexHome,
-        copilotHome:
-          provider === 'copilot' ? seeded.providerHome : params?.copilotHome,
-        lmstudioHome:
-          provider === 'lmstudio' ? seeded.providerHome : params?.lmstudioHome,
-      });
+      try {
+        if (provider === 'codex') {
+          ensureCodexConfigSeeded();
+        } else if (provider === 'copilot') {
+          await ensureCopilotBaseConfigSeeded(params?.copilotHome);
+        } else {
+          await ensureLmStudioBaseConfigSeeded(params?.lmstudioHome);
+        }
+
+        const seeded = await ensureProviderChatConfigBootstrapped({
+          provider,
+          codexHome: params?.codexHome,
+          copilotHome: params?.copilotHome,
+          lmstudioHome: params?.lmstudioHome,
+        });
+        const snapshot = readProviderChatConfigSync({
+          provider,
+          codexHome:
+            provider === 'codex' ? seeded.providerHome : params?.codexHome,
+          copilotHome:
+            provider === 'copilot' ? seeded.providerHome : params?.copilotHome,
+          lmstudioHome:
+            provider === 'lmstudio'
+              ? seeded.providerHome
+              : params?.lmstudioHome,
+        });
+        providerBootstrapStatuses[provider] = {
+          provider,
+          healthy: true,
+          warnings: [],
+        };
+        return snapshot;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        providerBootstrapStatuses[provider] = {
+          provider,
+          healthy: false,
+          reason,
+          warnings: [
+            `Provider "${provider}" bootstrap degraded during startup: ${reason}`,
+          ],
+        };
+        console.warn(
+          `[runtime-config] provider bootstrap degraded provider=${provider} reason=${reason}`,
+        );
+        return undefined;
+      }
     }),
   );
-  return results;
+  return results.filter(Boolean) as ProviderChatDefaultsSnapshot[];
+}
+
+export function getProviderBootstrapStatus(
+  provider: ChatProviderId,
+): ProviderBootstrapStatus {
+  const status = providerBootstrapStatuses[provider];
+  return {
+    provider,
+    healthy: status.healthy,
+    ...(status.reason ? { reason: status.reason } : {}),
+    warnings: [...status.warnings],
+  };
+}
+
+export function __setProviderBootstrapStatusForTests(
+  provider: ChatProviderId,
+  status: Partial<ProviderBootstrapStatus>,
+) {
+  providerBootstrapStatuses[provider] = {
+    provider,
+    healthy: status.healthy ?? true,
+    reason: status.reason,
+    warnings: [...(status.warnings ?? [])],
+  };
+}
+
+export function __resetProviderBootstrapStatusForTests() {
+  for (const provider of ['codex', 'copilot', 'lmstudio'] as const) {
+    providerBootstrapStatuses[provider] = {
+      provider,
+      healthy: true,
+      warnings: [],
+    };
+  }
 }
 
 type ProjectTrustTable = Record<string, { trust_level?: unknown }>;
@@ -1426,14 +1879,28 @@ export async function minimizeBaseConfigToProjectsOnly(params?: {
 }
 
 export async function loadRuntimeConfigSnapshot(params?: {
+  provider?: ChatProviderId;
   codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
   bootstrapChatConfig?: boolean;
   agentName?: string;
   agentConfigPath?: string;
 }): Promise<RuntimeConfigSnapshot> {
-  const codexHome = resolveCodexHome(params?.codexHome);
-  const baseConfigPath = getCodexConfigPathForHome(codexHome);
-  const chatConfigPath = getCodexChatConfigPathForHome(codexHome);
+  const provider = params?.provider ?? 'codex';
+  const { providerHome, baseConfigPath, repoLocalConfigPath } =
+    getProviderBaseConfigPath({
+      provider,
+      codexHome: params?.codexHome,
+      copilotHome: params?.copilotHome,
+      lmstudioHome: params?.lmstudioHome,
+    });
+  const { chatConfigPath } = getProviderChatConfigPath({
+    provider,
+    codexHome: params?.codexHome,
+    copilotHome: params?.copilotHome,
+    lmstudioHome: params?.lmstudioHome,
+  });
   const bootstrapChatConfig = params?.bootstrapChatConfig ?? true;
 
   let agentConfigPath = params?.agentConfigPath;
@@ -1443,29 +1910,44 @@ export async function loadRuntimeConfigSnapshot(params?: {
 
   try {
     if (bootstrapChatConfig) {
-      await ensureChatRuntimeConfigBootstrapped({ codexHome });
+      await ensureProviderChatConfigBootstrapped({
+        provider,
+        codexHome: params?.codexHome,
+        copilotHome: params?.copilotHome,
+        lmstudioHome: params?.lmstudioHome,
+      });
     }
 
-    const [baseConfig, chatConfig, agentConfig] = await Promise.all([
-      readAndNormalizeRuntimeTomlConfig(baseConfigPath),
-      readAndNormalizeRuntimeTomlConfig(chatConfigPath),
-      agentConfigPath
-        ? readAndNormalizeRuntimeTomlConfig(agentConfigPath, { required: true })
-        : Promise.resolve(undefined),
-    ]);
+    const [repoLocalConfig, baseConfig, chatConfig, agentConfig] =
+      await Promise.all([
+        readAndNormalizeRuntimeTomlConfig(repoLocalConfigPath),
+        readAndNormalizeRuntimeTomlConfig(baseConfigPath),
+        readAndNormalizeRuntimeTomlConfig(chatConfigPath),
+        agentConfigPath
+          ? readAndNormalizeRuntimeTomlConfig(agentConfigPath, {
+              required: true,
+            })
+          : Promise.resolve(undefined),
+      ]);
 
     console.info(T03_SUCCESS_LOG, {
-      codexHome,
+      provider,
+      providerHome,
+      hasRepoLocalConfig: Boolean(repoLocalConfig),
       hasBaseConfig: Boolean(baseConfig),
       hasChatConfig: Boolean(chatConfig),
       hasAgentConfig: Boolean(agentConfig),
     });
 
     return {
-      codexHome,
+      provider,
+      providerHome,
+      ...(provider === 'codex' ? { codexHome: providerHome } : {}),
       baseConfigPath,
+      repoLocalConfigPath,
       chatConfigPath,
       agentConfigPath,
+      repoLocalConfig,
       baseConfig,
       chatConfig,
       agentConfig,

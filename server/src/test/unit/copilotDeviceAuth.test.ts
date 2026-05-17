@@ -135,7 +135,7 @@ function createSpawnStub(
 }
 
 describe('POST /copilot/device-auth unit behavior', () => {
-  test('env-token authentication short-circuits to already-authenticated without device flow', async () => {
+  test('env-token detection is advisory and still allows a fresh device flow', async () => {
     const runCopilotDeviceAuth = mock.fn(async () =>
       buildDeviceAuthResult(verificationReadyResult()),
     );
@@ -154,12 +154,17 @@ describe('POST /copilot/device-auth unit behavior', () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
       provider: 'copilot',
-      state: 'already_authenticated',
+      state: 'verification_ready',
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'ABCD-EFGH',
+      detectedAuthState: 'already_authenticated',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code ABCD-EFGH',
     });
-    assert.equal(runCopilotDeviceAuth.mock.calls.length, 0);
+    assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
   });
 
-  test('stored login or gh-cli authentication also short-circuits before device flow', async () => {
+  test('stored login or gh-cli detection is advisory and still allows a fresh device flow', async () => {
     const runCopilotDeviceAuth = mock.fn(async () =>
       buildDeviceAuthResult(verificationReadyResult()),
     );
@@ -185,9 +190,14 @@ describe('POST /copilot/device-auth unit behavior', () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
       provider: 'copilot',
-      state: 'already_authenticated',
+      state: 'verification_ready',
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'ABCD-EFGH',
+      detectedAuthState: 'already_authenticated',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code ABCD-EFGH',
     });
-    assert.equal(runCopilotDeviceAuth.mock.calls.length, 0);
+    assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
   });
 
   test('missing-cli and settings bootstrap failures surface clear unavailable-before-start reasons', async () => {

@@ -92,6 +92,51 @@ test('rejects malformed persisted agentFlags before createConversation can sanit
   assert.equal(createCalls, 0);
 });
 
+test('sanitizes persisted conversation flags before createConversation stores them', async () => {
+  const storedFlags: unknown[] = [];
+
+  await request(
+    appWith({
+      createConversation: async (input) => {
+        storedFlags.push(input.flags);
+        return {
+          _id: input.conversationId,
+          provider: input.provider,
+          model: input.model,
+          title: input.title,
+          source: input.source ?? 'REST',
+          flags: input.flags ?? {},
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastMessageAt: input.lastMessageAt ?? new Date(),
+          archivedAt: null,
+        } satisfies Conversation;
+      },
+    }),
+  )
+    .post('/conversations')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5',
+      flags: {
+        workingFolder: '  /repo/root  ',
+        agentFlags: {
+          sandboxMode: 'danger-full-access',
+        },
+      },
+    })
+    .expect(201);
+
+  assert.deepEqual(storedFlags, [
+    {
+      workingFolder: '/repo/root',
+      agentFlags: {
+        sandboxMode: 'danger-full-access',
+      },
+    },
+  ]);
+});
+
 test('rejects provider-incompatible persisted flags instead of silently dropping them', async () => {
   let createCalls = 0;
 

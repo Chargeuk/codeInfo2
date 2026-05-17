@@ -50,11 +50,27 @@ test('main stays image-baked while local host-network compose exposes the live d
   const dockerfile = readRepoFile('server/Dockerfile');
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
+  const entrypoint = readRepoFile('server/entrypoint.sh');
 
   assert.match(
     dockerfile,
-    /RUN mkdir -p \/app\/codex \/app\/copilot \/app\/lmstudio && chmod 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
+    /RUN mkdir -p \/app\/codex\/\.agents\/skills \/app\/copilot \/app\/lmstudio && chmod -R 777 \/app\/codex \/app\/copilot \/app\/lmstudio/u,
   );
+  assert.match(dockerfile, /COPY codex_agents \/app\/codex_agents/u);
+  assert.match(dockerfile, /COPY AGENTS\.md \/app\/AGENTS\.md/u);
+  assert.match(dockerfile, /COPY planning \/app\/planning/u);
+  assert.match(
+    dockerfile,
+    /RUN cp -R \/app\/codex_agents \/app\/codeinfo_agents/u,
+  );
+  assert.match(dockerfile, /ARG CODEINFO_RUNTIME_UID=1000/u);
+  assert.match(dockerfile, /ARG CODEINFO_RUNTIME_GID=1000/u);
+  assert.match(
+    dockerfile,
+    /RUN mkdir -p "\$\{HOME\}" "\$\{HOME\}\/tmp" "\$\{HOME\}\/\.docker" && \\\n\s+chown "\$\{CODEINFO_RUNTIME_UID\}:\$\{CODEINFO_RUNTIME_GID\}" "\$\{HOME\}" "\$\{HOME\}\/tmp" "\$\{HOME\}\/\.docker"/u,
+  );
+  assert.match(dockerfile, /ENV HOME=\/app\/codex/u);
+  assert.match(dockerfile, /ENV CODEX_HOME=\/app\/codex/u);
   assert.match(dockerfile, /ENV CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
 
   const mainServer = getServiceBlock(mainCompose, 'server');
@@ -66,6 +82,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(mainServer, /\n\s+ports:/u);
   assert.doesNotMatch(mainServer, /\n\s+networks:/u);
   assert.doesNotMatch(mainServer, /\.\/codex:/u);
+  assert.doesNotMatch(mainServer, /\.\/codeinfo_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/codex_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/flows-sandbox:/u);
   assert.match(mainServer, /\.\/scripts:\/app\/scripts:ro/u);
@@ -75,20 +92,36 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(
     mainServer,
+    /\.\/manual_testing\/codeinfo_agents:\/app\/codeinfo_agents/u,
+  );
+  assert.match(
+    mainServer,
+    /\.\/manual_testing\/codex_agents:\/app\/codex_agents/u,
+  );
+  assert.match(
+    mainServer,
     /CODEINFO_PLAYWRIGHT_MCP_URL=http:\/\/host\.docker\.internal:8932\/mcp/u,
   );
   assert.match(
     mainServer,
     /CODEINFO_LMSTUDIO_BASE_URL=http:\/\/host\.docker\.internal:1234/u,
   );
+  assert.match(mainServer, /HOME=\/app\/codex/u);
+  assert.match(mainServer, /CODEX_HOME=\/app\/codex/u);
   assert.match(mainServer, /CODEINFO_CODEX_WORKDIR=\/data/u);
+  assert.match(mainServer, /FLOWS_DIR=\/app\/flows-sandbox/u);
   assert.match(
     mainServer,
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
   assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
+  assert.match(
+    entrypoint,
+    /export HOME="\$runtime_home"\nexport CODEX_HOME="\$\{CODEX_HOME:-\$\{CODEINFO_CODEX_HOME:-\$runtime_home\}\}"/u,
+  );
+  assert.match(entrypoint, /mkdir -p "\$\{HOME\}\/\.agents\/skills"/u);
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
@@ -109,6 +142,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(localServer, /\n\s+ports:/u);
   assert.doesNotMatch(localServer, /\n\s+networks:/u);
   assert.match(localServer, /\.\/codex:\/app\/codex/u);
+  assert.match(localServer, /\.\/codeinfo_agents:\/app\/codeinfo_agents/u);
   assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
   assert.match(localServer, /\.\/scripts:\/app\/scripts:ro/u);
   assert.match(
@@ -119,6 +153,12 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
+  assert.match(localServer, /\n\s+- HOME=\$\{HOME\}/u);
+  assert.match(localServer, /\n\s+- TMP=\/tmp/u);
+  assert.match(localServer, /\n\s+- TEMP=\/tmp/u);
+  assert.match(localServer, /\n\s+- TMPDIR=\/tmp/u);
+  assert.match(localServer, /\n\s+- TEMPDIR=\/tmp/u);
+  assert.doesNotMatch(localServer, /\n\s+- HOME=\/app\/codex/u);
   assert.match(
     localServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:5510\/health'\]/u,
@@ -154,6 +194,7 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.doesNotMatch(e2eServer, /\.\/e2e\/fixtures:/u);
   assert.doesNotMatch(e2eServer, /\.\/e2e\/fixtures\/repo:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex:/u);
+  assert.doesNotMatch(e2eServer, /\.\/codeinfo_agents:/u);
   assert.doesNotMatch(e2eServer, /\.\/codex_agents:/u);
   assert.match(e2eServer, /\.\/scripts:\/app\/scripts:ro/u);
   assert.match(e2eServer, /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u);
@@ -164,4 +205,35 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,
   );
   assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+});
+
+test('checked-in default launcher awaits provider bootstrap before listen instead of firing it off in the background', () => {
+  const indexSource = readRepoFile('server/src/index.ts');
+
+  assert.doesNotMatch(
+    indexSource,
+    /void ensureAllProviderChatConfigsBootstrapped\(/u,
+  );
+  assert.match(
+    indexSource,
+    /const start = async \(\) => \{[\s\S]*await ensureAllProviderChatConfigsBootstrapped\([\s\S]*const httpServer = http\.createServer\(app\);/u,
+  );
+});
+
+test('checked-in default launcher keeps listening reachable after degraded provider bootstrap is recorded', () => {
+  const indexSource = readRepoFile('server/src/index.ts');
+  const runtimeConfigSource = readRepoFile('server/src/config/runtimeConfig.ts');
+
+  assert.match(
+    runtimeConfigSource,
+    /providerBootstrapStatuses\[provider\] = \{\s*provider,\s*healthy: false,/u,
+  );
+  assert.match(
+    runtimeConfigSource,
+    /return results\.filter\(Boolean\) as ProviderChatDefaultsSnapshot\[\];/u,
+  );
+  assert.match(
+    indexSource,
+    /const bootstrapSnapshots = await ensureAllProviderChatConfigsBootstrapped\([\s\S]*const httpServer = http\.createServer\(app\);/u,
+  );
 });

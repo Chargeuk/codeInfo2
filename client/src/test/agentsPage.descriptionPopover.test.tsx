@@ -40,6 +40,28 @@ type AgentResponse = {
   warnings?: string[];
 };
 
+type AgentDetailsResponse = {
+  name: string;
+  description?: string;
+  disabled?: boolean;
+  warnings?: Array<{
+    code: string;
+    message: string;
+    providerId?: string;
+    fallbackProviderId?: string;
+  }>;
+  disabledReason?: {
+    code: string;
+    message: string;
+    providerId?: string;
+  };
+  fallbackCandidates?: Array<{
+    providerId: string;
+    available: boolean;
+    reason?: string;
+  }>;
+};
+
 type CommandResponse = {
   name: string;
   description?: string;
@@ -52,6 +74,7 @@ type CommandResponse = {
 function mockAgentsFetch(params: {
   agents?: AgentResponse[];
   agentsStatus?: number;
+  agentDetails?: AgentDetailsResponse;
   commands?: CommandResponse[];
 }) {
   const agentsStatus = params.agentsStatus ?? 200;
@@ -62,6 +85,24 @@ function mockAgentsFetch(params: {
         ok: true,
         status: 200,
         json: async () => ({ mongoConnected: true }),
+      } as Response);
+    }
+    if (
+      target.includes('/agents/coding_agent') &&
+      !target.includes('/commands')
+    ) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          agent: params.agentDetails ?? {
+            name: 'coding_agent',
+            description: params.agents?.[0]?.description,
+            disabled: false,
+            warnings: [],
+            fallbackCandidates: [],
+          },
+        }),
       } as Response);
     }
     if (target.includes('/agents') && !target.includes('/commands')) {
@@ -112,9 +153,14 @@ describe('Agents page - description', () => {
 
   it('renders warnings inside the popover when present', async () => {
     mockAgentsFetch({
-      agents: [
-        { name: 'coding_agent', description: '# Hello', warnings: ['Warn 1'] },
-      ],
+      agents: [{ name: 'coding_agent', description: '# Hello' }],
+      agentDetails: {
+        name: 'coding_agent',
+        description: '# Hello',
+        disabled: false,
+        warnings: [{ code: 'duplicate_root', message: 'Warn 1' }],
+        fallbackCandidates: [],
+      },
     });
     const user = userEvent.setup();
 
@@ -156,9 +202,14 @@ describe('Agents page - description', () => {
 
   it('does not render inline warnings or description when the popover is closed', async () => {
     mockAgentsFetch({
-      agents: [
-        { name: 'coding_agent', description: '# Hello', warnings: ['W'] },
-      ],
+      agents: [{ name: 'coding_agent', description: '# Hello' }],
+      agentDetails: {
+        name: 'coding_agent',
+        description: '# Hello',
+        disabled: false,
+        warnings: [{ code: 'duplicate_root', message: 'W' }],
+        fallbackCandidates: [],
+      },
     });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
@@ -167,6 +218,40 @@ describe('Agents page - description', () => {
     await screen.findByTestId('agent-info');
     expect(screen.queryByTestId('agent-description')).toBeNull();
     expect(screen.queryByTestId('agent-warnings')).toBeNull();
+  });
+
+  it('loads invalid-provider warnings only when the popover opens', async () => {
+    mockAgentsFetch({
+      agents: [{ name: 'coding_agent', description: '# Hello' }],
+      agentDetails: {
+        name: 'coding_agent',
+        description: '# Hello',
+        disabled: false,
+        warnings: [
+          {
+            code: 'invalid_provider',
+            message:
+              'Agent config requested unsupported provider "not-a-provider".',
+            providerId: 'not-a-provider',
+          },
+        ],
+        fallbackCandidates: [],
+      },
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('agent-info');
+    expect(
+      screen.queryByText(/unsupported provider "not-a-provider"/i),
+    ).toBeNull();
+
+    await user.click(screen.getByTestId('agent-info'));
+    expect(
+      await screen.findByText(/unsupported provider "not-a-provider"/i),
+    ).toBeInTheDocument();
   });
 });
 

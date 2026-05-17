@@ -11,6 +11,26 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000057 final provider-neutral runtime closeout
+
+- Story `0000057` finishes the migration from provider-specific agent assumptions to one shared provider-neutral execution contract for direct agents, commands, flow-owned agent execution, and MCP `code_info` grounding.
+- The runtime layering order is now explicit and shared:
+  1. repository-owned runtime config and chat defaults
+  2. neutral agent-home selection (`codeinfo_agents` first, `codex_agents` as compatibility fallback)
+  3. resolved repository execution context (`working_folder` plus plan-scope repository set when applicable)
+  4. provider availability evaluation with warning-details output
+  5. route-specific run, disable, fallback, and continuation behavior
+- `server/src/repositories/context.ts`, `server/src/agents/configRoots.ts`, and the shared provider/runtime helpers now define the repository execution-context contract once. Chat, direct agents, flows, and `codebase_question` reuse that shared repository grounding instead of each surface inferring its own working-repository context.
+- Availability is no longer only a yes-or-no gate. The shared runtime now distinguishes usable-with-warning fallback, same-provider repair opportunities, no-usable-provider disable states, duplicate-folder precedence, and invalid configured provider states, then exposes those details consistently to server routes and browser surfaces.
+- The browser layer keeps that contract visible instead of silently normalizing it away. Agents and Flows pages show warning-details content on selection/open, preserve disabled explanations next to run actions, and reuse the same availability evaluation vocabulary the server emits.
+
+## Story 0000057 continuation and fallback rules
+
+- Provider fallback remains scoped to starting a new run, not mutating an established conversation. When a selected agent or flow cannot use its preferred provider but another configured provider can still satisfy the run contract, the new run may proceed with warnings that describe the fallback decision.
+- Established conversations are pinned to the stored `provider`, `model`, and selected execution identity (`agentName` or flow-owned conversation identity). Later sends must keep using that stored tuple until the conversation ends or fails; they do not silently adopt new defaults, later config edits, or whatever create-mode selection is currently visible in the page.
+- Fresh-run state and resumed-conversation state stay intentionally separate. New-conversation actions clear hidden resumed-only working state, re-evaluate the current selection against the latest availability data, and construct a fresh payload; resumed sends instead reuse the saved provider-model pair and conversation ownership metadata.
+- Failure after pinning also stays local to that conversation. If the stored provider, model, or selected agent becomes unavailable later, the same conversation surfaces the failure explicitly instead of silently switching to another provider or agent behind the existing transcript.
+
 ## Story 0000052 Task 4 working and plan-scope execution
 
 - `server/src/ingest/reingestExecution.ts` now treats authored re-ingest requests as one runtime contract with only three modes: explicit `sourceId`, single-repository `working`, and batch `plan_scope`.
@@ -3505,7 +3525,7 @@ flowchart LR
 
 - On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution.
 - Codex `mcp_tool_call` events are translated into WebSocket `tool_event` updates carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
-- Host auth bootstrap: docker-compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and `/app/codex` as the container Codex home. On startup, if `/app/codex/auth.json` is missing and `/host/codex/auth.json` exists, the server copies it once into `/app/codex` (no overwrite); `/app/codex` remains the primary home.
+- Host auth bootstrap: the checked-in main and e2e compose stacks mount `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` read-only at `/host/codex` and keep a separate writable `/app/codex` runtime home. On startup, if `/app/codex` is missing auth-bearing runtime files that exist in `/host/codex`, the server seeds or repairs the writable runtime home from that read-only host mount without replacing a complete runtime home.
 - Codex home selection:
   - The primary Codex home is `CODEINFO_CODEX_HOME` (default `./codex`).
   - Execution entrypoints use the shared home (`getCodexHome()`) so chat, agent, flow, and MCP runs all inherit shared auth/session semantics.
@@ -3642,14 +3662,16 @@ flowchart LR
 
 ### Docker/Compose agent wiring
 
-- In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.
-- The server discovers agents via `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
+- In Compose, the preferred agent folder is bind-mounted into the server container at `/app/codeinfo_agents` (rw), with `/app/codex_agents` retained as the legacy compatibility root so auth seeding and duplicate-root warnings can still operate honestly when older trees are present.
+- The server discovers agents via `CODEINFO_AGENT_HOME=/app/codeinfo_agents`, with `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` retained only as the legacy fallback alias.
 - The Agents MCP server is exposed on port `5012` (configured via `CODEINFO_AGENTS_MCP_PORT=5012`).
 
 ```mermaid
 flowchart LR
-  Host[Host] -->|bind mount| AgentDir[./codex_agents]
-  AgentDir -->|rw to container| Server[codeinfo2-server\\n/app/codex_agents]
+  Host[Host] -->|bind mount| PreferredDir[./codeinfo_agents]
+  Host -->|legacy compatibility bind mount| LegacyDir[./codex_agents]
+  PreferredDir -->|rw to container| Server[codeinfo2-server\\n/app/codeinfo_agents]
+  LegacyDir -->|compat fallback| Server
   Server -->|expose| MCP5012[Agents MCP\\n:5012]
 ```
 
@@ -3833,7 +3855,7 @@ sequenceDiagram
 
 ### Agent discovery
 
-- Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.
+- Agents are discovered from the directory set by `CODEINFO_AGENT_HOME`, with `CODEINFO_CODEX_AGENT_HOME` retained only as a legacy fallback alias.
 - Only direct subfolders containing `config.toml` are treated as available agents; discovery does not recurse.
 - Optional metadata sources:
   - `description.md` is read as UTF-8 and surfaced to UIs/clients as the agent description.
@@ -3841,7 +3863,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  Root[CODEINFO_CODEX_AGENT_HOME] --> Scan[Scan direct subfolders]
+  Root[CODEINFO_AGENT_HOME\nlegacy alias: CODEINFO_CODEX_AGENT_HOME] --> Scan[Scan direct subfolders]
   Scan --> Check{config.toml exists?}
   Check -->|No| Skip[Skip folder]
   Check -->|Yes| Agent[Discovered agent]
@@ -6585,7 +6607,7 @@ flowchart TD
 - Canonical runtime ownership for this story:
   - shared auth/session home: `./codex` via shared `CODEX_HOME`.
   - chat behavior source: `./codex/chat/config.toml`.
-  - agent behavior source: `codex_agents/<agent>/config.toml`.
+  - agent behavior source: `codeinfo_agents/<agent>/config.toml`, with `codex_agents/<agent>/config.toml` retained as the legacy compatibility fallback when the preferred root is absent.
 - Agent behavior precedence remains deterministic:
   - only `[projects]` may inherit from shared base.
   - merge rule: `effectiveProjects = { ...baseProjects, ...agentProjects }`.
@@ -6638,7 +6660,7 @@ web_search = "live"
 flowchart TD
   A[Incoming run request] --> B{Surface}
   B -->|Chat| C[Load ./codex/chat/config.toml]
-  B -->|Agent/Flow/MCP| D[Load codex_agents/<agent>/config.toml]
+  B -->|Agent/Flow/MCP| D[Load codeinfo_agents/<agent>/config.toml\nlegacy fallback: codex_agents/<agent>/config.toml]
   C --> E[Apply shared CODEX_HOME ./codex]
   D --> F[Merge projects with base: { ...baseProjects, ...agentProjects }]
   F --> G[Apply shared CODEX_HOME ./codex]
@@ -6667,7 +6689,7 @@ sequenceDiagram
 - Final migration role split after Task 22:
   - shared auth/session home remains `./codex`.
   - chat behavior source remains `./codex/chat/config.toml`.
-  - agent behavior source remains `codex_agents/<agent>/config.toml`.
+  - agent behavior source remains `codeinfo_agents/<agent>/config.toml`, with `codex_agents/<agent>/config.toml` retained only as the legacy compatibility fallback.
   - shared base `./codex/config.toml` is minimized to `[projects]` trust metadata only.
 - Final isolated-step guard:
   - minimization must abort when `./codex/chat/config.toml` is missing.

@@ -5,6 +5,61 @@
 Current flow-owned reviewer summaries live at `codeInfoStatus/pr-summaries/<story-number>-pr-summary.md`.
 The migrated story ledgers below now reference that durable location consistently.
 
+## Story 0000057 structural change ledger
+
+Added files:
+
+- `client/src/test/agentsPage.runGuard.test.tsx`
+- `client/src/test/chatPage.freshRunContext.test.tsx`
+- `client/src/test/chatPage.resumeIdentity.test.tsx`
+- `codeInfoStatus/pr-summaries/0000057-pr-summary.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- No production file moved, but Story 57 split the old broad client proof homes into focused guard, warning, fresh-run, and resume-identity suites so the new provider-neutral warning and continuation contract stays traceable.
+
+Modified files (implementation traceability):
+
+- `design.md`
+- `projectStructure.md`
+- `planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md`
+- `client/src/api/agents.ts`
+- `client/src/api/flows.ts`
+- `client/src/components/chat/ConversationList.tsx`
+- `client/src/hooks/useChatModel.ts`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/hooks/useConversations.ts`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/test/agentsPage.agentChange.test.tsx`
+- `client/src/test/agentsPage.descriptionPopover.test.tsx`
+- `client/src/test/agentsPage.list.test.tsx`
+- `client/src/test/flowsPage.runGuard.test.tsx`
+- `client/src/test/useConversations.source.test.ts`
+- `e2e/agents.spec.ts`
+- `e2e/chat-provider-history.spec.ts`
+- `e2e/flows-execution-runs.spec.ts`
+- `server/src/agents/availability.ts`
+- `server/src/agents/configRoots.ts`
+- `server/src/agents/runner.ts`
+- `server/src/flows/service.ts`
+- `server/src/mcp2/tools/codebaseQuestion.ts`
+- `server/src/repositories/context.ts`
+- the Story 57 server unit, integration, cucumber, and MCP proof homes that now cover provider-neutral runtime layering, warning details, fallback behavior, and pinned continuation identity
+
+Story notes:
+
+- Story 57 replaces the earlier provider-specific agent bootstrap with one provider-neutral runtime contract shared across direct agents, commands, flow-owned agent execution, and `code_info` repository grounding. Runtime layering now resolves in a stable order: repo-local runtime config, neutral agent-home inputs, repository execution context, provider availability evaluation, then route-specific warning and run behavior.
+- `codeinfo_agents` is now the preferred repository-owned agent home and wins over `codex_agents` when both directories point at the same selected repository. The compatibility fallback stays documented and visible through the same warning-details surface instead of silently hiding duplicate or degraded configuration.
+- Server runtime ownership now splits cleanly between repository execution context and provider execution. Repository selection and additional-repository scope resolve once, then direct agents, flows, and `codebase_question` reuse that same working-repository contract while still allowing provider-specific runtime details farther down the stack.
+- Client ownership also changed from simple runnable booleans to warning-aware details. Agents and Flows pages now keep selected-row details, disabled-state explanations, duplicate-folder warnings, invalid-provider-on-open warnings, and fallback-run messaging aligned with the shared server availability contract.
+- Established conversations stay pinned to their stored `provider`, `model`, and `agentName` or flow identity on later turns. New conversations re-evaluate the current create-mode selection, but resumed conversations do not silently hop to a different provider, model, or agent when local defaults or config files change later.
+
 ## Story 0000056 structural change ledger
 
 Added files:
@@ -2247,7 +2302,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder with optional `CODEINFO_NPM_REGISTRY` override for the global install step
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams, including end-to-end corporate override flow (env source -> compose interpolation -> build overrides -> runtime gate -> startup/fail-fast)
-â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
+â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to the preferred `codeinfo_agents` root by default, with `codex_agents` retained as the legacy fallback sibling)
 â”œâ”€ flows-sandbox/ â€” safe flow JSON definitions for manual MCP/Playwright testing
 â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
 â”‚  â””â”€ otel-collector-config.yaml â€” OTLP->Zipkin/logging pipeline used by all compose stacks
@@ -2823,7 +2878,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/integration/mcp-vector-search.test.ts — integration coverage for classic MCP vector-search provider/model lock parity with REST.
 - server/src/test/integration/codex.device-auth.test.ts — integration coverage for device-auth route validation + responses
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
-- server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
+- server/src/agents/discovery.ts — discovers agents from `CODEINFO_AGENT_HOME`, with `CODEINFO_CODEX_AGENT_HOME` retained as the legacy fallback alias
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
 - server/src/agents/commandsSchema.ts — strict Zod v1 schema + safe parser for agent command JSON files
 - server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled, stepCount }` summaries (`stepCount >= 1`, sentinel `1` for disabled/invalid)

@@ -73,6 +73,7 @@ test('POST /agents/:agentName/run accepts instruction with surrounding whitespac
         return {
           conversationId: 'conv-1',
           inflightId: 'inflight-1',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -133,11 +134,11 @@ test('POST /agents/:agentName/run maps AGENT_MISMATCH to 400', async () => {
   assert.deepEqual(res.body, { error: 'agent_mismatch' });
 });
 
-test('POST /agents/:agentName/run maps CODEX_UNAVAILABLE to 503', async () => {
+test('POST /agents/:agentName/run maps PROVIDER_UNAVAILABLE to 503', async () => {
   const res = await request(
     buildApp({
       startAgentInstruction: async () => {
-        throw { code: 'CODEX_UNAVAILABLE', reason: 'no auth.json' };
+        throw { code: 'PROVIDER_UNAVAILABLE', reason: 'copilot unavailable' };
       },
     }),
   )
@@ -146,8 +147,30 @@ test('POST /agents/:agentName/run maps CODEX_UNAVAILABLE to 503', async () => {
 
   assert.equal(res.status, 503);
   assert.deepEqual(res.body, {
-    error: 'codex_unavailable',
-    reason: 'no auth.json',
+    error: 'provider_unavailable',
+    reason: 'copilot unavailable',
+  });
+});
+
+test('POST /agents/:agentName/run maps INVALID_PROVIDER to 409 disabled payload', async () => {
+  const res = await request(
+    buildApp({
+      startAgentInstruction: async () => {
+        throw {
+          code: 'INVALID_PROVIDER',
+          reason: 'Agent config requested unsupported provider "bad-provider".',
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello' });
+
+  assert.equal(res.status, 409);
+  assert.deepEqual(res.body, {
+    error: 'agent_disabled',
+    code: 'INVALID_PROVIDER',
+    reason: 'Agent config requested unsupported provider "bad-provider".',
   });
 });
 
@@ -159,6 +182,7 @@ test('POST /agents/:agentName/run returns 202 + a stable started payload shape',
         return {
           conversationId: 'conv-1',
           inflightId: 'inflight-1',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },
@@ -172,8 +196,36 @@ test('POST /agents/:agentName/run returns 202 + a stable started payload shape',
   assert.equal(res.body.agentName, 'coding_agent');
   assert.equal(res.body.conversationId, 'conv-1');
   assert.equal(res.body.inflightId, 'inflight-1');
+  assert.equal(res.body.providerId, 'copilot');
   assert.equal(typeof res.body.modelId, 'string');
   assert.equal(res.body.modelId.length > 0, true);
+});
+
+test('POST /agents/:agentName/run keeps warning-bearing started responses intact', async () => {
+  const res = await request(
+    buildApp({
+      startAgentInstruction: async () => {
+        return {
+          conversationId: 'conv-warning',
+          inflightId: 'inflight-warning',
+          providerId: 'codex',
+          modelId: 'gpt-5.3-codex',
+          warnings: [
+            'Agent config requested unsupported provider "bad-provider".',
+            'Agent will use fallback provider "codex" because "bad-provider" cannot execute.',
+          ],
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello' });
+
+  assert.equal(res.status, 202);
+  assert.deepEqual(res.body.warnings, [
+    'Agent config requested unsupported provider "bad-provider".',
+    'Agent will use fallback provider "codex" because "bad-provider" cannot execute.',
+  ]);
 });
 
 test('POST /agents/:agentName/run forwards working_folder to the service', async () => {
@@ -185,6 +237,7 @@ test('POST /agents/:agentName/run forwards working_folder to the service', async
         return {
           conversationId: 'conv-1',
           inflightId: 'inflight-1',
+          providerId: 'copilot',
           modelId: 'model-from-config',
         };
       },

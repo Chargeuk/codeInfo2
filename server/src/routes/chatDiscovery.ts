@@ -27,7 +27,10 @@ import type {
   CodexModelCapability,
 } from '../codex/capabilityResolver.js';
 import { ORDERED_CHAT_PROVIDERS } from '../config/chatDefaults.js';
-import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
+import {
+  getProviderBootstrapStatus,
+  loadProviderChatDefaultsSnapshotSync,
+} from '../config/runtimeConfig.js';
 
 const toChoice = (
   value: ChatAgentFlagValue,
@@ -127,10 +130,24 @@ type BuildProviderInfoParams = ProviderHomeParams & {
   available: boolean;
   toolsAvailable: boolean;
   reason?: string;
+  liveModels?: string[];
   warnings?: string[];
   agentFlags?: ChatAgentFlagDescriptor[];
   compatibility?: ChatProviderInfo['compatibility'];
   modelMetadata?: ProviderConfigModel;
+};
+
+const pickLiveProviderModel = (
+  models: string[] | undefined,
+  preferredModel: string,
+): string | undefined => {
+  const normalizedModels = (models ?? [])
+    .map((model) => normalizeString(model))
+    .filter((model): model is string => model !== undefined);
+  if (normalizedModels.includes(preferredModel)) {
+    return preferredModel;
+  }
+  return normalizedModels[0];
 };
 
 export function buildCodexCompatibilityDefaults(params: {
@@ -138,6 +155,10 @@ export function buildCodexCompatibilityDefaults(params: {
   codexHome?: string;
   warnings?: string[];
 }): CodexDefaults {
+  const bootstrapStatus = getProviderBootstrapStatus('codex');
+  if (bootstrapStatus.warnings.length > 0) {
+    params.warnings?.push(...bootstrapStatus.warnings);
+  }
   let config: Record<string, unknown> = {};
 
   try {
@@ -179,6 +200,22 @@ export function buildCodexCompatibilityDefaults(params: {
         ? webSearchMode
         : (params.capabilities.defaults.webSearchMode ?? 'live'),
   };
+}
+
+export function getProviderBootstrapWarnings(
+  provider: ChatProviderId,
+): string[] {
+  return getProviderBootstrapStatus(provider).warnings;
+}
+
+export function isProviderBootstrapHealthy(provider: ChatProviderId): boolean {
+  return getProviderBootstrapStatus(provider).healthy;
+}
+
+export function getProviderBootstrapReason(
+  provider: ChatProviderId,
+): string | undefined {
+  return getProviderBootstrapStatus(provider).reason;
 }
 
 export function buildCodexAgentFlags(params: {
@@ -272,7 +309,7 @@ export function buildCodexAgentFlags(params: {
 
 function buildProviderModelMetadata(
   provider: ChatProviderId,
-  params: ProviderHomeParams = {},
+  params: ProviderHomeParams & { liveModels?: string[] } = {},
 ): ProviderConfigModel {
   const seedModel = DEFAULT_PROVIDER_MODELS[provider];
 
@@ -285,16 +322,22 @@ function buildProviderModelMetadata(
     });
     const config = snapshot.config ?? {};
     const configuredModel = normalizeString(config.model);
-    if (configuredModel) {
+    const requestedModel = configuredModel ?? seedModel;
+    const resolvedModel =
+      pickLiveProviderModel(params.liveModels, requestedModel) ??
+      requestedModel;
+    if (resolvedModel !== requestedModel) {
       return {
-        defaultModel: configuredModel,
-        defaultModelSource: 'config',
-        warnings: [],
+        defaultModel: resolvedModel,
+        defaultModelSource: configuredModel ? 'config' : 'hardcoded',
+        warnings: [
+          `${provider} default model "${requestedModel}" is unavailable in the live model list; normalized to "${resolvedModel}".`,
+        ],
       };
     }
     return {
-      defaultModel: seedModel,
-      defaultModelSource: 'hardcoded',
+      defaultModel: resolvedModel,
+      defaultModelSource: configuredModel ? 'config' : 'hardcoded',
       warnings: [],
     };
   } catch (error) {

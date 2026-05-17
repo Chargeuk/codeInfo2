@@ -5,6 +5,8 @@ services:
       dockerfile: server/Dockerfile
       args:
         HOME: ${HOME}
+        CODEINFO_RUNTIME_UID: ${CODEINFO_DOCKER_UID:-1000}
+        CODEINFO_RUNTIME_GID: ${CODEINFO_DOCKER_GID:-1000}
         CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
         CODEINFO_PIP_INDEX_URL: ${CODEINFO_PIP_INDEX_URL:-}
         CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
@@ -22,15 +24,18 @@ services:
       - CODEINFO_RUNTIME_COMPOSE_FILE=docker-compose.yml
       - CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012
       - CODEINFO_RUNTIME_PLAYWRIGHT_PORT=8932
-      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2
+      - CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4
       - CODEINFO_LMSTUDIO_BASE_URL=http://host.docker.internal:1234
       - CODEINFO_LOG_FILE_PATH=/app/logs/server.log
       - CODEINFO_CHROMA_URL=http://host.docker.internal:8000
+      - HOME=/app/codex
+      - CODEX_HOME=/app/codex
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_CODEX_WORKDIR=/data
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_COPILOT_SEED_HOME=/seed/copilot
+      - CODEINFO_AGENT_HOME=/app/codeinfo_agents
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - CODEINFO_HOST_INGEST_DIR=${CODEINFO_HOST_INGEST_DIR:-/tmp}
       - FLOWS_DIR=/app/flows-sandbox
@@ -48,8 +53,13 @@ services:
       - ./logs:/app/logs
       - ./scripts:/app/scripts:ro
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
+      - ./manual_testing/codeinfo_agents:/app/codeinfo_agents
+      - ./manual_testing/codex_agents:/app/codex_agents
+      - codex-data:/app/codex
       - copilot-data:/app/copilot
+      - lmstudio-data:/app/lmstudio
       - ./copilot:/seed/copilot:ro
+      - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
       - ${CODEINFO_HOST_INGEST_DIR:-/tmp}:/data:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
@@ -198,7 +208,9 @@ networks:
   internal:
 
 volumes:
+  codex-data:
   copilot-data:
+  lmstudio-data:
   chroma-data:
   mongo_data:
     external: false

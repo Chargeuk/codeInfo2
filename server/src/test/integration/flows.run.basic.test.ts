@@ -3,13 +3,17 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
 import supertest from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -23,8 +27,13 @@ import {
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Turn } from '../../mongo/turn.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 import {
   closeWs,
   connectWs,
@@ -184,6 +193,24 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
     memoryTurns.delete(conversationId);
   });
 };
+
+let previousPreferredAgentsHome: string | undefined;
+
+beforeEach(() => {
+  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+  delete process.env.CODEINFO_AGENT_HOME;
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+  if (previousPreferredAgentsHome === undefined) {
+    delete process.env.CODEINFO_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+  }
+  previousPreferredAgentsHome = undefined;
+});
 
 const writeAgentScaffold = async (params: {
   agentsHome: string;
@@ -387,8 +414,16 @@ const withMarkdownFlowHarness = async (
   } finally {
     __resetMarkdownFileResolverDepsForTests();
     cleanupMemory(...conversations);
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
     if (previousFlowsDir) {
       process.env.FLOWS_DIR = previousFlowsDir;
     } else {
@@ -680,6 +715,323 @@ test('fresh flow start creates a new parent conversation when an older conversat
   }
 });
 
+test('initial flow-owned execution repairs the requested provider model before first run turns persist', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-provider-repair-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const localFlowsDir = path.join(codeInfo2Root, 'flows');
+  const agentsHome = path.join(codeInfo2Root, 'codeinfo_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const flowName = 'provider-repair';
+  const conversationId = 'flow-provider-repair';
+
+  await fs.mkdir(localFlowsDir, { recursive: true });
+  await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  await fs.writeFile(
+    path.join(agentsHome, 'coding_agent', 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "missing-codex-model"',
+      'approval_policy = "never"',
+    ].join('\n'),
+    'utf8',
+  );
+  await writeFlowFile({
+    flowsRoot: localFlowsDir,
+    flowName,
+    steps: [
+      {
+        type: 'llm',
+        agentType: 'coding_agent',
+        identifier: 'basic',
+        messages: [
+          { role: 'user', content: ['repair the first-run flow model'] },
+        ],
+      },
+    ],
+  });
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.FLOWS_DIR = localFlowsDir;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'codex-repaired',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName,
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+
+    assert.equal(result.conversationId, conversationId);
+    assert.equal(result.modelId, 'codex-repaired');
+
+    await waitForTurns(conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    const flowConversation = memoryConversations.get(conversationId);
+    assert.equal(flowConversation?.provider, 'codex');
+    assert.equal(flowConversation?.model, 'codex-repaired');
+
+    const childConversation = memoryConversations.get(
+      getAgentConversationId(conversationId),
+    );
+    assert.equal(childConversation?.provider, 'codex');
+    assert.equal(childConversation?.model, 'codex-repaired');
+  } finally {
+    __resetAgentServiceDepsForTests();
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousCodexAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousFlowsDir) {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('initial flow-owned execution falls back to another provider and persists the actual provider-model pair', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const previousFallbackOrder =
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+  const tempRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-provider-fallback-'),
+  );
+  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+  const localFlowsDir = path.join(codeInfo2Root, 'flows');
+  const agentsHome = path.join(codeInfo2Root, 'codeinfo_agents');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const copilotHome = path.join(tempRoot, 'copilot-home');
+  const flowName = 'provider-fallback';
+  const conversationId = 'flow-provider-fallback';
+
+  await fs.mkdir(localFlowsDir, { recursive: true });
+  await writeAgentScaffold({
+    agentsHome,
+    agentName: 'coding_agent',
+    codexHome,
+  });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(agentsHome, 'coding_agent', 'config.toml'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "missing-codex-model"',
+      'approval_policy = "never"',
+    ].join('\n'),
+    'utf8',
+  );
+  await writeFlowFile({
+    flowsRoot: localFlowsDir,
+    flowName,
+    steps: [
+      {
+        type: 'llm',
+        agentType: 'coding_agent',
+        identifier: 'basic',
+        messages: [{ role: 'user', content: ['fallback the first run'] }],
+      },
+    ],
+  });
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
+  process.env.FLOWS_DIR = localFlowsDir;
+
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      reason: 'codex unavailable',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    const result = await startFlowRun({
+      flowName,
+      conversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+
+    assert.equal(result.conversationId, conversationId);
+    assert.equal(result.modelId, 'copilot-model');
+
+    await waitForTurns(conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+
+    const flowConversation = memoryConversations.get(conversationId);
+    assert.equal(flowConversation?.provider, 'copilot');
+    assert.equal(flowConversation?.model, 'copilot-model');
+
+    const childConversation = memoryConversations.get(
+      getAgentConversationId(conversationId),
+    );
+    assert.equal(childConversation?.provider, 'copilot');
+    assert.equal(childConversation?.model, 'copilot-model');
+  } finally {
+    __resetAgentServiceDepsForTests();
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousCodexAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousFallbackOrder === undefined) {
+      delete process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+    } else {
+      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
+        previousFallbackOrder;
+    }
+    if (previousFlowsDir) {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('fresh executions of the same flow can run concurrently in different parent conversations', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -902,7 +1254,7 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
   }
 });
 
-test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', async () => {
+test('POST /flows/:flowName/run requires the canonical sourceId instead of a host alias payload', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -916,6 +1268,7 @@ test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', a
     path.join(process.cwd(), 'tmp-flows-run-ingested-legacy-'),
   );
   const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
+  const hostAliasPath = path.join('/host-alias', path.basename(tmpRepoRoot));
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
 
@@ -935,7 +1288,7 @@ test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', a
                 id: 'Legacy',
                 description: null,
                 containerPath: tmpRepoRoot,
-                hostPath: tmpRepoRoot,
+                hostPath: hostAliasPath,
                 lastIngestAt: null,
                 model: 'legacy-model',
                 modelId: 'legacy-model',
@@ -950,16 +1303,30 @@ test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', a
   );
 
   try {
-    const conversationId = 'flow-ingested-conv-legacy';
-    const res = await supertest(app)
+    const rejected = await supertest(app)
       .post('/flows/llm-basic/run')
-      .send({ conversationId, sourceId: tmpRepoRoot })
+      .send({
+        conversationId: 'flow-ingested-conv-legacy-alias',
+        sourceId: hostAliasPath,
+      })
+      .expect(404);
+
+    assert.equal(rejected.body.error, 'not_found');
+
+    const accepted = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: 'flow-ingested-conv-legacy-canonical',
+        sourceId: tmpRepoRoot,
+      })
       .expect(202);
 
-    assert.equal(res.body.status, 'started');
-    assert.equal(res.body.flowName, 'llm-basic');
-    memoryConversations.delete(conversationId);
-    memoryTurns.delete(conversationId);
+    assert.equal(accepted.body.status, 'started');
+    assert.equal(accepted.body.flowName, 'llm-basic');
+    memoryConversations.delete('flow-ingested-conv-legacy-alias');
+    memoryTurns.delete('flow-ingested-conv-legacy-alias');
+    memoryConversations.delete('flow-ingested-conv-legacy-canonical');
+    memoryTurns.delete('flow-ingested-conv-legacy-canonical');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
@@ -1610,6 +1977,9 @@ test('flow llm.markdownFile reports AGENT_NOT_FOUND before markdown resolution f
 });
 
 test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution failures', async () => {
+  resetDeterministicCodexAvailabilityBootstrap();
+  const previousFallbackOrder =
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
   await withMarkdownFlowHarness(
     async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
       const sourceRepo = path.join(tempRoot, 'repo-source');
@@ -1633,6 +2003,13 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
 
       try {
         process.env.CODEINFO_CODEX_HOME = unavailableCodexHome;
+        process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'codex';
+        setCodexDetection({
+          available: false,
+          authPresent: false,
+          configPresent: true,
+          reason: 'Missing auth.json',
+        });
         await assert.rejects(
           async () =>
             runFlow({
@@ -1642,18 +2019,30 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
               listedRepos: [buildRepoEntry(sourceRepo)],
               turnsPredicate: () => false,
             }),
-          (error) =>
-            (error as { code?: string; reason?: string }).code ===
-              'CODEX_UNAVAILABLE' &&
-            /Missing auth\.json/i.test(
-              (error as { code?: string; reason?: string }).reason ?? '',
-            ),
+          (error) => {
+            const code = (error as { code?: string; reason?: string }).code;
+            const reason = (error as { code?: string; reason?: string }).reason;
+            return (
+              (code === 'CODEX_UNAVAILABLE' ||
+                code === 'PROVIDER_UNAVAILABLE') &&
+              /Missing auth\.json/i.test(reason ?? '')
+            );
+          },
         );
       } finally {
-        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+        if (previousCodexHome === undefined) {
+          delete process.env.CODEINFO_CODEX_HOME;
+        } else {
+          process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+        }
       }
     },
   );
+  if (previousFallbackOrder === undefined) {
+    delete process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+  } else {
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = previousFallbackOrder;
+  }
 });
 
 test('flow continues to later steps after a successful llm.markdownFile step', async () => {

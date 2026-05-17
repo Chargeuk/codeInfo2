@@ -16,7 +16,7 @@ import {
 type SpawnFn = typeof import('node:child_process').spawn;
 
 describe('codexDeviceAuth', () => {
-  it('parses verification URL + user code from stdout', () => {
+  it('parses verification URL and preserves full CLI output from stdout', () => {
     const stdout =
       'Open https://example.com/device and enter code ABCD-EFGH.\n' +
       'Code expires in 900 seconds.';
@@ -26,7 +26,6 @@ describe('codexDeviceAuth', () => {
     assert.equal(result.state, 'verification_ready');
     assert.equal(result.provider, 'codex');
     assert.equal(result.verificationUrl, 'https://example.com/device');
-    assert.equal(result.userCode, 'ABCD-EFGH');
     assert.equal(result.displayOutput, stdout);
   });
 
@@ -55,14 +54,14 @@ describe('codexDeviceAuth', () => {
     );
   });
 
-  it('does not match code inside the word codex', () => {
+  it('returns verification-ready as soon as a verification URL is present', () => {
     const stdout =
       'Open https://example.com/device and enter codex to continue.';
 
     const result = parseCodexDeviceAuthOutput(stdout);
 
-    assert.equal(result.state, 'failed');
-    assert.equal(result.reason, 'device auth output not recognized');
+    assert.equal(result.state, 'verification_ready');
+    assert.equal(result.verificationUrl, 'https://example.com/device');
   });
 
   it('reports non-zero exit codes as failures', () => {
@@ -140,7 +139,7 @@ describe('codexDeviceAuth', () => {
 
     try {
       const runPromise = runCodexDeviceAuth({ spawnFn });
-      child.stdout.write('User code: ABCD-EFGH\n');
+      child.stdout.write('Authorization required before browser approval.\n');
       child.stdout.write('device auth output not recognized\n');
       child.emit('close', 1);
 
@@ -151,8 +150,7 @@ describe('codexDeviceAuth', () => {
       const warning = warnEntries.find((entry) => 'stdoutSample' in entry);
       assert.ok(warning);
       const stdoutSample = String(warning?.stdoutSample ?? '');
-      assert.equal(stdoutSample.includes('ABCD-EFGH'), false);
-      assert.equal(stdoutSample.includes('<redacted-code>'), true);
+      assert.equal(stdoutSample.includes('Authorization required'), true);
     } finally {
       warnMock.mock.restore();
     }

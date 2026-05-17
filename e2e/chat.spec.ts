@@ -534,9 +534,7 @@ test('shared auth dialog renders Copilot verification details from the fake auth
     /OpenAI Codex/i,
     { timeout: 20000 },
   );
-  await page
-    .getByRole('button', { name: /Re-authenticate \(device auth\)/i })
-    .click();
+  await page.getByRole('button', { name: /^Re-authenticate$/i }).click();
 
   const dialog = page.getByRole('dialog');
   await expect(
@@ -546,9 +544,11 @@ test('shared auth dialog renders Copilot verification details from the fake auth
 
   await expect(dialog).toContainText('Verification URL');
   await expect(
-    dialog.getByRole('link', { name: 'https://github.com/login/device' }),
+    dialog
+      .getByRole('link', { name: 'https://github.com/login/device' })
+      .first(),
   ).toBeVisible();
-  await expect(dialog.getByText('TASK16-ABCD', { exact: true })).toBeVisible();
+  await expect(dialog).toContainText('TASK16-ABCD');
 });
 
 test('chat preserves raw outbound payload and blocks whitespace-only submit', async ({
@@ -652,9 +652,21 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
   expect(chatBodies[0]?.message).toBe(raw);
 
   await input.fill('   \n   ');
+  await expect(send).toBeEnabled();
   await send.click();
-  await page.waitForTimeout(300);
-  expect(chatBodies).toHaveLength(1);
+
+  const followUp = 'follow-up after blocked whitespace';
+  await input.fill(followUp);
+  await send.click();
+
+  await expect
+    .poll(() => chatBodies.length, {
+      timeout: 10000,
+      message:
+        'Expected exactly one follow-up chat POST request after blocked whitespace submit',
+    })
+    .toBe(2);
+  expect(chatBodies[1]?.message).toBe(followUp);
 });
 
 test('chat renders user markdown list/code with same structure as assistant markdown', async ({

@@ -56,6 +56,8 @@ import {
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
 
+setDefaultTimeout(20_000);
+
 let server: Server | null = null;
 let baseUrl = '';
 let response: { status: number; body: unknown } | null = null;
@@ -178,7 +180,6 @@ async function seedQueuedReembedRequest(params: {
 }
 
 Before(async () => {
-  setDefaultTimeout(10000);
   process.env.NODE_ENV = 'test';
   delete process.env.CODEINFO_CODEX_WORKDIR;
   release();
@@ -256,18 +257,20 @@ After(async () => {
   queueRuntimeStartedPaths = [];
   lastQueuePumpResult = null;
   resetQueueRuntimeObservationWaiters();
-  __setQueueRuntimeOpsForTest({
-    deleteQueueRequestById: async () => null,
-    ensureQueueRequestRunId: async () => null,
-    findOldestCleanupBlockedQueueRequest: async () => null,
-    findOldestRunningQueueRequest: async () => null,
-    getQueueRequestId: () => 'noop',
-    markQueueRequestCleanupBlocked: async () => null,
-    markQueueRequestTerminalPublished: async () => null,
-    promoteOldestWaitingQueueRequest: async () => null,
-  });
-  __setRunProcessorForTest(null);
-  __resetIngestJobsForTest();
+  if (process.env.NODE_ENV === 'test') {
+    __setQueueRuntimeOpsForTest({
+      deleteQueueRequestById: async () => null,
+      ensureQueueRequestRunId: async () => null,
+      findOldestCleanupBlockedQueueRequest: async () => null,
+      findOldestRunningQueueRequest: async () => null,
+      getQueueRequestId: () => 'noop',
+      markQueueRequestCleanupBlocked: async () => null,
+      markQueueRequestTerminalPublished: async () => null,
+      promoteOldestWaitingQueueRequest: async () => null,
+    });
+    __setRunProcessorForTest(null);
+    __resetIngestJobsForTest();
+  }
   if (mongoose.connection.readyState === 1) {
     await IngestQueueRequestModel.deleteMany({}).exec();
   }

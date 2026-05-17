@@ -7,6 +7,34 @@ type AgentSummary = {
   warnings?: string[];
 };
 
+export type AgentWarningDetails = {
+  code: string;
+  message: string;
+  providerId?: string;
+  fallbackProviderId?: string;
+};
+
+export type AgentDisabledReason = {
+  code: string;
+  message: string;
+  providerId?: string;
+};
+
+export type AgentDetails = {
+  name: string;
+  description?: string;
+  disabled: boolean;
+  warnings: AgentWarningDetails[];
+  fallbackCandidates: Array<{
+    providerId: string;
+    available: boolean;
+    reason?: string;
+  }>;
+  disabledReason?: AgentDisabledReason;
+  requestedProviderId?: string;
+  executionProviderId?: string;
+};
+
 export type AgentApiErrorDetails = {
   status: number;
   code?: string;
@@ -51,7 +79,11 @@ async function parseAgentApiErrorResponse(res: Response): Promise<{
         return {
           code: typeof record.code === 'string' ? record.code : undefined,
           message:
-            typeof record.message === 'string' ? record.message : undefined,
+            typeof record.message === 'string'
+              ? record.message
+              : typeof record.reason === 'string'
+                ? record.reason
+                : undefined,
         };
       }
       return {};
@@ -113,6 +145,140 @@ export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
         } satisfies AgentSummary;
       })
       .filter(Boolean) as AgentSummary[],
+  };
+}
+
+export async function getAgentDetails(
+  agentName: string,
+): Promise<{ agent: AgentDetails }> {
+  const res = await fetch(
+    new URL(`/agents/${encodeURIComponent(agentName)}`, serverBase).toString(),
+  );
+  if (!res.ok) {
+    await throwAgentApiError(
+      res,
+      `Failed to load agent details (${res.status})`,
+    );
+  }
+
+  const data = (await res.json()) as { agent?: unknown };
+  if (
+    data &&
+    typeof data === 'object' &&
+    Array.isArray((data as { agents?: unknown }).agents)
+  ) {
+    throw new Error('Agent details endpoint returned agent list payload');
+  }
+  if (!data.agent || typeof data.agent !== 'object') {
+    throw new Error('Agent details response missing agent payload');
+  }
+
+  const record = data.agent as Record<string, unknown>;
+  const name = typeof record.name === 'string' ? record.name : undefined;
+  const disabled =
+    typeof record.disabled === 'boolean' ? record.disabled : undefined;
+  if (!name || name !== agentName || disabled === undefined) {
+    throw new Error('Invalid agent details response');
+  }
+
+  const warnings = Array.isArray(record.warnings)
+    ? record.warnings
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const warning = item as Record<string, unknown>;
+          const code =
+            typeof warning.code === 'string' ? warning.code : undefined;
+          const message =
+            typeof warning.message === 'string' ? warning.message : undefined;
+          if (!code || !message) return null;
+          return {
+            code,
+            message,
+            providerId:
+              typeof warning.providerId === 'string'
+                ? warning.providerId
+                : undefined,
+            fallbackProviderId:
+              typeof warning.fallbackProviderId === 'string'
+                ? warning.fallbackProviderId
+                : undefined,
+          } satisfies AgentWarningDetails;
+        })
+        .filter(Boolean)
+    : [];
+
+  const fallbackCandidates = Array.isArray(record.fallbackCandidates)
+    ? record.fallbackCandidates
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const candidate = item as Record<string, unknown>;
+          const providerId =
+            typeof candidate.providerId === 'string'
+              ? candidate.providerId
+              : undefined;
+          const available =
+            typeof candidate.available === 'boolean'
+              ? candidate.available
+              : undefined;
+          if (!providerId || available === undefined) return null;
+          return {
+            providerId,
+            available,
+            reason:
+              typeof candidate.reason === 'string'
+                ? candidate.reason
+                : undefined,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  const disabledReason =
+    record.disabledReason && typeof record.disabledReason === 'object'
+      ? {
+          code:
+            typeof (record.disabledReason as Record<string, unknown>).code ===
+            'string'
+              ? ((record.disabledReason as Record<string, unknown>)
+                  .code as string)
+              : 'provider_unavailable',
+          message:
+            typeof (record.disabledReason as Record<string, unknown>)
+              .message === 'string'
+              ? ((record.disabledReason as Record<string, unknown>)
+                  .message as string)
+              : 'Agent unavailable',
+          providerId:
+            typeof (record.disabledReason as Record<string, unknown>)
+              .providerId === 'string'
+              ? ((record.disabledReason as Record<string, unknown>)
+                  .providerId as string)
+              : undefined,
+        }
+      : undefined;
+
+  return {
+    agent: {
+      name,
+      description:
+        typeof record.description === 'string' ? record.description : undefined,
+      disabled,
+      warnings: warnings as AgentWarningDetails[],
+      fallbackCandidates: fallbackCandidates as Array<{
+        providerId: string;
+        available: boolean;
+        reason?: string;
+      }>,
+      disabledReason,
+      requestedProviderId:
+        typeof record.requestedProviderId === 'string'
+          ? record.requestedProviderId
+          : undefined,
+      executionProviderId:
+        typeof record.executionProviderId === 'string'
+          ? record.executionProviderId
+          : undefined,
+    },
   };
 }
 export async function listAgentCommands(agentName: string): Promise<{

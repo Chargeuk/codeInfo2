@@ -8,6 +8,7 @@ import {
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import { AstCoverageModel } from '../mongo/astCoverage.js';
 import { type AstEdge, AstEdgeModel } from '../mongo/astEdge.js';
 import {
@@ -193,32 +194,13 @@ function logTransitiveContractRead(params: {
   repository: string;
   repo: RepoEntry;
 }) {
-  const resolved = resolveRepoEmbeddingIdentity(params.repo);
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: params.consumer,
-      repository: params.repository,
-      containerPath: params.repo.containerPath,
-      embeddingProvider: resolved.embeddingProvider,
-      embeddingModel: resolved.embeddingModel,
-      embeddingDimensions: resolved.embeddingDimensions,
-      modelId: resolved.modelId,
-    },
-  });
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: params.consumer,
-      repository: params.repository,
-      aliasFallbackUsed: resolved.aliasFallbackUsed,
-    },
+  appendRepoBackedTransitiveConsumerLogs({
+    consumer: params.consumer,
+    subjectKind: 'repository',
+    subjectId: params.repo.containerPath,
+    repository: params.repository,
+    containerPath: params.repo.containerPath,
+    repoIdentity: resolveRepoEmbeddingIdentity(params.repo),
   });
 }
 

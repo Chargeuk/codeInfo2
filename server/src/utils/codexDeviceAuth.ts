@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
 
+import type { ProviderAuthDetectedState } from '@codeinfo2/common';
+
 import { buildCodexOptions, resolveCodexHome } from '../config/codexConfig.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -11,8 +13,8 @@ export type CodexDeviceAuthVerificationReady = {
   provider: 'codex';
   state: 'verification_ready';
   verificationUrl: string;
-  userCode: string;
   displayOutput?: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthCompletionPending = {
@@ -21,16 +23,19 @@ export type CodexDeviceAuthCompletionPending = {
   verificationUrl?: string;
   userCode?: string;
   displayOutput?: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthCompleted = {
   provider: 'codex';
   state: 'completed';
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthAlreadyAuthenticated = {
   provider: 'codex';
   state: 'already_authenticated';
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthFailure = {
@@ -38,12 +43,14 @@ export type CodexDeviceAuthFailure = {
   state: 'failed';
   reason: string;
   displayOutput?: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthUnavailableBeforeStart = {
   provider: 'codex';
   state: 'unavailable_before_start';
   reason: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 };
 
 export type CodexDeviceAuthResult =
@@ -81,10 +88,7 @@ const deviceAuthExpiredMessage = 'device code expired or was declined';
 const deviceAuthExitMessage = 'device auth command failed';
 
 const verificationUrlRegex = /https?:\/\/\S+/i;
-const userCodeRegex = /\b(?:user\s*code|code)\b\s*[:=\-]?\s*([A-Z0-9-]{6,})/i;
 const verificationUrlRedactRegex = /https?:\/\/\S+/gi;
-const userCodeRedactRegex =
-  /\b(?:user\s*code|code)\b\s*[:=\-]?\s*[A-Z0-9-]{6,}/gi;
 const expiredStderrRegex = /(expired|declined)/i;
 
 function normalizeCodexAuthResponse<
@@ -107,66 +111,84 @@ function normalizeCodexAuthResponse<
 
 export function createCodexVerificationReadyResponse(params: {
   verificationUrl: string;
-  userCode: string;
   displayOutput: string;
+  detectedAuthState?: ProviderAuthDetectedState;
 }): CodexDeviceAuthVerificationReady {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'verification_ready',
     verificationUrl: params.verificationUrl,
-    userCode: params.userCode,
     displayOutput: params.displayOutput,
+    ...(params.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
 export function createCodexCompletionPendingResponse(
   source: Pick<
     CodexDeviceAuthVerificationReady,
-    'verificationUrl' | 'userCode' | 'displayOutput'
+    'verificationUrl' | 'displayOutput' | 'detectedAuthState'
   >,
 ): CodexDeviceAuthCompletionPending {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'completion_pending',
     verificationUrl: source.verificationUrl,
-    userCode: source.userCode,
     displayOutput: source.displayOutput,
+    ...(source.detectedAuthState
+      ? { detectedAuthState: source.detectedAuthState }
+      : {}),
   });
 }
 
-export function createCodexCompletedResponse(): CodexDeviceAuthCompleted {
+export function createCodexCompletedResponse(params?: {
+  detectedAuthState?: ProviderAuthDetectedState;
+}): CodexDeviceAuthCompleted {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'completed',
+    ...(params?.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
-export function createCodexAlreadyAuthenticatedResponse(): CodexDeviceAuthAlreadyAuthenticated {
+export function createCodexAlreadyAuthenticatedResponse(params?: {
+  detectedAuthState?: ProviderAuthDetectedState;
+}): CodexDeviceAuthAlreadyAuthenticated {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'already_authenticated',
+    ...(params?.detectedAuthState
+      ? { detectedAuthState: params.detectedAuthState }
+      : {}),
   });
 }
 
 export function createCodexFailedResponse(
   reason: string,
   displayOutput?: string,
+  detectedAuthState?: ProviderAuthDetectedState,
 ): CodexDeviceAuthFailure {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'failed',
     reason,
     displayOutput,
+    ...(detectedAuthState ? { detectedAuthState } : {}),
   });
 }
 
 export function createCodexUnavailableBeforeStartResponse(
   reason: string,
+  detectedAuthState?: ProviderAuthDetectedState,
 ): CodexDeviceAuthUnavailableBeforeStart {
   return normalizeCodexAuthResponse({
     provider: 'codex',
     state: 'unavailable_before_start',
     reason,
+    ...(detectedAuthState ? { detectedAuthState } : {}),
   });
 }
 
@@ -175,16 +197,13 @@ export function parseCodexDeviceAuthOutput(
 ): CodexDeviceAuthResult {
   const normalized = stripAnsi(stdout);
   const verificationUrl = normalized.match(verificationUrlRegex)?.[0];
-  const userCodeMatch = normalized.match(userCodeRegex);
-  const userCode = userCodeMatch?.[1];
 
-  if (!verificationUrl || !userCode) {
+  if (!verificationUrl) {
     return createCodexFailedResponse(deviceAuthErrorMessage);
   }
 
   return createCodexVerificationReadyResponse({
     verificationUrl,
-    userCode,
     displayOutput: normalized,
   });
 }
@@ -272,7 +291,6 @@ export async function runCodexDeviceAuth(params?: {
             hasDisplayOutput: Boolean(result.displayOutput),
             displayOutputLength: result.displayOutput?.length ?? 0,
             hasVerificationUrl: Boolean(result.verificationUrl),
-            hasUserCode: Boolean(result.userCode),
           },
           'DEV-0000031:T1:codex_device_auth_cli_parsed',
         );
@@ -333,9 +351,10 @@ export async function runCodexDeviceAuth(params?: {
 }
 
 function sanitizeDeviceAuthOutput(output: string) {
-  return stripAnsi(output)
-    .replace(verificationUrlRedactRegex, '<redacted-url>')
-    .replace(userCodeRedactRegex, '<redacted-code>');
+  return stripAnsi(output).replace(
+    verificationUrlRedactRegex,
+    '<redacted-url>',
+  );
 }
 
 const ansiRegex =

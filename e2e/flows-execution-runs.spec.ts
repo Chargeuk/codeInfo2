@@ -68,6 +68,22 @@ test('flows and agents show stable run clues for repeated fresh executions', asy
       return;
     }
 
+    if (path === '/flows/daily' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+
     if (path === '/agents' && method === 'GET') {
       await route.fulfill({
         status: 200,
@@ -156,6 +172,7 @@ test('flows and agents show stable run clues for repeated fresh executions', asy
           flowName: 'daily',
           conversationId,
           inflightId: `flow-inflight-${runIndex}`,
+          providerId: 'codex',
           modelId: 'gpt-5.2',
         }),
       });
@@ -204,4 +221,119 @@ test('flows and agents show stable run clues for repeated fresh executions', asy
     .filter({ hasText: 'Ordinary planner conversation' });
   await expect(ordinaryRow).toBeVisible();
   await expect(ordinaryRow.getByTestId('conversation-run-chip')).toHaveCount(0);
+});
+
+test('flows warning rendering and disabled run guard stay visible at the browser surface', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  await installMockChatWs(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const method = req.method();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const path = url.pathname;
+
+    if (path === '/health' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+
+    if (path === '/flows' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (path === '/flows/daily' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: true,
+            warnings: [
+              {
+                code: 'provider_unavailable',
+                message: 'Primary provider unavailable',
+              },
+            ],
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'No usable provider remains',
+            },
+          },
+        }),
+      });
+      return;
+    }
+
+    if (path === '/conversations' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    if (path.startsWith('/conversations/') && path.endsWith('/turns')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    if (path === '/flows/daily/run' && method === 'POST') {
+      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          flowName: 'daily',
+          conversationId: 'flow-1',
+          inflightId: 'i1',
+          providerId: 'codex',
+          modelId: 'gpt-5.2',
+        }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
+
+  await page.getByTestId('flow-working-folder').fill('/tmp/stale');
+  await page.getByTestId('flow-info').click();
+
+  await expect(page.getByText('Primary provider unavailable')).toBeVisible();
+  await expect(page.getByText('No usable provider remains')).toBeVisible();
+  await expect(page.getByTestId('flow-run')).toBeDisabled();
+  expect(runBodies).toHaveLength(0);
 });

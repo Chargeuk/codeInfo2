@@ -10,7 +10,7 @@ test('collapses reasoning while streaming Harmony channels', async ({
 }) => {
   const mockWs = await installMockChatWs(page);
 
-  await page.route('**/chat/providers', (route) =>
+  await page.route('**/chat/providers*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -34,7 +34,7 @@ test('collapses reasoning while streaming Harmony channels', async ({
     }),
   );
 
-  await page.route('**/chat/models', (route) =>
+  await page.route('**/chat/models*', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -42,7 +42,9 @@ test('collapses reasoning while streaming Harmony channels', async ({
         provider: 'lmstudio',
         available: true,
         toolsAvailable: true,
-        models: [{ key: 'mock-chat', displayName: 'Mock Chat Model' }],
+        models: [
+          { key: 'mock-chat', displayName: 'Mock Chat Model', type: 'chat' },
+        ],
       }),
     }),
   );

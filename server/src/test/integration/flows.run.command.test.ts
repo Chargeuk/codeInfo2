@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -37,6 +37,10 @@ import { query, resetStore } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 import {
   closeWs,
@@ -46,6 +50,14 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 const withTimeout = async <T>(
   promise: Promise<T>,
@@ -424,6 +436,7 @@ const makeFlowCommand = (params: { commandName: string }) => ({
 const writeRepoCommand = async (params: {
   repoRoot: string;
   commandName: string;
+  rootDirName?: 'codeinfo_agents' | 'codex_agents';
   content?: string;
   items?: unknown[];
   invalidSchema?: boolean;
@@ -431,7 +444,7 @@ const writeRepoCommand = async (params: {
 }) => {
   const commandDir = path.join(
     params.repoRoot,
-    'codex_agents',
+    params.rootDirName ?? 'codex_agents',
     'planning_agent',
     'commands',
   );
@@ -1040,6 +1053,77 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
   } finally {
     await fs.rm(localCommandPath, { force: true });
   }
+});
+
+test('cross-repo flow-owned commands execute from codeinfo_agents before codex_agents when both exist', async () => {
+  const repos: RepoEntry[] = [];
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const sourceRoot = path.join(tmpDir, 'task2-duplicate-source-repo');
+      const commandName = 'task2_codeinfo_agents_precedence';
+      const conversationId = 'task2-codeinfo-agents-precedence';
+      await writeRepoFlow({
+        repoRoot: sourceRoot,
+        flowName: 'task2-codeinfo-agents-precedence',
+        commandName,
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        rootDirName: 'codeinfo_agents',
+        commandName,
+        content: 'preferred repository command',
+      });
+      await writeRepoCommand({
+        repoRoot: sourceRoot,
+        rootDirName: 'codex_agents',
+        commandName,
+        content: 'legacy repository command',
+      });
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Owner Repo' }),
+      );
+
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/task2-codeinfo-agents-precedence/run')
+        .send({
+          conversationId,
+          sourceId: sourceRoot,
+        })
+        .expect(202);
+
+      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('preferred repository command'),
+          ),
+        3000,
+      );
+      assert.ok(
+        turns.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('preferred repository command'),
+        ),
+      );
+      assert.equal(
+        turns.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('legacy repository command'),
+        ),
+        false,
+      );
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+    },
+  );
 });
 
 test('cross-repo flows resolve commands from the selected working repository before the flow owner', async () => {
@@ -3772,6 +3856,66 @@ test('flow run rejects path traversal attempts', async () => {
       .post('/flows/..%2Fescape/run')
       .send({})
       .expect(404);
+  });
+});
+
+test('flow run rejects unsafe flow-owned agentType values before runtime fallback joins can probe repository-backed agent roots', async () => {
+  await withFlowServer(async ({ baseUrl, tmpDir }) => {
+    const flowName = 'unsafe-agent-type';
+    await fs.writeFile(
+      path.join(tmpDir, `${flowName}.json`),
+      JSON.stringify({
+        description: 'unsafe agent type',
+        steps: [
+          {
+            type: 'command',
+            agentType: '../escape',
+            identifier: 'command-main',
+            commandName: 'improve_plan',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const response = await supertest(baseUrl).post(`/flows/${flowName}/run`).send({});
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'invalid_request');
+    assert.match(
+      String(response.body.reason ?? response.body.message ?? ''),
+      /agentType must be a valid agent root name/u,
+    );
+  });
+});
+
+test('flow run rejects unsafe flow-owned commandName values before runtime fallback joins can probe repository-backed command paths', async () => {
+  await withFlowServer(async ({ baseUrl, tmpDir }) => {
+    const flowName = 'unsafe-command-name';
+    await fs.writeFile(
+      path.join(tmpDir, `${flowName}.json`),
+      JSON.stringify({
+        description: 'unsafe command name',
+        steps: [
+          {
+            type: 'command',
+            agentType: 'planning_agent',
+            identifier: 'command-main',
+            commandName: '../escape',
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const response = await supertest(baseUrl).post(`/flows/${flowName}/run`).send({});
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'invalid_request');
+    assert.match(
+      String(response.body.reason ?? response.body.message ?? ''),
+      /valid file name/u,
+    );
   });
 });
 

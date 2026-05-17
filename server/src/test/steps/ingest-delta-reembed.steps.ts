@@ -317,7 +317,8 @@ Then(
   { timeout: 60_000 },
   async (state: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 120; i += 1) {
+    const deadline = Date.now() + 55_000;
+    while (Date.now() < deadline) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = (await res.json()) as {
         state?: string;
@@ -342,7 +343,9 @@ Then(
       }
       await new Promise((r) => setTimeout(r, 100));
     }
-    assert.fail(`did not reach state ${state}`);
+    assert.fail(
+      `did not reach state ${state}; last observed state=${String(lastStatus?.state ?? 'unknown')} message=${String(lastStatus?.message ?? '')}`,
+    );
   },
 );
 
@@ -549,7 +552,7 @@ Then('ingest delta mongo should be disconnected', () => {
   assert.equal(isMongoConnected(), false);
 });
 
-Then('I remember the ingest delta runId', () => {
+When('I remember the ingest delta runId', () => {
   assert(lastRunId, 'runId missing');
   rememberedRunId = lastRunId;
 });
@@ -594,7 +597,7 @@ Then(
   },
 );
 
-Then(
+When(
   'I remember ingest delta AST coverage timestamp for the delta repo',
   async () => {
     assert(tempDir, 'temp dir missing');

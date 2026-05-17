@@ -1,0 +1,15 @@
+{
+  "Description": "Review current review-disposition prompt changes against the repository's resolved or pinned comparison base using the regression checklist.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_disposition_regression/01-select-scope.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_disposition_regression/02-apply-checklist.md"
+    }
+  ]
+}

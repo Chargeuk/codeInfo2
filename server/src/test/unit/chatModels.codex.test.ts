@@ -297,7 +297,7 @@ test('codex models include defaultReasoningEffort present in supportedReasoningE
   }
 });
 
-test('chat models payload is derived from shared capability resolver fixture', async () => {
+test('chat models payload is derived from the shared capability resolver fixture while normalizing the provider default model to the live list', async () => {
   await setCodexHome('model = "fixture-home-model"\n');
   setCodexDetection({
     available: true,
@@ -365,7 +365,7 @@ test('chat models payload is derived from shared capability resolver fixture', a
       },
     ]);
     assert.equal(res.body.providerInfo.id, 'codex');
-    assert.equal(res.body.defaultModel, 'fixture-home-model');
+    assert.equal(res.body.defaultModel, 'fixture-model');
     assert.equal(res.body.defaultModelSource, 'config');
     assert.equal(res.body.compatibility.codexDefaults.webSearchMode, 'live');
   } finally {

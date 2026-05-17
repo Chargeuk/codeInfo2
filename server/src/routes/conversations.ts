@@ -22,7 +22,10 @@ import {
   resolveCopilotRuntimeAgentFlags,
   resolveLmStudioRuntimeAgentFlags,
 } from '../chat/providerRuntimeFlags.js';
-import { listIngestedRepositories } from '../lmstudio/toolService.js';
+import {
+  getAdvertisedRepositoryIdentityPaths,
+  listIngestedRepositories,
+} from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
 import { emitConversationUpsert } from '../mongo/events.js';
@@ -454,8 +457,8 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
   const knownRepositoryPathsState = async () =>
     await resolveKnownRepositoryPathsState(async () =>
-      (await listIngestedRepositoriesFn()).repos.map(
-        (repo) => repo.containerPath,
+      (await listIngestedRepositoriesFn()).repos.flatMap((repo) =>
+        getAdvertisedRepositoryIdentityPaths(repo),
       ),
     );
 
@@ -671,7 +674,9 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         model,
         title: title ?? 'Untitled conversation',
         source: source ?? 'REST',
-        flags,
+        flags: sanitizeConversationFlagsForProvider(provider, flags, {
+          preserveFlowState: true,
+        }),
         lastMessageAt: new Date(),
       });
       res.status(201).json({ conversationId });
@@ -757,10 +762,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           requestedCount,
           uniqueCount: uniqueConversationIds.length,
           updatedCount: result.updatedCount,
+          updatedConversationIdsCount: result.updatedConversationIds.length,
         },
       });
 
-      res.json({ status: 'ok', updatedCount: result.updatedCount });
+      res.json({
+        status: 'ok',
+        updatedCount: result.updatedCount,
+        updatedConversationIds: result.updatedConversationIds,
+      });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }
@@ -828,10 +838,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           requestedCount,
           uniqueCount: uniqueConversationIds.length,
           updatedCount: result.updatedCount,
+          updatedConversationIdsCount: result.updatedConversationIds.length,
         },
       });
 
-      res.json({ status: 'ok', updatedCount: result.updatedCount });
+      res.json({
+        status: 'ok',
+        updatedCount: result.updatedCount,
+        updatedConversationIds: result.updatedConversationIds,
+      });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }
@@ -899,10 +914,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           requestedCount,
           uniqueCount: uniqueConversationIds.length,
           deletedCount: result.deletedCount,
+          deletedConversationIdsCount: result.deletedConversationIds.length,
         },
       });
 
-      res.json({ status: 'ok', deletedCount: result.deletedCount });
+      res.json({
+        status: 'ok',
+        deletedCount: result.deletedCount,
+        deletedConversationIds: result.deletedConversationIds,
+      });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }

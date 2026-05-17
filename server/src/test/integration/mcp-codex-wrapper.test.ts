@@ -4,7 +4,7 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import type {
   CodexOptions,
   ThreadEvent,
@@ -158,6 +158,39 @@ const makeLmStudioClientFactory = () => () =>
     },
   }) as unknown as import('@lmstudio/sdk').LMStudioClient;
 
+const ENV_KEYS = [
+  'CODEINFO_CHAT_DEFAULT_PROVIDER',
+  'CODEINFO_CHAT_DEFAULT_MODEL',
+  'CODEINFO_CODEX_HOME',
+  'CODEX_HOME',
+  'MCP_FORCE_CODEX_AVAILABLE',
+] as const;
+const originalEnv = new Map<string, string | undefined>();
+const defaultCodexHome = path.resolve(process.cwd(), '../codex');
+
+beforeEach(() => {
+  originalEnv.clear();
+  for (const key of ENV_KEYS) {
+    originalEnv.set(key, process.env[key]);
+    delete process.env[key];
+  }
+  process.env.CODEINFO_CODEX_HOME = defaultCodexHome;
+  process.env.CODEX_HOME = defaultCodexHome;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const value = originalEnv.get(key);
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  originalEnv.clear();
+});
+
 test('MCP responder returns answer-only segments', async () => {
   const prev = getCodexDetection();
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
@@ -237,8 +270,10 @@ test('MCP responder only returns the final answer segment', async () => {
 test('MCP responder payload reports the chat-config-aware default model when no override is supplied', async () => {
   const prev = getCodexDetection();
   const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
   const tempHome = await withTempCodexHome('model = "config-model"\n');
   process.env.CODEX_HOME = tempHome.codexHome;
+  process.env.CODEINFO_CODEX_HOME = tempHome.codexHome;
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -260,6 +295,11 @@ test('MCP responder payload reports the chat-config-aware default model when no 
     setCodexDetection(prev);
     if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = originalCodeHome;
+    if (originalCodeinfoHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+    }
     await tempHome.cleanup();
   }
 });

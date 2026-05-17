@@ -10,12 +10,17 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { baseLogger } from '../../logger.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import {
   createChatModelsRouter,
   TASK6_LOG_MARKER,
 } from '../../routes/chatModels.js';
+import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
@@ -44,10 +49,12 @@ const env = {
   },
 };
 
-function createClient(): LMStudioClient {
+function createClient(
+  models?: Array<{ modelKey: string; displayName: string; type: string }>,
+): LMStudioClient {
   return {
     system: {
-      listDownloadedModels: async () => [],
+      listDownloadedModels: async () => models ?? [],
     },
   } as unknown as LMStudioClient;
 }
@@ -56,6 +63,11 @@ async function startServer(params: {
   mcpAvailable?: boolean;
   copilotModels?: ModelInfo[];
   startError?: Error;
+  lmstudioModels?: Array<{
+    modelKey: string;
+    displayName: string;
+    type: string;
+  }>;
 }) {
   const app = express();
   app.use(express.json());
@@ -77,7 +89,14 @@ async function startServer(params: {
   app.use(
     '/chat',
     createChatModelsRouter({
-      clientFactory: () => createClient(),
+      clientFactory: () => createClient(params.lmstudioModels),
+      copilotRuntimeFactory: () => copilotHarness.createLifecycle(),
+    }),
+  );
+  app.use(
+    '/chat',
+    createChatProvidersRouter({
+      clientFactory: () => createClient(params.lmstudioModels),
       copilotRuntimeFactory: () => copilotHarness.createLifecycle(),
     }),
   );
@@ -102,11 +121,13 @@ async function stopServer(server: { httpServer: http.Server }) {
 
 beforeEach(() => {
   resetMcpStatusCache();
+  __resetProviderBootstrapStatusForTests();
 });
 
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
+  __resetProviderBootstrapStatusForTests();
   mock.restoreAll();
 });
 
@@ -144,6 +165,39 @@ test('copilot models route handles an empty model list deterministically', async
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);
     assert.equal(res.body.reason, 'copilot models unavailable');
+    assert.deepEqual(res.body.models, []);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('copilot models route keeps top-level availability aligned with degraded bootstrap status', async () => {
+  __setProviderBootstrapStatusForTests('copilot', {
+    healthy: false,
+    reason: 'copilot bootstrap degraded',
+  });
+
+  const server = await startServer({
+    copilotModels: [
+      {
+        id: 'copilot-gpt-5',
+        name: 'Copilot GPT-5',
+      } as ModelInfo,
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=copilot')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'copilot');
+    assert.equal(res.body.available, false);
+    assert.equal(res.body.toolsAvailable, false);
+    assert.equal(res.body.reason, 'copilot bootstrap degraded');
+    assert.equal(res.body.providerInfo.available, false);
+    assert.equal(res.body.providerInfo.toolsAvailable, false);
+    assert.equal(res.body.providerInfo.reason, 'copilot bootstrap degraded');
     assert.deepEqual(res.body.models, []);
   } finally {
     await stopServer(server);
@@ -264,7 +318,7 @@ test('copilot models route maps only verified shared-contract fields and logs ig
   }
 });
 
-test('copilot models route normalizes stale configured defaults to a live runnable model and avoids fake reasoning defaults on unsupported models', async () => {
+test('copilot models route keeps selector-aligned default-model metadata when a stale configured model must be repaired on the same provider', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-models-copilot-normalized-home-'),
   );
@@ -315,6 +369,57 @@ test('copilot models route normalizes stale configured defaults to a live runnab
       /normalized to "gpt-5-mini"/u,
     );
   } finally {
+    await stopServer(server);
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+  }
+});
+
+test('chat providers route keeps same-model-first fallback metadata instead of surfacing the first advertised fallback model', async () => {
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-providers-copilot-fallback-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+    'utf8',
+  );
+  env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  const server = await startServer({
+    startError: new Error('copilot offline'),
+    lmstudioModels: [
+      {
+        modelKey: 'lmstudio-test-model',
+        displayName: 'LM Studio Test Model',
+        type: 'llm',
+      },
+      {
+        modelKey: 'copilot-gpt-5',
+        displayName: 'Fallback Matches Requested Model',
+        type: 'llm',
+      },
+    ],
+  });
+
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/providers')
+      .expect(200);
+
+    assert.equal(res.body.selectedProvider, 'lmstudio');
+    assert.equal(res.body.selectedModel, 'copilot-gpt-5');
+    assert.equal(res.body.fallbackApplied, true);
+    assert.equal(res.body.providers[0]?.id, 'lmstudio');
+    assert.equal(res.body.providers[0]?.defaultModel, 'copilot-gpt-5');
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
     await stopServer(server);
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }

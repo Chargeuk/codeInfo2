@@ -18,6 +18,7 @@ import {
 import { ConversationModel } from '../../mongo/conversation.js';
 import { appendTurn, listTurns } from '../../mongo/repo.js';
 import { TurnModel, type TurnCommandMetadata } from '../../mongo/turn.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -69,6 +70,14 @@ const restore = <T extends object, K extends keyof T>(
 ) => {
   (target as Record<string, unknown>)[key as string] = original as unknown;
 };
+
+setCodexDetection({
+  available: true,
+  authPresent: true,
+  configPresent: true,
+  cliPath: '/usr/bin/codex',
+  reason: undefined,
+});
 
 test('stores + returns command when provided', async () => {
   const stored: Array<Record<string, unknown>> = [];
@@ -347,6 +356,100 @@ test('direct command execution persists lookupSummary into turn runtime metadata
     assert.equal(
       commandTurns.every(
         (turn) =>
+          turn.runtime?.lookupSummary?.fallbackUsed === false &&
+          turn.runtime?.lookupSummary?.workingRepositoryAvailable === true,
+      ),
+      true,
+    );
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    if (previousAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('owner-only direct commands still persist the requested working repository in turn runtime metadata', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-task5-turn-runtime-'),
+  );
+  const workingRoot = path.join(tmpDir, 'working-repo');
+  const sourceRoot = path.join(tmpDir, 'source-repo');
+  const commandName = 'task5_owner_only_runtime_lookup_summary';
+  const conversationId = 'task5-owner-only-runtime-lookup-summary';
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+
+  try {
+    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+    await fs.mkdir(workingRoot, { recursive: true });
+    await writeRepoCommand({
+      repoRoot: sourceRoot,
+      commandName,
+      content: 'owner repository command',
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            {
+              id: 'Working Repo',
+              description: null,
+              containerPath: workingRoot,
+              hostPath: workingRoot,
+              lastIngestAt: null,
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'model',
+              embeddingDimensions: 768,
+              modelId: 'model',
+              counts: { files: 0, chunks: 0, embedded: 0 },
+              lastError: null,
+            },
+            {
+              id: 'Source Repo',
+              description: null,
+              containerPath: sourceRoot,
+              hostPath: sourceRoot,
+              lastIngestAt: null,
+              embeddingProvider: 'lmstudio',
+              embeddingModel: 'model',
+              embeddingDimensions: 768,
+              modelId: 'model',
+              counts: { files: 0, chunks: 0, embedded: 0 },
+              lastError: null,
+            },
+          ],
+        }) as never,
+    });
+
+    await runAgentCommand({
+      agentName: 'planning_agent',
+      commandName,
+      conversationId,
+      sourceId: sourceRoot,
+      working_folder: workingRoot,
+      source: 'REST',
+      chatFactory: () => new ScriptedChat(),
+    });
+
+    const turns = memoryTurns.get(conversationId) ?? [];
+    assert.equal(turns.length >= 2, true);
+    const commandTurns = turns.filter(
+      (turn) => turn.command?.name === commandName,
+    );
+    assert.equal(commandTurns.length > 0, true);
+    const runtimeCommandTurns = commandTurns.filter((turn) => turn.runtime);
+    assert.equal(runtimeCommandTurns.length > 0, true);
+    assert.equal(
+      runtimeCommandTurns.every(
+        (turn) =>
+          turn.runtime?.workingFolder === path.resolve(workingRoot) &&
+          turn.runtime?.lookupSummary?.selectedRepositoryPath ===
+            path.resolve(workingRoot) &&
           turn.runtime?.lookupSummary?.fallbackUsed === false &&
           turn.runtime?.lookupSummary?.workingRepositoryAvailable === true,
       ),

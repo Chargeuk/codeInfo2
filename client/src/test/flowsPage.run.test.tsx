@@ -54,6 +54,39 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
   );
 }
 
+function mockDailyFlowListOrDetailsResponse(
+  target: string,
+  flows: Array<{
+    name: string;
+    description: string;
+    disabled: boolean;
+    sourceId?: string;
+    sourceLabel?: string;
+  }> = [{ name: 'daily', description: 'Daily flow', disabled: false }],
+) {
+  if (!target.includes('/flows') || target.includes('/run')) {
+    return null;
+  }
+  if (target.includes('/flows/daily')) {
+    const dailyFlow = flows.find((flow) => flow.name === 'daily') ?? {
+      name: 'daily',
+      description: 'Daily flow',
+      disabled: false,
+    };
+    return mockJsonResponse({
+      flow: {
+        name: dailyFlow.name,
+        description: dailyFlow.description,
+        disabled: dailyFlow.disabled,
+        warnings: [],
+        sourceId: dailyFlow.sourceId,
+        sourceLabel: dailyFlow.sourceLabel,
+      },
+    });
+  }
+  return mockJsonResponse({ flows });
+}
+
 function mockFlowsFetch(options?: {
   dirs?: typeof defaultDirs | ((path: string | undefined) => unknown) | unknown;
 }) {
@@ -79,10 +112,9 @@ function mockFlowsFetch(options?: {
       return mockJsonResponse({ mongoConnected: true });
     }
 
-    if (target.includes('/flows') && !target.includes('/run')) {
-      return mockJsonResponse({
-        flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
-      });
+    const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+    if (flowListOrDetails) {
+      return flowListOrDetails;
     }
 
     if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -213,12 +245,20 @@ function setupFlowsRunHarness(options?: {
           ? url.method
           : undefined);
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: options?.flows ?? [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(
+        target,
+        (options?.flows ?? [
+          { name: 'daily', description: 'Daily flow', disabled: false },
+        ]) as Array<{
+          name: string;
+          description: string;
+          disabled: boolean;
+          sourceId?: string;
+          sourceLabel?: string;
+        }>,
+      );
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/flows/daily/run')) {
@@ -228,6 +268,7 @@ function setupFlowsRunHarness(options?: {
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'i1',
+            providerId: 'codex',
             modelId: 'gpt-5',
           },
         );
@@ -302,12 +343,9 @@ describe('Flows page run/resume controls', () => {
           return mockJsonResponse({ mongoConnected: true });
         }
 
-        if (target.includes('/flows') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flows: [
-              { name: 'daily', description: 'Daily flow', disabled: false },
-            ],
-          });
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
         }
 
         if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -386,12 +424,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -453,6 +488,7 @@ describe('Flows page run/resume controls', () => {
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'i1',
+            providerId: 'codex',
             modelId: 'gpt-5',
           }),
           {
@@ -475,12 +511,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -511,6 +544,7 @@ describe('Flows page run/resume controls', () => {
           flowName: 'daily',
           conversationId: 'flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -542,6 +576,133 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
+  it('clears stale launch state during a fresh pending run and repopulates providerId and warnings from the first response', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+    let runRequestCount = 0;
+    let resolveSecondRun: ((response: Response) => void) | null = null;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        runRequestCount += 1;
+        if (runRequestCount === 1) {
+          return mockJsonResponse(
+            {
+              error: 'provider_unavailable',
+              code: 'PROVIDER_UNAVAILABLE',
+              reason: 'First provider unavailable.',
+            },
+            { status: 503 },
+          );
+        }
+
+        return new Promise<Response>((resolve) => {
+          resolveSecondRun = resolve;
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    expect(await screen.findByTestId('flow-launch-identity')).toHaveTextContent(
+      'Launch provider: codex · Model: gpt-5',
+    );
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    const firstError = await screen.findByTestId('flows-run-error');
+    expect(firstError).toHaveTextContent('First provider unavailable.');
+    expect(firstError).toHaveAttribute(
+      'data-error-code',
+      'PROVIDER_UNAVAILABLE',
+    );
+
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('flow-launch-identity')).toHaveTextContent(
+      'Launch provider: unknown · Model: unknown',
+    );
+    expect(
+      screen.queryByTestId('flows-launch-warnings'),
+    ).not.toBeInTheDocument();
+
+    if (!resolveSecondRun) {
+      throw new Error('Expected the second flow run promise resolver');
+    }
+
+    await act(async () => {
+      resolveSecondRun?.(
+        new Response(
+          JSON.stringify({
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-2',
+            inflightId: 'i2',
+            providerId: 'lmstudio',
+            modelId: 'model-1',
+            warnings: ['fell back to provider "lmstudio"'],
+          }),
+          {
+            status: 202,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-launch-identity')).toHaveTextContent(
+        'Launch provider: lmstudio · Model: model-1',
+      ),
+    );
+    expect(screen.getByTestId('flows-launch-warnings')).toHaveTextContent(
+      'fell back to provider "lmstudio"',
+    );
+  });
+
   it('starts a fresh run with a new conversation id and preserved custom title even when an older flow conversation is selected', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
@@ -553,12 +714,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -599,6 +757,7 @@ describe('Flows page run/resume controls', () => {
               ? body.conversationId
               : 'fresh-flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -642,12 +801,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -692,6 +848,7 @@ describe('Flows page run/resume controls', () => {
               ? body.conversationId
               : 'fresh-flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -733,12 +890,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -755,6 +909,7 @@ describe('Flows page run/resume controls', () => {
           flowName: 'daily',
           conversationId: 'flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -794,12 +949,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -1073,12 +1225,9 @@ describe('Flows page run/resume controls', () => {
           return mockJsonResponse({ mongoConnected: true });
         }
 
-        if (target.includes('/flows') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flows: [
-              { name: 'daily', description: 'Daily flow', disabled: false },
-            ],
-          });
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
         }
 
         const turnsMatch = target.match(/\/conversations\/([^/]+)\/turns/);
@@ -1186,12 +1335,9 @@ describe('Flows page run/resume controls', () => {
           return mockJsonResponse({ mongoConnected: true });
         }
 
-        if (target.includes('/flows') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flows: [
-              { name: 'daily', description: 'Daily flow', disabled: false },
-            ],
-          });
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
         }
 
         if (target.includes('/conversations/flow-1/turns')) {
@@ -1240,6 +1386,7 @@ describe('Flows page run/resume controls', () => {
             flowName: 'daily',
             conversationId: 'flow-1',
             inflightId: 'flow-step-2',
+            providerId: 'codex',
             modelId: 'gpt-5',
           });
         }
@@ -1485,12 +1632,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/flow-1/turns')) {
@@ -1560,12 +1704,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -1616,12 +1757,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -1929,12 +2067,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {
@@ -1965,6 +2100,7 @@ describe('Flows page run/resume controls', () => {
           flowName: 'daily',
           conversationId: 'flow-1',
           inflightId: 'i1',
+          providerId: 'codex',
           modelId: 'gpt-5',
         });
       }
@@ -2000,12 +2136,9 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
       }
 
       if (target.includes('/conversations/') && target.includes('/turns')) {

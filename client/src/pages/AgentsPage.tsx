@@ -17,9 +17,12 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import {
+  AgentDetails,
   AgentPromptEntry,
   listAgentCommands,
+  getAgentDetails,
   listAgentPrompts,
   listAgents,
   runAgentCommand,
@@ -69,6 +72,54 @@ const buildCommandKey = (params: { name: string; sourceId?: string }) =>
 const EXECUTE_PROMPT_INSTRUCTION_TEMPLATE =
   'Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>';
 
+type AgentListEntry = {
+  name: string;
+  description?: string;
+  disabled?: boolean;
+  warnings?: string[];
+};
+
+export const reconcileAgentDetailsCache = (
+  agentDetailsByName: Record<string, AgentDetails | undefined>,
+  agents: AgentListEntry[],
+) => {
+  let nextAgentDetailsByName:
+    | Record<string, AgentDetails | undefined>
+    | undefined;
+
+  for (const agent of agents) {
+    const cachedDetails = agentDetailsByName[agent.name];
+    if (!cachedDetails) continue;
+
+    const summaryDisabled = agent.disabled;
+    const cachedDisabled = cachedDetails.disabled;
+    const staleDisabledDetails =
+      summaryDisabled === false && cachedDisabled === true;
+    const staleEnabledDetails =
+      summaryDisabled === true && cachedDisabled === false;
+    if (!staleDisabledDetails && !staleEnabledDetails) continue;
+    if (!nextAgentDetailsByName) {
+      nextAgentDetailsByName = { ...agentDetailsByName };
+    }
+    delete nextAgentDetailsByName[agent.name];
+  }
+
+  return nextAgentDetailsByName ?? agentDetailsByName;
+};
+
+export const isExecutePromptEnabled = (params: {
+  selectedPromptEntry: AgentPromptEntry | null;
+  selectedAgentName: string;
+  selectedAgentDisabled: boolean;
+  startPending: boolean;
+  persistenceUnavailable: boolean;
+}) =>
+  params.selectedPromptEntry !== null &&
+  Boolean(params.selectedAgentName) &&
+  !params.selectedAgentDisabled &&
+  !params.startPending &&
+  !params.persistenceUnavailable;
+
 export default function AgentsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -80,14 +131,14 @@ export default function AgentsPage() {
   );
   const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
 
-  const [agents, setAgents] = useState<
-    Array<{
-      name: string;
-      description?: string;
-      disabled?: boolean;
-      warnings?: string[];
-    }>
-  >([]);
+  const [agents, setAgents] = useState<AgentListEntry[]>([]);
+  const [agentDetailsByName, setAgentDetailsByName] = useState<
+    Record<string, AgentDetails | undefined>
+  >({});
+  const [agentDetailsLoading, setAgentDetailsLoading] = useState(false);
+  const [agentDetailsError, setAgentDetailsError] = useState<string | null>(
+    null,
+  );
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [agentsLoading, setAgentsLoading] = useState(true);
 
@@ -96,7 +147,7 @@ export default function AgentsPage() {
     string | undefined
   >(undefined);
 
-  const { providers, refreshProviders } = useChatModel();
+  const { refreshProviders } = useChatModel();
 
   const [commands, setCommands] = useState<
     Array<{
@@ -119,6 +170,9 @@ export default function AgentsPage() {
     status,
     isStreaming,
     stop,
+    appendLocalMessage,
+    appendOptimisticUserMessage,
+    bindOptimisticUserMessageToInflight,
     setConversation,
     hydrateHistory,
     hydrateInflightSnapshot,
@@ -197,12 +251,14 @@ export default function AgentsPage() {
       }) => Promise<unknown>)
   >(null);
   const selectedConversationIdRef = useRef<string | undefined>(undefined);
+  const currentWorkingFolderRef = useRef('');
   const workingFolderDisabledRef = useRef(false);
   const promptsRequestSeqRef = useRef(0);
   const promptSelectorVisibilityLogRef = useRef('');
   const promptSelectionLogRef = useRef('');
   const workingFolderRestoreKeyRef = useRef<string | null>(null);
   const workingFolderLockKeyRef = useRef<string | null>(null);
+  const preserveEmptyWorkingFolderRestoreRef = useRef(false);
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
@@ -253,12 +309,7 @@ export default function AgentsPage() {
     () => createLogger('codex-device-auth-agents'),
     [],
   );
-  const codexProvider = useMemo(
-    () => providers.find((entry) => entry.id === 'codex'),
-    [providers],
-  );
-  const canShowDeviceAuth =
-    Boolean(selectedAgentName) && Boolean(codexProvider?.available);
+  const canShowDeviceAuth = true;
   const {
     citationsOpen,
     thinkOpen,
@@ -496,10 +547,13 @@ export default function AgentsPage() {
     void listAgents()
       .then((result) => {
         if (cancelled) return;
-        setAgents(result.agents ?? []);
+        const nextAgents = result.agents ?? [];
+        setAgents(nextAgents);
+        setAgentDetailsByName((prev) =>
+          reconcileAgentDetailsCache(prev, nextAgents),
+        );
         setSelectedAgentName(
-          (prev) =>
-            prev || (result.agents.length > 0 ? result.agents[0].name : ''),
+          (prev) => prev || (nextAgents.length > 0 ? nextAgents[0].name : ''),
         );
       })
       .catch((err) => {
@@ -688,12 +742,6 @@ export default function AgentsPage() {
       ) ?? null,
     [promptEntries, selectedPromptFullPath],
   );
-  const executePromptEnabled =
-    selectedPromptEntry !== null &&
-    Boolean(selectedAgentName) &&
-    !startPending &&
-    !persistenceUnavailable;
-
   useEffect(() => {
     if (selectedCommand && startStep > selectedCommand.stepCount) {
       setStartStep(1);
@@ -1083,6 +1131,11 @@ export default function AgentsPage() {
         setAgentModelId('unknown');
       }
 
+      let optimisticMessageId = '';
+      flushSync(() => {
+        optimisticMessageId = appendOptimisticUserMessage(params.instruction);
+      });
+
       log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
         conversationId: nextConversationId,
         inflightId: getInflightId(),
@@ -1098,6 +1151,10 @@ export default function AgentsPage() {
           working_folder: params.workingFolder,
           conversationId: nextConversationId,
         });
+        bindOptimisticUserMessageToInflight(
+          optimisticMessageId,
+          result.inflightId,
+        );
         setActiveConversationId(result.conversationId);
         if (result.modelId) {
           setAgentModelId(result.modelId);
@@ -1119,11 +1176,7 @@ export default function AgentsPage() {
             streamStatus: 'failed',
             createdAt: new Date().toISOString(),
           };
-          hydrateHistory(
-            nextConversationId,
-            [...messages, errorMessage],
-            'replace',
-          );
+          appendLocalMessage(errorMessage);
           setRunError(errorMessage.content);
           return { status: 'error' as const, code: err.code };
         }
@@ -1138,11 +1191,7 @@ export default function AgentsPage() {
           streamStatus: 'failed',
           createdAt: new Date().toISOString(),
         };
-        hydrateHistory(
-          nextConversationId,
-          [...messages, errorMessage],
-          'replace',
-        );
+        appendLocalMessage(errorMessage);
         setRunError(message);
         return {
           status: 'error' as const,
@@ -1155,10 +1204,11 @@ export default function AgentsPage() {
     [
       activeConversationId,
       agentModelId,
+      appendLocalMessage,
+      appendOptimisticUserMessage,
+      bindOptimisticUserMessageToInflight,
       getInflightId,
-      hydrateHistory,
       log,
-      messages,
       refreshConversations,
       selectedAgentName,
       setConversation,
@@ -1188,6 +1238,79 @@ export default function AgentsPage() {
     refreshConversations,
     resetTurns,
     setConversation,
+  ]);
+
+  const clearSelectedAgentRunState = useCallback(
+    (reason: 'agent_disabled' | 'agent_unrunnable') => {
+      setSelectedCommandKey('');
+      setStartStep(1);
+      setCommandInfoAnchorEl(null);
+      invalidatePromptDiscoveryState({
+        reason: 'selected_agent_reset',
+        clearCommittedWorkingFolder: true,
+      });
+      setWorkingFolder('');
+      log('info', 'agents.page.local_run_state_cleared', {
+        agentName: selectedAgentName || '__none__',
+        reason,
+      });
+    },
+    [invalidatePromptDiscoveryState, log, selectedAgentName],
+  );
+
+  const loadSelectedAgentDetails = useCallback(
+    async (agentName: string) => {
+      const cached = agentDetailsByName[agentName];
+      if (cached) {
+        return cached;
+      }
+
+      const result = await getAgentDetails(agentName);
+      setAgentDetailsByName((prev) => ({
+        ...prev,
+        [agentName]: result.agent,
+      }));
+      return result.agent;
+    },
+    [agentDetailsByName],
+  );
+
+  const ensureSelectedAgentRunnable = useCallback(async () => {
+    if (!selectedAgentName) {
+      return false;
+    }
+
+    let details;
+    try {
+      details = await loadSelectedAgentDetails(selectedAgentName);
+    } catch (error) {
+      const summaryAgent = agents.find(
+        (agent) => agent.name === selectedAgentName,
+      );
+      const malformedDetailsPayload =
+        error instanceof Error &&
+        error.message === 'Invalid agent details response';
+      if (!malformedDetailsPayload && summaryAgent?.disabled !== true) {
+        return true;
+      }
+      clearSelectedAgentRunState('agent_unrunnable');
+      setRunError((error as Error).message ?? 'Failed to load agent details.');
+      return false;
+    }
+    if (!details.disabled) {
+      return true;
+    }
+
+    clearSelectedAgentRunState('agent_disabled');
+    setRunError(
+      details.disabledReason?.message ?? 'This agent is currently disabled.',
+    );
+    return false;
+  }, [
+    agents,
+    clearSelectedAgentRunState,
+    loadSelectedAgentDetails,
+    selectedAgentName,
   ]);
 
   const handleAgentChange = useCallback(
@@ -1421,13 +1544,19 @@ export default function AgentsPage() {
     }
 
     const restoredWorkingFolder = readWorkingFolder(selectedConversation) ?? '';
+    const nextWorkingFolder =
+      !restoredWorkingFolder &&
+      currentWorkingFolderRef.current.trim().length > 0 &&
+      preserveEmptyWorkingFolderRestoreRef.current
+        ? currentWorkingFolderRef.current
+        : restoredWorkingFolder;
     setWorkingFolder((current) =>
-      current === restoredWorkingFolder ? current : restoredWorkingFolder,
+      current === nextWorkingFolder ? current : nextWorkingFolder,
     );
-    if (restoredWorkingFolder !== lastCommittedWorkingFolderRef.current) {
-      if (restoredWorkingFolder) {
-        lastCommittedWorkingFolderRef.current = restoredWorkingFolder;
-        setCommittedWorkingFolder(restoredWorkingFolder);
+    if (nextWorkingFolder !== lastCommittedWorkingFolderRef.current) {
+      if (nextWorkingFolder) {
+        lastCommittedWorkingFolderRef.current = nextWorkingFolder;
+        setCommittedWorkingFolder(nextWorkingFolder);
       } else {
         invalidatePromptDiscoveryState({
           reason: 'committed_working_folder_cleared',
@@ -1436,14 +1565,14 @@ export default function AgentsPage() {
       }
     }
 
-    const restoreKey = `${selectedConversationId}:${restoredWorkingFolder}`;
+    const restoreKey = `${selectedConversationId}:${nextWorkingFolder}`;
     if (workingFolderRestoreKeyRef.current === restoreKey) return;
     workingFolderRestoreKeyRef.current = restoreKey;
     emitWorkingFolderPickerSync({
       surface: 'agents',
       conversationId: selectedConversationId,
-      action: restoredWorkingFolder ? 'restore' : 'clear',
-      pickerState: restoredWorkingFolder,
+      action: nextWorkingFolder ? 'restore' : 'clear',
+      pickerState: nextWorkingFolder,
     });
   }, [
     emitWorkingFolderPickerSync,
@@ -1490,6 +1619,10 @@ export default function AgentsPage() {
       return;
     }
 
+    if (!(await ensureSelectedAgentRunnable())) {
+      return;
+    }
+
     lastSentRef.current = rawInstruction;
     setInput('');
     await executeInstructionRun({
@@ -1507,6 +1640,10 @@ export default function AgentsPage() {
       persistenceUnavailable ||
       !wsTranscriptReady
     ) {
+      return;
+    }
+
+    if (!(await ensureSelectedAgentRunnable())) {
       return;
     }
 
@@ -1534,6 +1671,7 @@ export default function AgentsPage() {
     );
   }, [
     committedWorkingFolder,
+    ensureSelectedAgentRunnable,
     executeInstructionRun,
     persistenceUnavailable,
     selectedAgentName,
@@ -1551,6 +1689,10 @@ export default function AgentsPage() {
       persistenceUnavailable ||
       !wsTranscriptReady
     ) {
+      return;
+    }
+
+    if (!(await ensureSelectedAgentRunnable())) {
       return;
     }
 
@@ -1653,6 +1795,7 @@ export default function AgentsPage() {
   }, [
     activeConversationId,
     agentModelId,
+    ensureSelectedAgentRunnable,
     getInflightId,
     hydrateHistory,
     log,
@@ -1671,6 +1814,19 @@ export default function AgentsPage() {
   ]);
 
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
+  const selectedAgentDetails = selectedAgentName
+    ? agentDetailsByName[selectedAgentName]
+    : undefined;
+  const selectedAgentDisabled = Boolean(
+    selectedAgentDetails?.disabled ?? selectedAgent?.disabled,
+  );
+  const executePromptEnabled = isExecutePromptEnabled({
+    selectedPromptEntry,
+    selectedAgentName,
+    selectedAgentDisabled,
+    startPending,
+    persistenceUnavailable,
+  });
   const hasVisibleStoppedRun =
     liveStoppedMarker !== null &&
     liveStoppedMarker.conversationId === activeConversationId &&
@@ -1689,7 +1845,7 @@ export default function AgentsPage() {
   const startStepDisabled =
     controlsDisabled ||
     submitDisabledForRun ||
-    selectedAgent?.disabled ||
+    selectedAgentDisabled ||
     commandsLoading ||
     !selectedCommand ||
     selectedCommand.disabled ||
@@ -1700,21 +1856,72 @@ export default function AgentsPage() {
     controlsDisabled ||
     agentWorkingFolderLocked ||
     !wsTranscriptReady ||
-    Boolean(selectedAgent?.disabled);
+    selectedAgentDisabled;
   const isInstructionInputDisabled =
-    !inputEditableDuringRun ||
-    !wsTranscriptReady ||
-    Boolean(selectedAgent?.disabled);
+    !inputEditableDuringRun || !wsTranscriptReady || selectedAgentDisabled;
   const conversationListDisabled =
     !sidebarSelectableDuringRun || persistenceUnavailable;
+  const lastSelectedAgentDisabledStateRef = useRef<{
+    agentName: string;
+    disabled: boolean;
+  } | null>(null);
 
   useEffect(() => {
     selectedConversationIdRef.current = selectedConversationId;
   }, [selectedConversationId]);
 
   useEffect(() => {
+    currentWorkingFolderRef.current = workingFolder;
+  }, [workingFolder]);
+
+  useEffect(() => {
     workingFolderDisabledRef.current = isWorkingFolderDisabled;
   }, [isWorkingFolderDisabled]);
+
+  useEffect(() => {
+    preserveEmptyWorkingFolderRestoreRef.current =
+      startPending ||
+      isRunActive ||
+      Boolean(inflightSnapshot?.inflightId) ||
+      Boolean(serverVisibleInflightIdRef.current);
+  }, [inflightSnapshot?.inflightId, isRunActive, startPending]);
+
+  useEffect(() => {
+    if (!selectedAgentName) {
+      lastSelectedAgentDisabledStateRef.current = null;
+      return;
+    }
+
+    const previous = lastSelectedAgentDisabledStateRef.current;
+    const becameDisabled =
+      previous?.agentName === selectedAgentName &&
+      previous.disabled === false &&
+      selectedAgentDisabled;
+    const switchedToDisabledAgent =
+      previous?.agentName !== selectedAgentName && selectedAgentDisabled;
+
+    if (becameDisabled || switchedToDisabledAgent) {
+      clearSelectedAgentRunState(
+        selectedAgentDetails?.disabledReason
+          ? 'agent_disabled'
+          : 'agent_unrunnable',
+      );
+      setRunError(
+        selectedAgentDetails?.disabledReason?.message ??
+          'This agent is currently disabled.',
+      );
+    }
+
+    lastSelectedAgentDisabledStateRef.current = {
+      agentName: selectedAgentName,
+      disabled: selectedAgentDisabled,
+    };
+  }, [
+    clearSelectedAgentRunState,
+    selectedAgentDetails?.disabledReason,
+    selectedAgentDisabled,
+    selectedAgentName,
+  ]);
 
   useEffect(() => {
     if (!agentWorkingFolderLocked) {
@@ -1761,14 +1968,22 @@ export default function AgentsPage() {
     selectedAgentName,
   ]);
 
-  const agentDescription = selectedAgent?.description?.trim();
-  const agentWarnings = selectedAgent?.warnings ?? [];
+  const agentDescription = (
+    selectedAgentDetails?.description ?? selectedAgent?.description
+  )?.trim();
+  const agentWarnings = selectedAgentDetails?.warnings ?? [];
   const agentInfoOpen = Boolean(agentInfoAnchorEl);
   const agentInfoId = agentInfoOpen ? 'agent-info-popover' : undefined;
-  const agentInfoDisabled = agentsLoading || !selectedAgentName;
+  const agentInfoDisabled =
+    agentsLoading || agentDetailsLoading || !selectedAgentName;
   const showAgentInfoButton = !agentsError;
-  const agentInfoEmpty = !agentDescription && agentWarnings.length === 0;
+  const agentInfoEmpty =
+    !agentDescription &&
+    agentWarnings.length === 0 &&
+    !selectedAgentDetails?.disabledReason &&
+    !agentDetailsError;
   const agentInfoEmptyMessage =
+    agentDetailsError ??
     'No description or warnings are available for this agent yet.';
 
   const showStop = isRunActive;
@@ -1823,6 +2038,38 @@ export default function AgentsPage() {
   const handleAgentInfoClose = () => {
     setAgentInfoAnchorEl(null);
   };
+
+  useEffect(() => {
+    if (!agentInfoOpen || !selectedAgentName) return;
+    if (agentDetailsByName[selectedAgentName]) return;
+
+    let cancelled = false;
+    setAgentDetailsLoading(true);
+    setAgentDetailsError(null);
+    void getAgentDetails(selectedAgentName)
+      .then((result) => {
+        if (cancelled) return;
+        setAgentDetailsByName((prev) => ({
+          ...prev,
+          [selectedAgentName]: result.agent,
+        }));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAgentDetailsError(
+          (error as Error).message ?? 'Failed to load agent details.',
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setAgentDetailsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [agentDetailsByName, agentInfoOpen, selectedAgentName]);
+
   const handleCommandInfoAttempt = () => {
     if (!commandInfoDisabled) return;
     console.info('[agents.commandInfo.blocked] reason=no_command_selected');
@@ -1995,6 +2242,7 @@ export default function AgentsPage() {
                 selectedCommandDescription={selectedCommandDescription}
                 agentWarnings={agentWarnings}
                 agentDescription={agentDescription}
+                agentDisabledReason={selectedAgentDetails?.disabledReason}
                 agentInfoDisabled={agentInfoDisabled}
                 showAgentInfoButton={showAgentInfoButton}
                 agentInfoEmpty={agentInfoEmpty}
@@ -2020,7 +2268,7 @@ export default function AgentsPage() {
                 canShowDeviceAuth={canShowDeviceAuth}
                 commandInfoDisabled={commandInfoDisabled}
                 actionSlotMinWidth={actionSlotMinWidth}
-                selectedAgentDisabled={Boolean(selectedAgent?.disabled)}
+                selectedAgentDisabled={selectedAgentDisabled}
                 agents={agents}
                 commandOptions={commandOptions}
                 promptEntries={promptEntries}

@@ -157,13 +157,14 @@ Corporate certificate directory requirements:
 ## Codex (CLI)
 
 - Install CLI (host): `npm install -g @openai/codex` and log in.
-- Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
+- Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); the checked-in main and e2e Compose stacks expose `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` read-only at `/host/codex` and seed or repair the writable `/app/codex` runtime home from it, so a separate container login is not required there.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
-- Codex home: `CODEINFO_CODEX_HOME=./codex`; the runtime seeds the canonical base template on first start. `docker-compose.local.yml` live-mounts repo `./codex` to `/app/codex` for local editing, while the main and e2e stacks use the image-prepared `/app/codex` home and still seed `config.toml` at startup when it is missing.
+  - Reauthentication rule: if Codex runs start failing with auth-refresh errors such as `refresh_token_reused` or `token_expired`, rerun `codex login` (or `codex login --device-auth`) against the Codex home backing the runtime you are using, then restart that stack.
+- Codex home: `CODEINFO_CODEX_HOME=./codex`; the runtime seeds the canonical base template on first start. `docker-compose.local.yml` live-mounts repo `./codex` to `/app/codex` for local editing and also exposes `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` at `/host/codex` for best-effort auth seeding when the repo-local home has not been logged in yet. The main and e2e stacks keep a writable `/app/codex` runtime home and expose `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` at `/host/codex:ro` for startup seeding and repair rather than bind-mounting the host home directly at `/app/codex`.
 - `CODEINFO_CODEX_WORKDIR` is no longer a checked-in developer-home path. The tracked `server/.env` keeps only a template placeholder, `docker-compose.yml` and `docker-compose.local.yml` now set the container runtime workdir explicitly to `/data`, and any host-only override belongs in `server/.env.local`.
 - Copilot runtime home: `CODEINFO_COPILOT_HOME=../copilot` in checked-in server development defaults, with `/app/copilot` reserved as the container override path for compose-backed runtimes and e2e. The optional `CODEINFO_COPILOT_CLI_PATH` override can point the SDK at an explicit `copilot` binary when `PATH` discovery is not reliable; if it is unset, the runtime keeps the default `PATH` lookup.
 - Docker Copilot persistence: the local compose stack bind-mounts the gitignored repo-root `./copilot` folder directly to `/app/copilot`, so local auth survives restarts in the same visible way as `./codex`. The wrapper now seeds repo-owned plaintext-token persistence in `copilot/settings.json` with `storeTokenPlaintext: true` only when that file is missing; it no longer writes this setting into Copilot-managed `config.json`. The main and e2e compose stacks keep the Docker-managed `copilot-data` named volume at `/app/copilot`, add a read-only `./copilot:/seed/copilot:ro` seed mount, and repair missing auth-bearing peers in the writable runtime home when `config.json`, `settings.json`, or session-state data is only partially present there. Once the full auth-bearing runtime set is already present, startup skips seeding instead of overwriting that complete runtime home. Operators should not need to delete the runtime volume for normal startup, though a one-off volume reset can still be useful during local diagnosis. Copilot-managed JSON artifacts may contain JSONC comments, and the device-auth bootstrap now tolerates that compatibility format instead of failing before login. Published application ports stay unchanged.
-- Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
+- Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent, Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner. Local compose may seed a missing repo-local `auth.json` from `/host/codex` when that host mount is available, but startup no longer treats split local and host homes as an error by itself.
 - Shared auth contract: `POST /codex/device-auth` still requires `{}` and now returns provider-auth states instead of a raw-output-only success payload. The Codex path can return `verification_ready`, `completion_pending`, `completed`, `already_authenticated`, `failed`, or `unavailable_before_start`, with `verificationUrl`, `userCode`, and optional `displayOutput` included only when relevant.
 - Copilot auth contract: `POST /copilot/device-auth` uses the same strict `{}` request and the same shared provider-auth states. It returns verification details early, reuses the same route as the refresh path after the browser step, short-circuits to `already_authenticated` when env-token or logged-in-user auth is already available, and keeps Copilot-home persistence under `CODEINFO_COPILOT_HOME`.
 - Copilot credential precedence is runtime-owned, not committed-env-owned. Checked-in env files may set `CODEINFO_COPILOT_HOME` and the optional CLI-path override, but they do not replace or mask `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, or `gh` fallback. `/health` also stays process-only; Copilot readiness continues to surface through `/chat/providers` and `/chat/models` instead of server health.
@@ -173,10 +174,11 @@ Corporate certificate directory requirements:
   - startup guard requires exact `0.107.0`; pre-release, lower, and higher versions are rejected.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
-## GitHub Copilot chat provider
+## GitHub Copilot and provider-neutral runtime
 
-- Story `0000051` adds GitHub Copilot as a third chat-only provider alongside Codex and LM Studio. Provider ordering is now one shared contract everywhere the chat stack uses it: `codex`, then `copilot`, then `lmstudio`.
-- Copilot support is intentionally limited to chat in this story. Agents, commands, and flows still keep their existing Codex-oriented execution paths.
+- Story `0000051` added GitHub Copilot as a third chat provider alongside Codex and LM Studio. Story `0000057` extends the same provider-neutral runtime contract across chat, agents, commands, and flows.
+- Provider ordering remains one shared contract everywhere runtime selection uses it: `codex`, then `copilot`, then `lmstudio`.
+- Chat still uses the selected chat provider directly, while agents and flow-owned agent runs resolve their provider from the agent's `config.toml` and fall back through the configured provider order when needed.
 - The runtime resolves `CODEINFO_COPILOT_HOME` in the same style as `CODEINFO_CODEX_HOME`:
   - checked-in development default: `server/.env` uses `../copilot`
   - local compose runtime override: `/app/copilot` backed by repo-root `./copilot`
@@ -229,23 +231,23 @@ Corporate certificate directory requirements:
 - The server container starts a **headless** Chrome instance on boot with remote debugging enabled.
 - `docker-compose.local.yml` exposes the Chrome DevTools endpoint on port `9222` (e.g., `http://localhost:9222`) so the DevTools MCP server can attach.
 
-## Codex agents (folder layout)
+## Agent folders (provider-neutral layout)
 
-Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`. Each direct subfolder is treated as an agent when it contains a `config.toml` file.
+Agents are discovered from the directory set by `CODEINFO_AGENT_HOME`, with `CODEINFO_CODEX_AGENT_HOME` retained as a legacy fallback alias. The preferred repository folder is `codeinfo_agents`, while `codex_agents` remains supported for compatibility and loses precedence when both roots are present. Each direct subfolder is treated as an agent when it contains a `config.toml` file.
 
 Example layout:
 
 ```text
-codex_agents/<agentName>/
+codeinfo_agents/<agentName>/
   config.toml          # required
   description.md       # optional (Markdown shown in UI/MCP listings)
   system_prompt.txt    # optional (used only on first turn of a new agent conversation)
 ```
 
-- Agent defaults: `codex_agents/<agentName>/config.toml` is the source of truth for agent execution defaults (e.g. `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, and web-search/network feature toggles). The UI does not provide model/provider selection for agents.
+- Agent defaults: `codeinfo_agents/<agentName>/config.toml` is the source of truth for agent execution defaults (e.g. `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, and web-search/network feature toggles). The optional `codeinfo_provider` field selects the preferred execution provider for that agent, defaulting to `codex` when omitted. The UI does not provide direct model/provider overrides for agents.
 - Server-owned defaults: the server still sets `workingDirectory=/data` (or `CODEX_WORKDIR`) and `skipGitRepoCheck:true` for agent runs.
-- Auth seeding: on each agent discovery read, if `codex_agents/<agentName>/auth.json` is missing but the primary Codex home (`CODEINFO_CODEX_HOME`) has `auth.json`, the server will best-effort copy it into the agent folder. It never overwrites existing agent auth, and `auth.json` must never be committed.
-- Docker/Compose: local compose live-mounts `./codex_agents` → `/app/codex_agents` (rw) so agent configs can be edited while the stack is running. Main and e2e still read the checked-in agent configs from the image and set `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
+- Auth seeding: on each agent discovery read, if an agent-specific `auth.json` is missing but the primary provider home already has the required auth state, the runtime can best-effort seed that provider-owned auth into the runtime agent home. It never overwrites existing agent auth, and auth artifacts must never be committed.
+- Docker/Compose: local compose live-mounts `./codeinfo_agents` and the legacy `./codex_agents` into the container so agent configs can be edited while the stack is running. Main and e2e keep the same provider-neutral precedence while still honoring the legacy root when it is the only one present.
 - Agents MCP (port 5012): JSON-RPC endpoint on `http://localhost:5012` (exposed by Compose).
 
 ## Features at a Glance
@@ -253,7 +255,7 @@ codex_agents/<agentName>/
 - Chat workspace with provider/model selection, streaming responses, conversation history, and tool/citation rendering.
 - Shared chat provider ordering now uses one contract-first order across defaults and provider listing: `codex`, then `copilot`, then `lmstudio`. Copilot stays visible in provider lists even when unavailable, and the current server model route now returns Copilot model metadata only when readiness and verified model discovery succeed.
 - Copilot chat now runs through the same `/chat` transport and stop flow as the existing providers. New Copilot conversations reuse `conversationId` as the session id, follow-up turns resume that same session, unavailable Copilot requests follow the shared provider fallback rules, and resume mismatches fail clearly instead of silently switching to a fresh hidden session.
-- Agents workspace for running Codex agent instructions and reusable command macros with history and stop/resume controls.
+- Agents workspace for running provider-neutral agent instructions and reusable command macros with history and stop/resume controls.
 - Flows workspace to execute JSON-defined multi-step flows and resume interrupted runs.
   Previously rendered Flow assistant bubbles now stay visible while later steps stream because the client ignores stale earlier-step websocket transcript events instead of rebinding the active bubble.
 - Ingest workspace for embedding repositories, monitoring ingest progress, and managing re-embed/remove operations.
@@ -500,7 +502,7 @@ Host-network prerequisites:
 - Docker Desktop or an equivalent runtime that supports host networking for the checked-in Compose stack
 - `host.docker.internal` must resolve from both the host and the containerized agent/browser tooling
 - repositories that need to be visible to Codex and runtime folder pickers must live under `${HOME}/Documents/dev`
-- host Codex auth must be available through `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` so the server container can seed `/app/codex/auth.json`
+- host Codex auth must be available through `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` because the checked-in main stack seeds and repairs its writable `/app/codex` runtime home from the read-only `/host/codex` mount rather than asking operators to log in inside the container
 - `docker-compose.local.yml` intentionally keeps a local-development overlay for `./codex`, `./codex_agents`, `./flows`, and `./flows-sandbox` so those runtime trees can be edited live while the host-networked local stack is running. The main and e2e stacks remain image-baked.
 
 Wrapper-first validation flow:

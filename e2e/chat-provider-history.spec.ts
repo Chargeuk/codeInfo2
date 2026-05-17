@@ -14,7 +14,7 @@ const hideMcpOverlay = async (page: import('@playwright/test').Page) => {
   });
 };
 
-test('historical conversation uses its provider and shows turns', async ({
+test('resumed chat history rehydrates the stored provider before showing turns', async ({
   page,
 }) => {
   page.on('console', (msg) => {
@@ -175,7 +175,7 @@ test('historical conversation uses its provider and shows turns', async ({
   await expect(transcript).toContainText('codex reply');
 });
 
-test('copilot conversation history keeps Copilot visible in the selector and transcript', async ({
+test('cross-provider history selection keeps Copilot pinned in the selector and transcript', async ({
   page,
 }) => {
   if (!useMockChat) {
@@ -287,4 +287,178 @@ test('copilot conversation history keeps Copilot visible in the selector and tra
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Copilot history reply',
   );
+});
+
+test('fresh chat after selecting history ignores restored resume-only provider state', async ({
+  page,
+}) => {
+  if (!useMockChat) {
+    test.skip(
+      'Requires mock chat to keep history-vs-fresh state deterministic',
+    );
+  }
+
+  const chatBodies: Array<Record<string, unknown>> = [];
+  const historyConversation = {
+    conversationId: 'history-1',
+    title: 'Historical LM conversation',
+    provider: 'lmstudio',
+    model: 'lm',
+    source: 'REST',
+    lastMessageAt: '2025-01-01T00:00:00.000Z',
+    archived: false,
+  };
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'lmstudio';
+    if (provider === 'codex') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+            },
+          ],
+        }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+      }),
+    });
+  });
+  await page.route('**/conversations?*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [historyConversation],
+        nextCursor: null,
+      }),
+    }),
+  );
+  await page.route('**/conversations/history-1/turns*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            turnId: 'history-user',
+            role: 'user',
+            content: 'Earlier prompt',
+            provider: 'lmstudio',
+            model: 'lm',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:00.000Z',
+          },
+          {
+            turnId: 'history-assistant',
+            role: 'assistant',
+            content: 'Earlier reply',
+            provider: 'lmstudio',
+            model: 'lm',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:01.000Z',
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    chatBodies.push(
+      (route.request().postDataJSON?.() ?? {}) as Record<string, unknown>,
+    );
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId:
+          typeof chatBodies.at(-1)?.conversationId === 'string'
+            ? chatBodies.at(-1)?.conversationId
+            : 'fresh-conversation',
+        inflightId: `fresh-${chatBodies.length}`,
+      }),
+    });
+  });
+
+  await page.goto(`${baseUrl}/chat`);
+  await hideMcpOverlay(page);
+
+  await page.getByTestId('conversation-refresh').click();
+  const historyConversationRow = page.locator(
+    '[data-testid="conversation-row"]',
+    {
+      hasText: historyConversation.title,
+    },
+  );
+  await expect(historyConversationRow).toBeVisible({
+    timeout: 20000,
+  });
+  await historyConversationRow.click();
+  await expect(page.getByTestId('provider-select')).toContainText(/LM Studio/i);
+
+  await page.getByRole('button', { name: /new conversation/i }).click();
+  await expect(page.getByRole('combobox', { name: /provider/i })).toBeEnabled();
+
+  await page.getByRole('combobox', { name: /provider/i }).click();
+  await page.getByRole('option', { name: /openai codex/i }).click();
+  await expect(page.getByTestId('provider-select')).toContainText(
+    /OpenAI Codex/i,
+  );
+
+  await page.getByTestId('chat-input').fill('Fresh run after history');
+  await page.getByTestId('chat-send').click();
+
+  await expect
+    .poll(() => chatBodies.length, {
+      timeout: 10000,
+      message: 'Expected fresh chat submission to be sent',
+    })
+    .toBe(1);
+
+  expect(chatBodies[0]?.provider).toBe('codex');
+  expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
+  expect(chatBodies[0]?.conversationId).not.toBe('history-1');
 });

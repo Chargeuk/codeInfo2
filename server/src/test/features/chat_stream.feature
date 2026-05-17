@@ -25,7 +25,16 @@ Feature: chat streaming endpoint
     When I POST to the chat endpoint with a two-message chat history
     Then the LM Studio chat history length is 4
 
-  Scenario: Explicit provider selection fails instead of silently switching providers
+  Scenario: Omitted-provider provider-model fallback keeps same-provider model repair on the normal route path
+    Given chat stream scenario "chat-fixture"
+    And chat default provider is "lmstudio"
+    And chat default model is "missing-lmstudio-model"
+    When I POST to the chat endpoint with the chat request fixture omitting provider and model
+    Then the chat stream status code is 202
+    And the chat start response provider is "lmstudio"
+    And the chat start response model is "llama-3"
+
+  Scenario: Explicit provider-model selection fails instead of silently switching providers
     Given chat stream scenario "chat-fixture"
     And codex detection is unavailable
     When I POST to the chat endpoint with provider "codex" and model "gpt-5.3-codex"

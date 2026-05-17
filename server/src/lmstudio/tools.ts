@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { tool } from '@lmstudio/sdk';
 import type { ToolCallContext } from '@lmstudio/sdk';
 import { z } from 'zod';
@@ -10,13 +11,16 @@ import {
 import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
 import { toNormalizedOpenAiErrorPayload } from '../ingest/providers/index.js';
 import { baseLogger } from '../logger.js';
+import type { RepositoryExecutionContextMetadata } from '../workingFolders/executionContext.js';
 import {
   RepoNotFoundError,
   ValidationError,
+  getAdvertisedRepositoryIdentityPaths,
   listIngestedRepositories,
   validateVectorSearch,
   vectorSearch,
   type ListReposResult,
+  type RepoEntry,
   type ToolDeps,
   type VectorSearchResult,
 } from './toolService.js';
@@ -24,6 +28,10 @@ import {
 export type ToolFactoryOptions = {
   deps?: Partial<ToolDeps>;
   log?: (payload: Record<string, unknown>) => void;
+  repositoryContext?: RepositoryExecutionContextMetadata;
+  listIngestedRepositoriesFn?: (
+    deps?: Partial<ToolDeps>,
+  ) => Promise<ListReposResult>;
   onToolResult?: (
     callId: string | number | undefined,
     result?: unknown,
@@ -34,7 +42,58 @@ export type ToolFactoryOptions = {
 };
 
 export function createLmStudioTools(options: ToolFactoryOptions = {}) {
-  const { deps = {}, log, onToolResult } = options;
+  const {
+    deps = {},
+    log,
+    onToolResult,
+    repositoryContext,
+    listIngestedRepositoriesFn = listIngestedRepositories,
+  } = options;
+  let defaultRepositoryIdPromise: Promise<string | undefined> | null = null;
+  let listedRepositoriesPromise: Promise<ListReposResult> | null = null;
+
+  const getListedRepositories = () => {
+    listedRepositoriesPromise ??= listIngestedRepositoriesFn(deps);
+    return listedRepositoriesPromise;
+  };
+
+  const normalizeRepositorySelector = (value: string) => path.resolve(value);
+
+  const resolveRepositoryIdForSelector = async (
+    selector: string | undefined,
+  ): Promise<string | undefined> => {
+    if (!selector || selector.trim().length === 0) return undefined;
+    const normalizedSelector = normalizeRepositorySelector(selector.trim());
+    const listed = await getListedRepositories();
+
+    const aliasToId = new Map<string, string>();
+    const indexRepoAliases = (
+      repo: Pick<RepoEntry, 'id' | 'containerPath' | 'hostPath'>,
+    ) => {
+      [repo.id, ...getAdvertisedRepositoryIdentityPaths(repo)].forEach(
+        (candidate) => {
+          if (typeof candidate !== 'string' || candidate.trim().length === 0) {
+            return;
+          }
+          aliasToId.set(normalizeRepositorySelector(candidate.trim()), repo.id);
+        },
+      );
+    };
+
+    listed.repos.forEach(indexRepoAliases);
+    return aliasToId.get(normalizedSelector);
+  };
+
+  const resolveDefaultRepositoryId = async (): Promise<string | undefined> => {
+    const selectedRepositoryPath = repositoryContext?.selectedRepositoryPath;
+    if (!selectedRepositoryPath) return undefined;
+    return await resolveRepositoryIdForSelector(selectedRepositoryPath);
+  };
+
+  const getDefaultRepositoryId = () => {
+    defaultRepositoryIdPromise ??= resolveDefaultRepositoryId();
+    return defaultRepositoryIdPromise;
+  };
 
   const listIngestedRepositoriesTool = tool({
     name: 'ListIngestedRepositories',
@@ -97,15 +156,25 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
       void _ctx;
       try {
         const validated = validateVectorSearch(params ?? {});
+        const requestedRepositoryId = await resolveRepositoryIdForSelector(
+          validated.repository,
+        );
+        const defaultRepositoryId = await getDefaultRepositoryId();
+        const effectiveRepository =
+          requestedRepositoryId ?? defaultRepositoryId ?? validated.repository;
+        const effectiveParams = {
+          ...validated,
+          ...(effectiveRepository ? { repository: effectiveRepository } : {}),
+        };
         baseLogger.info(
-          { tool: 'VectorSearch', params: validated },
+          { tool: 'VectorSearch', params: effectiveParams },
           'lmstudio validated Params',
         );
-        const result = await vectorSearch(validated, deps);
+        const result = await vectorSearch(effectiveParams, deps);
         log?.({
           tool: 'VectorSearch',
-          repository: validated.repository ?? 'all',
-          limit: validated.limit,
+          repository: effectiveRepository ?? 'all',
+          limit: effectiveParams.limit,
           results: result.results.length,
           modelId: result.modelId,
         });

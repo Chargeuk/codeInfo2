@@ -1,0 +1,138 @@
+{
+  "Description": "Improve an existing plan by getting an agent to expand on the details and implementation ideas.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Read `codeInfoStatus/flow-state/current-plan.json` first and determine the active `plan_path`, then extract repository paths from `additional_repositories` for this flow. If the handoff does not explicitly identify any additional repositories, treat that as none. The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore that entry. Verify that the selected plan file exists in the current repository, that the story number in the current repository branch name matches the story number in the selected plan filename, and that every additional repository is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes. If those do not match, stop and say the current-plan handoff is stale and must be regenerated. Do not independently search for or select a different plan. Read the plan's `Additional Repositories` section, supporting both `## Additional Repositories` and `### Additional Repositories`, and ensure it stays in sync with the repository names used by the tasks. Do not silently introduce work in a new repository unless you first add that repository to the plan's `Additional Repositories` section. Without tasking up, is there any acceptance in this selected story plan that is not defined in a way that a junior developer could understand what the output should be? If so, please update all relevant planning sections to get them to where we need to be. For the plan structure and formatting, first try to find `plan_format.md` in the current repository. If it is not there, use the code_info tool to find it in the `codeInfo2` repository. If it is still not found there, use the code_info tool to find it in another repository and follow the best matching plan format you can find. Do not provide options or ask questions, just make the best changes you can based on what you know and what I just asked. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "If the file `codeinfo_markdown/repository_information.md` exists, then read it as it will contain useful information you should keep referencing while working on a plan in this repository. If the file does not exist, then don't worry about it. Tell me if you found the file or not."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "If the selected story requires coordinated changes across more than one ingested repository, you MUST treat it as a multi-repository story. In that case, update the plan so it explicitly states which repository each planned change belongs to throughout the story. Do not leave repository ownership implicit. At minimum, ensure the Description, Acceptance Criteria, Implementation Ideas, Message Contracts and Storage Shapes, Edge Cases and Failure Modes, tasks, subtasks, testing steps, and final validation clearly indicate the target repository or repositories for the work being described. Where one repository provides a library, API, shared type, message contract, or other dependency used by another repository, document the dependency direction, required sequencing, and any compatibility or migration expectations explicitly. If the story only affects one repository, do NOT add unnecessary multi-repository structure; keep the plan simple and use the normal single-repository style."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, do you feel this story is well scoped? How could it be improved? Are there unknowns that need to be researched? If so, please research them using the codeInfo, DeepWiki, and Context7 MCP tools, as well as cross-referencing with internet searches, to gather repository facts, likely file locations, summaries of existing implementations, current contracts, and other evidence. Then inspect the relevant source files directly and do your own reasoning before updating the plan with your findings. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. If the story spans multiple repositories, ensure the scoping notes and plan updates explicitly state which repository each area of work belongs to and where cross-repository sequencing or dependency risks exist. If the story stays within one repository, keep the normal single-repository style and do not add unnecessary multi-repository structure. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, please identify whether this story assumes any capability that does not yet exist in the relevant codebases. you MUST check for missing runtime seams, startup commands, HTTP listeners, readiness or health endpoints, environment variable injection paths, deployment mappings, test harnesses, and docker compose prerequisites. Use the code_info, deepwiki & context7 mcp tools, as well as internet searches where needed, and update the story to explicitly document any missing prerequisites. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, inspect every planned Docker, Dockerfile and Docker Compose build/runtime path. Ensure the story explicitly plans that application code is copied into Docker images and built from there, and never planned as a host source bind mount into the container. Ensure the plan also includes updating the appropriate Docker build context ignore file so only required files are copied into the image build context. For any new Docker or compose surface that exposes or binds ports, first check existing port usage so we do not re-use ports accidently, and define the chosen ports explicitly up front in the story rather than leaving them implicit. If container generated artifacts need to persist, prefer Docker-managed volumes for the generated output only, not bind mounted source trees - the only exception to this is logging, which would ideally be seen on the host machine. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without actually tasking up, can you create a rough plan, or update an existing one if it is there, on what will need to be changed in order to implement this story? Please use the code_info, DeepWiki, and Context7 MCP tools to gather repository facts, existing implementations, current contracts, and candidate files, then inspect the relevant source files directly and do your own reasoning before writing the plan. Place the information into a section named `## Implementation Ideas` within the plan. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. If the story spans multiple repositories, `## Implementation Ideas` MUST make it explicit which repository each implementation area belongs to, which repository is the provider or consumer when contracts are shared, and what order the repositories should be changed in. If the story stays within one repository, keep the normal single-repository structure and do not add unnecessary multi-repository headings or labels. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, does the story require any test harnesses to be created because we are planning on adding test types that are not yet supported? If so, please add this information to the story in a specific test harness section, that details the harnesses that need crerating and where they should be created. Please use the code_info, DeepWiki, and Context7 MCP tools to gather Information about the test harnesses to add and include it within the new section. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, please perform a feasability proof pass over the implementation ideas. For each major implementation area, confirm whether the required capabilities already exist in the relevant repositories, or whether they must be first created as explicit prerequisite work. you MUST distinguish between: 1. Already existing capabilities,  2. Missing prerequisite capabilities,  3. Assumptions that are currently invalid. If the story spans multiple repositories, perform this check per repository and per cross-repository dependency, and update the plan so it explicitly states which prerequisites belong to which repository and what sequencing must happen between them. If the story stays within one repository, keep the normal single-repository structure. Update the plan so that these distinctions are written into the story directly rather than left implicit. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does this story require a new front end? If not, then just state this. If so, then please use the code_info mcp tools to research how other front ends have been implemented in similar stories or other repositories. This includes - 1. How the front end should be served in production from docker.  2. How environment variables are injected into the front end.  3. How front end logging is sent to the server that hosts the front end, and how/if it is logged out to a central place.  All the above should be documented throughout the plan/spec including in the `##Implementation Ideas` section and should include references to the names (not full paths) of the repositories that the guidance was taken from. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does this story require a new front end? If not, then just state this. If so, then you MUST update the story to include work to set up testing for the new front end, including: 1. Unit tests.  2. End-to-end tests run through playwright. You MUST also ensure thaese tests are created with both human and AI Agent developers/testers in mind - All types of testing need an easy wrapper script to simply run the tests and an easy way to check and degug errors. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does this story require a new back end? If not, then just state this. If so, then you MUST update the story to include work to set up testing for the new back end, including: 1. Unit tests.  2. Integration BDD tests that use Cucumber and Testcontainers  3. End-to-end tests run through playwright. You MUST also ensure thaese tests are created with both human and AI Agent developers/testers in mind - All types of testing need an easy wrapper script to simply run the tests and an easy way to check and degug errors. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, does the story require any new message contracts or storage shapes, or changes to existing ones? If so, can these be defined within their own section of the story up front based on what we know is needed, and if there are already definitions in the plan, then please update them? Please use the code_info, DeepWiki, and Context7 MCP tools to gather existing contracts, storage shapes, and candidate files, then inspect the relevant source files directly and do your own reasoning so we do not duplicate anything that already exists. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. If the story spans multiple repositories, the contract section MUST explicitly state which repository owns or publishes the contract, which repository or repositories consume it, what compatibility or migration expectations apply, and which repository needs to change first. If the story stays within one repository, keep the normal single-repository contract documentation style. Do not provide options or ask questions, just make the best changes you can based on what you found while researching. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to achieve? If so, please update all relevant planning sections to get them to where we need to be. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, is everything in the planning consistent, or are there some contradictions, especially across the various sections? If so, please resolve and remove the contradictions based on what we know we actually want. Do not provide options or ask questions, just make the best changes you feel would be best. If you are unsure, use git tools to compare the conflicting requirements and ensure we normalise on the latest commit. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without actually tasking up, do you feel this story is detailed enough to be tasked up by someone? If not, please make the required changes to the plan. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Without tasking up, are there any edge cases or failure modes that need to be considered for this story? If so, please add them to the plan in their own section named Edge Cases and Failure Modes. Please use the code_info, DeepWiki, and Context7 MCP tools to gather existing implementations, current contracts, and candidate files, then inspect the relevant source files directly and do your own reasoning about which edge cases and failure modes need to be covered. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Before tasking up, prove that the story's planned proof steps are actually runnable at the point they would be reached. For every planned validation approach, confirm whether the necessary runtime, harness, dependencies, and scripts will exist by then. If not, update the story to add the missing prerequisite work and make the proof path realistic. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front-end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail, and structure of the tasks on the `plan_format.md` document that should be in the repository (search yourself, not with code_info). If the story spans multiple repositories, make the tasking explicit about repository ownership: each task, subtask, testing step, and final validation step must clearly indicate which repository it belongs to, or which repositories it coordinates across. Split cross-repository work into separate repository-specific tasks where possible, and document the sequencing between provider and consumer repositories explicitly. If the story stays within one repository, keep the normal single-repository task structure and do not add unnecessary multi-repository labels. Do not provide options or ask questions, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    }
+  ]
+}

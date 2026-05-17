@@ -28,7 +28,9 @@ import {
 } from 'react';
 import {
   FlowApiError,
+  type FlowDetails,
   type FlowSummary,
+  getFlowDetails,
   listFlows,
   runFlow,
 } from '../api/flows';
@@ -75,6 +77,33 @@ const buildFlowLabel = (flow: FlowSummary) => {
 const buildFlowKey = (flow: FlowSummary) =>
   `${flow.name}::${flow.sourceId ?? 'local'}`;
 
+export const reconcileFlowDetailsCache = (
+  flowDetailsByKey: Record<string, FlowDetails | undefined>,
+  flows: FlowSummary[],
+) => {
+  let nextFlowDetailsByKey: Record<string, FlowDetails | undefined> | undefined;
+
+  for (const flow of flows) {
+    const flowKey = buildFlowKey(flow);
+    const cachedDetails = flowDetailsByKey[flowKey];
+    if (!cachedDetails) continue;
+
+    const summaryDisabled = flow.disabled;
+    const cachedDisabled = cachedDetails.disabled;
+    const staleDisabledDetails =
+      summaryDisabled === false && cachedDisabled === true;
+    const staleEnabledDetails =
+      summaryDisabled === true && cachedDisabled === false;
+    if (!staleDisabledDetails && !staleEnabledDetails) continue;
+    if (!nextFlowDetailsByKey) {
+      nextFlowDetailsByKey = { ...flowDetailsByKey };
+    }
+    delete nextFlowDetailsByKey[flowKey];
+  }
+
+  return nextFlowDetailsByKey ?? flowDetailsByKey;
+};
+
 type FlowOption = FlowSummary & { key: string; label: string };
 
 type FlowResumeState = {
@@ -118,6 +147,10 @@ export default function FlowsPage() {
   const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
 
   const [flows, setFlows] = useState<FlowSummary[]>([]);
+  const [flowDetailsByKey, setFlowDetailsByKey] = useState<
+    Record<string, FlowDetails | undefined>
+  >({});
+  const [flowDetailsError, setFlowDetailsError] = useState<string | null>(null);
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
   const [selectedFlowKey, setSelectedFlowKey] = useState('');
@@ -135,7 +168,13 @@ export default function FlowsPage() {
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [runErrorCode, setRunErrorCode] = useState<string | null>(null);
+  const [launchWarnings, setLaunchWarnings] = useState<string[]>([]);
+  const [launchConversationId, setLaunchConversationId] = useState<
+    string | null
+  >(null);
   const [flowModelId, setFlowModelId] = useState('unknown');
+  const [flowProviderId, setFlowProviderId] = useState('unknown');
 
   const log = useMemo(() => createLogger('client-flows'), []);
   const assistantTranscriptVisibleRef = useRef(false);
@@ -167,6 +206,9 @@ export default function FlowsPage() {
     () => flowOptions.find((flow) => flow.key === selectedFlowKey),
     [flowOptions, selectedFlowKey],
   );
+  const selectedFlowDetails = selectedFlowKey
+    ? flowDetailsByKey[selectedFlowKey]
+    : undefined;
   const selectedFlowName = selectedFlow?.name ?? '';
 
   const {
@@ -211,7 +253,7 @@ export default function FlowsPage() {
     getInflightId,
     getConversationId,
     getAssistantMessageIdForInflight,
-  } = useChatStream(flowModelId, 'codex');
+  } = useChatStream(flowModelId, flowProviderId);
 
   const displayMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
@@ -227,17 +269,52 @@ export default function FlowsPage() {
     [displayMessages],
   );
 
-  const flowDescription = selectedFlow?.description?.trim();
-  const flowWarnings =
-    selectedFlow?.disabled && selectedFlow?.error ? [selectedFlow.error] : [];
+  const flowDescription = (
+    selectedFlowDetails?.description ?? selectedFlow?.description
+  )?.trim();
+  const flowWarnings = Array.from(
+    new Set([
+      ...(selectedFlowDetails?.warnings.map((warning) => warning.message) ??
+        []),
+      ...(selectedFlow?.warnings ?? []),
+      ...(selectedFlowDetails?.disabledReason
+        ? [selectedFlowDetails.disabledReason.message]
+        : []),
+      ...(selectedFlow?.disabled && selectedFlow?.error
+        ? [selectedFlow.error]
+        : []),
+    ]),
+  );
   const flowInfoOpen = Boolean(flowInfoAnchorEl);
   const flowInfoId = flowInfoOpen ? 'flow-info-popover' : undefined;
   const flowInfoDisabled = flowsLoading || !selectedFlowName;
   const showFlowInfoButton = !flowsError;
-  const flowInfoEmpty = !flowDescription && flowWarnings.length === 0;
+  const flowInfoEmpty =
+    !flowDescription && flowWarnings.length === 0 && !flowDetailsError;
   const flowInfoEmptyMessage =
+    flowDetailsError ??
     'No description or warnings are available for this flow yet.';
-  const selectedFlowDisabled = Boolean(selectedFlow?.disabled);
+  const selectedFlowDisabled = Boolean(
+    selectedFlowDetails?.disabled ?? selectedFlow?.disabled,
+  );
+
+  const loadSelectedFlowDetails = useCallback(async () => {
+    if (!selectedFlow) return undefined;
+
+    const cached = flowDetailsByKey[selectedFlow.key];
+    if (cached) return cached;
+
+    setFlowDetailsError(null);
+    const result = await getFlowDetails({
+      flowName: selectedFlow.name,
+      sourceId: selectedFlow.sourceId,
+    });
+    setFlowDetailsByKey((prev) => ({
+      ...prev,
+      [selectedFlow.key]: result.flow,
+    }));
+    return result.flow;
+  }, [flowDetailsByKey, selectedFlow]);
 
   const flowConversations = useMemo(
     () => (selectedFlowName.trim() ? conversations : []),
@@ -559,6 +636,9 @@ export default function FlowsPage() {
     try {
       const result = await listFlows();
       setFlows(result.flows);
+      setFlowDetailsByKey((prev) =>
+        reconcileFlowDetailsCache(prev, result.flows),
+      );
       const flowKeys = result.flows.map((flow) => buildFlowKey(flow));
       if (!selectedFlowKey || !flowKeys.includes(selectedFlowKey)) {
         const firstAvailable = result.flows.find((flow) => !flow.disabled);
@@ -581,6 +661,26 @@ export default function FlowsPage() {
   useEffect(() => {
     void loadFlows();
   }, [loadFlows]);
+
+  useEffect(() => {
+    if (!flowInfoOpen || !selectedFlow) return;
+
+    let cancelled = false;
+    void loadSelectedFlowDetails()
+      .then((result) => {
+        if (cancelled || !result) return;
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setFlowDetailsError(
+          (error as Error).message ?? 'Failed to load flow details.',
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [flowInfoOpen, loadSelectedFlowDetails, selectedFlow]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;
@@ -697,11 +797,40 @@ export default function FlowsPage() {
   ]);
 
   useEffect(() => {
+    if (
+      launchConversationId &&
+      selectedConversation?.conversationId !== launchConversationId
+    ) {
+      return;
+    }
+    if (!selectedConversation?.provider) return;
+    if (selectedConversation.provider !== flowProviderId) {
+      setFlowProviderId(selectedConversation.provider);
+    }
+  }, [
+    flowProviderId,
+    launchConversationId,
+    selectedConversation?.conversationId,
+    selectedConversation?.provider,
+  ]);
+
+  useEffect(() => {
+    if (
+      launchConversationId &&
+      selectedConversation?.conversationId !== launchConversationId
+    ) {
+      return;
+    }
     if (!selectedConversation?.model) return;
     if (selectedConversation.model !== flowModelId) {
       setFlowModelId(selectedConversation.model);
     }
-  }, [flowModelId, selectedConversation?.model]);
+  }, [
+    flowModelId,
+    launchConversationId,
+    selectedConversation?.conversationId,
+    selectedConversation?.model,
+  ]);
 
   useEffect(() => {
     if (!activeConversationId || !inflightSnapshot) return;
@@ -853,10 +982,14 @@ export default function FlowsPage() {
   const resetConversation = useCallback(() => {
     setStartPending(false);
     setRunError(null);
+    setRunErrorCode(null);
+    setLaunchWarnings([]);
+    setLaunchConversationId(null);
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(reset(), { clearMessages: true });
     setFlowModelId('unknown');
+    setFlowProviderId('unknown');
     setWorkingFolder('');
     setCustomTitle('');
     serverVisibleInflightIdRef.current = null;
@@ -918,6 +1051,11 @@ export default function FlowsPage() {
     const summary = flowConversations.find(
       (conversation) => conversation.conversationId === conversationId,
     );
+    setRunError(null);
+    setRunErrorCode(null);
+    setLaunchWarnings([]);
+    setLaunchConversationId(conversationId);
+    setFlowProviderId(summary?.provider ?? 'unknown');
     if (summary?.model) {
       setFlowModelId(summary.model);
     }
@@ -973,8 +1111,33 @@ export default function FlowsPage() {
 
   const startFlowRun = useCallback(
     async (mode: 'run' | 'resume') => {
-      if (!selectedFlowName || selectedFlowDisabled) return;
+      if (!selectedFlowName) return;
       setRunError(null);
+      setRunErrorCode(null);
+      setLaunchWarnings([]);
+
+      let details = selectedFlowDetails;
+      if (!details) {
+        try {
+          details = await loadSelectedFlowDetails();
+        } catch (error) {
+          setRunError(
+            (error as Error).message ?? 'Failed to load flow details.',
+          );
+          return;
+        }
+      }
+
+      const guardDisabled = Boolean(
+        details?.disabled ?? selectedFlow?.disabled,
+      );
+      const guardDisabledReason =
+        details?.disabledReason?.message ??
+        (selectedFlow?.disabled ? selectedFlow.error : undefined);
+      if (guardDisabled) {
+        setRunError(guardDisabledReason ?? 'This flow is currently disabled.');
+        return;
+      }
       if (persistenceUnavailable || !wsTranscriptReady) {
         setRunError(
           'Realtime connection unavailable — Flow runs require WebSocket streaming.',
@@ -992,6 +1155,8 @@ export default function FlowsPage() {
       );
 
       setStartPending(true);
+      setFlowModelId('unknown');
+      setFlowProviderId('unknown');
 
       const nextConversationId =
         mode === 'run'
@@ -1009,6 +1174,7 @@ export default function FlowsPage() {
         trimmedCustomTitle.length > 0;
 
       if (isNewConversation) {
+        setLaunchConversationId(nextConversationId);
         setConversation(nextConversationId, { clearMessages: true });
         setActiveConversationId(nextConversationId);
       }
@@ -1033,6 +1199,12 @@ export default function FlowsPage() {
           resumeStepPath: mode === 'resume' ? resumeStepPath : undefined,
         });
         setActiveConversationId(result.conversationId);
+        setLaunchConversationId(result.conversationId);
+        setRunErrorCode(null);
+        setLaunchWarnings(result.warnings ?? []);
+        if (result.providerId) {
+          setFlowProviderId(result.providerId);
+        }
         if (result.modelId) {
           setFlowModelId(result.modelId);
         }
@@ -1057,6 +1229,7 @@ export default function FlowsPage() {
             : [...messages, errorMessage];
           hydrateHistory(nextConversationId, errorHistory, 'replace');
           setRunError(errorMessage.content);
+          setRunErrorCode(err.code ?? null);
           return;
         }
         const message = (err as Error).message || 'Failed to run flow.';
@@ -1073,6 +1246,9 @@ export default function FlowsPage() {
           : [...messages, errorMessage];
         hydrateHistory(nextConversationId, errorHistory, 'replace');
         setRunError(message);
+        setRunErrorCode(
+          err instanceof FlowApiError ? (err.code ?? null) : null,
+        );
       } finally {
         setStartPending(false);
       }
@@ -1082,12 +1258,13 @@ export default function FlowsPage() {
       customTitle,
       hydrateHistory,
       log,
+      loadSelectedFlowDetails,
       messages,
       persistenceUnavailable,
       refreshConversations,
       resumeStepPath,
-      selectedFlowDisabled,
-      selectedFlow?.sourceId,
+      selectedFlow,
+      selectedFlowDetails,
       selectedFlowName,
       setConversation,
       setSuppressAutoSelect,
@@ -1195,8 +1372,17 @@ export default function FlowsPage() {
           </Alert>
         )}
         {runError && (
-          <Alert severity="error" data-testid="flows-run-error">
+          <Alert
+            severity="error"
+            data-testid="flows-run-error"
+            data-error-code={runErrorCode ?? ''}
+          >
             {runError}
+          </Alert>
+        )}
+        {launchWarnings.length > 0 && (
+          <Alert severity="warning" data-testid="flows-launch-warnings">
+            {launchWarnings.join(' ')}
           </Alert>
         )}
 
@@ -1471,6 +1657,13 @@ export default function FlowsPage() {
                       Resume step path: {resumeStepPath.join(' / ')}
                     </Typography>
                   )}
+                  <Typography
+                    color="text.secondary"
+                    variant="caption"
+                    data-testid="flow-launch-identity"
+                  >
+                    Launch provider: {flowProviderId} · Model: {flowModelId}
+                  </Typography>
                   <DirectoryPickerDialog
                     open={dirPickerOpen}
                     path={workingFolder}

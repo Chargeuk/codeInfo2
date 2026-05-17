@@ -81,6 +81,7 @@ test('tools/call run_agent_instruction returns JSON text content with answer-onl
       return {
         agentName: 'coding_agent',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'model-from-config',
         segments: [
           { type: 'thinking', text: 't' },
@@ -116,6 +117,7 @@ test('tools/call run_agent_instruction returns JSON text content with answer-onl
       conversationId: string;
       modelId: string;
       segments: unknown[];
+      warnings?: string[];
     };
     assert.equal(parsed.agentName, 'coding_agent');
     assert.equal(parsed.conversationId, 'c1');
@@ -127,6 +129,56 @@ test('tools/call run_agent_instruction returns JSON text content with answer-onl
       ['answer'],
     );
     assert.equal(receivedWorkingFolder, '/host/base/repo');
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    resetToolDeps();
+    server.close();
+  }
+});
+
+test('tools/call run_agent_instruction keeps launch warnings in the MCP payload', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  setToolDeps({
+    runAgentInstruction: async () => ({
+      agentName: 'coding_agent',
+      conversationId: 'c-warning',
+      providerId: 'codex',
+      modelId: 'gpt-5.3-codex',
+      segments: [{ type: 'answer', text: 'ok' }],
+      warnings: [
+        'Agent config requested unsupported provider "bad-provider".',
+        'Agent will use fallback provider "codex" because "bad-provider" cannot execute.',
+      ],
+    }),
+  });
+
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 111,
+      method: 'tools/call',
+      params: {
+        name: 'run_agent_instruction',
+        arguments: {
+          agentName: 'coding_agent',
+          instruction: 'Say hello',
+        },
+      },
+    });
+
+    const parsed = JSON.parse(body.result.content[0].text as string) as {
+      warnings?: string[];
+    };
+    assert.deepEqual(parsed.warnings, [
+      'Agent config requested unsupported provider "bad-provider".',
+      'Agent will use fallback provider "codex" because "bad-provider" cannot execute.',
+    ]);
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     resetToolDeps();
@@ -204,6 +256,7 @@ test('tools/call run_agent_instruction aborts tool call on disconnect (AbortSign
       return {
         agentName: 'coding_agent',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'm1',
         segments: [{ type: 'answer', text: 'stopped' }],
       };
@@ -285,6 +338,7 @@ test('tools/call run_command aborts tool call on disconnect (AbortSignal propaga
         agentName: 'planning_agent',
         commandName: 'improve_plan',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'm1',
       };
     },
@@ -385,6 +439,7 @@ test('tools/call run_command runs local commands when sourceId is omitted', asyn
         agentName: 'planning_agent',
         commandName: 'improve_plan',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'm1',
       };
     },
@@ -475,6 +530,7 @@ test('tools/call run_command forwards sourceId when provided', async () => {
         agentName: 'planning_agent',
         commandName: 'improve_plan',
         conversationId: 'c1',
+        providerId: 'copilot',
         modelId: 'm1',
       };
     },

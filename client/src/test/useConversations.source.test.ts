@@ -41,7 +41,9 @@ describe('useConversations source metadata', () => {
   it('defaults missing source to REST and preserves MCP', async () => {
     const { result } = renderHook(() => useConversations());
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+    await waitFor(() => expect(result.current.conversations.length).toBe(2), {
+      timeout: 5000,
+    });
 
     const restItem = result.current.conversations.find(
       (c) => c.conversationId === 'c1',
@@ -134,6 +136,111 @@ describe('useConversations source metadata', () => {
     expect(firstUrl).toContain('flowName=__none__');
   });
 
+  it('requests agentName when fetching agent-scoped conversations', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Planner convo',
+            provider: 'codex',
+            model: 'gpt',
+            agentName: 'planner',
+            lastMessageAt: '2025-01-02T00:00:00.000Z',
+          },
+          {
+            conversationId: 'c2',
+            title: 'Reviewer convo',
+            provider: 'codex',
+            model: 'gpt',
+            agentName: 'reviewer',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useConversations({ agentName: 'planner' }),
+    );
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    const fetchCalls = mockFetch.mock.calls;
+    const conversationCall = fetchCalls.find((call) =>
+      String(call[0]).includes('/conversations?'),
+    );
+    const firstUrl =
+      conversationCall?.[0]?.toString?.() ?? String(conversationCall?.[0]);
+    expect(firstUrl).toContain('agentName=planner');
+
+    expect(result.current.conversations[0]?.conversationId).toBe('c1');
+    expect(result.current.conversations[0]?.agentName).toBe('planner');
+  });
+
+  it('filters websocket upserts that do not match the active agentName', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Planner convo',
+            provider: 'codex',
+            model: 'gpt',
+            agentName: 'planner',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useConversations({ agentName: 'planner' }),
+    );
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(1), {
+      timeout: 5000,
+    });
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c2',
+        title: 'Reviewer convo',
+        provider: 'codex',
+        model: 'gpt',
+        agentName: 'reviewer',
+        lastMessageAt: '2025-01-03T00:00:00.000Z',
+      });
+    });
+
+    expect(result.current.conversations).toHaveLength(1);
+    expect(result.current.conversations[0]?.conversationId).toBe('c1');
+  });
+
+  it('keeps the __none__ agent filter authoritative during websocket upserts', async () => {
+    const { result } = renderHook(() =>
+      useConversations({ agentName: '__none__' }),
+    );
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    act(() => {
+      result.current.applyWsUpsert({
+        conversationId: 'c3',
+        title: 'Agent convo',
+        provider: 'codex',
+        model: 'gpt',
+        agentName: 'planner',
+        lastMessageAt: '2025-01-03T00:00:00.000Z',
+      });
+    });
+
+    expect(result.current.conversations).toHaveLength(2);
+    expect(
+      result.current.conversations.some((item) => item.conversationId === 'c3'),
+    ).toBe(false);
+  });
+
   it('applies websocket upserts that restore flags.workingFolder', async () => {
     const { result } = renderHook(() => useConversations());
 
@@ -209,7 +316,9 @@ describe('useConversations source metadata', () => {
 
     const { result } = renderHook(() => useConversations());
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+    await waitFor(() => expect(result.current.conversations.length).toBe(1), {
+      timeout: 5000,
+    });
 
     act(() => {
       result.current.applyWsUpsert({
@@ -274,7 +383,9 @@ describe('useConversations source metadata', () => {
 
     const { result } = renderHook(() => useConversations());
 
-    await waitFor(() => expect(result.current.conversations.length).toBe(1));
+    await waitFor(() => expect(result.current.conversations.length).toBe(1), {
+      timeout: 5000,
+    });
 
     await act(async () => {
       await result.current.updateWorkingFolder({

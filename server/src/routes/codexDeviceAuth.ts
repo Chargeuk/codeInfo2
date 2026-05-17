@@ -19,8 +19,11 @@ import { baseLogger, resolveLogConfig } from '../logger.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import {
   createCodexAlreadyAuthenticatedResponse,
+  createCodexCompletedResponse,
   createCodexCompletionPendingResponse,
+  createCodexFailedResponse,
   createCodexUnavailableBeforeStartResponse,
+  createCodexVerificationReadyResponse,
   runCodexDeviceAuth,
   type CodexDeviceAuthState,
 } from '../utils/codexDeviceAuth.js';
@@ -107,7 +110,7 @@ export function createCodexDeviceAuthRouter(
   const router = Router();
   const deviceAuthInFlightByHome = new Map<
     string,
-    Promise<Awaited<ReturnType<typeof runCodexDeviceAuth>>>
+    Promise<CodexDeviceAuthState>
   >();
   const deviceAuthStateByHome = new Map<string, CodexDeviceAuthState>();
   const { maxClientBytes } = resolveLogConfig();
@@ -220,12 +223,25 @@ export function createCodexDeviceAuthRouter(
     }
 
     const refreshedDetection = deps.refreshCodexDetection();
+    const detectedAuthState: 'already_authenticated' | undefined =
+      refreshedDetection.available &&
+      refreshedDetection.authPresent &&
+      refreshedDetection.configPresent
+        ? 'already_authenticated'
+        : undefined;
+
     if (
       refreshedDetection.available &&
       refreshedDetection.authPresent &&
       refreshedDetection.configPresent
     ) {
-      return res.status(200).json(createCodexAlreadyAuthenticatedResponse());
+      baseLogger.info(
+        {
+          requestId,
+          detectedAuthState,
+        },
+        'DEV-0000031:T10:codex_device_auth_detected_auth_preflight',
+      );
     }
 
     const singleFlightKey = `device-auth:${targetCodexHome}`;
@@ -236,7 +252,41 @@ export function createCodexDeviceAuthRouter(
         const deviceAuth = await deps.runCodexDeviceAuth({
           codexHome: undefined,
         });
-        const responseState = toDeviceAuthResponseState(deviceAuth);
+        let responseState = toDeviceAuthResponseState(deviceAuth);
+        if (detectedAuthState) {
+          switch (responseState.state) {
+            case 'verification_ready':
+              responseState = createCodexVerificationReadyResponse({
+                verificationUrl: responseState.verificationUrl,
+                displayOutput: responseState.displayOutput ?? '',
+                detectedAuthState,
+              });
+              break;
+            case 'failed':
+              responseState = createCodexFailedResponse(
+                responseState.reason,
+                responseState.displayOutput,
+                detectedAuthState,
+              );
+              break;
+            case 'completed':
+              responseState = createCodexCompletedResponse({
+                detectedAuthState,
+              });
+              break;
+            case 'already_authenticated':
+              responseState = createCodexAlreadyAuthenticatedResponse({
+                detectedAuthState,
+              });
+              break;
+            case 'unavailable_before_start':
+              responseState = createCodexUnavailableBeforeStartResponse(
+                responseState.reason,
+                detectedAuthState,
+              );
+              break;
+          }
+        }
 
         if (responseState.state === 'verification_ready') {
           deviceAuthStateByHome.set(
@@ -313,12 +363,12 @@ export function createCodexDeviceAuthRouter(
             );
           });
 
-        return deviceAuth;
+        return responseState;
       },
     );
 
     const deviceAuth = await deviceAuthPromise;
-    const responseState = toDeviceAuthResponseState(deviceAuth);
+    const responseState = deviceAuth;
     console.info(T10_SUCCESS_LOG, {
       state: responseState.state,
       hasDisplayOutput: Boolean(

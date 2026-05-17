@@ -6,6 +6,30 @@ export type FlowSummary = {
   description?: string;
   disabled?: boolean;
   error?: string;
+  warnings?: string[];
+  sourceId?: string;
+  sourceLabel?: string;
+};
+
+export type FlowWarningDetails = {
+  code: string;
+  message: string;
+  providerId?: string;
+  fallbackProviderId?: string;
+};
+
+export type FlowDisabledReason = {
+  code: string;
+  message: string;
+  providerId?: string;
+};
+
+export type FlowDetails = {
+  name: string;
+  description?: string;
+  disabled: boolean;
+  warnings: FlowWarningDetails[];
+  disabledReason?: FlowDisabledReason;
   sourceId?: string;
   sourceLabel?: string;
 };
@@ -52,9 +76,18 @@ async function parseFlowApiErrorResponse(res: Response): Promise<{
       if (data && typeof data === 'object') {
         const record = data as Record<string, unknown>;
         return {
-          code: typeof record.code === 'string' ? record.code : undefined,
+          code:
+            typeof record.code === 'string'
+              ? record.code
+              : typeof record.error === 'string'
+                ? record.error
+                : undefined,
           message:
-            typeof record.message === 'string' ? record.message : undefined,
+            typeof record.message === 'string'
+              ? record.message
+              : typeof record.reason === 'string'
+                ? record.reason
+                : undefined,
         };
       }
       return {};
@@ -108,6 +141,9 @@ export async function listFlows(): Promise<{ flows: FlowSummary[] }> {
           disabled:
             typeof record.disabled === 'boolean' ? record.disabled : undefined,
           error: typeof record.error === 'string' ? record.error : undefined,
+          warnings: Array.isArray(record.warnings)
+            ? (record.warnings.filter((w) => typeof w === 'string') as string[])
+            : undefined,
           sourceId:
             typeof record.sourceId === 'string' ? record.sourceId : undefined,
           sourceLabel:
@@ -117,6 +153,101 @@ export async function listFlows(): Promise<{ flows: FlowSummary[] }> {
         } satisfies FlowSummary;
       })
       .filter(Boolean) as FlowSummary[],
+  };
+}
+
+export async function getFlowDetails(params: {
+  flowName: string;
+  sourceId?: string;
+}): Promise<{ flow: FlowDetails }> {
+  const url = new URL(
+    `/flows/${encodeURIComponent(params.flowName)}`,
+    serverBase,
+  );
+  if (params.sourceId?.trim()) {
+    url.searchParams.set('sourceId', params.sourceId.trim());
+  }
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    await throwFlowApiError(res, `Failed to load flow details (${res.status})`);
+  }
+
+  const data = (await res.json()) as { flow?: unknown };
+  if (!data.flow || typeof data.flow !== 'object') {
+    throw new Error('Invalid flow details response');
+  }
+  const record = data.flow as Record<string, unknown>;
+  const name = typeof record.name === 'string' ? record.name : undefined;
+  if (!name) {
+    throw new Error('Invalid flow details response');
+  }
+  if (typeof record.disabled !== 'boolean') {
+    throw new Error('Invalid flow details response');
+  }
+
+  const warnings = Array.isArray(record.warnings)
+    ? record.warnings
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const warning = item as Record<string, unknown>;
+          const code =
+            typeof warning.code === 'string' ? warning.code : undefined;
+          const message =
+            typeof warning.message === 'string' ? warning.message : undefined;
+          if (!code || !message) return null;
+          return {
+            code,
+            message,
+            providerId:
+              typeof warning.providerId === 'string'
+                ? warning.providerId
+                : undefined,
+            fallbackProviderId:
+              typeof warning.fallbackProviderId === 'string'
+                ? warning.fallbackProviderId
+                : undefined,
+          } satisfies FlowWarningDetails;
+        })
+        .filter(Boolean)
+    : [];
+
+  const disabledReason =
+    record.disabledReason && typeof record.disabledReason === 'object'
+      ? {
+          code:
+            typeof (record.disabledReason as Record<string, unknown>).code ===
+            'string'
+              ? ((record.disabledReason as Record<string, unknown>)
+                  .code as string)
+              : 'provider_unavailable',
+          message:
+            typeof (record.disabledReason as Record<string, unknown>)
+              .message === 'string'
+              ? ((record.disabledReason as Record<string, unknown>)
+                  .message as string)
+              : 'Flow unavailable',
+          providerId:
+            typeof (record.disabledReason as Record<string, unknown>)
+              .providerId === 'string'
+              ? ((record.disabledReason as Record<string, unknown>)
+                  .providerId as string)
+              : undefined,
+        }
+      : undefined;
+
+  return {
+    flow: {
+      name,
+      description:
+        typeof record.description === 'string' ? record.description : undefined,
+      disabled: record.disabled,
+      warnings: warnings as FlowWarningDetails[],
+      disabledReason,
+      sourceId:
+        typeof record.sourceId === 'string' ? record.sourceId : undefined,
+      sourceLabel:
+        typeof record.sourceLabel === 'string' ? record.sourceLabel : undefined,
+    },
   };
 }
 
@@ -135,7 +266,9 @@ export async function runFlow(params: {
   flowName: string;
   conversationId: string;
   inflightId: string;
+  providerId: string;
   modelId: string;
+  warnings?: string[];
 }> {
   log('info', 'flows.api.run', { flowName: params.flowName });
   const trimmedCustomTitle = params.customTitle?.trim();
@@ -186,15 +319,32 @@ export async function runFlow(params: {
   const conversationId =
     typeof data.conversationId === 'string' ? data.conversationId : '';
   const inflightId = typeof data.inflightId === 'string' ? data.inflightId : '';
+  const providerId =
+    typeof data.providerId === 'string' ? data.providerId : '';
   const modelId = typeof data.modelId === 'string' ? data.modelId : '';
+  const warnings = Array.isArray(data.warnings)
+    ? data.warnings.filter(
+        (warning): warning is string =>
+          typeof warning === 'string' && warning.trim().length > 0,
+      )
+    : [];
   if (
     status !== 'started' ||
     !flowName ||
     !conversationId ||
     !inflightId ||
+    !providerId ||
     !modelId
   ) {
     throw new Error('Invalid flow run response');
   }
-  return { status: 'started', flowName, conversationId, inflightId, modelId };
+  return {
+    status: 'started',
+    flowName,
+    conversationId,
+    inflightId,
+    providerId,
+    modelId,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }

@@ -21,6 +21,7 @@ import {
 import { resolveServerPort } from './config/serverPort.js';
 import {
   ensureStartupEnvLoaded,
+  resolveAgentProviderFallbackOrder,
   resolveCodeinfoEnvResolutions,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
@@ -84,23 +85,12 @@ const startupEnvLoad = ensureStartupEnvLoaded();
 const codeinfoEnvResolutions = resolveCodeinfoEnvResolutions({
   loadResult: startupEnvLoad,
 });
+const agentProviderFallbackOrder = resolveAgentProviderFallbackOrder();
 const copilotRuntimeConfig = buildCopilotClientOptions({
   env: process.env,
 });
 const fakeCopilotRuntimeSeam = createFakeCopilotRuntimeSeamFromEnv(process.env);
 ensureCodexConfigSeeded();
-void ensureAllProviderChatConfigsBootstrapped({
-  codexHome: process.env.CODEINFO_CODEX_HOME,
-  copilotHome: process.env.CODEINFO_COPILOT_HOME,
-  lmstudioHome: resolveLmStudioChatDefaultsHome(),
-}).catch((error) => {
-  baseLogger.warn(
-    {
-      error: error instanceof Error ? error.message : String(error),
-    },
-    'provider chat-config bootstrap failed during startup',
-  );
-});
 const installedCodexSdkVersion = pkg.dependencies?.['@openai/codex-sdk'];
 const codexSdkGuardAccepted = validateAndLogCodexSdkUpgrade(
   installedCodexSdkVersion,
@@ -163,6 +153,26 @@ append({
   source: 'server',
   context: {
     envs: codeinfoEnvResolutions,
+  },
+});
+baseLogger.info(
+  {
+    event: 'story.0000057.task1.agent_provider_fallback_order_loaded',
+    providers: agentProviderFallbackOrder.normalizedProviders,
+    usedDefault: agentProviderFallbackOrder.usedDefault,
+    warningCount: agentProviderFallbackOrder.warnings.length,
+  },
+  'story.0000057.task1.agent_provider_fallback_order_loaded',
+);
+append({
+  level: agentProviderFallbackOrder.warnings.length > 0 ? 'warn' : 'info',
+  message: 'story.0000057.task1.agent_provider_fallback_order_loaded',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    providers: agentProviderFallbackOrder.normalizedProviders,
+    usedDefault: agentProviderFallbackOrder.usedDefault,
+    warnings: agentProviderFallbackOrder.warnings,
   },
 });
 baseLogger.info(
@@ -406,6 +416,18 @@ const start = async () => {
     baseLogger.error('CODEINFO_MONGO_URI is required but missing');
     process.exit(1);
   }
+  const bootstrapSnapshots = await ensureAllProviderChatConfigsBootstrapped({
+    codexHome: process.env.CODEINFO_CODEX_HOME,
+    copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    lmstudioHome: resolveLmStudioChatDefaultsHome(),
+  });
+  baseLogger.info(
+    {
+      event: 'story.0000057.task19.provider_bootstrap_complete',
+      providerCount: bootstrapSnapshots.length,
+    },
+    'story.0000057.task19.provider_bootstrap_complete',
+  );
   try {
     await connectMongo(mongoUri);
   } catch (err) {
@@ -449,7 +471,16 @@ const start = async () => {
   startAgentsMcpServer();
 };
 
-void start();
+void start().catch((err) => {
+  baseLogger.error(
+    {
+      err,
+      error: err instanceof Error ? err.message : String(err),
+    },
+    'server startup failed before listen',
+  );
+  process.exit(1);
+});
 
 const shutdown = async (signal: NodeJS.Signals) => {
   baseLogger.info({ signal }, 'Shutting down services');

@@ -29,6 +29,7 @@ test('callTool run_agent_instruction forwards working_folder to agents service',
         return {
           agentName: 'coding_agent',
           conversationId: 'c1',
+          providerId: 'copilot',
           modelId: 'm1',
           segments: [
             { type: 'thinking', text: 't' },
@@ -68,6 +69,7 @@ test('callTool run_agent_instruction returns empty answer segment when missing',
         return {
           agentName: 'coding_agent',
           conversationId: 'c1',
+          providerId: 'copilot',
           modelId: 'm1',
           segments: [{ type: 'thinking', text: 't' }],
         };

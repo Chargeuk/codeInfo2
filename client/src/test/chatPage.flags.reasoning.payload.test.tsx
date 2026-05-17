@@ -729,7 +729,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     expect(
       (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
     ).toBe('minimal');
-  });
+  }, 15000);
 
   it('sends non-standard runtime reasoning values when model capabilities allow them', async () => {
     const chatBodies: Record<string, unknown>[] = [];

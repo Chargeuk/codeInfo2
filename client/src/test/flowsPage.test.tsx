@@ -180,6 +180,26 @@ describe('Flows page basics', () => {
         return mockJsonResponse({ mongoConnected: true });
       }
 
+      if (target.includes('/flows/broken_flow')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'broken_flow',
+            description: 'Broken flow',
+            disabled: true,
+            warnings: [
+              {
+                code: 'provider_unavailable',
+                message: 'Failed to parse flow JSON',
+              },
+            ],
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'Failed to parse flow JSON',
+            },
+          },
+        });
+      }
+
       if (target.includes('/flows')) {
         return mockJsonResponse({
           flows: [
@@ -248,6 +268,146 @@ describe('Flows page basics', () => {
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
 
+  it('renders selected-flow warning arrays and disabled-state reasons from the details route', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Run the **daily** flow.',
+            disabled: true,
+            warnings: [
+              {
+                code: 'provider_unavailable',
+                message: 'Primary provider unavailable',
+                providerId: 'codex',
+                fallbackProviderId: 'lmstudio',
+              },
+              {
+                code: 'disabled_flow_step',
+                message: 'One step is currently disabled',
+              },
+            ],
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'No usable provider remains',
+              providerId: 'codex',
+            },
+          },
+        });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const flowSelect = await screen.findByTestId('flow-select');
+    await waitFor(() =>
+      expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
+    );
+
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('flow-info'));
+    });
+
+    const warnings = await screen.findByTestId('flow-warnings');
+    expect(warnings).toHaveTextContent('Primary provider unavailable');
+    expect(warnings).toHaveTextContent('One step is currently disabled');
+    expect(warnings).toHaveTextContent('No usable provider remains');
+    expect(screen.getByTestId('flow-description')).toHaveTextContent(
+      'Run the daily flow.',
+    );
+  });
+
+  it('shows the server recovery guidance in the visible flow run error area', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (target.includes('/flows/daily/run')) {
+          expect(init?.method).toBe('POST');
+          return mockJsonResponse(
+            {
+              code: 'PROVIDER_UNAVAILABLE',
+              reason: 'Codex is unavailable. Re-authenticate and try again.',
+            },
+            { status: 503 },
+          );
+        }
+
+        if (target.includes('/flows/daily')) {
+          return mockJsonResponse({
+            flow: {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: false,
+              warnings: [],
+            },
+          });
+        }
+
+        if (target.includes('/flows')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
+
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [] });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(runButton);
+    });
+
+    const errorBanner = await screen.findByTestId('flows-run-error');
+    expect(errorBanner).toHaveTextContent(
+      'Codex is unavailable. Re-authenticate and try again.',
+    );
+  });
+
   it('shows the flow turns warning when conversation history fails to load', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
@@ -255,6 +415,17 @@ describe('Flows page basics', () => {
 
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Run the **daily** flow.',
+            disabled: false,
+            warnings: [],
+          },
+        });
       }
 
       if (target.includes('/flows')) {
@@ -688,6 +859,16 @@ describe('Flows info popover', () => {
 
       if (target.includes('/health')) {
         return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/simple_flow')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'simple_flow',
+            disabled: false,
+            warnings: [],
+          },
+        });
       }
 
       if (target.includes('/flows')) {

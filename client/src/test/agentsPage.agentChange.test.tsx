@@ -75,6 +75,123 @@ function emitWsEvent(event: Record<string, unknown>) {
 }
 
 describe('Agents page - agent change', () => {
+  it('clears stale hidden local state when the selected agent becomes disabled', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        } as Response);
+      }
+
+      if (target.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => buildProvidersResponse(true),
+        } as Response);
+      }
+
+      if (target.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => modelsResponse,
+        } as Response);
+      }
+
+      if (
+        target.includes('/agents') &&
+        !target.includes('/commands') &&
+        !target.includes('/run') &&
+        !target.includes('/agents/coding_agent')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+        } as Response);
+      }
+
+      if (
+        target.includes('/agents/coding_agent') &&
+        !target.includes('/commands') &&
+        !target.includes('/run')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            agent: {
+              name: 'coding_agent',
+              description: 'Disabled now',
+              disabled: true,
+              warnings: [
+                {
+                  code: 'provider_unavailable',
+                  message: 'Primary provider is unavailable',
+                },
+              ],
+              disabledReason: {
+                code: 'provider_unavailable',
+                message: 'No usable provider remains',
+              },
+              fallbackCandidates: [],
+            },
+          }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/coding_agent/commands')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ commands: [] }),
+        } as Response);
+      }
+
+      if (target.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [] }),
+        } as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const workingFolder = await screen.findByRole('textbox', {
+      name: 'working_folder',
+    });
+    await user.type(workingFolder, '/tmp/stale');
+
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-info'));
+    });
+
+    await screen.findByTestId('agent-disabled');
+    await waitFor(() => expect(workingFolder).toHaveValue(''));
+    expect(screen.getByTestId('agent-disabled')).toHaveTextContent(
+      'No usable provider remains',
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-send')).toBeDisabled(),
+    );
+  });
+
   it('resets to new conversation state on agent change (without aborting server runs)', async () => {
     const runBodies: Record<string, unknown>[] = [];
     let a1ConversationId: string | null = null;
@@ -104,6 +221,46 @@ describe('Agents page - agent change', () => {
             ok: true,
             status: 200,
             json: async () => modelsResponse,
+          } as Response);
+        }
+
+        if (
+          target.includes('/agents/a1') &&
+          !target.includes('/commands') &&
+          !target.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              agent: {
+                name: 'a1',
+                description: 'Agent A1',
+                disabled: false,
+                warnings: [],
+                fallbackCandidates: [],
+              },
+            }),
+          } as Response);
+        }
+
+        if (
+          target.includes('/agents/a2') &&
+          !target.includes('/commands') &&
+          !target.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              agent: {
+                name: 'a2',
+                description: 'Agent A2',
+                disabled: false,
+                warnings: [],
+                fallbackCandidates: [],
+              },
+            }),
           } as Response);
         }
 
@@ -154,7 +311,7 @@ describe('Agents page - agent change', () => {
             a1ConversationId =
               typeof parsed.conversationId === 'string'
                 ? parsed.conversationId
-                : null;
+                : 'c1';
           }
           return Promise.resolve({
             ok: true,
@@ -343,17 +500,18 @@ describe('Agents page - device auth', () => {
     render(<RouterProvider router={router} />);
   };
 
-  it('shows device-auth button when an agent is selected and Codex is available', async () => {
+  it('keeps re-authenticate visible when an agent is selected and Codex is available', async () => {
     setup(true);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Re-authenticate',
+      }),
+    ).toBeInTheDocument();
 
     const agentSelect = await screen.findByRole('combobox', {
       name: /agent/i,
     });
-    expect(
-      screen.queryByRole('button', {
-        name: 'Re-authenticate',
-      }),
-    ).toBeNull();
 
     await userEvent.click(agentSelect);
     const option = await screen.findByRole('option', { name: 'a1' });
@@ -391,8 +549,14 @@ describe('Agents page - device auth', () => {
     expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
   });
 
-  it('hides the device-auth button when Codex is unavailable', async () => {
+  it('keeps re-authenticate visible when Codex is unavailable', async () => {
     setup(false);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Re-authenticate',
+      }),
+    ).toBeInTheDocument();
 
     const agentSelect = await screen.findByRole('combobox', {
       name: /agent/i,
@@ -404,9 +568,9 @@ describe('Agents page - device auth', () => {
     });
 
     expect(
-      screen.queryByRole('button', {
+      await screen.findByRole('button', {
         name: 'Re-authenticate',
       }),
-    ).toBeNull();
+    ).toBeInTheDocument();
   });
 });

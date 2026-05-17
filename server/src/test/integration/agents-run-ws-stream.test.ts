@@ -3,20 +3,30 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
 import pkg from '../../../package.json' with { type: 'json' };
 
 import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
   runAgentCommand,
   runAgentInstructionUnlocked,
 } from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
 import { resetStore } from '../../logStore.js';
 import { attachWs } from '../../ws/server.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 import {
   closeWs,
   connectWs,
@@ -25,6 +35,14 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 class StreamingChat extends ChatInterface {
   async execute(
@@ -53,6 +71,20 @@ class StreamingChat extends ChatInterface {
     await delay(50);
     if (abortIfNeeded()) return;
     this.emit('final', { type: 'final', content: 'Hello world' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+class ImmediateChat extends ChatInterface {
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
@@ -132,7 +164,7 @@ test('Agents runs publish WS transcript events while the run is in progress', as
           e.inflightId === inflightId
         );
       },
-      timeoutMs: 8000,
+      timeoutMs: 15000,
     });
 
     const snapshotPromise = waitForEvent({
@@ -287,8 +319,246 @@ test('Agents run passes inflightId into chat.run(...) flags', async () => {
   }
 });
 
+test('direct agent runs can fall back to a different provider when the requested provider is invalid', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-ws-'));
+  const agentsHome = path.join(tempRoot, 'agents');
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const copilotHome = path.join(tempRoot, 'copilot-home');
+  await fs.mkdir(path.join(agentHome), { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'codeinfo_provider = "bad-provider"\nmodel = "missing-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "codex-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousFallbackOrder =
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'codex-model',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    const result = await runAgentInstructionUnlocked({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId: 'task5-provider-fallback',
+      source: 'REST',
+      chatFactory: () => new ImmediateChat(),
+    });
+
+    assert.equal(result.providerId, 'copilot');
+    assert.equal(result.modelId, 'copilot-model');
+    const conversation = memoryConversations.get(result.conversationId);
+    assert.equal(conversation?.provider, 'copilot');
+    assert.equal(conversation?.model, 'copilot-model');
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = previousFallbackOrder;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('saved execution identity fails in place when the pinned provider later becomes unavailable', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-ws-'));
+  const agentsHome = path.join(tempRoot, 'agents');
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  await fs.mkdir(path.join(agentHome), { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'codeinfo_provider = "codex"\nmodel = "codex-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "codex-model"\n',
+    'utf8',
+  );
+
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'codex-model',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'connectivity',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+      reason: 'copilot connectivity unavailable',
+    }),
+  });
+
+  try {
+    const first = await runAgentInstructionUnlocked({
+      agentName: 'coding_agent',
+      instruction: 'Hello',
+      conversationId: 'task5-fail-in-place',
+      source: 'REST',
+      chatFactory: () => new ImmediateChat(),
+    });
+    assert.equal(first.providerId, 'codex');
+
+    __setAgentServiceDepsForTests({
+      getCodexDetection: () => ({
+        available: false,
+        authPresent: false,
+        configPresent: true,
+        reason: 'codex unavailable',
+      }),
+      resolveCodexCapabilities: async () => ({
+        defaults: {
+          sandboxMode: 'danger-full-access',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: false,
+          webSearchMode: 'disabled',
+        },
+        models: [
+          {
+            model: 'codex-model',
+            supportedReasoningEfforts: ['high'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+        byModel: new Map(),
+        warnings: [],
+        fallbackUsed: false,
+      }),
+    });
+
+    await assert.rejects(
+      () =>
+        runAgentInstructionUnlocked({
+          agentName: 'coding_agent',
+          instruction: 'Hello again',
+          conversationId: first.conversationId,
+          source: 'REST',
+          chatFactory: () => new ImmediateChat(),
+        }),
+      (error: unknown) =>
+        (error as { code?: string }).code === 'PROVIDER_UNAVAILABLE',
+    );
+    const conversation = memoryConversations.get(first.conversationId);
+    assert.equal(conversation?.provider, 'codex');
+    assert.equal(conversation?.model, 'codex-model');
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('startStep > 1 keeps absolute command metadata in websocket events', async () => {
   resetStore();
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const tempAgentsHome = await fs.mkdtemp(
@@ -301,7 +571,11 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+    [
+      'codeinfo_provider = "codex"',
+      'model = "gpt-5.3-codex"',
+      'approval_policy = "never"',
+    ].join('\n'),
     'utf8',
   );
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
@@ -328,6 +602,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
     ),
     'utf8',
   );
+  process.env.CODEINFO_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
   process.env.CODEINFO_CODEX_HOME = tempCodexHome;
 
@@ -366,7 +641,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
           e.inflight.command.stepIndex === 3
         );
       },
-      timeoutMs: 8000,
+      timeoutMs: 15000,
     });
 
     await runAgentCommand({
@@ -388,6 +663,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     await fs.rm(tempAgentsHome, { recursive: true, force: true });

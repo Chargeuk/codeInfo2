@@ -4,11 +4,16 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import type { ModelInfo } from '@github/copilot-sdk';
 import express from 'express';
 import request from 'supertest';
 
 import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
@@ -135,6 +140,215 @@ test('copilot chat still falls back automatically when provider resolution is om
     } else {
       process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
     }
+    await server.stop();
+  }
+});
+
+test('chat started responses keep the requested provider and repair the model there when the provider is healthy but the requested model is missing', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-same-provider-model-repair',
+      models: [
+        {
+          id: 'gpt-5-mini',
+          name: 'GPT-5 Mini',
+        } as ModelInfo,
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+        } as ModelInfo,
+      ],
+    },
+  });
+
+  try {
+    const conversationId = 'copilot-same-provider-model-repair';
+    const response = await request(server.httpServer).post('/chat').send({
+      provider: 'copilot',
+      model: 'missing-copilot-model',
+      conversationId,
+      message: 'Repair the model on the selected provider',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.body.model, 'gpt-5-mini');
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'copilot');
+    assert.equal(memoryConversations.get(conversationId)?.model, 'gpt-5-mini');
+  } finally {
+    await server.stop();
+  }
+});
+
+test('chat started responses keep the same requested model first when cross-provider fallback is required', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-same-model-first-fallback',
+      startError: new Error('copilot unavailable'),
+      models: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+        } as ModelInfo,
+      ],
+    },
+    lmstudioAvailable: true,
+    lmstudioClientFactory: () =>
+      ({
+        system: {
+          listDownloadedModels: async () => [
+            {
+              modelKey: 'lmstudio-test-model',
+              displayName: 'LM Studio Test Model',
+              type: 'llm',
+            },
+            {
+              modelKey: 'copilot-gpt-5',
+              displayName: 'Fallback Matches Requested Model',
+              type: 'llm',
+            },
+          ],
+        },
+        llm: {
+          model: async () => ({
+            act: async () => undefined,
+          }),
+        },
+      }) as never,
+  });
+
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  try {
+    const conversationId = 'copilot-same-model-first-fallback';
+    const response = await request(server.httpServer).post('/chat').send({
+      conversationId,
+      model: 'copilot-gpt-5',
+      message: 'Keep the requested model on fallback',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'lmstudio');
+    assert.equal(response.body.model, 'copilot-gpt-5');
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'lmstudio');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'copilot-gpt-5',
+    );
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    await server.stop();
+  }
+});
+
+test('implicit degraded-bootstrap chat requests fall back at the route and keep warning context', async () => {
+  __setProviderBootstrapStatusForTests('copilot', {
+    healthy: false,
+    reason: 'copilot bootstrap degraded',
+    warnings: ['copilot bootstrap degraded warning'],
+  });
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-degraded-bootstrap-fallback',
+    },
+    lmstudioAvailable: true,
+  });
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  try {
+    const response = await request(server.httpServer).post('/chat').send({
+      conversationId: 'copilot-bootstrap-fallback',
+      message: 'Fallback from degraded bootstrap',
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'lmstudio');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('copilot bootstrap degraded warning'),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fell back to provider "lmstudio"'),
+      ),
+      true,
+    );
+    assert.equal(
+      memoryConversations.get('copilot-bootstrap-fallback')?.provider,
+      'lmstudio',
+    );
+  } finally {
+    __resetProviderBootstrapStatusForTests();
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+    await server.stop();
+  }
+});
+
+test('resumed chats reject codex-only agentFlags before a saved copilot conversation can return 202 started', async () => {
+  const server = await startCopilotChatServer({
+    scenario: {
+      name: 'copilot-chat-saved-provider-agentflags-repin',
+    },
+  });
+
+  try {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+    });
+    const conversationId = 'copilot-saved-provider-agentflags-repin';
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'copilot',
+      model: 'copilot-gpt-5',
+      title: 'Saved copilot execution',
+      source: 'REST',
+      flags: { agentFlags: { toolAccess: 'full' } },
+      lastMessageAt: new Date('2026-05-15T00:00:00.000Z'),
+      archivedAt: null,
+      createdAt: new Date('2026-05-15T00:00:00.000Z'),
+      updatedAt: new Date('2026-05-15T00:00:00.000Z'),
+    } as never);
+
+    const response = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'codex',
+        model: 'gpt-5.1-codex-max',
+        conversationId,
+        message: 'Do not start with stale codex-only flags',
+        agentFlags: {
+          sandboxMode: 'danger-full-access',
+        },
+      });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.code, 'VALIDATION_FAILED');
+    assert.match(
+      String(response.body.message),
+      /agentFlags\.sandboxMode is not supported for provider "copilot"/i,
+    );
+    assert.equal(memoryConversations.get(conversationId)?.provider, 'copilot');
+    assert.equal(
+      memoryConversations.get(conversationId)?.model,
+      'copilot-gpt-5',
+    );
+    assert.equal(server.harness.getState().lastCreateSessionConfig, undefined);
+  } finally {
     await server.stop();
   }
 });

@@ -101,6 +101,19 @@ function describeProviderAuthState(result: ProviderAuthResponse): {
   }
 }
 
+function getDetectedAuthStateMessage(
+  result: ProviderAuthResponse,
+): string | null {
+  if (
+    result.detectedAuthState === 'already_authenticated' &&
+    result.state !== 'already_authenticated'
+  ) {
+    return `${getProviderLabel(result.provider)} appears to already be authenticated for this runtime, but a fresh login was still attempted.`;
+  }
+
+  return null;
+}
+
 export default function CodexDeviceAuthDialog({
   open,
   onClose,
@@ -121,6 +134,9 @@ export default function CodexDeviceAuthDialog({
   const describedResult = result
     ? describeProviderAuthState(result)
     : undefined;
+  const detectedAuthStateMessage = result
+    ? getDetectedAuthStateMessage(result)
+    : null;
 
   useEffect(() => {
     if (!open) {
@@ -278,6 +294,10 @@ export default function CodexDeviceAuthDialog({
 
           {result ? (
             <Stack spacing={1.5}>
+              {detectedAuthStateMessage ? (
+                <Alert severity="info">{detectedAuthStateMessage}</Alert>
+              ) : null}
+
               {describedResult?.message ? (
                 <Alert severity={describedResult.tone}>
                   {describedResult.message}
@@ -304,26 +324,13 @@ export default function CodexDeviceAuthDialog({
                 </Stack>
               ) : null}
 
-              {'userCode' in result && result.userCode ? (
-                <Stack spacing={0.5}>
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    One-time code
-                  </Typography>
-                  <Typography
-                    component="code"
-                    sx={{ fontFamily: 'monospace', fontSize: '0.95rem' }}
-                  >
-                    {result.userCode}
-                  </Typography>
-                </Stack>
-              ) : null}
-
               {'displayOutput' in result &&
               result.displayOutput &&
-              result.state === 'completion_pending' ? (
+              (result.state === 'verification_ready' ||
+                result.state === 'completion_pending') ? (
                 <>
                   <Typography variant="subtitle2" fontWeight={600}>
-                    Status details
+                    CLI output
                   </Typography>
                   <Box
                     sx={{

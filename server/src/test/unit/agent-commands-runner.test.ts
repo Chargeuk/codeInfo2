@@ -10,6 +10,16 @@ import {
   runAgentCommandRunner,
 } from '../../agents/commandsRunner.js';
 import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+  runAgentCommand,
+} from '../../agents/service.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
+import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
@@ -23,6 +33,22 @@ type Deferred<T> = {
   resolve: (value: T) => void;
   reject: (error: unknown) => void;
 };
+
+let markdownHarnessPreviousPreferredAgentsHome: string | undefined;
+
+class MinimalChat extends ChatInterface {
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
 
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
@@ -200,9 +226,13 @@ async function createMarkdownHarness(baseDir: string) {
   await fs.mkdir(otherRepo, { recursive: true });
   await fs.mkdir(thirdRepo, { recursive: true });
 
+  markdownHarnessPreviousPreferredAgentsHome ??=
+    process.env.CODEINFO_AGENT_HOME;
+  delete process.env.CODEINFO_AGENT_HOME;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   __resetMarkdownFileResolverDepsForTests();
   __setMarkdownFileResolverDepsForTests({
+    getCodeInfo2Root: () => codeInfo2Root,
     listIngestedRepositories: async () =>
       ({
         repos: [
@@ -236,8 +266,18 @@ describe('agent commands runner (v1)', () => {
 
   afterEach(async () => {
     __resetAgentCommandRunnerDepsForTests();
+    __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
     resetStore();
+    if (markdownHarnessPreviousPreferredAgentsHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME =
+        markdownHarnessPreviousPreferredAgentsHome;
+    }
+    markdownHarnessPreviousPreferredAgentsHome = undefined;
     if (previousAgentsHome === undefined) {
       delete process.env.CODEINFO_CODEX_AGENT_HOME;
     } else {
@@ -2237,5 +2277,110 @@ describe('agent commands runner (v1)', () => {
     });
 
     assert.equal(seenInstruction, 'alpha\nbeta');
+  });
+
+  test('provider-free direct command suffix skips provider bootstrap on the normal command path', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentsHome = path.join(tmpDir, 'agents');
+    const agentHome = path.join(agentsHome, 'coding_agent');
+    const commandsDir = path.join(agentHome, 'commands');
+    const codexHome = path.join(tmpDir, 'codex-home');
+    previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+
+    await fs.mkdir(commandsDir, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+      'utf8',
+    );
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      '',
+      'utf8',
+    );
+    await writeCommandFile({
+      agentHome,
+      commandName: 'reingest-only',
+      jsonText: JSON.stringify(
+        {
+          Description: 'Provider-free command',
+          items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
+        },
+        null,
+        2,
+      ),
+    });
+
+    process.env.CODEINFO_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+    process.env.CODEINFO_CODEX_HOME = codexHome;
+
+    let bootstrapCalls = 0;
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) =>
+        ({
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId: sourceId ?? '/repo/source-a',
+          }),
+        }) as never,
+    });
+    __setAgentServiceDepsForTests({
+      listIngestedRepositories: listDefaultReingestRepos as never,
+      getCodexDetection: () => {
+        bootstrapCalls += 1;
+        return {
+          available: false,
+          authPresent: false,
+          configPresent: true,
+          cliPath: undefined,
+          reason: 'provider bootstrap should be skipped',
+        };
+      },
+      resolveCodexCapabilities: async () => {
+        bootstrapCalls += 1;
+        throw new Error('provider bootstrap should be skipped');
+      },
+      resolveCopilotReadiness: async () => {
+        bootstrapCalls += 1;
+        return {
+          available: false,
+          toolsAvailable: false,
+          blockingStage: 'authentication' as const,
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated' as const,
+        };
+      },
+      getMcpStatus: async () => {
+        bootstrapCalls += 1;
+        return { available: false };
+      },
+    });
+
+    try {
+      const result = await runAgentCommand({
+        agentName: 'coding_agent',
+        commandName: 'reingest-only',
+        conversationId: 'task20-provider-free-command',
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+
+      assert.equal(bootstrapCalls, 0);
+      assert.equal(result.providerId, 'codex');
+      assert.equal(result.modelId, 'gpt-5.1-codex-max');
+    } finally {
+      if (previousCodexHome === undefined) {
+        delete process.env.CODEINFO_CODEX_HOME;
+      } else {
+        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+      }
+    }
   });
 });

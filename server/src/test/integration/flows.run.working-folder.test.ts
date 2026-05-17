@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -21,6 +21,11 @@ import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
+import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
@@ -79,6 +84,14 @@ class CapturingFlowChat extends ChatInterface {
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
+
+beforeEach(() => {
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+});
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -145,6 +158,31 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('POST /flows/:flowName/run rejects resumeStepPath without conversationId before startFlowRun begins', async () => {
+  let startCalls = 0;
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: async () => {
+        startCalls += 1;
+        throw new Error('startFlowRun should not be reached');
+      },
+    }),
+  );
+
+  const res = await supertest(app)
+    .post('/flows/llm-basic/run')
+    .send({ resumeStepPath: [0] });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'invalid_request');
+  assert.equal(
+    res.body.message,
+    'resumeStepPath requires an existing conversationId',
+  );
+  assert.equal(startCalls, 0);
 });
 
 test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {
@@ -433,6 +471,214 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
     }
     memoryConversations.delete('flow-child-working-folder');
     memoryTurns.delete('flow-child-working-folder');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('flow llm steps map a host working_folder into the shared mounted runtime path', async () => {
+  resetStore();
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  const prevCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const prevCodeWorkdir = process.env.CODEX_WORKDIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-workdir-host-map-'),
+  );
+  const hostIngestDir = path.join(tmpDir, 'host', 'base');
+  const codexWorkdir = path.join(tmpDir, 'data');
+  const hostWorkingFolder = path.join(hostIngestDir, 'repo', 'sub');
+  const expectedMounted = path.join(codexWorkdir, 'repo', 'sub');
+  const calls: Array<{
+    message: string;
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  await fs.mkdir(expectedMounted, { recursive: true });
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
+  process.env.CODEINFO_CODEX_WORKDIR = codexWorkdir;
+  delete process.env.CODEX_WORKDIR;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new CapturingFlowChat(calls),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(expectedMounted)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: 'flow-host-working-folder-map',
+        working_folder: hostWorkingFolder,
+      })
+      .expect(202);
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (calls.length >= 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.flags.workingDirectoryOverride, expectedMounted);
+    assert.equal(
+      memoryConversations.get('flow-host-working-folder-map')?.flags
+        ?.workingFolder,
+      expectedMounted,
+    );
+  } finally {
+    memoryConversations.delete('flow-host-working-folder-map');
+    memoryTurns.delete('flow-host-working-folder-map');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    process.env.FLOWS_DIR = prevFlowsDir;
+    process.env.CODEINFO_HOST_INGEST_DIR = prevHostIngestDir;
+    process.env.CODEINFO_CODEX_WORKDIR = prevCodexWorkdir;
+    process.env.CODEX_WORKDIR = prevCodeWorkdir;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('flow-owned llm steps default to the selected sourceId repository when working_folder is empty', async () => {
+  resetStore();
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-source-default-root-'),
+  );
+  const sourceRoot = path.join(tmpDir, 'source-root');
+  const calls: Array<{
+    message: string;
+    flags: Record<string, unknown>;
+    conversationId: string;
+  }> = [];
+  await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
+  await fs.cp(fixturesDir, path.join(sourceRoot, 'flows'), { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new CapturingFlowChat(calls),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(sourceRoot)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: 'flow-source-default-root',
+        sourceId: sourceRoot,
+      })
+      .expect(202);
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (calls.length >= 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.message, 'Say hello from a flow step.');
+    assert.equal(calls[0]?.flags.workingDirectoryOverride, sourceRoot);
+    assert.equal(
+      memoryConversations.get('flow-source-default-root')?.flags?.workingFolder,
+      undefined,
+    );
+  } finally {
+    memoryConversations.delete('flow-source-default-root');
+    memoryTurns.delete('flow-source-default-root');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execution-context seam cannot validate the path', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-workdir-unavailable-'),
+  );
+  const workingFolder = path.join(process.cwd(), 'flow-unavailable-workdir');
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  setWorkingFolderStatForTests(async () => {
+    const error = new Error('denied') as NodeJS.ErrnoException;
+    error.code = 'EACCES';
+    throw error;
+  });
+
+  try {
+    const res = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({ working_folder: workingFolder })
+      .expect(503);
+
+    assert.deepEqual(res.body, {
+      error: 'working_folder_unavailable',
+      code: 'WORKING_FOLDER_UNAVAILABLE',
+      message: 'working_folder is temporarily unavailable',
+    });
+  } finally {
+    setWorkingFolderStatForTests(undefined);
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

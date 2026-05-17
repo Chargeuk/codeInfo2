@@ -2,6 +2,9 @@ node_modules
 dist
 coverage
 .husky
+codex/.cache
+codex/.config
+codex/.local
 codeInfoStatus/manual-testing/
 artifacts/story-0000055-screenshots/
 # Intentional invalid test fixture; must remain syntactically broken.

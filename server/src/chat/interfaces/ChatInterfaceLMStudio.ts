@@ -13,6 +13,7 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
+import type { RepositoryExecutionContextMetadata } from '../../workingFolders/executionContext.js';
 import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
 import {
   ProviderRuntimeFlagError,
@@ -149,6 +150,7 @@ type LmStudioRunFlags = {
   agentFlags?: Record<string, unknown>;
   requestId?: string;
   baseUrl?: string;
+  repositoryContext?: RepositoryExecutionContextMetadata;
   signal?: AbortSignal;
   history?: Array<{ role?: string; content?: unknown }>;
   skipPersistence?: boolean;
@@ -246,6 +248,9 @@ export class ChatInterfaceLMStudio extends ChatInterface {
 
     const { tools: lmStudioTools } = this.toolFactory({
       log: (payload: Record<string, unknown>) => logToolUsage(payload),
+      repositoryContext: (flags ?? {})?.repositoryContext as
+        | RepositoryExecutionContextMetadata
+        | undefined,
       onToolResult: (
         callId: unknown,
         result: unknown,

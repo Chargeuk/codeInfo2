@@ -1,13 +1,18 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
 
 import type { ModelInfo } from '@github/copilot-sdk';
 import { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions, ThreadOptions } from '@openai/codex-sdk';
-import mongoose from 'mongoose';
 import { z } from 'zod';
 
+import { resolveAgentHomeEnv } from '../../agents/roots.js';
+import { buildConversationFlags } from '../../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
-import { normalizeImplicitCopilotRequestedModel } from '../../chat/copilotModelSupport.js';
+import {
+  normalizeImplicitCopilotRequestedModel,
+  resolveCopilotDefaultModel,
+} from '../../chat/copilotModelSupport.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
@@ -27,13 +32,20 @@ import type {
   ChatThreadEvent,
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  shouldUseMemoryPersistence,
+} from '../../chat/memoryPersistence.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import {
   buildUnavailableRuntimeProviderState,
   buildDefaultsAppliedMarkerPayload,
+  prioritizeRuntimeProviderModels,
   resolveChatDefaults,
   resolveCodexChatDefaults,
+  resolveProviderRuntimePreferredModel,
   resolveRuntimeProviderSelection,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
@@ -43,18 +55,31 @@ import {
   RuntimeConfigResolutionError,
   resolveChatRuntimeConfig,
 } from '../../config/runtimeConfig.js';
+import {
+  getAdvertisedRepositoryIdentityPaths,
+  listIngestedRepositories,
+} from '../../lmstudio/toolService.js';
 import { append } from '../../logStore.js';
+import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
   createConversation,
+  listTurns,
   updateConversationMeta,
+  updateConversationWorkingFolder,
 } from '../../mongo/repo.js';
+import type { TurnRuntimeMetadata } from '../../mongo/turn.js';
 import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../../providers/copilotReadiness.js';
+import { resolveSharedExecutionContext } from '../../workingFolders/executionContext.js';
+import {
+  resolveKnownRepositoryPathsState,
+  restoreSavedWorkingFolder,
+} from '../../workingFolders/state.js';
 import { isCodexAvailable } from '../codexAvailability.js';
 import {
   ArchivedConversationError,
@@ -111,7 +136,21 @@ export type CodebaseQuestionResult = {
   conversationId: string | null;
   modelId: string;
   segments: Segment[];
+  replay?:
+    | {
+        replayId: string;
+        status: 'in_progress';
+        inflightId?: string;
+      }
+    | {
+        replayId: string;
+        status: 'completed';
+        inflightId?: string;
+      };
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function buildReplayResult(params: {
   conversationId: string;
@@ -126,6 +165,39 @@ function buildReplayResult(params: {
         text: params.completedReplay.assistantText ?? '',
       },
     ],
+    ...(params.completedReplay.replayId
+      ? {
+          replay: {
+            replayId: params.completedReplay.replayId,
+            status: 'completed' as const,
+            ...(params.completedReplay.inflightId
+              ? { inflightId: params.completedReplay.inflightId }
+              : {}),
+          },
+        }
+      : {}),
+  };
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
+  };
+}
+
+function buildInProgressReplayResult(params: {
+  conversationId: string;
+  replayId: string;
+  modelId: string;
+  inflightId?: string;
+}): { content: [{ type: 'text'; text: string }] } {
+  const payload: CodebaseQuestionResult = {
+    conversationId: params.conversationId,
+    modelId: params.modelId,
+    segments: [],
+    replay: {
+      replayId: params.replayId,
+      status: 'in_progress',
+      ...(params.inflightId ? { inflightId: params.inflightId } : {}),
+    },
   };
 
   return {
@@ -149,14 +221,200 @@ function getCompletedReplayResult(params: {
   });
 }
 
+const getReplayMetadata = (
+  runtime: TurnRuntimeMetadata | undefined,
+):
+  | {
+      replayId: string;
+      inflightId?: string;
+      completed: boolean;
+    }
+  | undefined => {
+  if (!runtime?.replay) return undefined;
+  const replayId = runtime.replay.replayId?.trim();
+  if (!replayId) return undefined;
+  return {
+    replayId,
+    ...(runtime.replay.inflightId?.trim()
+      ? { inflightId: runtime.replay.inflightId.trim() }
+      : {}),
+    completed: runtime.replay.completed,
+  };
+};
+
+async function getPersistedCompletedReplayResult(params: {
+  conversationId?: string;
+  replayId?: string;
+}): Promise<{ content: [{ type: 'text'; text: string }] } | null> {
+  if (!params.conversationId || !params.replayId) return null;
+
+  const turns = shouldUseCodebaseQuestionMemoryPersistence()
+    ? getMemoryTurns(params.conversationId)
+    : (
+        await listTurns({
+          conversationId: params.conversationId,
+          limit: Number.MAX_SAFE_INTEGER,
+        })
+      ).items;
+
+  let matchedAssistant:
+    | {
+        content: string;
+        model: string;
+        status: 'ok' | 'stopped' | 'failed';
+        createdAt: Date;
+      }
+    | undefined;
+  for (const turn of turns) {
+    if (turn.role !== 'assistant') continue;
+    const replay = getReplayMetadata(turn.runtime);
+    if (!replay || replay.replayId !== params.replayId || !replay.completed) {
+      continue;
+    }
+    if (
+      !matchedAssistant ||
+      turn.createdAt.getTime() > matchedAssistant.createdAt.getTime()
+    ) {
+      matchedAssistant = {
+        content: turn.content,
+        model: turn.model,
+        status: turn.status,
+        createdAt: turn.createdAt,
+      };
+    }
+  }
+
+  if (matchedAssistant) {
+    return buildReplayResult({
+      conversationId: params.conversationId,
+      completedReplay: {
+        inflightId: `persisted-${params.replayId}`,
+        replayId: params.replayId,
+        model: matchedAssistant.model,
+        source: 'MCP',
+        assistantText: matchedAssistant.content,
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: matchedAssistant.createdAt.toISOString(),
+        finalStatus: matchedAssistant.status,
+        completedAt: matchedAssistant.createdAt.toISOString(),
+      },
+    });
+  }
+
+  let matchedInProgress:
+    | {
+        model: string;
+        inflightId?: string;
+        createdAt: Date;
+      }
+    | undefined;
+  for (const turn of turns) {
+    const replay = getReplayMetadata(turn.runtime);
+    if (!replay || replay.replayId !== params.replayId || replay.completed) {
+      continue;
+    }
+    if (
+      !matchedInProgress ||
+      turn.createdAt.getTime() > matchedInProgress.createdAt.getTime()
+    ) {
+      matchedInProgress = {
+        model: turn.model,
+        ...(replay.inflightId ? { inflightId: replay.inflightId } : {}),
+        createdAt: turn.createdAt,
+      };
+    }
+  }
+
+  if (!matchedInProgress) return null;
+  return buildInProgressReplayResult({
+    conversationId: params.conversationId,
+    replayId: params.replayId,
+    modelId: matchedInProgress.model,
+    inflightId: matchedInProgress.inflightId,
+  });
+}
+
+async function getReplayResult(params: {
+  conversationId?: string;
+  replayId?: string;
+}): Promise<{ content: [{ type: 'text'; text: string }] } | null> {
+  const completedReplay = getCompletedReplayResult(params);
+  if (completedReplay) return completedReplay;
+
+  const persistedReplay = await getPersistedCompletedReplayResult(params);
+  if (persistedReplay) return persistedReplay;
+
+  if (!params.conversationId || !params.replayId) return null;
+  const inflight = getInflight(params.conversationId);
+  if (inflight?.replayId !== params.replayId) return null;
+  return buildInProgressReplayResult({
+    conversationId: params.conversationId,
+    replayId: params.replayId,
+    modelId: inflight.model ?? 'unknown',
+    inflightId: inflight.inflightId,
+  });
+}
+
 function makeActiveReplayKey(conversationId: string, replayId: string) {
   return `${conversationId}::${replayId}`;
 }
 
 const activeReplayRuns = new Map<
   string,
-  Promise<{ content: [{ type: 'text'; text: string }] }>
+  {
+    claimReady: Promise<void>;
+    resolveClaimReady: () => void;
+    runPromise: Promise<{ content: [{ type: 'text'; text: string }] }>;
+  }
 >();
+
+function createReplayClaimGate() {
+  let resolveClaimReady = () => {};
+  const claimReady = new Promise<void>((resolve) => {
+    resolveClaimReady = resolve;
+  });
+  return {
+    claimReady,
+    resolveClaimReady,
+  };
+}
+
+async function waitForReplayClaimVisibility(params: {
+  conversationId: string;
+  replayId: string;
+  inflightId: string;
+  timeoutMs?: number;
+}) {
+  const timeoutMs = params.timeoutMs ?? 5000;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const inflight = getInflight(params.conversationId);
+    if (
+      inflight?.inflightId === params.inflightId &&
+      inflight.replayId === params.replayId &&
+      inflight.persisted?.user
+    ) {
+      return;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+  }
+
+  throw new ToolExecutionError(
+    -32002,
+    'CODEBASE_QUESTION_REPLAY_CLAIM_UNAVAILABLE',
+  );
+}
+
+const getSavedCodexThreadId = (
+  conversation: Conversation | null | undefined,
+): string | undefined => {
+  const threadId = conversation?.flags?.threadId;
+  return typeof threadId === 'string' && threadId.trim().length > 0
+    ? threadId
+    : undefined;
+};
 
 function logSummaryContractRead(params: {
   conversationId: string;
@@ -172,28 +430,14 @@ function logSummaryContractRead(params: {
       typeof file.modelId === 'string' &&
       typeof (file as { embeddingModel?: unknown }).embeddingModel !== 'string',
   );
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: 'mcp2.codebase_question.summary',
-      conversationId: params.conversationId,
-      canonicalFieldsConsumed,
-      summaryFileCount: files.length,
-    },
-  });
-  append({
-    level: 'info',
-    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
-    timestamp: new Date().toISOString(),
-    source: 'server',
-    context: {
-      consumer: 'mcp2.codebase_question.summary',
-      conversationId: params.conversationId,
-      aliasFallbackUsed,
-    },
+  appendSummaryBackedTransitiveConsumerLogs({
+    consumer: 'mcp2.codebase_question.summary',
+    subjectKind: 'conversation',
+    subjectId: params.conversationId,
+    conversationId: params.conversationId,
+    canonicalFieldsConsumed,
+    aliasFallbackUsed,
+    summaryFileCount: files.length,
   });
 }
 
@@ -208,12 +452,24 @@ export type CodebaseQuestionDeps = {
   chatFactory?: typeof getChatInterface;
   chatRuntimeConfigResolver?: typeof resolveChatRuntimeConfig;
   copilotReadinessResolver?: typeof resolveCopilotReadiness;
+  listIngestedRepositoriesFn?: typeof listIngestedRepositories;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
-const shouldUseMemoryPersistence = () =>
-  preferMemoryPersistence || mongoose.connection.readyState !== 1;
-const memoryConversations = new Map<string, Conversation>();
+const shouldUseCodebaseQuestionMemoryPersistence = () =>
+  preferMemoryPersistence || shouldUseMemoryPersistence();
+
+export function __setCodebaseQuestionMemoryConversationForTests(
+  conversation: Conversation,
+) {
+  memoryConversations.set(String(conversation._id), conversation);
+}
+
+export function __deleteCodebaseQuestionMemoryConversationForTests(
+  conversationId: string,
+) {
+  memoryConversations.delete(conversationId);
+}
 
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
 
@@ -261,7 +517,7 @@ const extractWarningFields = (warnings: string[]): string[] =>
 async function getConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
-  if (shouldUseMemoryPersistence()) {
+  if (shouldUseCodebaseQuestionMemoryPersistence()) {
     return memoryConversations.get(conversationId) ?? null;
   }
 
@@ -278,7 +534,7 @@ async function ensureConversation(
   flags?: Record<string, unknown>,
 ): Promise<void> {
   const now = new Date();
-  if (shouldUseMemoryPersistence()) {
+  if (shouldUseCodebaseQuestionMemoryPersistence()) {
     const existing = memoryConversations.get(conversationId);
     if (!existing) {
       memoryConversations.set(conversationId, {
@@ -344,7 +600,7 @@ export async function runCodebaseQuestion(
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const parsed = validateParams(params);
   const replayId = parsed.replayId;
-  const completedReplay = getCompletedReplayResult({
+  const completedReplay = await getReplayResult({
     conversationId: parsed.conversationId,
     replayId,
   });
@@ -359,20 +615,37 @@ export async function runCodebaseQuestion(
   if (replayKey) {
     const activeReplay = activeReplayRuns.get(replayKey);
     if (activeReplay) {
-      return await activeReplay;
+      await activeReplay.claimReady;
+      const claimedReplay = await getReplayResult({
+        conversationId: parsed.conversationId,
+        replayId,
+      });
+      if (claimedReplay) {
+        return claimedReplay;
+      }
+      return await activeReplay.runPromise;
     }
   }
 
-  const runPromise = executeCodebaseQuestion(parsed, deps);
+  const replayClaimGate = replayKey ? createReplayClaimGate() : null;
+  const runPromise = executeCodebaseQuestion(parsed, deps, {
+    onReplayClaimVisible: replayClaimGate?.resolveClaimReady,
+  });
   if (!replayKey) {
     return await runPromise;
   }
 
-  activeReplayRuns.set(replayKey, runPromise);
+  activeReplayRuns.set(replayKey, {
+    claimReady: replayClaimGate!.claimReady,
+    resolveClaimReady: replayClaimGate!.resolveClaimReady,
+    runPromise,
+  });
   try {
     return await runPromise;
   } finally {
-    if (activeReplayRuns.get(replayKey) === runPromise) {
+    const activeReplay = activeReplayRuns.get(replayKey);
+    activeReplay?.resolveClaimReady();
+    if (activeReplay?.runPromise === runPromise) {
       activeReplayRuns.delete(replayKey);
     }
   }
@@ -381,9 +654,12 @@ export async function runCodebaseQuestion(
 async function executeCodebaseQuestion(
   parsed: CodebaseQuestionParams,
   deps: Partial<CodebaseQuestionDeps>,
+  options?: {
+    onReplayClaimVisible?: () => void;
+  },
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const replayId = parsed.replayId;
-  const completedReplay = getCompletedReplayResult({
+  const completedReplay = await getReplayResult({
     conversationId: parsed.conversationId,
     replayId,
   });
@@ -392,28 +668,15 @@ async function executeCodebaseQuestion(
   }
   const question = parsed.question;
   const conversationId = parsed.conversationId;
-  const resolvedDefaults = resolveChatDefaults({
-    requestProvider: parsed.provider as ChatDefaultProvider | undefined,
-    requestModel:
-      typeof parsed.model === 'string' && parsed.model.trim().length > 0
-        ? parsed.model.trim()
-        : undefined,
-  });
-  const requestedProvider = resolvedDefaults.provider;
-  const explicitProviderSelected =
-    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0;
-  const codexRequestedDefaults =
-    requestedProvider === 'codex' &&
-    !(typeof parsed.model === 'string' && parsed.model.trim().length > 0)
-      ? await resolveCodexChatDefaults({
-          codexHome: process.env.CODEX_HOME,
-        })
+  const requestedProviderArg =
+    typeof parsed.provider === 'string' && parsed.provider.trim().length > 0
+      ? parsed.provider.trim()
       : undefined;
-  const requestedModel =
-    requestedProvider === 'codex'
-      ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
-      : resolvedDefaults.model;
-
+  const requestedModelArg =
+    typeof parsed.model === 'string' && parsed.model.trim().length > 0
+      ? parsed.model.trim()
+      : undefined;
+  const explicitProviderSelected = requestedProviderArg !== undefined;
   const existingConversation = conversationId
     ? await getConversation(conversationId)
     : null;
@@ -424,6 +687,48 @@ async function executeCodebaseQuestion(
       );
     }
   }
+  const savedConversationProvider =
+    existingConversation !== null &&
+    (existingConversation.provider === 'codex' ||
+      existingConversation.provider === 'copilot' ||
+      existingConversation.provider === 'lmstudio')
+      ? existingConversation.provider
+      : undefined;
+  const savedConversationModel =
+    existingConversation !== null &&
+    typeof existingConversation.model === 'string' &&
+    existingConversation.model.trim().length > 0
+      ? existingConversation.model.trim()
+      : undefined;
+  const pinSavedConversationExecutionIdentity =
+    existingConversation !== null &&
+    savedConversationProvider !== undefined &&
+    savedConversationModel !== undefined;
+  const resolvedDefaults = resolveChatDefaults({
+    requestProvider: pinSavedConversationExecutionIdentity
+      ? savedConversationProvider
+      : (requestedProviderArg as ChatDefaultProvider | undefined),
+    requestModel: pinSavedConversationExecutionIdentity
+      ? savedConversationModel
+      : requestedModelArg,
+  });
+
+  const requestedProvider = pinSavedConversationExecutionIdentity
+    ? savedConversationProvider
+    : resolvedDefaults.provider;
+  const codexRequestedDefaults =
+    requestedProvider === 'codex' &&
+    requestedModelArg === undefined &&
+    !pinSavedConversationExecutionIdentity
+      ? await resolveCodexChatDefaults({
+          codexHome: process.env.CODEX_HOME,
+        })
+      : undefined;
+  const requestedModel = pinSavedConversationExecutionIdentity
+    ? savedConversationModel
+    : requestedProvider === 'codex'
+      ? (codexRequestedDefaults?.values.model ?? resolvedDefaults.model)
+      : resolvedDefaults.model;
 
   if (
     process.env.MCP_FORCE_CODEX_AVAILABLE === 'true' &&
@@ -442,12 +747,17 @@ async function executeCodebaseQuestion(
     codexHome: process.env.CODEX_HOME,
   });
   const codexWarnings = [
-    ...codexCapabilities.warnings,
-    ...resolvedDefaults.warnings,
+    ...new Set([...codexCapabilities.warnings, ...resolvedDefaults.warnings]),
   ];
   const codexState = {
     available: codexAvailable,
-    models: codexCapabilities.models.map((entry) => entry.model),
+    models: prioritizeRuntimeProviderModels(
+      codexCapabilities.models.map((entry) => entry.model),
+      requestedProvider === 'codex'
+        ? requestedModel
+        : codexRequestedDefaults?.values.model,
+      { includeMissingPreferred: true },
+    ),
     reason: codexAvailable ? undefined : 'CODE_INFO_LLM_UNAVAILABLE',
   };
 
@@ -475,11 +785,18 @@ async function executeCodebaseQuestion(
           .filter(isChatModel)
           .map((entry) => entry.modelKey)
           .filter((value) => typeof value === 'string' && value.trim().length);
+        const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
+          provider: 'lmstudio',
+          lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+        }).model;
         lmstudioState =
           lmstudioModels.length > 0
             ? {
                 available: true,
-                models: lmstudioModels,
+                models: prioritizeRuntimeProviderModels(
+                  lmstudioModels,
+                  lmstudioPreferredModel,
+                ),
               }
             : buildUnavailableRuntimeProviderState('lmstudio unavailable');
       } catch {
@@ -513,6 +830,10 @@ async function executeCodebaseQuestion(
           requestedModelSource: resolvedDefaults.modelSource,
         })
       : requestedModel;
+  const copilotDefaultModel = resolveCopilotDefaultModel({
+    models: copilotReadiness.modelsRaw as ModelInfo[],
+    copilotHome: process.env.CODEINFO_COPILOT_HOME,
+  }).defaultModel;
 
   const runtimeSelection = resolveRuntimeProviderSelection({
     requestedProvider,
@@ -520,7 +841,10 @@ async function executeCodebaseQuestion(
     codex: codexState,
     copilot: {
       available: copilotReadiness.available,
-      models: copilotReadiness.models,
+      models: prioritizeRuntimeProviderModels(
+        copilotReadiness.models,
+        copilotDefaultModel,
+      ),
       reason: copilotReadiness.reason,
     },
     lmstudio: lmstudioState,
@@ -625,7 +949,10 @@ async function executeCodebaseQuestion(
     defaults: codexCapabilities.defaults,
   });
 
-  if (explicitProviderSelected && runtimeSelection.decision !== 'selected') {
+  if (
+    (explicitProviderSelected || pinSavedConversationExecutionIdentity) &&
+    runtimeSelection.decision !== 'selected'
+  ) {
     throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
   }
 
@@ -635,10 +962,99 @@ async function executeCodebaseQuestion(
 
   const executionProvider = runtimeSelection.executionProvider;
   const executionModel = runtimeSelection.executionModel;
-  const codexWorkingDirectory =
-    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
   const codexDefaults = codexCapabilities.defaults;
   let chatRuntimeConfig: CodexOptions['config'] | undefined;
+  const resolvedConversationId =
+    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
+
+  let effectiveWorkingFolder: string | undefined;
+  let mutableConversation = existingConversation;
+  const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+    async () =>
+      (
+        await (deps.listIngestedRepositoriesFn ?? listIngestedRepositories)()
+      ).repos.flatMap((repo) =>
+        getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
+          path.resolve(entry),
+        ),
+      ),
+  );
+  const persistWorkingFolder = async (workingFolder?: string | null) => {
+    if (!conversationId) return;
+    if (shouldUseCodebaseQuestionMemoryPersistence()) {
+      const existing = memoryConversations.get(conversationId);
+      if (!existing) return;
+      const nextFlags = { ...(existing.flags ?? {}) };
+      if (workingFolder && workingFolder.trim().length > 0) {
+        nextFlags.workingFolder = workingFolder;
+      } else {
+        delete nextFlags.workingFolder;
+      }
+      memoryConversations.set(conversationId, {
+        ...existing,
+        flags: nextFlags,
+      } as Conversation);
+      return;
+    }
+    await updateConversationWorkingFolder({
+      conversationId,
+      workingFolder,
+    });
+  };
+
+  try {
+    if (mutableConversation) {
+      effectiveWorkingFolder = await restoreSavedWorkingFolder({
+        conversation: mutableConversation,
+        surface: 'mcp_codebase_question',
+        clearPersistedWorkingFolder: async () => {
+          await persistWorkingFolder(null);
+          const nextFlags = { ...(mutableConversation?.flags ?? {}) };
+          delete nextFlags.workingFolder;
+          mutableConversation = {
+            ...mutableConversation!,
+            flags: nextFlags,
+          } as Conversation;
+        },
+        knownRepositoryPathsState,
+      });
+    }
+  } catch (error) {
+    const workingFolderError = error as {
+      code?: string;
+      reason?: string;
+      causeCode?: string;
+    };
+    if (
+      workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+      workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+    ) {
+      throw new ToolExecutionError(-32002, workingFolderError.code, {
+        reason: workingFolderError.reason,
+        ...(workingFolderError.causeCode
+          ? { causeCode: workingFolderError.causeCode }
+          : {}),
+      });
+    }
+    throw error;
+  }
+
+  const replayAfterWorkingFolderRestore = await getReplayResult({
+    conversationId: resolvedConversationId,
+    replayId,
+  });
+  if (replayAfterWorkingFolderRestore) {
+    return replayAfterWorkingFolderRestore;
+  }
+
+  const agentHomeResolution = resolveAgentHomeEnv();
+  const executionContext = await resolveSharedExecutionContext({
+    workingFolder: effectiveWorkingFolder,
+    defaultRepositoryRoot:
+      agentHomeResolution.activeEnvName !== 'default'
+        ? agentHomeResolution.codeInfoRoot
+        : undefined,
+  });
 
   if (executionProvider === 'codex') {
     const runtimeConfigResolver =
@@ -646,6 +1062,16 @@ async function executeCodebaseQuestion(
     try {
       const { config } = await runtimeConfigResolver();
       chatRuntimeConfig = config as CodexOptions['config'];
+      if (
+        pinSavedConversationExecutionIdentity &&
+        isRecord(chatRuntimeConfig) &&
+        chatRuntimeConfig.model !== executionModel
+      ) {
+        chatRuntimeConfig = {
+          ...chatRuntimeConfig,
+          model: executionModel,
+        } satisfies Record<string, unknown>;
+      }
     } catch (err) {
       if (err instanceof RuntimeConfigResolutionError) {
         throw new ToolExecutionError(-32002, 'CODE_INFO_CHAT_CONFIG_INVALID', {
@@ -660,7 +1086,7 @@ async function executeCodebaseQuestion(
 
   const threadOpts: ThreadOptions = {
     model: executionModel,
-    workingDirectory: codexWorkingDirectory,
+    workingDirectory: executionContext.workingDirectoryOverride,
     skipGitRepoCheck: true,
     sandboxMode: codexDefaults.sandboxMode,
     networkAccessEnabled: codexDefaults.networkAccessEnabled,
@@ -670,9 +1096,7 @@ async function executeCodebaseQuestion(
       codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'],
   } as ThreadOptions;
 
-  const resolvedConversationId =
-    conversationId ?? `${executionProvider}-thread-${Date.now()}`;
-  const lateCompletedReplay = getCompletedReplayResult({
+  const lateCompletedReplay = await getReplayResult({
     conversationId: resolvedConversationId,
     replayId,
   });
@@ -683,13 +1107,21 @@ async function executeCodebaseQuestion(
   const inflightId = replayId ? `mcp-replay-${replayId}` : crypto.randomUUID();
 
   const existingFlags =
-    existingConversation && existingConversation._id === resolvedConversationId
-      ? (existingConversation.flags as Record<string, unknown> | undefined)
+    mutableConversation && mutableConversation._id === resolvedConversationId
+      ? (mutableConversation.flags as Record<string, unknown> | undefined)
       : undefined;
-  const conversationFlags =
-    executionProvider === 'codex'
-      ? { ...(existingFlags ?? {}), ...threadOpts }
-      : sanitizeFlagsForProvider(executionProvider, existingFlags);
+  const conversationFlags = buildConversationFlags({
+    provider: executionProvider,
+    currentFlags: existingFlags,
+    workingFolder: effectiveWorkingFolder,
+    threadId:
+      executionProvider === 'codex' &&
+      mutableConversation?.provider === 'codex' &&
+      mutableConversation.model === executionModel
+        ? (getSavedCodexThreadId(mutableConversation) ?? null)
+        : null,
+    preserveFlowState: false,
+  });
 
   await ensureConversation(
     resolvedConversationId,
@@ -737,44 +1169,88 @@ async function executeCodebaseQuestion(
     model: executionModel,
     chat,
   });
+  const runtimeMetadata =
+    replayId !== undefined
+      ? {
+          ...executionContext.runtime,
+          replay: {
+            replayId,
+            inflightId,
+            completed: false,
+          },
+        }
+      : executionContext.runtime;
 
   try {
-    if (executionProvider === 'codex') {
-      const activeThreadId =
-        typeof conversationId === 'string' ? conversationId : undefined;
-      await chat.run(
-        question,
-        {
-          provider: executionProvider,
-          threadId: activeThreadId,
-          runtimeConfig: chatRuntimeConfig,
-          codexFlags: threadOpts,
-          signal: getInflight(resolvedConversationId)?.abortController.signal,
-          source: 'MCP',
-        },
-        resolvedConversationId,
-        executionModel,
-      );
-    } else {
-      await chat.run(
-        question,
-        {
-          provider: executionProvider,
-          baseUrl,
-          signal: getInflight(resolvedConversationId)?.abortController.signal,
-          ...(executionProvider === 'copilot'
-            ? {
-                copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
-                resumeConversation:
-                  existingConversation?.provider === 'copilot' &&
-                  existingConversation.model === executionModel,
-              }
-            : {}),
-          source: 'MCP',
-        },
-        resolvedConversationId,
-        executionModel,
-      );
+    try {
+      const runChat = async () => {
+        if (executionProvider === 'codex') {
+          await chat.run(
+            question,
+            {
+              provider: executionProvider,
+              threadId: getSavedCodexThreadId(mutableConversation),
+              runtimeConfig: chatRuntimeConfig,
+              codexFlags: threadOpts,
+              inflightId,
+              workingDirectoryOverride:
+                executionContext.workingDirectoryOverride,
+              repositoryContext: executionContext.repositoryMetadata,
+              runtime: runtimeMetadata,
+              signal: getInflight(resolvedConversationId)?.abortController
+                .signal,
+              source: 'MCP',
+            },
+            resolvedConversationId,
+            executionModel,
+          );
+          return;
+        }
+
+        await chat.run(
+          question,
+          {
+            provider: executionProvider,
+            baseUrl,
+            inflightId,
+            repositoryContext: executionContext.repositoryMetadata,
+            runtime: runtimeMetadata,
+            signal: getInflight(resolvedConversationId)?.abortController.signal,
+            ...(executionProvider === 'copilot'
+              ? {
+                  copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
+                  resumeConversation:
+                    mutableConversation?.provider === 'copilot' &&
+                    mutableConversation.model === executionModel,
+                  workingDirectoryOverride:
+                    executionContext.workingDirectoryOverride,
+                }
+              : {}),
+            source: 'MCP',
+          },
+          resolvedConversationId,
+          executionModel,
+        );
+      };
+
+      const runChatPromise = runChat();
+      if (conversationId && replayId) {
+        await waitForReplayClaimVisibility({
+          conversationId: resolvedConversationId,
+          replayId,
+          inflightId,
+        });
+        options?.onReplayClaimVisible?.();
+      }
+      await runChatPromise;
+    } catch (error) {
+      options?.onReplayClaimVisible?.();
+      if (error instanceof ToolExecutionError) throw error;
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : 'TOOL_EXECUTION_FAILED';
+      throw new ToolExecutionError(-32002, message);
     }
   } finally {
     bridge.cleanup();
@@ -784,13 +1260,46 @@ async function executeCodebaseQuestion(
     }
   }
 
-  const payload: CodebaseQuestionResult = responder.toResult(
-    executionModel,
-    resolvedConversationId,
-    {
+  const providerThreadId = responder.getProviderThreadId();
+  if (executionProvider === 'codex' && providerThreadId) {
+    const nextFlags = buildConversationFlags({
+      provider: executionProvider,
+      currentFlags: conversationFlags,
+      workingFolder: effectiveWorkingFolder,
+      threadId: providerThreadId,
+      preserveFlowState: false,
+    });
+    await ensureConversation(
+      resolvedConversationId,
+      executionProvider,
+      executionModel,
+      question.trim().slice(0, 80) || 'Untitled conversation',
+      nextFlags,
+    );
+    if (!conversationId && providerThreadId !== resolvedConversationId) {
+      await ensureConversation(
+        providerThreadId,
+        executionProvider,
+        executionModel,
+        question.trim().slice(0, 80) || 'Untitled conversation',
+        nextFlags,
+      );
+    }
+  }
+
+  let payload: CodebaseQuestionResult;
+  try {
+    payload = responder.toResult(executionModel, resolvedConversationId, {
       preferFallbackConversationId: typeof conversationId === 'string',
-    },
-  );
+    });
+  } catch (error) {
+    if (error instanceof ToolExecutionError) throw error;
+    const message =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : 'TOOL_EXECUTION_FAILED';
+    throw new ToolExecutionError(-32002, message);
+  }
   logSummaryContractRead({
     conversationId: resolvedConversationId,
     summaries: responder.getVectorSummaries(),
@@ -801,6 +1310,13 @@ async function executeCodebaseQuestion(
   );
   payload.segments =
     answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
+  if (replayId) {
+    payload.replay = {
+      replayId,
+      status: 'completed',
+      inflightId,
+    };
+  }
 
   append({
     level: 'info',

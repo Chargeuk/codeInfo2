@@ -153,7 +153,7 @@ test('returns not_found when conversation is missing', async () => {
   assert.equal(res.body.error, 'not_found');
 });
 
-test('completed replay requests do not duplicate persisted turns and reject contradictory stale payloads after cleanup', async () => {
+test('completed replay requests return INFLIGHT_ALREADY_COMPLETED before any conversation metadata rewrite', async () => {
   process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
   memoryConversations.clear();
   memoryTurns.clear();
@@ -178,6 +178,8 @@ test('completed replay requests do not duplicate persisted turns and reject cont
   assert.equal(first.status, 202);
 
   await waitForChatPersistence(conversationId, 2);
+  const persistedConversationBeforeReplay = memoryConversations.get(conversationId);
+  assert.ok(persistedConversationBeforeReplay);
 
   const replay = await request(app).post('/chat').send({
     provider: 'lmstudio',
@@ -190,8 +192,8 @@ test('completed replay requests do not duplicate persisted turns and reject cont
   assert.equal(replay.body.code, 'INFLIGHT_ALREADY_COMPLETED');
 
   const contradictoryReplay = await request(app).post('/chat').send({
-    provider: 'lmstudio',
-    model: 'model-1',
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
     conversationId,
     inflightId,
     message: 'mutate the stored conversation',
@@ -208,6 +210,24 @@ test('completed replay requests do not duplicate persisted turns and reject cont
   );
   assert.equal(persistedTurns[0]?.content, 'hello');
   assert.equal(persistedTurns[1]?.content, 'done');
+  const persistedConversationAfterReplay = memoryConversations.get(conversationId);
+  assert.ok(persistedConversationAfterReplay);
+  assert.equal(
+    persistedConversationAfterReplay?.provider,
+    persistedConversationBeforeReplay?.provider,
+  );
+  assert.equal(
+    persistedConversationAfterReplay?.model,
+    persistedConversationBeforeReplay?.model,
+  );
+  assert.deepEqual(
+    persistedConversationAfterReplay?.flags ?? {},
+    persistedConversationBeforeReplay?.flags ?? {},
+  );
+  assert.equal(
+    persistedConversationAfterReplay?.lastMessageAt?.toISOString(),
+    persistedConversationBeforeReplay?.lastMessageAt?.toISOString(),
+  );
 });
 
 test('inflight-only snapshot returns inflight items and inflight payload', async () => {

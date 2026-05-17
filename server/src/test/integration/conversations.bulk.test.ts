@@ -38,7 +38,11 @@ const createInMemoryBulkOps = (input: {
         input.conversations.set(id, { archived: true });
       }
 
-      return { status: 'ok', updatedCount: conversationIds.length };
+      return {
+        status: 'ok',
+        updatedCount: conversationIds.length,
+        updatedConversationIds: conversationIds,
+      };
     },
     bulkRestoreConversations: async (
       conversationIds: string[],
@@ -54,7 +58,11 @@ const createInMemoryBulkOps = (input: {
         input.conversations.set(id, { archived: false });
       }
 
-      return { status: 'ok', updatedCount: conversationIds.length };
+      return {
+        status: 'ok',
+        updatedCount: conversationIds.length,
+        updatedConversationIds: conversationIds,
+      };
     },
     bulkDeleteConversations: async (
       conversationIds: string[],
@@ -75,12 +83,16 @@ const createInMemoryBulkOps = (input: {
         input.conversations.delete(id);
       }
 
-      return { status: 'ok', deletedCount: conversationIds.length };
+      return {
+        status: 'ok',
+        deletedCount: conversationIds.length,
+        deletedConversationIds: conversationIds,
+      };
     },
   };
 };
 
-test('POST /conversations/bulk/archive returns 200 with updatedCount (happy path)', async () => {
+test('POST /conversations/bulk/archive returns 200 with explicit updated ids on full success', async () => {
   const conversations = new Map<string, ConversationState>([
     ['c1', { archived: false }],
     ['c2', { archived: false }],
@@ -96,11 +108,12 @@ test('POST /conversations/bulk/archive returns 200 with updatedCount (happy path
 
   assert.equal(res.body.status, 'ok');
   assert.equal(res.body.updatedCount, 2);
+  assert.deepEqual(res.body.updatedConversationIds, ['c1', 'c2']);
   assert.equal(conversations.get('c1')?.archived, true);
   assert.equal(conversations.get('c2')?.archived, true);
 });
 
-test('POST /conversations/bulk/restore returns 200 with updatedCount (happy path)', async () => {
+test('POST /conversations/bulk/restore returns 200 with explicit updated ids on full success', async () => {
   const conversations = new Map<string, ConversationState>([
     ['c1', { archived: true }],
     ['c2', { archived: true }],
@@ -116,11 +129,12 @@ test('POST /conversations/bulk/restore returns 200 with updatedCount (happy path
 
   assert.equal(res.body.status, 'ok');
   assert.equal(res.body.updatedCount, 2);
+  assert.deepEqual(res.body.updatedConversationIds, ['c1', 'c2']);
   assert.equal(conversations.get('c1')?.archived, false);
   assert.equal(conversations.get('c2')?.archived, false);
 });
 
-test('POST /conversations/bulk/delete deletes archived conversations and turns (happy path)', async () => {
+test('POST /conversations/bulk/delete returns 200 with explicit deleted ids on full success', async () => {
   const conversations = new Map<string, ConversationState>([
     ['c1', { archived: true }],
   ]);
@@ -135,8 +149,66 @@ test('POST /conversations/bulk/delete deletes archived conversations and turns (
 
   assert.equal(res.body.status, 'ok');
   assert.equal(res.body.deletedCount, 1);
+  assert.deepEqual(res.body.deletedConversationIds, ['c1']);
   assert.equal(conversations.has('c1'), false);
   assert.equal(turns.has('c1'), false);
+});
+
+test('POST /conversations/bulk/archive keeps the count contract explicit on partial success', async () => {
+  const res = await request(
+    appWith({
+      bulkArchiveConversations: async () => ({
+        status: 'ok',
+        updatedCount: 1,
+        updatedConversationIds: ['c1'],
+      }),
+    }),
+  )
+    .post('/conversations/bulk/archive')
+    .send({ conversationIds: ['c1', 'c2'] })
+    .expect(200);
+
+  assert.equal(res.body.status, 'ok');
+  assert.equal(res.body.updatedCount, 1);
+  assert.deepEqual(res.body.updatedConversationIds, ['c1']);
+});
+
+test('POST /conversations/bulk/restore keeps the count contract explicit on partial success', async () => {
+  const res = await request(
+    appWith({
+      bulkRestoreConversations: async () => ({
+        status: 'ok',
+        updatedCount: 1,
+        updatedConversationIds: ['c2'],
+      }),
+    }),
+  )
+    .post('/conversations/bulk/restore')
+    .send({ conversationIds: ['c1', 'c2'] })
+    .expect(200);
+
+  assert.equal(res.body.status, 'ok');
+  assert.equal(res.body.updatedCount, 1);
+  assert.deepEqual(res.body.updatedConversationIds, ['c2']);
+});
+
+test('POST /conversations/bulk/delete keeps the count contract explicit on partial success', async () => {
+  const res = await request(
+    appWith({
+      bulkDeleteConversations: async () => ({
+        status: 'ok',
+        deletedCount: 1,
+        deletedConversationIds: ['c1'],
+      }),
+    }),
+  )
+    .post('/conversations/bulk/delete')
+    .send({ conversationIds: ['c1', 'c2'] })
+    .expect(200);
+
+  assert.equal(res.body.status, 'ok');
+  assert.equal(res.body.deletedCount, 1);
+  assert.deepEqual(res.body.deletedConversationIds, ['c1']);
 });
 
 test('bulk endpoints reject missing conversationIds with 400 VALIDATION_FAILED', async () => {

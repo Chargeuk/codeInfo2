@@ -20,6 +20,10 @@ import { startFlowRun } from '../../flows/service.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import { TurnModel } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
+import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -114,6 +118,7 @@ Before({ tags: '@mongo' }, async () => {
   rememberedConversationIds.clear();
   rememberedExecutionIds.clear();
   lastResponse = null;
+  memoryConversations.clear();
   previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   previousFlowsDir = process.env.FLOWS_DIR;
   previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -124,6 +129,7 @@ Before({ tags: '@mongo' }, async () => {
   process.env.CODEINFO_CODEX_HOME = '/app/codex';
   process.env.FLOWS_DIR = tempDir;
   delete process.env.NODE_ENV;
+  installDeterministicCodexAvailabilityBootstrap();
 
   const app = express();
   app.use(cors());
@@ -152,6 +158,8 @@ Before({ tags: '@mongo' }, async () => {
 });
 
 After({ tags: '@mongo' }, async () => {
+  resetDeterministicCodexAvailabilityBootstrap();
+  memoryConversations.clear();
   if (mongoose.connection.readyState === 1) {
     await ConversationModel.deleteMany({}).exec();
     await TurnModel.deleteMany({}).exec();
@@ -282,15 +290,15 @@ Then('the flow execution response status code is {int}', (status: number) => {
   assert.equal(lastResponse.status, status);
 });
 
-Then('I remember the started conversation as {string}', (key: string) => {
+When('I remember the started conversation as {string}', (key: string) => {
   assert(lastResponse, 'expected flow execution response');
   const conversationId = lastResponse.body.conversationId;
   assert.equal(typeof conversationId, 'string');
   rememberedConversationIds.set(key, conversationId as string);
 });
 
-Then(
-  'the stored flow execution id for {string} is recorded as {string}',
+When(
+  'I record the stored flow execution id for {string} as {string}',
   async (conversationKey: string, executionKey: string) => {
     const conversationId = rememberedConversationIds.get(conversationKey);
     assert(

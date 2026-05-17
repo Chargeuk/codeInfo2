@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { ChatProviderId } from '@codeinfo2/common';
 import type { CopilotClientOptions } from '@github/copilot-sdk';
 import { parse as parseJsonc, type ParseError } from 'jsonc-parser';
 
 export const DEFAULT_CODEINFO_COPILOT_HOME = './copilot';
+export const DEFAULT_CODEINFO_LMSTUDIO_HOME = './lmstudio';
 export const COPILOT_ENV_AUTH_KEYS = [
   'COPILOT_GITHUB_TOKEN',
   'GH_TOKEN',
@@ -64,6 +66,18 @@ type CopilotManagedJsonObjectReadResult =
       value: Record<string, unknown>;
     };
 
+type CopilotManagedJsonObjectReadWithRawResult =
+  | {
+      status: 'missing';
+      artifactPath: string;
+    }
+  | {
+      status: 'present';
+      artifactPath: string;
+      raw: string;
+      value: Record<string, unknown>;
+    };
+
 export class CopilotManagedJsonArtifactError extends Error {
   readonly artifactPath: string;
   readonly artifactName: string;
@@ -116,6 +130,10 @@ export function getCopilotChatConfigPathForHome(copilotHome: string): string {
   return getCopilotStatePathForHome(copilotHome, 'chat', 'config.toml');
 }
 
+export function getCopilotConfigPathForHome(copilotHome: string): string {
+  return getCopilotStatePathForHome(copilotHome, 'config.toml');
+}
+
 export function getCopilotSettingsPathForHome(copilotHome: string): string {
   return getCopilotStatePathForHome(copilotHome, 'settings.json');
 }
@@ -126,6 +144,116 @@ export function getCopilotLegacyConfigPathForHome(copilotHome: string): string {
 
 export function getCopilotHome(env: NodeJS.ProcessEnv = process.env): string {
   return resolveCopilotHome(undefined, env);
+}
+
+export function resolveLmStudioHome(
+  overrideHome?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return path.resolve(
+    overrideHome ??
+      env.CODEINFO_LMSTUDIO_HOME ??
+      DEFAULT_CODEINFO_LMSTUDIO_HOME,
+  );
+}
+
+export function getLmStudioConfigPathForHome(lmstudioHome: string): string {
+  return path.join(path.resolve(lmstudioHome), 'config.toml');
+}
+
+const MANAGED_PROVIDER_BASE_CONFIG_TEMPLATE =
+  '# Managed by CodeInfo2 provider runtime bootstrap.\n';
+
+function buildManagedProviderBaseConfigTempPath(configPath: string): string {
+  return `${configPath}.${process.pid}.${Date.now()}.${Math.random()
+    .toString(16)
+    .slice(2)}.tmp`;
+}
+
+async function commitTempFileIfMissing(
+  tempPath: string,
+  targetPath: string,
+): Promise<'written' | 'existing'> {
+  try {
+    await fs.promises.link(tempPath, targetPath);
+    return 'written';
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      return 'existing';
+    }
+    throw error;
+  }
+}
+
+async function cleanupManagedProviderBaseConfigTempFile(
+  tempPath: string,
+): Promise<void> {
+  await fs.promises.rm(tempPath, { force: true }).catch(() => undefined);
+}
+
+async function ensureManagedProviderBaseConfigSeeded(params: {
+  provider: Exclude<ChatProviderId, 'codex'>;
+  providerHome: string;
+}): Promise<string> {
+  const configPath =
+    params.provider === 'copilot'
+      ? getCopilotConfigPathForHome(params.providerHome)
+      : getLmStudioConfigPathForHome(params.providerHome);
+
+  await fs.promises.mkdir(params.providerHome, { recursive: true });
+
+  try {
+    await fs.promises.access(configPath, fs.constants.F_OK);
+    return configPath;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  const tempPath = buildManagedProviderBaseConfigTempPath(configPath);
+  try {
+    await fs.promises.writeFile(
+      tempPath,
+      MANAGED_PROVIDER_BASE_CONFIG_TEMPLATE,
+      {
+        encoding: 'utf8',
+        flag: 'wx',
+      },
+    );
+    const commitResult = await commitTempFileIfMissing(tempPath, configPath);
+    if (commitResult === 'existing') {
+      return configPath;
+    }
+    return configPath;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      return configPath;
+    }
+    throw error;
+  } finally {
+    await cleanupManagedProviderBaseConfigTempFile(tempPath);
+  }
+}
+
+export async function ensureCopilotBaseConfigSeeded(
+  overrideHome?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  return ensureManagedProviderBaseConfigSeeded({
+    provider: 'copilot',
+    providerHome: resolveCopilotHome(overrideHome, env),
+  });
+}
+
+export async function ensureLmStudioBaseConfigSeeded(
+  overrideHome?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  return ensureManagedProviderBaseConfigSeeded({
+    provider: 'lmstudio',
+    providerHome: resolveLmStudioHome(overrideHome, env),
+  });
 }
 
 export function getCopilotConfigDir(
@@ -190,9 +318,9 @@ export async function ensureCopilotAuthFileStore(configDir: string): Promise<{
   }
 }
 
-export async function readCopilotManagedJsonObject(
+async function readCopilotManagedJsonObjectWithRaw(
   artifactPath: string,
-): Promise<CopilotManagedJsonObjectReadResult> {
+): Promise<CopilotManagedJsonObjectReadWithRawResult> {
   let raw: string;
   try {
     raw = await fs.promises.readFile(artifactPath, 'utf8');
@@ -220,7 +348,23 @@ export async function readCopilotManagedJsonObject(
   return {
     status: 'present',
     artifactPath,
+    raw,
     value: parsed,
+  };
+}
+
+export async function readCopilotManagedJsonObject(
+  artifactPath: string,
+): Promise<CopilotManagedJsonObjectReadResult> {
+  const result = await readCopilotManagedJsonObjectWithRaw(artifactPath);
+  if (result.status === 'missing') {
+    return result;
+  }
+
+  return {
+    status: 'present',
+    artifactPath: result.artifactPath,
+    value: result.value,
   };
 }
 
@@ -236,69 +380,106 @@ export async function ensureCopilotPlaintextTokenStorage(
 
   await fs.promises.mkdir(resolvedHome, { recursive: true });
 
-  let currentSettings: Record<string, unknown> = {};
-  const settingsResult = await readCopilotManagedJsonObject(settingsPath);
-  const settingsFileExists = settingsResult.status === 'present';
-  if (settingsResult.status === 'present') {
-    currentSettings = settingsResult.value;
-  } else {
+  while (true) {
+    let currentSettings: Record<string, unknown> = {};
+    let currentSettingsRaw: string | undefined;
+    const settingsResult =
+      await readCopilotManagedJsonObjectWithRaw(settingsPath);
+    const settingsFileExists = settingsResult.status === 'present';
+    if (settingsResult.status === 'present') {
+      currentSettings = settingsResult.value;
+      currentSettingsRaw = settingsResult.raw;
+    } else {
+      try {
+        const legacyConfigResult =
+          await readCopilotManagedJsonObject(legacyConfigPath);
+        if (
+          legacyConfigResult.status === 'present' &&
+          legacyConfigResult.value.store_token_plaintext === true
+        ) {
+          currentSettings = {
+            ...currentSettings,
+            storeTokenPlaintext: true,
+          };
+        }
+      } catch (error) {
+        if (!(error instanceof CopilotManagedJsonArtifactError)) {
+          throw error;
+        }
+
+        // `config.json` is Copilot-managed compatibility input only, so a
+        // malformed legacy artifact should not block bootstrap of the canonical
+        // repo-owned `settings.json` contract.
+      }
+    }
+
+    if (settingsFileExists && currentSettings.storeTokenPlaintext === true) {
+      return {
+        changed: false,
+        settingsPath,
+      };
+    }
+
+    const nextSettings = {
+      ...currentSettings,
+      storeTokenPlaintext: true,
+    };
+
+    const tempPath = path.join(
+      resolvedHome,
+      `settings.json.${process.pid}.${Date.now()}.${Math.random()
+        .toString(16)
+        .slice(2)}.tmp`,
+    );
+
     try {
-      const legacyConfigResult =
-        await readCopilotManagedJsonObject(legacyConfigPath);
-      if (
-        legacyConfigResult.status === 'present' &&
-        legacyConfigResult.value.store_token_plaintext === true
-      ) {
-        currentSettings = {
-          ...currentSettings,
-          storeTokenPlaintext: true,
+      await fs.promises.writeFile(
+        tempPath,
+        `${JSON.stringify(nextSettings, null, 2)}\n`,
+        'utf8',
+      );
+
+      if (!settingsFileExists) {
+        const commitResult = await commitTempFileIfMissing(
+          tempPath,
+          settingsPath,
+        );
+        if (commitResult === 'existing') {
+          continue;
+        }
+        return {
+          changed: true,
+          settingsPath,
         };
       }
-    } catch (error) {
-      if (!(error instanceof CopilotManagedJsonArtifactError)) {
-        throw error;
+
+      const latestSettings =
+        await readCopilotManagedJsonObjectWithRaw(settingsPath);
+      if (
+        latestSettings.status !== 'present' ||
+        latestSettings.raw !== currentSettingsRaw
+      ) {
+        if (
+          latestSettings.status === 'present' &&
+          latestSettings.value.storeTokenPlaintext === true
+        ) {
+          return {
+            changed: false,
+            settingsPath,
+          };
+        }
+        continue;
       }
 
-      // `config.json` is Copilot-managed compatibility input only, so a
-      // malformed legacy artifact should not block bootstrap of the canonical
-      // repo-owned `settings.json` contract.
+      await fs.promises.rename(tempPath, settingsPath);
+      return {
+        changed: true,
+        settingsPath,
+      };
+    } finally {
+      await fs.promises.rm(tempPath, { force: true }).catch(() => {});
     }
   }
-
-  if (settingsFileExists && currentSettings.storeTokenPlaintext === true) {
-    return {
-      changed: false,
-      settingsPath,
-    };
-  }
-
-  const nextSettings = {
-    ...currentSettings,
-    storeTokenPlaintext: true,
-  };
-
-  const tempPath = path.join(
-    resolvedHome,
-    `settings.json.${process.pid}.${Date.now()}.${Math.random()
-      .toString(16)
-      .slice(2)}.tmp`,
-  );
-
-  try {
-    await fs.promises.writeFile(
-      tempPath,
-      `${JSON.stringify(nextSettings, null, 2)}\n`,
-      'utf8',
-    );
-    await fs.promises.rename(tempPath, settingsPath);
-  } finally {
-    await fs.promises.rm(tempPath, { force: true }).catch(() => {});
-  }
-
-  return {
-    changed: true,
-    settingsPath,
-  };
 }
 
 async function pathExists(targetPath: string): Promise<boolean> {

@@ -14,8 +14,10 @@ import {
 } from '../codex/capabilityResolver.js';
 import {
   buildDefaultsAppliedMarkerPayload,
+  prioritizeRuntimeProviderModels,
   resolveChatDefaults,
   resolveCodexChatDefaults,
+  resolveProviderRuntimePreferredModel,
   resolveRuntimeProviderSelection,
   STORY_47_TASK_1_LOG_MARKER,
   toChatResolutionSource,
@@ -36,6 +38,9 @@ import {
   buildLmStudioAgentFlags,
   buildProviderInfo,
   buildProvidersResponse,
+  getProviderBootstrapReason,
+  getProviderBootstrapWarnings,
+  isProviderBootstrapHealthy,
   toCompatibilityCodexWarnings,
 } from './chatDiscovery.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
@@ -68,6 +73,9 @@ export function createChatProvidersRouter({
   const router = Router();
 
   router.get('/providers', async (_req, res) => {
+    const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
+    const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
+    const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
     const codex = getCodexDetection();
     const mcp = await getMcpStatus();
     const capabilities = await codexCapabilityResolver({
@@ -127,27 +135,65 @@ export function createChatProvidersRouter({
       models: copilot.modelsRaw,
       copilotHome: process.env.CODEINFO_COPILOT_HOME,
     });
+    const lmstudioModelMetadata = resolveProviderRuntimePreferredModel({
+      provider: 'lmstudio',
+      lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+    });
+    const prioritizedLmstudioProviderModel =
+      prioritizeRuntimeProviderModels(lmstudioModels, requestedModel)[0] ??
+      lmstudioModelMetadata.model;
+    const lmstudioProviderModelMetadata =
+      prioritizedLmstudioProviderModel === undefined
+        ? undefined
+        : {
+            defaultModel: prioritizedLmstudioProviderModel,
+            defaultModelSource:
+              prioritizedLmstudioProviderModel === lmstudioModelMetadata.model
+                ? ('config' as const)
+                : ('hardcoded' as const),
+            warnings:
+              prioritizedLmstudioProviderModel !==
+                lmstudioModelMetadata.model && lmstudioModelMetadata.model
+                ? [
+                    `lmstudio default model "${lmstudioModelMetadata.model}" is unavailable in the live model list; normalized to "${prioritizedLmstudioProviderModel}".`,
+                  ]
+                : [],
+          };
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider: requestedDefaults.provider as ChatDefaultProvider,
       requestedModel,
       codex: {
-        available: codex.available,
-        models: capabilities.models.map((entry) => entry.model),
-        reason: codex.reason ?? 'codex unavailable',
+        available: codex.available && codexBootstrapHealthy,
+        models: prioritizeRuntimeProviderModels(
+          capabilities.models.map((entry) => entry.model),
+          codexRequestedDefaults?.values.model,
+          { includeMissingPreferred: true },
+        ),
+        reason:
+          getProviderBootstrapReason('codex') ??
+          codex.reason ??
+          'codex unavailable',
       },
       copilot: {
-        available: copilot.available,
-        models: copilot.models,
-        reason: copilot.reason,
+        available: copilot.available && copilotBootstrapHealthy,
+        models: prioritizeRuntimeProviderModels(
+          copilot.models,
+          copilotModelMetadata.defaultModel,
+        ),
+        reason: getProviderBootstrapReason('copilot') ?? copilot.reason,
       },
       lmstudio: {
-        available: lmstudioModels.length > 0,
-        models: lmstudioModels,
-        reason: lmstudioReason,
+        available: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
+        models: prioritizeRuntimeProviderModels(
+          lmstudioModels,
+          lmstudioModelMetadata.model,
+        ),
+        reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
       },
     });
 
     const codexWarnings = [...capabilities.warnings];
+    codexWarnings.push(...getProviderBootstrapWarnings('codex'));
     if (
       capabilities.defaults.webSearchEnabled &&
       !(codex.available && mcp.available)
@@ -167,40 +213,51 @@ export function createChatProvidersRouter({
     const providerMap = {
       copilot: buildProviderInfo({
         provider: 'copilot',
-        available: copilot.available,
-        toolsAvailable: copilot.toolsAvailable,
-        reason: copilot.reason,
+        available: copilot.available && copilotBootstrapHealthy,
+        toolsAvailable: copilot.toolsAvailable && copilotBootstrapHealthy,
+        reason: copilotBootstrapHealthy
+          ? copilot.reason
+          : (getProviderBootstrapReason('copilot') ?? copilot.reason),
         copilotHome: process.env.CODEINFO_COPILOT_HOME,
         warnings: [
+          ...getProviderBootstrapWarnings('copilot'),
           ...(copilot.reason ? [copilot.reason] : []),
           ...copilotAgentFlags.warnings,
         ],
-        modelMetadata: {
-          defaultModel: copilotModelMetadata.defaultModel,
-          defaultModelSource: copilotModelMetadata.defaultModelSource,
-          warnings: copilotModelMetadata.warnings,
-        },
+        liveModels: copilot.models,
+        modelMetadata: copilotModelMetadata,
         agentFlags: copilotAgentFlags.agentFlags,
       }),
       lmstudio: buildProviderInfo({
         provider: 'lmstudio',
-        available: lmstudioModels.length > 0,
-        toolsAvailable: lmstudioModels.length > 0,
-        reason: lmstudioReason,
+        available: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
+        toolsAvailable: lmstudioModels.length > 0 && lmstudioBootstrapHealthy,
+        reason: lmstudioBootstrapHealthy
+          ? lmstudioReason
+          : (getProviderBootstrapReason('lmstudio') ?? lmstudioReason),
         lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
         warnings: [
+          ...getProviderBootstrapWarnings('lmstudio'),
           ...(lmstudioReason ? [lmstudioReason] : []),
           ...lmstudioAgentFlags.warnings,
         ],
+        liveModels: lmstudioModels,
+        modelMetadata: lmstudioProviderModelMetadata,
         agentFlags: lmstudioAgentFlags.agentFlags,
       }),
       codex: buildProviderInfo({
         provider: 'codex',
-        available: codex.available,
-        toolsAvailable: codex.available && mcp.available,
-        reason: codex.reason ?? (mcp.available ? undefined : mcp.reason),
+        available: codex.available && codexBootstrapHealthy,
+        toolsAvailable:
+          codex.available && codexBootstrapHealthy && mcp.available,
+        reason: codexBootstrapHealthy
+          ? (codex.reason ?? (mcp.available ? undefined : mcp.reason))
+          : (getProviderBootstrapReason('codex') ??
+            codex.reason ??
+            (mcp.available ? undefined : mcp.reason)),
         codexHome: process.env.CODEX_HOME,
         warnings: codexWarnings,
+        liveModels: capabilities.models.map((entry) => entry.model),
         agentFlags: buildCodexAgentFlags({
           capabilities,
           codexHome: process.env.CODEX_HOME,

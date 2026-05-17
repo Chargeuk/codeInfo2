@@ -42,6 +42,7 @@ Confirm the tasking against existing repository patterns and external contract e
   - env files and mounted host/container path mappings when runtime paths matter;
   - ports, health/readiness surfaces, and supported API or browser entrypoints;
   - login, seed, or setup path;
+  - any repository-defined conditions from `AGENTS.md` or `codeinfo_markdown/repository_information.md` that allow manual proof to be narrowed or skipped for specific surfaces;
   - ignored versus durable artifact destinations for generated proof;
   - where credentials or access come from without exposing secrets.
 - Use that evidence later when writing the final task's `Manual Testing Guidance`.

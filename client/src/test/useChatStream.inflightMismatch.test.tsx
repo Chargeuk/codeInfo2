@@ -16,6 +16,55 @@ describe('useChatStream inflight mismatch handling', () => {
       ? message.segments[0].content
       : undefined;
 
+  it('reconciles an optimistic user echo with the matching same-inflight user_turn without duplicating it', async () => {
+    const conversationId = 'visible-c2';
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+
+    let optimisticMessageId = '';
+    act(() => {
+      optimisticMessageId =
+        result.current.appendOptimisticUserMessage('Visible prompt');
+      result.current.bindOptimisticUserMessageToInflight(
+        optimisticMessageId,
+        'visible-i1',
+      );
+    });
+
+    await waitFor(() => {
+      const userMessages = result.current.messages.filter(
+        (message) => message.role === 'user',
+      );
+      expect(userMessages).toHaveLength(1);
+      expect(userMessages[0]?.optimistic).toBe(true);
+    });
+
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        seq: 1,
+        inflightId: 'visible-i1',
+        content: 'Visible prompt',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      }),
+    );
+
+    await waitFor(() => {
+      const userMessages = result.current.messages.filter(
+        (message) => message.role === 'user',
+      );
+      expect(userMessages).toHaveLength(1);
+      expect(userMessages[0]?.id).toBe(optimisticMessageId);
+      expect(userMessages[0]?.optimistic).toBe(false);
+      expect(userMessages[0]?.createdAt).toBe('2025-01-01T00:00:00.000Z');
+    });
+  });
+
   it('ignores a hidden-conversation assistant delta without changing the visible transcript', async () => {
     const consoleInfoSpy = jest
       .spyOn(console, 'info')

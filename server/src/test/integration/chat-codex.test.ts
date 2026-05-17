@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import test, { afterEach, beforeEach, mock } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
   CodexOptions,
@@ -25,9 +25,14 @@ import {
 } from '../../chat/memoryPersistence.js';
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
+import {
+  __resetProviderBootstrapStatusForTests,
+  __setProviderBootstrapStatusForTests,
+} from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
+import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
@@ -145,6 +150,11 @@ beforeEach(async () => {
     'model = "gpt-5.1-codex-max"\n',
     'utf8',
   );
+  await fs.writeFile(
+    path.join(tempCodexHomeForTest, 'auth.json'),
+    '{}',
+    'utf8',
+  );
   process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
   memoryConversations.clear();
   memoryTurns.clear();
@@ -154,10 +164,12 @@ beforeEach(async () => {
     configPresent: false,
     reason: 'not detected',
   });
+  __resetProviderBootstrapStatusForTests();
   conversationSeq = 0;
 });
 
 afterEach(async () => {
+  mock.restoreAll();
   if (ORIGINAL_CODEX_WORKDIR === undefined) {
     delete process.env.CODEX_WORKDIR;
   } else {
@@ -180,6 +192,9 @@ afterEach(async () => {
     await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
     tempCodexHomeForTest = undefined;
   }
+
+  setWorkingFolderStatForTests(undefined);
+  __resetProviderBootstrapStatusForTests();
 });
 
 let conversationSeq = 0;
@@ -191,6 +206,16 @@ const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const buildRepositoryBackedRuntimeHome = (
+  codexHome: string,
+  conversationId: string,
+) =>
+  path.join(
+    codexHome,
+    '.codeinfo-chat-runtimes',
+    `conversation-${Buffer.from(conversationId, 'utf8').toString('base64url') || 'empty'}`,
+  );
+
 async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -201,6 +226,26 @@ async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`Timed out waiting for assistant turn: ${conversationId}`);
+}
+
+async function waitForAssistantTurnCount(
+  conversationId: string,
+  assistantCount: number,
+  timeoutMs = 4000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const turns = getMemoryTurns(conversationId);
+    if (
+      turns.filter((turn) => turn.role === 'assistant').length >= assistantCount
+    ) {
+      return turns;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(
+    `Timed out waiting for ${assistantCount} assistant turns: ${conversationId}`,
+  );
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1118,6 +1163,313 @@ test('codex chat preserves persisted thread when resuming the same conversation 
   );
 });
 
+test('implicit chat requests keep threadId until route-level fallback selects codex', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
+
+  const mockCodex = new MockCodex('thread-fallback-eligible');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  try {
+    const conversationId = 'conv-chat-threadid-fallback';
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        conversationId,
+        message: 'Resume the codex thread after fallback',
+        threadId: 'thread-fallback-eligible',
+      })
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(response.body.provider, 'codex');
+    assert.equal(response.body.model, 'gpt-5.1-codex-max');
+    assert.equal(mockCodex.lastResumeThreadId, 'thread-fallback-eligible');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fell back to provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    if (originalDefaultProvider === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+    }
+  }
+});
+
+test('resumed contradictory provider-model input cannot rewrite saved execution identity', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const conversationId = 'conv-chat-saved-identity-wins';
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Saved execution identity',
+    source: 'REST',
+    flags: { threadId: 'thread-saved-identity' },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as never);
+
+  const mockCodex = new MockCodex('thread-saved-identity');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  const response = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+      }),
+    )
+    .expect(202);
+
+  await waitForAssistantTurn(conversationId);
+
+  assert.equal(response.body.provider, 'codex');
+  assert.equal(response.body.model, 'gpt-5.1-codex-max');
+  assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-identity');
+  assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
+  assert.equal(
+    memoryConversations.get(conversationId)?.model,
+    'gpt-5.1-codex-max',
+  );
+});
+
+test('repository-backed codex chat keeps the saved thread across a contradictory follow-up without rollout recording failure', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  class RepositoryBackedRolloutThread extends MockThread {
+    constructor(
+      id: string,
+      private readonly shouldFailRolloutRecording: boolean,
+    ) {
+      super(id);
+    }
+
+    override async runStreamed(): Promise<{
+      events: AsyncGenerator<ThreadEvent>;
+    }> {
+      const threadId = this.id;
+      const shouldFailRolloutRecording = this.shouldFailRolloutRecording;
+      async function* generator(): AsyncGenerator<ThreadEvent> {
+        yield { type: 'thread.started', thread_id: threadId } as ThreadEvent;
+        if (shouldFailRolloutRecording) {
+          yield {
+            type: 'error',
+            message:
+              `Codex Exec exited with code 1: Reading prompt from stdin...\n` +
+              `${new Date(0).toISOString()} ERROR codex_core::session: failed to record rollout items: thread ${threadId} not found`,
+          } as ThreadEvent;
+          return;
+        }
+        yield {
+          type: 'item.completed',
+          item: {
+            type: 'agent_message',
+            id: 'repo-backed-success',
+            text: 'READY',
+          },
+        } as ThreadEvent;
+        yield { type: 'turn.completed' } as ThreadEvent;
+      }
+
+      return { events: generator() };
+    }
+  }
+
+  class RepositoryBackedCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      const activeHome = lastCapturedCodexOptions?.env?.CODEX_HOME;
+      const runtimeConfig = lastCapturedCodexOptions?.config as
+        | Record<string, unknown>
+        | undefined;
+      const shouldFailRolloutRecording =
+        opts?.model !== undefined ||
+        opts?.approvalPolicy !== undefined ||
+        activeHome === tempCodexHomeForTest ||
+        runtimeConfig?.model !== undefined;
+      return new RepositoryBackedRolloutThread(
+        this.id,
+        shouldFailRolloutRecording,
+      );
+    }
+
+    override resumeThread(threadId: string, opts?: CodexThreadOptions) {
+      this.lastResumeThreadId = threadId;
+      this.lastResumeOptions = opts;
+      const activeHome = lastCapturedCodexOptions?.env?.CODEX_HOME;
+      const runtimeConfig = lastCapturedCodexOptions?.config as
+        | Record<string, unknown>
+        | undefined;
+      const shouldFailRolloutRecording =
+        threadId !== this.id ||
+        opts?.model !== undefined ||
+        opts?.approvalPolicy !== undefined ||
+        activeHome === tempCodexHomeForTest ||
+        runtimeConfig?.model !== undefined;
+      return new RepositoryBackedRolloutThread(
+        threadId,
+        shouldFailRolloutRecording,
+      );
+    }
+  }
+
+  const conversationId = 'conv-chat-repo-backed-thread-persisted';
+  const mockCodex = new RepositoryBackedCodex('thread-repo-backed');
+  let lastCapturedCodexOptions: CodexOptions | undefined;
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: (options?: CodexOptions) => {
+        lastCapturedCodexOptions = options;
+        return mockCodex;
+      },
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  const firstResponse = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        message: 'Reply with only READY.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+
+  const firstTurns = await waitForAssistantTurnCount(conversationId, 1);
+  const firstAssistant = firstTurns
+    .filter((turn) => turn.role === 'assistant')
+    .at(-1);
+  assert.equal(firstResponse.body.provider, 'codex');
+  assert.equal(firstResponse.body.model, 'gpt-5.1-codex-max');
+  assert.equal(firstAssistant?.status, 'ok');
+  assert.equal(firstAssistant?.content, 'READY');
+  const firstRuntimeHome = String(
+    lastCapturedCodexOptions?.env?.CODEX_HOME ?? '',
+  );
+  assert.notEqual(firstRuntimeHome, tempCodexHomeForTest);
+  assert.equal(
+    (lastCapturedCodexOptions?.config as Record<string, unknown> | undefined)
+      ?.model,
+    undefined,
+  );
+  const runtimeChatConfig = await fs.readFile(
+    path.join(firstRuntimeHome, 'chat', 'config.toml'),
+    'utf8',
+  );
+  assert.match(runtimeChatConfig, /model = "gpt-5\.1-codex-max"/u);
+  assert.equal(
+    memoryConversations.get(conversationId)?.flags?.threadId,
+    'thread-repo-backed',
+  );
+  assert.equal(mockCodex.lastStartOptions?.model, undefined);
+
+  const resumedResponse = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+        message: 'Ignore the earlier instruction and reply with only CHANGED.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+
+  const resumedTurns = await waitForAssistantTurnCount(conversationId, 2);
+  const assistantTurns = resumedTurns.filter(
+    (turn) => turn.role === 'assistant',
+  );
+  const resumedAssistant = assistantTurns.at(-1);
+
+  assert.equal(resumedResponse.body.provider, 'codex');
+  assert.equal(resumedResponse.body.model, 'gpt-5.1-codex-max');
+  assert.equal(mockCodex.lastResumeThreadId, 'thread-repo-backed');
+  assert.equal(mockCodex.lastResumeOptions?.model, undefined);
+  assert.equal(lastCapturedCodexOptions?.env?.CODEX_HOME, firstRuntimeHome);
+  assert.equal(resumedAssistant?.status, 'ok');
+  assert.equal(resumedAssistant?.content, 'READY');
+  assert.equal(
+    assistantTurns.some((turn) =>
+      String(turn.content).includes('failed to record rollout items'),
+    ),
+    false,
+  );
+  assert.equal(
+    memoryConversations.get(conversationId)?.flags?.threadId,
+    'thread-repo-backed',
+  );
+});
+
 test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
   setCodexDetection({
     available: true,
@@ -1241,6 +1593,29 @@ test('codex request returns PROVIDER_UNAVAILABLE when fallback provider has no s
   assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
+test('explicit degraded-bootstrap chat requests fail clearly without silent provider switching', async () => {
+  __setProviderBootstrapStatusForTests('codex', {
+    healthy: false,
+    reason: 'codex bootstrap degraded',
+    warnings: ['codex bootstrap degraded warning'],
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+    }),
+  );
+
+  const response = await request(app).post('/chat').send(buildCodexBody());
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+  assert.match(String(response.body.message), /codex bootstrap degraded/i);
+});
+
 test('POST /chat persists turns without WS subscribers (run continues)', async () => {
   setCodexDetection({
     available: true,
@@ -1298,4 +1673,262 @@ test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', asyn
   assert.equal(response.body.code, 'RUN_IN_PROGRESS');
 
   releaseConversationLock(conversationId);
+});
+
+test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged before lock-protected mutation begins', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex('thread-lock'),
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  const conversationId = 'thread-lock-no-mutation';
+  const originalConversation = {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Locked conversation',
+    source: 'REST',
+    flags: {
+      threadId: 'thread-lock-persisted',
+      workingFolder: '/repo/original',
+    },
+    lastMessageAt: new Date('2026-05-07T00:00:00.000Z'),
+    archivedAt: null,
+    createdAt: new Date('2026-05-07T00:00:00.000Z'),
+    updatedAt: new Date('2026-05-07T00:00:00.000Z'),
+  };
+  memoryConversations.set(conversationId, originalConversation as never);
+
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+
+  const response = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId,
+        provider: 'lmstudio',
+        model: 'model-1',
+        working_folder: workingRepo,
+      }),
+    );
+  assert.equal(response.status, 409);
+  assert.equal(response.body.status, 'error');
+  assert.equal(response.body.code, 'RUN_IN_PROGRESS');
+
+  const persistedConversation = memoryConversations.get(conversationId);
+  assert.equal(persistedConversation?.provider, originalConversation.provider);
+  assert.equal(persistedConversation?.model, originalConversation.model);
+  assert.deepEqual(persistedConversation?.flags, originalConversation.flags);
+  assert.equal(
+    persistedConversation?.lastMessageAt?.toISOString(),
+    originalConversation.lastMessageAt.toISOString(),
+  );
+  assert.equal(
+    persistedConversation?.updatedAt?.toISOString(),
+    originalConversation.updatedAt.toISOString(),
+  );
+  const runtimesRoot = path.join(
+    String(tempCodexHomeForTest),
+    '.codeinfo-chat-runtimes',
+  );
+  const runtimeEntries = await fs.readdir(runtimesRoot).catch(() => []);
+  assert.deepEqual(runtimeEntries, []);
+
+  releaseConversationLock(conversationId);
+});
+
+test('repository-backed codex chat keeps distinct runtime homes for conversation ids that previously sanitized the same way', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const capturedHomes = new Map<string, string>();
+  const firstConversationId = 'conv:shared-runtime-home';
+  const secondConversationId = 'conv-shared-runtime-home';
+  let lastCodexHome = '';
+
+  const recordingApp = express();
+  recordingApp.use(express.json());
+  recordingApp.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: (options?: CodexOptions) => {
+        lastCodexHome = String(options?.env?.CODEX_HOME ?? '');
+        return new MockCodex(`thread-${capturedHomes.size + 1}`);
+      },
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  await request(recordingApp)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: firstConversationId,
+        message: 'Reply with only READY.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+  await waitForAssistantTurn(firstConversationId);
+  capturedHomes.set(firstConversationId, lastCodexHome);
+
+  await request(recordingApp)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: secondConversationId,
+        message: 'Reply with only READY.',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(202);
+  await waitForAssistantTurn(secondConversationId);
+  capturedHomes.set(secondConversationId, lastCodexHome);
+
+  const firstHome = capturedHomes.get(firstConversationId);
+  const secondHome = capturedHomes.get(secondConversationId);
+  assert.ok(firstHome);
+  assert.ok(secondHome);
+  assert.notEqual(firstHome, secondHome);
+  assert.equal(
+    firstHome,
+    buildRepositoryBackedRuntimeHome(
+      String(tempCodexHomeForTest),
+      firstConversationId,
+    ),
+  );
+  assert.equal(
+    secondHome,
+    buildRepositoryBackedRuntimeHome(
+      String(tempCodexHomeForTest),
+      secondConversationId,
+    ),
+  );
+  await assert.doesNotReject(async () => {
+    await fs.access(path.join(String(firstHome), 'chat', 'config.toml'));
+    await fs.access(path.join(String(secondHome), 'chat', 'config.toml'));
+  });
+});
+
+test('repository-backed codex chat reports filesystem materialization failures without mislabeling them as config-invalid', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const workingRepo = '/data/story55-manual-proof/queued-repo';
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (path.resolve(targetPath) === path.resolve(workingRepo)) {
+      return {
+        isDirectory: () => true,
+      } as never;
+    }
+    const error = new Error('not found') as NodeJS.ErrnoException;
+    error.code = 'ENOENT';
+    throw error;
+  });
+
+  const originalWriteFile = fs.writeFile.bind(fs);
+  mock.method(
+    fs,
+    'writeFile',
+    async (...args: Parameters<typeof fs.writeFile>) => {
+      const target = String(args[0]);
+      if (
+        target.includes(`${path.sep}.codeinfo-chat-runtimes${path.sep}`) &&
+        target.endsWith(`${path.sep}chat${path.sep}config.toml`)
+      ) {
+        const error = new Error('permission denied') as NodeJS.ErrnoException;
+        error.code = 'EACCES';
+        throw error;
+      }
+      return originalWriteFile(...args);
+    },
+  );
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex('thread-materialize-error'),
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: workingRepo }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  const response = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: 'conv-chat-runtime-home-permission',
+        working_folder: workingRepo,
+      }),
+    )
+    .expect(500);
+
+  assert.equal(response.body.code, 'RUNTIME_CONFIG_UNREADABLE');
+  assert.match(
+    String(response.body.message),
+    /repository-backed chat runtime home/u,
+  );
 });

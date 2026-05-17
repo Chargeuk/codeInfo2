@@ -63,6 +63,13 @@ export function sanitizeConversationFlagsForProvider(
     next.workingFolder = flags.workingFolder.trim();
   }
 
+  if (
+    typeof flags.requestedProviderId === 'string' &&
+    flags.requestedProviderId.trim()
+  ) {
+    next.requestedProviderId = flags.requestedProviderId.trim();
+  }
+
   if (options?.preserveFlowState === true) {
     if (isPlainObject(flags.flow)) {
       next.flow = flags.flow;

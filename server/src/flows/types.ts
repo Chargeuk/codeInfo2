@@ -11,6 +11,8 @@ export type FlowRunErrorCode =
   | 'CONVERSATION_ARCHIVED'
   | 'RUN_IN_PROGRESS'
   | 'CODEX_UNAVAILABLE'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'INVALID_PROVIDER'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND'
   | 'WORKING_FOLDER_UNAVAILABLE'
@@ -56,13 +58,18 @@ export type FlowRunStartResult = {
   flowName: string;
   conversationId: string;
   inflightId: string;
+  providerId: string;
   modelId: string;
+  warnings?: string[];
 };
 
 export type FlowAgentState = {
   conversationId: string;
   threadId?: string;
   workingFolder?: string;
+  providerId?: string;
+  modelId?: string;
+  requestedProviderId?: string;
 };
 
 export type FlowExecutionRuntimeState = Map<string, FlowAgentState>;

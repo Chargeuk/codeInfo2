@@ -8,6 +8,8 @@ services:
       dockerfile: server/Dockerfile
       args:
         HOME: ${HOME}
+        CODEINFO_RUNTIME_UID: ${CODEINFO_DOCKER_UID:-1000}
+        CODEINFO_RUNTIME_GID: ${CODEINFO_DOCKER_GID:-1000}
         CODEINFO_NPM_REGISTRY: ${CODEINFO_NPM_REGISTRY:-}
         CODEINFO_PIP_INDEX_URL: ${CODEINFO_PIP_INDEX_URL:-}
         CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
@@ -30,6 +32,7 @@ services:
       - CODEINFO_COPILOT_HOME=/app/copilot
       - CODEINFO_LMSTUDIO_HOME=/app/lmstudio
       - CODEINFO_COPILOT_SEED_HOME=/seed/copilot
+      - CODEINFO_AGENT_HOME=/app/codeinfo_agents
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
       - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
@@ -43,7 +46,9 @@ services:
       - CODEINFO_FAKE_COPILOT_SCENARIO=${CODEINFO_FAKE_COPILOT_SCENARIO:-}
     volumes:
       - copilot-data:/app/copilot
+      - lmstudio-data:/app/lmstudio
       - ./copilot:/seed/copilot:ro
+      - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
       - ./scripts:/app/scripts:ro
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
@@ -170,3 +175,4 @@ networks:
 
 volumes:
   copilot-data:
+  lmstudio-data:

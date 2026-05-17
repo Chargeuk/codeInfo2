@@ -47,7 +47,8 @@ trust_level = "trusted"
 `;
 
 export function resolveCodexHome(overrideHome?: string): string {
-  const defaultHome = process.env.CODEINFO_CODEX_HOME ?? './codex';
+  const defaultHome =
+    process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME ?? './codex';
   return path.resolve(overrideHome ?? defaultHome);
 }
 

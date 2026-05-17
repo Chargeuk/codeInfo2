@@ -78,11 +78,17 @@ const createHarness = async (): Promise<Harness> => {
 
 describe('resolveMarkdownFile', () => {
   let harness: Harness;
+  let previousPreferredAgentHome: string | undefined;
   let previousAgentsHome: string | undefined;
 
   beforeEach(async () => {
     harness = await createHarness();
+    previousPreferredAgentHome = process.env.CODEINFO_AGENT_HOME;
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+    process.env.CODEINFO_AGENT_HOME = path.join(
+      harness.codeInfo2Root,
+      'codeinfo_agents',
+    );
     process.env.CODEINFO_CODEX_AGENT_HOME = harness.codeInfo2AgentsHome;
     resetStore();
     __resetMarkdownFileResolverDepsForTests();
@@ -91,6 +97,11 @@ describe('resolveMarkdownFile', () => {
   afterEach(async () => {
     __resetMarkdownFileResolverDepsForTests();
     resetStore();
+    if (previousPreferredAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousPreferredAgentHome;
+    }
     if (previousAgentsHome === undefined) {
       delete process.env.CODEINFO_CODEX_AGENT_HOME;
     } else {
@@ -238,6 +249,38 @@ describe('resolveMarkdownFile', () => {
     const content = await resolveMarkdownFile({ markdownFile: 'ordered.md' });
 
     assert.equal(content, 'zulu repo');
+  });
+
+  test('uses CODEINFO_AGENT_HOME ahead of CODEINFO_CODEX_AGENT_HOME for cross-repository markdown fallbacks', async () => {
+    const preferredRoot = path.join(harness.tmpDir, 'preferred-codeinfo2');
+    const legacyRoot = path.join(harness.tmpDir, 'legacy-codeinfo2');
+    process.env.CODEINFO_AGENT_HOME = path.join(
+      preferredRoot,
+      'codeinfo_agents',
+    );
+    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(
+      legacyRoot,
+      'codex_agents',
+    );
+    await fs.mkdir(process.env.CODEINFO_AGENT_HOME, { recursive: true });
+    await fs.mkdir(process.env.CODEINFO_CODEX_AGENT_HOME, { recursive: true });
+    await ensureMarkdownFile(preferredRoot, 'fallback.md', 'preferred root');
+    await ensureMarkdownFile(legacyRoot, 'fallback.md', 'legacy root');
+    __setMarkdownFileResolverDepsForTests({
+      listIngestedRepositories: async () =>
+        ({
+          repos: [
+            buildRepoEntry({ id: 'Flow Repo', containerPath: harness.repoOne }),
+          ],
+        }) as never,
+    });
+
+    const content = await resolveMarkdownFile({
+      markdownFile: 'fallback.md',
+      flowSourceId: harness.repoOne,
+    });
+
+    assert.equal(content, 'preferred root');
   });
 
   test('accepts root-level markdown lookups inside codeinfo_markdown', async () => {

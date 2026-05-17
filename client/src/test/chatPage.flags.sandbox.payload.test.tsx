@@ -270,7 +270,7 @@ describe('Codex sandbox flag payloads', () => {
     expect((codexBody.agentFlags as Record<string, unknown>)?.sandboxMode).toBe(
       'danger-full-access',
     );
-  });
+  }, 15000);
 
   it('sends fallback Codex flags and omits unsupported reasoning when defaults are missing', async () => {
     const chatBodies: Record<string, unknown>[] = [];

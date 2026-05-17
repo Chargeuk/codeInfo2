@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import express from 'express';
@@ -14,6 +14,10 @@ import {
   tryAcquireConversationLock,
   releaseConversationLock,
 } from '../../agents/runLock.js';
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
 import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
@@ -39,11 +43,28 @@ import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
 import {
+  installDeterministicCodexAvailabilityBootstrap,
+  resetDeterministicCodexAvailabilityBootstrap,
+} from '../support/codexAvailabilityBootstrap.js';
+import {
   closeWs,
   connectWs,
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+
+beforeEach(() => {
+  memoryConversations.clear();
+  memoryTurns.clear();
+  installDeterministicCodexAvailabilityBootstrap();
+});
+
+afterEach(() => {
+  resetDeterministicCodexAvailabilityBootstrap();
+  memoryConversations.clear();
+  memoryTurns.clear();
+  __resetAgentServiceDepsForTests();
+});
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -590,6 +611,156 @@ test('POST /flows/:flowName/run returns 409 for concurrent runs', async () => {
   }
 });
 
+test('resumed flow run keeps the saved child identity stable when the pinned model becomes unavailable', async () => {
+  installDeterministicCodexAvailabilityBootstrap({
+    models: [{ model: 'gpt-5.3-codex' }],
+  });
+
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-resume-unavailable-'),
+  );
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const flowConversationId = 'flow-resume-unavailable-conv';
+  const childConversationId = 'flow-resume-unavailable-child';
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  await writeFlowFile({
+    tmpDir,
+    flowName: 'resume-unavailable',
+    steps: [
+      {
+        type: 'llm',
+        label: 'Step 1',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 1'] }],
+      },
+      {
+        type: 'llm',
+        label: 'Step 2',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 2'] }],
+      },
+    ],
+  });
+
+  memoryConversations.set(flowConversationId, {
+    _id: flowConversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'Flow: resume-unavailable',
+    flowName: 'resume-unavailable',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'resume-unavailable-execution',
+        stepPath: [0],
+        loopStack: [],
+        agentConversations: {
+          'coding_agent:resume-test': childConversationId,
+        },
+        agentThreads: {},
+        agentProviders: {
+          'coding_agent:resume-test': 'codex',
+        },
+        agentModels: {
+          'coding_agent:resume-test': 'gpt-5.2-codex',
+        },
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastMessageAt: new Date(),
+    archivedAt: null,
+  });
+  memoryConversations.set(childConversationId, {
+    _id: childConversationId,
+    provider: 'codex',
+    model: 'gpt-5.2-codex',
+    title: 'Flow: resume-unavailable (resume-test)',
+    agentName: 'coding_agent',
+    source: 'REST',
+    flags: {
+      flowChild: { executionId: 'resume-unavailable-execution' },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastMessageAt: new Date(),
+    archivedAt: null,
+  });
+
+  const app = makeApp();
+
+  try {
+    const response = await supertest(app)
+      .post('/flows/resume-unavailable/run')
+      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+    assert.equal(response.status, 202);
+
+    await waitForConversationUnlocked(flowConversationId);
+    const turns = await waitForTurns(flowConversationId, (items) =>
+      items.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'failed' &&
+          /Saved model "gpt-5.2-codex" is unavailable/i.test(
+            turn.content ?? '',
+          ),
+      ),
+    );
+    const failureTurn = turns.find(
+      (turn) =>
+        turn.role === 'assistant' &&
+        turn.status === 'failed' &&
+        /Saved model "gpt-5.2-codex" is unavailable/i.test(turn.content ?? ''),
+    );
+    assert.ok(failureTurn);
+    assert.equal(failureTurn.provider, 'codex');
+    assert.equal(failureTurn.model, 'gpt-5.3-codex');
+
+    const flowConversation = memoryConversations.get(flowConversationId);
+    const childConversation = memoryConversations.get(childConversationId);
+    const flowFlags = (flowConversation?.flags ?? {}) as {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+
+    assert.equal(memoryConversations.has(flowConversationId), true);
+    assert.equal(memoryConversations.has(childConversationId), true);
+    assert.equal(
+      flowFlags.flow?.agentConversations?.['coding_agent:resume-test'],
+      childConversationId,
+    );
+    assert.equal(childConversation?.provider, 'codex');
+    assert.equal(childConversation?.model, 'gpt-5.2-codex');
+    assert.deepEqual(memoryTurns.get(childConversationId) ?? [], []);
+  } finally {
+    resetDeterministicCodexAvailabilityBootstrap();
+    memoryConversations.delete(flowConversationId);
+    memoryTurns.delete(flowConversationId);
+    memoryConversations.delete(childConversationId);
+    memoryTurns.delete(childConversationId);
+    if (prevAgentsHome) {
+      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    } else {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    }
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('later markdown-backed llm failures preserve AGENT_NOT_FOUND after flow start and skip markdown resolution', async () => {
   await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
     const conversationId = 'flow-markdown-precheck-after-start';
@@ -1041,6 +1212,548 @@ test('shared prestart formatter fallback stays aligned for dedicated flow failur
     assert.equal(turns[1]?.status, 'failed');
     assert.match(turns[1]?.content ?? '', /INVALID_PARAMS: INVALID_SOURCE_ID/);
   });
+});
+
+test('Task 19 preserves fallback runtime warnings on successful flow starts', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'codeinfo_provider = "copilot"',
+      'model = "copilot-model"',
+      'top_level_unknown = "ignored"',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  try {
+    await withFlowHarness(async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'fallback-warning-flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'fallback-warning',
+            messages: [{ role: 'user', content: ['after'] }],
+          },
+        ],
+      });
+
+      const result = await startFlowRun({
+        flowName: 'fallback-warning-flow',
+        source: 'REST',
+      });
+
+      assert.equal(
+        result.warnings?.some((warning) =>
+          warning.includes('Unknown key agent.top_level_unknown'),
+        ) ?? false,
+        true,
+      );
+    });
+  } finally {
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
+test('flow run start payload keeps providerId, warnings, and machine-readable launch truth on the first response', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const flowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "bad-provider"', 'model = "copilot-model"', ''].join(
+      '\n',
+    ),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.FLOWS_DIR = flowsDir;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: false,
+      toolsAvailable: false,
+      blockingStage: 'authentication',
+      reason: 'copilot unavailable',
+      models: [],
+      modelsRaw: [],
+      authSource: 'unauthenticated',
+    }),
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir: flowsDir,
+      flowName: 'task26-flow-warning-start',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'warning-start',
+          messages: [{ role: 'user', content: ['after'] }],
+        },
+      ],
+    });
+
+    const response = await supertest(makeApp())
+      .post('/flows/task26-flow-warning-start/run')
+      .send({})
+      .expect(202);
+
+    assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
+    assert.equal(response.body.modelId, 'gpt-5.3-codex');
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('unsupported provider "bad-provider"'),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fallback provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    process.env.FLOWS_DIR = previousFlowsDir;
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+    await fs.rm(flowsDir, { recursive: true, force: true });
+  }
+});
+
+test('flow run survives provider-specific runtime-config failure by falling back before runtime load', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const flowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'model = "copilot-gpt-5"', ''].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(copilotHome, 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.FLOWS_DIR = flowsDir;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [
+        {
+          model: 'gpt-5.3-codex',
+          supportedReasoningEfforts: ['high'],
+          defaultReasoningEffort: 'high',
+        },
+      ],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir: flowsDir,
+      flowName: 'task30-flow-provider-runtime-fallback',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'provider-runtime-fallback',
+          messages: [{ role: 'user', content: ['after'] }],
+        },
+      ],
+    });
+
+    const response = await supertest(makeApp())
+      .post('/flows/task30-flow-provider-runtime-fallback/run')
+      .send({})
+      .expect(202);
+
+    assert.equal(response.body.status, 'started');
+    assert.equal(response.body.providerId, 'codex');
+    assert.equal(
+      memoryConversations.get(response.body.conversationId)?.provider,
+      'codex',
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes(
+          'requested provider "copilot" because its runtime config could not load',
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      response.body.warnings.some((warning: string) =>
+        warning.includes('fallback provider "codex"'),
+      ),
+      true,
+    );
+  } finally {
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousLegacyAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+    await fs.rm(flowsDir, { recursive: true, force: true });
+  }
+});
+
+test('flow run fails clearly when no fallback provider can execute after requested runtime-config failure', async () => {
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
+  const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
+  const flowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['codeinfo_provider = "copilot"', 'model = "copilot-gpt-5"', ''].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(copilotHome, 'config.toml'),
+    'tool_access = [\n',
+    'utf8',
+  );
+
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  process.env.FLOWS_DIR = flowsDir;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: false,
+      authPresent: false,
+      configPresent: false,
+      reason: 'codex unavailable',
+    }),
+    resolveCodexCapabilities: async () => ({
+      defaults: {
+        sandboxMode: 'danger-full-access',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'high',
+        networkAccessEnabled: true,
+        webSearchEnabled: false,
+        webSearchMode: 'disabled',
+      },
+      models: [],
+      byModel: new Map(),
+      warnings: [],
+      fallbackUsed: false,
+    }),
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      reason: undefined,
+      models: ['copilot-gpt-5'],
+      modelsRaw: [
+        {
+          id: 'copilot-gpt-5',
+          name: 'Copilot GPT-5',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir: flowsDir,
+      flowName: 'task30-flow-provider-runtime-unavailable',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'provider-runtime-unavailable',
+          messages: [{ role: 'user', content: ['after'] }],
+        },
+      ],
+    });
+
+    const response = await supertest(makeApp())
+      .post('/flows/task30-flow-provider-runtime-unavailable/run')
+      .send({})
+      .expect(503);
+
+    assert.equal(response.body.error, 'provider_unavailable');
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(
+      String(response.body.reason),
+      /runtime config could not load/i,
+    );
+  } finally {
+    if (previousAgentHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    }
+    if (previousLegacyAgentHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
+    }
+    if (previousCodexHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    }
+    if (previousCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    }
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(agentsHome, { recursive: true, force: true });
+    await fs.rm(codexHome, { recursive: true, force: true });
+    await fs.rm(copilotHome, { recursive: true, force: true });
+    await fs.rm(flowsDir, { recursive: true, force: true });
+  }
 });
 
 test('unexpected thrown exceptions fail the current dedicated flow', async () => {

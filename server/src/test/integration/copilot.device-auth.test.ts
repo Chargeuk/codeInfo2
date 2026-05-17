@@ -232,6 +232,41 @@ describe('POST /copilot/device-auth integration behavior', () => {
     });
   });
 
+  test('advisory existing-auth detection still allows a fresh verification flow', async () => {
+    const harness = createMockCopilotDeviceAuthHarness(
+      createVerificationReadyScenario({
+        completionSequence: [{ status: 'completion_pending' }],
+      }),
+    );
+    const res = await supertest(
+      buildApp(
+        depsFromHarness(harness, {
+          createRuntime: () => ({
+            start: async () => {},
+            stop: async () => [],
+            getAuthStatus: async () => ({
+              isAuthenticated: true,
+              authType: 'gh-cli',
+            }),
+          }),
+        }),
+      ),
+    )
+      .post('/copilot/device-auth')
+      .send({});
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, {
+      provider: 'copilot',
+      state: 'verification_ready',
+      verificationUrl: 'https://github.com/login/device',
+      userCode: 'ABCD-EFGH',
+      detectedAuthState: 'already_authenticated',
+      displayOutput:
+        'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code ABCD-EFGH',
+    });
+  });
+
   test('completion remains observable through the mounted route', async () => {
     const harness = createMockCopilotDeviceAuthHarness(
       createVerificationReadyScenario({

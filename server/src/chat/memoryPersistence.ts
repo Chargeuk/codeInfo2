@@ -31,7 +31,15 @@ export const getMemoryTurns = (conversationId: string): Turn[] => [
 export const updateMemoryConversationMeta = (
   conversationId: string,
   patch: Partial<
-    Pick<Conversation, 'lastMessageAt' | 'model' | 'flags' | 'flowName'>
+    Pick<
+      Conversation,
+      | 'lastMessageAt'
+      | 'model'
+      | 'provider'
+      | 'flags'
+      | 'flowName'
+      | 'agentName'
+    >
   >,
 ): void => {
   const existing = memoryConversations.get(conversationId);

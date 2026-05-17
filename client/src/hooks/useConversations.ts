@@ -27,6 +27,14 @@ export type ConversationFilterState = 'active' | 'all' | 'archived';
 
 export type ConversationBulkAction = 'archive' | 'restore' | 'delete';
 
+export type ConversationBulkResult = {
+  updatedCount?: number;
+  deletedCount?: number;
+  resolvedConversationIds: string[];
+  pendingConversationIds: string[];
+  outcome: 'full' | 'partial';
+};
+
 export type ConversationBulkError = Error & {
   code: string;
   httpStatus?: number;
@@ -46,9 +54,9 @@ type State = {
   loadMore: () => Promise<void>;
   archive: (conversationId: string) => Promise<void>;
   restore: (conversationId: string) => Promise<void>;
-  bulkArchive: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
-  bulkRestore: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
-  bulkDelete: (conversationIds: string[]) => Promise<{ deletedCount: number }>;
+  bulkArchive: (conversationIds: string[]) => Promise<ConversationBulkResult>;
+  bulkRestore: (conversationIds: string[]) => Promise<ConversationBulkResult>;
+  bulkDelete: (conversationIds: string[]) => Promise<ConversationBulkResult>;
   readWorkingFolder: (
     conversation?: ConversationSummary | null,
   ) => string | undefined;
@@ -74,8 +82,16 @@ type ApiResponse = {
 };
 
 type BulkOkResponse =
-  | { status: 'ok'; updatedCount: number }
-  | { status: 'ok'; deletedCount: number };
+  | {
+      status: 'ok';
+      updatedCount: number;
+      updatedConversationIds?: string[];
+    }
+  | {
+      status: 'ok';
+      deletedCount: number;
+      deletedConversationIds?: string[];
+    };
 
 type BulkErrorResponse = {
   status?: 'error';
@@ -142,26 +158,43 @@ export function useConversations(params?: {
   const controllerRef = useRef<AbortController | null>(null);
   const log = useMemo(() => createLogger('client-flows'), []);
 
+  const normalizedAgentName =
+    typeof agentName === 'string' ? agentName.trim() : '';
   const normalizedFlowName =
     typeof flowName === 'string' ? flowName.trim() : '';
 
+  const applyStateFilter = useCallback(
+    (items: ConversationSummary[]) => {
+      if (filterState === 'all') return items;
+      if (filterState === 'archived') {
+        return items.filter((item) => Boolean(item.archived));
+      }
+      return items.filter((item) => !item.archived);
+    },
+    [filterState],
+  );
+
   const applyFilter = useCallback(
     (items: ConversationSummary[]) => {
-      const flowFiltered = normalizedFlowName
+      const agentFiltered = normalizedAgentName
         ? items.filter((item) => {
+            if (normalizedAgentName === '__none__') {
+              return !item.agentName;
+            }
+            return item.agentName === normalizedAgentName;
+          })
+        : items;
+      const flowFiltered = normalizedFlowName
+        ? agentFiltered.filter((item) => {
             if (normalizedFlowName === '__none__') {
               return !item.flowName;
             }
             return item.flowName === normalizedFlowName;
           })
-        : items;
-      if (filterState === 'all') return flowFiltered;
-      if (filterState === 'archived') {
-        return flowFiltered.filter((item) => Boolean(item.archived));
-      }
-      return flowFiltered.filter((item) => !item.archived);
+        : agentFiltered;
+      return applyStateFilter(flowFiltered);
     },
-    [filterState, normalizedFlowName],
+    [applyStateFilter, normalizedAgentName, normalizedFlowName],
   );
 
   const dedupeAndSort = useCallback((items: ConversationSummary[]) => {
@@ -217,11 +250,12 @@ export function useConversations(params?: {
           cursor: cursorRef.current,
         });
         log('info', 'flows.filter.requested', {
+          agentName: normalizedAgentName || '__all__',
           flowName: normalizedFlowName || '__all__',
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         search.set('state', filterState);
-        if (agentName) search.set('agentName', agentName);
+        if (normalizedAgentName) search.set('agentName', normalizedAgentName);
         if (normalizedFlowName) search.set('flowName', normalizedFlowName);
         const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
         if (mode === 'append' && cursorToUse) search.set('cursor', cursorToUse);
@@ -241,7 +275,7 @@ export function useConversations(params?: {
         cursorRef.current = data.nextCursor;
         setConversations((prev) => {
           const merged = mode === 'append' ? [...prev, ...items] : items;
-          return dedupeAndSort(applyFilter(merged));
+          return dedupeAndSort(applyStateFilter(merged));
         });
         console.info('[conversations] fetch success', {
           mode,
@@ -264,10 +298,11 @@ export function useConversations(params?: {
     [
       agentName,
       filterState,
+      normalizedAgentName,
       normalizedFlowName,
       log,
       dedupeAndSort,
-      applyFilter,
+      applyStateFilter,
     ],
   );
 
@@ -375,68 +410,119 @@ export function useConversations(params?: {
   );
 
   const bulkArchive = useCallback(
-    async (conversationIds: string[]) => {
+    async (conversationIds: string[]): Promise<ConversationBulkResult> => {
       const payload = await postBulk('archive', conversationIds);
       const updatedCount =
         'updatedCount' in payload
           ? payload.updatedCount
           : conversationIds.length;
+      const resolvedConversationIds =
+        'updatedConversationIds' in payload &&
+        Array.isArray(payload.updatedConversationIds)
+          ? payload.updatedConversationIds
+          : conversationIds;
+      const pendingConversationIds = conversationIds.filter(
+        (conversationId) => !resolvedConversationIds.includes(conversationId),
+      );
       setConversations((prev) =>
         dedupeAndSort(
           applyFilter(
             prev.map((conv) =>
-              conversationIds.includes(conv.conversationId)
+              resolvedConversationIds.includes(conv.conversationId)
                 ? { ...conv, archived: true }
                 : conv,
             ),
           ),
         ),
       );
-      return { updatedCount };
+      return {
+        updatedCount,
+        resolvedConversationIds,
+        pendingConversationIds,
+        outcome:
+          pendingConversationIds.length > 0 &&
+          updatedCount < conversationIds.length
+            ? 'partial'
+            : 'full',
+      };
     },
     [applyFilter, dedupeAndSort, postBulk],
   );
 
   const bulkRestore = useCallback(
-    async (conversationIds: string[]) => {
+    async (conversationIds: string[]): Promise<ConversationBulkResult> => {
       const payload = await postBulk('restore', conversationIds);
       const updatedCount =
         'updatedCount' in payload
           ? payload.updatedCount
           : conversationIds.length;
+      const resolvedConversationIds =
+        'updatedConversationIds' in payload &&
+        Array.isArray(payload.updatedConversationIds)
+          ? payload.updatedConversationIds
+          : conversationIds;
+      const pendingConversationIds = conversationIds.filter(
+        (conversationId) => !resolvedConversationIds.includes(conversationId),
+      );
       setConversations((prev) =>
         dedupeAndSort(
           applyFilter(
             prev.map((conv) =>
-              conversationIds.includes(conv.conversationId)
+              resolvedConversationIds.includes(conv.conversationId)
                 ? { ...conv, archived: false }
                 : conv,
             ),
           ),
         ),
       );
-      return { updatedCount };
+      return {
+        updatedCount,
+        resolvedConversationIds,
+        pendingConversationIds,
+        outcome:
+          pendingConversationIds.length > 0 &&
+          updatedCount < conversationIds.length
+            ? 'partial'
+            : 'full',
+      };
     },
     [applyFilter, dedupeAndSort, postBulk],
   );
 
   const bulkDelete = useCallback(
-    async (conversationIds: string[]) => {
+    async (conversationIds: string[]): Promise<ConversationBulkResult> => {
       const payload = await postBulk('delete', conversationIds);
       const deletedCount =
         'deletedCount' in payload
           ? payload.deletedCount
           : conversationIds.length;
+      const resolvedConversationIds =
+        'deletedConversationIds' in payload &&
+        Array.isArray(payload.deletedConversationIds)
+          ? payload.deletedConversationIds
+          : conversationIds;
+      const pendingConversationIds = conversationIds.filter(
+        (conversationId) => !resolvedConversationIds.includes(conversationId),
+      );
       setConversations((prev) =>
         dedupeAndSort(
           applyFilter(
             prev.filter(
-              (conv) => !conversationIds.includes(conv.conversationId),
+              (conv) => !resolvedConversationIds.includes(conv.conversationId),
             ),
           ),
         ),
       );
-      return { deletedCount };
+      return {
+        deletedCount,
+        resolvedConversationIds,
+        pendingConversationIds,
+        outcome:
+          pendingConversationIds.length > 0 &&
+          deletedCount < conversationIds.length
+            ? 'partial'
+            : 'full',
+      };
     },
     [applyFilter, dedupeAndSort, postBulk],
   );

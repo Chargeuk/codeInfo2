@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 
 import express from 'express';
 
@@ -27,6 +27,7 @@ import {
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { attachWs } from '../../ws/server.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 import {
@@ -231,6 +232,37 @@ const writeMarkdownFile = async (params: {
   await fs.writeFile(filePath, params.content, 'utf8');
 };
 
+let previousPreferredAgentsHome: string | undefined;
+let previousLegacyAgentsHome: string | undefined;
+
+beforeEach(() => {
+  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
+  previousLegacyAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  delete process.env.CODEINFO_AGENT_HOME;
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+    reason: undefined,
+  });
+});
+
+afterEach(() => {
+  if (previousPreferredAgentsHome === undefined) {
+    delete process.env.CODEINFO_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+  }
+  previousPreferredAgentsHome = undefined;
+  if (previousLegacyAgentsHome === undefined) {
+    delete process.env.CODEINFO_CODEX_AGENT_HOME;
+  } else {
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentsHome;
+  }
+  previousLegacyAgentsHome = undefined;
+});
+
 const waitForMemoryTurns = async (
   conversationId: string,
   expectedCount: number,
@@ -261,8 +293,19 @@ const setupRepoCommandHarness = async (suffix: string) => {
     codexHome,
   });
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
+  __setAgentServiceDepsForTests({
+    getCodexDetection: () => ({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      cliPath: '/usr/bin/codex',
+      reason: undefined,
+    }),
+  });
 
   return {
     tempRoot,
@@ -306,6 +349,7 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
     codexHome,
   });
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
 
@@ -335,7 +379,7 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
     const conversation = memoryConversations.get(result.conversationId);
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.ok(conversation);
-    assert.equal(conversation?.model, 'agent-model-1');
+    assert.equal(conversation?.model, 'gpt-5.1-codex-max');
     assert.equal(conversation?.title, 'Command: reingest-only-run');
     assert.equal(turns.length, 2);
     assert.equal(turns[0]?.role, 'user');
@@ -395,6 +439,7 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
     codexHome,
   });
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
 
@@ -426,7 +471,7 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
     const conversation = memoryConversations.get(result.conversationId);
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.ok(conversation);
-    assert.equal(conversation?.model, 'agent-model-1');
+    assert.equal(conversation?.model, 'gpt-5.1-codex-max');
     assert.equal(conversation?.title, 'Command: reingest-only-start');
     assert.equal(turns.length, 2);
     assert.equal(
@@ -464,6 +509,7 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
     codexHome,
   });
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
 
@@ -596,6 +642,7 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
     codexHome,
   });
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
 
@@ -725,6 +772,7 @@ test('mixed direct-command runs preserve reingest then message execution order',
   });
   const messages: string[] = [];
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
 
@@ -790,6 +838,7 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
   });
   const callIds = ['call-a', 'call-b'];
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
 
@@ -1923,6 +1972,7 @@ test('mixed reingest, markdownFile, and inline content runs preserve ordering an
   });
   const messages: string[] = [];
 
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
   process.env.CODEINFO_CODEX_HOME = codexHome;
 

@@ -163,7 +163,6 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
 
   await input.fill('   \n   ');
   await expect(send).toBeDisabled();
-  await page.waitForTimeout(300);
   expect(runBodies).toHaveLength(1);
 });
 
@@ -341,4 +340,162 @@ test('agents keeps instruction input responsive while a long transcript is visib
   await input.fill(longInstruction);
   await expect(input).toHaveValue(longInstruction);
   await expect(send).toBeEnabled();
+});
+
+test('agents warning timing and disabled-state guard stay visible at the browser surface', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const commandRunBodies: Array<Record<string, unknown>> = [];
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const method = req.method();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const path = url.pathname;
+
+    if (path === '/health' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+
+    if (path === '/agents' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ agents: [{ name: 'coding_agent' }] }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          agent: {
+            name: 'coding_agent',
+            description: 'Disabled now',
+            disabled: true,
+            warnings: [
+              {
+                code: 'invalid_provider',
+                message:
+                  'Agent config requested unsupported provider "not-a-provider".',
+              },
+            ],
+            disabledReason: {
+              code: 'provider_unavailable',
+              message: 'No usable provider remains',
+            },
+            fallbackCandidates: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent/commands' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          commands: [
+            {
+              name: 'improve_plan',
+              description: 'Improve',
+              disabled: false,
+              stepCount: 1,
+            },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (path === '/conversations' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [] }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
+      commandRunBodies.push(
+        (req.postDataJSON?.() ?? {}) as Record<string, unknown>,
+      );
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          inflightId: 'i2',
+          modelId: 'gpt-5.3-codex',
+        }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent/run' && method === 'POST') {
+      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          inflightId: 'i1',
+          modelId: 'gpt-5.3-codex',
+        }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await page.goto(`${baseUrl}/agents`);
+
+  const infoButton = page.getByTestId('agent-info');
+  const sendButton = page.getByTestId('agent-send');
+  const commandSelect = page.getByRole('combobox', { name: 'Command' });
+  const executeCommandButton = page.getByTestId('agent-command-execute');
+  const folder = page.getByRole('textbox', { name: 'working_folder' });
+
+  await expect(infoButton).toBeVisible({ timeout: 20000 });
+  await expect(
+    page.getByText(/unsupported provider "not-a-provider"/i),
+  ).toHaveCount(0);
+  await commandSelect.click();
+  await page.getByRole('option', { name: 'Improve' }).click();
+  await expect(executeCommandButton).toBeEnabled();
+
+  await folder.fill('/tmp/stale');
+  await infoButton.click();
+
+  await expect(
+    page.getByText(/unsupported provider "not-a-provider"/i),
+  ).toBeVisible();
+  await expect(page.getByTestId('agent-disabled')).toContainText(
+    'No usable provider remains',
+  );
+  await expect(sendButton).toBeDisabled();
+  await expect(executeCommandButton).toBeDisabled();
+  expect(runBodies).toHaveLength(0);
+  expect(commandRunBodies).toHaveLength(0);
 });

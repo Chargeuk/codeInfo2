@@ -304,10 +304,10 @@ const resolveFieldWithPrecedence = <T>(params: {
   return { value: params.hardcoded, source: 'hardcoded' };
 };
 
-export const resolveCodexChatDefaults = async (params?: {
+export const resolveCodexChatDefaults = (params?: {
   codexHome?: string;
   overrides?: CodexChatDefaultOverrides;
-}): Promise<ResolvedCodexChatDefaults> => {
+}): ResolvedCodexChatDefaults => {
   const warnings: string[] = [];
   const { config, warnings: configWarnings } = readProviderConfigSafely({
     provider: 'codex',
@@ -483,6 +483,36 @@ const firstSelectableModel = (models: string[]): string | undefined => {
   return undefined;
 };
 
+export const prioritizeRuntimeProviderModels = (
+  models: string[],
+  preferredModel: string | undefined,
+  options?: { includeMissingPreferred?: boolean },
+): string[] => {
+  const normalizedPreferred = parseModelValue(preferredModel);
+  const ordered: string[] = [];
+
+  if (normalizedPreferred) {
+    const matchedPreferred = models.find(
+      (model) => parseModelValue(model) === normalizedPreferred,
+    );
+    if (matchedPreferred) {
+      ordered.push(normalizedPreferred);
+    } else if (options?.includeMissingPreferred) {
+      ordered.push(normalizedPreferred);
+    }
+  }
+
+  for (const model of models) {
+    const normalized = parseModelValue(model);
+    if (!normalized) continue;
+    if (!ordered.includes(normalized)) {
+      ordered.push(normalized);
+    }
+  }
+
+  return ordered;
+};
+
 const getProviderState = (
   provider: ChatDefaultProvider,
   states: Record<ChatDefaultProvider, RuntimeProviderState>,
@@ -490,6 +520,22 @@ const getProviderState = (
 
 const getFallbackProviders = (requestedProvider: ChatDefaultProvider) =>
   ORDERED_CHAT_PROVIDERS.filter((provider) => provider !== requestedProvider);
+
+const selectExecutionModel = (
+  state: RuntimeProviderState,
+  requestedModel: string,
+): string | undefined => {
+  const normalizedRequestedModel = parseModelValue(requestedModel);
+  if (
+    normalizedRequestedModel &&
+    state.models.some(
+      (model) => parseModelValue(model) === normalizedRequestedModel,
+    )
+  ) {
+    return normalizedRequestedModel;
+  }
+  return firstSelectableModel(state.models);
+};
 
 export const resolveRuntimeProviderSelection = ({
   requestedProvider,
@@ -511,21 +557,26 @@ export const resolveRuntimeProviderSelection = ({
   };
   const requestedState = getProviderState(requestedProvider, providerStates);
   if (requestedState.available) {
-    return {
-      requestedProvider,
-      requestedModel,
-      executionProvider: requestedProvider,
-      executionModel: requestedModel,
-      fallbackApplied: false,
-      unavailable: false,
-      decision: 'selected',
-      requestedReason: requestedState.reason,
-    };
+    const selectedModel = selectExecutionModel(requestedState, requestedModel);
+    if (selectedModel) {
+      return {
+        requestedProvider,
+        requestedModel,
+        executionProvider: requestedProvider,
+        executionModel: selectedModel,
+        fallbackApplied: false,
+        unavailable: false,
+        decision: 'selected',
+        requestedReason: requestedState.reason,
+      };
+    }
   }
 
   for (const fallbackProvider of getFallbackProviders(requestedProvider)) {
     const fallbackState = getProviderState(fallbackProvider, providerStates);
-    const fallbackModel = firstSelectableModel(fallbackState.models);
+    const fallbackModel = fallbackState.available
+      ? selectExecutionModel(fallbackState, requestedModel)
+      : undefined;
     if (fallbackState.available && fallbackModel) {
       return {
         requestedProvider,
@@ -592,12 +643,45 @@ const parseProviderChatModel = (
   return model;
 };
 
+export const resolveProviderRuntimePreferredModel = (params: {
+  provider: ChatDefaultProvider;
+  codexHome?: string;
+  copilotHome?: string;
+  lmstudioHome?: string;
+}): { model: string | undefined; warnings: string[] } => {
+  const {
+    config,
+    warnings,
+    configPath: _configPath,
+  } = readProviderConfigSafely(params);
+  void _configPath;
+  return {
+    model: parseProviderChatModel(params.provider, config, warnings),
+    warnings,
+  };
+};
+
 const resolveProviderDefaultModel = (params: {
   provider: ChatDefaultProvider;
   codexHome?: string;
   copilotHome?: string;
   lmstudioHome?: string;
-}): { model: string; warnings: string[] } => {
+}): {
+  model: string;
+  modelSource: ResolutionSource;
+  warnings: string[];
+} => {
+  if (params.provider === 'codex') {
+    const resolved = resolveCodexChatDefaults({
+      codexHome: params.codexHome,
+    });
+    return {
+      model: resolved.values.model,
+      modelSource: toChatResolutionSource(resolved.sources.model),
+      warnings: resolved.warnings,
+    };
+  }
+
   const { config, warnings, configPath } = readProviderConfigSafely({
     provider: params.provider,
     codexHome: params.codexHome,
@@ -606,7 +690,7 @@ const resolveProviderDefaultModel = (params: {
   });
   const model = parseProviderChatModel(params.provider, config, warnings);
   if (model) {
-    return { model, warnings };
+    return { model, modelSource: 'config', warnings };
   }
   throw new ChatDefaultsResolutionError({
     provider: params.provider,
@@ -675,7 +759,7 @@ export const resolveChatDefaults = ({
             : provider === envProvider
               ? 'env'
               : 'fallback',
-        modelSource: 'config',
+        modelSource: resolvedModel.modelSource,
         warnings: [...warnings, ...resolvedModel.warnings],
       };
     } catch (error) {

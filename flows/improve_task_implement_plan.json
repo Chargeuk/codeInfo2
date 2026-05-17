@@ -198,10 +198,10 @@
                 },
                 {
                   "type": "break",
-                  "label": "Exit if no implementation task is available",
+                  "label": "Exit if no valid implementation task handoff is available",
                   "agentType": "planning_agent",
                   "identifier": "planner",
-                  "question": "Answer from the selector result you just produced in the immediately preceding step. Answer yes only if you just wrote a state that does NOT resolve a current task for implementation, for example because plan repair is needed or the story is already complete. Answer no only if you just resolved one current task for this loop pass. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Answer from the selector result you just produced in the immediately preceding step. Answer yes only if that step did NOT leave one valid current task handoff for implementation, for example because selector stdout and the reread current-task.json disagreed, the current task handoff must be regenerated, plan repair is needed, or the story is already complete. Answer no only if the selector stdout result and the persisted current-task.json agreed on one resolved current task for this loop pass. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "breakOn": "yes"
                 },
                 {
@@ -336,6 +336,20 @@
                   "identifier": "planner",
                   "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` exists, `selected_task.has_unchecked_subtasks` is false, `selected_task.has_unchecked_testing` is true, and `selected_task.live_blockers` is empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                   "continueOn": "yes"
+                },
+                {
+                  "type": "llm",
+                  "label": "Reconfirm repository-defined manual testing skip policy",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "messages": [
+                    {
+                      "role": "user",
+                      "content": [
+                        "Before manual-testing work continues, re-check `AGENTS.md` and `codeinfo_markdown/repository_information.md` for any repository-defined conditions that allow manual proof to be narrowed or skipped. Follow those repository-owned rules if they are being met during proof. Do not invent your own skip reasons, and do not reopen the task or add implementation work solely because a repository-defined skip condition was hit."
+                      ]
+                    }
+                  ]
                 },
                 {
                   "type": "llm",

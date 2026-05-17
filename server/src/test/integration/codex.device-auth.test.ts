@@ -62,7 +62,6 @@ function verificationReadyResult(
 ): CodexDeviceAuthVerificationReady {
   return createCodexVerificationReadyResponse({
     verificationUrl: overrides?.verificationUrl ?? 'https://device.test/verify',
-    userCode: overrides?.userCode ?? 'CODE-123',
     displayOutput:
       overrides?.displayOutput ??
       'Open https://device.test/verify and enter code CODE-123.',
@@ -110,7 +109,6 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'verification_ready',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
     assert.equal(receivedHome, undefined);
@@ -140,14 +138,13 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'completion_pending',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
 
     resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
   });
 
-  test('returns already-authenticated after the shared auth flow finishes', async () => {
+  test('completed auth can be retried even when runtime detection now sees existing auth', async () => {
     let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
       resolveCompletion = resolve;
@@ -174,7 +171,10 @@ describe('POST /codex/device-auth', () => {
     assert.equal(refreshed.status, 200);
     assert.deepEqual(refreshed.body, {
       provider: 'codex',
-      state: 'already_authenticated',
+      state: 'verification_ready',
+      verificationUrl: 'https://device.test/verify',
+      detectedAuthState: 'already_authenticated',
+      displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
   });
 
@@ -301,20 +301,20 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'verification_ready',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
     assert.equal(runCodexDeviceAuth.mock.calls.length, 2);
   });
 
-  test('already-authenticated runtimes return the shared already-authenticated state', async () => {
+  test('already-authenticated runtime detection is advisory and still allows a fresh auth flow', async () => {
+    const runCodexDeviceAuth = mock.fn(async () =>
+      buildDeviceAuthResult(verificationReadyResult()),
+    );
     const res = await supertest(
       buildApp(
         withDeps({
           refreshCodexDetection: () => availableDetection,
-          runCodexDeviceAuth: async () => {
-            throw new Error('should not run');
-          },
+          runCodexDeviceAuth,
         }),
       ),
     )
@@ -324,8 +324,12 @@ describe('POST /codex/device-auth', () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
       provider: 'codex',
-      state: 'already_authenticated',
+      state: 'verification_ready',
+      verificationUrl: 'https://device.test/verify',
+      detectedAuthState: 'already_authenticated',
+      displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
+    assert.equal(runCodexDeviceAuth.mock.calls.length, 1);
   });
 
   test('oversized payload returns standardized invalid_request contract', async () => {
@@ -442,7 +446,6 @@ describe('POST /codex/device-auth', () => {
       provider: 'codex',
       state: 'verification_ready',
       verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
     assert.deepEqual(resA.body, resB.body);

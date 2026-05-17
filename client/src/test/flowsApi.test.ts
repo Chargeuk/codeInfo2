@@ -11,7 +11,7 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
-const { listFlows, runFlow } = await import('../api/flows');
+const { listFlows, getFlowDetails, runFlow } = await import('../api/flows');
 
 describe('Flows API helpers', () => {
   it('calls GET /flows for listFlows', async () => {
@@ -73,7 +73,92 @@ describe('Flows API helpers', () => {
     await expect(listFlows()).rejects.toThrow('Failed to load flows (500)');
   });
 
-  it('calls POST /flows/:flowName/run and parses success payload', async () => {
+  it('preserves structured flow detail warnings and disabled reasons', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        flow: {
+          name: 'daily',
+          description: 'Daily flow',
+          disabled: true,
+          warnings: [
+            {
+              code: 'provider_unavailable',
+              message: 'Primary provider unavailable',
+              providerId: 'codex',
+              fallbackProviderId: 'lmstudio',
+            },
+            {
+              code: 'disabled_flow_step',
+              message: 'One step is currently disabled',
+            },
+            { code: 42, message: 'ignored invalid warning' },
+          ],
+          disabledReason: {
+            code: 'provider_unavailable',
+            message: 'No usable provider remains',
+            providerId: 'codex',
+          },
+          sourceId: '/data/repo-a',
+          sourceLabel: 'Repo A',
+        },
+      }),
+    );
+
+    const result = await getFlowDetails({
+      flowName: 'daily',
+      sourceId: '/data/repo-a',
+    });
+
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit?];
+    const parsedUrl = new URL(url);
+    expect(parsedUrl.pathname).toBe('/flows/daily');
+    expect(parsedUrl.searchParams.get('sourceId')).toBe('/data/repo-a');
+    expect(result).toEqual({
+      flow: {
+        name: 'daily',
+        description: 'Daily flow',
+        disabled: true,
+        warnings: [
+          {
+            code: 'provider_unavailable',
+            message: 'Primary provider unavailable',
+            providerId: 'codex',
+            fallbackProviderId: 'lmstudio',
+          },
+          {
+            code: 'disabled_flow_step',
+            message: 'One step is currently disabled',
+            providerId: undefined,
+            fallbackProviderId: undefined,
+          },
+        ],
+        disabledReason: {
+          code: 'provider_unavailable',
+          message: 'No usable provider remains',
+          providerId: 'codex',
+        },
+        sourceId: '/data/repo-a',
+        sourceLabel: 'Repo A',
+      },
+    });
+  });
+
+  it('throws when flow details omit the disabled flag', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse({
+        flow: {
+          name: 'daily',
+          description: 'Daily flow',
+        },
+      }),
+    );
+
+    await expect(getFlowDetails({ flowName: 'daily' })).rejects.toThrow(
+      'Invalid flow details response',
+    );
+  });
+
+  it('preserves providerId and launch warnings from the first flow run-start response', async () => {
     mockFetch.mockResolvedValue(
       mockJsonResponse(
         {
@@ -81,7 +166,9 @@ describe('Flows API helpers', () => {
           flowName: 'daily',
           conversationId: 'c1',
           inflightId: 'i1',
+          providerId: 'lmstudio',
           modelId: 'gpt-5.2-codex',
+          warnings: ['Primary provider unavailable, fell back to lmstudio.'],
         },
         { status: 202 },
       ),
@@ -99,7 +186,9 @@ describe('Flows API helpers', () => {
       flowName: 'daily',
       conversationId: 'c1',
       inflightId: 'i1',
+      providerId: 'lmstudio',
       modelId: 'gpt-5.2-codex',
+      warnings: ['Primary provider unavailable, fell back to lmstudio.'],
     });
   });
 
@@ -117,6 +206,42 @@ describe('Flows API helpers', () => {
     await expect(runFlow({ flowName: 'daily' })).rejects.toMatchObject({
       status: 409,
       code: 'RUN_IN_PROGRESS',
+    });
+  });
+
+  it('runFlow preserves server reason text when /flows/:name/run omits message', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          code: 'PROVIDER_UNAVAILABLE',
+          reason: 'Codex is unavailable. Re-authenticate and try again.',
+        },
+        { status: 503 },
+      ),
+    );
+
+    await expect(runFlow({ flowName: 'daily' })).rejects.toMatchObject({
+      status: 503,
+      code: 'PROVIDER_UNAVAILABLE',
+      message: 'Codex is unavailable. Re-authenticate and try again.',
+    });
+  });
+
+  it('runFlow preserves the normalized error identifier when the route returns an error-only shape', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          error: 'provider_unavailable',
+          reason: 'Provider startup degraded.',
+        },
+        { status: 503 },
+      ),
+    );
+
+    await expect(runFlow({ flowName: 'daily' })).rejects.toMatchObject({
+      status: 503,
+      code: 'provider_unavailable',
+      message: 'Provider startup degraded.',
     });
   });
 });

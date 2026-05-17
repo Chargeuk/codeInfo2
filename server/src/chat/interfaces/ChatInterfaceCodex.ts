@@ -12,6 +12,11 @@ import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnUsageMetadata } from '../../mongo/turn.js';
 import { refreshCodexDetection } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
+import {
+  memoryConversations,
+  shouldUseMemoryPersistence,
+  updateMemoryConversationMeta,
+} from '../memoryPersistence.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
 type CodexRunFlags = {
@@ -185,10 +190,13 @@ export class ChatInterfaceCodex extends ChatInterface {
       process.env.CODEINFO_CODEX_WORKDIR ??
       '/data';
 
-    const effectiveRuntimeConfig = mergeRuntimeConfigOverrides(runtimeConfig, {
-      model_reasoning_summary: effectiveCodexFlags.modelReasoningSummary,
-      model_verbosity: effectiveCodexFlags.modelVerbosity,
-    });
+    const effectiveRuntimeConfig =
+      useConfigDefaults && runtimeConfig === undefined
+        ? undefined
+        : mergeRuntimeConfigOverrides(runtimeConfig, {
+            model_reasoning_summary: effectiveCodexFlags.modelReasoningSummary,
+            model_verbosity: effectiveCodexFlags.modelVerbosity,
+          });
 
     const threadOptions: CodexThreadOptions = useConfigDefaults
       ? {
@@ -277,6 +285,18 @@ export class ChatInterfaceCodex extends ChatInterface {
       if (!incoming || incoming === activeThreadId) return;
       activeThreadId = incoming;
       this.emitEvent({ type: 'thread', threadId: incoming });
+      if (shouldUseMemoryPersistence()) {
+        const currentFlags = memoryConversations.get(conversationId)?.flags;
+        updateMemoryConversationMeta(conversationId, {
+          flags: {
+            ...(typeof currentFlags === 'object' && currentFlags !== null
+              ? currentFlags
+              : {}),
+            threadId: incoming,
+          },
+        });
+        return;
+      }
       await updateConversationThreadId({
         conversationId,
         threadId: incoming,

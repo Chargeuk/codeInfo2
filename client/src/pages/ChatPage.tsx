@@ -540,8 +540,7 @@ export default function ChatPage() {
     [providers],
   );
   const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
-  const canShowDeviceAuth =
-    providerIsCodex && Boolean(codexProvider?.available);
+  const canShowDeviceAuth = true;
   const showCodexUnavailable = providerIsCodex
     ? !providerAvailable
     : codexUnavailable;
@@ -784,6 +783,12 @@ export default function ChatPage() {
     stopRef.current = stop;
   }, [stop]);
 
+  const resumedProvider = selectedConversation?.provider?.trim() || undefined;
+  const resumedModel = selectedConversation?.model?.trim() || undefined;
+  const resumedExecutionIdentityLocked = Boolean(
+    selectedConversation?.conversationId && resumedProvider && resumedModel,
+  );
+
   useEffect(() => {
     return () => {
       stopRef.current();
@@ -800,6 +805,9 @@ export default function ChatPage() {
       hasNonWhitespaceContent,
       controlsDisabled,
       isSending,
+      useResumedExecutionIdentity: resumedExecutionIdentityLocked,
+      resumedProvider: resumedProvider ?? null,
+      resumedModel: resumedModel ?? null,
     });
 
     if (!hasNonWhitespaceContent || controlsDisabled) {
@@ -825,6 +833,10 @@ export default function ChatPage() {
     });
     void send(input, {
       workingFolder: workingFolder.trim() || undefined,
+      providerOverride: resumedExecutionIdentityLocked
+        ? resumedProvider
+        : undefined,
+      modelOverride: resumedExecutionIdentityLocked ? resumedModel : undefined,
     }).then(() => refreshConversations());
     setInput('');
   };
@@ -931,7 +943,7 @@ export default function ChatPage() {
   const handleProviderChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    if (nextSendContextLocked) {
+    if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
@@ -958,7 +970,7 @@ export default function ChatPage() {
   const handleModelChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    if (nextSendContextLocked) {
+    if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
@@ -1490,7 +1502,9 @@ export default function ChatPage() {
                             value={provider ?? ''}
                             onChange={handleProviderChange}
                             disabled={
-                              providerStatus === 'loading' || providerLocked
+                              providerStatus === 'loading' ||
+                              providerLocked ||
+                              resumedExecutionIdentityLocked
                             }
                             sx={{
                               minWidth: { xs: 0, sm: 220 },
@@ -1533,7 +1547,8 @@ export default function ChatPage() {
                               isError ||
                               isEmpty ||
                               !providerAvailable ||
-                              nextSendContextLocked
+                              nextSendContextLocked ||
+                              resumedExecutionIdentityLocked
                             }
                             sx={{ minWidth: { xs: 0, sm: 260 }, flex: 1 }}
                             SelectProps={{ displayEmpty: true }}
@@ -1634,11 +1649,17 @@ export default function ChatPage() {
                           OpenAI Codex is unavailable. Install the CLI (`npm
                           install -g @openai/codex`), log in with
                           `CODEX_HOME=./codex codex login` (or your `~/.codex`),
-                          and ensure `./codex/config.toml` is seeded. Compose
-                          mounts <code>{'${CODEX_HOME:-$HOME/.codex}'}</code> to
-                          `/host/codex` and copies `auth.json` into `/app/codex`
-                          when missing, so container logins are not required.
-                          See the guidance in{' '}
+                          and ensure `./codex/config.toml` is seeded. The
+                          checked-in main Compose stack mounts{' '}
+                          <code>
+                            {'${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}'}
+                          </code>{' '}
+                          directly at `/app/codex`, so container logins are not
+                          required there. If Codex later fails with
+                          `refresh_token_reused` or `token_expired`, rerun
+                          `codex login` against the Codex home backing the
+                          runtime you are using and restart that stack. See the
+                          guidance in{' '}
                           <Link
                             href="https://github.com/Chargeuk/codeInfo2#codex-cli"
                             target="_blank"

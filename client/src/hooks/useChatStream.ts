@@ -55,6 +55,7 @@ export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  optimistic?: boolean;
   provider?: string;
   warnings?: string[];
   command?: {
@@ -255,6 +256,10 @@ export function useChatStream(
   const inflightIdRef = useRef<string | null>(null);
   const [inflightId, setInflightId] = useState<string | null>(null);
   const inflightSeqRef = useRef<number>(0);
+  const optimisticUserMessageIdsRef = useRef<Set<string>>(new Set());
+  const optimisticUserMessageIdByInflightIdRef = useRef<Map<string, string>>(
+    new Map(),
+  );
   const activeAssistantMessageIdRef = useRef<string | null>(null);
   const assistantMessageIdByInflightIdRef = useRef<Map<string, string>>(
     new Map(),
@@ -290,6 +295,8 @@ export function useChatStream(
     seenInflightIdsRef.current.clear();
     confirmedInflightIdsRef.current.clear();
     finalizedInflightIdsRef.current.clear();
+    optimisticUserMessageIdsRef.current.clear();
+    optimisticUserMessageIdByInflightIdRef.current.clear();
     stopRequestIdRef.current = null;
     stopInflightIdRef.current = null;
   }, [conversationId]);
@@ -298,15 +305,81 @@ export function useChatStream(
     threadIdRef.current = threadId;
   }, [threadId]);
 
+  const clearOptimisticUserState = useCallback(() => {
+    optimisticUserMessageIdsRef.current.clear();
+    optimisticUserMessageIdByInflightIdRef.current.clear();
+  }, []);
+
+  const removeOptimisticTrackingByMessageId = useCallback((messageId: string) => {
+    optimisticUserMessageIdsRef.current.delete(messageId);
+    for (const [
+      mappedInflightId,
+      mappedMessageId,
+    ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
+      if (mappedMessageId === messageId) {
+        optimisticUserMessageIdByInflightIdRef.current.delete(mappedInflightId);
+      }
+    }
+  }, []);
+
+  const pruneOptimisticUserTracking = useCallback((nextMessages: ChatMessage[]) => {
+    if (
+      optimisticUserMessageIdsRef.current.size === 0 &&
+      optimisticUserMessageIdByInflightIdRef.current.size === 0
+    ) {
+      return;
+    }
+
+    const presentMessageIds = new Set(nextMessages.map((message) => message.id));
+    for (const messageId of optimisticUserMessageIdsRef.current) {
+      if (!presentMessageIds.has(messageId)) {
+        optimisticUserMessageIdsRef.current.delete(messageId);
+      }
+    }
+    for (const [
+      mappedInflightId,
+      mappedMessageId,
+    ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
+      if (!optimisticUserMessageIdsRef.current.has(mappedMessageId)) {
+        optimisticUserMessageIdByInflightIdRef.current.delete(mappedInflightId);
+      }
+    }
+  }, []);
+
+  const collapseConfirmedUserEchoes = useCallback((nextMessages: ChatMessage[]) => {
+    const confirmedUserContents = new Set(
+      nextMessages
+        .filter(
+          (message) =>
+            message.role === 'user' &&
+            !message.optimistic &&
+            (message.content ?? '').length > 0,
+        )
+        .map((message) => message.content),
+    );
+    if (confirmedUserContents.size === 0) {
+      return nextMessages;
+    }
+    return nextMessages.filter(
+      (message) =>
+        !(
+          message.role === 'user' &&
+          message.optimistic &&
+          confirmedUserContents.has(message.content)
+        ),
+    );
+  }, []);
+
   const updateMessages = useCallback(
     (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
       setMessages((prev) => {
-        const next = updater(prev);
+        const next = collapseConfirmedUserEchoes(updater(prev));
+        pruneOptimisticUserTracking(next);
         messagesRef.current = next;
         return next;
       });
     },
-    [],
+    [collapseConfirmedUserEchoes, pruneOptimisticUserTracking],
   );
 
   const clearThinkingTimer = useCallback(() => {
@@ -834,6 +907,7 @@ export function useChatStream(
     resetInflightState();
     setThreadId(null);
     threadIdRef.current = null;
+    clearOptimisticUserState();
     assistantMessageIdByInflightIdRef.current.clear();
     historicalAssistantMessageIdByInflightIdRef.current.clear();
     seenInflightIdsRef.current.clear();
@@ -843,7 +917,7 @@ export function useChatStream(
     setConversationId(nextConversationId);
     conversationIdRef.current = nextConversationId;
     return nextConversationId;
-  }, [resetInflightState, updateMessages]);
+  }, [clearOptimisticUserState, resetInflightState, updateMessages]);
 
   const setConversation = useCallback(
     (nextConversationId: string, options?: { clearMessages?: boolean }) => {
@@ -852,6 +926,7 @@ export function useChatStream(
       if (options?.clearMessages) {
         updateMessages(() => []);
       }
+      clearOptimisticUserState();
       setThreadId(null);
       threadIdRef.current = null;
       assistantMessageIdByInflightIdRef.current.clear();
@@ -862,7 +937,69 @@ export function useChatStream(
       setConversationId(nextConversationId);
       conversationIdRef.current = nextConversationId;
     },
-    [clearLocalStreamingIndicators, resetInflightState, updateMessages],
+    [
+      clearLocalStreamingIndicators,
+      clearOptimisticUserState,
+      resetInflightState,
+      updateMessages,
+    ],
+  );
+
+  const appendLocalMessage = useCallback(
+    (message: ChatMessage) => {
+      updateMessages((prev) => [...prev, message]);
+      return message.id;
+    },
+    [updateMessages],
+  );
+
+  const appendOptimisticUserMessage = useCallback(
+    (content: string) => {
+      const messageId = makeId();
+      optimisticUserMessageIdsRef.current.add(messageId);
+      updateMessages((prev) => [
+        ...prev,
+        {
+          id: messageId,
+          role: 'user',
+          content,
+          createdAt: new Date().toISOString(),
+          optimistic: true,
+        },
+      ]);
+      return messageId;
+    },
+    [updateMessages],
+  );
+
+  const bindOptimisticUserMessageToInflight = useCallback(
+    (messageId: string, nextInflightId: string | null) => {
+      if (
+        !nextInflightId ||
+        !optimisticUserMessageIdsRef.current.has(messageId)
+      ) {
+        return;
+      }
+      optimisticUserMessageIdByInflightIdRef.current.set(
+        nextInflightId,
+        messageId,
+      );
+    },
+    [],
+  );
+
+  const finalizeOptimisticUserMessage = useCallback(
+    (messageId: string) => {
+      removeOptimisticTrackingByMessageId(messageId);
+      updateMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId && message.role === 'user'
+            ? { ...message, optimistic: false }
+            : message,
+        ),
+      );
+    },
+    [removeOptimisticTrackingByMessageId, updateMessages],
   );
 
   const hydrateHistory = useCallback(
@@ -875,10 +1012,12 @@ export function useChatStream(
         conversationIdRef.current === historyConversationId;
       const hasActiveInflight =
         inflightIdRef.current !== null ||
+        optimisticUserMessageIdsRef.current.size > 0 ||
         isStreaming ||
         status === 'sending' ||
         messagesRef.current.some(
-          (message) => message.streamStatus === 'processing',
+          (message) =>
+            message.streamStatus === 'processing' || message.optimistic,
         );
 
       if (!sameConversation) {
@@ -898,7 +1037,11 @@ export function useChatStream(
           isStreaming ||
           status === 'sending' ||
           inflightIdRef.current !== null ||
-          prev.some((message) => message.streamStatus === 'processing');
+          optimisticUserMessageIdsRef.current.size > 0 ||
+          prev.some(
+            (message) =>
+              message.streamStatus === 'processing' || message.optimistic,
+          );
         let filteredHistory = history;
         let nextPrev = prev;
         if (hasInFlight && history.length > 0 && prev.length > 0) {
@@ -911,6 +1054,9 @@ export function useChatStream(
               const existingContent = existing.content ?? '';
               const existingHasContent = existingContent.length > 0;
               if (!entryContent && !existingContent) return false;
+              if (existing.optimistic && entryContent === existingContent) {
+                return true;
+              }
               const entryTime = parseTimestamp(entry.createdAt);
               const existingTime = parseTimestamp(existing.createdAt);
               const withinWindow =
@@ -935,22 +1081,30 @@ export function useChatStream(
             });
             if (!match) return true;
             if (match.streamStatus === 'processing') {
+              if (match.optimistic) {
+                removeOptimisticTrackingByMessageId(match.id);
+              }
               replacements.set(match.id, {
                 ...match,
                 ...entry,
                 id: match.id,
                 segments: entry.segments,
+                optimistic: false,
               });
               if (entry.streamStatus && entry.streamStatus !== 'processing') {
                 shouldResetInflight = true;
               }
               return false;
             }
+            if (match.optimistic) {
+              removeOptimisticTrackingByMessageId(match.id);
+            }
             replacements.set(match.id, {
               ...match,
               ...entry,
               id: match.id,
               segments: entry.segments,
+              optimistic: false,
             });
             return false;
           });
@@ -978,7 +1132,13 @@ export function useChatStream(
         resetInflightState();
       }
     },
-    [isStreaming, resetInflightState, status, updateMessages],
+    [
+      isStreaming,
+      removeOptimisticTrackingByMessageId,
+      resetInflightState,
+      status,
+      updateMessages,
+    ],
   );
 
   const logFlowCommand = useCallback(
@@ -1083,8 +1243,12 @@ export function useChatStream(
       text: string,
       options?: {
         workingFolder?: string;
+        providerOverride?: string;
+        modelOverride?: string;
       },
     ) => {
+      const effectiveProvider = options?.providerOverride ?? provider;
+      const effectiveModel = options?.modelOverride ?? model;
       const hasNonWhitespaceContent = text.trim().length > 0;
       logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_evaluated', {
         source: 'useChatStream',
@@ -1092,15 +1256,17 @@ export function useChatStream(
         trimmedLength: text.trim().length,
         hasNonWhitespaceContent,
         blockedByStatus: status === 'sending',
-        blockedByModel: !model,
-        blockedByProvider: !provider,
+        blockedByModel: !effectiveModel,
+        blockedByProvider: !effectiveProvider,
+        effectiveProvider: effectiveProvider ?? null,
+        effectiveModel: effectiveModel ?? null,
       });
 
       if (
         !hasNonWhitespaceContent ||
         status === 'sending' ||
-        !model ||
-        !provider
+        !effectiveModel ||
+        !effectiveProvider
       ) {
         logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_result', {
           source: 'useChatStream',
@@ -1109,11 +1275,13 @@ export function useChatStream(
             ? 'whitespace_only'
             : status === 'sending'
               ? 'status_sending'
-              : !model
+              : !effectiveModel
                 ? 'missing_model'
                 : 'missing_provider',
           rawLength: text.length,
           trimmedLength: text.trim().length,
+          effectiveProvider: effectiveProvider ?? null,
+          effectiveModel: effectiveModel ?? null,
         });
         return;
       }
@@ -1183,7 +1351,7 @@ export function useChatStream(
           ? { threadId: threadIdRef.current }
           : {};
         const codexPayload: Record<string, unknown> =
-          provider === 'codex' ? { ...baseCodexPayload } : {};
+          effectiveProvider === 'codex' ? { ...baseCodexPayload } : {};
         const normalizedAgentFlags = Object.fromEntries(
           Object.entries(agentFlags ?? {}).flatMap(([key, value]) => {
             if (value === undefined || value === null) {
@@ -1200,8 +1368,8 @@ export function useChatStream(
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            provider,
-            model,
+            provider: effectiveProvider,
+            model: effectiveModel,
             conversationId: currentConversationId,
             inflightId: nextInflightId,
             message: text,
@@ -1422,9 +1590,72 @@ export function useChatStream(
         const nowTimestamp = new Date().getTime();
         const incomingTimestamp = parseTimestamp(event.createdAt);
         const assistantId = activeAssistantMessageIdRef.current;
+        const optimisticMessageId =
+          nextInflightId !== null
+            ? (optimisticUserMessageIdByInflightIdRef.current.get(
+                nextInflightId,
+              ) ?? null)
+            : null;
 
         updateMessages((prev) => {
           if (!incomingContent) return prev;
+
+          if (optimisticMessageId) {
+            const optimisticIndex = prev.findIndex(
+              (message) => message.id === optimisticMessageId,
+            );
+            if (optimisticIndex >= 0) {
+              removeOptimisticTrackingByMessageId(optimisticMessageId);
+              const next = [...prev];
+              next[optimisticIndex] = {
+                ...next[optimisticIndex],
+                content: incomingContent,
+                createdAt: event.createdAt,
+                optimistic: false,
+              };
+              return next;
+            }
+          }
+
+          const latestOptimisticUserIndex = (() => {
+            for (
+              let i = prev.length - 1;
+              i >= 0 && i >= prev.length - 8;
+              i -= 1
+            ) {
+              const message = prev[i];
+              if (message?.role === 'user' && message.optimistic) {
+                return i;
+              }
+            }
+            return -1;
+          })();
+
+          if (latestOptimisticUserIndex >= 0) {
+            const latestOptimisticUser = prev[latestOptimisticUserIndex];
+            const latestOptimisticTimestamp = parseTimestamp(
+              latestOptimisticUser.createdAt,
+            );
+            const optimisticIsRecent =
+              latestOptimisticTimestamp !== null
+                ? nowTimestamp - latestOptimisticTimestamp <= 60_000
+                : false;
+
+            if (
+              optimisticIsRecent &&
+              (latestOptimisticUser.content ?? '') === incomingContent
+            ) {
+              removeOptimisticTrackingByMessageId(latestOptimisticUser.id);
+              const next = [...prev];
+              next[latestOptimisticUserIndex] = {
+                ...latestOptimisticUser,
+                content: incomingContent,
+                createdAt: event.createdAt,
+                optimistic: false,
+              };
+              return next;
+            }
+          }
 
           for (
             let i = prev.length - 1;
@@ -1435,6 +1666,17 @@ export function useChatStream(
             if (existing?.role !== 'user') continue;
             if ((existing.content ?? '') !== incomingContent) {
               continue;
+            }
+            if (existing.optimistic) {
+              removeOptimisticTrackingByMessageId(existing.id);
+              const next = [...prev];
+              next[i] = {
+                ...existing,
+                content: incomingContent,
+                createdAt: event.createdAt,
+                optimistic: false,
+              };
+              return next;
             }
 
             const existingTimestamp = parseTimestamp(existing.createdAt);
@@ -1453,8 +1695,16 @@ export function useChatStream(
             if (!withinHydrationWindow && !existingIsRecent) continue;
 
             if (existing.createdAt === event.createdAt) return prev;
+            if (existing.optimistic) {
+              removeOptimisticTrackingByMessageId(existing.id);
+            }
             const next = [...prev];
-            next[i] = { ...existing, createdAt: event.createdAt };
+            next[i] = {
+              ...existing,
+              content: incomingContent,
+              createdAt: event.createdAt,
+              optimistic: false,
+            };
             return next;
           }
 
@@ -1930,6 +2180,7 @@ export function useChatStream(
       logHiddenRunEventIgnored,
       rememberConfirmedInflightId,
       rememberSeenInflightId,
+      removeOptimisticTrackingByMessageId,
       removePendingAssistantIfOptimistic,
       resetAssistantPointer,
       status,
@@ -1959,6 +2210,10 @@ export function useChatStream(
       messages,
       status,
       isStreaming,
+      appendLocalMessage,
+      appendOptimisticUserMessage,
+      bindOptimisticUserMessageToInflight,
+      finalizeOptimisticUserMessage,
       send,
       stop,
       reset,
@@ -1976,6 +2231,10 @@ export function useChatStream(
       messages,
       status,
       isStreaming,
+      appendLocalMessage,
+      appendOptimisticUserMessage,
+      bindOptimisticUserMessageToInflight,
+      finalizeOptimisticUserMessage,
       send,
       stop,
       reset,

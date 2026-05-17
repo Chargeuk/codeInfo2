@@ -72,7 +72,7 @@ test('provider status probing fails clearly when the normalized MCP endpoint is 
   assert.equal(status.available, false);
   assert.match(
     status.reason ?? '',
-    /Unresolved required MCP placeholder CODEINFO_SERVER_PORT/u,
+    /CODEINFO_SERVER_PORT must be a TCP port integer between 1 and 65535/u,
   );
 });
 

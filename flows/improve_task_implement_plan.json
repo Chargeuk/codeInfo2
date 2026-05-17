@@ -308,8 +308,8 @@
                     {
                       "type": "llm",
                       "label": "Deep repair automated-proof test blocker",
-                      "agentType": "manual_testing_agent",
-                      "identifier": "manual_tester",
+                      "agentType": "coding_agent",
+                      "identifier": "coder",
                       "markdownFile": "deep_test_failure_repair.md"
                     },
                     {

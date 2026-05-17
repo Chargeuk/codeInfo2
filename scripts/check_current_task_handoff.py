@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -104,8 +105,8 @@ def main() -> int:
             open_in_progress_count=None,
             error=str(exc),
         )
-        json.dump(result, fp=__import__("sys").stdout, indent=2)
-        __import__("sys").stdout.write("\n")
+        json.dump(result, fp=sys.stdout, indent=2)
+        sys.stdout.write("\n")
         return 0
 
     handoff_path = Path(scope["handoff_path"])
@@ -127,8 +128,8 @@ def main() -> int:
             open_in_progress_count=None,
             error=str(exc),
         )
-        json.dump(result, fp=__import__("sys").stdout, indent=2)
-        __import__("sys").stdout.write("\n")
+        json.dump(result, fp=sys.stdout, indent=2)
+        sys.stdout.write("\n")
         return 0
 
     status = plan_status.get_plan_status(
@@ -235,8 +236,8 @@ def main() -> int:
             **result_kwargs,
         )
 
-    json.dump(result, fp=__import__("sys").stdout, indent=2)
-    __import__("sys").stdout.write("\n")
+    json.dump(result, fp=sys.stdout, indent=2)
+    sys.stdout.write("\n")
     return 0
 
 

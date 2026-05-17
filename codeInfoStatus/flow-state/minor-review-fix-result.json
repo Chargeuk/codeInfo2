@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-05-17T02:22:47Z",
+  "story_number": "0000057",
+  "plan_path": "planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md",
+  "review_pass_id": "0000057-20260517T013908Z-656d49af",
+  "finding_id": "generic_engineering_issue-1",
+  "repository": "current_repository",
+  "status": "fixed",
+  "summary": "Replaced workstation-specific absolute markdown links in docs/developer-reference.md with repository-relative links so the reviewed documentation block stays portable.",
+  "changed_files": [
+    "docs/developer-reference.md"
+  ],
+  "targeted_proof": [
+    {
+      "command": "npx prettier --check docs/developer-reference.md",
+      "result": "passed",
+      "notes": "Confirmed the bounded documentation edit still matches repository formatting expectations."
+    }
+  ],
+  "commit_sha": "5d593d5cdd06bb79eab3649bda54c12c870eddec",
+  "reclassification_reason": null,
+  "blocker": null,
+  "blocker_scope": null
+}

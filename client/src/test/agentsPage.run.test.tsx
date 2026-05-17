@@ -261,6 +261,233 @@ describe('Agents page - run', () => {
     expect(screen.queryByText('SEGMENT_SHOULD_NOT_RENDER')).toBeNull();
   });
 
+  it('shows an optimistic user bubble immediately and reconciles it with the later ws user_turn', async () => {
+    const user = userEvent.setup();
+    const runBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          expect(init?.method).toBe('POST');
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId:
+                typeof runBodies.at(-1)?.conversationId === 'string'
+                  ? runBodies.at(-1)?.conversationId
+                  : 'c1',
+              inflightId: 'start-i1',
+              modelId: 'gpt-5.1-codex-max',
+            }),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    await user.type(input, 'Question');
+    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-send'));
+    });
+
+    await waitFor(() => expect(runBodies.length).toBe(1));
+    await waitFor(() => {
+      const matches = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'user')
+        .filter((el) => (el.textContent ?? '').includes('Question'));
+      expect(matches).toHaveLength(1);
+    });
+
+    const conversationId = String(runBodies[0]?.conversationId ?? 'c1');
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { last: () => { _receive: (data: unknown) => void } | null };
+      }
+    ).__wsMock;
+    const ws = wsRegistry?.last();
+    if (!ws) throw new Error('No WebSocket instance; did AgentsPage mount?');
+    ws._receive({
+      protocolVersion: 'v1',
+      type: 'user_turn',
+      conversationId,
+      seq: 1,
+      inflightId: 'start-i1',
+      content: 'Question',
+      createdAt: '2025-01-01T00:00:00.000Z',
+    });
+    ws._receive({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId,
+      seq: 2,
+      inflightId: 'start-i1',
+      delta: 'Final answer',
+    });
+    ws._receive({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId,
+      seq: 3,
+      inflightId: 'start-i1',
+      status: 'ok',
+    });
+
+    await screen.findByText('Final answer');
+    await waitFor(() => {
+      const matches = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'user')
+        .filter((el) => (el.textContent ?? '').includes('Question'));
+      expect(matches).toHaveLength(1);
+    });
+  });
+
+  it('keeps the optimistic user bubble visible when the run start returns RUN_IN_PROGRESS', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          expect(init?.method).toBe('POST');
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                code: 'RUN_IN_PROGRESS',
+                message: 'A run is already in progress for this conversation.',
+              }),
+              {
+                status: 409,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+          );
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    await user.type(input, 'Question');
+    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-send'));
+    });
+
+    await waitFor(() => {
+      const userMatches = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'user')
+        .filter((el) => (el.textContent ?? '').includes('Question'));
+      expect(userMatches).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('agents-run-error')).toHaveTextContent(
+        'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+      );
+    });
+
+    const userMatches = screen
+      .getAllByTestId('chat-bubble')
+      .filter((el) => el.getAttribute('data-role') === 'user')
+      .filter((el) => (el.textContent ?? '').includes('Question'));
+    expect(userMatches).toHaveLength(1);
+  });
+
   it('clears stale virtualized rows when the selected conversation switches to an empty transcript', async () => {
     const user = userEvent.setup();
     const turnsByConversation: Record<
@@ -588,6 +815,9 @@ describe('Agents page - run', () => {
     });
 
     await waitFor(() => expect(runBodies.length).toBe(1));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('agents-user-markdown')).toHaveLength(1);
+    });
     const conversationId = String(runBodies[0]?.conversationId ?? 'c1');
     const wsRegistry = (
       globalThis as unknown as {
@@ -602,7 +832,7 @@ describe('Agents page - run', () => {
         type: 'user_turn',
         conversationId,
         seq: 1,
-        inflightId: 'i1',
+        inflightId: 'start-i1',
         content,
         createdAt: '2025-01-01T00:00:00.000Z',
       });
@@ -611,7 +841,7 @@ describe('Agents page - run', () => {
         type: 'assistant_delta',
         conversationId,
         seq: 2,
-        inflightId: 'i1',
+        inflightId: 'start-i1',
         delta: content,
       });
       ws._receive({
@@ -619,27 +849,37 @@ describe('Agents page - run', () => {
         type: 'turn_final',
         conversationId,
         seq: 3,
-        inflightId: 'i1',
+        inflightId: 'start-i1',
         status: 'ok',
       });
     });
 
-    const userMarkdown = await screen.findByTestId('agents-user-markdown');
-    const assistantMarkdown = await screen.findByTestId('assistant-markdown');
-    expect(screen.getAllByTestId('agents-user-markdown')).toHaveLength(1);
-    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId('agents-user-markdown').length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByTestId('assistant-markdown').length,
+      ).toBeGreaterThan(0);
+    });
+    const userMarkdown = screen.getAllByTestId('agents-user-markdown').at(-1);
+    const assistantMarkdown = screen
+      .getAllByTestId('assistant-markdown')
+      .at(-1);
+    expect(userMarkdown).toBeTruthy();
+    expect(assistantMarkdown).toBeTruthy();
 
     await waitFor(() => {
-      expect(userMarkdown.querySelector('svg')).toBeTruthy();
-      expect(assistantMarkdown.querySelector('svg')).toBeTruthy();
+      expect(userMarkdown?.querySelector('svg')).toBeTruthy();
+      expect(assistantMarkdown?.querySelector('svg')).toBeTruthy();
     });
-    expect(userMarkdown.querySelectorAll('li')).toHaveLength(
-      assistantMarkdown.querySelectorAll('li').length,
+    expect(userMarkdown?.querySelectorAll('li')).toHaveLength(
+      assistantMarkdown?.querySelectorAll('li').length ?? 0,
     );
-    expect(userMarkdown.querySelector('code')).toBeTruthy();
-    expect(assistantMarkdown.querySelector('code')).toBeTruthy();
-    expect(userMarkdown.querySelector('script')).toBeNull();
-    expect(assistantMarkdown.querySelector('script')).toBeNull();
+    expect(userMarkdown?.querySelector('code')).toBeTruthy();
+    expect(assistantMarkdown?.querySelector('code')).toBeTruthy();
+    expect(userMarkdown?.querySelector('script')).toBeNull();
+    expect(assistantMarkdown?.querySelector('script')).toBeNull();
   }, 15000);
 
   it('uses the same safe fallback for malformed mermaid in user and assistant realtime bubbles', async () => {

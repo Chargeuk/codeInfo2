@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import {
   AgentDetails,
   AgentPromptEntry,
@@ -169,6 +170,9 @@ export default function AgentsPage() {
     status,
     isStreaming,
     stop,
+    appendLocalMessage,
+    appendOptimisticUserMessage,
+    bindOptimisticUserMessageToInflight,
     setConversation,
     hydrateHistory,
     hydrateInflightSnapshot,
@@ -1127,6 +1131,11 @@ export default function AgentsPage() {
         setAgentModelId('unknown');
       }
 
+      let optimisticMessageId = '';
+      flushSync(() => {
+        optimisticMessageId = appendOptimisticUserMessage(params.instruction);
+      });
+
       log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
         conversationId: nextConversationId,
         inflightId: getInflightId(),
@@ -1142,6 +1151,10 @@ export default function AgentsPage() {
           working_folder: params.workingFolder,
           conversationId: nextConversationId,
         });
+        bindOptimisticUserMessageToInflight(
+          optimisticMessageId,
+          result.inflightId,
+        );
         setActiveConversationId(result.conversationId);
         if (result.modelId) {
           setAgentModelId(result.modelId);
@@ -1163,11 +1176,7 @@ export default function AgentsPage() {
             streamStatus: 'failed',
             createdAt: new Date().toISOString(),
           };
-          hydrateHistory(
-            nextConversationId,
-            [...messages, errorMessage],
-            'replace',
-          );
+          appendLocalMessage(errorMessage);
           setRunError(errorMessage.content);
           return { status: 'error' as const, code: err.code };
         }
@@ -1182,11 +1191,7 @@ export default function AgentsPage() {
           streamStatus: 'failed',
           createdAt: new Date().toISOString(),
         };
-        hydrateHistory(
-          nextConversationId,
-          [...messages, errorMessage],
-          'replace',
-        );
+        appendLocalMessage(errorMessage);
         setRunError(message);
         return {
           status: 'error' as const,
@@ -1199,10 +1204,11 @@ export default function AgentsPage() {
     [
       activeConversationId,
       agentModelId,
+      appendLocalMessage,
+      appendOptimisticUserMessage,
+      bindOptimisticUserMessageToInflight,
       getInflightId,
-      hydrateHistory,
       log,
-      messages,
       refreshConversations,
       selectedAgentName,
       setConversation,

@@ -103,6 +103,11 @@
                   "label": "Implementation Loop",
                   "steps": [
                     {
+                      "type": "reingest",
+                      "label": "Re-embed plan-scope repositories before implementation",
+                      "target": "plan_scope"
+                    },
+                    {
                       "type": "llm",
                       "label": "Explain Gotchas",
                       "agentType": "coding_agent",
@@ -160,6 +165,11 @@
                   "type": "startLoop",
                   "label": "Proof Loop",
                   "steps": [
+                    {
+                      "type": "reingest",
+                      "label": "Re-embed plan-scope repositories before automated proof",
+                      "target": "plan_scope"
+                    },
                     {
                       "type": "llm",
                       "label": "Run automated proof and fix issues",
@@ -232,6 +242,11 @@
                   "continueOn": "yes"
                 },
                 {
+                  "type": "reingest",
+                  "label": "Re-embed plan-scope repositories before manual-testing eligibility review",
+                  "target": "plan_scope"
+                },
+                {
                   "type": "llm",
                   "label": "Reconfirm repository-defined manual testing skip policy",
                   "agentType": "manual_testing_agent",
@@ -298,6 +313,11 @@
               "identifier": "planner",
               "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
               "breakOn": "yes"
+            },
+            {
+              "type": "reingest",
+              "label": "Re-embed plan-scope repositories before active-task normalization",
+              "target": "plan_scope"
             },
             {
               "type": "llm",
@@ -384,6 +404,11 @@
           "label": "Review Findings Disposition Loop",
           "steps": [
             {
+              "type": "reingest",
+              "label": "Re-embed plan-scope repositories before review disposition",
+              "target": "plan_scope"
+            },
+            {
               "type": "command",
               "label": "Run Review Evidence Gate",
               "agentType": "review_agent",
@@ -423,6 +448,11 @@
               "label": "Minor Review Fix Path",
               "steps": [
                 {
+                  "type": "reingest",
+                  "label": "Re-embed plan-scope repositories before minor review fixes",
+                  "target": "plan_scope"
+                },
+                {
                   "type": "break",
                   "label": "Exit Minor-Fix Path Unless Minor Findings Remain",
                   "agentType": "planning_agent",
@@ -458,6 +488,11 @@
               "type": "startLoop",
               "label": "Task-Up Unresolved Review Findings Path",
               "steps": [
+                {
+                  "type": "reingest",
+                  "label": "Re-embed plan-scope repositories before review task-up",
+                  "target": "plan_scope"
+                },
                 {
                   "type": "break",
                   "label": "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
@@ -575,6 +610,11 @@
       ]
     },
     {
+      "type": "reingest",
+      "label": "Re-embed plan-scope repositories before promoting story manual proof",
+      "target": "plan_scope"
+    },
+    {
       "type": "llm",
       "label": "Promote Story Manual Proof",
       "agentType": "planning_agent",
@@ -594,6 +634,11 @@
       "agentType": "planning_agent",
       "identifier": "planner",
       "markdownFile": "final_push.md"
+    },
+    {
+      "type": "reingest",
+      "label": "Final plan-scope re-embedding pass",
+      "target": "plan_scope"
     }
   ]
 }

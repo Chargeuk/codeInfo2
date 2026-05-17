@@ -1,0 +1,33 @@
+codeinfo_provider = "copilot"
+model = "gpt-5-mini"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
+web_search = "disabled"
+
+[features]
+view_image_tool = true
+
+[mcp_servers]
+[mcp_servers.context7]
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
+command = 'npx'
+startup_timeout_sec = 20.0
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+startup_timeout_sec = 20.0
+
+[mcp_servers.code_info]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp"]
+startup_timeout_sec = 60
+tool_timeout_sec = 1800
+
+[projects]
+[projects."/data"]
+trust_level = "trusted"
+
+[projects."/app/server"]
+trust_level = "trusted"
+cli_auth_credentials_store = "file"

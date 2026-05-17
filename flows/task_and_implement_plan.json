@@ -173,8 +173,8 @@
                     {
                       "type": "llm",
                       "label": "Run automated proof and fix issues",
-                      "agentType": "coding_agent",
-                      "identifier": "coder",
+                      "agentType": "automated_testing_agent",
+                      "identifier": "automated_tester",
                       "markdownFile": "run_automated_proof_and_fix_issues.md"
                     },
                     {

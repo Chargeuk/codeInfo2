@@ -1,3 +1,4 @@
+codeinfo_provider = "codex"
 model = "gpt-5.4"
 model_reasoning_effort = "medium"
 approval_policy = "never"

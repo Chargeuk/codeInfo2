@@ -132,16 +132,6 @@ def main() -> int:
         sys.stdout.write("\n")
         return 0
 
-    status = plan_status.get_plan_status(
-        handoff=args.handoff,
-        selector="active",
-        include_tasks=True,
-    )
-    tasks = status.get("tasks") or []
-    open_in_progress = [
-        task for task in tasks if isinstance(task, dict) and task.get("status") == "__in_progress__"
-    ]
-    active_selected_task = status.get("selected_task")
     persisted_selection_status = current_task.get("selection_status")
     persisted_selection_reason = current_task.get("selection_reason")
     persisted_selected_task = current_task.get("selected_task")
@@ -151,6 +141,49 @@ def main() -> int:
         persisted_plan_path = resolve_path(
             persisted_plan_path_raw, repo_root=scope["repo_root"]
         )
+
+    try:
+        status = plan_status.get_plan_status(
+            handoff=args.handoff,
+            selector="active",
+            include_tasks=True,
+        )
+    except SystemExit as exc:
+        result = build_result(
+            handoff_path=handoff_path,
+            current_task_path=current_task_path,
+            plan_path=scope["plan_path"],
+            has_valid_current_task_handoff=False,
+            reason="plan_status_failed",
+            persisted_selection_status=(
+                persisted_selection_status
+                if isinstance(persisted_selection_status, str)
+                else None
+            ),
+            persisted_selection_reason=(
+                persisted_selection_reason
+                if isinstance(persisted_selection_reason, str)
+                else None
+            ),
+            persisted_selected_task=(
+                persisted_selected_task if isinstance(persisted_selected_task, dict) else None
+            ),
+            active_selected_task=None,
+            story_complete=False,
+            open_in_progress_count=None,
+            error=str(exc),
+        )
+        json.dump(result, fp=sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
+    tasks = status.get("tasks") or []
+    open_in_progress = [
+        task
+        for task in tasks
+        if isinstance(task, dict) and task.get("status") == "__in_progress__"
+    ]
+    active_selected_task = status.get("selected_task")
 
     result_kwargs = {
         "handoff_path": handoff_path,

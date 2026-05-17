@@ -21,7 +21,7 @@
       "steps": [
         {
           "type": "llm",
-          "label": "Double-check plan",
+          "label": "QA loop double-check plan",
           "agentType": "planning_agent",
           "identifier": "planner",
           "messages": [
@@ -170,8 +170,8 @@
         {
           "type": "llm",
           "label": "Double-check plan",
-          "agentType": "coding_agent",
-          "identifier": "coder",
+          "agentType": "coding_agent_lite",
+          "identifier": "lite_coder",
           "messages": [
             {
               "role": "user",
@@ -216,15 +216,15 @@
                     {
                       "type": "llm",
                       "label": "Explain Gotchas",
-                      "agentType": "coding_agent",
-                      "identifier": "coder",
+                      "agentType": "coding_agent_lite",
+                      "identifier": "lite_coder",
                       "markdownFile": "implement_next_task_gotchas.md"
                     },
                     {
                       "type": "llm",
                       "label": "Implement task subtasks",
-                      "agentType": "coding_agent",
-                      "identifier": "coder",
+                      "agentType": "coding_agent_lite",
+                      "identifier": "lite_coder",
                       "markdownFile": "implement_next_task_subtasks.md"
                     },
                     {

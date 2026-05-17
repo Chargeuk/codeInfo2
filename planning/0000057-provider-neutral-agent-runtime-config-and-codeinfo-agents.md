@@ -3874,7 +3874,7 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 ### Task 42. Re-Validate Story 0000057 After Inline Minor Review Fixes
 
 - Repository Name: `Current Repository`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: Inline minor fixes were already made and documented during review cycle `0000057-rc-20260517T021854Z-6354e95b`. This task owns the final broad automated proof pass before the story can close cleanly.
 
@@ -3928,3 +3928,4 @@ This final review task owns the closing proof for review pass `0000057-20260516T
 - `npm run compose:down` then removed the supported main-stack containers and `codeinfo2_internal` network cleanly on the normal shutdown path, so the final smoke cycle did not leave the checked-in stack running.
 - `npm run lint` passed cleanly after the Task 42 proof path, so the repository-wide lint surface stayed green across the current final story-close pass.
 - `npm run format:check` passed cleanly with `All matched files use Prettier code style!`, so the current final story-close proof pass did not leave repository-wide formatting drift behind.
+- Automated-proof audit confirmed all Task 42 subtasks and broad wrapper checks were already complete on disk with no live blocker, so the task was closed as `__done__`.

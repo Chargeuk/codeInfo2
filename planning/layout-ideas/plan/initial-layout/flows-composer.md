@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished composer design for the `Flows` page.
-- Use [flows-composer.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/flows-composer.svg:1) as the structural source of truth.
+- Use [flows-composer.svg](flows-composer.svg) as the structural source of truth.
 - This is a composer-only design, not a full page design.
 
 ## Intent

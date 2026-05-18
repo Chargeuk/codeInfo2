@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished desktop `Ingest` page for the utility shell.
-- Use [ingest-page.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/ingest-page.svg:1) as the structural source of truth.
+- Use [ingest-page.svg](ingest-page.svg) as the structural source of truth.
 - Preserve the current system behavior and data shape. This redesign should reorganize and restyle the page, not invent new ingest functionality.
 
 ## Intent

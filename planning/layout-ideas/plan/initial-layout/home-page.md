@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished `Home` page design for the utility shell.
-- Use [home-page.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/home-page.svg:1) as the structural source of truth.
+- Use [home-page.svg](home-page.svg) as the structural source of truth.
 - This should become the real purpose of the `Home` page, not just a version placeholder.
 
 ## Intent

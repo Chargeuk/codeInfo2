@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished desktop `Logs` page for the utility shell.
-- Use [logs-page.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/logs-page.svg:1) as the structural source of truth.
+- Use [logs-page.svg](logs-page.svg) as the structural source of truth.
 - Preserve the current logs functionality exactly. This redesign should fix layout and responsiveness, not add new logging features.
 
 ## Intent

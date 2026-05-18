@@ -79,7 +79,7 @@ Summary content should include:
 
 Example:
 
-- full path: `/home/d_a_s/code/codeInfo2`
+- full path: `/workspace/codeInfo2`
 - visible footer text: `codeInfo2`
 
 ### Provider Selector

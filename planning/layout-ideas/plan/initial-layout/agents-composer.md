@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished composer design for the `Agents` page.
-- Use [agents-composer.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/agents-composer.svg:1) as the structural source of truth.
+- Use [agents-composer.svg](agents-composer.svg) as the structural source of truth.
 - This is a composer-only design, not a full page design.
 
 ## Intent

@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished mobile `Home` page design for the utility shell.
-- Use [mobile-home-page.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/mobile-home-page.svg:1) as the structural source of truth.
+- Use [mobile-home-page.svg](mobile-home-page.svg) as the structural source of truth.
 - This is the mobile stacked version of the `Home` page, not a shrunk desktop dashboard.
 
 ## Intent

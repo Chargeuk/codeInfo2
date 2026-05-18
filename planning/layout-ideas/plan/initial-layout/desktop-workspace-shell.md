@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished desktop light-mode mockup for the shared `Common` workspace used by `Chat`, `Agents`, and `Flows`.
-- Use [desktop-workspace-shell.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg:1) as the structural source of truth for placement, proportions, and information hierarchy.
+- Use [desktop-workspace-shell.svg](desktop-workspace-shell.svg) as the structural source of truth for placement, proportions, and information hierarchy.
 
 ## Intent
 

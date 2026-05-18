@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished mobile `Logs` page for the utility shell.
-- Use [mobile-logs-page.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/mobile-logs-page.svg:1) as the structural source of truth.
+- Use [mobile-logs-page.svg](mobile-logs-page.svg) as the structural source of truth.
 - Preserve the current logs functionality exactly. This redesign should adapt the existing page to small screens, not introduce new features.
 
 ## Intent

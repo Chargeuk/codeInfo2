@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished composer design for the `Chat` page.
-- Use [chat-composer.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/chat-composer.svg:1) as the structural source of truth.
+- Use [chat-composer.svg](chat-composer.svg) as the structural source of truth.
 - This is a composer-only design, not a full page design.
 
 ## Intent
@@ -45,7 +45,7 @@ Footer control order:
 - Render as a small folder icon button followed by the selected final folder name.
 - Show only the final folder name in the footer, not the full path.
 - Example:
-  - full path: `/home/d_a_s/code/codeInfo2`
+  - full path: `/workspace/codeInfo2`
   - visible footer label: `codeInfo2`
 
 ### Provider Selector

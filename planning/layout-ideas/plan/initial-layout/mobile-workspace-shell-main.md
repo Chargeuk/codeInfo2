@@ -3,7 +3,7 @@
 ## Deliverable
 
 - Generate a polished mobile light-mode mockup for the shared `Common` workspace used by `Chat`, `Agents`, and `Flows`.
-- Use [mobile-workspace-shell-main.svg](/home/d_a_s/code/codeInfo2/planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg:1) as the structural source of truth for placement, proportions, and information hierarchy.
+- Use [mobile-workspace-shell-main.svg](mobile-workspace-shell-main.svg) as the structural source of truth for placement, proportions, and information hierarchy.
 
 ## Intent
 

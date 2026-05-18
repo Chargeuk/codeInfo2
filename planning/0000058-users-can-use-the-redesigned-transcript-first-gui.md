@@ -35,6 +35,8 @@ The redesign is intentionally a frontend-first story. It should reuse existing b
 
 The biggest user-facing goal is to reclaim vertical transcript space and make `Chat`, `Agents`, and `Flows` feel like one shared family of workspaces. Those pages should share one desktop shell, one responsive mobile behavior model, one conversation-pane design language, and one bottom-composer model. The page-specific behavior should stay in the composer footer controls and the data being shown, not in completely separate layout systems.
 
+The redesign must preserve the current control semantics that already exist behind those pages. That includes `Chat` next-send provider and model switching plus working-folder lock behavior, `Agents` agent-to-command-to-step dependency resets and prompt-discovery invalidation rules, and `Flows` fresh-run versus resume distinctions such as custom titles only applying to new runs.
+
 `Home`, `Ingest`, and `Logs` should move into a second shared layout family for utility pages. `Home` becomes the global system-status page by absorbing LM Studio status and provider logon state, so users no longer need to treat `Chat` as the place for global runtime setup. The old top-level `LM Studio` route should become a compatibility redirect into `Home` rather than remaining a second user-facing destination. `Ingest` and `Logs` should adopt the new utility-page layout language without adding new backend-dependent functionality or changing ingest and logging semantics.
 
 The design references for this story already exist and should be treated as the source of truth for visual direction, spacing priorities, and mobile or desktop interaction patterns. The most important references live in `planning/layout-ideas/plan/final-designs`, with source SVGs and earlier exploration notes under `planning/layout-ideas/plan/initial-layout`. This story is about implementing that approved design system into the real product shell while preserving current supported behaviors. That includes the new transcript `Copy` affordance, which should copy only the visible message content and not footer metadata such as timing, status, provider, or diagnostics.
@@ -53,11 +55,14 @@ The design references for this story already exist and should be treated as the 
 - Mobile workspace behavior supports a full-screen conversations surface from the left and a full-screen app menu from the right.
 - `Chat`, `Agents`, and `Flows` keep their existing supported page behaviors while moving into the shared shell.
 - Page-specific workspace controls are retained through a common composer shell with page-specific footer controls for `Chat`, `Agents`, and `Flows`.
+- The redesigned footer controls preserve current execution semantics: `Chat` provider and model changes remain next-send-only and do not mutate a locked resumed conversation, `Agents` agent changes still clear the selected command and reset the start step, and `Flows` custom titles still apply only to fresh runs and stay out of resume payloads.
+- Desktop conversation-pane collapse and mobile conversations or app-menu overlays preserve current conversation selection, `Active` or `Archived` filter behavior, and row-level archive or restore actions instead of inventing new list semantics.
 - `Home` becomes the global system-status page and absorbs LM Studio status plus provider logon state.
 - Global auth and LM Studio concerns move out of `Chat` and into `Home`.
 - `Ingest` and `Logs` adopt the new utility-shell design family without introducing backend-dependent new features.
 - The dedicated LM Studio nav entry is removed.
 - The old `/lmstudio` route redirects into `Home` instead of remaining a separate user-facing page.
+- Direct navigation, browser refresh, and existing bookmarks for `/lmstudio` still land on `Home` with the LM Studio section visible.
 - Message `Copy` actions copy only the message content and do not include timing, status, provider, or other footer metadata.
 - Existing supported behaviors such as conversation selection, transcript streaming, flow and agent controls, copy interactions, and current frontend-only UI affordances continue to work after the redesign.
 - The redesign is implemented entirely in the frontend unless a backend change is proven necessary to expose already-existing product state to the new UI.
@@ -124,13 +129,23 @@ The design references for this story already exist and should be treated as the 
   - `client/src/pages/AgentsPage.tsx`
   - `client/src/pages/FlowsPage.tsx`
 - Treat the transcript-first foundation as the highest-risk frontend seam because it must preserve virtualization, pinned-bottom behavior, scroll-away reading stability, copy interactions, and page-specific transcript metadata while changing reading order and composer placement.
-- Build a reusable workspace-shell abstraction for `Chat`, `Agents`, and `Flows` rather than reimplementing the same desktop and mobile structure independently in each page.
-- Rework `client/src/components/NavBar.tsx`, `client/src/components/chat/ConversationList.tsx`, and `client/src/routes/router.tsx` so global navigation and shared conversation access align with the new desktop app rail and mobile app-menu model.
+- Build the shared shell in explicit seams rather than one large rewrite:
+  - destination config and app-rail navigation
+  - desktop workspace shell plus collapsible conversation pane
+  - mobile conversations view from the left
+  - mobile app menu from the right
+  - page adapters for `Chat`, `Agents`, and `Flows`
+- Rework `client/src/components/NavBar.tsx`, `client/src/components/chat/ConversationList.tsx`, and `client/src/routes/router.tsx` so global navigation and shared conversation access align with the new desktop app rail and mobile app-menu model while preserving current conversation filter and archive semantics.
 - Keep the current near-bottom follow behavior as the bottom-follow rule, and preserve scroll position when new rows stream in while the user is reading older content.
+- Treat transcript scroll behavior, assistant or user bubble restyling, footer `Info` popups, and `Copy` extraction as separate proof seams so later tasking can validate them independently.
 - Keep one common composer shell and swap only the footer controls:
   - `Chat` keeps provider, model, and options controls;
   - `Agents` keeps agent, command, and step controls;
   - `Flows` keeps flow and title controls.
+- Preserve the current footer-state rules that already exist in the page logic:
+  - `Chat` provider or model changes create a fresh next-send context instead of mutating a locked resumed conversation.
+  - `Agents` agent changes clear dependent command and step state, and command changes reset the step selector.
+  - `Flows` custom titles only enter fresh-run payloads and stay disabled for resume selections.
 - Use these design references as the primary shell and composer guidance:
   - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
   - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
@@ -155,11 +170,103 @@ The design references for this story already exist and should be treated as the 
   - `client/src/pages/IngestPage.tsx`
   - `client/src/pages/LogsPage.tsx`
   - `client/src/components/ingest/RootDetailsDrawer.tsx`
-- Treat `Home` as the new global system-status page and migrate LM Studio plus provider-logon surfaces there without changing the underlying backend contracts they consume.
+- Treat `Home` as the new global system-status page and migrate LM Studio plus provider-logon surfaces there by reusing `useChatModel`, `useLmStudioStatus`, and the existing device-auth dialog seams instead of inventing a new status contract.
 - Convert the old `/lmstudio` page into a compatibility redirect to `Home` rather than maintaining a second visible destination for the same system-status concerns.
 - Keep `Ingest` and `Logs` visually aligned with the new utility-shell design while explicitly resisting scope creep into new ingest or logging features.
 - Implement transcript `Copy` actions so they copy only the message body content and not footer metadata or hidden diagnostic details.
-- When tasking this story up later, split work so transcript mechanics, shared shell primitives, page-specific composer adapters, and utility-page migration can be validated incrementally without reopening backend work unless a concrete frontend blocker is discovered.
+- Reuse the existing frontend proof harnesses instead of planning a new one:
+  - client unit tests for transcript behavior and routing under `client/src/test/**`
+  - Playwright end-to-end coverage under `e2e/**`
+  - wrapper-first validation through `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e`, `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`
+- When tasking this story up later, split work so transcript mechanics, shared shell primitives, page-specific composer adapters, routing migration, and utility-page migration can be validated incrementally without reopening backend work unless a concrete frontend blocker is discovered.
+
+## Feasibility Proof Pass
+
+### 1. Shared transcript behavior and message rendering
+
+- Already existing capabilities:
+  - `client/src/components/chat/SharedTranscript.tsx`, `VirtualizedTranscript.tsx`, and `useSharedTranscriptState.ts` already centralize shared transcript rendering for `Chat`, `Agents`, and `Flows`.
+  - Existing client tests in `client/src/test/sharedTranscript.scrollBehavior.test.tsx` and `client/src/test/sharedTranscript.proofContract.test.tsx` already prove scroll-mode transitions and anchor-preserving row growth.
+- Missing prerequisite capabilities:
+  - The redesign still needs a shared visual shell for assistant and user slices plus footer `Info` and `Copy` affordances that fit the new layouts without breaking the current transcript data path.
+- Assumptions currently invalid:
+  - The current transcript is not yet styled like the approved desktop and mobile document-style slices, and the current footer treatment does not yet match the approved designs.
+- Feasibility and sequencing note:
+  - This seam is feasible entirely in the frontend because the shared transcript abstraction and proof hooks already exist; it should be updated before page-shell work so later shells can plug into one stable transcript surface.
+
+### 2. Workspace shell, conversations pane, and mobile overlays
+
+- Already existing capabilities:
+  - `client/src/pages/ChatPage.tsx`, `AgentsPage.tsx`, and `FlowsPage.tsx` already use MUI drawers, `ConversationList`, working-folder persistence, and conversation hydration.
+  - `client/src/components/chat/ConversationList.tsx` already owns the shared conversation metadata model, active or archived filters, archive or restore actions, and bulk-selection behaviors.
+- Missing prerequisite capabilities:
+  - The repository does not yet have one reusable desktop app rail, one reusable desktop conversation-pane shell, one mobile conversations view, or one mobile app-menu surface shared across the workspace pages.
+- Assumptions currently invalid:
+  - The current top tab bar in `client/src/components/NavBar.tsx` and the page-local drawer layouts are not the approved shared shell and cannot be treated as final structure.
+- Feasibility and sequencing note:
+  - This seam is frontend-only and should be split into shared shell primitives first, then page adapters, so the later tasking pass can assign one ownership seam per reusable shell surface.
+
+### 3. Home status migration and LM Studio route compatibility
+
+- Already existing capabilities:
+  - `client/src/pages/HomePage.tsx` already loads client/server version data.
+  - `client/src/pages/LmStudioPage.tsx` plus `client/src/hooks/useLmStudioStatus.ts` already implement LM Studio status, base-URL persistence, and model listing.
+  - `client/src/hooks/useChatModel.ts` and the existing device-auth dialog seams already expose provider availability and auth actions used by `Chat` and `Agents`.
+- Missing prerequisite capabilities:
+  - The repo still needs one shared `Home` status composition that combines version data, provider readiness wording, provider actions, and LM Studio controls without leaving provider auth stranded inside workspace pages.
+- Assumptions currently invalid:
+  - The current dedicated `/lmstudio` page and current `HomePage` placeholder cannot be treated as the final utility-page status model.
+- Feasibility and sequencing note:
+  - The migration is feasible without a new backend because the current frontend already has the required data sources; the main design risk is composition and conservative wording, not API coverage.
+
+### 4. Automated proof and manual-proof path
+
+- Already existing capabilities:
+  - The repo already has wrapper-first client build and test commands in `package.json` and `AGENTS.md`.
+  - Playwright coverage already exists for `chat`, `agents`, `flows`, `ingest`, `logs`, and `lmstudio` under `e2e/**`, and `playwright.config.ts` already writes screenshots to ignored artifact locations.
+  - `.gitignore` already ignores `codeInfoTmp/`, `playwright-output/`, and `playwright-output-local/`.
+- Missing prerequisite capabilities:
+  - No new harness is required before tasking, but later tasks must add targeted proof for the redesigned `Home` surface, the `/lmstudio` redirect, desktop/mobile shell behavior, and the new message `Copy` affordance.
+- Assumptions currently invalid:
+  - Existing route and page tests do not yet prove the redesigned shell family or `Home` absorbing LM Studio and provider-logon concerns.
+- Feasibility and sequencing note:
+  - Proof can stay inside the existing client-unit, Playwright, and wrapper ecosystem; later tasking must extend those surfaces rather than planning a fresh harness.
+
+## Message Contracts And Storage Shapes
+
+- No new backend API or persistence shape is expected for this story unless frontend implementation proves a concrete blocker. The redesign should keep using the current frontend contracts already exposed by:
+  - `ChatMessage` transcript content, stream status, usage, timing, and tool metadata consumed by `SharedTranscript`.
+  - conversation list rows and flags consumed by `ConversationList`, including title, provider, model, transport chip, archive state, agent or flow identity, and flow execution markers.
+  - provider and model availability data returned through `useChatModel`.
+  - LM Studio status and model-list data returned through `useLmStudioStatus`.
+- `Home` should report provider state using the current observable frontend contract only. If the repo only proves availability, missing auth, or unknown state, the redesign must use conservative wording such as `Available`, `Authentication required`, `Unavailable`, or `Unknown` rather than inventing stronger login claims.
+- Transcript `Copy` actions must extract only the visible message body content. They must not include footer metadata, timing, provider/model labels, execution diagnostics, hidden tool payloads, or `Info` popup content.
+- `Flows` custom-title behavior stays contract-compatible with the existing run payload:
+  - custom titles are included only for fresh runs;
+  - resume payloads omit custom titles;
+  - resume step-path behavior remains the server-facing source of truth for resumed runs.
+
+## Log Or Proof Markers
+
+- Shared transcript scroll-preservation proof should keep using the current observable proof markers from the Story 49 transcript work unless an equivalent marker is introduced deliberately:
+  - `DEV-0000049:T08:shared_transcript_scroll_mode_changed`
+  - `DEV-0000049:T10:virtualized_row_growth_settled`
+- Router compatibility proof for this story should include a browser-visible check that direct navigation to `/lmstudio` lands on `Home` and renders the LM Studio section rather than a standalone LM Studio page.
+- Desktop and mobile manual-proof artifacts should continue to use the story-level scratch location and deterministic naming described in `### Story Manual Testing Guidance`, with later tasking mapping exact shell-family screenshots to specific proof steps.
+
+## Edge Cases And Failure Modes
+
+- When a user is reading older transcript content, new assistant output, tool expansion, or dynamic row growth above the viewport must preserve the visible scroll anchor instead of snapping to the bottom. When the user is already near the bottom, the transcript should continue following the newest content automatically.
+- The redesigned workspace shell must preserve existing page-specific control semantics:
+  - `Chat` provider/model changes create a fresh next-send context and must not mutate a locked resumed conversation.
+  - `Agents` agent changes clear dependent command selection and reset the step selector to `1`; command changes also reset the step selector to `1`.
+  - `Flows` custom titles remain new-run-only, and resume selections continue to disable title submission.
+- Overlay navigation must not create hidden stale state:
+  - desktop conversation-pane collapse must not clear the selected conversation or current `Active`/`Archived` filter state;
+  - mobile conversations and app-menu layers must dismiss back to the active workspace without dropping the current draft, working-folder selection, or selected conversation.
+- If a provider, model, agent, command, or flow option becomes invalid after data reload, the redesigned footer must clear only the invalid dependent selection and must never submit stale hidden values.
+- `Home` provider wording must stay conservative when the current frontend contract does not prove an exact login truth. The repository-owned manual-testing skip rule for provider auth that requires human-controlled 2FA still applies only to the affected auth-dependent proof surface.
+- The `/lmstudio` compatibility route must avoid redirect loops and must stay correct for direct navigation, refresh, and bookmarked entry, even after the visible nav destination is removed.
 
 ## Questions
 

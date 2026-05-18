@@ -17,7 +17,7 @@ function buildMessages(count: number) {
   }));
 }
 
-describe('Shared transcript scroll behavior', () => {
+describe('Shared transcript scroll and bottom-follow behavior', () => {
   it('opens an existing conversation at the top after history finishes loading', async () => {
     const harness = installTranscriptMeasurementHarness();
 
@@ -235,7 +235,7 @@ describe('Shared transcript scroll behavior', () => {
     harness.restore();
   });
 
-  it('leaves scrollTop unchanged when transcript growth happens below the viewport', async () => {
+  it("keeps a reader's place when transcript growth happens below the viewport", async () => {
     const harness = installTranscriptMeasurementHarness();
 
     render(
@@ -279,7 +279,7 @@ describe('Shared transcript scroll behavior', () => {
     harness.restore();
   });
 
-  it('leaves scrollTop unchanged when row growth occurs below the viewport', async () => {
+  it("keeps a reader's place when row growth occurs below the viewport", async () => {
     const harness = installTranscriptMeasurementHarness();
 
     render(
@@ -329,7 +329,7 @@ describe('Shared transcript scroll behavior', () => {
     harness.restore();
   });
 
-  it('re-enables bottom pinning when the user scrolls back near the bottom', async () => {
+  it('re-enables newest-message following when the user scrolls back near the bottom', async () => {
     const harness = installTranscriptMeasurementHarness();
 
     render(
@@ -376,7 +376,7 @@ describe('Shared transcript scroll behavior', () => {
     harness.restore();
   });
 
-  it('keeps the transcript pinned to the bottom when row growth happens while pinned', async () => {
+  it('follows the newest messages when row growth happens while already pinned near the bottom', async () => {
     const harness = installTranscriptMeasurementHarness();
 
     render(

@@ -319,8 +319,7 @@ export async function runFlow(params: {
   const conversationId =
     typeof data.conversationId === 'string' ? data.conversationId : '';
   const inflightId = typeof data.inflightId === 'string' ? data.inflightId : '';
-  const providerId =
-    typeof data.providerId === 'string' ? data.providerId : '';
+  const providerId = typeof data.providerId === 'string' ? data.providerId : '';
   const modelId = typeof data.modelId === 'string' ? data.modelId : '';
   const warnings = Array.isArray(data.warnings)
     ? data.warnings.filter(

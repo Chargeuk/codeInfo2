@@ -1,9 +1,9 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Accordion,
@@ -595,7 +595,9 @@ function SharedTranscriptMessageRow({
                   aria-haspopup="dialog"
                   aria-expanded={metadataPopoverOpen}
                   aria-controls={
-                    metadataPopoverOpen ? `bubble-info-popover-${message.id}` : undefined
+                    metadataPopoverOpen
+                      ? `bubble-info-popover-${message.id}`
+                      : undefined
                   }
                   startIcon={<InfoOutlinedIcon fontSize="small" />}
                   sx={{
@@ -630,7 +632,11 @@ function SharedTranscriptMessageRow({
           {copyFeedback && (
             <Typography
               variant="caption"
-              color={copyFeedback.severity === 'error' ? 'error.main' : 'success.main'}
+              color={
+                copyFeedback.severity === 'error'
+                  ? 'error.main'
+                  : 'success.main'
+              }
               data-testid="bubble-copy-feedback"
               sx={{ display: 'block', mt: 0.25, textAlign: 'right' }}
             >

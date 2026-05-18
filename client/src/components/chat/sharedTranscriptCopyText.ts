@@ -19,7 +19,8 @@ export const buildSharedTranscriptCopyText = ({
     .filter((segment) => segment.length > 0)
     .join('\n\n');
 
-  const visibleText = textFromSegments.length > 0 ? textFromSegments : content ?? '';
+  const visibleText =
+    textFromSegments.length > 0 ? textFromSegments : (content ?? '');
 
   return visibleText.trim();
 };

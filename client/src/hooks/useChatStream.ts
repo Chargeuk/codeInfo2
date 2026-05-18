@@ -310,65 +310,80 @@ export function useChatStream(
     optimisticUserMessageIdByInflightIdRef.current.clear();
   }, []);
 
-  const removeOptimisticTrackingByMessageId = useCallback((messageId: string) => {
-    optimisticUserMessageIdsRef.current.delete(messageId);
-    for (const [
-      mappedInflightId,
-      mappedMessageId,
-    ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
-      if (mappedMessageId === messageId) {
-        optimisticUserMessageIdByInflightIdRef.current.delete(mappedInflightId);
+  const removeOptimisticTrackingByMessageId = useCallback(
+    (messageId: string) => {
+      optimisticUserMessageIdsRef.current.delete(messageId);
+      for (const [
+        mappedInflightId,
+        mappedMessageId,
+      ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
+        if (mappedMessageId === messageId) {
+          optimisticUserMessageIdByInflightIdRef.current.delete(
+            mappedInflightId,
+          );
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const pruneOptimisticUserTracking = useCallback((nextMessages: ChatMessage[]) => {
-    if (
-      optimisticUserMessageIdsRef.current.size === 0 &&
-      optimisticUserMessageIdByInflightIdRef.current.size === 0
-    ) {
-      return;
-    }
-
-    const presentMessageIds = new Set(nextMessages.map((message) => message.id));
-    for (const messageId of optimisticUserMessageIdsRef.current) {
-      if (!presentMessageIds.has(messageId)) {
-        optimisticUserMessageIdsRef.current.delete(messageId);
+  const pruneOptimisticUserTracking = useCallback(
+    (nextMessages: ChatMessage[]) => {
+      if (
+        optimisticUserMessageIdsRef.current.size === 0 &&
+        optimisticUserMessageIdByInflightIdRef.current.size === 0
+      ) {
+        return;
       }
-    }
-    for (const [
-      mappedInflightId,
-      mappedMessageId,
-    ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
-      if (!optimisticUserMessageIdsRef.current.has(mappedMessageId)) {
-        optimisticUserMessageIdByInflightIdRef.current.delete(mappedInflightId);
-      }
-    }
-  }, []);
 
-  const collapseConfirmedUserEchoes = useCallback((nextMessages: ChatMessage[]) => {
-    const confirmedUserContents = new Set(
-      nextMessages
-        .filter(
-          (message) =>
+      const presentMessageIds = new Set(
+        nextMessages.map((message) => message.id),
+      );
+      for (const messageId of optimisticUserMessageIdsRef.current) {
+        if (!presentMessageIds.has(messageId)) {
+          optimisticUserMessageIdsRef.current.delete(messageId);
+        }
+      }
+      for (const [
+        mappedInflightId,
+        mappedMessageId,
+      ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
+        if (!optimisticUserMessageIdsRef.current.has(mappedMessageId)) {
+          optimisticUserMessageIdByInflightIdRef.current.delete(
+            mappedInflightId,
+          );
+        }
+      }
+    },
+    [],
+  );
+
+  const collapseConfirmedUserEchoes = useCallback(
+    (nextMessages: ChatMessage[]) => {
+      const confirmedUserContents = new Set(
+        nextMessages
+          .filter(
+            (message) =>
+              message.role === 'user' &&
+              !message.optimistic &&
+              (message.content ?? '').length > 0,
+          )
+          .map((message) => message.content),
+      );
+      if (confirmedUserContents.size === 0) {
+        return nextMessages;
+      }
+      return nextMessages.filter(
+        (message) =>
+          !(
             message.role === 'user' &&
-            !message.optimistic &&
-            (message.content ?? '').length > 0,
-        )
-        .map((message) => message.content),
-    );
-    if (confirmedUserContents.size === 0) {
-      return nextMessages;
-    }
-    return nextMessages.filter(
-      (message) =>
-        !(
-          message.role === 'user' &&
-          message.optimistic &&
-          confirmedUserContents.has(message.content)
-        ),
-    );
-  }, []);
+            message.optimistic &&
+            confirmedUserContents.has(message.content)
+          ),
+      );
+    },
+    [],
+  );
 
   const updateMessages = useCallback(
     (updater: (prev: ChatMessage[]) => ChatMessage[]) => {

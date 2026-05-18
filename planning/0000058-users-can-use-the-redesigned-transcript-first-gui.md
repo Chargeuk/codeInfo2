@@ -86,10 +86,6 @@ The design references for this story already exist and should be treated as the 
 - When screenshots are needed, capture them first in the Playwright output directory and then transfer the chosen artifacts into `codeInfoTmp/manual-testing/0000058/<task-number>/` with deterministic names such as `proof-01-desktop-chat.png`, `proof-02-mobile-home.png`, and `support-console.txt`.
 - Later tasking should include desktop and mobile proof across both shell families, with special attention on transcript height, bottom composer behavior, conversation-pane interactions, Home absorbing LM Studio and provider logon concerns, the `/lmstudio` redirect path, and the rule that message `Copy` actions copy only message content while scroll-away transcript reading keeps its place during new activity.
 
-### Questions
-
-None at this time.
-
 ## Decisions
 
 1. Transcript scroll-away behavior
@@ -164,3 +160,7 @@ None at this time.
 - Keep `Ingest` and `Logs` visually aligned with the new utility-shell design while explicitly resisting scope creep into new ingest or logging features.
 - Implement transcript `Copy` actions so they copy only the message body content and not footer metadata or hidden diagnostic details.
 - When tasking this story up later, split work so transcript mechanics, shared shell primitives, page-specific composer adapters, and utility-page migration can be validated incrementally without reopening backend work unless a concrete frontend blocker is discovered.
+
+## Questions
+
+- No Further Questions

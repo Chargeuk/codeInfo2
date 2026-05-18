@@ -422,9 +422,36 @@ Rebuild the shared transcript row chrome before any page shell work starts. This
 - `https://llms.mui.com/material-ui/7.3.11/react-paper.md` - use for the existing `Paper`-based message slice composition that this task restyles rather than replaces with custom DOM chrome.
 - `https://llms.mui.com/material-ui/7.3.11/react-popover.md` - use for the footer metadata `Info` affordance if metadata moves behind a popover or equivalent anchored overlay.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.png`
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.png`
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+  - `planning/layout-ideas/plan/initial-layout/chat-composer.md`
+  - `planning/layout-ideas/plan/initial-layout/chat-composer.svg`
+  - `planning/layout-ideas/plan/initial-layout/agents-composer.md`
+  - `planning/layout-ideas/plan/initial-layout/agents-composer.svg`
+  - `planning/layout-ideas/plan/initial-layout/flows-composer.md`
+  - `planning/layout-ideas/plan/initial-layout/flows-composer.svg`
+
 #### Subtasks
 
-1. [x] Current Repository: Re-read the transcript-focused story sections plus inspect `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/SharedTranscriptToolDetails.tsx`, `client/src/components/chat/chatTranscriptFormatting.ts`, and `client/src/components/chat/VirtualizedTranscript.tsx`. Purpose: confirm the existing `ChatMessage`, `ToolCall`, visible segment rendering, and Story 49 proof-marker ownership before any row-chrome changes. Documentation: Context7 `/mdn/content` ; https://llms.mui.com/material-ui/7.3.11/react-paper.md ; https://llms.mui.com/material-ui/7.3.11/react-popover.md .
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only transcript rows or footer controls, use the matching composer and workspace-shell subset from that packet rather than inventing a new visual or structural interpretation.
+
+1. [x] Current Repository: Re-read the transcript-focused story sections, read every file in this task's Task Design Packet, then inspect `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/SharedTranscriptToolDetails.tsx`, `client/src/components/chat/chatTranscriptFormatting.ts`, and `client/src/components/chat/VirtualizedTranscript.tsx`. Purpose: confirm the exact row, footer, and mobile/desktop transcript treatment the implementation must match before any row-chrome changes start. Documentation: Context7 `/mdn/content` ; https://llms.mui.com/material-ui/7.3.11/react-paper.md ; https://llms.mui.com/material-ui/7.3.11/react-popover.md .
 2. [x] Current Repository: Update `client/src/components/chat/SharedTranscriptMessageRow.tsx` to match the approved transcript-first row chrome for user and assistant messages. Purpose: land the shared visual treatment in the one row component already used by `Chat`, `Agents`, and `Flows`, without creating a page-specific row variant. Documentation: https://llms.mui.com/material-ui/7.3.11/react-paper.md .
 3. [x] Current Repository: Update `client/src/components/chat/chatTranscriptFormatting.ts` only where needed so the row renderer can keep visible message-body text separate from display-only metadata text. Purpose: make the later `Info` and `Copy` behavior depend on one explicit formatting boundary instead of ad hoc string assembly in the row component.
 4. [x] Current Repository: Update `client/src/components/chat/SharedTranscriptToolDetails.tsx` and, if the footer metadata needs a dedicated extractor, add that helper under `client/src/components/chat/` next to the transcript components. Output: footer-only timing, provider/model, warning, and diagnostic details are rendered from one metadata path that the visible message-body renderer does not reuse. Purpose: keep metadata display-only and out of the copy payload path. Documentation: https://llms.mui.com/material-ui/7.3.11/react-popover.md .
@@ -482,9 +509,32 @@ Create the reusable desktop/mobile workspace shell before the page adapters are 
 - `https://llms.mui.com/material-ui/7.3.11/react-use-media-query.md` - use for the shared mobile-versus-desktop breakpoint behavior that drives left/right overlay ownership.
 - `https://llms.mui.com/material-ui/7.3.11/guides/responsive-ui.md` - use for the responsive shell structure so desktop and mobile variants stay in one coherent layout model.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.svg`
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the workspace-shell story sections plus inspect `client/src/App.tsx`, `client/src/components/NavBar.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/ConversationSidebarToggle.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx`. Purpose: confirm the existing conversation filter/archive semantics, page-owned submission state, and Task 1 transcript entrypoint before moving shell chrome. Documentation: https://llms.mui.com/material-ui/7.3.11/react-drawer.md ; https://llms.mui.com/material-ui/7.3.11/react-use-media-query.md ; https://llms.mui.com/material-ui/7.3.11/guides/responsive-ui.md .
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only the desktop app rail, the conversations pane, or one mobile overlay, use the matching subset from that packet and keep the rest of the packet as the surrounding shell context.
+
+1. [ ] Current Repository: Re-read the workspace-shell story sections, read every file in this task's Task Design Packet, then inspect `client/src/App.tsx`, `client/src/components/NavBar.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/ConversationSidebarToggle.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx`. Purpose: confirm the exact desktop shell, mobile conversations overlay, and mobile app-menu behavior the shared shell must match before moving shell chrome. Documentation: https://llms.mui.com/material-ui/7.3.11/react-drawer.md ; https://llms.mui.com/material-ui/7.3.11/react-use-media-query.md ; https://llms.mui.com/material-ui/7.3.11/guides/responsive-ui.md .
 2. [ ] Current Repository: Create the shared desktop workspace frame under `client/src/components/workspace/`, including the app-rail area plus transcript/composer frame slots that later page adapters can consume. Purpose: establish one reusable desktop shell primitive without moving page-specific provider, agent, or flow controls into shared chrome.
 3. [ ] Current Repository: Create a reusable desktop conversations-pane wrapper under `client/src/components/workspace/` that hosts the conversation list beside the transcript on larger screens. Purpose: isolate desktop conversation-pane layout from the page adapters that will consume it later.
 4. [ ] Current Repository: Create a reusable mobile conversations overlay under `client/src/components/workspace/` for the left-side full-screen conversations surface. Purpose: give `Chat`, `Agents`, and `Flows` one shared mobile conversations pattern instead of three page-local drawers. Documentation: https://llms.mui.com/material-ui/7.3.11/react-drawer.md ; https://llms.mui.com/material-ui/7.3.11/react-use-media-query.md .
@@ -535,9 +585,28 @@ Move `Chat` into the new shared workspace shell without changing the existing ch
 - `https://llms.mui.com/material-ui/7.3.11/react-select.md` - use for the provider/model selector behavior that remains next-send-only and mode-gated in the redesigned composer footer.
 - `https://llms.mui.com/material-ui/7.3.11/react-drawer.md` - use for any remaining Chat-specific shell integration around the conversations pane after Task 2 introduces shared wrappers.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+  - `planning/layout-ideas/plan/initial-layout/chat-composer.md`
+  - `planning/layout-ideas/plan/initial-layout/chat-composer.svg`
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the Chat-specific story rules plus inspect `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/components/chat/AgentFlagsPanel.tsx`, and the shell components created in Task 2. Purpose: confirm the existing resumed-provider/resumed-model lock behavior, next-send-only provider/model updates, conversation selection, and working-folder restore/persist seams before the shell migration.
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only Chat footer controls, use the Chat composer files from that packet together with the matching desktop/mobile workspace-shell files that show where those controls live.
+
+1. [ ] Current Repository: Re-read the Chat-specific story rules, read every file in this task's Task Design Packet, then inspect `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/components/chat/AgentFlagsPanel.tsx`, and the shell components created in Task 2. Purpose: confirm the exact Chat composer placement, desktop/mobile shell framing, and current resumed-provider/resumed-model rules before the shell migration.
 2. [ ] Current Repository: Update `client/src/pages/ChatPage.tsx` so `Chat` renders through the shared workspace shell from Task 2 and keeps using the shared transcript path from Task 1 instead of forking a Chat-only transcript component. Purpose: move Chat onto the new shell without creating a second transcript/layout abstraction.
 3. [ ] Current Repository: Update the bottom composer structure in `client/src/pages/ChatPage.tsx` and `client/src/components/chat/AgentFlagsPanel.tsx` so the input, selector rows, footer controls, and transcript-height priorities match the approved layout direction. Output: the composer moves to the bottom of the page without introducing a second Chat-only shell abstraction. Purpose: reclaim vertical transcript space while keeping the Chat task focused on one page adapter.
 4. [ ] Current Repository: Preserve the resumed-conversation provider/model lock behavior in `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatModel.ts`. Purpose: keep resumed execution identity stable after the selector layout and shell ownership move.
@@ -592,9 +661,28 @@ Move `Agents` into the shared workspace shell and bottom composer while keeping 
 - `https://llms.mui.com/material-ui/7.3.11/react-drawer.md` - use for the shared shell integration around the conversations pane and mobile overlays.
 - `https://llms.mui.com/material-ui/7.3.11/react-use-media-query.md` - use for the breakpoint-driven shell behavior that `Agents` now shares with the other workspace pages.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+  - `planning/layout-ideas/plan/initial-layout/agents-composer.md`
+  - `planning/layout-ideas/plan/initial-layout/agents-composer.svg`
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the Agents-specific story rules plus inspect `client/src/pages/AgentsPage.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, `client/src/hooks/useConversations.ts`, and the shared shell components created in Task 2. Purpose: confirm the current agent/command/step selection rules, prompt-discovery invalidation behavior, and persistence-disabled state boundaries before the shell migration.
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only Agents selector layout or footer controls, use the Agents composer files from that packet together with the matching workspace-shell files that show the selector placement on desktop and mobile.
+
+1. [ ] Current Repository: Re-read the Agents-specific story rules, read every file in this task's Task Design Packet, then inspect `client/src/pages/AgentsPage.tsx`, `client/src/components/agents/AgentsComposerPanel.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, `client/src/hooks/useConversations.ts`, and the shared shell components created in Task 2. Purpose: confirm the exact Agents composer placement, desktop/mobile shell framing, and current selector-reset rules before the shell migration.
 2. [ ] Current Repository: Update `client/src/pages/AgentsPage.tsx` so `Agents` renders through the shared workspace shell and keeps using the shared transcript path from Task 1. Purpose: move the page onto the shared shell without reintroducing a page-local transcript layout.
 3. [ ] Current Repository: Update `client/src/components/agents/AgentsComposerPanel.tsx` so the page uses the redesigned bottom composer/footer structure. Output: the Agents composer controls move into the shared bottom-composer pattern without changing the selector state machine yet. Purpose: separate bottom-composer layout work from the selector-state logic that follows.
 4. [ ] Current Repository: Preserve the rule in `client/src/pages/AgentsPage.tsx` that changing the selected agent clears the selected command and resets `startStep` to `1`. Purpose: keep the most important dependent-selector reset explicit after the composer moves.
@@ -650,9 +738,28 @@ Move `Flows` into the shared workspace shell and bottom composer while preservin
 - `https://llms.mui.com/material-ui/7.3.11/react-text-field.md` - use for the custom-title and working-folder controls that move into the redesigned bottom composer.
 - `https://llms.mui.com/material-ui/7.3.11/react-drawer.md` - use for the shell-level conversation-pane integration that `Flows` now shares with the other workspace pages.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+  - `planning/layout-ideas/plan/initial-layout/flows-composer.md`
+  - `planning/layout-ideas/plan/initial-layout/flows-composer.svg`
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the Flows-specific story rules plus inspect `client/src/pages/FlowsPage.tsx`, `client/src/api/flows.ts`, `client/src/hooks/useConversations.ts`, `client/src/components/ingest/DirectoryPickerDialog.tsx`, and the shared shell components created in Task 2. Purpose: confirm the current `resumeStepPath`, custom-title, working-folder, and conversation-selection rules before the page moves into the shared shell.
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only Flow run controls or resume-state presentation, use the Flows composer files from that packet together with the matching workspace-shell files that show their desktop and mobile placement.
+
+1. [ ] Current Repository: Re-read the Flows-specific story rules, read every file in this task's Task Design Packet, then inspect `client/src/pages/FlowsPage.tsx`, `client/src/api/flows.ts`, `client/src/hooks/useConversations.ts`, `client/src/components/ingest/DirectoryPickerDialog.tsx`, and the shared shell components created in Task 2. Purpose: confirm the exact Flows composer placement, desktop/mobile shell framing, and current `resumeStepPath` plus custom-title rules before the page moves into the shared shell.
 2. [ ] Current Repository: Update `client/src/pages/FlowsPage.tsx` so `Flows` renders through the shared workspace shell and keeps using the shared transcript path from Task 1. Purpose: move the page onto the new shell without introducing a Flows-only transcript variant.
 3. [ ] Current Repository: Update the bottom composer/footer structure in `client/src/pages/FlowsPage.tsx` so the page matches the redesigned workspace layout. Output: the custom-title, working-folder, and run controls move into the bottom composer without creating a Flows-only shell wrapper. Purpose: separate layout work from the mixed-state submission rules that follow.
 4. [ ] Current Repository: Preserve the fresh-run-only custom-title rule in `client/src/pages/FlowsPage.tsx` so custom titles are still accepted only for new runs. Purpose: keep the new-run title behavior explicit after the composer move.
@@ -705,9 +812,25 @@ Turn `Home` into the real system-status surface and migrate the LM Studio contro
 - `https://llms.mui.com/material-ui/7.3.11/react-dialog.md` - use for the existing shared provider-auth dialog path that `Home` must keep reusing instead of replacing.
 - `https://llms.mui.com/material-ui/7.3.11/react-card.md` - use for the system-status sections that `Home` will compose from existing runtime data.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/home-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/home-page-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-home-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-home-page-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/home-page.md`
+  - `planning/layout-ideas/plan/initial-layout/home-page.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-home-page.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-home-page.svg`
+  - `planning/layout-ideas/plan/initial-layout/utility-page-shell.svg`
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the `Home`/LM Studio story sections plus inspect `client/src/pages/HomePage.tsx`, `client/src/pages/LmStudioPage.tsx`, `client/src/hooks/useLmStudioStatus.ts`, `client/src/hooks/useChatModel.ts`, `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `common/src/lmstudio.ts`, and `common/src/api.ts`. Purpose: confirm the current `ChatProviderInfo`, provider-auth response-state, `LmStudioStatusResponse`, and `localStorage['lmstudio.baseUrl']` contracts before composing the new `Home` destination.
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only shared utility-shell structure, use `utility-page-shell.svg` plus the matching Home final/initial desktop or mobile files instead of inferring the shell from unrelated workspace designs.
+
+1. [ ] Current Repository: Re-read the `Home`/LM Studio story sections, read every file in this task's Task Design Packet, then inspect `client/src/pages/HomePage.tsx`, `client/src/pages/LmStudioPage.tsx`, `client/src/hooks/useLmStudioStatus.ts`, `client/src/hooks/useChatModel.ts`, `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `common/src/lmstudio.ts`, and `common/src/api.ts`. Purpose: confirm the exact desktop/mobile Home status layout, shared utility-shell structure, and current `LmStudioStatusResponse` plus provider-auth contracts before composing the new `Home` destination.
 2. [ ] Current Repository: Create the shared utility-shell primitive under a dedicated client folder such as `client/src/components/utility/UtilityPageShell.tsx`. Purpose: establish one reusable utility-page layout structure without burying provider, auth, or LM Studio state transitions inside generic shell code.
 3. [ ] Current Repository: Create any dedicated `client/src/components/home/` status sections needed to separate version/provider/auth presentation from LM Studio presentation. Purpose: keep `Home` composition readable and avoid one oversized page component that mixes unrelated status surfaces.
 4. [ ] Current Repository: Update `client/src/pages/HomePage.tsx` and the new `client/src/components/home/` sections so `Home` renders version data, passive provider readiness derived from the existing provider contracts, and provider-auth entry points that still use `CodexDeviceAuthDialog`. Purpose: compose global provider/auth status without inventing stronger authenticated/healthy claims than the current contracts prove.
@@ -763,9 +886,33 @@ Bring `Ingest` and `Logs` into the new utility-page layout family without changi
 - `https://llms.mui.com/material-ui/7.3.11/react-card.md` - use for the card-level utility page sections that remain visible on `Logs` and any utility-shell layouts derived from `Home`.
 - `https://llms.mui.com/material-ui/7.3.11/react-alert.md` - use for preserving existing ingest/log warning and error surfaces inside the new utility shell.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/ingest-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/ingest-page-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-ingest-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-ingest-page-final.png`
+  - `planning/layout-ideas/plan/final-designs/logs-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/logs-page-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-logs-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-logs-page-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/ingest-page.md`
+  - `planning/layout-ideas/plan/initial-layout/ingest-page.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-ingest-page.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-ingest-page.svg`
+  - `planning/layout-ideas/plan/initial-layout/logs-page.md`
+  - `planning/layout-ideas/plan/initial-layout/logs-page.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-logs-page.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-logs-page.svg`
+  - `planning/layout-ideas/plan/initial-layout/utility-page-shell.svg`
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the utility-page story sections plus inspect `client/src/pages/IngestPage.tsx`, `client/src/pages/LogsPage.tsx`, `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `client/src/hooks/useIngestRoots.ts`, `client/src/hooks/useLogs.ts`, and the utility-shell component created in Task 6. Purpose: confirm the current ingest/log contracts before moving either page into the shared utility layout.
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only `Ingest` or only `Logs`, use the matching page-specific desktop/mobile files from that packet together with `utility-page-shell.svg` as the shared structural reference.
+
+1. [ ] Current Repository: Re-read the utility-page story sections, read every file in this task's Task Design Packet, then inspect `client/src/pages/IngestPage.tsx`, `client/src/pages/LogsPage.tsx`, `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `client/src/hooks/useIngestRoots.ts`, `client/src/hooks/useLogs.ts`, and the utility-shell component created in Task 6. Purpose: confirm the exact desktop/mobile Ingest and Logs layouts plus shared utility-shell structure before moving either page into the shared utility layout.
 2. [ ] Current Repository: Update `client/src/pages/IngestPage.tsx` so `Ingest` uses the shared utility shell while keeping its current alert banners, model-lock notice, start-ingest card, roots table, and active-run card intact. Output: the page chrome changes, but the existing ingest surfaces still appear in the same user-visible order and keep their current behavior. Purpose: move the main Ingest page structure first without blending in component-specific adjustments.
 3. [ ] Current Repository: Update `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, and `client/src/components/ingest/RootsTable.tsx` only where the new utility-shell layout changes spacing, container ownership, or section boundaries. Output: these components fit inside the shared utility shell without changing ingest submission, drawer, or active-run semantics. Purpose: keep the utility-shell adoption from accidentally becoming an ingest behavior rewrite.
 4. [ ] Current Repository: Update `client/src/pages/LogsPage.tsx` so `Logs` uses the shared utility shell while keeping its current live toggle, manual refresh, text/level/source filters, sample emitter, and message list surfaces intact. Output: the page chrome changes, but the log controls and visible results contract stay the same. Purpose: move the main Logs page structure first without blending in log-view contract changes.
@@ -818,9 +965,36 @@ Finish the visible shell migration by replacing the old top-tab navigation with 
 - `https://llms.mui.com/material-ui/7.3.11/integrations/routing.md` - use for the MUI routing integration guidance that keeps the shared navigation model aligned with `react-router-dom`.
 - `https://llms.mui.com/material-ui/7.3.11/react-drawer.md` - use for the app-menu/conversations overlay behavior now that the top tab bar is removed.
 
+#### Task Design Packet
+
+- Final visual targets and matching implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
+  - `planning/layout-ideas/plan/final-designs/home-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/home-page-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-home-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-home-page-final.png`
+- Initial structural source files for layout intent:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.svg`
+  - `planning/layout-ideas/plan/initial-layout/home-page.md`
+  - `planning/layout-ideas/plan/initial-layout/home-page.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-home-page.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-home-page.svg`
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the route/navigation story sections plus inspect `client/src/App.tsx`, `client/src/routes/router.tsx`, `client/src/components/NavBar.tsx`, the shared shell components from Task 2, and the `Home`/LM utility-shell work from Task 6. Purpose: confirm the current default index route, browser entrypoint, and shared page ownership before replacing the visible navigation model.
+Use the full Task Design Packet above for every numbered subtask in this task. When a subtask touches only visible navigation chrome or the `/lmstudio` landing surface, use the matching navigation, workspace-shell, and Home files from that packet rather than borrowing details from unrelated page-specific designs.
+
+1. [ ] Current Repository: Re-read the route/navigation story sections, read every file in this task's Task Design Packet, then inspect `client/src/App.tsx`, `client/src/routes/router.tsx`, `client/src/components/NavBar.tsx`, the shared shell components from Task 2, and the `Home`/LM utility-shell work from Task 6. Purpose: confirm the exact desktop app-rail, mobile app-menu, and Home landing layouts that the route and visible-navigation work must expose before replacing the visible navigation model.
 2. [ ] Current Repository: Update `client/src/App.tsx` so the old top-tab host is removed and the top-level client shell now mounts the shared desktop app rail and mobile app-menu pattern. Purpose: make the top-level shell change explicit before the route-specific redirect work lands.
 3. [ ] Current Repository: Update `client/src/components/NavBar.tsx` and any shared navigation/shell component from Task 2 that now owns destination presentation. Purpose: replace the visible top-tab navigation model with the new shared app-navigation chrome without changing route reachability yet.
 4. [ ] Current Repository: Update `client/src/routes/router.tsx` so `Chat`, `Agents`, `Flows`, `Home`, `Ingest`, and `Logs` continue to mount through the default route tree after the visible navigation model changes. Purpose: keep default-path reachability explicit and separate from the `/lmstudio` compatibility redirect itself.
@@ -871,9 +1045,26 @@ Run the full-story acceptance pass, update the reviewer-facing close-out artifac
 - `Context7 /mdn/content` - use for the final copy-behavior summary so reviewer-facing notes still describe the plain-text clipboard contract accurately.
 - `https://llms.mui.com/material-ui/7.3.11/guides/responsive-ui.md` - use for the final shell-family validation notes that compare desktop and mobile layout behavior against the approved design direction.
 
+#### Task Design Packet
+
+- Story-wide design index files:
+  - `planning/layout-ideas/plan/final-designs/README.md`
+  - `planning/layout-ideas/plan/initial-layout/README.md`
+- Reuse the exact task-level design packets already assigned in Tasks 1 through 8 for final validation:
+  - transcript row and shared composer files from Task 1
+  - shared workspace-shell, conversations, and app-menu files from Task 2
+  - Chat composer files from Task 3
+  - Agents composer files from Task 4
+  - Flows composer files from Task 5
+  - Home and mobile Home files from Task 6
+  - Ingest and Logs desktop/mobile files from Task 7
+  - visible navigation and `/lmstudio` landing files from Task 8
+
 #### Subtasks
 
-1. [ ] Current Repository: Re-read the full Story 58 plan and add a traceability ledger entry in this task’s `Implementation notes` for every acceptance criterion and important Description requirement. Output: each story promise lists the exact implementation task that delivered it plus the exact proof file or wrapper step that proves it. Requirement: every in-scope story promise has one implementation home and one proof home. Implementation files: all Story 58 implementation files touched by Tasks 1 through 8. Proof surfaces: this task’s `Implementation notes` traceability ledger plus the proof-owning files already named in Tasks 1 through 8.
+Use the full Task Design Packet above for every numbered subtask in this task. Final validation should compare the implemented surfaces against the exact design packets already assigned to Tasks 1 through 8 rather than introducing a new cross-story interpretation of the redesign.
+
+1. [ ] Current Repository: Re-read the full Story 58 plan, read every file in this task's Task Design Packet, and add a traceability ledger entry in this task’s `Implementation notes` for every acceptance criterion and important Description requirement. Output: each story promise lists the exact implementation task that delivered it, the exact proof file or wrapper step that proves it, and the exact design packet that defines the intended result. Requirement: every in-scope story promise has one implementation home and one proof home. Implementation files: all Story 58 implementation files touched by Tasks 1 through 8. Proof surfaces: this task’s `Implementation notes` traceability ledger plus the proof-owning files already named in Tasks 1 through 8.
 2. [ ] Current Repository: Add a second `Implementation notes` ledger entry that maps the `Message Contracts And Storage Shapes` rules, the `Risk And Invariant Matrix` items, and the explicit Out Of Scope boundaries to the final implementation and proof surfaces. Output: transcript copy isolation, scroll-away anchor preservation, workspace-shell state retention, `Home` LM Studio migration, `/lmstudio` redirect behavior, utility-page adoption, and intentionally unchanged surfaces are each called out explicitly instead of being implied. Requirement: the final close-out notes make the highest-risk invariants and the intentionally unchanged seams easy to review. Implementation files: all Story 58 implementation files touched by Tasks 1 through 8. Proof surfaces: this task’s `Implementation notes` ledger plus the named proof files, wrappers, and manual-proof surfaces already assigned earlier in the story.
 3. [ ] Current Repository: Create or refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md`. Requirement: reviewers can see the final redesign scope, task/proof map, wrapper evidence, and bounded proof caveats in one durable artifact. Implementation files: all Story 58 implementation files summarized by the close-out. Proof owner: `codeInfoStatus/pr-summaries/0000058-pr-summary.md`.
 4. [ ] Current Repository: Inspect `README.md`, `codeinfo_markdown/repository_information.md`, and any other repository-owned documentation file touched during Story 58. Output: either update the exact file whose instructions or screenshots changed, or record in this task’s `Implementation notes` that no repository-owned doc besides the PR summary needed a Story 58 update. Requirement: documentation close-out is truthful instead of implied. Implementation files: any touched repository-owned documentation file plus the final Story 58 implementation files it describes. Proof surfaces: the updated documentation file itself or this task’s `Implementation notes` no-change record.

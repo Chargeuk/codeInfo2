@@ -80,6 +80,7 @@ The design references for this story already exist and should be treated as the 
 ### Story Manual Testing Guidance
 
 - Use the approved assets under `planning/layout-ideas/plan/final-designs` as the visual proof reference during manual QA, with desktop and mobile screenshots compared against the final markdown and image deliverables for each shell family.
+- Manual testers should explicitly exercise both larger desktop views and mobile views for every shell family touched by this story, rather than treating one screen size as representative of the other.
 - Prefer validating the redesign in the checked-in main stack surfaces at `http://localhost:5001` and `http://localhost:5010` unless later tasking documents a narrower proof seam.
 - Manual proof for auth-dependent provider state on `Home` may use the repository-owned skip rule from `codeinfo_markdown/repository_information.md` when the missing state would require human-controlled two-factor authentication; skip only the affected auth-dependent surface and keep the rest of the redesign proof active.
 - When screenshots are needed, capture them first in the Playwright output directory and then transfer the chosen artifacts into `codeInfoTmp/manual-testing/0000058/<task-number>/` with deterministic names such as `proof-01-desktop-chat.png`, `proof-02-mobile-home.png`, and `support-console.txt`.

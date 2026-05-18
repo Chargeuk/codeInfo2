@@ -337,6 +337,19 @@ export default function SharedTranscriptToolDetails({
   const fullError = tool.errorFull;
   const hasFullError = fullError !== undefined && fullError !== null;
   const hasPayload = tool.payload !== undefined && tool.payload !== null;
+  const toolSummaryLines = useMemo(() => {
+    const lines = [`Status: ${tool.status}`];
+    if (tool.name) {
+      lines.push(`Tool: ${tool.name}`);
+    }
+    if (hasFullError) {
+      lines.push('Full error details available');
+    }
+    if (hasPayload) {
+      lines.push('Payload details available');
+    }
+    return lines;
+  }, [hasFullError, hasPayload, tool.name, tool.status]);
 
   const hasVectorFiles = tool.name === 'VectorSearch' && files.length > 0;
   const hasVectorMatches =
@@ -345,9 +358,18 @@ export default function SharedTranscriptToolDetails({
 
   return (
     <Stack spacing={1} mt={0.5} data-testid="tool-details">
-      <Typography variant="caption" color="text.secondary">
-        Status: {tool.status}
-      </Typography>
+      <Stack spacing={0.25} data-testid="tool-summary">
+        {toolSummaryLines.map((line) => (
+          <Typography
+            key={line}
+            variant="caption"
+            color="text.secondary"
+            data-testid="tool-summary-line"
+          >
+            {line}
+          </Typography>
+        ))}
+      </Stack>
       {trimmedError && (
         <Stack spacing={0.5}>
           <Typography

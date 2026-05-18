@@ -1,5 +1,7 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -13,10 +15,19 @@ import {
   CircularProgress,
   Collapse,
   Paper,
+  Popover,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { memo, type ReactNode, useEffect, useMemo, useRef } from 'react';
+import {
+  memo,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type {
   ChatMessage,
   ToolCall,
@@ -25,12 +36,10 @@ import type {
 import Markdown from '../Markdown';
 import SharedTranscriptToolDetails from './SharedTranscriptToolDetails';
 import {
-  buildStepLine,
-  buildTimingLine,
-  buildUsageLine,
+  buildBubbleMetadataSummary,
   collectOmittedMetadataFields,
-  formatBubbleTimestamp,
 } from './chatTranscriptFormatting';
+import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 
 type SharedTranscriptMessageRowProps = {
   message: ChatMessage;
@@ -84,27 +93,18 @@ function SharedTranscriptMessageRow({
   markdownLogSource = 'SharedTranscript',
 }: SharedTranscriptMessageRowProps) {
   const partialMetadataLogKeyRef = useRef<string | null>(null);
+  const copyFeedbackTimerRef = useRef<number | null>(null);
+  const [infoAnchorEl, setInfoAnchorEl] = useState<HTMLButtonElement | null>(
+    null,
+  );
+  const [copyFeedback, setCopyFeedback] = useState<{
+    severity: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const alignSelf = message.role === 'user' ? 'flex-end' : 'flex-start';
   const isErrorBubble = message.kind === 'error';
   const isStatusBubble = message.kind === 'status';
   const isUser = message.role === 'user';
-  const showMetadata = !isErrorBubble && !isStatusBubble;
-  const timestampLabel = showMetadata
-    ? formatBubbleTimestamp(message.createdAt)
-    : null;
-  const usageLine =
-    message.role === 'assistant' ? buildUsageLine(message.usage) : null;
-  const timingLine =
-    message.role === 'assistant' ? buildTimingLine(message.timing) : null;
-  const omittedMetadataFields = useMemo(
-    () => collectOmittedMetadataFields(message),
-    [message],
-  );
-  const stepLine =
-    message.role === 'assistant' ? buildStepLine(message.command) : null;
-  const metadataColor = isUser ? 'inherit' : 'text.secondary';
-  const hasCitations =
-    citationsEnabled && activeToolsAvailable && !!message.citations?.length;
   const baseSegments = message.segments?.length
     ? message.segments
     : ([
@@ -124,9 +124,32 @@ function SharedTranscriptMessageRow({
   const segments = activeToolsAvailable
     ? baseSegments
     : baseSegments.filter((segment) => segment.kind === 'text');
+  const metadataSummary = useMemo(
+    () => buildBubbleMetadataSummary(message),
+    [message],
+  );
+  const omittedMetadataFields = useMemo(
+    () => collectOmittedMetadataFields(message),
+    [message],
+  );
+  const hasCitations =
+    citationsEnabled && activeToolsAvailable && !!message.citations?.length;
+  const metadataContent = renderMetadataContent?.(message) ?? null;
+  const visibleCopyText = useMemo(
+    () =>
+      buildSharedTranscriptCopyText({
+        content: message.content,
+        segments,
+      }),
+    [message.content, segments],
+  );
+  const hasFooterMetadata =
+    metadataSummary.length > 0 ||
+    Boolean(metadataContent) ||
+    Boolean(message.warnings?.length);
 
   useEffect(() => {
-    if ((!usageLine && !timingLine) || omittedMetadataFields.length === 0) {
+    if (metadataSummary.length === 0 || omittedMetadataFields.length === 0) {
       return;
     }
 
@@ -140,7 +163,61 @@ function SharedTranscriptMessageRow({
       messageId: message.id,
       omittedFields: omittedMetadataFields,
     });
-  }, [log, message.id, omittedMetadataFields, timingLine, usageLine]);
+  }, [log, message.id, metadataSummary.length, omittedMetadataFields]);
+
+  useEffect(() => {
+    if (!copyFeedback) {
+      return;
+    }
+
+    const timeoutMs = copyFeedback.severity === 'success' ? 1800 : 3200;
+    copyFeedbackTimerRef.current = window.setTimeout(() => {
+      setCopyFeedback(null);
+    }, timeoutMs);
+
+    return () => {
+      if (copyFeedbackTimerRef.current != null) {
+        window.clearTimeout(copyFeedbackTimerRef.current);
+        copyFeedbackTimerRef.current = null;
+      }
+    };
+  }, [copyFeedback]);
+
+  const metadataPopoverOpen = Boolean(infoAnchorEl);
+
+  const handleCopy = async () => {
+    if (!visibleCopyText) {
+      setCopyFeedback({
+        severity: 'error',
+        message: 'Nothing visible to copy.',
+      });
+      log('warn', 'shared_transcript_copy_empty', {
+        messageId: message.id,
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(visibleCopyText);
+      setCopyFeedback({
+        severity: 'success',
+        message: 'Copied visible message content.',
+      });
+      log('info', 'shared_transcript_copy_succeeded', {
+        messageId: message.id,
+        visibleContentLength: visibleCopyText.length,
+      });
+    } catch (error) {
+      setCopyFeedback({
+        severity: 'error',
+        message: 'Copy failed. Please try again.',
+      });
+      log('warn', 'shared_transcript_copy_failed', {
+        messageId: message.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
 
   return (
     <Stack
@@ -159,69 +236,27 @@ function SharedTranscriptMessageRow({
           data-role={message.role}
           data-kind={message.kind ?? 'normal'}
           sx={{
-            p: 1.5,
-            borderRadius: '14px',
+            p: 2,
+            borderRadius: 2,
             bgcolor: isErrorBubble
-              ? 'error.light'
+              ? 'error.50'
               : isStatusBubble
-                ? 'info.light'
+                ? 'info.50'
                 : isUser
-                  ? 'primary.main'
+                  ? 'primary.50'
                   : 'background.paper',
-            color: isErrorBubble
-              ? 'error.contrastText'
-              : isStatusBubble
-                ? 'info.dark'
-                : isUser
-                  ? 'primary.contrastText'
-                  : 'text.primary',
+            color: 'text.primary',
             borderColor: isErrorBubble
               ? 'error.main'
               : isStatusBubble
                 ? 'info.main'
-                : undefined,
+                : isUser
+                  ? 'primary.200'
+                  : 'divider',
+            boxShadow: 0,
           }}
         >
           <Stack spacing={1}>
-            {showMetadata && timestampLabel && (
-              <Stack spacing={0.25}>
-                <Typography
-                  variant="caption"
-                  color={metadataColor}
-                  data-testid="bubble-timestamp"
-                >
-                  {timestampLabel}
-                </Typography>
-                {usageLine && (
-                  <Typography
-                    variant="caption"
-                    color={metadataColor}
-                    data-testid="bubble-tokens"
-                  >
-                    {usageLine}
-                  </Typography>
-                )}
-                {timingLine && (
-                  <Typography
-                    variant="caption"
-                    color={metadataColor}
-                    data-testid="bubble-timing"
-                  >
-                    {timingLine}
-                  </Typography>
-                )}
-                {stepLine && (
-                  <Typography
-                    variant="caption"
-                    color={metadataColor}
-                    data-testid="bubble-step"
-                  >
-                    {stepLine}
-                  </Typography>
-                )}
-                {renderMetadataContent?.(message)}
-              </Stack>
-            )}
             {message.role === 'assistant' &&
               (visibleStreamStatus ?? message.streamStatus) && (
                 <Chip
@@ -273,24 +308,6 @@ function SharedTranscriptMessageRow({
                   data-testid="status-chip"
                   sx={{ alignSelf: 'flex-start' }}
                 />
-              )}
-            {message.role === 'assistant' &&
-              message.warnings &&
-              message.warnings.length > 0 && (
-                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                  {message.warnings.map((warning) => (
-                    <Chip
-                      key={`${message.id}-warning-${warning}`}
-                      size="small"
-                      variant="outlined"
-                      color="warning"
-                      icon={<WarningAmberIcon fontSize="small" />}
-                      label={warning}
-                      data-testid="warning-chip"
-                      sx={{ alignSelf: 'flex-start' }}
-                    />
-                  ))}
-                </Stack>
               )}
             {segments.map((segment) => {
               if (segment.kind === 'text') {
@@ -556,7 +573,132 @@ function SharedTranscriptMessageRow({
               </Collapse>
             </Box>
           )}
+          <Stack
+            direction="row"
+            spacing={0.5}
+            justifyContent="flex-end"
+            alignItems="center"
+            flexWrap="wrap"
+            sx={{ pt: 0.5 }}
+          >
+            {hasFooterMetadata && (
+              <Tooltip title="Show message details">
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={(event) =>
+                    setInfoAnchorEl((current) =>
+                      current ? null : event.currentTarget,
+                    )
+                  }
+                  data-testid="bubble-info"
+                  aria-haspopup="dialog"
+                  aria-expanded={metadataPopoverOpen}
+                  aria-controls={
+                    metadataPopoverOpen ? `bubble-info-popover-${message.id}` : undefined
+                  }
+                  startIcon={<InfoOutlinedIcon fontSize="small" />}
+                  sx={{
+                    textTransform: 'none',
+                    minWidth: 0,
+                    px: 0.5,
+                  }}
+                >
+                  Info
+                </Button>
+              </Tooltip>
+            )}
+            <Tooltip title="Copy visible message content">
+              <Button
+                size="small"
+                variant="text"
+                onClick={handleCopy}
+                data-testid="bubble-copy"
+                aria-label="Copy visible message content"
+                disabled={!visibleCopyText}
+                startIcon={<ContentCopyOutlinedIcon fontSize="small" />}
+                sx={{
+                  textTransform: 'none',
+                  minWidth: 0,
+                  px: 0.5,
+                }}
+              >
+                Copy
+              </Button>
+            </Tooltip>
+          </Stack>
+          {copyFeedback && (
+            <Typography
+              variant="caption"
+              color={copyFeedback.severity === 'error' ? 'error.main' : 'success.main'}
+              data-testid="bubble-copy-feedback"
+              sx={{ display: 'block', mt: 0.25, textAlign: 'right' }}
+            >
+              {copyFeedback.message}
+            </Typography>
+          )}
         </Paper>
+        <Popover
+          id={`bubble-info-popover-${message.id}`}
+          open={metadataPopoverOpen}
+          anchorEl={infoAnchorEl}
+          onClose={() => setInfoAnchorEl(null)}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                p: 1.5,
+                maxWidth: 420,
+              },
+            },
+          }}
+        >
+          <Stack spacing={1} data-testid="bubble-info-popover">
+            {metadataSummary.length > 0 && (
+              <Stack spacing={0.25}>
+                {metadataSummary.map((entry) => (
+                  <Typography
+                    key={entry.label}
+                    variant="caption"
+                    color="text.secondary"
+                    data-testid={`bubble-info-${entry.label.toLowerCase()}`}
+                  >
+                    {entry.label}: {entry.value}
+                  </Typography>
+                ))}
+              </Stack>
+            )}
+            {message.warnings && message.warnings.length > 0 && (
+              <Stack spacing={0.5}>
+                <Typography variant="caption" color="text.secondary">
+                  Warnings
+                </Typography>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  {message.warnings.map((warning) => (
+                    <Chip
+                      key={`${message.id}-warning-${warning}`}
+                      size="small"
+                      variant="outlined"
+                      color="warning"
+                      icon={<WarningAmberIcon fontSize="small" />}
+                      label={warning}
+                      data-testid="warning-chip"
+                      sx={{ alignSelf: 'flex-start' }}
+                    />
+                  ))}
+                </Stack>
+              </Stack>
+            )}
+            {metadataContent && <Box>{metadataContent}</Box>}
+          </Stack>
+        </Popover>
       </Box>
     </Stack>
   );

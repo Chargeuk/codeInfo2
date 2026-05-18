@@ -46,7 +46,7 @@ This story reshapes the CodeInfo2 frontend around a transcript-first workspace s
 6. [codeInfo2] - Build the utility status shell and move LM Studio into Home
 
 - Create the shared utility-page shell and migrate provider status, auth entry points, and LM Studio controls into `Home`.
-- Preserve the committed-versus-draft LM Studio base-URL lifecycle and keep `LmStudioPage` as a thin compatibility surface until route work lands.
+- Preserve the committed-versus-draft LM Studio base-URL lifecycle and prove `Home` now owns the shared utility-page layout before route work lands.
 
 7. [codeInfo2] - Apply the utility shell to Ingest and Logs
 

@@ -68,9 +68,9 @@
             {
               "type": "break",
               "label": "Exit Minor-Fix Path Unless Minor Findings Remain",
-              "agentType": "planning_agent",
-              "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer yes if `needs_minor_fix_path` is not true. Answer no only when `needs_minor_fix_path` is true, meaning unresolved minor-batchable findings still remain and should continue to be attempted inline before task-up. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "agentType": "loop_control_agent",
+              "identifier": "loop_controller",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
               "breakOn": "yes"
             },
             {
@@ -90,9 +90,9 @@
             {
               "type": "break",
               "label": "Exit Minor-Fix Path After Sync Unless Another Minor Finding Remains",
-              "agentType": "planning_agent",
-              "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after the sync step, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk too, for example with `cat codeInfoStatus/flow-state/minor-review-fix-result.json`. Answer only from those freshly re-read files. Answer yes iff `needs_minor_fix_path` is not true, meaning no unresolved minor-batchable findings remain or the remaining minor findings were bulk-escalated out of the minor bucket. Answer no only if `needs_minor_fix_path` is true, meaning another unresolved minor-batchable finding still needs an inline attempt in this same pass. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "agentType": "loop_control_agent",
+              "identifier": "loop_controller",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear_after_sync.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
               "breakOn": "yes"
             }
           ]
@@ -104,9 +104,9 @@
             {
               "type": "break",
               "label": "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
-              "agentType": "planning_agent",
-              "identifier": "planner",
-              "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer yes iff `needs_task_up_path` is not true. Treat `resolved_minor_findings` as non-actionable for task-up. Answer no only when `needs_task_up_path` is true, meaning unresolved task-required findings or incomplete-review blockers must be encoded into the plan. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "agentType": "loop_control_agent",
+              "identifier": "loop_controller",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_task_up_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
               "breakOn": "yes"
             },
             {
@@ -164,17 +164,17 @@
         {
           "type": "break",
           "label": "Exit Review Loop After Serious Review Work Was Tasked Up",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Then read `codeInfoStatus/flow-state/current-plan.json` from disk, for example with `cat codeInfoStatus/flow-state/current-plan.json`, determine `plan_path`, and re-open that exact plan from disk using `sed`, `cat`, or `rg` before answering. Answer only from those freshly re-read files. Answer yes iff the current review loop added or updated numbered review-fix tasks for unresolved task-required findings or incomplete-review blockers, meaning the flow should leave the review loop and return to the main implementation loop. Answer no otherwise, including when no numbered task was added or when only a post-loop final minor-fix revalidation task may still need to be considered. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_should_exit_to_main_loop.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
           "breakOn": "yes"
         },
         {
           "type": "break",
           "label": "Exit Review Loop When No Further Minor Rerun Is Needed",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer no iff `needs_review_rerun_before_close` is true and no serious review task-up work was added, because the review must run again against the new HEAD before the loop can finish. Answer yes iff `needs_review_rerun_before_close` is false, meaning the review loop may now finish cleanly and let downstream flow steps decide whether a post-loop final minor-fix revalidation task is needed. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_should_finish_cleanly.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
           "breakOn": "yes"
         }
       ]

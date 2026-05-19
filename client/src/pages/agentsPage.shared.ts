@@ -1,3 +1,5 @@
+import type { AgentPromptEntry } from '../api/agents';
+
 type AgentListEntry = {
   name: string;
   description?: string;
@@ -32,7 +34,7 @@ export const reconcileAgentDetailsCache = <T extends { disabled?: boolean }>(
 };
 
 export const isExecutePromptEnabled = (params: {
-  selectedPromptEntry: { name?: string } | null;
+  selectedPromptEntry: AgentPromptEntry | null;
   selectedAgentName: string;
   selectedAgentDisabled: boolean;
   startPending: boolean;

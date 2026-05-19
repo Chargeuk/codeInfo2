@@ -144,6 +144,13 @@
                     },
                     {
                       "type": "llm",
+                      "label": "Preflight automated-proof current task orientation",
+                      "agentType": "automated_testing_agent",
+                      "identifier": "automated_tester",
+                      "markdownFile": "preflight_automated_proof_current_task.md"
+                    },
+                    {
+                      "type": "llm",
                       "label": "Run automated proof and fix issues",
                       "agentType": "automated_testing_agent",
                       "identifier": "automated_tester",
@@ -163,6 +170,13 @@
                       "identifier": "loop_controller",
                       "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` exists, `selected_task.has_unchecked_subtasks` is false, `selected_task.has_unchecked_testing` is false, and `selected_task.live_blockers` is empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
                       "breakOn": "yes"
+                    },
+                    {
+                      "type": "llm",
+                      "label": "Preflight deep automated-proof blocker orientation",
+                      "agentType": "coding_agent",
+                      "identifier": "coder",
+                      "markdownFile": "preflight_deep_test_failure_current_blocker.md"
                     },
                     {
                       "type": "llm",

@@ -7,6 +7,7 @@ type ConversationSidebarToggleProps = {
   drawerWidth: number;
   isMobile: boolean;
   onToggle: () => void;
+  controlsId?: string;
 };
 
 export default function ConversationSidebarToggle({
@@ -14,6 +15,7 @@ export default function ConversationSidebarToggle({
   drawerWidth,
   isMobile,
   onToggle,
+  controlsId = 'conversation-drawer',
 }: ConversationSidebarToggleProps) {
   const buttonSize = 28;
   const handleLeft = drawerOpen ? drawerWidth : buttonSize / 2;
@@ -21,7 +23,7 @@ export default function ConversationSidebarToggle({
   return (
     <IconButton
       aria-label="Toggle conversations"
-      aria-controls="conversation-drawer"
+      aria-controls={controlsId}
       aria-expanded={drawerOpen}
       onClick={onToggle}
       size="small"

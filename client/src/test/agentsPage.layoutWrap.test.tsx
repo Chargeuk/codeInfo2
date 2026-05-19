@@ -92,7 +92,7 @@ function mockAgentsFetch(options?: {
   });
 }
 
-describe('Agents page layout wrap', () => {
+describe('Agents shared shell layout wrap', () => {
   it('keeps the list panel scrollable and keeps Load more inside it', async () => {
     mockAgentsFetch();
 

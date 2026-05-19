@@ -47,7 +47,7 @@ const logSidebarLayoutConfigured = (params: {
   overflowGuarded: boolean;
 }) => {
   const log = createLogger('client-test', () => '/test');
-  log('info', '0000023 sidebar layout tests configured', params);
+  log('info', '0000023 shared shell layout tests configured', params);
 };
 
 function getAppShellContainer(): HTMLElement {
@@ -181,7 +181,7 @@ function installChatLayoutRectMocks() {
   }
 }
 
-describe('Chat transcript layout wrapping', () => {
+describe('Chat shared shell transcript wrapping', () => {
   it('wraps long citation chunk text without expanding transcript width', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
@@ -335,7 +335,7 @@ describe('Chat transcript layout wrapping', () => {
   });
 });
 
-describe('Chat page layout alignment', () => {
+describe('Chat shared shell layout alignment', () => {
   it('does not constrain the app shell width and preserves gutters', async () => {
     setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -404,7 +404,7 @@ describe('Chat page layout alignment', () => {
     );
   });
 
-  it('defaults to open on desktop and toggles the drawer closed', async () => {
+  it('defaults to open on desktop and toggles the conversations pane closed', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -424,7 +424,7 @@ describe('Chat page layout alignment', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('defaults to closed on mobile and opens a temporary overlay drawer', async () => {
+  it('defaults to closed on mobile and opens a temporary conversations overlay', async () => {
     window.innerWidth = 375;
     window.dispatchEvent(new Event('resize'));
 
@@ -447,7 +447,7 @@ describe('Chat page layout alignment', () => {
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
   });
 
-  it('keeps the drawer toggle working after resizing from desktop to mobile', async () => {
+  it('keeps the conversations toggle working after resizing from desktop to mobile', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -483,7 +483,7 @@ describe('Chat page layout alignment', () => {
     expect(await screen.findByTestId('conversation-list')).toBeInTheDocument();
   });
 
-  it('keeps the drawer usable after resizing from mobile to desktop', async () => {
+  it('keeps the conversations overlay usable after resizing from mobile to desktop', async () => {
     window.innerWidth = 375;
     window.dispatchEvent(new Event('resize'));
 
@@ -514,7 +514,7 @@ describe('Chat page layout alignment', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('offsets the conversations drawer paper to align with the chat column top', async () => {
+  it('offsets the conversations pane paper to align with the chat column top', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -534,7 +534,7 @@ describe('Chat page layout alignment', () => {
     expect(getComputedStyle(paper!).marginTop).toBe('24px');
   });
 
-  it('keeps the drawer paper aligned when the persistence banner is visible', async () => {
+  it('keeps the conversations pane paper aligned when the persistence banner is visible', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -666,7 +666,7 @@ describe('Chat page layout alignment', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides horizontal overflow on the drawer paper', async () => {
+  it('hides horizontal overflow on the conversations pane paper', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 

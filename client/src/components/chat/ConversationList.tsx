@@ -72,6 +72,7 @@ type Props = {
   onLoadMore: () => Promise<void> | void;
   onRefresh: () => void;
   onRetry: () => void;
+  showHeaderTitle?: boolean;
 };
 
 const checkboxInputProps = (
@@ -135,6 +136,7 @@ export function ConversationList({
   onLoadMore,
   onRefresh,
   onRetry,
+  showHeaderTitle = true,
 }: Props) {
   const log = useMemo(() => createLogger('client'), []);
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
@@ -340,9 +342,13 @@ export function ConversationList({
           alignItems="center"
           justifyContent="space-between"
         >
-          <Typography variant="subtitle1" fontWeight={700}>
-            Conversations
-          </Typography>
+          {showHeaderTitle ? (
+            <Typography variant="subtitle1" fontWeight={700}>
+              Conversations
+            </Typography>
+          ) : (
+            <Box />
+          )}
           {showFilters && (
             <Tooltip title="Refresh list">
               <span>

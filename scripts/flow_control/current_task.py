@@ -201,9 +201,15 @@ def check_current_task_has_unchecked_subtasks() -> DecisionOutcome:
             "selected_task_missing",
             **_task_context(payload, status, bound_task_number),
         )
-    if selected_task.get("has_unchecked_subtasks") is True:
+    has_unchecked_subtasks = selected_task.get("has_unchecked_subtasks") is True
+    if has_unchecked_subtasks and not _has_live_blockers(selected_task):
         return yes(
             "unchecked_subtasks_present",
+            **_task_context(payload, status, bound_task_number),
+        )
+    if has_unchecked_subtasks:
+        return no(
+            "unchecked_subtasks_blocked",
             **_task_context(payload, status, bound_task_number),
         )
     return no(

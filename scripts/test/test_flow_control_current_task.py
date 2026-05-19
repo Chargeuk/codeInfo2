@@ -187,6 +187,39 @@ class FlowControlCurrentTaskTests(unittest.TestCase):
         self.assertEqual(unchecked_testing.reason_code, "unchecked_testing_present")
         self.assertEqual(unchecked_subtasks.answer, "no")
 
+    def test_unchecked_subtasks_gate_respects_live_blockers(self) -> None:
+        repo = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__in_progress__`
+
+            #### Subtasks
+
+            1. [ ] Pending implementation
+
+            #### Testing
+
+            1. [x] Done
+
+            #### Implementation notes
+
+            - **BLOCKER** This should count.
+            """,
+            current_task_payload={
+                "selection_status": "resolved",
+                "selection_reason": "active_in_progress",
+                "selected_task": {"number": 1},
+            },
+        )
+
+        unchecked_subtasks = self.run_in_repo(
+            repo, current_task.check_current_task_has_unchecked_subtasks
+        )
+
+        self.assertEqual(unchecked_subtasks.answer, "no")
+        self.assertEqual(unchecked_subtasks.reason_code, "unchecked_subtasks_blocked")
+
     def test_entrypoint_stdout_is_exact_json(self) -> None:
         repo = self.make_repo(
             plan_content="""

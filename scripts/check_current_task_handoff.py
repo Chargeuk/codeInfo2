@@ -86,14 +86,17 @@ def build_result(
     }
 
 
-def main() -> int:
-    args = parse_args()
+def get_current_task_handoff_status(
+    *,
+    handoff: str = "codeInfoStatus/flow-state/current-plan.json",
+    current_task: str = "codeInfoStatus/flow-state/current-task.json",
+) -> dict[str, Any]:
     try:
-        scope = load_plan_scope(handoff=args.handoff)
+        scope = load_plan_scope(handoff=handoff)
     except ScopeResolutionError as exc:
-        result = build_result(
-            handoff_path=Path(args.handoff),
-            current_task_path=Path(args.current_task),
+        return build_result(
+            handoff_path=Path(handoff),
+            current_task_path=Path(current_task),
             plan_path=None,
             has_valid_current_task_handoff=False,
             reason="invalid_current_plan_handoff",
@@ -105,16 +108,13 @@ def main() -> int:
             open_in_progress_count=None,
             error=str(exc),
         )
-        json.dump(result, fp=sys.stdout, indent=2)
-        sys.stdout.write("\n")
-        return 0
-
+ 
     handoff_path = Path(scope["handoff_path"])
-    current_task_path = resolve_path(args.current_task, repo_root=scope["repo_root"])
+    current_task_path = resolve_path(current_task, repo_root=scope["repo_root"])
     try:
         current_task = load_json_file(current_task_path)
     except ScopeResolutionError as exc:
-        result = build_result(
+        return build_result(
             handoff_path=handoff_path,
             current_task_path=current_task_path,
             plan_path=scope["plan_path"],
@@ -128,9 +128,6 @@ def main() -> int:
             open_in_progress_count=None,
             error=str(exc),
         )
-        json.dump(result, fp=sys.stdout, indent=2)
-        sys.stdout.write("\n")
-        return 0
 
     persisted_selection_status = current_task.get("selection_status")
     persisted_selection_reason = current_task.get("selection_reason")
@@ -144,12 +141,12 @@ def main() -> int:
 
     try:
         status = plan_status.get_plan_status(
-            handoff=args.handoff,
+            handoff=handoff,
             selector="active",
             include_tasks=True,
         )
     except SystemExit as exc:
-        result = build_result(
+        return build_result(
             handoff_path=handoff_path,
             current_task_path=current_task_path,
             plan_path=scope["plan_path"],
@@ -173,9 +170,6 @@ def main() -> int:
             open_in_progress_count=None,
             error=str(exc),
         )
-        json.dump(result, fp=sys.stdout, indent=2)
-        sys.stdout.write("\n")
-        return 0
 
     tasks = status.get("tasks") or []
     open_in_progress = [
@@ -213,62 +207,68 @@ def main() -> int:
         status["plan_path"]
     ).resolve():
         reason = "plan_path_mismatch"
-        result = build_result(
+        return build_result(
             has_valid_current_task_handoff=False,
             reason=reason,
             error=None,
             **result_kwargs,
         )
     elif result_kwargs["story_complete"]:
-        result = build_result(
+        return build_result(
             has_valid_current_task_handoff=False,
             reason="story_complete",
             error=None,
             **result_kwargs,
         )
     elif persisted_selection_status != "resolved":
-        result = build_result(
+        return build_result(
             has_valid_current_task_handoff=False,
             reason="selection_not_resolved",
             error=None,
             **result_kwargs,
         )
     elif len(open_in_progress) != 1:
-        result = build_result(
+        return build_result(
             has_valid_current_task_handoff=False,
             reason="active_task_count_mismatch",
             error=None,
             **result_kwargs,
         )
     elif not isinstance(persisted_selected_task, dict):
-        result = build_result(
+        return build_result(
             has_valid_current_task_handoff=False,
             reason="persisted_selected_task_missing",
             error=None,
             **result_kwargs,
         )
     elif not isinstance(active_selected_task, dict):
-        result = build_result(
+        return build_result(
             has_valid_current_task_handoff=False,
             reason="active_selected_task_missing",
             error=None,
             **result_kwargs,
         )
     elif task_signature(persisted_selected_task) != task_signature(active_selected_task):
-        result = build_result(
+        return build_result(
             has_valid_current_task_handoff=False,
             reason="selected_task_mismatch",
             error=None,
             **result_kwargs,
         )
-    else:
-        result = build_result(
-            has_valid_current_task_handoff=True,
-            reason="valid_resolved_current_task_handoff",
-            error=None,
-            **result_kwargs,
-        )
+    return build_result(
+        has_valid_current_task_handoff=True,
+        reason="valid_resolved_current_task_handoff",
+        error=None,
+        **result_kwargs,
+    )
 
+
+def main() -> int:
+    args = parse_args()
+    result = get_current_task_handoff_status(
+        handoff=args.handoff,
+        current_task=args.current_task,
+    )
     json.dump(result, fp=sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0

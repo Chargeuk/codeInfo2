@@ -142,13 +142,23 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         if (node) {
           // debug: print inline style values to help test diagnostics
           // eslint-disable-next-line no-console
-          console.info('[SharedTranscript] container inline style:', node.style.flex, node.style.minHeight, node.style.overflowY);
+          console.info(
+            '[SharedTranscript] container inline style:',
+            node.style.flex,
+            node.style.minHeight,
+            node.style.overflowY,
+          );
           // also log the chat-controls inline flex style if present
           // eslint-disable-next-line no-console
-          const cc = document.querySelector('[data-testid="chat-controls"]') as HTMLElement | null;
+          const cc = document.querySelector(
+            '[data-testid="chat-controls"]',
+          ) as HTMLElement | null;
           if (cc) {
             // eslint-disable-next-line no-console
-            console.info('[SharedTranscript] chat-controls inline style.flex:', cc.style.flex);
+            console.info(
+              '[SharedTranscript] chat-controls inline style.flex:',
+              cc.style.flex,
+            );
           }
         }
         if (typeof ref === 'function') {

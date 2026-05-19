@@ -644,10 +644,15 @@ export default function ChatPage() {
   useEffect(() => {
     // debug: log chat-controls inline style for test diagnostics
     // eslint-disable-next-line no-console
-    const el = document.querySelector('[data-testid="chat-controls"]') as HTMLElement | null;
+    const el = document.querySelector(
+      '[data-testid="chat-controls"]',
+    ) as HTMLElement | null;
     if (el) {
       // eslint-disable-next-line no-console
-      console.info('[ChatPage] chat-controls inline style.flex:', el.style.flex);
+      console.info(
+        '[ChatPage] chat-controls inline style.flex:',
+        el.style.flex,
+      );
     }
   }, []);
 

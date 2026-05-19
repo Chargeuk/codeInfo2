@@ -115,7 +115,5 @@ export default function WorkspaceAppRail() {
 
   const fallbackPath =
     typeof window !== 'undefined' ? window.location.pathname : '/chat';
-  return (
-    <WorkspaceAppRailContent pathname={fallbackPath} inRouter={false} />
-  );
+  return <WorkspaceAppRailContent pathname={fallbackPath} inRouter={false} />;
 }

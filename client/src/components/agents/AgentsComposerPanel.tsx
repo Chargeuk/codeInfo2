@@ -7,6 +7,7 @@ import {
   IconButton,
   InputLabel,
   MenuItem,
+  Paper,
   Popover,
   Select,
   Stack,
@@ -227,7 +228,19 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
 
   return (
     <>
-      <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
+      <Paper
+        variant="outlined"
+        data-testid="chat-controls"
+        style={{ flex: '0 0 auto' }}
+        sx={{
+          p: 2,
+          borderRadius: 0,
+          borderLeft: 0,
+          borderRight: 0,
+          borderBottom: 0,
+          bgcolor: 'background.paper',
+        }}
+      >
         <Stack spacing={2} component="form" onSubmit={onSubmit}>
           <Stack
             data-testid="agent-header-row"
@@ -648,7 +661,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
             onSuccess={onDeviceAuthSuccess}
           />
         </Stack>
-      </Box>
+      </Paper>
 
       <Popover
         id={commandInfoId}

@@ -30,6 +30,7 @@ import {
 } from 'react';
 import type {
   ChatMessage,
+  ChatSegment,
   ToolCall,
   ToolCitation,
 } from '../../hooks/useChatStream';
@@ -105,23 +106,25 @@ function SharedTranscriptMessageRow({
   const isErrorBubble = message.kind === 'error';
   const isStatusBubble = message.kind === 'status';
   const isUser = message.role === 'user';
-  const baseSegments = message.segments?.length
-    ? message.segments
-    : ([
+  const baseSegments: ChatSegment[] = message.segments?.length
+    ? [...message.segments]
+    : [
         {
           id: `${message.id}-text`,
-          kind: 'text' as const,
+          kind: 'text',
           content: message.content ?? '',
         },
         ...(activeToolsAvailable
-          ? (message.tools?.map((tool) => ({
-              id: `${message.id}-${tool.id}`,
-              kind: 'tool' as const,
-              tool,
-            })) ?? [])
+          ? (message.tools?.map(
+              (tool): ChatSegment => ({
+                id: `${message.id}-${tool.id}`,
+                kind: 'tool',
+                tool,
+              }),
+            ) ?? [])
           : []),
-      ] as const);
-  const segments = activeToolsAvailable
+      ];
+  const segments: ChatSegment[] = activeToolsAvailable
     ? baseSegments
     : baseSegments.filter((segment) => segment.kind === 'text');
   const metadataSummary = useMemo(

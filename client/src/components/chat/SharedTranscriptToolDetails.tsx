@@ -9,7 +9,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { ToolCall } from '../../hooks/useChatStream';
 
 type RepoEntry = {
@@ -359,7 +359,7 @@ export default function SharedTranscriptToolDetails({
   return (
     <Stack spacing={1} mt={0.5} data-testid="tool-details">
       <Stack spacing={0.25} data-testid="tool-summary">
-        {toolSummaryLines.map((line) => (
+        {toolSummaryLines.map((line: string) => (
           <Typography
             key={line}
             variant="caption"

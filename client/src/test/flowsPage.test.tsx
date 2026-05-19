@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -61,6 +62,13 @@ function emitWsEvent(event: Record<string, unknown>) {
   act(() => {
     ws._receive(event);
   });
+}
+
+async function openBubbleInfoPopover(bubble: HTMLElement) {
+  const user = userEvent.setup();
+  await user.click(within(bubble).getByTestId('bubble-info'));
+  const popovers = await screen.findAllByTestId('bubble-info-popover');
+  return popovers[popovers.length - 1];
 }
 
 describe('Flows page basics', () => {
@@ -132,13 +140,14 @@ describe('Flows page basics', () => {
     transcript.scrollTop = 420;
     fireEvent.scroll(transcript);
 
-    expect(await screen.findAllByTestId('bubble-flow-meta')).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          textContent: expect.stringContaining('coding_agent/coder'),
-        }),
-      ]),
-    );
+    const bubble = (await screen.findAllByTestId('chat-bubble')).find((item) =>
+      item.textContent?.includes('Flow transcript message 8'),
+    ) as HTMLElement | undefined;
+    expect(bubble).toBeDefined();
+    const infoPopover = await openBubbleInfoPopover(bubble!);
+    expect(
+      within(infoPopover).getByTestId('bubble-flow-meta'),
+    ).toHaveTextContent('Step 8 · coding_agent/coder');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
 
     const measuredRow = transcript.querySelector(
@@ -155,17 +164,20 @@ describe('Flows page basics', () => {
     await waitFor(() => expect(transcript.scrollTop).toBe(scrollTop + 180));
 
     rerender(<StatefulFlowsTranscript currentMessages={[]} />);
-    expect(screen.queryByTestId('bubble-flow-meta')).toBeNull();
+    expect(screen.queryByTestId('bubble-info-popover')).toBeNull();
     expect(screen.getByText('No flow transcript yet.')).toBeInTheDocument();
 
     rerender(<StatefulFlowsTranscript currentMessages={messages} />);
-    expect(await screen.findAllByTestId('bubble-flow-meta')).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          textContent: expect.stringContaining('coding_agent/coder'),
-        }),
-      ]),
+    const rerenderedBubble = (await screen.findAllByTestId('chat-bubble')).find(
+      (item) => item.textContent?.includes('Flow transcript message 8'),
+    ) as HTMLElement | undefined;
+    expect(rerenderedBubble).toBeDefined();
+    const rerenderedInfoPopover = await openBubbleInfoPopover(
+      rerenderedBubble!,
     );
+    expect(
+      within(rerenderedInfoPopover).getByTestId('bubble-flow-meta'),
+    ).toHaveTextContent('Step 8 · coding_agent/coder');
     expect(screen.queryByTestId('citations-toggle')).toBeNull();
 
     harness.restore();
@@ -262,8 +274,13 @@ describe('Flows page basics', () => {
       expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
 
-    const metadata = await screen.findByTestId('bubble-flow-meta');
-    expect(metadata).toHaveTextContent('Plan · planning_agent/main');
+    const bubbles = await screen.findAllByTestId('chat-bubble');
+    const bubble = bubbles[0] as HTMLElement | undefined;
+    expect(bubble).toBeDefined();
+    await openBubbleInfoPopover(bubble!);
+    expect(await screen.findByTestId('bubble-info-step')).toHaveTextContent(
+      'Step: Step 1 of 3',
+    );
     expect(screen.getByTestId('flows-transcript')).toBeInTheDocument();
     expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
   });
@@ -747,6 +764,10 @@ describe('Flows page basics', () => {
       },
     });
 
+    const bubbles = await screen.findAllByTestId('chat-bubble');
+    const bubble = bubbles[bubbles.length - 1] as HTMLElement | undefined;
+    expect(bubble).toBeDefined();
+    await openBubbleInfoPopover(bubble!);
     expect(await screen.findByTestId('bubble-flow-meta')).toHaveTextContent(
       'Step Two · coding_agent/coder',
     );

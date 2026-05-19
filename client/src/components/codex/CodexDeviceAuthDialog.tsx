@@ -22,7 +22,7 @@ import { createLogger } from '../../logging/logger';
 export type CodexDeviceAuthDialogProps = {
   open: boolean;
   onClose: () => void;
-  source: 'chat' | 'agents';
+  source: 'chat' | 'agents' | 'home';
   onSuccess?: (response: ProviderAuthResponse) => void;
 };
 const T15_SUCCESS_LOG =

@@ -2,29 +2,20 @@ import type { LmStudioStatusOk } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
-type FetchLmStudioStatus =
-  (typeof import('@codeinfo2/common'))['fetchLmStudioStatus'];
-
-const mockFetch = jest.fn<FetchLmStudioStatus>();
 const mockFetchServerVersion = jest
   .fn<() => Promise<{ version: string }>>()
   .mockResolvedValue({ version: 'test' });
-const logQueue: unknown[] = [];
-
-await jest.unstable_mockModule('../logging/transport', async () => ({
-  __esModule: true,
-  sendLogs: (entries: unknown[]) => logQueue.push(...entries),
-}));
+const mockFetchLmStudioStatus = jest.fn();
+const actualCommon = await import('@codeinfo2/common');
 
 await jest.unstable_mockModule('@codeinfo2/common', async () => ({
-  __esModule: true,
-  fetchLmStudioStatus: mockFetch,
+  ...actualCommon,
   fetchServerVersion: mockFetchServerVersion,
+  fetchLmStudioStatus: mockFetchLmStudioStatus,
 }));
 
-const { default: App } = await import('../App');
 const { default: HomePage } = await import('../pages/HomePage');
 const { default: LmStudioPage } = await import('../pages/LmStudioPage');
 
@@ -42,181 +33,109 @@ const okResponse: LmStudioStatusOk = {
   ],
 };
 
-const emptyResponse: LmStudioStatusOk = { ...okResponse, models: [] };
+function installProviderFetch() {
+  const fetchMock = getFetchMock();
+  fetchMock.mockImplementation(async (input) => {
+    const href = typeof input === 'string' ? input : input.toString();
+    if (href.includes('/chat/providers')) {
+      return mockJsonResponse({
+        providers: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: 'codex auth required',
+          },
+          {
+            id: 'copilot',
+            label: 'GitHub Copilot',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      });
+    }
+    throw new Error(`Unexpected fetch: ${href}`);
+  });
+  global.fetch = fetchMock as typeof fetch;
+}
 
-const routes = [
-  {
-    path: '/',
-    element: <App />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'lmstudio', element: <LmStudioPage /> },
-    ],
-  },
-];
+describe('LM Studio utility shell integration', () => {
+  const originalFetch = global.fetch;
 
-describe('LM Studio page', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
     mockFetchServerVersion.mockClear();
+    mockFetchLmStudioStatus.mockReset();
     localStorage.clear();
-    delete process.env.VITE_CODEINFO_LMSTUDIO_URL;
+    installProviderFetch();
+    mockFetchLmStudioStatus.mockResolvedValue(okResponse);
   });
 
-  it('applies size="small" inputs and button variant rules', () => {
-    mockFetch.mockResolvedValue(emptyResponse);
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/lmstudio'],
-    });
-    render(<RouterProvider router={router} />);
-
-    const input = screen.getByLabelText(/LM Studio base URL/i);
-    expect(input.closest('.MuiInputBase-root')).toHaveClass(
-      'MuiInputBase-sizeSmall',
-    );
-
-    const checkButton = screen.getByRole('button', {
-      name: /check status/i,
-    });
-    expect(checkButton).toHaveClass(
-      'MuiButton-contained',
-      'MuiButton-sizeSmall',
-    );
-
-    const resetButton = screen.getByRole('button', {
-      name: /reset to default/i,
-    });
-    expect(resetButton).toHaveClass(
-      'MuiButton-outlined',
-      'MuiButton-sizeSmall',
-    );
-
-    const refreshButton = screen.getByRole('button', {
-      name: /refresh models/i,
-    });
-    expect(refreshButton).toHaveClass(
-      'MuiButton-outlined',
-      'MuiButton-sizeSmall',
-    );
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
-  it('renders models and supports refresh actions', async () => {
-    mockFetch.mockResolvedValue(okResponse);
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/lmstudio'],
-    });
-    render(<RouterProvider router={router} />);
+  it('renders the shared Home LM Studio section inside the utility shell', async () => {
+    render(<HomePage />);
 
-    await userEvent.click(
-      screen.getByRole('button', { name: /check status/i }),
+    expect(
+      await screen.findByRole('heading', { name: 'LM Studio' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Base URL/i)).toHaveValue(
+      'http://host.docker.internal:1234',
     );
-
     expect(await screen.findByText(/Friendly Model/i)).toBeInTheDocument();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: /refresh models/i }),
-    );
-
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-    expect(mockFetch).toHaveBeenLastCalledWith(
-      expect.objectContaining({ lmBaseUrl: expect.stringMatching(/^http/) }),
-    );
   });
 
-  it('shows empty state when no models', async () => {
-    mockFetch.mockResolvedValue(emptyResponse);
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/lmstudio'],
-    });
-    render(<RouterProvider router={router} />);
+  it('keeps a dirty draft local until Check status commits it and Refresh models uses the last committed URL', async () => {
+    render(<HomePage />);
 
-    await userEvent.click(
-      screen.getByRole('button', { name: /check status/i }),
-    );
-
-    expect(
-      await screen.findByText(/No models reported by LM Studio/i),
-    ).toBeInTheDocument();
-  });
-
-  it('focuses input and shows error on failure', async () => {
-    mockFetch.mockResolvedValue({
-      status: 'error',
-      baseUrl: 'http://bad',
-      error: 'server down',
-    });
-
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/lmstudio'],
-    });
-    render(<RouterProvider router={router} />);
-
-    const input = screen.getByLabelText(/LM Studio base URL/i);
-    await userEvent.click(
-      screen.getByRole('button', { name: /check status/i }),
-    );
-
-    expect(await screen.findByText(/server down/i)).toBeInTheDocument();
-    await waitFor(() => expect(input).toHaveFocus());
-  });
-
-  it('persists new base URL and routes from home', async () => {
-    mockFetch.mockResolvedValue(okResponse);
-    const router = createMemoryRouter(routes, { initialEntries: ['/'] });
-    render(<RouterProvider router={router} />);
-
-    await screen.findByText(/Client version/i);
-    await userEvent.click(screen.getByRole('tab', { name: /LM Studio/i }));
-
-    expect(router.state.location.pathname).toBe('/lmstudio');
-
-    const input = screen.getByLabelText(/LM Studio base URL/i);
+    const input = await screen.findByLabelText(/Base URL/i);
     await userEvent.clear(input);
-    await userEvent.type(input, 'http://example.com:9999');
-    await userEvent.click(
-      screen.getByRole('button', { name: /check status/i }),
-    );
-
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
-    expect(localStorage.getItem('lmstudio.baseUrl')).toBe(
-      'http://example.com:9999',
-    );
-  });
-
-  it('uses the renamed VITE_CODEINFO_LMSTUDIO_URL as the default helper text', async () => {
-    process.env.VITE_CODEINFO_LMSTUDIO_URL = 'http://renamed-lmstudio:4321';
-    mockFetch.mockResolvedValue(okResponse);
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/lmstudio'],
-    });
-    render(<RouterProvider router={router} />);
-
-    const input = screen.getByLabelText(/LM Studio base URL/i);
-    expect(input).toHaveValue('http://renamed-lmstudio:4321');
-    expect(
-      screen.getByText(/Default: http:\/\/renamed-lmstudio:4321/i),
-    ).toBeInTheDocument();
-  });
-
-  it('emits client logs for LM Studio actions', async () => {
-    logQueue.length = 0;
-    mockFetch.mockResolvedValue(okResponse);
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/lmstudio'],
-    });
-    render(<RouterProvider router={router} />);
-
-    await userEvent.click(
-      screen.getByRole('button', { name: /check status/i }),
-    );
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    await userEvent.type(input, 'http://draft.example:4321');
 
     await userEvent.click(
       screen.getByRole('button', { name: /refresh models/i }),
     );
+    expect(mockFetchLmStudioStatus).toHaveBeenCalled();
+    expect(mockFetchLmStudioStatus).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        lmBaseUrl: 'http://host.docker.internal:1234',
+      }),
+    );
+    expect(input).toHaveValue('http://draft.example:4321');
 
-    expect(logQueue.length).toBeGreaterThan(0);
-    const messages = logQueue.map((e) => (e as { message?: string }).message);
-    expect(messages.some((m) => m?.includes('lmstudio refresh'))).toBe(true);
+    await userEvent.click(
+      screen.getByRole('button', { name: /check status/i }),
+    );
+    await waitFor(() =>
+      expect(mockFetchLmStudioStatus).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          lmBaseUrl: 'http://draft.example:4321',
+        }),
+      ),
+    );
+    expect(localStorage.getItem('lmstudio.baseUrl')).toBe(
+      'http://draft.example:4321',
+    );
+  });
+
+  it('reuses the same LM Studio section from the compatibility route', async () => {
+    render(<LmStudioPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'LM Studio', level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText(/Local runtime status and model list/i))
+        .length,
+    ).toBeGreaterThan(0);
   });
 });

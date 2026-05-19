@@ -4,6 +4,7 @@ import {
 } from '@codeinfo2/common';
 import { renderHook, act } from '@testing-library/react';
 import { useLmStudioStatus } from '../hooks/useLmStudioStatus';
+import { getLmStudioBaseUrl } from '../config/runtimeConfig';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const okMany: LmStudioStatusOk = {
@@ -95,5 +96,79 @@ describe('useLmStudioStatus', () => {
       'http://override:1234',
     );
     expect(result.current.baseUrl).toBe('http://override:1234');
+  });
+
+  it('falls back to the runtime default when no committed value is stored', () => {
+    const { result } = renderHook(() => useLmStudioStatus());
+
+    expect(result.current.baseUrl).toBe(getLmStudioBaseUrl());
+    expect(result.current.committedBaseUrl).toBe(getLmStudioBaseUrl());
+  });
+
+  it('passes whitespace-only explicit input through the existing server error path', async () => {
+    getFetchMock().mockImplementation(async (input) => {
+      const href = typeof input === 'string' ? input : input.toString();
+      if (
+        href.includes('/lmstudio/status?baseUrl=+++') ||
+        href.includes('/lmstudio/status?baseUrl=%20%20%20')
+      ) {
+        return mockJsonResponse(
+          {
+            status: 'error',
+            baseUrl: '   ',
+            error: 'Invalid baseUrl',
+          } satisfies LmStudioStatusResponse,
+          { status: 400 },
+        );
+      }
+      throw new Error(`Unexpected fetch: ${href}`);
+    });
+
+    const { result } = renderHook(() => useLmStudioStatus());
+
+    await act(async () => {
+      await result.current.refresh('   ');
+    });
+
+    expect(getFetchMock()).toHaveBeenCalledWith(
+      expect.stringContaining('/lmstudio/status?baseUrl=+++'),
+    );
+
+    expect(result.current.state.status).toBe('error');
+    expect(
+      result.current.state.status === 'error' && result.current.state.error,
+    ).toContain('lmstudio status failed');
+  });
+
+  it('surfaces malformed explicit input through the existing failure path', async () => {
+    getFetchMock().mockImplementation(async (input) => {
+      const href = typeof input === 'string' ? input : input.toString();
+      if (href.includes('/lmstudio/status?baseUrl=notaurl')) {
+        return mockJsonResponse(
+          {
+            status: 'error',
+            baseUrl: 'notaurl',
+            error: 'Invalid baseUrl',
+          } satisfies LmStudioStatusResponse,
+          { status: 400 },
+        );
+      }
+      throw new Error(`Unexpected fetch: ${href}`);
+    });
+
+    const { result } = renderHook(() => useLmStudioStatus());
+
+    await act(async () => {
+      await result.current.refresh('notaurl');
+    });
+
+    expect(getFetchMock()).toHaveBeenCalledWith(
+      expect.stringContaining('/lmstudio/status?baseUrl=notaurl'),
+    );
+
+    expect(result.current.state.status).toBe('error');
+    expect(
+      result.current.state.status === 'error' && result.current.state.error,
+    ).toContain('lmstudio status failed');
   });
 });

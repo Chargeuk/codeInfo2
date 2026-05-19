@@ -6,7 +6,9 @@ const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const lmBaseUrl =
   process.env.CODEINFO_LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
 
-test('LM Studio models render', async ({ page }) => {
+test('Home LM Studio models render through the compatibility route', async ({
+  page,
+}) => {
   let statusJson: LmStudioStatusResponse;
   try {
     const statusRes = await page.request.get(

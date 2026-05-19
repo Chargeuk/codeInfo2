@@ -57,7 +57,14 @@ export function useLmStudioStatus() {
     [state],
   );
 
-  return { baseUrl, setBaseUrl, state, ...flags, refresh };
+  return {
+    baseUrl,
+    committedBaseUrl: baseUrl,
+    setBaseUrl,
+    state,
+    ...flags,
+    refresh,
+  };
 }
 
 export default useLmStudioStatus;

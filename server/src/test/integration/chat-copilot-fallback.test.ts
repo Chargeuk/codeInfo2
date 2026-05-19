@@ -454,11 +454,16 @@ test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async (
     'CODEINFO_SERVER_PORT',
     'MCP_URL',
     'CODEINFO_LMSTUDIO_BASE_URL',
+    'CODEINFO_COPILOT_HOME',
   ] as const;
   const originalEnv = new Map<string, string | undefined>();
   for (const key of envKeys) {
     originalEnv.set(key, process.env[key]);
   }
+  const copilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-copilot-home-'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
 
   const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
   const harness = createMockCopilotSdkHarness({
@@ -531,6 +536,10 @@ test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async (
       capturedOptions.some((options) => options.env?.CODEINFO_ROOT === repoRoot),
       true,
     );
+    assert.equal(
+      capturedOptions.some((options) => options.env?.COPILOT_HOME === copilotHome),
+      true,
+    );
   } finally {
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     memoryConversations.delete('chat-copilot-codeinfo-root');
@@ -542,6 +551,7 @@ test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async (
         process.env[key] = value;
       }
     }
+    await fs.rm(copilotHome, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });

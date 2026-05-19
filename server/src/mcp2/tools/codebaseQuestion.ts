@@ -1142,7 +1142,7 @@ async function executeCodebaseQuestion(
       clientFactory: deps.clientFactory,
       toolFactory: deps.toolFactory,
       ...(executionProvider === 'copilot'
-        ? { copilotEnv: envOverrides }
+        ? { copilotEnv: { ...process.env, ...envOverrides } }
         : {}),
     });
   } catch (err) {

@@ -1002,6 +1002,7 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
 
     assert.equal(capturedOptions.length, 1);
     assert.equal(capturedOptions[0]?.env?.CODEINFO_ROOT, tempRoot);
+    assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.delete('flow-copilot-env-forwarding');

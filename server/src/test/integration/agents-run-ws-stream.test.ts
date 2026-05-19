@@ -410,6 +410,7 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
       capturedOptions[0]?.env?.CODEINFO_ROOT,
       '/tmp/codeinfo-root',
     );
+    assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
   } finally {
     __resetAgentServiceDepsForTests();
     memoryConversations.clear();

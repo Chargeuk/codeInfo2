@@ -2355,7 +2355,7 @@ export async function runAgentInstructionUnlocked(params: {
       chat = resolvedChatFactory(
         executionProviderId,
         executionProviderId === 'copilot'
-          ? { copilotEnv: envOverrides }
+          ? { copilotEnv: { ...process.env, ...envOverrides } }
           : undefined,
       );
     } catch (err) {

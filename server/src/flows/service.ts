@@ -1347,7 +1347,7 @@ const runFlowInstruction = async (params: {
     chat = resolvedChatFactory(
       params.providerId,
       params.providerId === 'copilot'
-        ? { copilotEnv: params.envOverrides }
+        ? { copilotEnv: { ...process.env, ...params.envOverrides } }
         : undefined,
     );
   } catch (err) {

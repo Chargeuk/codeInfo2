@@ -1032,8 +1032,12 @@ export function createChatRouter({
         ...(executionProvider === 'copilot'
           ? {
               copilotLifecycle:
-                copilotLifecycleFactory?.({ env: envOverrides }) ??
-                new CopilotLifecycle({ env: envOverrides }),
+                copilotLifecycleFactory?.({
+                  env: { ...process.env, ...envOverrides },
+                }) ??
+                new CopilotLifecycle({
+                  env: { ...process.env, ...envOverrides },
+                }),
             }
           : {}),
       });

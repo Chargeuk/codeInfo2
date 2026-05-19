@@ -891,7 +891,7 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
   });
 });
 
-test('conversations drawer is persistent on desktop and pushes content', async ({
+test('conversation pane is persistent on desktop and pushes content', async ({
   page,
 }) => {
   await skipIfUnreachable(page);
@@ -960,7 +960,7 @@ test('conversations drawer is persistent on desktop and pushes content', async (
   expect((boxClosed?.x ?? 0) + 150).toBeLessThan(boxOpen?.x ?? 0);
 });
 
-test('conversations drawer is closed by default on mobile and overlays content', async ({
+test('conversation pane is closed by default on mobile and overlays content', async ({
   page,
 }) => {
   await skipIfUnreachable(page);
@@ -1032,7 +1032,7 @@ test('conversations drawer is closed by default on mobile and overlays content',
   expect(Math.abs((drawerBox?.y ?? 0) - (boxBefore?.y ?? 0))).toBeLessThan(2);
 });
 
-test('conversations drawer toggle works after resizing across breakpoints', async ({
+test('conversation pane toggle works after resizing across breakpoints', async ({
   page,
 }) => {
   await skipIfUnreachable(page);
@@ -1096,7 +1096,7 @@ test('conversations drawer toggle works after resizing across breakpoints', asyn
   await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('conversations drawer stays vertically aligned when persistence banner is visible', async ({
+test('conversation pane stays vertically aligned when persistence banner is visible', async ({
   page,
 }) => {
   await skipIfUnreachable(page);

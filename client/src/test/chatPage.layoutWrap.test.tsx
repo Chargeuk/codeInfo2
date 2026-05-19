@@ -41,7 +41,7 @@ const routes = [
   },
 ];
 
-const logSidebarLayoutConfigured = (params: {
+const logSharedShellLayoutConfigured = (params: {
   scrollContainer: boolean;
   loadMoreInside: boolean;
   overflowGuarded: boolean;
@@ -384,7 +384,7 @@ describe('Chat shared shell layout alignment', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('keeps a fixed sidebar width (md) and a fluid transcript column', async () => {
+  it('keeps a fixed conversation-pane width (md) and a fluid transcript column', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -732,7 +732,7 @@ describe('Chat shared shell layout alignment', () => {
 
     await screen.findByTestId('conversation-list');
 
-    logSidebarLayoutConfigured({
+    logSharedShellLayoutConfigured({
       scrollContainer: true,
       loadMoreInside: true,
       overflowGuarded: true,

@@ -4,7 +4,6 @@ import {
   type ChatAgentFlagValue,
 } from '@codeinfo2/common';
 import {
-  Container,
   Alert,
   Button,
   CircularProgress,
@@ -15,7 +14,6 @@ import {
   TextField,
   Typography,
   Box,
-  Drawer,
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -32,7 +30,6 @@ import {
 } from 'react';
 import AgentFlagsPanel from '../components/chat/AgentFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
-import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import {
   buildStepLine,
@@ -43,6 +40,9 @@ import {
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
+import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
+import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
+import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   type ChatAgentFlagDraft,
@@ -152,15 +152,20 @@ export default function ChatPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const drawerWidth = 320;
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+  const [mobileConversationsOpen, setMobileConversationsOpen] =
+    useState<boolean>(false);
+  const [mobileAppMenuOpen, setMobileAppMenuOpen] = useState<boolean>(false);
   const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
     isMobile ? false : true,
   );
-  const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
+  const conversationPaneOpen = isMobile
+    ? mobileConversationsOpen
+    : desktopDrawerOpen;
 
   useEffect(() => {
     if (isMobile) {
-      setMobileDrawerOpen(false);
+      setMobileConversationsOpen(false);
+      setMobileAppMenuOpen(false);
       return;
     }
 
@@ -313,12 +318,6 @@ export default function ChatPage() {
     return () => window.removeEventListener('resize', updateOffset);
   }, [isMobile, persistenceUnavailable]);
 
-  const drawerTopOffset =
-    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
-  const drawerHeight =
-    drawerTopOffsetPx > 0
-      ? `calc(100% - ${drawerTopOffsetPx}px)`
-      : `calc(100% - ${theme.spacing(3)})`;
   const log = useMemo(() => createLogger('client'), []);
   const deviceAuthLog = useMemo(
     () => createLogger('codex-device-auth-chat'),
@@ -683,23 +682,6 @@ export default function ChatPage() {
     unsubscribeConversation,
   ]);
 
-  const selectedConversationProviderSyncKey = selectedConversation
-    ? `${selectedConversation.conversationId}:${selectedConversation.provider}:${inflightSnapshot?.inflightId ?? 'no-inflight'}`
-    : null;
-
-  useEffect(() => {
-    if (!selectedConversation?.provider) return;
-    setProvider(
-      (currentProvider) =>
-        currentProvider === selectedConversation.provider
-          ? currentProvider
-          : selectedConversation.provider,
-      {
-        source: 'conversation-sync',
-      },
-    );
-  }, [selectedConversationProviderSyncKey, selectedConversation, setProvider]);
-
   useEffect(() => {
     if (!isDevEnv()) return;
     if (codexDocsLoggedRef.current) return;
@@ -752,31 +734,6 @@ export default function ChatPage() {
     selected,
     selectedConversation?.conversationId,
     selectedConversation?.flags,
-  ]);
-
-  const selectedConversationModelSyncKey = selectedConversation
-    ? `${selectedConversation.conversationId}:${selectedConversation.model}:${inflightSnapshot?.inflightId ?? 'no-inflight'}`
-    : null;
-
-  useEffect(() => {
-    if (!selectedConversation?.model) return;
-    if (!models.some((model) => model.key === selectedConversation.model)) {
-      return;
-    }
-    setSelected(
-      (currentModel) =>
-        currentModel === selectedConversation.model
-          ? currentModel
-          : selectedConversation.model,
-      {
-        source: 'conversation-sync',
-      },
-    );
-  }, [
-    models,
-    selectedConversation,
-    selectedConversationModelSyncKey,
-    setSelected,
   ]);
 
   useEffect(() => {
@@ -1060,19 +1017,6 @@ export default function ChatPage() {
       provider: nextConversation?.provider,
       model: nextConversation?.model,
     });
-    if (nextConversation?.provider && nextConversation.provider !== provider) {
-      setProvider(nextConversation.provider, {
-        source: 'conversation-select',
-      });
-    }
-    if (
-      nextConversation?.model &&
-      models.some((model) => model.key === nextConversation.model)
-    ) {
-      setSelected(nextConversation.model, {
-        source: 'conversation-select',
-      });
-    }
     log('info', 'DEV-0000046:T7:sidebar-selection-navigation', {
       previousConversationId,
       nextConversationId: conversation,
@@ -1083,7 +1027,7 @@ export default function ChatPage() {
     setActiveConversationId(conversation);
     syncServerVisibleInflightId(null);
     if (isMobile) {
-      setMobileDrawerOpen(false);
+      setMobileConversationsOpen(false);
     }
     setTimeout(() => {
       console.info('[chat-history] post-select scheduled', {
@@ -1315,571 +1259,504 @@ export default function ChatPage() {
     });
   }, [activeConversationId, conversationId, orderedMessages]);
 
-  return (
-    <Container
-      maxWidth={false}
+  const conversationList = (
+    <ConversationList
+      conversations={conversations}
+      selectedId={activeConversationId}
+      isLoading={conversationsLoading}
+      isError={conversationsError}
+      error={conversationsErrorMessage}
+      hasMore={conversationsHasMore}
+      filterState={filterState}
+      mongoConnected={mongoConnected}
+      disabled={persistenceUnavailable || persistenceLoading}
+      selectionDisabled={nextSendContextLocked}
+      onSelect={handleSelectConversation}
+      onFilterChange={setFilterState}
+      onArchive={handleArchive}
+      onRestore={handleRestore}
+      onBulkArchive={bulkArchive}
+      onBulkRestore={bulkRestore}
+      onBulkDelete={bulkDelete}
+      onLoadMore={loadMoreConversations}
+      onRefresh={refreshConversations}
+      onRetry={refreshConversations}
+    />
+  );
+
+  const transcriptSurface = (
+    <Paper
+      variant="outlined"
       sx={{
-        pt: 1,
-        pb: 0,
-        flex: 1,
+        p: 2,
+        flex: '1 1 0%',
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: 0,
       }}
     >
-      <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-        {persistenceUnavailable && (
-          <Alert
-            severity="warning"
-            data-testid="persistence-banner"
-            action={
-              <Button color="inherit" size="small" onClick={refreshPersistence}>
-                Retry
-              </Button>
-            }
-          >
-            Conversation history unavailable — messages won’t be stored until
-            Mongo reconnects.
-          </Alert>
-        )}
+      {isLoading && (
         <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          alignItems="stretch"
-          sx={{
-            width: '100%',
-            minWidth: 0,
-            overflowX: 'hidden',
-            flex: 1,
-            minHeight: 0,
-            position: 'relative',
-          }}
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          justifyContent="center"
+          sx={{ flex: 1 }}
         >
-          <ConversationSidebarToggle
-            drawerOpen={drawerOpen}
-            drawerWidth={drawerWidth}
-            isMobile={isMobile}
-            onToggle={() => {
-              if (isMobile) {
-                setMobileDrawerOpen((prev) => !prev);
-                return;
-              }
+          <CircularProgress size={20} />
+          <Typography color="text.secondary">
+            Loading chat providers and models...
+          </Typography>
+        </Stack>
+      )}
+      {isError && (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={retryFetch}>
+              Retry
+            </Button>
+          }
+        >
+          {combinedError}
+        </Alert>
+      )}
+      {!isLoading && !isError && isEmpty && (
+        <Typography color="text.secondary">
+          No chat-capable models for this provider. Add a supported model or
+          switch providers, then retry.
+        </Typography>
+      )}
+      {!isLoading && !isError && !isEmpty && (
+        <SharedTranscript
+          ref={transcriptRef}
+          surface="chat"
+          conversationId={activeConversationId ?? null}
+          messages={orderedMessages}
+          activeToolsAvailable={activeToolsAvailable}
+          turnsLoading={turnsLoading}
+          turnsError={turnsError}
+          turnsErrorMessage={turnsErrorMessage}
+          emptyMessage="Transcript will appear here once you send a message."
+          warningTestId="turns-error"
+          transcriptTestId="chat-transcript"
+          citationsEnabled
+          isStopping={isStopping}
+          citationsOpen={citationsOpen}
+          thinkOpen={thinkOpen}
+          toolOpen={toolOpen}
+          toolErrorOpen={toolErrorOpen}
+          onToggleCitation={toggleCitation}
+          onToggleThink={toggleThink}
+          onToggleTool={handleToggleTool}
+          onToggleToolError={toggleToolError}
+          markdownLogSource="ChatPage"
+          sharedRenderLogConfig={{
+            eventName: 'DEV-0000049:T01:chat_shared_transcript_rendered',
+            context: {},
+          }}
+        />
+      )}
+    </Paper>
+  );
 
-              setDesktopDrawerOpen((prev) => !prev);
-            }}
-          />
-          {(!isMobile || drawerOpen) && (
-            <Drawer
-              key={isMobile ? 'mobile' : 'desktop'}
-              open={drawerOpen}
-              onClose={() => {
-                if (isMobile) {
-                  setMobileDrawerOpen(false);
-                  return;
-                }
-
-                setDesktopDrawerOpen(false);
-              }}
-              variant={isMobile ? 'temporary' : 'persistent'}
-              ModalProps={{ keepMounted: false }}
-              data-testid="conversation-drawer"
-              slotProps={{
-                paper: {
-                  sx: {
-                    boxSizing: 'border-box',
-                    overflowX: 'hidden',
-                    width: drawerWidth,
-                    mt: drawerTopOffset,
-                    height: drawerHeight,
-                  },
-                },
-              }}
-              sx={{
-                width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
-                flexShrink: 0,
-              }}
+  const composerSurface = (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        borderRadius: 0,
+        borderLeft: 0,
+        borderRight: 0,
+        borderBottom: 0,
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Stack spacing={2}>
+        <form onSubmit={handleSubmit}>
+          <Stack spacing={1.5}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={1.5}
+              alignItems="stretch"
             >
-              <Box
-                id="conversation-drawer"
-                data-testid="conversation-list"
-                sx={{ width: drawerWidth, height: '100%' }}
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ flex: 1, minWidth: 0 }}
               >
-                <ConversationList
-                  conversations={conversations}
-                  selectedId={activeConversationId}
-                  isLoading={conversationsLoading}
-                  isError={conversationsError}
-                  error={conversationsErrorMessage}
-                  hasMore={conversationsHasMore}
-                  filterState={filterState}
-                  mongoConnected={mongoConnected}
-                  disabled={persistenceUnavailable || persistenceLoading}
-                  selectionDisabled={nextSendContextLocked}
-                  onSelect={handleSelectConversation}
-                  onFilterChange={setFilterState}
-                  onArchive={handleArchive}
-                  onRestore={handleRestore}
-                  onBulkArchive={bulkArchive}
-                  onBulkRestore={bulkRestore}
-                  onBulkDelete={bulkDelete}
-                  onLoadMore={loadMoreConversations}
-                  onRefresh={refreshConversations}
-                  onRetry={refreshConversations}
-                />
-              </Box>
-            </Drawer>
-          )}
-
-          <Box
-            data-testid="chat-column"
-            ref={chatColumnRef}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0,
-            }}
-            style={{
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              flex: '1 1 0%',
-              minHeight: 0,
-            }}
-          >
-            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-              <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
-                <Stack spacing={2}>
-                  {isLoading && (
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <CircularProgress size={18} />
-                      <Typography variant="body2" color="text.secondary">
-                        Loading chat providers and models...
-                      </Typography>
-                    </Stack>
-                  )}
-                  {isError && (
-                    <Alert
-                      severity="error"
-                      action={
-                        <Button
-                          color="inherit"
-                          size="small"
-                          onClick={retryFetch}
-                        >
-                          Retry
-                        </Button>
-                      }
+                <TextField
+                  select
+                  size="small"
+                  id="chat-provider-select"
+                  label="Provider"
+                  value={provider ?? ''}
+                  onChange={handleProviderChange}
+                  disabled={
+                    providerStatus === 'loading' ||
+                    providerLocked ||
+                    resumedExecutionIdentityLocked
+                  }
+                  sx={{
+                    minWidth: { xs: 0, sm: 220 },
+                    flex: { xs: 1, sm: '0 0 220px' },
+                  }}
+                  SelectProps={{ displayEmpty: true }}
+                  slotProps={{
+                    select: {
+                      SelectDisplayProps: {
+                        ...selectDisplayTestId('provider-select'),
+                      },
+                    },
+                  }}
+                >
+                  {providers.map((entry) => (
+                    <MenuItem
+                      key={entry.id}
+                      value={entry.id}
+                      disabled={!entry.available}
                     >
-                      {combinedError}
-                    </Alert>
-                  )}
-                  {!isLoading && !isError && isEmpty && (
-                    <Alert severity="info">
-                      No chat-capable models available for this provider.
-                    </Alert>
-                  )}
-                  <form onSubmit={handleSubmit}>
-                    <Stack spacing={1.5}>
-                      <Stack
-                        direction={{ xs: 'column', md: 'row' }}
-                        spacing={1.5}
-                        alignItems="stretch"
-                      >
-                        <Stack
-                          direction="row"
-                          spacing={1.5}
-                          sx={{ flex: 1, minWidth: 0 }}
-                        >
-                          <TextField
-                            select
-                            size="small"
-                            id="chat-provider-select"
-                            label="Provider"
-                            value={provider ?? ''}
-                            onChange={handleProviderChange}
-                            disabled={
-                              providerStatus === 'loading' ||
-                              providerLocked ||
-                              resumedExecutionIdentityLocked
-                            }
-                            sx={{
-                              minWidth: { xs: 0, sm: 220 },
-                              flex: { xs: 1, sm: '0 0 220px' },
-                            }}
-                            SelectProps={{ displayEmpty: true }}
-                            slotProps={{
-                              select: {
-                                SelectDisplayProps: {
-                                  ...selectDisplayTestId('provider-select'),
-                                },
-                              },
-                            }}
-                          >
-                            {providers.map((entry) => (
-                              <MenuItem
-                                key={entry.id}
-                                value={entry.id}
-                                disabled={!entry.available}
-                              >
-                                {entry.label}
-                                {!entry.available
-                                  ? entry.reason
-                                    ? ` (unavailable: ${entry.reason})`
-                                    : ' (unavailable)'
-                                  : ''}
-                              </MenuItem>
-                            ))}
-                          </TextField>
+                      {entry.label}
+                      {!entry.available
+                        ? entry.reason
+                          ? ` (unavailable: ${entry.reason})`
+                          : ' (unavailable)'
+                        : ''}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-                          <TextField
-                            select
-                            size="small"
-                            id="chat-model-select"
-                            label="Model"
-                            value={selected ?? ''}
-                            onChange={handleModelChange}
-                            disabled={
-                              isLoading ||
-                              isError ||
-                              isEmpty ||
-                              !providerAvailable ||
-                              nextSendContextLocked ||
-                              resumedExecutionIdentityLocked
-                            }
-                            sx={{ minWidth: { xs: 0, sm: 260 }, flex: 1 }}
-                            SelectProps={{ displayEmpty: true }}
-                            slotProps={{
-                              select: {
-                                SelectDisplayProps: {
-                                  ...selectDisplayTestId('model-select'),
-                                },
-                              },
-                            }}
-                          >
-                            {models.map((model) => (
-                              <MenuItem key={model.key} value={model.key}>
-                                {model.displayName}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        </Stack>
+                <TextField
+                  select
+                  size="small"
+                  id="chat-model-select"
+                  label="Model"
+                  value={selected ?? ''}
+                  onChange={handleModelChange}
+                  disabled={
+                    isLoading ||
+                    isError ||
+                    isEmpty ||
+                    !providerAvailable ||
+                    nextSendContextLocked ||
+                    resumedExecutionIdentityLocked
+                  }
+                  sx={{ minWidth: { xs: 0, sm: 260 }, flex: 1 }}
+                  SelectProps={{ displayEmpty: true }}
+                  slotProps={{
+                    select: {
+                      SelectDisplayProps: {
+                        ...selectDisplayTestId('model-select'),
+                      },
+                    },
+                  }}
+                >
+                  {models.map((model) => (
+                    <MenuItem key={model.key} value={model.key}>
+                      {model.displayName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
 
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          alignItems="center"
-                          justifyContent="flex-end"
-                          sx={{ minWidth: { xs: '100%', md: 220 } }}
-                        >
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            sx={{ width: '100%' }}
-                          >
-                            <Button
-                              type="button"
-                              variant="outlined"
-                              color="secondary"
-                              size="small"
-                              onClick={() => handleNewConversation()}
-                              disabled={isLoading || nextSendContextLocked}
-                              fullWidth
-                              sx={{ flex: 1 }}
-                            >
-                              New conversation
-                            </Button>
-                            {canShowDeviceAuth ? (
-                              <Button
-                                type="button"
-                                variant="outlined"
-                                size="small"
-                                onClick={handleDeviceAuthOpen}
-                                disabled={isLoading}
-                                fullWidth
-                                sx={{ flex: 1 }}
-                              >
-                                Re-authenticate
-                              </Button>
-                            ) : null}
-                          </Stack>
-                        </Stack>
-                      </Stack>
-                      <CodexDeviceAuthDialog
-                        open={deviceAuthOpen}
-                        onClose={handleDeviceAuthClose}
-                        source="chat"
-                        onSuccess={handleDeviceAuthSuccess}
-                      />
-
-                      {showCodexWarnings && (
-                        <Alert
-                          severity="warning"
-                          data-testid="codex-warnings-banner"
-                        >
-                          <Stack spacing={0.5}>
-                            {codexWarningList.map((warning, index) => (
-                              <Typography
-                                key={`${warning}-${index}`}
-                                variant="body2"
-                              >
-                                {warning}
-                              </Typography>
-                            ))}
-                          </Stack>
-                        </Alert>
-                      )}
-                      {availableAgentFlags.length > 0 ? (
-                        <AgentFlagsPanel
-                          descriptors={availableAgentFlags}
-                          values={agentFlagsDraft}
-                          onChange={handleAgentFlagChange}
-                          disabled={controlsDisabled}
-                        />
-                      ) : null}
-
-                      {showCodexUnavailable ? (
-                        <Alert
-                          severity="warning"
-                          data-testid="codex-unavailable-banner"
-                        >
-                          OpenAI Codex is unavailable. Install the CLI (`npm
-                          install -g @openai/codex`), log in with
-                          `CODEX_HOME=./codex codex login` (or your `~/.codex`),
-                          and ensure `./codex/config.toml` is seeded. The
-                          checked-in main Compose stack mounts{' '}
-                          <code>
-                            {'${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}'}
-                          </code>{' '}
-                          directly at `/app/codex`, so container logins are not
-                          required there. If Codex later fails with
-                          `refresh_token_reused` or `token_expired`, rerun
-                          `codex login` against the Codex home backing the
-                          runtime you are using and restart that stack. See the
-                          guidance in{' '}
-                          <Link
-                            href="https://github.com/Chargeuk/codeInfo2#codex-cli"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            README ▸ Codex (CLI)
-                          </Link>
-                          .
-                          {providerIsCodex || codexProvider?.reason
-                            ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
-                            : ''}
-                        </Alert>
-                      ) : null}
-                      {showCodexToolsMissing && (
-                        <Alert
-                          severity="warning"
-                          data-testid="codex-tools-banner"
-                        >
-                          Codex requires MCP tools. Ensure `config.toml` lists
-                          the `/mcp` endpoints and that tools are enabled, then
-                          retry once the CLI/auth/config prerequisites above are
-                          satisfied.
-                        </Alert>
-                      )}
-
-                      <Stack
-                        direction="row"
-                        spacing={2}
-                        alignItems="flex-start"
-                        sx={{ minWidth: 0 }}
-                      >
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Working folder"
-                          placeholder="Absolute host path (optional)"
-                          value={workingFolder}
-                          onChange={(event) =>
-                            setWorkingFolder(event.target.value)
-                          }
-                          onBlur={(event) => {
-                            void persistWorkingFolder(event.target.value);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key !== 'Enter') return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            void persistWorkingFolder(
-                              (event.currentTarget as HTMLInputElement).value,
-                            );
-                          }}
-                          disabled={chatWorkingFolderLocked}
-                          slotProps={{
-                            htmlInput: {
-                              'data-testid': 'chat-working-folder',
-                            },
-                          }}
-                          sx={{ flex: 1, minWidth: 0 }}
-                        />
-                        <Button
-                          type="button"
-                          variant="outlined"
-                          size="small"
-                          onClick={handleOpenDirPicker}
-                          disabled={chatWorkingFolderLocked}
-                          data-testid="chat-working-folder-picker"
-                          sx={{ flexShrink: 0, minWidth: 160 }}
-                        >
-                          Choose folder…
-                        </Button>
-                      </Stack>
-
-                      <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={2}
-                        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
-                      >
-                        <TextField
-                          inputRef={inputRef}
-                          fullWidth
-                          multiline
-                          minRows={2}
-                          size="small"
-                          label="Message"
-                          placeholder="Type your prompt"
-                          value={input}
-                          onChange={(event) => setInput(event.target.value)}
-                          disabled={controlsDisabled}
-                          slotProps={{
-                            htmlInput: { 'data-testid': 'chat-input' },
-                          }}
-                          helperText={
-                            providerIsCodex &&
-                            (!providerAvailable || !toolsAvailable)
-                              ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
-                              : undefined
-                          }
-                        />
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          alignItems="flex-start"
-                        >
-                          <Button
-                            type="submit"
-                            variant="contained"
-                            size="small"
-                            data-testid="chat-send"
-                            disabled={controlsDisabled || isSending}
-                          >
-                            Send
-                          </Button>
-                          {showStop && (
-                            <Button
-                              type="button"
-                              variant="contained"
-                              color="error"
-                              size="small"
-                              onClick={handleStop}
-                              data-testid="chat-stop"
-                              disabled={isStopping}
-                            >
-                              {isStopping ? 'Stopping…' : 'Stop'}
-                            </Button>
-                          )}
-                        </Stack>
-                      </Stack>
-                    </Stack>
-                  </form>
-                  <DirectoryPickerDialog
-                    open={dirPickerOpen}
-                    path={workingFolder}
-                    onClose={handleCloseDirPicker}
-                    onPick={handlePickDir}
-                  />
-                  {(isSending || isStopping) && (
-                    <Typography variant="body2" color="text.secondary">
-                      {isStopping ? 'Stopping…' : 'Responding...'}
-                    </Typography>
-                  )}
-                </Stack>
-              </Box>
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  flex: '1 1 0%',
-                  minHeight: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                justifyContent="flex-end"
+                sx={{ minWidth: { xs: '100%', md: 220 } }}
               >
-                {isLoading && (
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    justifyContent="center"
+                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    color="secondary"
+                    size="small"
+                    onClick={() => handleNewConversation()}
+                    disabled={isLoading || nextSendContextLocked}
+                    fullWidth
                     sx={{ flex: 1 }}
                   >
-                    <CircularProgress size={20} />
-                    <Typography color="text.secondary">
-                      Loading chat providers and models...
-                    </Typography>
-                  </Stack>
-                )}
-                {isError && (
-                  <Alert
-                    severity="error"
-                    action={
-                      <Button color="inherit" size="small" onClick={retryFetch}>
-                        Retry
-                      </Button>
-                    }
-                  >
-                    {combinedError}
-                  </Alert>
-                )}
-                {!isLoading && !isError && isEmpty && (
-                  <Typography color="text.secondary">
-                    No chat-capable models for this provider. Add a supported
-                    model or switch providers, then retry.
-                  </Typography>
-                )}
-                {!isLoading && !isError && !isEmpty && (
-                  <SharedTranscript
-                    ref={transcriptRef}
-                    surface="chat"
-                    conversationId={activeConversationId ?? null}
-                    messages={orderedMessages}
-                    activeToolsAvailable={activeToolsAvailable}
-                    turnsLoading={turnsLoading}
-                    turnsError={turnsError}
-                    turnsErrorMessage={turnsErrorMessage}
-                    emptyMessage="Transcript will appear here once you send a message."
-                    warningTestId="turns-error"
-                    transcriptTestId="chat-transcript"
-                    citationsEnabled
-                    isStopping={isStopping}
-                    citationsOpen={citationsOpen}
-                    thinkOpen={thinkOpen}
-                    toolOpen={toolOpen}
-                    toolErrorOpen={toolErrorOpen}
-                    onToggleCitation={toggleCitation}
-                    onToggleThink={toggleThink}
-                    onToggleTool={handleToggleTool}
-                    onToggleToolError={toggleToolError}
-                    markdownLogSource="ChatPage"
-                    sharedRenderLogConfig={{
-                      eventName:
-                        'DEV-0000049:T01:chat_shared_transcript_rendered',
-                      context: {},
-                    }}
-                  />
-                )}
-              </Paper>
+                    New conversation
+                  </Button>
+                  {canShowDeviceAuth ? (
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      onClick={handleDeviceAuthOpen}
+                      disabled={isLoading}
+                      fullWidth
+                      sx={{ flex: 1 }}
+                    >
+                      Re-authenticate
+                    </Button>
+                  ) : null}
+                </Stack>
+              </Stack>
             </Stack>
-          </Box>
-        </Stack>
+
+            <Stack
+              direction="row"
+              spacing={2}
+              alignItems="flex-start"
+              sx={{ minWidth: 0 }}
+            >
+              <TextField
+                fullWidth
+                size="small"
+                label="Working folder"
+                placeholder="Absolute host path (optional)"
+                value={workingFolder}
+                onChange={(event) => setWorkingFolder(event.target.value)}
+                onBlur={(event) => {
+                  void persistWorkingFolder(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void persistWorkingFolder(
+                    (event.currentTarget as HTMLInputElement).value,
+                  );
+                }}
+                disabled={chatWorkingFolderLocked}
+                slotProps={{
+                  htmlInput: {
+                    'data-testid': 'chat-working-folder',
+                  },
+                }}
+                sx={{ flex: 1, minWidth: 0 }}
+              />
+              <Button
+                type="button"
+                variant="outlined"
+                size="small"
+                onClick={handleOpenDirPicker}
+                disabled={chatWorkingFolderLocked}
+                data-testid="chat-working-folder-picker"
+                sx={{ flexShrink: 0, minWidth: 160 }}
+              >
+                Choose folder…
+              </Button>
+            </Stack>
+
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+            >
+              <TextField
+                inputRef={inputRef}
+                fullWidth
+                multiline
+                minRows={2}
+                size="small"
+                label="Message"
+                placeholder="Type your prompt"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                disabled={controlsDisabled}
+                slotProps={{
+                  htmlInput: { 'data-testid': 'chat-input' },
+                }}
+                helperText={
+                  providerIsCodex && (!providerAvailable || !toolsAvailable)
+                    ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
+                    : undefined
+                }
+              />
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="small"
+                  data-testid="chat-send"
+                  disabled={controlsDisabled || isSending}
+                >
+                  Send
+                </Button>
+                {showStop && (
+                  <Button
+                    type="button"
+                    variant="contained"
+                    color="error"
+                    size="small"
+                    onClick={handleStop}
+                    data-testid="chat-stop"
+                    disabled={isStopping}
+                  >
+                    {isStopping ? 'Stopping…' : 'Stop'}
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+          </Stack>
+        </form>
+        <CodexDeviceAuthDialog
+          open={deviceAuthOpen}
+          onClose={handleDeviceAuthClose}
+          source="chat"
+          onSuccess={handleDeviceAuthSuccess}
+        />
+
+        {showCodexWarnings && (
+          <Alert severity="warning" data-testid="codex-warnings-banner">
+            <Stack spacing={0.5}>
+              {codexWarningList.map((warning, index) => (
+                <Typography key={`${warning}-${index}`} variant="body2">
+                  {warning}
+                </Typography>
+              ))}
+            </Stack>
+          </Alert>
+        )}
+        {availableAgentFlags.length > 0 ? (
+          <AgentFlagsPanel
+            descriptors={availableAgentFlags}
+            values={agentFlagsDraft}
+            onChange={handleAgentFlagChange}
+            disabled={controlsDisabled}
+          />
+        ) : null}
+
+        {showCodexUnavailable ? (
+          <Alert severity="warning" data-testid="codex-unavailable-banner">
+            OpenAI Codex is unavailable. Install the CLI (`npm install -g
+            @openai/codex`), log in with `CODEX_HOME=./codex codex login` (or
+            your `~/.codex`), and ensure `./codex/config.toml` is seeded. The
+            checked-in main Compose stack mounts{' '}
+            <code>{'${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}'}</code> directly
+            at `/app/codex`, so container logins are not required there. If
+            Codex later fails with `refresh_token_reused` or `token_expired`,
+            rerun `codex login` against the Codex home backing the runtime you
+            are using and restart that stack. See the guidance in{' '}
+            <Link
+              href="https://github.com/Chargeuk/codeInfo2#codex-cli"
+              target="_blank"
+              rel="noreferrer"
+            >
+              README ▸ Codex (CLI)
+            </Link>
+            .
+            {providerIsCodex || codexProvider?.reason
+              ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
+              : ''}
+          </Alert>
+        ) : null}
+        {showCodexToolsMissing && (
+          <Alert severity="warning" data-testid="codex-tools-banner">
+            Codex requires MCP tools. Ensure `config.toml` lists the `/mcp`
+            endpoints and that tools are enabled, then retry once the
+            CLI/auth/config prerequisites above are satisfied.
+          </Alert>
+        )}
+
+        <DirectoryPickerDialog
+          open={dirPickerOpen}
+          path={workingFolder}
+          onClose={handleCloseDirPicker}
+          onPick={handlePickDir}
+        />
+        {(isSending || isStopping) && (
+          <Typography variant="body2" color="text.secondary">
+            {isStopping ? 'Stopping…' : 'Responding...'}
+          </Typography>
+        )}
       </Stack>
-    </Container>
+    </Paper>
+  );
+
+  const desktopWorkspace = (
+    <WorkspaceDesktopShell
+      conversationPane={conversationList}
+      transcript={transcriptSurface}
+      composer={composerSurface}
+      conversationPaneOpen={conversationPaneOpen}
+      conversationPaneWidth={drawerWidth}
+      isMobile={isMobile}
+      onToggleConversationPane={() => {
+        setDesktopDrawerOpen((prev) => !prev);
+      }}
+      topOffsetPx={drawerTopOffsetPx}
+    />
+  );
+
+  const mobileWorkspace = (
+    <Box
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+      }}
+    >
+      <Paper
+        variant="outlined"
+        sx={{ p: 1.5, display: 'flex', gap: 1, alignItems: 'center' }}
+      >
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setMobileConversationsOpen(true)}
+          sx={{ flex: 1 }}
+        >
+          Conversations
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setMobileAppMenuOpen(true)}
+          sx={{ flex: 1 }}
+        >
+          Menu
+        </Button>
+      </Paper>
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {transcriptSurface}
+      </Box>
+      {composerSurface}
+      <WorkspaceMobileConversationsOverlay
+        open={mobileConversationsOpen}
+        onClose={() => setMobileConversationsOpen(false)}
+        list={conversationList}
+      />
+      <WorkspaceMobileAppMenuOverlay
+        open={mobileAppMenuOpen}
+        onClose={() => setMobileAppMenuOpen(false)}
+      />
+    </Box>
+  );
+
+  return (
+    <Box
+      ref={chatColumnRef}
+      data-testid="chat-column"
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+      }}
+    >
+      {persistenceUnavailable && (
+        <Alert
+          severity="warning"
+          data-testid="persistence-banner"
+          action={
+            <Button color="inherit" size="small" onClick={refreshPersistence}>
+              Retry
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          Conversation history unavailable — messages won’t be stored until
+          Mongo reconnects.
+        </Alert>
+      )}
+      {isMobile ? mobileWorkspace : desktopWorkspace}
+    </Box>
   );
 }

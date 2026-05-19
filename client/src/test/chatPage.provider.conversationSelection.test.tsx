@@ -284,7 +284,7 @@ async function selectProvider(
   });
 }
 
-describe('Chat page sidebar conversation selection', () => {
+describe('Chat shared shell conversation selection', () => {
   it('does not send cancel_inflight when switching conversations during an active run', async () => {
     const { user, draftConversationId } = await startDraftRun();
 

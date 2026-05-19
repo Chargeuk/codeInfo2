@@ -86,6 +86,8 @@ export default function AgentFlagsPanel({
       disableGutters
       data-testid="agent-flags-panel"
       sx={{
+        width: '100%',
+        boxSizing: 'border-box',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 1,

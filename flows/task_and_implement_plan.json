@@ -102,7 +102,7 @@
                   "label": "Exit if no valid implementation task handoff is available",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/check_current_task_handoff.py\"`. Answer yes iff the JSON output reports `has_valid_current_task_handoff: false`. Answer no iff the JSON output reports `has_valid_current_task_handoff: true`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_handoff_invalid.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 },
                 {
@@ -140,7 +140,7 @@
                       "label": "Proceed to automated proof if implementation is complete",
                       "agentType": "loop_control_agent",
                       "identifier": "loop_controller",
-                      "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` exists, `selected_task.has_unchecked_subtasks` is false, and `selected_task.live_blockers` is empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                      "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_implementation_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
                     },
                     {
@@ -155,7 +155,7 @@
                       "label": "Implementation blocker remains",
                       "agentType": "loop_control_agent",
                       "identifier": "loop_controller",
-                      "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer yes. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` is missing OR `selected_task.live_blockers` is non-empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                      "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
                     }
                   ]
@@ -165,7 +165,7 @@
                   "label": "Exit current task loop if implementation left a blocker",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer yes. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` is missing OR `selected_task.live_blockers` is non-empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 },
                 {
@@ -203,7 +203,7 @@
                       "label": "Proceed to manual testing eligibility if automated proof is complete",
                       "agentType": "loop_control_agent",
                       "identifier": "loop_controller",
-                      "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` exists, `selected_task.has_unchecked_subtasks` is false, `selected_task.has_unchecked_testing` is false, and `selected_task.live_blockers` is empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                      "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_ready_for_manual_testing.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
                     },
                     {
@@ -225,7 +225,7 @@
                       "label": "Return to implementation from proof loop",
                       "agentType": "loop_control_agent",
                       "identifier": "loop_controller",
-                      "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` exists and `selected_task.has_unchecked_subtasks` is true. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                      "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_unchecked_subtasks.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
                     },
                     {
@@ -233,7 +233,7 @@
                       "label": "Automated-proof blocker remains",
                       "agentType": "loop_control_agent",
                       "identifier": "loop_controller",
-                      "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer yes. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` is missing OR `selected_task.live_blockers` is non-empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                      "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
                     }
                   ]
@@ -243,7 +243,7 @@
                   "label": "Exit current task loop if task is blocked after proof",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer yes. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` is missing OR `selected_task.live_blockers` is non-empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 },
                 {
@@ -251,7 +251,7 @@
                   "label": "Return to the top of current task rework if proof added unchecked subtasks",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` exists, `selected_task.has_unchecked_subtasks` is true, and `selected_task.live_blockers` is empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_unchecked_subtasks.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "continueOn": "yes"
                 },
                 {
@@ -259,7 +259,7 @@
                   "label": "Return to the top of current task rework if automated proof still has unchecked testing",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer yes iff `selected_task` exists, `selected_task.has_unchecked_subtasks` is false, `selected_task.has_unchecked_testing` is true, and `selected_task.live_blockers` is empty. Answer no otherwise. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_unchecked_testing.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "continueOn": "yes"
                 },
                 {
@@ -300,7 +300,7 @@
                   "label": "Check for blocker after manual testing",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/current-task.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape. If it does not clearly resolve a task, answer no. Otherwise run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>`. Answer from that JSON output only. Answer yes iff `selected_task` exists and `selected_task.live_blockers` is non-empty. The parser already ignores inline `**BLOCKER**` references, `**BLOCKING ANSWER**`, and `**RESOLVED ISSUE**`. Reply only as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_manual_testing_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 },
                 {
@@ -315,7 +315,7 @@
                   "label": "Exit task loop if story is complete",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_story_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 }
               ]
@@ -332,7 +332,7 @@
               "label": "Early exit check for completion",
               "agentType": "loop_control_agent",
               "identifier": "loop_controller",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_story_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
               "breakOn": "yes"
             },
             {
@@ -401,7 +401,7 @@
               "label": "Check for completion",
               "agentType": "loop_control_agent",
               "identifier": "loop_controller",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `scope_valid: true`, and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_plan_scope_story_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
               "breakOn": "yes"
             }
           ]
@@ -478,7 +478,7 @@
                   "label": "Exit Minor-Fix Path Unless Minor Findings Remain",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer yes if `needs_minor_fix_path` is not true. Answer no only when `needs_minor_fix_path` is true, meaning unresolved minor-batchable findings still remain and should continue to be attempted inline before task-up. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 },
                 {
@@ -500,7 +500,7 @@
                   "label": "Exit Minor-Fix Path After Sync Unless Another Minor Finding Remains",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after the sync step, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and read `codeInfoStatus/flow-state/minor-review-fix-result.json` from disk too, for example with `cat codeInfoStatus/flow-state/minor-review-fix-result.json`. Answer only from those freshly re-read files. Answer yes iff `needs_minor_fix_path` is not true, meaning no unresolved minor-batchable findings remain or the remaining minor findings were bulk-escalated out of the minor bucket. Answer no only if `needs_minor_fix_path` is true, meaning another unresolved minor-batchable finding still needs an inline attempt in this same pass. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_minor_fix_path_clear_after_sync.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 }
               ]
@@ -519,7 +519,7 @@
                   "label": "Exit Task-Up Path Unless Unresolved Findings Need Tasks",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk first, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, and answer only from that file's current contents. Answer yes iff `needs_task_up_path` is not true. Treat `resolved_minor_findings` as non-actionable for task-up. Answer no only when `needs_task_up_path` is true, meaning unresolved task-required findings or incomplete-review blockers must be encoded into the plan. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_task_up_path_clear.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes"
                 },
                 {
@@ -586,7 +586,7 @@
               "label": "Exit Review Loop After Serious Review Work Was Tasked Up",
               "agentType": "loop_control_agent",
               "identifier": "loop_controller",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `review_state_repair_needed: false`, and `should_exit_review_loop_to_main_loop: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_should_exit_to_main_loop.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
               "breakOn": "yes"
             },
             {
@@ -594,7 +594,7 @@
               "label": "Exit Review Loop When No Further Minor Rerun Is Needed",
               "agentType": "loop_control_agent",
               "identifier": "loop_controller",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `repair_needed: false`, `review_state_repair_needed: false`, and `should_finish_review_loop_cleanly: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_review_should_finish_cleanly.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
               "breakOn": "yes"
             }
           ]
@@ -625,7 +625,7 @@
           "label": "Check for completion",
           "agentType": "loop_control_agent",
           "identifier": "loop_controller",
-          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/story_workflow_status.py\"`. Answer yes only if the JSON output reports `scope_valid: true` and `story_complete: true`. Answer no otherwise. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_plan_scope_story_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
           "breakOn": "yes"
         }
       ]

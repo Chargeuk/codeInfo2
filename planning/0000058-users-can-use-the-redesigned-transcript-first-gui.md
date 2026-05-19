@@ -573,7 +573,7 @@ Task 1's blocker answer proved that the remaining lint failures are not unfinish
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -670,9 +670,10 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - Subtask 14 complete: `npm run lint --workspace client` passed without requiring any lint fixes.
 - Subtask 15 complete: `npm run format:check --workspace client` passed after formatting the task-owned workspace files.
 - Implementation-only audit rechecked `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 3`, `logs/test-summaries/build-client-latest.log`, the recent `test-results/client-tests-2026-05-19T06-55-19-273Z.log`, `client-tests-2026-05-19T06-56-01-026Z.log`, `client-tests-2026-05-19T06-58-01-499Z.log`, `client-tests-2026-05-19T06-58-08-826Z.log`, and `client-tests-2026-05-19T06-58-17-508Z.log`, plus `git show --stat 458946e4`; no fresh wrapper-backed full `build:summary:client` or full `test:summary:client` proof was found after `DEV-58 - build shared workspace shell`, so Testing steps 1 and 2 remain honestly unchecked.
-- Task 3 no longer carries a live blocker in this implementation-only audit because all 15 subtasks remain complete after normalization. The task stays `__in_progress__` and is ready for the later automated-proof pass, which still needs fresh `npm run build:summary:client` and full `npm run test:summary:client` evidence before the task can move beyond this proof boundary.
+- Implementation-only audit had previously left Task 3 with only wrapper-backed automated proof outstanding after all 15 subtasks were complete; that pre-proof boundary is now satisfied by the fresh build and full client-test evidence below.
 - Testing step 1 complete: `npm run build:summary:client` passed cleanly with no warnings, so the client build proof is now current again.
 - Testing step 2 complete: `npm run test:summary:client` passed across the full suite with 779/779 tests green, so the shared shell proof is current again.
+- Automated-proof audit confirmed Task 3 now has all subtasks complete, all Testing items complete, and no live blocker, so the task is now honestly `__done__`.
 
 ---
 

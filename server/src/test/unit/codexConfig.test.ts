@@ -99,7 +99,7 @@ describe('codexConfig', () => {
   });
 
   it('migrated checked-in configs no longer depend on bridge-era playwright hosts or hard-coded localhost MCP ports', async () => {
-    const agentsRoot = path.join(repoRoot, 'codex_agents');
+    const agentsRoot = path.join(repoRoot, 'codeinfo_agents');
     const agentEntries = await fs.readdir(agentsRoot, { withFileTypes: true });
     const configPaths = [
       path.join(repoRoot, 'config.toml.example'),

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,6 +9,7 @@ import type { ModelInfo } from '@github/copilot-sdk';
 import express from 'express';
 import request from 'supertest';
 
+import { CopilotLifecycle } from '../../chat/copilotLifecycle.js';
 import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { importCopilotSeedIntoRuntimeHome } from '../../config/copilotSeedBootstrap.js';
 import {
@@ -16,7 +18,10 @@ import {
 } from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
-import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
+import {
+  createMockCopilotSdkHarness,
+  createSessionIdleEvent,
+} from '../support/mockCopilotSdk.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
 
 async function writeSeedArtifacts(seedHome: string) {
@@ -438,5 +443,105 @@ test('explicit Copilot chat requests recover once startup seed import restores t
   } finally {
     memoryConversations.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('chat forwards CODEINFO_ROOT into the Copilot runtime environment', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-copilot-codeinfo-root-'),
+  );
+  const envKeys = [
+    'CODEINFO_SERVER_PORT',
+    'MCP_URL',
+    'CODEINFO_LMSTUDIO_BASE_URL',
+  ] as const;
+  const originalEnv = new Map<string, string | undefined>();
+  for (const key of envKeys) {
+    originalEnv.set(key, process.env[key]);
+  }
+
+  const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
+  const harness = createMockCopilotSdkHarness({
+    name: 'chat-copilot-env-forwarding',
+    models: [
+      {
+        id: 'copilot-model',
+        name: 'Copilot Model',
+      } as ModelInfo,
+    ],
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.post('/mcp', (_req, res) => {
+    res.json({ result: { ok: true } });
+  });
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [],
+          },
+        }) as never,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: repoRoot }],
+          lockedModelId: null,
+        }) as never,
+      copilotLifecycleFactory: ({ env } = {}) =>
+        new CopilotLifecycle({
+          env,
+          clientFactory: (options) => {
+            capturedOptions.push(options);
+            return harness.createClientFactory()(options);
+          },
+        }),
+    }),
+  );
+
+  const httpServer = http.createServer(app);
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  process.env.CODEINFO_SERVER_PORT = String(address.port);
+  process.env.MCP_URL = `http://127.0.0.1:${address.port}/mcp`;
+  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://127.0.0.1:9';
+
+  try {
+    await request(httpServer)
+      .post('/chat')
+      .send({
+        provider: 'copilot',
+        model: 'copilot-model',
+        conversationId: 'chat-copilot-codeinfo-root',
+        message: 'Pass CODEINFO_ROOT through to Copilot.',
+        working_folder: repoRoot,
+      })
+      .expect(202);
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (capturedOptions.length >= 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    assert.equal(
+      capturedOptions.some((options) => options.env?.CODEINFO_ROOT === repoRoot),
+      true,
+    );
+  } finally {
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    memoryConversations.delete('chat-copilot-codeinfo-root');
+    for (const key of envKeys) {
+      const value = originalEnv.get(key);
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });

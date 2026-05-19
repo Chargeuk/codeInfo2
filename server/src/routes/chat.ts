@@ -11,6 +11,7 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
+import { resolveAgentHomeEnv } from '../agents/roots.js';
 import { buildConversationFlags } from '../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
@@ -210,7 +211,9 @@ export function createChatRouter({
   }) => Promise<CodexCapabilityResolution>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
-  copilotLifecycleFactory?: () => CopilotLifecycle;
+  copilotLifecycleFactory?: (params?: {
+    env?: NodeJS.ProcessEnv;
+  }) => CopilotLifecycle;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -449,7 +452,9 @@ export function createChatRouter({
     const copilotReadiness =
       !explicitProviderSelected || effectiveRequestedProvider === 'copilot'
         ? await resolveCopilotReadiness({
-            createRuntime: copilotLifecycleFactory,
+            createRuntime: copilotLifecycleFactory
+              ? () => copilotLifecycleFactory()
+              : undefined,
             env: process.env,
             toolsAvailable: mcp.available,
             toolsReason: mcp.reason,
@@ -668,9 +673,17 @@ export function createChatRouter({
       throw err;
     }
 
+    const agentHomeResolution = resolveAgentHomeEnv();
     const executionContext = await resolveSharedExecutionContext({
       workingFolder: effectiveWorkingFolder,
+      defaultRepositoryRoot:
+        agentHomeResolution.activeEnvName !== 'default'
+          ? agentHomeResolution.codeInfoRoot
+          : undefined,
     });
+    const envOverrides: NodeJS.ProcessEnv = {
+      CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,
+    };
     const repositoryBackedCodexRun =
       executionProvider === 'codex' &&
       executionContext.repositoryMetadata.workingRepositoryAvailable;
@@ -1019,7 +1032,8 @@ export function createChatRouter({
         ...(executionProvider === 'copilot'
           ? {
               copilotLifecycle:
-                copilotLifecycleFactory?.() ?? new CopilotLifecycle(),
+                copilotLifecycleFactory?.({ env: envOverrides }) ??
+                new CopilotLifecycle({ env: envOverrides }),
             }
           : {}),
       });
@@ -1112,6 +1126,7 @@ export function createChatRouter({
                   }),
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
+              envOverrides,
               requestId,
               inflightId,
               repositoryContext: executionContext.repositoryMetadata,
@@ -1142,6 +1157,7 @@ export function createChatRouter({
             runtime: executionContext.runtime,
             deferInflightCleanup: true,
             signal: getInflight(conversationId)?.abortController.signal,
+            envOverrides,
             history: historyForRun,
             ...(executionProvider === 'copilot'
               ? {

@@ -6,7 +6,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
+import type { CodexOptions } from '@openai/codex-sdk';
 import { resolveAgentHomeEnv } from '../../../agents/roots.js';
+import { getChatInterface } from '../../../chat/factory.js';
 import { __resetCompletedInflightForTests } from '../../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
@@ -27,7 +29,10 @@ import {
 } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
-import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
+import {
+  createMockCopilotSdkHarness,
+  createSessionIdleEvent,
+} from '../../support/mockCopilotSdk.js';
 
 const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
@@ -751,6 +756,56 @@ test('codebase_question uses the shared default execution root when no working_f
     });
   } finally {
     delete process.env.CODEINFO_CODEX_WORKDIR;
+  }
+});
+
+test('codebase_question forwards CODEINFO_ROOT into the Codex runtime environment', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  let capturedOptions: CodexOptions | undefined;
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Forward CODEINFO_ROOT for Codex.',
+        provider: 'codex',
+      },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return new MockCodex('thread-codeinfo-root');
+        },
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.equal(capturedOptions?.env?.CODEINFO_ROOT, expectedRepoRoot);
+  } finally {
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
   }
 });
 
@@ -1607,6 +1662,56 @@ test('codebase_question normalizes implicit Copilot defaults and omits reasoning
     else process.env.CODEINFO_COPILOT_HOME = originalHome;
     await tempHome.cleanup();
   }
+});
+
+test('codebase_question forwards CODEINFO_ROOT into the Copilot runtime environment', async () => {
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
+  const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
+  const harness = createMockCopilotSdkHarness({
+    name: 'mcp-copilot-env-forwarding',
+    models: [
+      {
+        id: 'copilot-model',
+        name: 'Copilot Model',
+      } as ModelInfo,
+    ],
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+
+  const result = await runCodebaseQuestion(
+    {
+      question: 'Forward CODEINFO_ROOT for Copilot.',
+      provider: 'copilot',
+      model: 'copilot-model',
+    },
+    {
+      chatFactory: (provider, deps) =>
+        getChatInterface(provider, {
+          ...deps,
+          copilotClientFactory: (options) => {
+            capturedOptions.push(options);
+            return harness.createClientFactory()(options);
+          },
+        }),
+      copilotReadinessResolver: async () => ({
+        available: true,
+        toolsAvailable: true,
+        blockingStage: 'ready',
+        models: ['copilot-model'],
+        modelsRaw: [
+          {
+            id: 'copilot-model',
+            name: 'Copilot Model',
+          } as ModelInfo,
+        ],
+        authSource: 'env-token',
+      }),
+    },
+  );
+
+  assert.ok(result.content[0]?.text);
+  assert.equal(capturedOptions.length, 1);
+  assert.equal(capturedOptions[0]?.env?.CODEINFO_ROOT, expectedRepoRoot);
 });
 
 test('codebase_question keeps the requested provider and repairs the model there when that provider is healthy but the requested model is missing', async () => {

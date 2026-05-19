@@ -12,6 +12,7 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
+import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   memoryConversations,
   memoryTurns,
@@ -188,6 +189,7 @@ const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
 
 beforeEach(async () => {
+  resetToolDeps();
   delete process.env.CODEX_HOME;
   delete process.env.CODEX_WORKDIR;
   delete process.env.CODEINFO_CODEX_WORKDIR;
@@ -215,6 +217,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  resetToolDeps();
   if (ORIGINAL_CODEX_HOME === undefined) {
     delete process.env.CODEX_HOME;
   } else {
@@ -462,7 +465,10 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     codexDefaults.webSearchEnabled ? 'live' : 'disabled',
     'default web search should match env defaults',
   );
-  assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
+  assert.equal(
+    mockCodex.lastStartOptions?.workingDirectory,
+    resolveAgentHomeEnv().codeInfoRoot,
+  );
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });
 
@@ -1165,7 +1171,7 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
         method: 'tools/call',
         params: {
           name: 'codebase_question',
-          arguments: { question: 'parity' },
+          arguments: { question: 'parity', provider: 'codex' },
         },
       }),
     });

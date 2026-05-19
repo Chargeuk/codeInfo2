@@ -1055,6 +1055,9 @@ async function executeCodebaseQuestion(
         ? agentHomeResolution.codeInfoRoot
         : undefined,
   });
+  const envOverrides: NodeJS.ProcessEnv = {
+    CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,
+  };
 
   if (executionProvider === 'codex') {
     const runtimeConfigResolver =
@@ -1138,6 +1141,9 @@ async function executeCodebaseQuestion(
       codexFactory: deps.codexFactory,
       clientFactory: deps.clientFactory,
       toolFactory: deps.toolFactory,
+      ...(executionProvider === 'copilot'
+        ? { copilotEnv: envOverrides }
+        : {}),
     });
   } catch (err) {
     if (err instanceof UnsupportedProviderError) {
@@ -1195,6 +1201,7 @@ async function executeCodebaseQuestion(
               inflightId,
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
+              envOverrides,
               repositoryContext: executionContext.repositoryMetadata,
               runtime: runtimeMetadata,
               signal: getInflight(resolvedConversationId)?.abortController
@@ -1216,6 +1223,7 @@ async function executeCodebaseQuestion(
             repositoryContext: executionContext.repositoryMetadata,
             runtime: runtimeMetadata,
             signal: getInflight(resolvedConversationId)?.abortController.signal,
+            envOverrides,
             ...(executionProvider === 'copilot'
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],

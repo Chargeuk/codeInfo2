@@ -897,7 +897,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -984,6 +984,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - Ran the targeted Flows client unit wrapper (`client/src/test/flowsPage.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, `client/src/test/flowsPage.run.test.tsx`, and `client/src/test/flowsPage.runGuard.test.tsx`) and the targeted Flows e2e wrapper (`e2e/flows-execution-runs.spec.ts`); initial e2e setup failed due to Docker host-mount path resolving to `/app/codex/.codex` in this agent shell. Reran the e2e wrapper with CODEINFO_HOST_CODEX_HOME=$PWD/codex and the e2e run passed (63/63).
 - Verified the proof titles for the affected Flows unit and e2e specs still read honestly after the shell migration, so no wording rewrite was needed.
 - Ran `npm run lint --workspace client` and `npm run format:check --workspace client` after formatting `FlowsPage.tsx`; both passed.
+- Closed Task 6 after `npm run build:summary:client` succeeded, the latest full `npm run test:summary:client` wrapper reported `779/779` passing, and the targeted Flows e2e wrapper remained green after the host-path rerun fix.
 
 ---
 

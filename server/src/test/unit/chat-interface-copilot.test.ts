@@ -94,7 +94,7 @@ test('ChatInterfaceCopilot resume path keeps event mapping aligned with create',
   assert.equal(toolResult?.name, 'read_file');
 });
 
-test('ChatInterfaceCopilot create-session config allows permissions by default', async () => {
+test('ChatInterfaceCopilot create-session keeps built-in tools available while registering custom tools', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-create-permission',
     createSessionEvents: [createSessionIdleEvent()],
@@ -122,14 +122,14 @@ test('ChatInterfaceCopilot create-session config allows permissions by default',
       .sort(),
     ['ListIngestedRepositories', 'VectorSearch'],
   );
-  assert.deepEqual(harness.getState().lastCreateSessionConfig?.availableTools, [
-    'ListIngestedRepositories',
-    'VectorSearch',
-  ]);
+  assert.equal(
+    harness.getState().lastCreateSessionConfig?.availableTools,
+    undefined,
+  );
   assert.equal(harness.getState().lastSendAndWaitTimeoutMs, 7_200_000);
 });
 
-test('ChatInterfaceCopilot create-session omits SDK tool-registration inputs when toolAccess is off', async () => {
+test('ChatInterfaceCopilot create-session removes all tools when toolAccess is off', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-create-runtime-flags',
     createSessionEvents: [createSessionIdleEvent()],
@@ -158,9 +158,9 @@ test('ChatInterfaceCopilot create-session omits SDK tool-registration inputs whe
     'high',
   );
   assert.equal(harness.getState().lastCreateSessionConfig?.tools, undefined);
-  assert.equal(
+  assert.deepEqual(
     harness.getState().lastCreateSessionConfig?.availableTools,
-    undefined,
+    [],
   );
 });
 
@@ -192,9 +192,13 @@ test('ChatInterfaceCopilot resume path keeps permissions allowed through the res
       .sort(),
     ['ListIngestedRepositories', 'VectorSearch'],
   );
+  assert.equal(
+    harness.getState().lastResumeSession?.config.availableTools,
+    undefined,
+  );
 });
 
-test('ChatInterfaceCopilot resume-session omits SDK tool-registration inputs when toolAccess is off', async () => {
+test('ChatInterfaceCopilot resume-session removes all tools when toolAccess is off', async () => {
   const harness = createMockCopilotSdkHarness({
     name: 'copilot-resume-runtime-flags',
     resumeSessionEvents: [createSessionIdleEvent()],
@@ -221,9 +225,9 @@ test('ChatInterfaceCopilot resume-session omits SDK tool-registration inputs whe
     'low',
   );
   assert.equal(harness.getState().lastResumeSession?.config.tools, undefined);
-  assert.equal(
+  assert.deepEqual(
     harness.getState().lastResumeSession?.config.availableTools,
-    undefined,
+    [],
   );
 });
 

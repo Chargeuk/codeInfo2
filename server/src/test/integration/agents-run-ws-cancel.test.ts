@@ -34,6 +34,20 @@ import {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function restoreOptionalEnvVar(
+  key:
+    | 'CODEINFO_AGENT_HOME'
+    | 'CODEINFO_CODEX_AGENT_HOME'
+    | 'CODEINFO_CODEX_HOME',
+  value: string | undefined,
+) {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}
+
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
@@ -131,9 +145,9 @@ async function setupWsTestServer() {
     wsHandle,
     httpServer,
     async restoreEnv() {
-      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', prevAgentHome);
+      restoreOptionalEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
+      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', prevCodexHome);
       await fs.rm(tempRoot, { recursive: true, force: true });
     },
   };
@@ -149,7 +163,7 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
   );
-  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codeinfo_agents');
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
 
@@ -246,9 +260,9 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+    restoreOptionalEnvVar('CODEINFO_AGENT_HOME', prevAgentHome);
+    restoreOptionalEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
+    restoreOptionalEnvVar('CODEINFO_CODEX_HOME', prevCodexHome);
   }
 });
 

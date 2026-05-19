@@ -399,14 +399,14 @@ describe('agent command schema (v1)', () => {
 
   test('production review-agent commands remain valid JSON and schema', async () => {
     const commandFiles = [
-      'codex_agents/review_agent/commands/code_review_findings.json',
-      'codex_agents/review_agent/commands/external_review_blind_spot_challenge.json',
-      'codex_agents/review_agent/commands/external_review_evidence_gate.json',
-      'codex_agents/review_agent/commands/external_review_findings.json',
-      'codex_agents/review_agent/commands/external_review_findings_saturation.json',
-      'codex_agents/review_agent/commands/review_blind_spot_challenge.json',
-      'codex_agents/review_agent/commands/review_evidence_gate.json',
-      'codex_agents/review_agent/commands/review_findings_saturation.json',
+      'codeinfo_agents/review_agent/commands/code_review_findings.json',
+      'codeinfo_agents/review_agent/commands/external_review_blind_spot_challenge.json',
+      'codeinfo_agents/review_agent/commands/external_review_evidence_gate.json',
+      'codeinfo_agents/review_agent/commands/external_review_findings.json',
+      'codeinfo_agents/review_agent/commands/external_review_findings_saturation.json',
+      'codeinfo_agents/review_agent/commands/review_blind_spot_challenge.json',
+      'codeinfo_agents/review_agent/commands/review_evidence_gate.json',
+      'codeinfo_agents/review_agent/commands/review_findings_saturation.json',
     ] as const;
 
     for (const relativePath of commandFiles) {
@@ -422,13 +422,13 @@ describe('agent command schema (v1)', () => {
 
   test('production planning-agent commands remain valid JSON and schema', async () => {
     const commandFiles = [
-      'codex_agents/planning_agent/commands/check_review_disposition_regression.json',
-      'codex_agents/planning_agent/commands/create_new_story.json',
-      'codex_agents/planning_agent/commands/enhance_review_tasks.json',
-      'codex_agents/planning_agent/commands/improve_plan.json',
-      'codex_agents/planning_agent/commands/improve_plan2.json',
-      'codex_agents/planning_agent/commands/qa.json',
-      'codex_agents/planning_agent/commands/task_up_review_tasks.json',
+      'codeinfo_agents/planning_agent/commands/check_review_disposition_regression.json',
+      'codeinfo_agents/planning_agent/commands/create_new_story.json',
+      'codeinfo_agents/planning_agent/commands/enhance_review_tasks.json',
+      'codeinfo_agents/planning_agent/commands/improve_plan.json',
+      'codeinfo_agents/planning_agent/commands/improve_plan2.json',
+      'codeinfo_agents/planning_agent/commands/qa.json',
+      'codeinfo_agents/planning_agent/commands/task_up_review_tasks.json',
     ] as const;
 
     for (const relativePath of commandFiles) {

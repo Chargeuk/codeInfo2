@@ -1,4 +1,5 @@
 import {
+  approveAll,
   CopilotClient,
   type CopilotClientOptions,
   type CopilotSession,
@@ -38,6 +39,7 @@ export type CopilotRuntimeFactory = (
 export type CopilotLifecycleOptions = {
   copilotHome?: string;
   cliPath?: string;
+  cliArgs?: CopilotClientOptions['cliArgs'];
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   logLevel?: CopilotClientOptions['logLevel'];
@@ -61,6 +63,7 @@ export class CopilotLifecycle {
     const resolved = buildCopilotClientOptions({
       copilotHome: options.copilotHome,
       cliPath: options.cliPath,
+      cliArgs: options.cliArgs,
       cwd: options.cwd,
       env: options.env,
       logLevel: options.logLevel,
@@ -117,7 +120,10 @@ export class CopilotLifecycle {
   }
 
   async createSession(config: SessionConfig): Promise<CopilotSession> {
-    return this.client.createSession(this.prepareCreateSessionConfig(config));
+    return this.client.createSession({
+      ...this.prepareCreateSessionConfig(config),
+      onPermissionRequest: approveAll,
+    });
   }
 
   async resumeSession(

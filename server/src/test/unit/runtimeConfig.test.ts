@@ -153,9 +153,13 @@ describe('copilot runtime env wiring', () => {
     });
 
     assert.equal(withCliPath.clientOptions.cliPath, '/opt/copilot/bin/copilot');
+    assert.deepEqual(withCliPath.clientOptions.cliArgs, ['--allow-all-paths']);
     assert.equal(withCliPath.cliPathOverride, 'present');
     assert.equal(withCliPath.cliMode, 'cliPath');
     assert.equal(withoutCliPath.clientOptions.cliPath, undefined);
+    assert.deepEqual(withoutCliPath.clientOptions.cliArgs, [
+      '--allow-all-paths',
+    ]);
     assert.equal(withoutCliPath.cliPathOverride, 'absent');
     assert.equal(withoutCliPath.cliMode, 'path');
   });
@@ -1273,7 +1277,7 @@ describe('runtimeConfig Context7 overlay', () => {
   it('resolves checked-in chat MCP placeholders from CODEINFO_CHAT_MCP_PORT', async () => {
     const configPath = path.join(
       repoRoot,
-      'codex_agents/tasking_agent/config.toml',
+      'codeinfo_agents/tasking_agent/config.toml',
     );
     const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
       required: true,
@@ -1321,7 +1325,7 @@ describe('runtimeConfig Context7 overlay', () => {
 
   it('does not let legacy CODEINFO_MCP_PORT satisfy checked-in chat MCP placeholders', async () => {
     const parsed = await readAndNormalizeRuntimeTomlConfig(
-      path.join(repoRoot, 'codex_agents/tasking_agent/config.toml'),
+      path.join(repoRoot, 'codeinfo_agents/tasking_agent/config.toml'),
       { required: true },
     );
 

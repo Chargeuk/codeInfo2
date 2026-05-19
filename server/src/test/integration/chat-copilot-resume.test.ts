@@ -83,9 +83,9 @@ test('copilot resume-session path preserves the On and Off tool-registration con
         .lastCreateSessionConfig?.tools?.map((tool) => tool.name),
       ['ListIngestedRepositories', 'VectorSearch'],
     );
-    assert.deepEqual(
+    assert.equal(
       server.harness.getState().lastCreateSessionConfig?.availableTools,
-      ['ListIngestedRepositories', 'VectorSearch'],
+      undefined,
     );
 
     await request(server.httpServer)
@@ -111,9 +111,9 @@ test('copilot resume-session path preserves the On and Off tool-registration con
         .lastResumeSession?.config.tools?.map((tool) => tool.name),
       ['ListIngestedRepositories', 'VectorSearch'],
     );
-    assert.deepEqual(
+    assert.equal(
       server.harness.getState().lastResumeSession?.config.availableTools,
-      ['ListIngestedRepositories', 'VectorSearch'],
+      undefined,
     );
 
     await request(server.httpServer)
@@ -133,9 +133,9 @@ test('copilot resume-session path preserves the On and Off tool-registration con
       server.harness.getState().lastCreateSessionConfig?.tools,
       undefined,
     );
-    assert.equal(
+    assert.deepEqual(
       server.harness.getState().lastCreateSessionConfig?.availableTools,
-      undefined,
+      [],
     );
 
     await request(server.httpServer)
@@ -159,9 +159,9 @@ test('copilot resume-session path preserves the On and Off tool-registration con
       server.harness.getState().lastResumeSession?.config.tools,
       undefined,
     );
-    assert.equal(
+    assert.deepEqual(
       server.harness.getState().lastResumeSession?.config.availableTools,
-      undefined,
+      [],
     );
   } finally {
     await server.stop();

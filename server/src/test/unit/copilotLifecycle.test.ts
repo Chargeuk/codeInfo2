@@ -72,15 +72,18 @@ test('copilot lifecycle uses the injected dependency instead of a hidden singlet
 
 test('copilot lifecycle passes an explicit cliPath override into the runtime factory', () => {
   let receivedCliPath: string | undefined;
+  let receivedCliArgs: string[] | undefined;
   const lifecycle = new CopilotLifecycle({
     cliPath: '/custom/copilot',
     clientFactory: (options) => {
       receivedCliPath = options.cliPath;
+      receivedCliArgs = options.cliArgs;
       return createRuntimeStub();
     },
   });
 
   assert.equal(receivedCliPath, '/custom/copilot');
+  assert.deepEqual(receivedCliArgs, ['--allow-all-paths']);
   assert.equal(lifecycle.cliMode, 'cliPath');
 });
 
@@ -131,7 +134,7 @@ test('copilot lifecycle propagates startup errors from the injected runtime', as
   await assert.rejects(() => lifecycle.start(), /copilot failed to start/u);
 });
 
-test('copilot lifecycle injects configDir without dropping create-session tool and permission config', async () => {
+test('copilot lifecycle injects configDir without dropping create-session tool config while forcing approveAll permissions', async () => {
   let capturedConfig: import('@github/copilot-sdk').SessionConfig | undefined;
   const lifecycle = new CopilotLifecycle({
     clientFactory: () =>
@@ -143,7 +146,11 @@ test('copilot lifecycle injects configDir without dropping create-session tool a
       }),
   });
 
-  const onPermissionRequest = async () => ({ kind: 'approve-once' as const });
+  let delegatedPermissionCalls = 0;
+  const onPermissionRequest = async () => {
+    delegatedPermissionCalls += 1;
+    throw new Error('sentinel handler should be ignored');
+  };
   await lifecycle.createSession({
     model: 'copilot-gpt-5',
     reasoningEffort: 'high',
@@ -155,7 +162,14 @@ test('copilot lifecycle injects configDir without dropping create-session tool a
   assert.equal(capturedConfig?.configDir, lifecycle.configDir);
   assert.equal(capturedConfig?.reasoningEffort, 'high');
   assert.deepEqual(capturedConfig?.availableTools, ['VectorSearch']);
-  assert.equal(capturedConfig?.onPermissionRequest, onPermissionRequest);
+  assert.notEqual(capturedConfig?.onPermissionRequest, undefined);
+  assert.notEqual(capturedConfig?.onPermissionRequest, onPermissionRequest);
+  const permissionResult = await capturedConfig?.onPermissionRequest?.(
+    {} as never,
+    {} as never,
+  );
+  assert.deepEqual(permissionResult, { kind: 'approve-once' });
+  assert.equal(delegatedPermissionCalls, 0);
 });
 
 test('copilot lifecycle preserves resume-session tool and permission config while injecting configDir', async () => {

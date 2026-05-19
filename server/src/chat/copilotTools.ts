@@ -8,7 +8,6 @@ import {
 
 export type CopilotToolBundle = {
   tools: Tool[];
-  toolNames: string[];
 };
 
 export function createCopilotTools(
@@ -46,6 +45,5 @@ export function createCopilotTools(
   const tools: Tool[] = [listIngestedRepositoriesTool, vectorSearchTool];
   return {
     tools,
-    toolNames: tools.map((tool) => tool.name),
   };
 }

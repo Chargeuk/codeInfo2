@@ -60,7 +60,6 @@ type ChatInterfaceCopilotOptions = {
   ) =>
     | {
         tools: Tool[];
-        toolNames: string[];
       }
     | undefined;
   permissionHandler?: PermissionHandler;

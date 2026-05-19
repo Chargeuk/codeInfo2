@@ -687,13 +687,14 @@ export function buildCopilotClientOptions(params?: {
   const configDir = getCopilotConfigDirForHome(copilotHome);
   const cliPath = resolveCopilotCliPath(params?.cliPath, env);
   const cliMode: CopilotCliMode = cliPath ? 'cliPath' : 'path';
-  const cliArgs = Array.from(
-    new Set(
-      [...DEFAULT_COPILOT_CLI_ARGS, ...(params?.cliArgs ?? [])]
-        .map((arg) => arg.trim())
-        .filter((arg) => arg.length > 0),
-    ),
-  );
+  const normalizedCliArgs = (params?.cliArgs ?? [])
+    .map((arg) => arg.trim())
+    .filter((arg) => arg.length > 0);
+  const providedCliArgs = new Set(normalizedCliArgs);
+  const cliArgs = [
+    ...DEFAULT_COPILOT_CLI_ARGS.filter((arg) => !providedCliArgs.has(arg)),
+    ...normalizedCliArgs,
+  ];
   const mergedEnv: Record<string, string | undefined> = {
     ...process.env,
     ...env,

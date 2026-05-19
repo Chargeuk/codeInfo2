@@ -146,7 +146,11 @@ test('copilot lifecycle injects configDir without dropping create-session tool c
       }),
   });
 
-  const onPermissionRequest = async () => ({ kind: 'approve-once' as const });
+  let delegatedPermissionCalls = 0;
+  const onPermissionRequest = async () => {
+    delegatedPermissionCalls += 1;
+    throw new Error('sentinel handler should be ignored');
+  };
   await lifecycle.createSession({
     model: 'copilot-gpt-5',
     reasoningEffort: 'high',
@@ -159,11 +163,13 @@ test('copilot lifecycle injects configDir without dropping create-session tool c
   assert.equal(capturedConfig?.reasoningEffort, 'high');
   assert.deepEqual(capturedConfig?.availableTools, ['VectorSearch']);
   assert.notEqual(capturedConfig?.onPermissionRequest, undefined);
+  assert.notEqual(capturedConfig?.onPermissionRequest, onPermissionRequest);
   const permissionResult = await capturedConfig?.onPermissionRequest?.(
     {} as never,
     {} as never,
   );
   assert.deepEqual(permissionResult, { kind: 'approve-once' });
+  assert.equal(delegatedPermissionCalls, 0);
 });
 
 test('copilot lifecycle preserves resume-session tool and permission config while injecting configDir', async () => {

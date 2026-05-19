@@ -16,6 +16,7 @@ import {
   __setAgentServiceDepsForTests,
   startAgentInstruction,
 } from '../../agents/service.js';
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import {
@@ -70,6 +71,14 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
   }
   throw new Error('Timed out waiting for condition');
 };
+
+function restoreOptionalEnvVar(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}
 
 describe('Agent config defaults', () => {
   it('normalizes features.view_image_tool alias to canonical output only', () => {
@@ -260,9 +269,9 @@ describe('Agent config defaults', () => {
       assert.equal(metadata.providerId, 'copilot');
       assert.equal(metadata.requestedProviderId, 'copilot');
     } finally {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-      process.env.CODEINFO_LMSTUDIO_HOME = previousLmStudioHome;
+      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
+      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
+      restoreOptionalEnvVar('CODEINFO_LMSTUDIO_HOME', previousLmStudioHome);
     }
   });
 
@@ -531,10 +540,12 @@ describe('Agent config defaults', () => {
       __resetAgentServiceDepsForTests();
       memoryConversations.clear();
       memoryTurns.clear();
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
-        previousFallbackOrder;
+      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
+      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
+      restoreOptionalEnvVar(
+        'CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER',
+        previousFallbackOrder,
+      );
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
@@ -645,11 +656,13 @@ describe('Agent config defaults', () => {
       __resetAgentServiceDepsForTests();
       memoryConversations.clear();
       memoryTurns.clear();
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
-        previousFallbackOrder;
+      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
+      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
+      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
+      restoreOptionalEnvVar(
+        'CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER',
+        previousFallbackOrder,
+      );
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
@@ -751,7 +764,11 @@ describe('Agent config defaults', () => {
             capturedFlags.push(flags);
           }),
       });
-      await waitFor(() => (memoryTurns.get(conversationId)?.length ?? 0) >= 2);
+      await waitFor(
+        () =>
+          capturedFlags.length === 1 &&
+          getActiveRunOwnership(conversationId) === null,
+      );
 
       await startAgentInstruction({
         agentName: 'coding_agent',
@@ -772,9 +789,9 @@ describe('Agent config defaults', () => {
       __resetAgentServiceDepsForTests();
       memoryConversations.clear();
       memoryTurns.clear();
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+      restoreOptionalEnvVar('CODEINFO_AGENT_HOME', previousAgentHome);
+      restoreOptionalEnvVar('CODEINFO_CODEX_HOME', previousCodexHome);
+      restoreOptionalEnvVar('CODEINFO_COPILOT_HOME', previousCopilotHome);
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });

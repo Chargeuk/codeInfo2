@@ -68,6 +68,21 @@ test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath toget
   assert.equal(resolved.cliMode, 'cliPath');
 });
 
+test('buildCopilotClientOptions preserves caller CLI arg order and duplicates while forcing allow-all-paths', () => {
+  const resolved = buildCopilotClientOptions({
+    copilotHome: './tmp/copilot-home',
+    cliArgs: [' --header ', 'A', '--header', 'B', '--allow-all-paths'],
+  });
+
+  assert.deepEqual(resolved.clientOptions.cliArgs, [
+    '--header',
+    'A',
+    '--header',
+    'B',
+    '--allow-all-paths',
+  ]);
+});
+
 test('seeds copilot/config.toml through the startup-owned provider base-config path', async () => {
   const tempRoot = await fs.promises.mkdtemp(
     path.join(process.cwd(), 'tmp-copilot-base-config-'),

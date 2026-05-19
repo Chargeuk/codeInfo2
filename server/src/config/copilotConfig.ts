@@ -6,6 +6,7 @@ import { parse as parseJsonc, type ParseError } from 'jsonc-parser';
 
 export const DEFAULT_CODEINFO_COPILOT_HOME = './copilot';
 export const DEFAULT_CODEINFO_LMSTUDIO_HOME = './lmstudio';
+export const DEFAULT_COPILOT_CLI_ARGS = ['--allow-all-paths'] as const;
 export const COPILOT_ENV_AUTH_KEYS = [
   'COPILOT_GITHUB_TOKEN',
   'GH_TOKEN',
@@ -676,6 +677,7 @@ export async function ensureCopilotAuthHomeCompatibility(
 export function buildCopilotClientOptions(params?: {
   copilotHome?: string;
   cliPath?: string;
+  cliArgs?: string[];
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   logLevel?: CopilotClientOptions['logLevel'];
@@ -685,6 +687,13 @@ export function buildCopilotClientOptions(params?: {
   const configDir = getCopilotConfigDirForHome(copilotHome);
   const cliPath = resolveCopilotCliPath(params?.cliPath, env);
   const cliMode: CopilotCliMode = cliPath ? 'cliPath' : 'path';
+  const cliArgs = Array.from(
+    new Set(
+      [...DEFAULT_COPILOT_CLI_ARGS, ...(params?.cliArgs ?? [])]
+        .map((arg) => arg.trim())
+        .filter((arg) => arg.length > 0),
+    ),
+  );
   const mergedEnv: Record<string, string | undefined> = {
     ...process.env,
     ...env,
@@ -694,6 +703,7 @@ export function buildCopilotClientOptions(params?: {
   const clientOptions: CopilotClientOptions = {
     env: mergedEnv,
     ...(cliPath ? { cliPath } : {}),
+    ...(cliArgs.length > 0 ? { cliArgs } : {}),
     ...(params?.cwd ? { cwd: params.cwd } : {}),
     ...(params?.logLevel ? { logLevel: params.logLevel } : {}),
   };

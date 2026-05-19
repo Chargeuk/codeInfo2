@@ -330,12 +330,12 @@ describe('Agent config defaults', () => {
     );
   });
 
-  it('validates every codex_agents/*/config.toml fixture through deterministic normalization pipeline', async () => {
+  it('validates every checked-in codeinfo_agents/*/config.toml fixture through deterministic normalization pipeline', async () => {
     const repoRoot = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
       '../../../../',
     );
-    const agentsRoot = path.join(repoRoot, 'codex_agents');
+    const agentsRoot = path.join(repoRoot, 'codeinfo_agents');
     const entries = await fs.readdir(agentsRoot, { withFileTypes: true });
     const configPaths = entries
       .filter((entry) => entry.isDirectory())

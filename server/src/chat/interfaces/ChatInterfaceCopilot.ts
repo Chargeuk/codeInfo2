@@ -186,8 +186,8 @@ export class ChatInterfaceCopilot extends ChatInterface {
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
       tools: toolConfig?.tools,
-      availableTools: toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
+      ...(runtimeFlags.toolAccess === 'off' ? { availableTools: [] } : {}),
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
         : {}),
@@ -221,8 +221,8 @@ export class ChatInterfaceCopilot extends ChatInterface {
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),
       tools: toolConfig?.tools,
-      availableTools: toolConfig?.toolNames,
       ...(onEvent ? { onEvent } : {}),
+      ...(runtimeFlags.toolAccess === 'off' ? { availableTools: [] } : {}),
       ...(reasoningEffortSupported && runtimeFlags.modelReasoningEffort
         ? { reasoningEffort: runtimeFlags.modelReasoningEffort }
         : {}),

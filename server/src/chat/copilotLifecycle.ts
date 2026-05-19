@@ -39,6 +39,7 @@ export type CopilotRuntimeFactory = (
 export type CopilotLifecycleOptions = {
   copilotHome?: string;
   cliPath?: string;
+  cliArgs?: CopilotClientOptions['cliArgs'];
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   logLevel?: CopilotClientOptions['logLevel'];
@@ -62,6 +63,7 @@ export class CopilotLifecycle {
     const resolved = buildCopilotClientOptions({
       copilotHome: options.copilotHome,
       cliPath: options.cliPath,
+      cliArgs: options.cliArgs,
       cwd: options.cwd,
       env: options.env,
       logLevel: options.logLevel,

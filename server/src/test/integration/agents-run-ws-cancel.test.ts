@@ -149,7 +149,7 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
   );
-  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codeinfo_agents');
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.CODEINFO_CODEX_HOME = path.join(repoRoot, 'codex');
 

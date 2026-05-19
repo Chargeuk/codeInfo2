@@ -64,6 +64,7 @@ test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath toget
     path.resolve('./tmp/copilot-home'),
   );
   assert.equal(resolved.clientOptions.cliPath, '/usr/local/bin/copilot');
+  assert.deepEqual(resolved.clientOptions.cliArgs, ['--allow-all-paths']);
   assert.equal(resolved.cliMode, 'cliPath');
 });
 

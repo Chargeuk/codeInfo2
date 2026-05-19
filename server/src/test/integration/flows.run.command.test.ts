@@ -272,11 +272,13 @@ const withFlowServer = async (
     flowServiceDeps?: Parameters<typeof __setFlowServiceDepsForTests>[0];
   },
 ) => {
+  const prevPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-cmd-'));
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
 
+  process.env.CODEINFO_AGENT_HOME = path.join(repoRoot, 'codeinfo_agents');
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
   resetStore();
@@ -330,6 +332,11 @@ const withFlowServer = async (
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    if (prevPreferredAgentsHome === undefined) {
+      delete process.env.CODEINFO_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_AGENT_HOME = prevPreferredAgentsHome;
+    }
     if (prevAgentsHome === undefined) {
       delete process.env.CODEINFO_CODEX_AGENT_HOME;
     } else {
@@ -536,7 +543,7 @@ const writeFlowFile = async (params: {
 test('command steps execute agent command items', async () => {
   const commandPath = path.join(
     repoRoot,
-    'codex_agents',
+    'codeinfo_agents',
     'planning_agent',
     'commands',
     'improve_plan.json',
@@ -953,7 +960,7 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
   const commandName = 'task2_local_flow_working_repo_first';
   const localCommandPath = path.join(
     repoRoot,
-    'codex_agents',
+    'codeinfo_agents',
     'planning_agent',
     'commands',
     `${commandName}.json`,
@@ -1323,7 +1330,7 @@ test('command resolution dedupes duplicate working and local codeinfo2 repositor
   const commandName = 'task2_dedupe_working_codeinfo2';
   const localCommandPath = path.join(
     repoRoot,
-    'codex_agents',
+    'codeinfo_agents',
     'planning_agent',
     'commands',
     `${commandName}.json`,
@@ -1333,6 +1340,7 @@ test('command resolution dedupes duplicate working and local codeinfo2 repositor
     await writeRepoCommand({
       repoRoot,
       commandName,
+      rootDirName: 'codeinfo_agents',
       content: 'codeinfo2 repository command',
     });
 
@@ -3234,7 +3242,7 @@ test('same-source missing command falls back to codeInfo2 repository', async () 
   const commandName = 'task11_codeinfo2_fallback_command';
   const localCommandPath = path.join(
     repoRoot,
-    'codex_agents',
+    'codeinfo_agents',
     'planning_agent',
     'commands',
     `${commandName}.json`,
@@ -3243,6 +3251,7 @@ test('same-source missing command falls back to codeInfo2 repository', async () 
   await writeRepoCommand({
     repoRoot: repoRoot,
     commandName,
+    rootDirName: 'codeinfo_agents',
     content: 'codeinfo2 fallback step',
   });
 
@@ -3766,7 +3775,7 @@ test('command-load failures are retried and then fail deterministically', async 
   const commandName = 'task5_retry_temp_command';
   const commandPath = path.join(
     repoRoot,
-    'codex_agents',
+    'codeinfo_agents',
     'planning_agent',
     'commands',
     `${commandName}.json`,

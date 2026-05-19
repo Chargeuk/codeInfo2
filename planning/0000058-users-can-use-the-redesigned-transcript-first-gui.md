@@ -792,7 +792,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -888,7 +888,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - Client tests: `npm run test:summary:client` passed (779 passed, 0 failed); test log: `test-results/client-tests-2026-05-19T21-49-34-403Z.log`.
 - Subtask 15 complete: reran the browser proof with `CODEINFO_HOST_CODEX_HOME=$PWD/codex` so the e2e compose stack could mount cleanly, and `e2e/agents.spec.ts` passed 63/63.
 - Subtasks 18 and 19 complete: `npm run lint --workspace client` passed with only pre-existing warnings outside Task 5, and `npm run format:check --workspace client` passed after formatting the client tree.
-- Audit normalization: marked Testing steps 3 through 5 complete from the implementation-pass e2e wrapper and lint/format evidence; Task 5 still needs its task-owned `npm run build:summary:client` and full `npm run test:summary:client` wrapper runs before automated-proof closeout.
+- Proof audit: `npm run build:summary:client` and the full `npm run test:summary:client` wrapper both passed on the task-owned surface, so Task 5 is now honestly `__done__` with all subtasks and automated Testing complete and no live blocker remaining.
 
 ---
 

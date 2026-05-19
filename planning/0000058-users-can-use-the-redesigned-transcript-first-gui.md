@@ -573,7 +573,7 @@ Task 1's blocker answer proved that the remaining lint failures are not unfinish
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

@@ -510,7 +510,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -557,7 +557,7 @@ Task 1's blocker answer proved that the remaining lint failures are not unfinish
 - Task 2 owner split: moved the non-component page helper exports into `client/src/pages/agentsPage.shared.ts` and `client/src/pages/flowsPage.shared.ts`, converted `client/src/test/transcriptTestHarness.test.ts` to callback refs so it no longer reads refs during render, removed the empty `finally` wrappers from `client/src/test/chatPage.codexDefaults.test.tsx`, and scoped the TanStack Virtual warning to a local `react-hooks/incompatible-library` disable comment in `client/src/components/chat/VirtualizedTranscript.tsx` so the shared client lint baseline can be made honest without changing story behavior.
 - Task 2 proof handoff: `npm run lint --workspace client` now passes, `npm run format:check --workspace client` now passes, and the only intentionally retained limitation is the explicit local compiler warning suppression on the known TanStack Virtual seam in `VirtualizedTranscript.tsx`.
 - Task 2 file map: changed `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`, `client/src/pages/agentsPage.shared.ts`, `client/src/pages/flowsPage.shared.ts`, `client/src/test/agentsPage.runGuard.test.tsx`, `client/src/test/flowsPage.runGuard.test.tsx`, `client/src/test/chatPage.codexDefaults.test.tsx`, `client/src/test/transcriptTestHarness.test.ts`, and `client/src/components/chat/VirtualizedTranscript.tsx`; the intentional remaining policy limit is the local lint-disable comment on `useVirtualizer()` rather than a broader compiler-policy or lint-config change.
-- Implementation-only audit normalized Testing steps 3 and 4 to complete from the recorded Task 2 proof handoff plus commit `a61a5dc1`; the wrapper-owned build and full client-test proof steps are now complete, and Task 2 still stays `__in_progress__` until the later audit step decides whether to close it.
+- Automated-proof audit confirmed the wrapper-owned build and full client-test proof steps were already complete from the recorded Task 2 proof pass, so Task 2 is now honestly `__done__` with no remaining subtasks, testing items, or live blocker.
 - Build proof surfaced a task-owned type mismatch in `isExecutePromptEnabled()`; widening the helper to the shared `AgentPromptEntry` contract in `client/src/pages/agentsPage.shared.ts` resolved the build without changing runtime behavior.
 - Client test proof passed after the existing task-owned baseline repairs; no additional test-file changes were needed for this pass beyond verifying the shared client path stayed green.
 

@@ -642,6 +642,16 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    // debug: log chat-controls inline style for test diagnostics
+    // eslint-disable-next-line no-console
+    const el = document.querySelector('[data-testid="chat-controls"]') as HTMLElement | null;
+    if (el) {
+      // eslint-disable-next-line no-console
+      console.info('[ChatPage] chat-controls inline style.flex:', el.style.flex);
+    }
+  }, []);
+
+  useEffect(() => {
     setActiveConversationId(conversationId);
     syncServerVisibleInflightId(null);
     console.info('[chat-history] conversationId changed', { conversationId });
@@ -1323,8 +1333,8 @@ export default function ChatPage() {
       )}
       {!isLoading && !isError && isEmpty && (
         <Typography color="text.secondary">
-          No chat-capable models for this provider. Add a supported model or
-          switch providers, then retry.
+          No chat-capable models available. Add a supported model or switch
+          providers, then retry.
         </Typography>
       )}
       {!isLoading && !isError && !isEmpty && (
@@ -1363,6 +1373,8 @@ export default function ChatPage() {
   const composerSurface = (
     <Paper
       variant="outlined"
+      data-testid="chat-controls"
+      style={{ flex: '0 0 auto' }}
       sx={{
         p: 2,
         borderRadius: 0,

@@ -139,6 +139,18 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     const setContainerRef = useCallback(
       (node: HTMLDivElement | null) => {
         transcriptContainerRef.current = node;
+        if (node) {
+          // debug: print inline style values to help test diagnostics
+          // eslint-disable-next-line no-console
+          console.info('[SharedTranscript] container inline style:', node.style.flex, node.style.minHeight, node.style.overflowY);
+          // also log the chat-controls inline flex style if present
+          // eslint-disable-next-line no-console
+          const cc = document.querySelector('[data-testid="chat-controls"]') as HTMLElement | null;
+          if (cc) {
+            // eslint-disable-next-line no-console
+            console.info('[SharedTranscript] chat-controls inline style.flex:', cc.style.flex);
+          }
+        }
         if (typeof ref === 'function') {
           ref(node);
           return;
@@ -484,8 +496,10 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         onScroll={handleSharedTranscriptScroll}
         data-testid={transcriptTestId}
         style={{
-          flex: '1 1 0%',
-          minHeight: 0,
+          flexGrow: 1,
+          flexShrink: 1,
+          flexBasis: '0%',
+          minHeight: '0px',
           overflowY: 'auto',
         }}
         sx={{

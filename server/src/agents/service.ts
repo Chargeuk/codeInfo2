@@ -2343,22 +2343,27 @@ export async function runAgentInstructionUnlocked(params: {
       }
     }
 
+    const envOverrides: NodeJS.ProcessEnv = {
+      CODEINFO_ROOT: codeInfo2RootForAgent(agent.home),
+      ...(params.envOverrides ?? {}),
+    };
+
     const resolvedChatFactory = params.chatFactory ?? getChatInterface;
 
     let chat;
     try {
-      chat = resolvedChatFactory(executionProviderId);
+      chat = resolvedChatFactory(
+        executionProviderId,
+        executionProviderId === 'copilot'
+          ? { copilotEnv: envOverrides }
+          : undefined,
+      );
     } catch (err) {
       if (err instanceof UnsupportedProviderError) {
         throw new Error(err.message);
       }
       throw err;
     }
-
-    const envOverrides: NodeJS.ProcessEnv = {
-      CODEINFO_ROOT: codeInfo2RootForAgent(agent.home),
-      ...(params.envOverrides ?? {}),
-    };
 
     const inflightId = params.inflightId ?? crypto.randomUUID();
     activeInflightId = inflightId;

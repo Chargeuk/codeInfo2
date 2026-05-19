@@ -34,6 +34,7 @@ type ProviderFactory = (deps?: {
   copilotHome?: string;
   copilotCliPath?: string;
   copilotCwd?: string;
+  copilotEnv?: NodeJS.ProcessEnv;
 }) => ChatInterface;
 
 const defaultLmStudioClientFactory = (baseUrl: string) =>
@@ -49,6 +50,7 @@ const providerMap: Record<string, ProviderFactory> = {
           copilotHome: deps?.copilotHome,
           cliPath: deps?.copilotCliPath,
           cwd: deps?.copilotCwd,
+          env: deps?.copilotEnv,
         }),
       {
         toolsFactory: () => createCopilotTools(),
@@ -74,6 +76,7 @@ export function getChatInterface(
     copilotHome?: string;
     copilotCliPath?: string;
     copilotCwd?: string;
+    copilotEnv?: NodeJS.ProcessEnv;
   },
 ): ChatInterface {
   const factory = providerMap[provider];

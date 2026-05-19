@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Container,
-  Drawer,
   IconButton,
   MenuItem,
   Paper,
@@ -21,7 +20,6 @@ import {
   type MouseEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,10 +34,12 @@ import {
 } from '../api/flows';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
-import ConversationSidebarToggle from '../components/chat/ConversationSidebarToggle';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
+import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
+import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
+import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
 import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns, {
@@ -114,11 +114,14 @@ export default function FlowsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const drawerWidth = 320;
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
+  const [mobileAppMenuOpen, setMobileAppMenuOpen] = useState(false);
   const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
     isMobile ? false : true,
   );
-  const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
+  const conversationPaneOpen = isMobile
+    ? mobileConversationsOpen
+    : desktopDrawerOpen;
 
   const [flows, setFlows] = useState<FlowSummary[]>([]);
   const [flowDetailsByKey, setFlowDetailsByKey] = useState<
@@ -520,31 +523,12 @@ export default function FlowsPage() {
 
   const conversationListDisabled = persistenceUnavailable;
 
-  const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState(0);
-  const chatColumnRef = useRef<HTMLDivElement | null>(null);
   const qaLogSentRef = useRef(false);
-
-  useLayoutEffect(() => {
-    const updateOffset = () => {
-      const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
-      setDrawerTopOffsetPx(top);
-    };
-
-    updateOffset();
-    window.addEventListener('resize', updateOffset);
-    return () => window.removeEventListener('resize', updateOffset);
-  }, [isMobile, flowsError, flowsLoading, persistenceUnavailable]);
-
-  const drawerTopOffset =
-    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
-  const drawerHeight =
-    drawerTopOffsetPx > 0
-      ? `calc(100% - ${drawerTopOffsetPx}px)`
-      : `calc(100% - ${theme.spacing(3)})`;
 
   useEffect(() => {
     if (isMobile) {
-      setMobileDrawerOpen(false);
+      setMobileConversationsOpen(false);
+      setMobileAppMenuOpen(false);
       return;
     }
     setDesktopDrawerOpen(true);
@@ -1034,6 +1018,9 @@ export default function FlowsPage() {
       setFlowModelId(summary.model);
     }
     setActiveConversationId(conversationId);
+    if (isMobile) {
+      setMobileConversationsOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -1314,6 +1301,408 @@ export default function FlowsPage() {
     workingFolder,
   ]);
 
+  const conversationList = (
+    <ConversationList
+      conversations={flowConversations}
+      selectedId={activeConversationId}
+      isLoading={conversationsLoading}
+      isError={conversationsError}
+      error={conversationsErrorMessage}
+      hasMore={conversationsHasMore}
+      filterState={filterState}
+      mongoConnected={mongoConnected}
+      disabled={conversationListDisabled}
+      variant="chat"
+      onSelect={handleSelectConversation}
+      onFilterChange={setFilterState}
+      onArchive={archiveConversation}
+      onRestore={restoreConversation}
+      onBulkArchive={bulkArchive}
+      onBulkRestore={bulkRestore}
+      onBulkDelete={bulkDelete}
+      onLoadMore={loadMoreConversations}
+      onRefresh={refreshConversations}
+      onRetry={refreshConversations}
+    />
+  );
+
+  const transcriptSurface = (
+    <Paper
+      variant="outlined"
+      sx={{
+        flex: '1 1 auto',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        p: 2,
+      }}
+    >
+      <SharedTranscript
+        surface="flows"
+        conversationId={selectedConversation?.conversationId ?? null}
+        messages={displayMessages}
+        activeToolsAvailable={false}
+        turnsLoading={turnsLoading}
+        turnsError={turnsError}
+        turnsErrorMessage={turnsErrorMessage}
+        emptyMessage="Transcript will appear here once a flow run starts."
+        emptyStateContent={
+          flowsLoading && flows.length === 0 ? (
+            <Typography color="text.secondary">Loading flows...</Typography>
+          ) : !flowsLoading && flows.length === 0 ? (
+            <Typography color="text.secondary">
+              No flows found. Add a flow JSON file under `flows/` to get
+              started.
+            </Typography>
+          ) : undefined
+        }
+        warningTestId="flows-turns-error"
+        transcriptTestId="flows-transcript"
+        citationsEnabled={false}
+        isStopping={isStopping}
+        citationsOpen={citationsOpen}
+        thinkOpen={thinkOpen}
+        toolOpen={toolOpen}
+        toolErrorOpen={toolErrorOpen}
+        onToggleCitation={toggleCitation}
+        onToggleThink={toggleThink}
+        onToggleTool={toggleTool}
+        onToggleToolError={toggleToolError}
+        renderMetadataContent={(message) => {
+          const flowLine =
+            message.role === 'assistant'
+              ? buildFlowMetaLine(message.command)
+              : null;
+          if (!flowLine) {
+            return null;
+          }
+          return (
+            <Typography
+              variant="caption"
+              color={message.role === 'user' ? 'inherit' : 'text.secondary'}
+              data-testid="bubble-flow-meta"
+            >
+              {flowLine}
+            </Typography>
+          );
+        }}
+        sharedRenderLogConfig={{
+          eventName: 'DEV-0000049:T05:flows_shared_transcript_rendered',
+          context: {
+            hasTurnsError: turnsError,
+            retainedAssistantVisible,
+            hasFlowMetaLine,
+            citationsVisible: false,
+          },
+        }}
+      />
+    </Paper>
+  );
+
+  const composerSurface = (
+    <Paper
+      variant="outlined"
+      data-testid="flows-controls"
+      style={{ flex: '0 0 auto' }}
+      sx={{
+        p: 2,
+        borderRadius: 0,
+        borderLeft: 0,
+        borderRight: 0,
+        borderBottom: 0,
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Stack spacing={2}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ minWidth: 0 }}
+        >
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="Flow"
+            value={selectedFlowKey}
+            onChange={handleFlowChange}
+            disabled={flowsLoading || !!flowsError}
+            inputProps={{ 'data-testid': 'flow-select' }}
+            sx={{ flex: 1, minWidth: 0 }}
+          >
+            {flowOptions.map((flow) => (
+              <MenuItem
+                key={flow.key}
+                value={flow.key}
+                disabled={flow.disabled}
+              >
+                {flow.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          {showFlowInfoButton ? (
+            <Tooltip title="Flow info">
+              <span>
+                <IconButton
+                  aria-describedby={flowInfoId}
+                  onClick={handleFlowInfoOpen}
+                  disabled={flowInfoDisabled}
+                  size="small"
+                  data-testid="flow-info"
+                  sx={{ flexShrink: 0 }}
+                >
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : null}
+        </Stack>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="flex-start"
+          sx={{ minWidth: 0 }}
+        >
+          <TextField
+            fullWidth
+            size="small"
+            label="Working folder"
+            value={workingFolder}
+            onChange={(event) => setWorkingFolder(event.target.value)}
+            onBlur={(event) => {
+              void persistWorkingFolder(event.target.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              event.stopPropagation();
+              void persistWorkingFolder(
+                (event.currentTarget as HTMLInputElement).value,
+              );
+            }}
+            disabled={isWorkingFolderDisabled}
+            inputProps={{ 'data-testid': 'flow-working-folder' }}
+            sx={{ flex: 1, minWidth: 0 }}
+          />
+          <Button
+            type="button"
+            variant="outlined"
+            size="small"
+            onClick={handleOpenDirPicker}
+            disabled={isWorkingFolderDisabled}
+            data-testid="flow-working-folder-picker"
+            sx={{ flexShrink: 0 }}
+          >
+            Choose folder…
+          </Button>
+        </Stack>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+        >
+          <TextField
+            fullWidth
+            size="small"
+            label="Custom title"
+            placeholder="Optional name for this run"
+            value={customTitle}
+            onChange={(event) => setCustomTitle(event.target.value)}
+            onBlur={handleCustomTitleBlur}
+            disabled={customTitleDisabled}
+            inputProps={{ 'data-testid': 'flow-custom-title' }}
+          />
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+          <Button
+            type="button"
+            variant="outlined"
+            onClick={handleNewFlowReset}
+            disabled={!selectedFlowName || flowsLoading}
+            data-testid="flow-new"
+          >
+            New Flow
+          </Button>
+          <Button
+            type="button"
+            variant="outlined"
+            onClick={() => startFlowRun('run')}
+            disabled={
+              !selectedFlowName ||
+              flowsLoading ||
+              selectedFlowDisabled ||
+              startPending ||
+              persistenceUnavailable ||
+              !wsTranscriptReady
+            }
+            data-testid="flow-run"
+          >
+            Run
+          </Button>
+          <Button
+            type="button"
+            variant="outlined"
+            onClick={() => startFlowRun('resume')}
+            disabled={
+              !selectedFlowName ||
+              flowsLoading ||
+              selectedFlowDisabled ||
+              startPending ||
+              !resumeStepPath ||
+              persistenceUnavailable ||
+              !wsTranscriptReady
+            }
+            data-testid="flow-resume"
+          >
+            Resume
+          </Button>
+          <Button
+            type="button"
+            variant="outlined"
+            onClick={handleStopClick}
+            disabled={!showStop || isStopping}
+            data-testid="flow-stop"
+          >
+            {isStopping ? 'Stopping...' : 'Stop'}
+          </Button>
+        </Stack>
+        {resumeStepPath && (
+          <Typography
+            color="text.secondary"
+            variant="caption"
+            data-testid="flow-resume-path"
+          >
+            Resume step path: {resumeStepPath.join(' / ')}
+          </Typography>
+        )}
+        <Typography
+          color="text.secondary"
+          variant="caption"
+          data-testid="flow-launch-identity"
+        >
+          Launch provider: {flowProviderId} · Model: {flowModelId}
+        </Typography>
+        <DirectoryPickerDialog
+          open={dirPickerOpen}
+          path={workingFolder}
+          onClose={handleCloseDirPicker}
+          onPick={handlePickDir}
+        />
+        <Popover
+          id={flowInfoId}
+          open={flowInfoOpen}
+          anchorEl={flowInfoAnchorEl}
+          onClose={handleFlowInfoClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          data-testid="flow-info-popover"
+        >
+          <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
+            {flowWarnings.length > 0 ? (
+              <Stack spacing={0.5} data-testid="flow-warnings">
+                <Typography variant="subtitle2" color="warning.main">
+                  Warnings
+                </Typography>
+                {flowWarnings.map((warning) => (
+                  <Typography
+                    key={warning}
+                    variant="body2"
+                    color="warning.main"
+                  >
+                    {warning}
+                  </Typography>
+                ))}
+              </Stack>
+            ) : null}
+            {flowDescription ? (
+              <Paper
+                variant="outlined"
+                sx={{ p: 1.5 }}
+                data-testid="flow-description"
+              >
+                <Markdown content={flowDescription} />
+              </Paper>
+            ) : null}
+            {flowInfoEmpty ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                data-testid="flow-info-empty"
+              >
+                {flowInfoEmptyMessage}
+              </Typography>
+            ) : null}
+          </Stack>
+        </Popover>
+      </Stack>
+    </Paper>
+  );
+
+  const desktopWorkspace = (
+    <WorkspaceDesktopShell
+      conversationPane={conversationList}
+      transcript={transcriptSurface}
+      composer={composerSurface}
+      conversationPaneOpen={conversationPaneOpen}
+      conversationPaneWidth={drawerWidth}
+      isMobile={isMobile}
+      onToggleConversationPane={() => {
+        setDesktopDrawerOpen((prev) => !prev);
+      }}
+    />
+  );
+
+  const mobileWorkspace = (
+    <Box
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+      }}
+    >
+      <Paper
+        variant="outlined"
+        sx={{ p: 1.5, display: 'flex', gap: 1, alignItems: 'center' }}
+      >
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setMobileConversationsOpen(true)}
+          data-testid="conversation-drawer-toggle"
+          aria-controls="conversation-drawer"
+          aria-expanded={mobileConversationsOpen}
+          sx={{ flex: 1 }}
+        >
+          Conversations
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setMobileAppMenuOpen(true)}
+          sx={{ flex: 1 }}
+        >
+          Menu
+        </Button>
+      </Paper>
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {transcriptSurface}
+      </Box>
+      {composerSurface}
+      <WorkspaceMobileConversationsOverlay
+        open={mobileConversationsOpen}
+        onClose={() => setMobileConversationsOpen(false)}
+        list={conversationList}
+      />
+      <WorkspaceMobileAppMenuOverlay
+        open={mobileAppMenuOpen}
+        onClose={() => setMobileAppMenuOpen(false)}
+      />
+    </Box>
+  );
+
   return (
     <Container
       maxWidth={false}
@@ -1360,417 +1749,7 @@ export default function FlowsPage() {
           </Alert>
         )}
 
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          alignItems="stretch"
-          sx={{
-            width: '100%',
-            minWidth: 0,
-            overflowX: 'hidden',
-            flex: 1,
-            minHeight: 0,
-            position: 'relative',
-          }}
-        >
-          <ConversationSidebarToggle
-            drawerOpen={drawerOpen}
-            drawerWidth={drawerWidth}
-            isMobile={isMobile}
-            onToggle={() => {
-              if (isMobile) {
-                setMobileDrawerOpen((prev) => !prev);
-                return;
-              }
-              setDesktopDrawerOpen((prev) => !prev);
-            }}
-          />
-          {(!isMobile || drawerOpen) && (
-            <Drawer
-              key={isMobile ? 'mobile' : 'desktop'}
-              open={drawerOpen}
-              onClose={() => {
-                if (isMobile) {
-                  setMobileDrawerOpen(false);
-                  return;
-                }
-                setDesktopDrawerOpen(false);
-              }}
-              variant={isMobile ? 'temporary' : 'persistent'}
-              ModalProps={{ keepMounted: false }}
-              data-testid="conversation-drawer"
-              slotProps={{
-                paper: {
-                  sx: {
-                    boxSizing: 'border-box',
-                    overflowX: 'hidden',
-                    width: drawerWidth,
-                    mt: drawerTopOffset,
-                    height: drawerHeight,
-                  },
-                },
-              }}
-              sx={{
-                width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
-                flexShrink: 0,
-              }}
-            >
-              <Box
-                id="conversation-drawer"
-                data-testid="conversation-list"
-                sx={{ width: drawerWidth, height: '100%' }}
-              >
-                <ConversationList
-                  conversations={flowConversations}
-                  selectedId={activeConversationId}
-                  isLoading={conversationsLoading}
-                  isError={conversationsError}
-                  error={conversationsErrorMessage}
-                  hasMore={conversationsHasMore}
-                  filterState={filterState}
-                  mongoConnected={mongoConnected}
-                  disabled={conversationListDisabled}
-                  variant="chat"
-                  onSelect={handleSelectConversation}
-                  onFilterChange={setFilterState}
-                  onArchive={archiveConversation}
-                  onRestore={restoreConversation}
-                  onBulkArchive={bulkArchive}
-                  onBulkRestore={bulkRestore}
-                  onBulkDelete={bulkDelete}
-                  onLoadMore={loadMoreConversations}
-                  onRefresh={refreshConversations}
-                  onRetry={refreshConversations}
-                />
-              </Box>
-            </Drawer>
-          )}
-
-          <Box
-            data-testid="flows-column"
-            ref={chatColumnRef}
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0,
-            }}
-            style={{
-              minWidth: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              flex: '1 1 0%',
-              minHeight: 0,
-            }}
-          >
-            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-              <Box data-testid="flows-controls" style={{ flex: '0 0 auto' }}>
-                <Stack spacing={2}>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    sx={{ minWidth: 0 }}
-                  >
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      label="Flow"
-                      value={selectedFlowKey}
-                      onChange={handleFlowChange}
-                      disabled={flowsLoading || !!flowsError}
-                      inputProps={{ 'data-testid': 'flow-select' }}
-                      sx={{ flex: 1, minWidth: 0 }}
-                    >
-                      {flowOptions.map((flow) => (
-                        <MenuItem
-                          key={flow.key}
-                          value={flow.key}
-                          disabled={flow.disabled}
-                        >
-                          {flow.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    {showFlowInfoButton ? (
-                      <Tooltip title="Flow info">
-                        <span>
-                          <IconButton
-                            aria-describedby={flowInfoId}
-                            onClick={handleFlowInfoOpen}
-                            disabled={flowInfoDisabled}
-                            size="small"
-                            data-testid="flow-info"
-                            sx={{ flexShrink: 0 }}
-                          >
-                            <InfoOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    ) : null}
-                  </Stack>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="flex-start"
-                    sx={{ minWidth: 0 }}
-                  >
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Working folder"
-                      value={workingFolder}
-                      onChange={(event) => setWorkingFolder(event.target.value)}
-                      onBlur={(event) => {
-                        void persistWorkingFolder(event.target.value);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Enter') return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void persistWorkingFolder(
-                          (event.currentTarget as HTMLInputElement).value,
-                        );
-                      }}
-                      disabled={isWorkingFolderDisabled}
-                      inputProps={{ 'data-testid': 'flow-working-folder' }}
-                      sx={{ flex: 1, minWidth: 0 }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      size="small"
-                      onClick={handleOpenDirPicker}
-                      disabled={isWorkingFolderDisabled}
-                      data-testid="flow-working-folder-picker"
-                      sx={{ flexShrink: 0 }}
-                    >
-                      Choose folder…
-                    </Button>
-                  </Stack>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
-                  >
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Custom title"
-                      placeholder="Optional name for this run"
-                      value={customTitle}
-                      onChange={(event) => setCustomTitle(event.target.value)}
-                      onBlur={handleCustomTitleBlur}
-                      disabled={customTitleDisabled}
-                      inputProps={{ 'data-testid': 'flow-custom-title' }}
-                    />
-                  </Stack>
-                  <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={handleNewFlowReset}
-                      disabled={!selectedFlowName || flowsLoading}
-                      data-testid="flow-new"
-                    >
-                      New Flow
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={() => startFlowRun('run')}
-                      disabled={
-                        !selectedFlowName ||
-                        flowsLoading ||
-                        selectedFlowDisabled ||
-                        startPending ||
-                        persistenceUnavailable ||
-                        !wsTranscriptReady
-                      }
-                      data-testid="flow-run"
-                    >
-                      Run
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={() => startFlowRun('resume')}
-                      disabled={
-                        !selectedFlowName ||
-                        flowsLoading ||
-                        selectedFlowDisabled ||
-                        startPending ||
-                        !resumeStepPath ||
-                        persistenceUnavailable ||
-                        !wsTranscriptReady
-                      }
-                      data-testid="flow-resume"
-                    >
-                      Resume
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={handleStopClick}
-                      disabled={!showStop || isStopping}
-                      data-testid="flow-stop"
-                    >
-                      {isStopping ? 'Stopping...' : 'Stop'}
-                    </Button>
-                  </Stack>
-                  {resumeStepPath && (
-                    <Typography
-                      color="text.secondary"
-                      variant="caption"
-                      data-testid="flow-resume-path"
-                    >
-                      Resume step path: {resumeStepPath.join(' / ')}
-                    </Typography>
-                  )}
-                  <Typography
-                    color="text.secondary"
-                    variant="caption"
-                    data-testid="flow-launch-identity"
-                  >
-                    Launch provider: {flowProviderId} · Model: {flowModelId}
-                  </Typography>
-                  <DirectoryPickerDialog
-                    open={dirPickerOpen}
-                    path={workingFolder}
-                    onClose={handleCloseDirPicker}
-                    onPick={handlePickDir}
-                  />
-                  <Popover
-                    id={flowInfoId}
-                    open={flowInfoOpen}
-                    anchorEl={flowInfoAnchorEl}
-                    onClose={handleFlowInfoClose}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                    data-testid="flow-info-popover"
-                  >
-                    <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
-                      {flowWarnings.length > 0 ? (
-                        <Stack spacing={0.5} data-testid="flow-warnings">
-                          <Typography variant="subtitle2" color="warning.main">
-                            Warnings
-                          </Typography>
-                          {flowWarnings.map((warning) => (
-                            <Typography
-                              key={warning}
-                              variant="body2"
-                              color="warning.main"
-                            >
-                              {warning}
-                            </Typography>
-                          ))}
-                        </Stack>
-                      ) : null}
-                      {flowDescription ? (
-                        <Paper
-                          variant="outlined"
-                          sx={{ p: 1.5 }}
-                          data-testid="flow-description"
-                        >
-                          <Markdown content={flowDescription} />
-                        </Paper>
-                      ) : null}
-                      {flowInfoEmpty ? (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          data-testid="flow-info-empty"
-                        >
-                          {flowInfoEmptyMessage}
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </Popover>
-                </Stack>
-              </Box>
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  flex: '1 1 auto',
-                  minHeight: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  p: 2,
-                }}
-              >
-                <SharedTranscript
-                  surface="flows"
-                  conversationId={selectedConversation?.conversationId ?? null}
-                  messages={displayMessages}
-                  activeToolsAvailable={false}
-                  turnsLoading={turnsLoading}
-                  turnsError={turnsError}
-                  turnsErrorMessage={turnsErrorMessage}
-                  emptyMessage="Transcript will appear here once a flow run starts."
-                  emptyStateContent={
-                    flowsLoading && flows.length === 0 ? (
-                      <Typography color="text.secondary">
-                        Loading flows...
-                      </Typography>
-                    ) : !flowsLoading && flows.length === 0 ? (
-                      <Typography color="text.secondary">
-                        No flows found. Add a flow JSON file under `flows/` to
-                        get started.
-                      </Typography>
-                    ) : undefined
-                  }
-                  warningTestId="flows-turns-error"
-                  transcriptTestId="flows-transcript"
-                  citationsEnabled={false}
-                  isStopping={isStopping}
-                  citationsOpen={citationsOpen}
-                  thinkOpen={thinkOpen}
-                  toolOpen={toolOpen}
-                  toolErrorOpen={toolErrorOpen}
-                  onToggleCitation={toggleCitation}
-                  onToggleThink={toggleThink}
-                  onToggleTool={toggleTool}
-                  onToggleToolError={toggleToolError}
-                  renderMetadataContent={(message) => {
-                    const flowLine =
-                      message.role === 'assistant'
-                        ? buildFlowMetaLine(message.command)
-                        : null;
-                    if (!flowLine) {
-                      return null;
-                    }
-                    return (
-                      <Typography
-                        variant="caption"
-                        color={
-                          message.role === 'user' ? 'inherit' : 'text.secondary'
-                        }
-                        data-testid="bubble-flow-meta"
-                      >
-                        {flowLine}
-                      </Typography>
-                    );
-                  }}
-                  sharedRenderLogConfig={{
-                    eventName:
-                      'DEV-0000049:T05:flows_shared_transcript_rendered',
-                    context: {
-                      hasTurnsError: turnsError,
-                      retainedAssistantVisible,
-                      hasFlowMetaLine,
-                      citationsVisible: false,
-                    },
-                  }}
-                />
-              </Paper>
-            </Stack>
-          </Box>
-        </Stack>
+        {isMobile ? mobileWorkspace : desktopWorkspace}
       </Stack>
     </Container>
   );

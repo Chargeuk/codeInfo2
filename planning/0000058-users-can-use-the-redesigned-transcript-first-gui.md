@@ -884,6 +884,8 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - Subtasks 1 through 7 complete: re-read the Agents story packet, applied the shared shell layout in `AgentsPage.tsx` and `AgentsComposerPanel.tsx`, and confirmed the selector-reset and stale prompt-discovery logic already matched the required behavior.
 - Subtasks 16 and 17 complete: inspected the existing unit and e2e proof titles for `Agents` and found no stale drawer-era wording that needed rewriting.
 - Subtasks 8 through 14 complete: reran the targeted client unit batch for the Agents proof homes after fixing the missing `Button` import in `AgentsPage.tsx`, and the suite passed 68/68.
+- Build: `npm run build:summary:client` passed; wrapper log: `logs/test-summaries/build-client-latest.log`.
+- Client tests: `npm run test:summary:client` passed (779 passed, 0 failed); test log: `test-results/client-tests-2026-05-19T21-49-34-403Z.log`.
 - Subtask 15 complete: reran the browser proof with `CODEINFO_HOST_CODEX_HOME=$PWD/codex` so the e2e compose stack could mount cleanly, and `e2e/agents.spec.ts` passed 63/63.
 - Subtasks 18 and 19 complete: `npm run lint --workspace client` passed with only pre-existing warnings outside Task 5, and `npm run format:check --workspace client` passed after formatting the client tree.
 - Audit normalization: marked Testing steps 3 through 5 complete from the implementation-pass e2e wrapper and lint/format evidence; Task 5 still needs its task-owned `npm run build:summary:client` and full `npm run test:summary:client` wrapper runs before automated-proof closeout.

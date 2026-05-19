@@ -1,4 +1,5 @@
 import {
+  approveAll,
   CopilotClient,
   type CopilotClientOptions,
   type CopilotSession,
@@ -117,7 +118,10 @@ export class CopilotLifecycle {
   }
 
   async createSession(config: SessionConfig): Promise<CopilotSession> {
-    return this.client.createSession(this.prepareCreateSessionConfig(config));
+    return this.client.createSession({
+      ...this.prepareCreateSessionConfig(config),
+      onPermissionRequest: approveAll,
+    });
   }
 
   async resumeSession(

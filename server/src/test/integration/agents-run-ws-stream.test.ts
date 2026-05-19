@@ -15,6 +15,7 @@ import {
   runAgentCommand,
   runAgentInstructionUnlocked,
 } from '../../agents/service.js';
+import { getChatInterface } from '../../chat/factory.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -33,6 +34,10 @@ import {
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+import {
+  createMockCopilotSdkHarness,
+  createSessionIdleEvent,
+} from '../support/mockCopilotSdk.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -316,6 +321,104 @@ test('Agents run passes inflightId into chat.run(...) flags', async () => {
     assert.equal(capturedFlags['source'], 'REST');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+  }
+});
+
+test('direct Copilot agent runs forward envOverrides into the Copilot runtime environment', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-copilot-env-'));
+  const agentsHome = path.join(tempRoot, 'agents');
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const copilotHome = path.join(tempRoot, 'copilot-home');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'codeinfo_provider = "copilot"\nmodel = "copilot-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "codex-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+
+  const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
+  const harness = createMockCopilotSdkHarness({
+    name: 'direct-agent-copilot-env-forwarding',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+
+  __setAgentServiceDepsForTests({
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  try {
+    const result = await runAgentInstructionUnlocked({
+      agentName: 'coding_agent',
+      instruction: 'Hello from Copilot',
+      conversationId: 'copilot-direct-env-forwarding',
+      source: 'REST',
+      envOverrides: { CODEINFO_ROOT: '/tmp/codeinfo-root' },
+      chatFactory: (provider, deps) =>
+        getChatInterface(provider, {
+          ...deps,
+          copilotClientFactory: (options) => {
+            capturedOptions.push(options);
+            return harness.createClientFactory()(options);
+          },
+        }),
+    });
+
+    assert.equal(result.providerId, 'copilot');
+    assert.equal(capturedOptions.length, 1);
+    assert.equal(
+      capturedOptions[0]?.env?.CODEINFO_ROOT,
+      '/tmp/codeinfo-root',
+    );
+    assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 

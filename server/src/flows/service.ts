@@ -1344,7 +1344,12 @@ const runFlowInstruction = async (params: {
   const resolvedChatFactory = params.chatFactory ?? getChatInterface;
   let chat;
   try {
-    chat = resolvedChatFactory(params.providerId);
+    chat = resolvedChatFactory(
+      params.providerId,
+      params.providerId === 'copilot'
+        ? { copilotEnv: { ...process.env, ...params.envOverrides } }
+        : undefined,
+    );
   } catch (err) {
     if (err instanceof UnsupportedProviderError) {
       throw new Error(err.message);

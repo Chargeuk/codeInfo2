@@ -940,8 +940,12 @@ test('conversation pane is persistent on desktop and pushes content', async ({
   await expect(page.getByTestId('conversation-list')).toBeVisible();
   await expect(page.locator('.MuiBackdrop-root')).toHaveCount(0);
 
-  const chatColumn = page.getByTestId('chat-column');
-  const boxOpen = await chatColumn.boundingBox();
+  const shell = page.getByTestId('workspace-desktop-shell');
+  const shellBox = await shell.boundingBox();
+  expect(shellBox).not.toBeNull();
+
+  const transcriptSurface = page.getByTestId('chat-transcript');
+  const boxOpen = await transcriptSurface.boundingBox();
   expect(boxOpen).not.toBeNull();
 
   const drawerPaper = page.locator(
@@ -950,12 +954,16 @@ test('conversation pane is persistent on desktop and pushes content', async ({
   await expect(drawerPaper).toBeVisible();
   const drawerBox = await drawerPaper.boundingBox();
   expect(drawerBox).not.toBeNull();
-  expect(Math.abs((drawerBox?.y ?? 0) - (boxOpen?.y ?? 0))).toBeLessThan(2);
+  expect(Math.abs((drawerBox?.y ?? 0) - (shellBox?.y ?? 0))).toBeLessThan(2);
 
   await drawerToggle.click();
   await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByTestId('workspace-conversation-pane')).toHaveCSS(
+    'width',
+    '0px',
+  );
 
-  const boxClosed = await chatColumn.boundingBox();
+  const boxClosed = await transcriptSurface.boundingBox();
   expect(boxClosed).not.toBeNull();
   expect((boxClosed?.x ?? 0) + 150).toBeLessThan(boxOpen?.x ?? 0);
 });
@@ -1155,7 +1163,7 @@ test('conversation pane stays vertically aligned when persistence banner is visi
   await expect(drawerPaper).toBeVisible();
 
   const drawerBox = await drawerPaper.boundingBox();
-  const chatBox = await page.getByTestId('chat-column').boundingBox();
+  const chatBox = await page.getByTestId('workspace-desktop-shell').boundingBox();
   expect(drawerBox).not.toBeNull();
   expect(chatBox).not.toBeNull();
   expect(Math.abs((drawerBox?.y ?? 0) - (chatBox?.y ?? 0))).toBeLessThan(2);

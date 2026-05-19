@@ -11,7 +11,6 @@ type WorkspaceDesktopShellProps = {
   conversationPaneWidth?: number;
   isMobile?: boolean;
   onToggleConversationPane?: () => void;
-  topOffsetPx?: number;
 };
 
 export default function WorkspaceDesktopShell({
@@ -22,7 +21,6 @@ export default function WorkspaceDesktopShell({
   conversationPaneWidth = 320,
   isMobile = false,
   onToggleConversationPane,
-  topOffsetPx,
 }: WorkspaceDesktopShellProps) {
   return (
     <Box
@@ -43,7 +41,6 @@ export default function WorkspaceDesktopShell({
           width={conversationPaneWidth}
           onToggle={onToggleConversationPane ?? (() => undefined)}
           isMobile={isMobile}
-          topOffsetPx={topOffsetPx}
         >
           {conversationPane}
         </WorkspaceDesktopConversationPane>

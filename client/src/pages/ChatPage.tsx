@@ -310,7 +310,7 @@ export default function ChatPage() {
   useLayoutEffect(() => {
     const updateOffset = () => {
       const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
-      setDrawerTopOffsetPx(top);
+      setDrawerTopOffsetPx(top > 0 ? top : 24);
     };
 
     updateOffset();
@@ -755,6 +755,25 @@ export default function ChatPage() {
   const resumedExecutionIdentityLocked = Boolean(
     selectedConversation?.conversationId && resumedProvider && resumedModel,
   );
+
+  useEffect(() => {
+    if (!selectedConversation?.conversationId) {
+      return;
+    }
+
+    if (resumedProvider) {
+      setProvider(resumedProvider, { source: 'conversation-select' });
+    }
+    if (resumedModel) {
+      setSelected(resumedModel, { source: 'conversation-select' });
+    }
+  }, [
+    resumedModel,
+    resumedProvider,
+    selectedConversation?.conversationId,
+    setProvider,
+    setSelected,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -1333,8 +1352,8 @@ export default function ChatPage() {
       )}
       {!isLoading && !isError && isEmpty && (
         <Typography color="text.secondary">
-          No chat-capable models available. Add a supported model or switch
-          providers, then retry.
+          No chat-capable models available for this provider. Add a supported
+          model or switch providers, then retry.
         </Typography>
       )}
       {!isLoading && !isError && !isEmpty && (
@@ -1690,7 +1709,6 @@ export default function ChatPage() {
       onToggleConversationPane={() => {
         setDesktopDrawerOpen((prev) => !prev);
       }}
-      topOffsetPx={drawerTopOffsetPx}
     />
   );
 
@@ -1712,6 +1730,9 @@ export default function ChatPage() {
           variant="outlined"
           size="small"
           onClick={() => setMobileConversationsOpen(true)}
+          data-testid="conversation-drawer-toggle"
+          aria-controls="conversation-drawer"
+          aria-expanded={mobileConversationsOpen}
           sx={{ flex: 1 }}
         >
           Conversations
@@ -1733,6 +1754,7 @@ export default function ChatPage() {
         open={mobileConversationsOpen}
         onClose={() => setMobileConversationsOpen(false)}
         list={conversationList}
+        topOffsetPx={drawerTopOffsetPx}
       />
       <WorkspaceMobileAppMenuOverlay
         open={mobileAppMenuOpen}
@@ -1745,8 +1767,10 @@ export default function ChatPage() {
     <Box
       ref={chatColumnRef}
       data-testid="chat-column"
+      style={{ minWidth: 0, width: '100%' }}
       sx={{
         flex: 1,
+        minWidth: 0,
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',

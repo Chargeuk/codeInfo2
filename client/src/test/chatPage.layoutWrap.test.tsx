@@ -414,14 +414,19 @@ describe('Chat shared shell layout alignment', () => {
 
     await screen.findByTestId('chat-transcript');
 
-    const toggle = screen.getByTestId('conversation-drawer-toggle');
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByTestId('conversation-drawer-toggle'));
     });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
   it('defaults to closed on mobile and opens a temporary conversations overlay', async () => {
@@ -467,7 +472,10 @@ describe('Chat shared shell layout alignment', () => {
     });
 
     await waitFor(() =>
-      expect(toggle).toHaveAttribute('aria-expanded', 'false'),
+      expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      ),
     );
     await waitFor(() => {
       const list = screen.queryByTestId('conversation-list');
@@ -476,10 +484,13 @@ describe('Chat shared shell layout alignment', () => {
     });
 
     await act(async () => {
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByTestId('conversation-drawer-toggle'));
     });
 
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(await screen.findByTestId('conversation-list')).toBeInTheDocument();
   });
 
@@ -493,8 +504,10 @@ describe('Chat shared shell layout alignment', () => {
 
     await screen.findByTestId('chat-transcript');
 
-    const toggle = screen.getByTestId('conversation-drawer-toggle');
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(screen.queryByTestId('conversation-list')).toBeNull();
 
     await act(async () => {
@@ -503,18 +516,24 @@ describe('Chat shared shell layout alignment', () => {
     });
 
     await waitFor(() =>
-      expect(toggle).toHaveAttribute('aria-expanded', 'true'),
+      expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      ),
     );
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByTestId('conversation-drawer-toggle'));
     });
 
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('conversation-drawer-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
-  it('offsets the conversations pane paper to align with the chat column top', async () => {
+  it('keeps the desktop conversations pane paper anchored to the chat column top', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -531,10 +550,10 @@ describe('Chat shared shell layout alignment', () => {
     ) as HTMLElement | null;
     expect(paper).not.toBeNull();
 
-    expect(getComputedStyle(paper!).marginTop).toBe('24px');
+    expect(paper!.style.marginTop).toBe('');
   });
 
-  it('keeps the conversations pane paper aligned when the persistence banner is visible', async () => {
+  it('keeps the desktop conversations pane paper anchored when the persistence banner is visible', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -553,8 +572,7 @@ describe('Chat shared shell layout alignment', () => {
     expect(paper).not.toBeNull();
 
     await waitFor(() => {
-      const marginTop = getComputedStyle(paper!).marginTop.replace(/\s+/g, '');
-      expect(marginTop).toBe('24px');
+      expect(paper!.style.marginTop).toBe('');
     });
   });
   it('preserves gutters and avoids horizontal overflow on narrow viewports', async () => {

@@ -13,31 +13,42 @@ type WorkspaceMobileConversationsOverlayProps = {
   open: boolean;
   onClose: () => void;
   list: ReactNode;
+  topOffsetPx?: number;
 };
 
 export default function WorkspaceMobileConversationsOverlay({
   open,
   onClose,
   list,
+  topOffsetPx = 0,
 }: WorkspaceMobileConversationsOverlayProps) {
+  const drawerHeight =
+    topOffsetPx > 0 ? `calc(100dvh - ${topOffsetPx}px)` : '100dvh';
+
   return (
     <Drawer
       anchor="left"
       open={open}
       onClose={onClose}
       variant="temporary"
+      data-testid="conversation-drawer"
       ModalProps={{ keepMounted: false }}
       PaperProps={{
+        id: 'conversation-drawer',
+        className: 'MuiDrawer-paper',
         sx: {
           width: '100vw',
           maxWidth: '100vw',
-          height: '100vh',
+          top: `${topOffsetPx}px`,
+          height: drawerHeight,
           bgcolor: '#F4F6F8',
         },
       }}
-      data-testid="workspace-mobile-conversations-overlay"
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box
+        sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+        data-testid="workspace-mobile-conversations-overlay"
+      >
         <Stack
           direction="row"
           alignItems="center"

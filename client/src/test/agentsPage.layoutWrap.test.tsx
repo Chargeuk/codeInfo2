@@ -99,15 +99,19 @@ describe('Agents shared shell layout wrap', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const panel = await screen.findByTestId('conversation-list');
+    const panels = await screen.findAllByTestId('conversation-list');
+    const panel = panels.find((candidate) =>
+      within(candidate).queryByTestId('conversation-load-more'),
+    );
     const row = await screen.findByTestId('conversation-row');
     const list = row.closest('ul');
     const scrollContainer = list?.parentElement;
 
+    expect(panel).toBeDefined();
     expect(scrollContainer).not.toBeNull();
     expect(getComputedStyle(scrollContainer!).overflowY).toBe('auto');
     expect(
-      within(panel).getByTestId('conversation-load-more'),
+      within(panel!).getByTestId('conversation-load-more'),
     ).toBeInTheDocument();
   });
 

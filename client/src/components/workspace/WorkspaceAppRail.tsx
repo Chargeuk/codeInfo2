@@ -5,15 +5,25 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useInRouterContext, useLocation } from 'react-router-dom';
 import {
   WORKSPACE_DESTINATIONS,
   getWorkspaceDestinationPath,
 } from './workspaceNavigation';
 
-export default function WorkspaceAppRail() {
-  const { pathname } = useLocation();
-  const activePath = getWorkspaceDestinationPath(pathname);
+type WorkspaceAppRailContentProps = {
+  pathname: string;
+  inRouter: boolean;
+};
+
+function WorkspaceAppRailContent({
+  pathname,
+  inRouter,
+}: WorkspaceAppRailContentProps) {
+  const fallbackPath = pathname || '/chat';
+  const activePath = getWorkspaceDestinationPath(
+    fallbackPath === '/' && !inRouter ? '/chat' : fallbackPath,
+  );
 
   return (
     <Box
@@ -38,8 +48,9 @@ export default function WorkspaceAppRail() {
           return (
             <ListItemButton
               key={destination.path}
-              component={NavLink}
-              to={destination.path}
+              {...(inRouter
+                ? { component: NavLink, to: destination.path }
+                : { type: 'button' as const })}
               selected={selected}
               aria-label={destination.label}
               sx={{
@@ -88,5 +99,23 @@ export default function WorkspaceAppRail() {
         })}
       </List>
     </Box>
+  );
+}
+
+function WorkspaceAppRailWithRouter() {
+  const { pathname } = useLocation();
+  return <WorkspaceAppRailContent pathname={pathname} inRouter />;
+}
+
+export default function WorkspaceAppRail() {
+  const inRouter = useInRouterContext();
+  if (inRouter) {
+    return <WorkspaceAppRailWithRouter />;
+  }
+
+  const fallbackPath =
+    typeof window !== 'undefined' ? window.location.pathname : '/chat';
+  return (
+    <WorkspaceAppRailContent pathname={fallbackPath} inRouter={false} />
   );
 }

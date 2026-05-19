@@ -331,7 +331,7 @@ export function ConversationList({
   };
 
   return (
-    <Stack spacing={1} sx={{ height: '100%', minHeight: 0 }}>
+    <Stack spacing={1} sx={{ height: '100%', minHeight: 0, width: '100%' }}>
       <Stack
         spacing={0.75}
         sx={{ px: 1.5 }}
@@ -418,6 +418,7 @@ export function ConversationList({
       )}
 
       <Box
+        data-testid="conversation-list"
         sx={{
           border: '1px solid',
           borderColor: 'divider',
@@ -425,6 +426,7 @@ export function ConversationList({
           overflow: 'hidden',
           bgcolor: 'background.paper',
           flex: 1,
+          width: '100%',
           minHeight: 240,
           display: 'flex',
           flexDirection: 'column',

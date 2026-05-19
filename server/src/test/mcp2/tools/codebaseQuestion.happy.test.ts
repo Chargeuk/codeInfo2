@@ -6,7 +6,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import type { ModelInfo } from '@github/copilot-sdk';
+import type { CodexOptions } from '@openai/codex-sdk';
 import { resolveAgentHomeEnv } from '../../../agents/roots.js';
+import { getChatInterface } from '../../../chat/factory.js';
 import { __resetCompletedInflightForTests } from '../../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
@@ -27,11 +29,15 @@ import {
 } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 import type { Conversation } from '../../../mongo/conversation.js';
-import { createMockCopilotSdkHarness } from '../../support/mockCopilotSdk.js';
+import {
+  createMockCopilotSdkHarness,
+  createSessionIdleEvent,
+} from '../../support/mockCopilotSdk.js';
 
 const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
   'CODEINFO_CHAT_DEFAULT_MODEL',
+  'CODEINFO_COPILOT_HOME',
   'CODEINFO_CODEX_HOME',
   'CODEX_HOME',
   'CODEINFO_CODEX_WORKDIR',
@@ -751,6 +757,56 @@ test('codebase_question uses the shared default execution root when no working_f
     });
   } finally {
     delete process.env.CODEINFO_CODEX_WORKDIR;
+  }
+});
+
+test('codebase_question forwards CODEINFO_ROOT into the Codex runtime environment', async () => {
+  const originalForceAvailable = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  const originalCodeHome = process.env.CODEX_HOME;
+  const originalCodeInfoCodeHome = process.env.CODEINFO_CODEX_HOME;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
+  const tempHome = await withTempCodexHome({
+    chatToml: 'model = "gpt-5.3-codex"\n',
+  });
+  setCodexHomes(tempHome.codexHome);
+
+  let capturedOptions: CodexOptions | undefined;
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Forward CODEINFO_ROOT for Codex.',
+        provider: 'codex',
+      },
+      {
+        codexFactory: (options?: CodexOptions) => {
+          capturedOptions = options;
+          return new MockCodex('thread-codeinfo-root');
+        },
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+
+    assert.equal(capturedOptions?.env?.CODEINFO_ROOT, expectedRepoRoot);
+  } finally {
+    if (originalForceAvailable === undefined) {
+      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
+    } else {
+      process.env.MCP_FORCE_CODEX_AVAILABLE = originalForceAvailable;
+    }
+    if (originalCodeHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodeHome;
+    }
+    if (originalCodeInfoCodeHome === undefined) {
+      delete process.env.CODEINFO_CODEX_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_HOME = originalCodeInfoCodeHome;
+    }
+    await tempHome.cleanup();
   }
 });
 
@@ -1609,7 +1665,69 @@ test('codebase_question normalizes implicit Copilot defaults and omits reasoning
   }
 });
 
+test('codebase_question forwards CODEINFO_ROOT into the Copilot runtime environment', async () => {
+  const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
+  const copilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'mcp-copilot-home-'),
+  );
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
+  const harness = createMockCopilotSdkHarness({
+    name: 'mcp-copilot-env-forwarding',
+    models: [
+      {
+        id: 'copilot-model',
+        name: 'Copilot Model',
+      } as ModelInfo,
+    ],
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'Forward CODEINFO_ROOT for Copilot.',
+        provider: 'copilot',
+        model: 'copilot-model',
+      },
+      {
+        chatFactory: (provider, deps) =>
+          getChatInterface(provider, {
+            ...deps,
+            copilotClientFactory: (options) => {
+              capturedOptions.push(options);
+              return harness.createClientFactory()(options);
+            },
+          }),
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['copilot-model'],
+          modelsRaw: [
+            {
+              id: 'copilot-model',
+              name: 'Copilot Model',
+            } as ModelInfo,
+          ],
+          authSource: 'env-token',
+        }),
+      },
+    );
+
+    assert.ok(result.content[0]?.text);
+    assert.equal(capturedOptions.length, 1);
+    assert.equal(capturedOptions[0]?.env?.CODEINFO_ROOT, expectedRepoRoot);
+    assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
+  } finally {
+    await fs.rm(copilotHome, { recursive: true, force: true });
+  }
+});
+
 test('codebase_question keeps the requested provider and repairs the model there when that provider is healthy but the requested model is missing', async () => {
+  const originalHome = process.env.CODEINFO_COPILOT_HOME;
+  const tempHome = await withTempCopilotHome('');
+  process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
   const calls: Array<{
     flags: Record<string, unknown>;
     conversationId: string;
@@ -1617,48 +1735,54 @@ test('codebase_question keeps the requested provider and repairs the model there
   }> = [];
   const chat = new CapturingSelectionChat(calls, 'Same-provider repair answer');
 
-  const result = await runCodebaseQuestion(
-    {
-      question: 'repair the model on copilot',
-      provider: 'copilot',
-      model: 'missing-copilot-model',
-    },
-    {
-      chatFactory: (provider) => {
-        assert.equal(provider, 'copilot');
-        return chat;
+  try {
+    const result = await runCodebaseQuestion(
+      {
+        question: 'repair the model on copilot',
+        provider: 'copilot',
+        model: 'missing-copilot-model',
       },
-      copilotReadinessResolver: async () => ({
-        available: true,
-        toolsAvailable: true,
-        blockingStage: 'ready',
-        models: ['gpt-5-mini', 'copilot-gpt-5'],
-        modelsRaw: [
-          {
-            id: 'gpt-5-mini',
-            name: 'GPT-5 Mini',
-          } as ModelInfo,
-          {
-            id: 'copilot-gpt-5',
-            name: 'Copilot GPT-5',
-          } as ModelInfo,
-        ],
-        authSource: 'env-token',
-      }),
-    },
-  );
+      {
+        chatFactory: (provider) => {
+          assert.equal(provider, 'copilot');
+          return chat;
+        },
+        copilotReadinessResolver: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['gpt-5-mini', 'copilot-gpt-5'],
+          modelsRaw: [
+            {
+              id: 'gpt-5-mini',
+              name: 'GPT-5 Mini',
+            } as ModelInfo,
+            {
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+            } as ModelInfo,
+          ],
+          authSource: 'env-token',
+        }),
+      },
+    );
 
-  const payload = JSON.parse(result.content[0].text);
-  assert.equal(payload.modelId, 'gpt-5-mini');
-  assert.equal(calls[0]?.model, 'gpt-5-mini');
-  assert.equal(
-    memoryConversations.get(payload.conversationId)?.provider,
-    'copilot',
-  );
-  assert.equal(
-    memoryConversations.get(payload.conversationId)?.model,
-    'gpt-5-mini',
-  );
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.modelId, 'copilot-gpt-5');
+    assert.equal(calls[0]?.model, 'copilot-gpt-5');
+    assert.equal(
+      memoryConversations.get(payload.conversationId)?.provider,
+      'copilot',
+    );
+    assert.equal(
+      memoryConversations.get(payload.conversationId)?.model,
+      'copilot-gpt-5',
+    );
+  } finally {
+    if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;
+    else process.env.CODEINFO_COPILOT_HOME = originalHome;
+    await tempHome.cleanup();
+  }
 });
 
 test('codebase_question keeps the same requested model first when cross-provider fallback is required', async () => {

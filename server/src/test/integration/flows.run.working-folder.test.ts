@@ -17,6 +17,7 @@ import {
   __setFlowServiceDepsForTests,
 } from '../../flows/service.js';
 import { startFlowRun } from '../../flows/service.js';
+import { getChatInterface } from '../../chat/factory.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { resetStore } from '../../logStore.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
@@ -26,6 +27,14 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import {
+  __resetAgentServiceDepsForTests,
+  __setAgentServiceDepsForTests,
+} from '../../agents/service.js';
+import {
+  createMockCopilotSdkHarness,
+  createSessionIdleEvent,
+} from '../support/mockCopilotSdk.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
@@ -878,6 +887,132 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
       delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runtime environment', async () => {
+  resetStore();
+  const tempRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-copilot-env-root-'),
+  );
+  const flowsDir = path.join(tempRoot, 'flows');
+  const agentsHome = path.join(tempRoot, 'agents');
+  const agentHome = path.join(agentsHome, 'coding_agent');
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const copilotHome = path.join(tempRoot, 'copilot-home');
+  const workingFolder = path.join(tempRoot, 'working-root');
+  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.mkdir(workingFolder, { recursive: true });
+  await fs.cp(fixturesDir, flowsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'codeinfo_provider = "copilot"\nmodel = "copilot-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(codexHome, 'chat', 'config.toml'),
+    'model = "codex-model"\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(copilotHome, 'chat', 'config.toml'),
+    'model = "copilot-model"\n',
+    'utf8',
+  );
+
+  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
+  const prevLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const prevCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  process.env.CODEINFO_AGENT_HOME = agentsHome;
+  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  process.env.FLOWS_DIR = flowsDir;
+  process.env.CODEINFO_CODEX_HOME = codexHome;
+  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+
+  const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
+  const harness = createMockCopilotSdkHarness({
+    name: 'flow-copilot-env-forwarding',
+    createSessionEvents: [createSessionIdleEvent()],
+  });
+
+  __setAgentServiceDepsForTests({
+    getMcpStatus: async () => ({ available: true }),
+    resolveCopilotReadiness: async () => ({
+      available: true,
+      toolsAvailable: true,
+      blockingStage: 'ready',
+      models: ['copilot-model'],
+      modelsRaw: [
+        {
+          id: 'copilot-model',
+          name: 'Copilot Model',
+          capabilities: {
+            supports: { vision: false, reasoningEffort: false },
+            limits: { max_context_window_tokens: 128000 },
+          },
+        },
+      ],
+      authSource: 'env-token',
+    }),
+  });
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: (provider, deps) =>
+            getChatInterface(provider, {
+              ...deps,
+              copilotClientFactory: (options) => {
+                capturedOptions.push(options);
+                return harness.createClientFactory()(options);
+              },
+            }),
+          listIngestedRepositories: async () => ({
+            repos: [buildRepoEntry(workingFolder)],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({
+        conversationId: 'flow-copilot-env-forwarding',
+        working_folder: workingFolder,
+      })
+      .expect(202);
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (capturedOptions.length >= 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    assert.equal(capturedOptions.length, 1);
+    assert.equal(capturedOptions[0]?.env?.CODEINFO_ROOT, tempRoot);
+    assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
+  } finally {
+    __resetAgentServiceDepsForTests();
+    memoryConversations.delete('flow-copilot-env-forwarding');
+    memoryTurns.delete('flow-copilot-env-forwarding');
+    process.env.CODEINFO_AGENT_HOME = prevAgentHome;
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevLegacyAgentHome;
+    process.env.FLOWS_DIR = prevFlowsDir;
+    process.env.CODEINFO_CODEX_HOME = prevCodexHome;
+    process.env.CODEINFO_COPILOT_HOME = prevCopilotHome;
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 

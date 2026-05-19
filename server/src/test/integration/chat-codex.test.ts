@@ -18,6 +18,7 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../../agents/runLock.js';
+import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   getMemoryTurns,
   memoryConversations,
@@ -1490,7 +1491,10 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
 
   await request(app).post('/chat').send(buildCodexBody()).expect(202);
 
-  assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
+  assert.equal(
+    mockCodex.lastStartOptions?.workingDirectory,
+    resolveAgentHomeEnv().codeInfoRoot,
+  );
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });
 
@@ -1860,6 +1864,61 @@ test('repository-backed codex chat keeps distinct runtime homes for conversation
     await fs.access(path.join(String(firstHome), 'chat', 'config.toml'));
     await fs.access(path.join(String(secondHome), 'chat', 'config.toml'));
   });
+});
+
+test('chat forwards CODEINFO_ROOT into the Codex runtime environment', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-codex-codeinfo-root-'),
+  );
+  let capturedOptions: CodexOptions | undefined;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: (options?: CodexOptions) => {
+        capturedOptions = options;
+        return new MockCodex('thread-codeinfo-root');
+      },
+      copilotLifecycleFactory: createUnavailableCopilotLifecycle,
+      listIngestedRepositoriesFn: async () =>
+        ({
+          repos: [{ containerPath: repoRoot }],
+          lockedModelId: null,
+        }) as never,
+    }),
+  );
+
+  try {
+    const conversationId = 'chat-codex-codeinfo-root';
+    await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId,
+          message: 'Reply with only READY.',
+          working_folder: repoRoot,
+        }),
+      )
+      .expect(202);
+
+    await waitForAssistantTurn(conversationId);
+
+    assert.equal(capturedOptions?.env?.CODEINFO_ROOT, repoRoot);
+  } finally {
+    memoryConversations.delete('chat-codex-codeinfo-root');
+    memoryTurns.delete('chat-codex-codeinfo-root');
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
 });
 
 test('repository-backed codex chat reports filesystem materialization failures without mislabeling them as config-invalid', async () => {

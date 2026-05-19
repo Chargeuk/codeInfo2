@@ -82,6 +82,8 @@ export default function VirtualizedTranscript({
     },
     [historyTopLockActive, onHistoryTopSettled],
   );
+  // TanStack Virtual's hook is a documented incompatible-library seam for the compiler.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => transcriptContainerRef.current,

@@ -56,6 +56,10 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import {
+  isExecutePromptEnabled,
+  reconcileAgentDetailsCache,
+} from './agentsPage.shared';
 
 const buildCommandDisplayName = (name: string) => name.replace(/_/g, ' ');
 
@@ -78,47 +82,6 @@ type AgentListEntry = {
   disabled?: boolean;
   warnings?: string[];
 };
-
-export const reconcileAgentDetailsCache = (
-  agentDetailsByName: Record<string, AgentDetails | undefined>,
-  agents: AgentListEntry[],
-) => {
-  let nextAgentDetailsByName:
-    | Record<string, AgentDetails | undefined>
-    | undefined;
-
-  for (const agent of agents) {
-    const cachedDetails = agentDetailsByName[agent.name];
-    if (!cachedDetails) continue;
-
-    const summaryDisabled = agent.disabled;
-    const cachedDisabled = cachedDetails.disabled;
-    const staleDisabledDetails =
-      summaryDisabled === false && cachedDisabled === true;
-    const staleEnabledDetails =
-      summaryDisabled === true && cachedDisabled === false;
-    if (!staleDisabledDetails && !staleEnabledDetails) continue;
-    if (!nextAgentDetailsByName) {
-      nextAgentDetailsByName = { ...agentDetailsByName };
-    }
-    delete nextAgentDetailsByName[agent.name];
-  }
-
-  return nextAgentDetailsByName ?? agentDetailsByName;
-};
-
-export const isExecutePromptEnabled = (params: {
-  selectedPromptEntry: AgentPromptEntry | null;
-  selectedAgentName: string;
-  selectedAgentDisabled: boolean;
-  startPending: boolean;
-  persistenceUnavailable: boolean;
-}) =>
-  params.selectedPromptEntry !== null &&
-  Boolean(params.selectedAgentName) &&
-  !params.selectedAgentDisabled &&
-  !params.startPending &&
-  !params.persistenceUnavailable;
 
 export default function AgentsPage() {
   const theme = useTheme();

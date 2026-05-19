@@ -18,9 +18,8 @@ beforeEach(() => {
 });
 
 const { default: App } = await import('../App');
-const { default: FlowsPage, reconcileFlowDetailsCache } = await import(
-  '../pages/FlowsPage'
-);
+const { default: FlowsPage } = await import('../pages/FlowsPage');
+const { reconcileFlowDetailsCache } = await import('../pages/flowsPage.shared');
 const { default: HomePage } = await import('../pages/HomePage');
 
 const routes = [

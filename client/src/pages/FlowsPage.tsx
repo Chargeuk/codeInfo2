@@ -48,6 +48,7 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import { reconcileFlowDetailsCache } from './flowsPage.shared';
 
 const buildFlowMetaLine = (command: ChatMessage['command']) => {
   if (!command || command.name !== 'flow') return null;
@@ -76,33 +77,6 @@ const buildFlowLabel = (flow: FlowSummary) => {
 
 const buildFlowKey = (flow: FlowSummary) =>
   `${flow.name}::${flow.sourceId ?? 'local'}`;
-
-export const reconcileFlowDetailsCache = (
-  flowDetailsByKey: Record<string, FlowDetails | undefined>,
-  flows: FlowSummary[],
-) => {
-  let nextFlowDetailsByKey: Record<string, FlowDetails | undefined> | undefined;
-
-  for (const flow of flows) {
-    const flowKey = buildFlowKey(flow);
-    const cachedDetails = flowDetailsByKey[flowKey];
-    if (!cachedDetails) continue;
-
-    const summaryDisabled = flow.disabled;
-    const cachedDisabled = cachedDetails.disabled;
-    const staleDisabledDetails =
-      summaryDisabled === false && cachedDisabled === true;
-    const staleEnabledDetails =
-      summaryDisabled === true && cachedDisabled === false;
-    if (!staleDisabledDetails && !staleEnabledDetails) continue;
-    if (!nextFlowDetailsByKey) {
-      nextFlowDetailsByKey = { ...flowDetailsByKey };
-    }
-    delete nextFlowDetailsByKey[flowKey];
-  }
-
-  return nextFlowDetailsByKey ?? flowDetailsByKey;
-};
 
 type FlowOption = FlowSummary & { key: string; label: string };
 

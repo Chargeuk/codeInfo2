@@ -17,11 +17,10 @@ beforeEach(() => {
 });
 
 const { default: App } = await import('../App');
-const {
-  default: AgentsPage,
-  isExecutePromptEnabled,
-  reconcileAgentDetailsCache,
-} = await import('../pages/AgentsPage');
+const { default: AgentsPage } = await import('../pages/AgentsPage');
+const { isExecutePromptEnabled, reconcileAgentDetailsCache } = await import(
+  '../pages/agentsPage.shared'
+);
 const { default: HomePage } = await import('../pages/HomePage');
 
 const routes = [

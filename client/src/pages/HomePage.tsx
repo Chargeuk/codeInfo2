@@ -205,7 +205,7 @@ export default function HomePage() {
           }
           isLoading={lmStudioLoading}
           isEmpty={lmStudioEmpty}
-          error={lmStudioError ? lmStudioState.error : null}
+          error={lmStudioState.status === 'error' ? lmStudioState.error : null}
           lastConnectedLabel={lastCheckedAt}
           committedBaseUrl={committedBaseUrl}
           showAllModels={showAllModels}

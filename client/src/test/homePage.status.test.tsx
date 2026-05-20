@@ -7,7 +7,7 @@ import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 const mockFetchServerVersion = jest
   .fn<() => Promise<{ version: string }>>()
   .mockResolvedValue({ version: '1.8.0' });
-const mockFetchLmStudioStatus = jest.fn();
+const mockFetchLmStudioStatus = jest.fn<() => Promise<LmStudioStatusOk>>();
 const actualCommon = await import('@codeinfo2/common');
 
 await jest.unstable_mockModule('@codeinfo2/common', async () => ({

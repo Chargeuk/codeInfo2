@@ -4,8 +4,8 @@ Scan the selected review-created tasks for high-risk invariants, missing prerequ
 
 <instruction_priority>
 
-- Follow the scoped contract from `review_task_enhancement/01-shared-contract.md`.
-- Apply this pass only to the eligible review-created `__to_do__` tasks selected by `review_task_enhancement/02-select-scope.md`.
+- Follow the scoped contract from `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"`.
+- Apply this pass only to the eligible review-created `__to_do__` tasks selected by `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/02-select-scope.md"`.
 - Use fresh disk reads and current git state, not conversational memory.
 - Do not retask the whole story or broaden scope to older unrelated tasks.
 - Treat missing risk ownership as a tasking defect to repair before subtask granularity and proof-matrix passes run.

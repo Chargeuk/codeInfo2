@@ -4,8 +4,8 @@ Surface the review hotspots that are most likely to become late findings, then e
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
-- Read and apply `shared/review-preemption-checklist.md` before editing the plan.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/improve_plan/01-shared-contract.md"`.
+- Read and apply `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-preemption-checklist.md"` before editing the plan.
 - Do not create tasks in this pass.
 - Prefer explicit plan language over hidden assumptions that would only appear during review.
   </instruction_priority>

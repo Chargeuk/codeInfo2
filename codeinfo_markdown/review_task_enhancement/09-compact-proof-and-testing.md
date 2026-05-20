@@ -4,7 +4,7 @@ Give selected review-created tasks realistic automated proof and testing without
 
 <instruction_priority>
 
-- Follow `review_task_enhancement/01-shared-contract.md` and keep the scope limited to the selected review-created `__to_do__` tasks.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"` and keep the scope limited to the selected review-created `__to_do__` tasks.
 - Keep `Testing` automated-only and wrapper-first.
 - Prefer targeted task-local proof plus one broad final revalidation task for the whole review-created findings block.
 - Compactness must not leave a changed behavior without an honest automated proof path.

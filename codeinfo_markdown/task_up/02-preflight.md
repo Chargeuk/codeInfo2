@@ -4,7 +4,7 @@ Lock the active story, repository scope, and tasking format before generating or
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Do not ask the user follow-up questions unless blocked by information that cannot be retrieved from repository files, git state, MCP tools, or official documentation.
 - Keep the work aligned to the KISS principle and do not future-plan beyond the selected story.
   </instruction_priority>

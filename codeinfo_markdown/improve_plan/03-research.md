@@ -4,7 +4,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/improve_plan/01-shared-contract.md"`.
 - Do not create tasks.
 - Keep the plan aligned to the KISS principle.
 - Prefer upstream or shared fixes over downstream duplication when repository evidence supports that direction.

@@ -4,7 +4,7 @@ Make selected review-created tasks concrete and executable without expanding the
 
 <instruction_priority>
 
-- Follow `review_task_enhancement/01-shared-contract.md` and keep the scope limited to the selected review-created `__to_do__` tasks.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"` and keep the scope limited to the selected review-created `__to_do__` tasks.
 - Preserve selected review-created task identities, grouping, and `Addresses Findings` coverage.
 - Prefer compact first-class patch tasks over one-checkbox-per-file decomposition.
 - Compactness must not hide ownership, sequencing, file targets, proof homes, or stopping rules.

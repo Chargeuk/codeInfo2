@@ -13,7 +13,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Do not modify older `__done__` or `__in_progress__` tasks unless a minimal cross-reference, dependency, numbering, or testing-alignment update is required to keep the plan executable and honest.
 - If no eligible new review-created `__to_do__` tasks exist, make no plan changes and say so.
 - If task ownership or scope is ambiguous, inspect the current working-tree diff for the selected plan file. If eligibility is still ambiguous, stop and report that blocker instead of broadening scope.
-- When later reused `task_up` guidance refers to the broader shared contract from `task_up/01-shared-contract.md`, use this scoped review-task-enhancement contract instead.
+- When later reused `task_up` guidance refers to the broader shared contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`, use this scoped review-task-enhancement contract instead.
 
 </critical_rules>
 

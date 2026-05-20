@@ -52,6 +52,8 @@ test('mobile app-menu navigation returns focus before the drawer unmounts', asyn
   page,
 }) => {
   const browserWarnings: string[] = [];
+  const focusWarningText =
+    'Blocked aria-hidden on an element because its descendant retained focus';
   page.on('console', (msg) => {
     if (msg.type() === 'warning' || msg.type() === 'error') {
       browserWarnings.push(msg.text());
@@ -70,13 +72,12 @@ test('mobile app-menu navigation returns focus before the drawer unmounts', asyn
     .getByText('Chat', { exact: true })
     .click();
   await expect(page).toHaveURL(/\/chat$/);
-  await page.waitForTimeout(250);
+  await expect(
+    page.getByTestId('workspace-mobile-app-menu-overlay'),
+  ).toBeHidden();
+  await expect(page.getByTestId('conversation-drawer-toggle')).toBeVisible();
 
   expect(
-    browserWarnings.some((text) =>
-      text.includes(
-        'Blocked aria-hidden on an element because its descendant retained focus',
-      ),
-    ),
+    browserWarnings.some((text) => text.includes(focusWarningText)),
   ).toBe(false);
 });

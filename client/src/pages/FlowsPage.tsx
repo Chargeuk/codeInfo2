@@ -1087,6 +1087,12 @@ export default function FlowsPage() {
     async (mode: 'run' | 'resume', launchClickDetail = 1) => {
       if (!selectedFlowName) return;
       const shouldGuardFreshRun = mode === 'run';
+      const releaseFreshRunReplayGuard = () => {
+        if (!shouldGuardFreshRun) {
+          return;
+        }
+        freshRunReplayGuardRef.current = false;
+      };
       if (shouldGuardFreshRun && launchClickDetail > 1) {
         return;
       }
@@ -1108,6 +1114,7 @@ export default function FlowsPage() {
           setRunError(
             (error as Error).message ?? 'Failed to load flow details.',
           );
+          releaseFreshRunReplayGuard();
           return;
         }
       }
@@ -1120,12 +1127,14 @@ export default function FlowsPage() {
         (selectedFlow?.disabled ? selectedFlow.error : undefined);
       if (guardDisabled) {
         setRunError(guardDisabledReason ?? 'This flow is currently disabled.');
+        releaseFreshRunReplayGuard();
         return;
       }
       if (persistenceUnavailable || !wsTranscriptReady) {
         setRunError(
           'Realtime connection unavailable — Flow runs require WebSocket streaming.',
         );
+        releaseFreshRunReplayGuard();
         return;
       }
       if (mode === 'resume' && !resumeStepPath) return;
@@ -1237,9 +1246,7 @@ export default function FlowsPage() {
           err instanceof FlowApiError ? (err.code ?? null) : null,
         );
       } finally {
-        if (shouldGuardFreshRun) {
-          freshRunReplayGuardRef.current = false;
-        }
+        releaseFreshRunReplayGuard();
         setStartPending(false);
       }
     },

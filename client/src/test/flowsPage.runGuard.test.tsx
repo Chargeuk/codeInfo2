@@ -612,6 +612,109 @@ describe('Flows page run guards', () => {
     );
   });
 
+  it('releases the replay guard after a validation-time detail-load failure so a later fresh run can proceed', async () => {
+    const user = userEvent.setup();
+    let failDetailsRequest = true;
+    const requestBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : 'url' in url && typeof url.url === 'string'
+                ? url.url
+                : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (
+          target.includes('/flows/daily?') ||
+          target.endsWith('/flows/daily')
+        ) {
+          if (failDetailsRequest) {
+            failDetailsRequest = false;
+            return mockJsonResponse(
+              {
+                code: 'DETAILS_UNAVAILABLE',
+                message: 'Details service unavailable',
+              },
+              { status: 500 },
+            );
+          }
+
+          return mockJsonResponse({
+            flow: {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: false,
+              warnings: [],
+            },
+          });
+        }
+
+        if (target.includes('/flows') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
+
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (target.includes('/flows/daily/run')) {
+          const body =
+            typeof init?.body === 'string'
+              ? (JSON.parse(init.body) as Record<string, unknown>)
+              : {};
+          requestBodies.push(body);
+          return mockJsonResponse(
+            {
+              status: 'started',
+              flowName: 'daily',
+              conversationId: 'flow-1',
+              inflightId: 'i1',
+              modelId: 'gpt-5',
+            },
+            { status: 202 },
+          );
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await user.click(runButton);
+
+    expect(
+      await screen.findByText('Details service unavailable'),
+    ).toBeInTheDocument();
+    expect(requestBodies).toHaveLength(0);
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await user.click(runButton);
+
+    await waitFor(() => expect(requestBodies).toHaveLength(1));
+    expect(requestBodies[0]).toHaveProperty('conversationId');
+  });
+
   it('blocks a rapid fresh-run double-click on the first-arrival echo path even when the accepted launch settles and repopulates conversations before the barrier releases', async () => {
     const user = userEvent.setup();
     const requestBodies: Record<string, unknown>[] = [];

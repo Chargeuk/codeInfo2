@@ -1765,7 +1765,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `13`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-2`: fresh-run retries can still start duplicate logical launches after an ambiguous network failure because the client remints a new `conversationId` and the server has no bounded replay-ownership seam for the earlier accepted launch.
 
@@ -1862,8 +1862,8 @@ No additional repositories are in scope for this review-created repair. The find
 - Testing item 3 complete: the targeted client wrapper passed for the fresh-run retry ownership, replay-guard, and payload proof files.
 - Testing item 2 complete: the focused server Cucumber wrapper passed for the ambiguous retry route proof.
 - Testing items 5 and 6 complete: the repository hygiene pass reran `npm run lint` and `npm run format:check`, then recorded the resulting import-wrap cleanup in commit `25ccae88`, so no lint or format debt from the Task 14 repair remains in the current worktree.
-- Audit normalization complete: all Task 14 implementation subtasks are now checked from repository evidence, so this task remains `__in_progress__` only because automated proof is not fully complete yet.
 - Testing item 4 complete: ran `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts` after updating `docker-compose.e2e.yml` to mount the repository `./codex` into `/host/codex` instead of bind-mounting an externally-configured host path. The e2e wrapper passed (64 tests, 0 failures). Full log: `logs/test-summaries/e2e-tests-latest.log`.
+- Automated-proof audit complete: Task 14 now has all subtasks and testing items checked from repository evidence, no live standalone `**BLOCKER**` lines remain in the parser output, and the task is ready to hand off to Task 15 for broad final revalidation.
 
 #### Manual Testing Guidance
 

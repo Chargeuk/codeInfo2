@@ -1788,11 +1788,12 @@ No additional repositories are in scope for this review-created repair. The find
 
 #### Proof Mapping
 
-- `P1.` client retry-ownership state proof for `R1`, `R2`, and `R3`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof homes are `client/src/test/flowsPage.run.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx`.
-- `P2.` fresh-run request-shaping proof for `R2` and `R3`: implementation owners are `client/src/pages/FlowsPage.tsx` and `client/src/api/flows.ts`; proof home is `client/src/test/flowsApi.run.payload.test.ts`.
-- `P3.` server-side replay and accepted-launch ownership proof for `R1`, `R3`, and `R4`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof homes are `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`.
-- `P4.` user-visible ambiguous-retry proof for `R1` and `R4`: implementation owners are the same client/server launch seam plus `e2e/flows-execution-runs.spec.ts`; proof home is the targeted e2e wrapper path for the fresh-run launch flow.
-- `P5.` broad regression proof for the current review-created findings block: proof home is the fresh final revalidation task below, which reruns the relevant repository-supported wrappers after this repair lands.
+- `P1.` client retry-ownership state proof for `R1` and `R3`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.run.test.tsx`.
+- `P2.` client resume-boundary and failure-release proof for `R2` and `R3`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.runGuard.test.tsx`.
+- `P3.` fresh-run request-shaping proof for `R2` and `R3`: implementation owners are `client/src/pages/FlowsPage.tsx` and `client/src/api/flows.ts`; proof home is `client/src/test/flowsApi.run.payload.test.ts`.
+- `P4.` server-side replay and accepted-launch ownership proof for `R1` and `R4`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof homes are `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`.
+- `P5.` user-visible ambiguous-retry proof for `R1` and `R4`: implementation owners are the same client/server launch seam plus `e2e/flows-execution-runs.spec.ts`; proof home is the targeted e2e wrapper path for the fresh-run launch flow.
+- `P6.` broad regression proof for the current review-created findings block: proof home is the fresh final revalidation task below, which reruns the relevant repository-supported wrappers after this repair lands.
 
 #### Risk Ownership
 
@@ -1827,12 +1828,15 @@ No additional repositories are in scope for this review-created repair. The find
 3. [ ] Patch `client/src/api/flows.ts` so the repaired fresh-run ownership value reaches the server through an explicit bounded request field that stays separate from resume-only identifiers and existing custom-title inputs.
 4. [ ] Patch `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts` so a retry carrying that repaired ownership field resolves to the already-accepted fresh launch instead of starting a second logical run when only the original 202 response was lost.
 5. [ ] In the same client/server seam, preserve the existing fresh-run versus resume boundary, selected-flow revalidation, custom-title handling, and the already-resolved same-frame replay barrier so the new ownership field does not leak into resume launches or disable the supported retry path after a genuine rejected launch.
-6. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx` so they prove the client keeps one logical fresh-run ownership value across an ambiguous retry, releases that value after a real failure, and does not regress the current resume boundary or replay-barrier behavior.
-7. [ ] Add or update `client/src/test/flowsApi.run.payload.test.ts` so the request payload proof names the new fresh-run ownership field explicitly, shows that ambiguous retries reuse it, and proves fresh runs still exclude resume-only identifiers.
-8. [ ] Add or update `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts` so server-owned proof covers one accepted launch per logical fresh-run ownership value, preserves the current resume identity path, and makes the ambiguous-retry versus real-failure split explicit in the case titles.
-9. [ ] Add or update `e2e/flows-execution-runs.spec.ts` so the browser proof drives one ambiguous fresh-run retry path and proves the UI converges on one accepted launch plus one visible conversation for that logical intent.
-10. [ ] Address any lint issues introduced by the repair in touched files.
-11. [ ] Address any format-check issues introduced by the repair in touched files.
+6. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` so it proves the client-side retry seam keeps one logical fresh-run ownership value and does not mint a second distinct launch identity after an ambiguous failure.
+7. [ ] Add or update `client/src/test/flowsPage.runGuard.test.tsx` so it proves the repaired seam still releases ownership after a genuine rejected launch and still preserves the current fresh-run versus resume boundary plus the existing replay barrier.
+8. [ ] Add or update `client/src/test/flowsApi.run.payload.test.ts` so the request payload proof names the new fresh-run ownership field explicitly, shows that ambiguous retries reuse it, and proves fresh runs still exclude resume-only identifiers.
+9. [ ] Add or update `server/src/test/integration/flows.run.basic.test.ts` so it proves one accepted launch is owned by one logical fresh-run retry value even when the client retries after an ambiguous response loss.
+10. [ ] Add or update `server/src/test/integration/flows.run.errors.test.ts` so it proves the repaired server seam distinguishes an ambiguous retry from a genuine rejected launch instead of collapsing both paths into the same duplicate-run outcome.
+11. [ ] Add or update `server/src/test/integration/flows.run.resume.identity.test.ts` so it proves the repaired fresh-run ownership field does not leak into the existing resume identity contract.
+12. [ ] Add or update `e2e/flows-execution-runs.spec.ts` so the browser proof drives one ambiguous fresh-run retry path and proves the UI converges on one accepted launch plus one visible conversation for that logical intent.
+13. [ ] Address any lint issues introduced by the repair in touched files.
+14. [ ] Address any format-check issues introduced by the repair in touched files.
 
 #### Testing
 

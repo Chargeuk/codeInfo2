@@ -1535,15 +1535,16 @@ Repair the fresh-run launch seam on the Flows page so one logical new-run intent
 #### Task Exit Criteria
 
 - `R1.` A duplicate click or same-frame re-entry cannot mint multiple client conversation ids for one logical fresh `Run` intent.
-- `R2.` The repair still preserves the current fresh-run versus resume contract, including custom-title ownership and selected-flow detail revalidation before launch.
+- `R2.` The repair still preserves the current fresh-run versus resume contract, including custom-title ownership, selected-flow detail revalidation before launch, and the correct active-mode boundary for launch state.
 - `R3.` The visible run control still returns to the supported retry path after the in-flight state resolves, rather than becoming permanently locked by the new replay barrier.
 - `R4.` Proof covers the exact re-entry seam where React has not yet committed the disabled render, instead of only proving eventual button disable after the first click.
+- `R5.` Resume-only identifiers or other hidden, disabled, or restored opposite-mode launch values may remain in local UI state only when the active submit path excludes them from the request payload; otherwise the active-mode transition clears them before submission.
 
 #### Proof Mapping
 
 - `P1.` duplicate-click and ambiguous-retry replay-barrier proof for `R1`, `R3`, and `R4`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.run.test.tsx`.
-- `P2.` selected-flow revalidation and fresh-vs-resume contract proof for `R2`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.runGuard.test.tsx`.
-- `P3.` run-payload contract parity proof for `R2`: implementation owner is `client/src/api/flows.ts`; proof home is `client/src/test/flowsApi.run.payload.test.ts`.
+- `P2.` selected-flow revalidation, fresh-vs-resume contract, and mixed-state mode-boundary proof for `R2` and `R5`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.runGuard.test.tsx`.
+- `P3.` run-payload contradictory-state exclusion proof for `R2` and `R5`: implementation owners are `client/src/pages/FlowsPage.tsx` and `client/src/api/flows.ts`; proof home is `client/src/test/flowsApi.run.payload.test.ts`.
 
 #### Risk Ownership
 
@@ -1570,9 +1571,10 @@ Repair the fresh-run launch seam on the Flows page so one logical new-run intent
 1. [ ] Re-read `startFlowRun('run')`, `makeClientConversationId()`, and the `Run` button disable path in `client/src/pages/FlowsPage.tsx`, then re-read the closest fresh-run and guard proofs in `client/src/test/flowsPage.run.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx` so the exact duplicate-launch seam is isolated before patching.
 2. [ ] Patch `client/src/pages/FlowsPage.tsx` so `R1` and `R4` are satisfied at the source seam: duplicate clicks or ambiguous retries must not mint more than one fresh client conversation id or submit the same logical `Run` intent twice before the disabled render commits.
 3. [ ] In the same `client/src/pages/FlowsPage.tsx` patch, preserve the `R2` and `R3` invariants by keeping the current resume path, custom-title rules, selected-flow detail revalidation, and retry-ready reset behavior intact after the in-flight state resolves.
-4. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` so it proves `R1`, `R3`, and `R4` with a same-frame duplicate-click or re-entry scenario that reaches the API seam only once, mints only one fresh client conversation id, and returns the control to an honest retry-ready state after the request resolves.
-5. [ ] Add or update `client/src/test/flowsPage.runGuard.test.tsx` so it proves `R2` still holds after the replay-barrier repair, including selected-flow revalidation and the existing fresh-run versus resume boundary.
-6. [ ] If the replay-barrier repair touches fresh-run payload construction or custom-title serialization, update `client/src/api/flows.ts` and `client/src/test/flowsApi.run.payload.test.ts` so `R2` still has an explicit payload-contract proof home instead of relying on indirect coverage.
+4. [ ] In `client/src/pages/FlowsPage.tsx`, make the `R5` mixed-state policy explicit: any resume-only identifiers or other hidden, disabled, or restored opposite-mode launch values may be retained locally only for UI restoration, and the active fresh-run submit path must exclude them from the request payload instead of letting them leak into a contradictory launch request.
+5. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` so it proves `R1`, `R3`, and `R4` with a same-frame duplicate-click or re-entry scenario that reaches the API seam only once, mints only one fresh client conversation id, and returns the control to an honest retry-ready state after the request resolves.
+6. [ ] Add or update `client/src/test/flowsPage.runGuard.test.tsx` so it proves `R2` and `R5` still hold after the replay-barrier repair, including selected-flow revalidation, the existing fresh-run versus resume boundary, and the active-mode treatment of hidden or restored opposite-mode launch state.
+7. [ ] If the active-mode launch patch changes request shaping, update `client/src/api/flows.ts` and `client/src/test/flowsApi.run.payload.test.ts` so `R2` and `R5` have an explicit payload-boundary proof home: fresh runs exclude resume-only identifiers and other contradictory hidden values, while resume launches do not inherit fresh-run-only state by accident.
 
 #### Testing
 

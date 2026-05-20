@@ -456,123 +456,128 @@ describe('Flows page run guards', () => {
     let runRequestCount = 0;
     const requestBodies: Record<string, unknown>[] = [];
 
-    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-      const target =
-        typeof url === 'string'
-          ? url
-          : url instanceof URL
-            ? url.toString()
-            : 'url' in url && typeof url.url === 'string'
-              ? url.url
-              : url.toString();
-      const method =
-        init?.method ??
-        (typeof url === 'object' &&
-        url !== null &&
-        'method' in url &&
-        typeof url.method === 'string'
-          ? url.method
-          : undefined);
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : 'url' in url && typeof url.url === 'string'
+                ? url.url
+                : url.toString();
+        const method =
+          init?.method ??
+          (typeof url === 'object' &&
+          url !== null &&
+          'method' in url &&
+          typeof url.method === 'string'
+            ? url.method
+            : undefined);
 
-      if (target.includes('/health')) {
-        return mockJsonResponse({ mongoConnected: true });
-      }
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
 
-      if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
-        return mockJsonResponse({
-          flow: {
-            name: 'daily',
-            description: 'Daily flow',
-            disabled: false,
-          },
-        });
-      }
+        if (
+          target.includes('/flows/daily?') ||
+          target.endsWith('/flows/daily')
+        ) {
+          return mockJsonResponse({
+            flow: {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: false,
+            },
+          });
+        }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
-      }
+        if (target.includes('/flows') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
 
-      if (target.includes('/conversations/') && target.includes('/turns')) {
-        return mockJsonResponse({ items: [] });
-      }
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
 
-      if (
-        target.includes('/conversations/') &&
-        target.includes('/working-folder') &&
-        method === 'POST'
-      ) {
-        return mockJsonResponse({
-          status: 'ok',
-          conversation: {
-            conversationId: 'flow-resume-1',
-            title: 'Flow: daily',
-            provider: 'codex',
-            model: 'gpt-5',
-            source: 'REST',
-            archived: false,
-            flowName: 'daily',
-            flags: {},
-          },
-        });
-      }
-
-      if (target.includes('/conversations')) {
-        return mockJsonResponse({
-          items: [
-            {
+        if (
+          target.includes('/conversations/') &&
+          target.includes('/working-folder') &&
+          method === 'POST'
+        ) {
+          return mockJsonResponse({
+            status: 'ok',
+            conversation: {
               conversationId: 'flow-resume-1',
               title: 'Flow: daily',
               provider: 'codex',
               model: 'gpt-5',
               source: 'REST',
-              lastMessageAt: now,
               archived: false,
               flowName: 'daily',
-              flags: {
-                flow: {
-                  stepPath: [2, 0],
+              flags: {},
+            },
+          });
+        }
+
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'flow-resume-1',
+                title: 'Flow: daily',
+                provider: 'codex',
+                model: 'gpt-5',
+                source: 'REST',
+                lastMessageAt: now,
+                archived: false,
+                flowName: 'daily',
+                flags: {
+                  flow: {
+                    stepPath: [2, 0],
+                  },
                 },
               },
-            },
-          ],
-        });
-      }
+            ],
+          });
+        }
 
-      if (target.includes('/flows/daily/run')) {
-        const body =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as Record<string, unknown>)
-            : {};
-        requestBodies.push(body);
-        runRequestCount += 1;
-        if (runRequestCount === 1) {
+        if (target.includes('/flows/daily/run')) {
+          const body =
+            typeof init?.body === 'string'
+              ? (JSON.parse(init.body) as Record<string, unknown>)
+              : {};
+          requestBodies.push(body);
+          runRequestCount += 1;
+          if (runRequestCount === 1) {
+            return mockJsonResponse(
+              {
+                code: 'FLOW_FAILED',
+                message: 'Flow request failed',
+              },
+              { status: 500 },
+            );
+          }
+
           return mockJsonResponse(
             {
-              code: 'FLOW_FAILED',
-              message: 'Flow request failed',
+              status: 'started',
+              flowName: 'daily',
+              conversationId: 'flow-2',
+              inflightId: 'i2',
+              modelId: 'gpt-5',
             },
-            { status: 500 },
+            { status: 202 },
           );
         }
 
-        return mockJsonResponse(
-          {
-            status: 'started',
-            flowName: 'daily',
-            conversationId: 'flow-2',
-            inflightId: 'i2',
-            modelId: 'gpt-5',
-          },
-          { status: 202 },
-        );
-      }
-
-      return mockJsonResponse({});
-    });
+        return mockJsonResponse({});
+      },
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);

@@ -1661,13 +1661,12 @@ export default function ChatPage() {
             OpenAI Codex is unavailable. Install the CLI (`npm install -g
             @openai/codex`), log in with `CODEX_HOME=./codex codex login` (or
             your `~/.codex`), and ensure `./codex/config.toml` is seeded. The
-            checked-in main Compose stack exposes the host Codex home
-            read-only at `/host/codex` and seeds or repairs the writable
-            `/app/codex` runtime home from it, so container logins are not
-            required there. If Codex later fails with `refresh_token_reused` or
-            `token_expired`, rerun `codex login` against the Codex home backing
-            the runtime you are using and restart that stack. See the guidance
-            in{' '}
+            checked-in main Compose stack exposes the host Codex home read-only
+            at `/host/codex` and seeds or repairs the writable `/app/codex`
+            runtime home from it, so container logins are not required there. If
+            Codex later fails with `refresh_token_reused` or `token_expired`,
+            rerun `codex login` against the Codex home backing the runtime you
+            are using and restart that stack. See the guidance in{' '}
             <Link
               href="https://github.com/Chargeuk/codeInfo2#codex-cli"
               target="_blank"

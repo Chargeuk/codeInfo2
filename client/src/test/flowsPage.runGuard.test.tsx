@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -820,7 +820,10 @@ describe('Flows page run guards', () => {
       const runButton = await screen.findByTestId('flow-run');
       await waitFor(() => expect(runButton).toBeEnabled());
 
-      await user.click(runButton);
+      await act(async () => {
+        fireEvent.click(runButton);
+        fireEvent.click(runButton);
+      });
 
       await waitFor(() => expect(requestBodies).toHaveLength(1));
       expect(requestBodies[0]).toHaveProperty('conversationId');

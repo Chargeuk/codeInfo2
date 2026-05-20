@@ -213,7 +213,7 @@ test('flows and agents show stable run clues for repeated fresh executions and b
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
 
   await page.getByTestId('flow-new').click();
-  await page.getByTestId('flow-run').click();
+  await page.getByTestId('flow-run').dblclick();
   await expect
     .poll(() => flowRows.length, {
       timeout: 10000,

@@ -1705,7 +1705,7 @@ No additional repositories are in scope for this review cycle. The current findi
 8. [x] Run `npm run compose:up`. 
 9. [x] Run `npm run compose:down`. 
 10. [x] Run `npm run lint`. 
-11. [ ] Run `npm run format:check`. 
+11. [x] Run `npm run format:check`.  
 
 #### Implementation Notes
 
@@ -1715,6 +1715,7 @@ No additional repositories are in scope for this review cycle. The current findi
 - Manual testing ran as full-story proof against the supported main stack and proved startup (`http://localhost:5010/health`), Home/provider-readiness rendering, `/lmstudio` redirect-to-Home behavior, chat/provider availability, agents shell loading, and the mobile app-menu route completion into `/flows`, but the first mobile-arrival `New Flow` plus rapid `Run` double-click still minted two accepted `POST /flows/echo/run` requests with distinct conversation ids before a second in-place rerun collapsed to one. Added focused `FlowsPage` plus client/e2e replay-guard follow-up subtasks, reopened `npm run format:check` as the last checked automated proof item so the normal validation loop reruns before later manual retest, and saved the scratch failure evidence under `codeInfoTmp/manual-testing/0000058/13/`.
 - Planner normalization reopened Task 13 to `__in_progress__` because the manual-proof follow-up subtasks and the reopened `npm run format:check` step remain honest unfinished work, so the task could not stay `__done__` without breaking selector ownership.
 - Implementation follow-up complete: the replay-barrier repair now suppresses same-frame fresh-run duplicate launches, the focused guard test is green, and the e2e proof now opens the mobile Conversations drawer to verify the first arrival row on the page where it actually renders.
+- Testing 11 complete: ran `npm run format` to auto-fix Prettier issues, re-ran `npm run format:check` which passed, and committed the formatting changes.
 
 
 #### Manual Testing Guidance

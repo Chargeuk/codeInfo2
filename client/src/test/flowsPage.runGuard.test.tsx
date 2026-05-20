@@ -616,69 +616,71 @@ describe('Flows page run guards', () => {
     const user = userEvent.setup();
     const requestBodies: Record<string, unknown>[] = [];
 
-    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
-      const target =
-        typeof url === 'string'
-          ? url
-          : url instanceof URL
-            ? url.toString()
-            : 'url' in url && typeof url.url === 'string'
-              ? url.url
-              : url.toString();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : 'url' in url && typeof url.url === 'string'
+                ? url.url
+                : url.toString();
 
-      if (target.includes('/health')) {
-        return mockJsonResponse({ mongoConnected: true });
-      }
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
 
-      if (target.includes('/flows/daily') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flow: {
-            name: 'daily',
-            description: 'Daily flow',
-            disabled: false,
-            warnings: [],
-          },
-        });
-      }
+        if (target.includes('/flows/daily') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flow: {
+              name: 'daily',
+              description: 'Daily flow',
+              disabled: false,
+              warnings: [],
+            },
+          });
+        }
 
-      if (target.includes('/flows') && !target.includes('/run')) {
-        return mockJsonResponse({
-          flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
-          ],
-        });
-      }
+        if (target.includes('/flows') && !target.includes('/run')) {
+          return mockJsonResponse({
+            flows: [
+              { name: 'daily', description: 'Daily flow', disabled: false },
+            ],
+          });
+        }
 
-      if (target.includes('/conversations/') && target.includes('/turns')) {
-        return mockJsonResponse({ items: [] });
-      }
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
 
-      if (target.includes('/conversations')) {
-        return mockJsonResponse({ items: [] });
-      }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [] });
+        }
 
-      if (target.includes('/flows/daily/run')) {
-        const body =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as Record<string, unknown>)
-            : {};
-        requestBodies.push(body);
-        const runIndex = requestBodies.length;
-        return mockJsonResponse(
-          {
-            status: 'started',
-            flowName: 'daily',
-            conversationId: `fresh-flow-${runIndex}`,
-            inflightId: `i${runIndex}`,
-            providerId: 'codex',
-            modelId: 'gpt-5',
-          },
-          { status: 202 },
-        );
-      }
+        if (target.includes('/flows/daily/run')) {
+          const body =
+            typeof init?.body === 'string'
+              ? (JSON.parse(init.body) as Record<string, unknown>)
+              : {};
+          requestBodies.push(body);
+          const runIndex = requestBodies.length;
+          return mockJsonResponse(
+            {
+              status: 'started',
+              flowName: 'daily',
+              conversationId: `fresh-flow-${runIndex}`,
+              inflightId: `i${runIndex}`,
+              providerId: 'codex',
+              modelId: 'gpt-5',
+            },
+            { status: 202 },
+          );
+        }
 
-      return mockJsonResponse({});
-    });
+        return mockJsonResponse({});
+      },
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
     render(<RouterProvider router={router} />);

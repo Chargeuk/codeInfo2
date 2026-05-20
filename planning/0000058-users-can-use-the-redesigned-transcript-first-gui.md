@@ -1948,7 +1948,7 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 
 #### Testing
 
-1. [ ] Run `python3 scripts/plan_status.py --task-number 14` and confirm the parser reports Task `14` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
+1. [x] Run `python3 scripts/plan_status.py --task-number 14` and confirm the parser reports Task `14` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
 2. [ ] Run `npm run build:summary:server`.
 3. [ ] Run `npm run build:summary:client`.
 4. [ ] Run `npm run test:summary:server:unit`.
@@ -1968,6 +1968,7 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 - Subtasks 2 and 3 complete: refreshed the durable PR summary and verified it against the current plan and review-disposition state so Tasks 14 and 15, the review-cycle ids, and the ownership keys now agree on disk.
 - Subtask 4 complete: compared Task 14’s proof surfaces against Task 15’s affected repositories, exit criteria, proof mapping, and documentation locations and found no stale-references cleanup needed beyond the summary/task ownership refresh already recorded.
 - Subtasks 5 and 6 complete: reran `npm run lint` and `npm run format:check`, then applied the small Prettier cleanup needed in `client/src/pages/FlowsPage.tsx` and `client/src/test/flowsPage.run.test.tsx` before the format gate passed cleanly.
+- Testing 1 complete: ran `python3 scripts/plan_status.py --task-number 14`; parser reports Task `14` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
 
 #### Manual Testing Guidance
 

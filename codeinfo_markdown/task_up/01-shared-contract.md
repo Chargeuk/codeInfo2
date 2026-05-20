@@ -53,6 +53,8 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - If `Design Contract Present` is false, do not add design-specific tasking requirements.
 - If `Design Contract Present` is true, every design-driven task must name the exact design assets it owns and must not rely on vague phrases such as `match the approved design direction` without concrete visual obligations.
 - If `Design Contract Present` is true, every design-driven task should include a short `Visual Invariants` subsection or equivalent concrete wording that states what must match, what may vary slightly, and what later proof must compare against the named design assets.
+- If `Design Contract Present` is true, every visual implementation subtask must reference the exact design file or file subset that governs the surface it is changing.
+- If `Design Contract Present` is true, the final task in the story must include `Manual Testing Guidance` that asks for full-story screenshots of all implemented frontend surfaces so later review can compare them against the named design assets.
 
 </design_contract_rules>
 
@@ -71,6 +73,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Treat the workflow as incomplete until every important requirement has both an implementation home and a named proof home.
 - Treat the workflow as incomplete until the final task list is understandable to a weak, junior, forgetful developer who may only read one subtask at a time.
 - If `Design Contract Present` is true, treat the workflow as incomplete until every named design asset has at least one task owner, explicit visual invariants, and later screenshot-comparison proof guidance.
+- If `Design Contract Present` is true, treat the workflow as incomplete until the final task's manual-testing guidance covers full-story screenshot capture for the implemented frontend surfaces, not only the latest task-local screen.
   </completeness_contract>
 
 <missing_context_policy>

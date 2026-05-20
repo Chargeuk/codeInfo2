@@ -49,7 +49,8 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - If `Design Contract Present` is true, verify that:
   - every named design asset is owned by at least one task;
   - every design-driven task has explicit visual invariants or equivalent concrete design obligations;
-  - later manual proof includes screenshot-to-design comparison guidance rather than screenshot capture alone.
+  - later manual proof includes screenshot-to-design comparison guidance rather than screenshot capture alone;
+  - the final task's `Manual Testing Guidance` requests full-story screenshots for every implemented frontend surface that the design assets govern.
 - Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>
 

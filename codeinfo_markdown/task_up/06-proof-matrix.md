@@ -32,6 +32,7 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
   3. the implementation files;
   4. the proof owner;
   5. the later screenshot views that manual proof must capture and compare.
+- If `Design Contract Present` is true and the task is the final task in the story, require that visual proof map to cover the full set of implemented frontend surfaces that the story owns, not only the final task's smallest local seam.
 - Do not allow grouped proof instructions like “update these tests” unless each file and invariant is still listed separately in the task.
 - When one task changes multiple proof files, use separate numbered subtasks or clearly separated proof bullets so a reviewer can see which file proves which invariant.
 - Keep wrapper commands in the `Testing` section. Keep exact test-file references in subtasks.

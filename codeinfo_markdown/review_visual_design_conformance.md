@@ -27,6 +27,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - The comparison stays bounded, concrete, and evidence-backed.
 - Any material mismatch against mandatory visual invariants becomes a normal actionable finding.
 - Any missing screenshot-to-design comparison proof becomes a finding only when both the design assets and the retained screenshots are present but the claimed comparison proof is still absent or weak.
+- Missing screenshots by themselves do not create a visual-review finding in this step.
 - If no actionable visual findings are discovered, the normal findings artifact remains the canonical source of truth and the visual review is recorded only as additive evidence.
 
 <critical_rules>
@@ -40,6 +41,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - This step must not edit the canonical plan directly.
 - This step must not invent screenshot paths, design assets, or comparison evidence.
 - Keep the review bounded. Compare only the surfaces that the active plan clearly treats as design-owned and that the retained screenshots can actually show.
+- Review only the screenshots that manual testing actually retained. Do not invent or require screenshot evidence that does not exist on disk.
 
 </critical_rules>
 
@@ -116,6 +118,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - Confirm `Design Contract Present` was decided from the active plan on disk, not from memory.
 - Confirm retained screenshots actually existed on disk before attempting visual comparison.
 - Confirm no artifact or handoff update was written when screenshots or design assets were missing.
+- Confirm no finding was added solely because screenshots were absent.
 - Confirm any new actionable visual finding was added to the canonical findings artifact rather than being left only in the additive visual-review artifact.
 - Confirm the additive visual-review artifact, when written, states exactly which screenshots and design assets were compared.
 

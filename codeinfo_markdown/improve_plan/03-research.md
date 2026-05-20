@@ -35,6 +35,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
   - extract the mandatory layout, hierarchy, spacing, metadata-placement, typography, and interaction-pattern invariants they imply when those qualities are visibly material to the design;
   - distinguish mandatory match requirements from acceptable implementation flex;
   - identify which page, shell, surface, or component each design asset governs;
+  - identify which design-relevant files must be referenced later by the visual implementation tasks for those governed surfaces;
   - check whether the plan still leaves visual success criteria implied rather than explicit.
 
 </design_contract_checks>
@@ -56,6 +57,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - Check whether manual testing can use the unmodified human Docker stack as the default runtime path, especially when repository evidence already documents supported credentials or access sources for that stack.
 - Check whether any required credentials, seeded accounts, or access sources are documented in repository files, README guidance, environment conventions, helper scripts, or fixtures, and record only where they are found rather than copying values into the plan.
 - If `Design Contract Present` is true, check whether the plan already names the design assets, mandatory visual invariants, and later screenshot-comparison proof expectations; if not, add them now instead of leaving design fidelity implicit for tasking.
+- If `Design Contract Present` is true, check whether the plan expects the final story validation path to capture screenshots for every implemented frontend surface across the whole story so later review can compare them against the named design assets.
 - Check whether new message contracts or storage shapes are required.
 - Check whether new or changed env/config inputs have an explicit valid domain, including empty-string behavior, whitespace behavior, lower bounds, upper bounds, and whether invalid values must clamp, fallback, or fail.
 - Check whether any planned query, delete filter, or bulk selector scales with repository size, file count, chunk count, or symbol count, and whether a bounded strategy is required because the story targets large files, large repositories, ingest scale, or indexing scale.
@@ -81,6 +83,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - If a lookup returns empty, partial, or suspiciously narrow results, retry with at least one better-targeted fallback before concluding there is no evidence.
 - Before moving on, check whether any broad implementation area still hides an unstated prerequisite, runtime seam, or proof gap that later passes must make explicit.
 - If `Design Contract Present` is true, check whether every named design asset now has an explicit planning purpose and whether the plan states what later proof must compare against it.
+- If `Design Contract Present` is true, check whether the plan makes it clear that missing screenshots alone are not a review finding, because the manual-testing pass owns the attempt to capture them first.
   </verification_loop>
 
 <output_contract>

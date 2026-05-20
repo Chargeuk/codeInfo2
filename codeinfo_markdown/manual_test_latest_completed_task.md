@@ -171,6 +171,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If story-level guidance or task-level guidance conflicts with fresher repository evidence or the stored runtime research, prefer the fresher evidence and record the conflict honestly in the implementation notes instead of silently following or ignoring the guidance.
 - If the active plan explicitly names design-target assets intended as implementation references, treat that as `Design Contract Present` for this manual-testing pass.
 - If `Design Contract Present` is true, identify the task-owned or story-owned design assets that the candidate task's visible surfaces are expected to match before starting browser proof.
+- If `Design Contract Present` is true and the candidate task is the final task in the story, identify the full set of implemented frontend surfaces across the whole story that later review will expect screenshots for.
 
 </story_and_task_guidance_rules>
 
@@ -224,8 +225,9 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - record for each comparison whether it `matches`, has a `minor mismatch`, or has a `material mismatch`;
   - summarize what matches and what differs in the implementation notes or retained support artifact;
   - treat screenshot capture alone as insufficient proof of visual conformance.
-- If the completed task has a browser-visible or connected frontend surface but you do not capture screenshots, treat the manual proof as incomplete unless a concrete tooling limitation prevents capture.
-- If screenshot capture is blocked, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
+- If the candidate task is the final task in the story and has a browser-visible or connected frontend surface, manual testing must try to capture screenshots for all implemented frontend surfaces across the story that can honestly be exercised in this pass.
+- If the completed task has a browser-visible or connected frontend surface, manual testing must try to capture the relevant screenshots whenever honest tooling and runtime access allow it.
+- If screenshot capture is blocked or incomplete, record that limitation explicitly in the implementation notes instead of silently skipping screenshots, but do not treat missing screenshots by themselves as a reason to reopen the task or add follow-up work.
 - Save any captured manual-proof artifacts to the correct repository-relative scratch destination for this task: `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
 - For Playwright MCP screenshots, first capture to the Playwright MCP output directory with a relative staging filename, then transfer the file to the repository-relative destination above using the `playwright_mcp_artifact_transfer_rules`.
 - If `Design Contract Present` is true, keep the screenshot basenames and comparison notes specific enough that a later reviewer can tell which retained screenshot corresponds to which design asset.
@@ -297,6 +299,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - if needed, add temporary diagnostic log lines or other minimal instrumentation, restart the affected runtime, and rerun the repro a small bounded number of times.
 - Remove purely temporary diagnostic instrumentation before finishing this step unless it is genuinely useful production or test logging.
 - Do not add speculative follow-up subtasks before that diagnosis pass is complete.
+- Before adding any follow-up subtasks for a visual discrepancy, inspect the remaining open tasks in the active plan.
+- If a later open task already clearly owns that same visual discrepancy or comparison gap, record that it is already planned and do not add duplicate subtasks or reopen the current task solely for that already-owned work.
 
 <section_ownership_rules>
 
@@ -312,6 +316,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 - If manual testing reveals issues that require more implementation work:
   - only add new subtasks if the diagnosis pass identified a concrete failing seam, owner, or contract mismatch;
+  - only add new subtasks when that issue is not already clearly owned by a later open task in the active plan;
   - update that same candidate task by adding new unchecked implementation or proof-authoring subtasks for the required follow-up work;
   - write every newly added subtask with the same level of detail and local context as the existing tasking;
   - make every newly added subtask name the exact file, harness, route, component, test file, marker, fixture, screenshot-path convention, or other prepared proof surface to change and the exact behavior to fix or prove;
@@ -351,7 +356,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 - If manual testing succeeds without finding further work:
   - set the candidate task's `Task Status` to `__done__`;
-  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, and that no additional subtasks were needed.
+  - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured or honestly attempted, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, and that no additional subtasks were needed.
 
 - If the non-run reason is `recoverable_runtime_trouble`:
   - prefer continuing manual testing if possible instead of blocking immediately;
@@ -409,6 +414,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
 - Confirm manual-proof artifacts were routed to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` for the bound task rather than split between separate non-final and final-task destinations.
 - Confirm Playwright MCP screenshots were not expected to save directly into the target repository; confirm they were transferred from the Playwright output directory or its harness-visible bind into the target repository destination.
+- Confirm missing screenshots alone did not create duplicate subtasks, blockers, or task reopen work when the agent honestly attempted capture and recorded any limitation.
+- Confirm any visual-discrepancy follow-up work was de-duplicated against later open tasks before new subtasks were added.
 - Confirm any task-overrides-story decision was recorded honestly.
 - Confirm any conflict between story-level or bound-task `Manual Testing Guidance` and fresher repository evidence was recorded honestly.
 - Confirm every non-run outcome left a short implementation note unless that same latest-loop outcome was already recorded.

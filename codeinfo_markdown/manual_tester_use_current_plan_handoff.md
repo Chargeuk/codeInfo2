@@ -51,8 +51,9 @@ When validation succeeds, return a concise response that includes:
 5. If story-level guidance is present, a short summary of its defaults.
 6. Whether `Design Contract Present` is true.
 7. If `Design Contract Present` is true, the named design assets or plan sections the manual tester must use as the visual comparison source.
-8. What is still remaining to be done.
-9. Any additional supporting repositories that later manual proof may need beyond the declared story repositories, when that is already evident.
+8. If `Design Contract Present` is true and the final story task expects story-wide screenshots, say that explicitly so the later manual-testing pass knows it must try to capture the whole implemented frontend surface, not only the current task-local seam.
+9. What is still remaining to be done.
+10. Any additional supporting repositories that later manual proof may need beyond the declared story repositories, when that is already evident.
 
 </output_contract>
 

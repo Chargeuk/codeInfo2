@@ -32,6 +32,7 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 - A story has `Design Contract Present` when the plan explicitly names design-target assets intended as implementation references, such as final `*.png`, `*.svg`, `*.md`, a `## Design Contract` section, or a task-scoped design packet.
 - If `Design Contract Present` is false, do not add design-specific planning requirements.
 - If `Design Contract Present` is true, treat the workflow as incomplete until the plan converts the provided design assets into explicit implementation obligations rather than leaving them as loose visual references.
+- If `Design Contract Present` is true, the plan must name the relevant design files explicitly and map them to the story surfaces they govern.
 
 </design_contract_rules>
 
@@ -41,6 +42,7 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 - Treat the workflow as incomplete until every relevant planning area is either improved with evidence-backed edits or explicitly confirmed not applicable.
 - Do not stop after improving only the Description or only the Acceptance Criteria; all relevant plan sections must remain mutually consistent.
 - If `Design Contract Present` is true, treat the workflow as incomplete until every named design asset has a concrete planning home, explicit visual invariants, and a later proof expectation.
+- If `Design Contract Present` is true, treat the workflow as incomplete until the later final validation path is expected to capture full-story screenshots for every implemented frontend surface that those assets govern.
   </completeness_contract>
 
 <missing_context_policy>

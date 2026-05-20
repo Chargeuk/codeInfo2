@@ -1191,7 +1191,9 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 #### Implementation notes
 
-- Starts empty.
+- Moved `Ingest` and `Logs` onto the shared utility shell, updated the touched ingest/log layout surfaces, and refreshed the related unit and e2e proof files in commit `b89c4097` (`DEV-[58] - finish task 8 utility shell`).
+- The focused client proof runs for `client/src/test/ingestPage.layout.test.tsx`, `client/src/test/logsPage.layout.test.tsx`, `client/src/test/useIngestRoots.test.tsx`, and `client/src/test/useLogs.test.ts` reached a clean `29/29` pass in `test-results/client-tests-2026-05-20T01-21-44-804Z.json`, and the latest targeted e2e wrapper log shows `unexpected: 0` for the ingest/log utility-shell browser proofs.
+- **BLOCKER** Remaining unchecked implementation subtasks after audit normalization: `14. Run npm run lint --workspace client` and `15. Run npm run format:check --workspace client`. Evidence checked: the Task 8 implementation commit `b89c4097`, the focused client test artifact `test-results/client-tests-2026-05-20T01-21-44-804Z.json`, and the latest targeted e2e wrapper log `logs/test-summaries/e2e-tests-latest.log`. Implementation cannot continue honestly without either completing these required repo-owned lint/format subtasks or planner intervention to repair the task state.
 
 ---
 

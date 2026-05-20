@@ -617,118 +617,122 @@ describe('Flows page run guards', () => {
     const requestBodies: Record<string, unknown>[] = [];
     const flowRows: Record<string, unknown>[] = [];
     const rafCallbacks: FrameRequestCallback[] = [];
-    const rafSpy = jest.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-      rafCallbacks.push(callback);
-      return rafCallbacks.length;
-    });
+    const rafSpy = jest
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        rafCallbacks.push(callback);
+        return rafCallbacks.length;
+      });
 
     try {
       mockFetch.mockImplementation(
-      (url: RequestInfo | URL, init?: RequestInit) => {
-        const target =
-          typeof url === 'string'
-            ? url
-            : url instanceof URL
-              ? url.toString()
-              : 'url' in url && typeof url.url === 'string'
-                ? url.url
-                : url.toString();
+        (url: RequestInfo | URL, init?: RequestInit) => {
+          const target =
+            typeof url === 'string'
+              ? url
+              : url instanceof URL
+                ? url.toString()
+                : 'url' in url && typeof url.url === 'string'
+                  ? url.url
+                  : url.toString();
 
-        if (target.includes('/health')) {
-          return mockJsonResponse({ mongoConnected: true });
-        }
+          if (target.includes('/health')) {
+            return mockJsonResponse({ mongoConnected: true });
+          }
 
-        if (target.includes('/flows/echo') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flow: {
-              name: 'echo',
-              description: 'Echo flow',
-              disabled: false,
-              warnings: [],
-            },
-          });
-        }
+          if (target.includes('/flows/echo') && !target.includes('/run')) {
+            return mockJsonResponse({
+              flow: {
+                name: 'echo',
+                description: 'Echo flow',
+                disabled: false,
+                warnings: [],
+              },
+            });
+          }
 
-        if (target.includes('/flows') && !target.includes('/run')) {
-          return mockJsonResponse({
-            flows: [{ name: 'echo', description: 'Echo flow', disabled: false }],
-          });
-        }
+          if (target.includes('/flows') && !target.includes('/run')) {
+            return mockJsonResponse({
+              flows: [
+                { name: 'echo', description: 'Echo flow', disabled: false },
+              ],
+            });
+          }
 
-        if (target.includes('/conversations/') && target.includes('/turns')) {
-          return mockJsonResponse({ items: [] });
-        }
+          if (target.includes('/conversations/') && target.includes('/turns')) {
+            return mockJsonResponse({ items: [] });
+          }
 
-        if (target.includes('/conversations')) {
-          return mockJsonResponse({
-            items: flowRows,
-            nextCursor: null,
-          });
-        }
+          if (target.includes('/conversations')) {
+            return mockJsonResponse({
+              items: flowRows,
+              nextCursor: null,
+            });
+          }
 
-        if (target.includes('/flows/echo/run')) {
-          const body =
-            typeof init?.body === 'string'
-              ? (JSON.parse(init.body) as Record<string, unknown>)
-              : {};
-          requestBodies.push(body);
-          const runIndex = requestBodies.length;
-          const conversationId = `fresh-flow-${runIndex}`;
-          flowRows.unshift({
-            conversationId,
-            title: 'Flow: echo',
-            provider: 'codex',
-            model: 'gpt-5',
-            source: 'REST',
-            lastMessageAt: new Date().toISOString(),
-            archived: false,
-            flowName: 'echo',
-            flags: {},
-          });
-          return mockJsonResponse(
-            {
-              status: 'started',
-              flowName: 'echo',
+          if (target.includes('/flows/echo/run')) {
+            const body =
+              typeof init?.body === 'string'
+                ? (JSON.parse(init.body) as Record<string, unknown>)
+                : {};
+            requestBodies.push(body);
+            const runIndex = requestBodies.length;
+            const conversationId = `fresh-flow-${runIndex}`;
+            flowRows.unshift({
               conversationId,
-              inflightId: `i${runIndex}`,
-              providerId: 'codex',
-              modelId: 'gpt-5',
-            },
-            { status: 202 },
-          );
-        }
+              title: 'Flow: echo',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: new Date().toISOString(),
+              archived: false,
+              flowName: 'echo',
+              flags: {},
+            });
+            return mockJsonResponse(
+              {
+                status: 'started',
+                flowName: 'echo',
+                conversationId,
+                inflightId: `i${runIndex}`,
+                providerId: 'codex',
+                modelId: 'gpt-5',
+              },
+              { status: 202 },
+            );
+          }
 
-        return mockJsonResponse({});
-      },
-    );
+          return mockJsonResponse({});
+        },
+      );
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('flow-select')).toHaveValue('echo::local'),
-    );
-    await waitFor(() => expect(screen.getByTestId('flow-new')).toBeEnabled());
-    await user.click(screen.getByTestId('flow-new'));
-    const runButton = await screen.findByTestId('flow-run');
-    await waitFor(() => expect(runButton).toBeEnabled());
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select')).toHaveValue('echo::local'),
+      );
+      await waitFor(() => expect(screen.getByTestId('flow-new')).toBeEnabled());
+      await user.click(screen.getByTestId('flow-new'));
+      const runButton = await screen.findByTestId('flow-run');
+      await waitFor(() => expect(runButton).toBeEnabled());
 
-    await user.click(runButton);
+      await user.click(runButton);
 
-    await waitFor(() => expect(requestBodies).toHaveLength(1));
-    expect(requestBodies[0]).toHaveProperty('conversationId');
-    await screen.findByText('Flow: echo');
-    await waitFor(() => expect(runButton).toBeDisabled());
+      await waitFor(() => expect(requestBodies).toHaveLength(1));
+      expect(requestBodies[0]).toHaveProperty('conversationId');
+      await screen.findByText('Flow: echo');
+      await waitFor(() => expect(runButton).toBeDisabled());
 
-    expect(requestBodies).toHaveLength(1);
-    expect(flowRows).toHaveLength(1);
+      expect(requestBodies).toHaveLength(1);
+      expect(flowRows).toHaveLength(1);
 
-    await act(async () => {
-      const callbacks = rafCallbacks.splice(0);
-      callbacks.forEach((callback) => callback(performance.now()));
-    });
+      await act(async () => {
+        const callbacks = rafCallbacks.splice(0);
+        callbacks.forEach((callback) => callback(performance.now()));
+      });
 
-    await waitFor(() => expect(runButton).toBeEnabled());
+      await waitFor(() => expect(runButton).toBeEnabled());
     } finally {
       rafSpy.mockRestore();
     }

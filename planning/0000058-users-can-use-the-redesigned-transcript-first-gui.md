@@ -1514,7 +1514,7 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
+1. [x] Run `npm run build:summary:server`.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codexAuthCopy.test.ts --file server/src/test/integration/codexAuthCopy.integration.test.ts`.
 3. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/codex-auth-bootstrap.feature`.
 4. [ ] Run `npm run compose:build:summary`.

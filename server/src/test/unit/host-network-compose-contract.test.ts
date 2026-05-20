@@ -133,6 +133,10 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+networks:/u);
+  assert.doesNotMatch(
+    mainPlaywright,
+    /\n\s+profiles:\n\s+- local/u,
+  );
   assert.match(mainPlaywright, /'8932'/u);
   assert.match(
     mainPlaywright,

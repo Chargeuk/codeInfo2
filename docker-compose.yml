@@ -180,8 +180,6 @@ services:
       - internal
 
   playwright-mcp:
-    profiles:
-      - local
     image: mcr.microsoft.com/playwright/mcp:latest
     user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     network_mode: host

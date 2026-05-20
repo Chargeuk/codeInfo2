@@ -56,6 +56,10 @@ test('published port contract stays unchanged after Copilot Docker wiring', () =
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
+  assert.doesNotMatch(
+    mainPlaywright,
+    /\n\s+profiles:\n\s+- local/u,
+  );
   assert.match(mainPlaywright, /'8932'/u);
 
   const localServer = getServiceBlock(localCompose, 'server');

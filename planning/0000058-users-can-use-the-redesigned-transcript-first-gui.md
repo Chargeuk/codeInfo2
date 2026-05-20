@@ -404,7 +404,7 @@ The design references for this story already exist and should be treated as the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -516,7 +516,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1624,7 +1624,7 @@ If later manual validation is useful after the automated repair lands, use the s
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `11, 12`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Final validation for review pass `0000058-20260520T055359Z-8bffd025`, covering task-required findings `finding-1` and `finding-4`.
   - Final revalidation owner for inline-resolved minor findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7` from the same active review cycle `0000058-rc-20260520T072406Z-8e4d883c`.
@@ -1692,6 +1692,8 @@ No additional repositories are in scope for this review cycle. The current findi
 4. [x] Update `client/src/pages/FlowsPage.tsx` so the fresh-run replay barrier suppresses duplicate `runFlow` submissions that can still slip through on the first mobile-app-menu arrival to `/flows` after `New Flow` and a rapid `Run` double-click, while preserving the intended single fresh conversation and single accepted launch request.
 5. [x] Extend `client/src/test/flowsPage.runGuard.test.tsx` to cover the first fresh-run `New Flow` guard path and assert that one rapid `Run` double-click cannot dispatch a second `runFlow` request or mint a second optimistic conversation id before the first launch settles.
 6. [x] Extend `e2e/flows-execution-runs.spec.ts` to enter `/flows` through the mobile app-menu route, perform the `New Flow` plus rapid `Run` double-click repro, and assert the live client emits only one accepted `/flows/<name>/run` request and one new conversation row on that first arrival path.
+7. [ ] Update `docker-compose.yml` and `docker-compose.e2e.yml` so the checked-in main and e2e server services mount `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` read-only at `/host/codex` while keeping the writable `codex-data` volume at `/app/codex`, matching the repository-documented split-home auth-seeding contract that Task 11 is supposed to revalidate.
+8. [ ] Add a compose-wiring regression proof at `server/src/test/features/codex-auth-compose-wiring.feature` plus any required supporting step definitions so `npm run test:summary:server:cucumber` fails when the resolved checked-in main or e2e compose config wires `/host/codex` to the same backing store as `/app/codex` instead of a distinct read-only host-backed mount.
 
 #### Testing
 
@@ -1705,7 +1707,7 @@ No additional repositories are in scope for this review cycle. The current findi
 8. [x] Run `npm run compose:up`. 
 9. [x] Run `npm run compose:down`. 
 10. [x] Run `npm run lint`. 
-11. [x] Run `npm run format:check`.  
+11. [ ] Run `npm run format:check`.  
 
 #### Implementation Notes
 
@@ -1717,6 +1719,7 @@ No additional repositories are in scope for this review cycle. The current findi
 - Implementation follow-up complete: the replay-barrier repair now suppresses same-frame fresh-run duplicate launches, the focused guard test is green, and the e2e proof now opens the mobile Conversations drawer to verify the first arrival row on the page where it actually renders.
 - Testing 11 complete: ran `npm run format` to auto-fix Prettier issues, re-ran `npm run format:check` which passed, and committed the formatting changes.
 - Automated-proof audit closed Task 13 after parser output confirmed all subtasks and testing steps are checked and no live blockers remain, so the stale repair-only hold-open state was no longer honest.
+- Manual testing reran as full-story proof against a freshly restarted supported main stack and proved startup (`http://localhost:5010/health`), provider availability (`/chat/providers` still reported `codex` available), and the live `/flows` browser shell (`codeInfoTmp/manual-testing/0000058/13/proof-01-flows-main-stack.png`), but the bounded diagnosis pass found the checked-in main-stack server currently mounts `codex-data` at both `/app/codex` and `/host/codex` instead of exposing a distinct host-backed read-only `/host/codex` seam. Added concrete compose-wiring repair plus cucumber-proof subtasks, reopened `npm run format:check` so automated proof must rerun before the next manual retest, and saved the runtime evidence under `codeInfoTmp/manual-testing/0000058/13/` (`support-server-mounts.json`, `support-compose-config.txt`, `support-chat-providers.json`, `support-server-log-tail.txt`, and related support files).
 
 
 #### Manual Testing Guidance

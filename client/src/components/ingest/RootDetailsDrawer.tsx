@@ -2,6 +2,9 @@ import {
   Box,
   Chip,
   Divider,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Drawer,
   List,
   ListItem,
@@ -9,8 +12,12 @@ import {
   Skeleton,
   Stack,
   Typography,
+  IconButton,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo } from 'react';
+import CloseIcon from '@mui/icons-material/Close';
 import type { IngestRoot } from '../../hooks/useIngestRoots';
 import { createLogger } from '../../logging';
 
@@ -34,6 +41,8 @@ export default function RootDetailsDrawer({
   onClose,
 }: RootDetailsDrawerProps) {
   const log = useMemo(() => createLogger('client'), []);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const loading = open && !root;
   const includeList = DEFAULT_INCLUDE_EXTENSIONS;
   const excludeList = DEFAULT_EXCLUDES;
@@ -65,6 +74,142 @@ export default function RootDetailsDrawer({
     });
   }, [log, open, root?.embeddingModel, root?.embeddingProvider, root?.model]);
 
+  const content = (
+    <Stack spacing={2}>
+      {loading ? (
+        <Stack spacing={2}>
+          <Skeleton variant="text" width="70%" />
+          <Skeleton variant="rectangular" height={120} />
+        </Stack>
+      ) : null}
+
+      {root ? (
+        <Stack spacing={2}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="h6" sx={{ flex: 1 }}>
+              {root.name || 'Embedded root'}
+            </Typography>
+            <Chip label={root.status} size="small" />
+          </Stack>
+
+          <Stack spacing={0.5}>
+            <LabelValue
+              label="Description"
+              value={root.description || 'No description provided'}
+            />
+            <LabelValue label="Path" value={root.path} mono />
+            <LabelValue label="Model" value={rootModelDisplay ?? '—'} />
+            {lockDisplay ? (
+              <LabelValue
+                label="Model lock"
+                value={`Embedding model locked to ${lockDisplay}`}
+              />
+            ) : null}
+            <LabelValue
+              label="Last ingest"
+              value={
+                root.lastIngestAt
+                  ? new Date(root.lastIngestAt).toLocaleString()
+                  : '—'
+              }
+            />
+            {root.requestId ? (
+              <LabelValue label="Request ID" value={root.requestId} mono />
+            ) : null}
+            <LabelValue
+              label="Run ID"
+              value={root.runId ?? 'Pending queue start'}
+              mono
+            />
+            {root.queueState ? (
+              <LabelValue
+                label="Queue state"
+                value={
+                  root.queueState === 'waiting'
+                    ? typeof root.queuePosition === 'number'
+                      ? `waiting (#${root.queuePosition})`
+                      : 'waiting'
+                    : root.queueState
+                }
+              />
+            ) : null}
+          </Stack>
+
+          <Divider />
+
+          <Stack spacing={0.5}>
+            <Typography variant="subtitle2">Counts</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Files: {root.counts?.files ?? '–'} • Chunks:{' '}
+              {root.counts?.chunks ?? '–'} • Embedded:{' '}
+              {root.counts?.embedded ?? '–'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              AST Supported: {astCounts?.supportedFileCount ?? '–'} • AST
+              Skipped: {astCounts?.skippedFileCount ?? '–'} • AST Failed:{' '}
+              {astCounts?.failedFileCount ?? '–'}
+            </Typography>
+          </Stack>
+
+          {rootError ? (
+            <Typography variant="body2" color="error">
+              Last error: {rootError}
+            </Typography>
+          ) : null}
+
+          <Divider />
+
+          <Typography variant="subtitle2">Include extensions</Typography>
+          <List dense>
+            {includeList.map((item) => (
+              <ListItem key={item} disablePadding>
+                <ListItemText primary={item} />
+              </ListItem>
+            ))}
+          </List>
+
+          <Typography variant="subtitle2">Exclude patterns</Typography>
+          <List dense>
+            {excludeList.map((item) => (
+              <ListItem key={item} disablePadding>
+                <ListItemText primary={item} />
+              </ListItem>
+            ))}
+          </List>
+
+          <Typography variant="caption" color="text.secondary">
+            Lists show server defaults when detailed metadata is unavailable.
+          </Typography>
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+
+  if (isMobile) {
+    return (
+      <Dialog
+        fullScreen
+        open={open}
+        onClose={onClose}
+        data-testid="root-details"
+      >
+        <DialogTitle sx={{ pr: 6 }}>
+          Root details
+          <IconButton
+            aria-label="Close root details"
+            onClick={onClose}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box>{content}</Box>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Drawer
       anchor="right"
@@ -73,112 +218,7 @@ export default function RootDetailsDrawer({
       data-testid="root-details"
     >
       <Box sx={{ width: 380, p: 3 }} role="dialog" aria-label="Root details">
-        {loading ? (
-          <Stack spacing={2}>
-            <Skeleton variant="text" width="70%" />
-            <Skeleton variant="rectangular" height={120} />
-          </Stack>
-        ) : null}
-
-        {root ? (
-          <Stack spacing={2}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="h6" sx={{ flex: 1 }}>
-                {root.name || 'Embedded root'}
-              </Typography>
-              <Chip label={root.status} size="small" />
-            </Stack>
-
-            <Stack spacing={0.5}>
-              <LabelValue
-                label="Description"
-                value={root.description || 'No description provided'}
-              />
-              <LabelValue label="Path" value={root.path} mono />
-              <LabelValue label="Model" value={rootModelDisplay ?? '—'} />
-              {lockDisplay ? (
-                <LabelValue
-                  label="Model lock"
-                  value={`Embedding model locked to ${lockDisplay}`}
-                />
-              ) : null}
-              <LabelValue
-                label="Last ingest"
-                value={
-                  root.lastIngestAt
-                    ? new Date(root.lastIngestAt).toLocaleString()
-                    : '—'
-                }
-              />
-              {root.requestId ? (
-                <LabelValue label="Request ID" value={root.requestId} mono />
-              ) : null}
-              <LabelValue
-                label="Run ID"
-                value={root.runId ?? 'Pending queue start'}
-                mono
-              />
-              {root.queueState ? (
-                <LabelValue
-                  label="Queue state"
-                  value={
-                    root.queueState === 'waiting'
-                      ? typeof root.queuePosition === 'number'
-                        ? `waiting (#${root.queuePosition})`
-                        : 'waiting'
-                      : root.queueState
-                  }
-                />
-              ) : null}
-            </Stack>
-
-            <Divider />
-
-            <Stack spacing={0.5}>
-              <Typography variant="subtitle2">Counts</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Files: {root.counts?.files ?? '–'} • Chunks:{' '}
-                {root.counts?.chunks ?? '–'} • Embedded:{' '}
-                {root.counts?.embedded ?? '–'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                AST Supported: {astCounts?.supportedFileCount ?? '–'} • AST
-                Skipped: {astCounts?.skippedFileCount ?? '–'} • AST Failed:{' '}
-                {astCounts?.failedFileCount ?? '–'}
-              </Typography>
-            </Stack>
-
-            {rootError ? (
-              <Typography variant="body2" color="error">
-                Last error: {rootError}
-              </Typography>
-            ) : null}
-
-            <Divider />
-
-            <Typography variant="subtitle2">Include extensions</Typography>
-            <List dense>
-              {includeList.map((item) => (
-                <ListItem key={item} disablePadding>
-                  <ListItemText primary={item} />
-                </ListItem>
-              ))}
-            </List>
-
-            <Typography variant="subtitle2">Exclude patterns</Typography>
-            <List dense>
-              {excludeList.map((item) => (
-                <ListItem key={item} disablePadding>
-                  <ListItemText primary={item} />
-                </ListItem>
-              ))}
-            </List>
-
-            <Typography variant="caption" color="text.secondary">
-              Lists show server defaults when detailed metadata is unavailable.
-            </Typography>
-          </Stack>
-        ) : null}
+        {content}
       </Box>
     </Drawer>
   );

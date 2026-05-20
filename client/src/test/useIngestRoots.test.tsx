@@ -118,6 +118,43 @@ describe('useIngestRoots', () => {
     );
   });
 
+  it('refetches roots with the latest payload after a utility-shell page refresh', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          runId: 'run-1',
+          name: 'repo',
+          path: '/repo',
+          status: 'completed',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    mockRootsResponse({
+      roots: [
+        {
+          runId: 'run-2',
+          name: 'repo-2',
+          path: '/repo-2',
+          status: 'completed',
+          model: 'embed-model-2',
+          lastError: null,
+        },
+      ],
+    });
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    await waitFor(() => expect(result.current.roots[0]?.path).toBe('/repo-2'));
+  });
+
   it('maps the flat route-payload error field into NormalizedIngestError.code and keeps legacy lastError safe', async () => {
     mockRootsResponse({
       roots: [

@@ -7,9 +7,9 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  Container,
   Divider,
   FormControlLabel,
+  Paper,
   Stack,
   Switch,
   TextField,
@@ -20,6 +20,7 @@ import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import useLogs from '../hooks/useLogs';
+import UtilityPageShell from '../components/utility/UtilityPageShell';
 import { createLogger } from '../logging';
 
 const levelOptions: LogEntry['level'][] = ['error', 'warn', 'info', 'debug'];
@@ -197,133 +198,142 @@ export default function LogsPage() {
   ));
 
   return (
-    <Container maxWidth="lg" sx={{ pb: 4 }}>
-      <Stack spacing={3} sx={{ mt: 0 }}>
-        <Stack spacing={1}>
-          <Typography variant="h4">Logs</Typography>
-          <Typography variant="body2" color="text.secondary">
+    <UtilityPageShell
+      title="Logs"
+      subtitle="Live feed of client and server events with filters, manual refresh, and a sample emitter to verify end-to-end logging."
+    >
+      <Stack spacing={3} sx={{ width: '100%', maxWidth: 1120, mx: 'auto' }}>
+        <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+          <Typography variant="body1" color="text.secondary">
             Live feed of client and server events with filters, manual refresh,
             and a sample emitter to verify end-to-end logging.
           </Typography>
-        </Stack>
+        </Box>
 
-        <Stack
-          spacing={1}
-          direction={isSmall ? 'column' : 'row'}
-          alignItems={isSmall ? 'stretch' : 'center'}
-          divider={isSmall ? <Divider flexItem /> : undefined}
-        >
-          <TextField
-            label="Search text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            size="small"
-            fullWidth={isSmall}
-          />
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {levelOptions.map((lvl) => (
-              <Chip
-                key={lvl}
-                label={lvl.toUpperCase()}
-                color={levelFilters.includes(lvl) ? 'primary' : 'default'}
-                variant={levelFilters.includes(lvl) ? 'filled' : 'outlined'}
-                onClick={() => toggleFilter(lvl, levelFilters, setLevelFilters)}
-              />
-            ))}
-          </Stack>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {sourceOptions.map((src) => (
-              <Chip
-                key={src}
-                label={src}
-                color={sourceFilters.includes(src) ? 'secondary' : 'default'}
-                variant={sourceFilters.includes(src) ? 'filled' : 'outlined'}
-                onClick={() =>
-                  toggleFilter(src, sourceFilters, setSourceFilters)
-                }
-              />
-            ))}
-          </Stack>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={live}
-                onChange={(e) => setLive(e.target.checked)}
-              />
-            }
-            label="Live"
-          />
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <Button
-              variant="outlined"
-              onClick={handleRefresh}
-              disabled={loading}
-            >
-              Refresh now
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSampleLog}
-              color="secondary"
-            >
-              Send sample log
-            </Button>
-          </Stack>
-        </Stack>
-
-        {error && (
-          <Alert severity="error" role="alert">
-            {error}
-          </Alert>
-        )}
-
-        {loading && (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <CircularProgress size={20} />
-            <Typography>Loading logs…</Typography>
-          </Stack>
-        )}
-
-        {empty && !loading && (
-          <Typography>No logs yet. Emit one with “Send sample log”.</Typography>
-        )}
-
-        {!empty && (
-          <Box>
-            {isSmall ? (
-              <Stack spacing={1}>{cards}</Stack>
-            ) : (
-              <Box
-                component="table"
-                sx={{ width: '100%', borderCollapse: 'collapse' }}
-                aria-label="Logs table"
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <Stack
+            spacing={1.5}
+            direction={isSmall ? 'column' : 'row'}
+            alignItems={isSmall ? 'stretch' : 'center'}
+            divider={isSmall ? <Divider flexItem /> : undefined}
+          >
+            <TextField
+              label="Search text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              size="small"
+              fullWidth={isSmall}
+            />
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              {levelOptions.map((lvl) => (
+                <Chip
+                  key={lvl}
+                  label={lvl.toUpperCase()}
+                  color={levelFilters.includes(lvl) ? 'primary' : 'default'}
+                  variant={levelFilters.includes(lvl) ? 'filled' : 'outlined'}
+                  onClick={() =>
+                    toggleFilter(lvl, levelFilters, setLevelFilters)
+                  }
+                />
+              ))}
+            </Stack>
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              {sourceOptions.map((src) => (
+                <Chip
+                  key={src}
+                  label={src}
+                  color={sourceFilters.includes(src) ? 'secondary' : 'default'}
+                  variant={sourceFilters.includes(src) ? 'filled' : 'outlined'}
+                  onClick={() =>
+                    toggleFilter(src, sourceFilters, setSourceFilters)
+                  }
+                />
+              ))}
+            </Stack>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={live}
+                  onChange={(e) => setLive(e.target.checked)}
+                />
+              }
+              label="Live"
+            />
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Button
+                variant="outlined"
+                onClick={handleRefresh}
+                disabled={loading}
               >
-                <Box component="thead">
-                  <Box
-                    component="tr"
-                    sx={{
-                      '& th': {
-                        textAlign: 'left',
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        py: 1,
-                        pr: 2,
-                      },
-                    }}
-                  >
-                    <Box component="th">Time</Box>
-                    <Box component="th">Level</Box>
-                    <Box component="th">Source</Box>
-                    <Box component="th">Message</Box>
-                    <Box component="th">Context</Box>
-                  </Box>
-                </Box>
-                <Box component="tbody">{tableRows}</Box>
-              </Box>
+                Refresh now
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSampleLog}
+                color="secondary"
+              >
+                Send sample log
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <Stack spacing={2}>
+            {error && (
+              <Alert severity="error" role="alert">
+                {error}
+              </Alert>
             )}
-          </Box>
-        )}
+
+            {loading && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <CircularProgress size={20} />
+                <Typography>Loading logs…</Typography>
+              </Stack>
+            )}
+
+            {empty && !loading && (
+              <Typography>
+                No logs yet. Emit one with “Send sample log”.
+              </Typography>
+            )}
+
+            {!empty &&
+              (isSmall ? (
+                <Stack spacing={1}>{cards}</Stack>
+              ) : (
+                <Box
+                  component="table"
+                  sx={{ width: '100%', borderCollapse: 'collapse' }}
+                  aria-label="Logs table"
+                >
+                  <Box component="thead">
+                    <Box
+                      component="tr"
+                      sx={{
+                        '& th': {
+                          textAlign: 'left',
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          py: 1,
+                          pr: 2,
+                        },
+                      }}
+                    >
+                      <Box component="th">Time</Box>
+                      <Box component="th">Level</Box>
+                      <Box component="th">Source</Box>
+                      <Box component="th">Message</Box>
+                      <Box component="th">Context</Box>
+                    </Box>
+                  </Box>
+                  <Box component="tbody">{tableRows}</Box>
+                </Box>
+              ))}
+          </Stack>
+        </Paper>
       </Stack>
-    </Container>
+    </UtilityPageShell>
   );
 }

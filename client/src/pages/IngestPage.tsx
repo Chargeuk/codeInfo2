@@ -1,8 +1,7 @@
 import {
   Alert,
-  Button,
   CircularProgress,
-  Container,
+  Box,
   Paper,
   Stack,
   Typography,
@@ -16,6 +15,7 @@ import type { ChatWsIngestStatus } from '../hooks/useChatWs';
 import useIngestModels from '../hooks/useIngestModels';
 import useIngestRoots, { type IngestRoot } from '../hooks/useIngestRoots';
 import useIngestStatus from '../hooks/useIngestStatus';
+import UtilityPageShell from '../components/utility/UtilityPageShell';
 import { createLogger } from '../logging/logger';
 
 const normalizeEmbeddingProvider = (
@@ -25,7 +25,7 @@ const normalizeEmbeddingProvider = (
 
 export default function IngestPage() {
   const log = useMemo(() => createLogger('client'), []);
-  const containerMaxWidth = false;
+  const layoutMaxWidth = false;
   const {
     models,
     lockedModelId,
@@ -104,9 +104,9 @@ export default function IngestPage() {
 
   useEffect(() => {
     log('info', '0000022 ingest layout full-width', {
-      maxWidth: containerMaxWidth,
+      maxWidth: layoutMaxWidth,
     });
-  }, [containerMaxWidth, log]);
+  }, [layoutMaxWidth, log]);
 
   useEffect(() => {
     if (!ingest.status) return;
@@ -159,103 +159,111 @@ export default function IngestPage() {
   }, [locked, lockedProvider, openai?.statusCode, log]);
 
   return (
-    <Container maxWidth={containerMaxWidth} sx={{ py: 3 }}>
-      <Stack spacing={3}>
-        <Typography variant="h4">Ingest</Typography>
-
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="h6" sx={{ flex: 1 }}>
-            Model lock
+    <UtilityPageShell
+      title="Ingest"
+      subtitle="Start ingests, monitor progress, and manage embedded roots."
+    >
+      <Stack spacing={3} sx={{ width: '100%', maxWidth: 1360, mx: 'auto' }}>
+        <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+          <Typography variant="body1" color="text.secondary">
+            Start ingests, monitor progress, and manage embedded roots.
           </Typography>
-          <Button onClick={() => refresh()} disabled={isLoading}>
-            Refresh models
-          </Button>
-        </Stack>
+        </Box>
 
-        {isError && error ? <Alert severity="error">{error}</Alert> : null}
-        {rootsIsError && rootsError ? (
-          <Alert severity="error">{rootsError}</Alert>
-        ) : null}
-        {terminalErrorStatus?.lastError || terminalErrorStatus?.message ? (
-          <Alert severity="error" data-testid="ingest-terminal-error">
-            {terminalErrorStatus.lastError ?? terminalErrorStatus.message}
-          </Alert>
-        ) : null}
-        {ingest.connectionState === 'connecting' ? (
-          <Alert severity="info" data-testid="ingest-ws-connecting">
-            Connecting to realtime updates…
-          </Alert>
-        ) : null}
-        {ingest.connectionState === 'closed' ? (
-          <Alert severity="error" data-testid="ingest-ws-unavailable">
-            Realtime updates unavailable. Refresh once the server is reachable.
-          </Alert>
-        ) : null}
-        {skippedFileCount > 0 ? (
-          <Alert severity="info">
-            AST indexing skipped for {skippedFileCount} file(s) (unsupported
-            language).
-          </Alert>
-        ) : null}
-        {failedFileCount > 0 ? (
-          <Alert severity="warning">
-            AST indexing failed for {failedFileCount} file(s). Check logs for
-            details.
-          </Alert>
-        ) : null}
-
-        <Paper variant="outlined" sx={{ p: 3 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-            <Typography variant="h6" sx={{ flex: 1 }}>
-              Start a new ingest
-            </Typography>
-            {isLoading ? <CircularProgress size={20} /> : null}
-          </Stack>
-
-          {lockDisplay ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Embedding model locked to {lockDisplay}
+        <Stack spacing={1}>
+          {isError && error ? <Alert severity="error">{error}</Alert> : null}
+          {rootsIsError && rootsError ? (
+            <Alert severity="error">{rootsError}</Alert>
+          ) : null}
+          {terminalErrorStatus?.lastError || terminalErrorStatus?.message ? (
+            <Alert severity="error" data-testid="ingest-terminal-error">
+              {terminalErrorStatus.lastError ?? terminalErrorStatus.message}
             </Alert>
           ) : null}
+          {ingest.connectionState === 'connecting' ? (
+            <Alert severity="info" data-testid="ingest-ws-connecting">
+              Connecting to realtime updates…
+            </Alert>
+          ) : null}
+          {ingest.connectionState === 'closed' ? (
+            <Alert severity="error" data-testid="ingest-ws-unavailable">
+              Realtime updates unavailable. Refresh once the server is
+              reachable.
+            </Alert>
+          ) : null}
+          {skippedFileCount > 0 ? (
+            <Alert severity="info">
+              AST indexing skipped for {skippedFileCount} file(s) (unsupported
+              language).
+            </Alert>
+          ) : null}
+          {failedFileCount > 0 ? (
+            <Alert severity="warning">
+              AST indexing failed for {failedFileCount} file(s). Check logs for
+              details.
+            </Alert>
+          ) : null}
+        </Stack>
 
-          <IngestForm
-            models={models}
-            lockedModelId={locked}
-            lockedModel={{
-              embeddingProvider: lockedProvider,
-              embeddingModel: locked ?? undefined,
-              embeddingDimensions: lockedDimensions,
-            }}
-            openai={openai}
-            defaultModelId={defaultModelId}
-            onAccepted={() => {
-              void refetchRoots();
-              void refresh();
-            }}
-          />
-        </Paper>
+        <Stack spacing={3} direction={{ xs: 'column', md: 'row' }}>
+          <Paper variant="outlined" sx={{ flex: 1, p: 3 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1}
+              sx={{ mb: 1 }}
+            >
+              <Typography variant="h6" sx={{ flex: 1 }}>
+                Start a new ingest
+              </Typography>
+              {isLoading ? <CircularProgress size={20} /> : null}
+            </Stack>
 
-        {active ? (
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <ActiveRunCard
-              runId={active.runId}
-              status={active.state}
-              counts={active.counts}
-              ast={active.ast}
-              currentFile={active.currentFile}
-              fileIndex={active.fileIndex}
-              fileTotal={active.fileTotal}
-              percent={active.percent}
-              etaMs={active.etaMs}
-              lastError={active.lastError ?? undefined}
-              message={active.message ?? undefined}
-              isLoading={ingest.isLoading}
-              isCancelling={ingest.isCancelling}
-              error={ingest.error}
-              onCancel={ingest.cancel}
+            {lockDisplay ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Embedding model locked to {lockDisplay}
+              </Alert>
+            ) : null}
+
+            <IngestForm
+              models={models}
+              lockedModelId={locked}
+              lockedModel={{
+                embeddingProvider: lockedProvider,
+                embeddingModel: locked ?? undefined,
+                embeddingDimensions: lockedDimensions,
+              }}
+              openai={openai}
+              defaultModelId={defaultModelId}
+              onAccepted={() => {
+                void refetchRoots();
+                void refresh();
+              }}
             />
           </Paper>
-        ) : null}
+
+          {active ? (
+            <Paper variant="outlined" sx={{ flex: 1, p: 3 }}>
+              <ActiveRunCard
+                runId={active.runId}
+                status={active.state}
+                counts={active.counts}
+                ast={active.ast}
+                currentFile={active.currentFile}
+                fileIndex={active.fileIndex}
+                fileTotal={active.fileTotal}
+                percent={active.percent}
+                etaMs={active.etaMs}
+                lastError={active.lastError ?? undefined}
+                message={active.message ?? undefined}
+                isLoading={ingest.isLoading}
+                isCancelling={ingest.isCancelling}
+                error={ingest.error}
+                onCancel={ingest.cancel}
+              />
+            </Paper>
+          ) : null}
+        </Stack>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
           <RootsTable
@@ -289,6 +297,6 @@ export default function IngestPage() {
           onClose={() => setDetailRoot(undefined)}
         />
       </Stack>
-    </Container>
+    </UtilityPageShell>
   );
 }

@@ -38,7 +38,6 @@ export default function HomePage() {
     baseUrl: committedBaseUrl,
     state: lmStudioState,
     isLoading: lmStudioLoading,
-    isError: lmStudioError,
     isEmpty: lmStudioEmpty,
     refresh: refreshLmStudio,
   } = useLmStudioStatus();

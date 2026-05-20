@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
-test('Logs page shows a streamed sample log', async ({ page }) => {
+test('Logs page shows a streamed sample log through the utility shell', async ({
+  page,
+}) => {
   try {
     const ping = await page.request.get(baseUrl);
     if (!ping.ok()) {
@@ -13,6 +15,7 @@ test('Logs page shows a streamed sample log', async ({ page }) => {
   }
 
   await page.goto(`${baseUrl}/logs`);
+  await expect(page.getByTestId('utility-page-shell')).toBeVisible();
   await page.getByRole('button', { name: 'Send sample log' }).click();
   await page.getByRole('button', { name: 'Refresh now' }).click();
 

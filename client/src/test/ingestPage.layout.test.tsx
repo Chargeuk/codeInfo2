@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe('Ingest page layout', () => {
-  it('does not apply the default maxWidth container class', () => {
+  it('renders inside the shared utility shell without the old maxWidth container class', async () => {
     const router = createMemoryRouter(ingestRoutes, {
       initialEntries: ['/ingest'],
     });
@@ -80,6 +80,7 @@ describe('Ingest page layout', () => {
       jest.runOnlyPendingTimers();
     });
 
+    expect(await screen.findByTestId('utility-page-shell')).toBeInTheDocument();
     expect(document.querySelector('.MuiContainer-maxWidthLg')).toBeNull();
   });
 

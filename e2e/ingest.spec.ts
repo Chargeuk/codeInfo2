@@ -529,6 +529,7 @@ test.describe.serial('Ingest flows', () => {
 
   test('ingest status shows per-file progress updates', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
+    await expect(page.getByTestId('utility-page-shell')).toBeVisible();
 
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(`${fixtureName}-progress`);
@@ -569,6 +570,7 @@ test.describe.serial('Ingest flows', () => {
     page,
   }) => {
     await page.goto(`${baseUrl}/ingest`);
+    await expect(page.getByTestId('utility-page-shell')).toBeVisible();
 
     // Ingest still submits the repo root through the existing UI, but this proof
     // explicitly tracks the mounted large file inside that repo: /fixtures/repo/large-planning-doc.md.
@@ -657,6 +659,7 @@ test.describe.serial('Ingest flows', () => {
 
   test('cancel in-progress ingest shows cancelled', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
+    await expect(page.getByTestId('utility-page-shell')).toBeVisible();
 
     await page.getByLabel('Folder path').fill(`${fixturePath}`);
     await page.getByLabel('Display name').fill(`${fixtureName}-cancel`);
@@ -694,6 +697,7 @@ test.describe.serial('Ingest flows', () => {
     page,
   }) => {
     await page.goto(`${baseUrl}/ingest`);
+    await expect(page.getByTestId('utility-page-shell')).toBeVisible();
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
     await selectEmbeddingModel(page);
@@ -744,6 +748,7 @@ test.describe.serial('Ingest flows', () => {
     page,
   }) => {
     await page.goto(`${baseUrl}/ingest`);
+    await expect(page.getByTestId('utility-page-shell')).toBeVisible();
 
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);

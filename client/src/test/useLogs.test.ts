@@ -78,4 +78,38 @@ describe('useLogs', () => {
     await waitFor(() => expect(result.current.logs).toHaveLength(1));
     expect(global.EventSource).not.toHaveBeenCalled();
   });
+
+  it('re-fetches logs with the active filters when refreshQuery is used', async () => {
+    const { es } = createMockEventSource();
+    global.EventSource = jest.fn(() => es) as unknown as typeof EventSource;
+
+    const { result } = renderHook(() =>
+      useLogs({ level: ['error'], source: ['server'], text: 'boom' }, true),
+    );
+
+    await waitFor(() => expect(result.current.logs).toHaveLength(1));
+    expect(getFetchMock().mock.calls[0]?.[0]).toEqual(
+      expect.stringContaining('/logs?level=error&source=server&text=boom'),
+    );
+
+    getFetchMock().mockResolvedValueOnce(
+      mockJsonResponse({
+        items: [{ ...baseLog, message: 'refreshed', sequence: 2 }],
+        lastSequence: 2,
+      }),
+    );
+
+    await act(async () => {
+      result.current.refreshQuery();
+    });
+
+    await waitFor(() =>
+      expect(
+        result.current.logs.some((log) => log.message === 'refreshed'),
+      ).toBe(true),
+    );
+    expect(getFetchMock().mock.calls.at(-1)?.[0]).toEqual(
+      expect.stringContaining('_r=1'),
+    );
+  });
 });

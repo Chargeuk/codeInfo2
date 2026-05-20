@@ -291,12 +291,16 @@ export function HomeSummaryCards({
 
 export function HomeProviderStatusSection({
   providerSummaries,
+  loading,
+  error,
   onProviderAuth,
   onCheckLmStudio,
   onRefresh,
   lastCheckedLabel,
 }: {
   providerSummaries: HomeProviderPresentation[];
+  loading: boolean;
+  error: string | null;
   onProviderAuth: () => void;
   onCheckLmStudio: () => void;
   onRefresh: () => void;
@@ -327,6 +331,16 @@ export function HomeProviderStatusSection({
             <Typography variant="body2" color="text.secondary">
               Last checked: {lastCheckedLabel ?? 'Unknown'}
             </Typography>
+            {error ? (
+              <Alert severity="warning" data-testid="home-provider-status-error">
+                Provider readiness unavailable: {error}
+              </Alert>
+            ) : null}
+            {loading && providerSummaries.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Loading provider readiness…
+              </Typography>
+            ) : null}
             <Stack spacing={1.5}>
               {providerSummaries.map((entry) => (
                 <Paper key={entry.provider.id} variant="outlined" sx={{ p: 2 }}>
@@ -403,6 +417,16 @@ export function HomeProviderStatusSection({
               </Button>
             </Stack>
           </Stack>
+          {error ? (
+            <Alert severity="warning" data-testid="home-provider-status-error">
+              Provider readiness unavailable: {error}
+            </Alert>
+          ) : null}
+          {loading && providerSummaries.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              Loading provider readiness…
+            </Typography>
+          ) : null}
           <Table size="small" aria-label="Provider readiness">
             <TableHead>
               <TableRow>

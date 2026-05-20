@@ -29,7 +29,8 @@ export default function HomePage() {
   const apiUrl = getApiBaseUrl();
   const apiBaseUrlBlockingIssueMessage = getApiBaseUrlBlockingIssueMessage();
   const clientVersion = pkg.version;
-  const { providers, refreshProviders } = useHomeProviders();
+  const { providers, loading: providersLoading, error: providersError, refreshProviders } =
+    useHomeProviders();
   const providerSummaries = useMemo(
     () => createHomeProviderSummaries(providers),
     [providers],
@@ -176,6 +177,8 @@ export default function HomePage() {
 
         <HomeProviderStatusSection
           providerSummaries={providerSummaries}
+          loading={providersLoading}
+          error={providersError}
           onProviderAuth={handleProviderAuthOpen}
           onCheckLmStudio={() => {
             void handleCheckLmStudio();

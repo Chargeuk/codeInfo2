@@ -58,6 +58,21 @@ function installProviderFetch() {
   global.fetch = fetchMock as typeof fetch;
 }
 
+function installBrokenProviderFetch(mode: 'network' | 'schema') {
+  const fetchMock = getFetchMock();
+  fetchMock.mockImplementation(async (input) => {
+    const href = typeof input === 'string' ? input : input.toString();
+    if (href.includes('/chat/providers')) {
+      if (mode === 'network') {
+        throw new Error('provider discovery offline');
+      }
+      return mockJsonResponse({ providers: 'invalid' });
+    }
+    throw new Error(`Unexpected fetch: ${href}`);
+  });
+  global.fetch = fetchMock as typeof fetch;
+}
+
 describe('Home page status', () => {
   const originalFetch = global.fetch;
 
@@ -93,4 +108,22 @@ describe('Home page status', () => {
     expect(screen.getByText('Codex Auth')).toBeInTheDocument();
     expect(screen.getByText('Copilot Auth')).toBeInTheDocument();
   });
+
+  it.each([
+    ['network', 'provider discovery offline'],
+    ['schema', 'Malformed chat providers response'],
+  ] as const)(
+    'shows a provider readiness warning when provider discovery has a %s failure',
+    async (mode, expectedMessage) => {
+      installBrokenProviderFetch(mode);
+
+      render(<HomePage />);
+
+      expect(
+        await screen.findByTestId('home-provider-status-error'),
+      ).toHaveTextContent(
+        `Provider readiness unavailable: ${expectedMessage}`,
+      );
+    },
+  );
 });

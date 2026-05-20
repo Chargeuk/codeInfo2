@@ -1840,13 +1840,11 @@ No additional repositories are in scope for this review-created repair. The find
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts`.
-4. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsApi.run.payload.test.ts`.
-5. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
-6. [ ] Run `npm run lint`.
-7. [ ] Run `npm run format:check`.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts`.
+2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsApi.run.payload.test.ts`.
+3. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
+4. [ ] Run `npm run lint`.
+5. [ ] Run `npm run format:check`.
 
 #### Implementation Notes
 

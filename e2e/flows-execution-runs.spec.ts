@@ -15,11 +15,25 @@ const skipIfUnreachable = async (page: Page) => {
   }
 };
 
-test('flows and agents show stable run clues for repeated fresh executions and block same-frame replay', async ({
+test('flows and agents show stable run clues for repeated fresh executions and block quick-settling replay on the mobile first-arrival path', async ({
   page,
 }) => {
   await skipIfUnreachable(page);
   await installMockChatWs(page);
+  await page.addInitScript(() => {
+    const callbacks: FrameRequestCallback[] = [];
+    const globalWindow = window as typeof window & {
+      __flushReplayBarrier?: () => void;
+    };
+    globalWindow.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    }) as typeof window.requestAnimationFrame;
+    globalWindow.__flushReplayBarrier = () => {
+      const queued = callbacks.splice(0);
+      queued.forEach((callback) => callback(performance.now()));
+    };
+  });
 
   const flowRows: Array<Record<string, unknown>> = [];
   const agentRows: Array<Record<string, unknown>> = [
@@ -61,21 +75,21 @@ test('flows and agents show stable run clues for repeated fresh executions and b
         contentType: 'application/json',
         body: JSON.stringify({
           flows: [
-            { name: 'daily', description: 'Daily flow', disabled: false },
+            { name: 'echo', description: 'Echo flow', disabled: false },
           ],
         }),
       });
       return;
     }
 
-    if (path === '/flows/daily' && method === 'GET') {
+    if (path === '/flows/echo' && method === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           flow: {
-            name: 'daily',
-            description: 'Daily flow',
+            name: 'echo',
+            description: 'Echo flow',
             disabled: false,
             warnings: [],
           },
@@ -106,7 +120,7 @@ test('flows and agents show stable run clues for repeated fresh executions and b
       const flowName = url.searchParams.get('flowName');
       const agentName = url.searchParams.get('agentName');
       const items =
-        flowName === 'daily'
+        flowName === 'echo'
           ? flowRows
           : flowName === '__none__' && agentName === 'planner'
             ? agentRows
@@ -128,7 +142,7 @@ test('flows and agents show stable run clues for repeated fresh executions and b
       return;
     }
 
-    if (path === '/flows/daily/run' && method === 'POST') {
+    if (path === '/flows/echo/run' && method === 'POST') {
       const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
       runBodies.push(payload);
       const runIndex = runBodies.length;
@@ -142,13 +156,13 @@ test('flows and agents show stable run clues for repeated fresh executions and b
 
       flowRows.unshift({
         conversationId,
-        title: 'Flow: daily',
+        title: 'Flow: echo',
         provider: 'codex',
         model: 'gpt-5.2',
         source: 'REST',
         lastMessageAt: timestamp,
         archived: false,
-        flowName: 'daily',
+        flowName: 'echo',
         flags: { flow: { executionId } },
       });
 
@@ -169,7 +183,7 @@ test('flows and agents show stable run clues for repeated fresh executions and b
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'started',
-          flowName: 'daily',
+          flowName: 'echo',
           conversationId,
           inflightId: `flow-inflight-${runIndex}`,
           providerId: 'codex',
@@ -199,14 +213,28 @@ test('flows and agents show stable run clues for repeated fresh executions and b
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
 
   await page.getByTestId('flow-new').click();
-  await page.getByTestId('flow-run').dblclick();
+  await page.getByTestId('flow-run').click();
   await expect
     .poll(() => flowRows.length, {
       timeout: 10000,
-      message: 'Expected same-frame double-click to mint only one run',
+      message: 'Expected first-arrival replay barrier to mint only one run',
     })
     .toBe(1);
   expect(runBodies).toHaveLength(1);
+  await page.getByTestId('conversation-drawer-toggle').click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText('Flow: echo')).toBeVisible();
+  await expect(page.getByTestId('flow-run')).toBeDisabled();
+  expect(runBodies).toHaveLength(1);
+  expect(flowRows).toHaveLength(1);
+
+  await page.evaluate(() => {
+    (
+      window as typeof window & { __flushReplayBarrier?: () => void }
+    ).__flushReplayBarrier?.();
+  });
   await expect(page.getByTestId('flow-run')).toBeEnabled();
 
   await page.goto(`${baseUrl}/agents`);

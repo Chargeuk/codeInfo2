@@ -110,6 +110,18 @@ const isVisibleAssistantMessage = (message: ChatMessage | undefined) => {
   return false;
 };
 
+const waitForNextPaint = () =>
+  new Promise<void>((resolve) => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.requestAnimationFrame !== 'function'
+    ) {
+      setTimeout(resolve, 0);
+      return;
+    }
+    window.requestAnimationFrame(() => resolve());
+  });
+
 export default function FlowsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -1181,6 +1193,9 @@ export default function FlowsPage() {
           setFlowModelId(result.modelId);
         }
         await refreshConversations();
+        if (shouldGuardFreshRun) {
+          await waitForNextPaint();
+        }
       } catch (err) {
         if (
           err instanceof FlowApiError &&

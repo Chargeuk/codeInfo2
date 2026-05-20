@@ -993,7 +993,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1083,11 +1083,9 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - Added and updated the Task 7 proof homes in `client/src/test/lmstudio.test.tsx`, `client/src/test/useLmStudioStatus.test.ts`, `client/src/test/homePage.layout.test.tsx`, and `client/src/test/homePage.status.test.tsx`; the focused wrapper passed 13/13 after aligning selectors with the composed Home layout and the compatibility LM Studio shell.
 - Renamed `e2e/lmstudio.spec.ts` to describe the Home-hosted compatibility route explicitly so the browser proof wording matches the migrated ownership model.
 - `npm run lint --workspace client` passed with only the existing cross-story warnings outside this task-owned Home/LM Studio work, and `npm run format:check --workspace client` passed after formatting the touched client files.
-
-- `npm run test:summary:client` failed with 2 failures outside this task's owned tests: `src/test/version.test.tsx` and `src/test/router.test.tsx`. Task-owned unit tests (lmstudio, useLmStudioStatus, homePage.layout, homePage.status) passed on targeted runs. This appears to be a shared client-test baseline issue and should be investigated separately.
-- Deep repair cleared the Task 7 e2e blocker by rerunning `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts` with the repo-supported `CODEINFO_HOST_CODEX_HOME=$PWD/codex` override for this `HOME=/app/codex` shell, then updating `e2e/lmstudio.spec.ts` so the compatibility-route proof visits `/lmstudio` directly and uses the migrated Home-owned LM Studio controls (`Base URL`, `Check`). The final targeted e2e wrapper passed cleanly with `tests run: 63`, `passed: 63`, `failed: 0` in `logs/test-summaries/e2e-tests-latest.log`, which honestly closes Testing step 3 without widening scope into compose-wrapper changes.
-
-- **RESOLVED ISSUE** Task 7's live e2e blocker is closed. Fresh reruns showed the recorded Docker mount failure was the same agent-shell seam already documented elsewhere in this story: this shell exports `HOME=/app/codex`, so `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` resolved to an invalid host mount. Rerunning the wrapper with `CODEINFO_HOST_CODEX_HOME=$PWD/codex` got past compose setup, then exposed one task-owned browser-proof failure in `e2e/lmstudio.spec.ts` because the compatibility-route scenario still targeted the old standalone-page controls (`LM Studio base URL`, `Check status`) instead of the migrated Home-owned section (`Base URL`, `Check`). After updating that proof to visit `/lmstudio` directly and use the current labels, `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts` passed with `tests run: 63`, `passed: 63`, and `failed: 0` in `logs/test-summaries/e2e-tests-latest.log`. Testing step 2 remains unchecked for its separate shared client-test baseline issue, so Task 7 stays `__in_progress__` without a live blocker.
+- `npm run test:summary:client` initially exposed 2 shared failures in `src/test/version.test.tsx` and `src/test/router.test.tsx`; bounded follow-up repairs on `feature/58-fix-client-tests` cleared those failures, and the final full client wrapper passed `780/780` in `test-results/client-tests-2026-05-20T00-36-34-164Z.json`.
+- Reran `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts` with the repo-supported `CODEINFO_HOST_CODEX_HOME=$PWD/codex` override for this `HOME=/app/codex` shell, then updated `e2e/lmstudio.spec.ts` so the compatibility-route proof visits `/lmstudio` directly and uses the migrated Home-owned LM Studio controls (`Base URL`, `Check`); the final targeted e2e wrapper passed with `tests run: 63`, `passed: 63`, and `failed: 0` in `logs/test-summaries/e2e-tests-latest.log`.
+- Closed Task 7 after `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts`, `npm run lint --workspace client`, and `npm run format:check --workspace client` all passed with no live blocker remaining.
 
 ---
 

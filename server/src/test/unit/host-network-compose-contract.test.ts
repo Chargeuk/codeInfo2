@@ -116,6 +116,12 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5/u);
+  assert.match(
+    mainServer,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
+  );
+  assert.match(mainServer, /codex-data:\/app\/codex/u);
+  assert.doesNotMatch(mainServer, /codex-data:\/host\/codex:ro/u);
   assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
   assert.match(
     entrypoint,
@@ -205,6 +211,12 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,
   );
   assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=3/u);
+  assert.match(
+    e2eServer,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
+  );
+  assert.match(e2eServer, /codex-data:\/app\/codex/u);
+  assert.doesNotMatch(e2eServer, /codex-data:\/host\/codex:ro/u);
 });
 
 test('checked-in default launcher awaits provider bootstrap before listen instead of firing it off in the background', () => {

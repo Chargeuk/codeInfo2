@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -138,6 +138,107 @@ describe('Chat Codex banners', () => {
 
     expect(screen.queryByTestId('codex-ready-banner')).toBeNull();
     expect(screen.queryByTestId('codex-unavailable-banner')).toBeNull();
+    expect(screen.queryByTestId('codex-tools-banner')).toBeNull();
+    expect(screen.queryByTestId('codex-warnings-banner')).toBeNull();
+  });
+
+  it('renders the Codex unavailable banner with host-backed guidance when Codex is unavailable', async () => {
+    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/conversations') && !href.includes('/turns')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: false,
+                toolsAvailable: false,
+                reason: 'Codex unavailable',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat/models') && href.includes('provider=codex')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'codex',
+            available: false,
+            toolsAvailable: false,
+            reason: 'Codex unavailable',
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
+            models: [],
+          }),
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+          }),
+        }) as unknown as Response;
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByRole('combobox', { name: /provider/i });
+    await screen.findByRole('combobox', { name: /model/i });
+
+    const banner = screen.getByTestId('codex-unavailable-banner');
+    expect(within(banner).getByText(/\/host\/codex/)).toBeInTheDocument();
+    expect(within(banner).getByText(/\/app\/codex/)).toBeInTheDocument();
+    expect(banner).toBeInTheDocument();
+    expect(screen.queryByTestId('codex-ready-banner')).toBeNull();
     expect(screen.queryByTestId('codex-tools-banner')).toBeNull();
     expect(screen.queryByTestId('codex-warnings-banner')).toBeNull();
   });

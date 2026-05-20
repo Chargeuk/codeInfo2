@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, mock } from 'node:test';
 import pino from 'pino';
 import { ensureCodexAuthFromHost } from '../../utils/codexAuthCopy.js';
 
@@ -27,7 +27,7 @@ function makeTempDir(prefix: string) {
   return dir;
 }
 
-test('accepts shared runtime auth when auth.json is already present', () => {
+test('keeps shared runtime auth when /app/codex already has auth material', () => {
   const containerHome = makeTempDir('codex-container-');
   const sharedAuth = path.join(containerHome, 'auth.json');
   fs.writeFileSync(sharedAuth, '{"token":"shared"}');
@@ -41,7 +41,7 @@ test('accepts shared runtime auth when auth.json is already present', () => {
   assert.equal(fs.readFileSync(sharedAuth, 'utf8'), '{"token":"shared"}');
 });
 
-test('accepts runtime auth when no separate host mount is configured', () => {
+test('keeps runtime auth when /host/codex is absent', () => {
   const containerHome = makeTempDir('codex-container-');
   const containerAuth = path.join(containerHome, 'auth.json');
   fs.writeFileSync(containerAuth, '{"token":"container"}');
@@ -96,4 +96,30 @@ test('keeps the runtime auth when split setup already has a local auth file', ()
     fs.readFileSync(path.join(containerHome, 'auth.json'), 'utf8'),
     '{"token":"container"}',
   );
+});
+
+test('does not copy when /host/codex is a duplicate runtime mount alias', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostAliasParent = makeTempDir('codex-host-alias-');
+  const hostHome = path.join(hostAliasParent, 'host-codex');
+  fs.symlinkSync(containerHome, hostHome);
+  const containerAuth = path.join(containerHome, 'auth.json');
+  fs.writeFileSync(containerAuth, '{"token":"container"}');
+  const copyCalls: Array<{ from: string; to: string }> = [];
+  mock.method(
+    fs,
+    'copyFileSync',
+    (source: fs.PathLike, target: fs.PathLike) => {
+      copyCalls.push({ from: String(source), to: String(target) });
+    },
+  );
+
+  try {
+    ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+    assert.equal(copyCalls.length, 0);
+    assert.equal(fs.readFileSync(containerAuth, 'utf8'), '{"token":"container"}');
+  } finally {
+    mock.restoreAll();
+  }
 });

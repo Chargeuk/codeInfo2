@@ -108,9 +108,10 @@ baseLogger.info(
   },
   DEV_0000040_T10_CODEX_SDK_GUARD,
 );
+const codexHostHome = path.resolve('/host/codex');
 ensureCodexAuthFromHost({
   containerHome: getCodexHome(),
-  hostHome: path.resolve('/host/codex'),
+  hostHome: codexHostHome,
   logger: baseLogger,
 });
 const codexDetection = detectCodex();

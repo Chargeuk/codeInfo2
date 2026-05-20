@@ -115,7 +115,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5/u);
   assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
   assert.match(
     entrypoint,
@@ -204,7 +204,7 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
     e2eServer,
     /test: \['CMD', 'curl', '-f', 'http:\/\/localhost:6010\/health'\]/u,
   );
-  assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+  assert.match(e2eServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=3/u);
 });
 
 test('checked-in default launcher awaits provider bootstrap before listen instead of firing it off in the background', () => {

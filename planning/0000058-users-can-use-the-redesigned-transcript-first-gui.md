@@ -1211,7 +1211,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1316,6 +1316,8 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - Manual testing ran task-scoped against the main compose stack and proved the desktop shared navigation shell, direct `/lmstudio` redirect, refresh/bookmark compatibility into `Home`, and mobile route reachability through the app-menu using scratch artifacts under `codeInfoTmp/manual-testing/0000058/9/`. While reproducing the task-owned mobile menu path `Home -> Open menu -> Chat`, the browser console reported `Blocked aria-hidden on an element because its descendant retained focus` from the temporary Drawer close/unmount seam in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`. Added follow-up subtasks for the focus handoff fix plus an e2e proof update, and reopened `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts` because automated browser proof must rerun before later manual retest.
 
 - Updated the mobile app-menu close path to return focus to the menu button before closing the temporary Drawer, then reran the targeted LM Studio e2e wrapper and confirmed the browser warning no longer appears on the task-owned mobile navigation path.
+
+- Reclosed Task 9 after the reopened mobile app-menu accessibility follow-up completed cleanly; all `15/15` subtasks and `5/5` testing steps are now complete with no live blocker remaining.
 
 ---
 

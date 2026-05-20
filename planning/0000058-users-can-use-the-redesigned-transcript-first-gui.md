@@ -1490,6 +1490,7 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 
 - `docker-compose.yml`
 - `docker-compose.e2e.yml`
+- `docker-compose.local.yml`
 - `server/src/index.ts`
 - `server/src/utils/codexAuthCopy.ts`
 - `server/src/test/unit/codexAuthCopy.test.ts`
@@ -1500,7 +1501,7 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 
 #### Subtasks
 
-1. [ ] Re-read `docker-compose.yml`, `docker-compose.e2e.yml`, `server/src/index.ts`, and `server/src/utils/codexAuthCopy.ts` so the exact split-home bootstrap contract and the current `/host/codex` regression are isolated before editing.
+1. [ ] Re-read `docker-compose.yml`, `docker-compose.e2e.yml`, `docker-compose.local.yml`, `server/src/index.ts`, and `server/src/utils/codexAuthCopy.ts` so the exact split-home bootstrap contract, the intentionally distinct local-stack sibling contract, and the current `/host/codex` regression are isolated before editing.
 2. [ ] Patch `docker-compose.yml` and `docker-compose.e2e.yml` so `R1` and `R4` are satisfied directly: `/host/codex` must be a real host-backed seed source distinct from `/app/codex`, and the intentionally separate local-stack contract in `docker-compose.local.yml` must stay untouched.
 3. [ ] Patch `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts` so `R2` and `R5` remain true after the mount repair: startup may seed `/app/codex` only when runtime auth is missing, it must not overwrite an already-authenticated runtime home or treat a duplicate runtime mount as distinct seed material, and it must leave host-seed cleanup ownership outside the bootstrap helper.
 4. [ ] Add or update `server/src/test/unit/codexAuthCopy.test.ts` so it proves the `R2` helper invariants directly, including no overwrite when `/app/codex` already has auth material and no copy when `/host/codex` is absent or not meaningfully distinct; if an existing case title would still read like generic shared-home acceptance after the repair, rename or split that case so the title matches the exact helper invariant being asserted.
@@ -1666,11 +1667,11 @@ No additional repositories are in scope for this review cycle. The current findi
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run test:summary:server:unit`.
 3. [ ] Run `npm run compose:build:summary`.
-4. [ ] Run `npm run build:summary:client`.
-5. [ ] Run `npm run test:summary:client`.
-6. [ ] Run `npm run test:summary:e2e`.
-7. [ ] Run `npm run compose:up`.
-8. [ ] Run `npm run compose:down`.
+4. [ ] Run `npm run compose:up`.
+5. [ ] Run `npm run compose:down`.
+6. [ ] Run `npm run build:summary:client`.
+7. [ ] Run `npm run test:summary:client`.
+8. [ ] Run `npm run test:summary:e2e`.
 9. [ ] Run `npm run lint`.
 10. [ ] Run `npm run format:check`.
 

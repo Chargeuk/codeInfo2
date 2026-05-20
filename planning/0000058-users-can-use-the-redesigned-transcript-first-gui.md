@@ -1788,9 +1788,11 @@ No additional repositories are in scope for this review-created repair. The find
 
 #### Proof Mapping
 
-- `P1.` fresh-run retry ownership proof for `R1`, `R2`, and `R3`: implementation owners are `client/src/pages/FlowsPage.tsx`, `client/src/api/flows.ts`, `server/src/routes/flowsRun.ts`, and `server/src/flows/service.ts`; proof homes are focused updates under the existing Flows page client tests and focused server-unit coverage for the launch contract seam.
-- `P2.` user-visible ambiguous-retry proof for `R1` and `R4`: implementation owners are the same client/server launch seam plus `e2e/flows-execution-runs.spec.ts`; proof home is the targeted e2e wrapper path for the fresh-run launch flow.
-- `P3.` broad regression proof for the current review-created findings block: proof home is the fresh final revalidation task below, which reruns the relevant repository-supported wrappers after this repair lands.
+- `P1.` client retry-ownership state proof for `R1`, `R2`, and `R3`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof homes are `client/src/test/flowsPage.run.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx`.
+- `P2.` fresh-run request-shaping proof for `R2` and `R3`: implementation owners are `client/src/pages/FlowsPage.tsx` and `client/src/api/flows.ts`; proof home is `client/src/test/flowsApi.run.payload.test.ts`.
+- `P3.` server-side replay and accepted-launch ownership proof for `R1`, `R3`, and `R4`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof homes are `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`.
+- `P4.` user-visible ambiguous-retry proof for `R1` and `R4`: implementation owners are the same client/server launch seam plus `e2e/flows-execution-runs.spec.ts`; proof home is the targeted e2e wrapper path for the fresh-run launch flow.
+- `P5.` broad regression proof for the current review-created findings block: proof home is the fresh final revalidation task below, which reruns the relevant repository-supported wrappers after this repair lands.
 
 #### Risk Ownership
 
@@ -1810,25 +1812,34 @@ No additional repositories are in scope for this review-created repair. The find
 - `client/src/api/flows.ts`
 - `server/src/routes/flowsRun.ts`
 - `server/src/flows/service.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/integration/flows.run.resume.identity.test.ts`
 - `client/src/test/flowsPage.run.test.tsx`
 - `client/src/test/flowsPage.runGuard.test.tsx`
+- `client/src/test/flowsApi.run.payload.test.ts`
 - `e2e/flows-execution-runs.spec.ts`
 
 #### Subtasks
 
 1. [ ] Re-read the current finding evidence, the fresh-run launch path in `client/src/pages/FlowsPage.tsx`, the request seam in `client/src/api/flows.ts`, and the matching server run route/service ownership in `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts` so the exact ambiguous-retry contract gap is isolated before patching.
-2. [ ] Repair the client/server fresh-run launch contract so one logical fresh-run intent keeps a bounded retry-ownership seam after an ambiguous failure instead of reminting a second distinct launch.
-3. [ ] Preserve the existing fresh-run versus resume boundary, selected-flow revalidation, custom-title handling, and the already-resolved same-frame replay barrier while adding the retry-ownership repair.
-4. [ ] Add or update focused proof owners for the ambiguous-retry seam in the existing Flows page and server contract surfaces, and extend the targeted browser proof only where the user-visible retry path needs it.
-5. [ ] Address any lint issues introduced by the repair in touched files.
-6. [ ] Address any format-check issues introduced by the repair in touched files.
+2. [ ] Patch `client/src/pages/FlowsPage.tsx` so one fresh-run intent keeps a stable client-owned retry-ownership value after an ambiguous `/run` failure instead of reminting a second distinct launch identity on the next click.
+3. [ ] Patch `client/src/api/flows.ts` so the repaired fresh-run ownership value reaches the server through an explicit bounded request field that stays separate from resume-only identifiers and existing custom-title inputs.
+4. [ ] Patch `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts` so a retry carrying that repaired ownership field resolves to the already-accepted fresh launch instead of starting a second logical run when only the original 202 response was lost.
+5. [ ] In the same client/server seam, preserve the existing fresh-run versus resume boundary, selected-flow revalidation, custom-title handling, and the already-resolved same-frame replay barrier so the new ownership field does not leak into resume launches or disable the supported retry path after a genuine rejected launch.
+6. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx` so they prove the client keeps one logical fresh-run ownership value across an ambiguous retry, releases that value after a real failure, and does not regress the current resume boundary or replay-barrier behavior.
+7. [ ] Add or update `client/src/test/flowsApi.run.payload.test.ts` so the request payload proof names the new fresh-run ownership field explicitly, shows that ambiguous retries reuse it, and proves fresh runs still exclude resume-only identifiers.
+8. [ ] Add or update `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts` so server-owned proof covers one accepted launch per logical fresh-run ownership value, preserves the current resume identity path, and makes the ambiguous-retry versus real-failure split explicit in the case titles.
+9. [ ] Add or update `e2e/flows-execution-runs.spec.ts` so the browser proof drives one ambiguous fresh-run retry path and proves the UI converges on one accepted launch plus one visible conversation for that logical intent.
+10. [ ] Address any lint issues introduced by the repair in touched files.
+11. [ ] Address any format-check issues introduced by the repair in touched files.
 
 #### Testing
 
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts`.
+4. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsApi.run.payload.test.ts`.
 5. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
 6. [ ] Run `npm run lint`.
 7. [ ] Run `npm run format:check`.
@@ -1908,10 +1919,11 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 #### Subtasks
 
 1. [ ] Re-read this appended `Code Review Findings` block, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `1`, `3`, `4`, `5`, and `6`, and the completed proof-owner sections for Task `14`; check off this subtask only after parser output shows Task `14` is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so `R2`, `R4`, and `R5` each have a durable proof home for this review cycle: name Tasks `14` and `15`, finding `2`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T191211Z-385d67b3`, the no-additional-repository applicability decision, and the retained broad proof homes for server build, client build, server-unit, client, e2e, compose, lint, and format.
-3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on `R2` and `R5`: the current review pass id, review cycle id `0000058-rc-20260520T191211Z-385d67b3`, review-created Tasks `14` and `15`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
-4. [ ] Address any lint issues introduced by the final revalidation updates in touched tracked files.
-5. [ ] Address any format-check issues introduced by the final revalidation updates in touched tracked files.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so it records Tasks `14` and `15`, finding `2`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T191211Z-385d67b3`, the no-additional-repository applicability decision, and the retained broad proof homes for server build, client build, server-unit, client, e2e, compose, lint, and format.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they still agree on the current review pass id, the review cycle id `0000058-rc-20260520T191211Z-385d67b3`, review-created Tasks `14` and `15`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+4. [ ] If Task `14` changed the final proof surface list, update this task's `Affected Repositories`, `Task Exit Criteria`, `Proof Mapping`, or `Documentation Locations` so the broad revalidation scope stays honest before wrapper execution begins.
+5. [ ] Address any lint issues introduced by the final revalidation updates in touched tracked files.
+6. [ ] Address any format-check issues introduced by the final revalidation updates in touched tracked files.
 
 #### Testing
 

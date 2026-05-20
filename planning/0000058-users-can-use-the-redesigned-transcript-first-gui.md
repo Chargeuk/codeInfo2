@@ -1875,7 +1875,7 @@ If later manual validation is useful after this repair lands, start from the sup
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `14`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Final validation for review pass `0000058-20260520T175414Z-385d67b3`, covering unresolved task-required finding `2`.
   - Final revalidation owner for inline-resolved minor findings `1`, `3`, `4`, `5`, and `6` from the same active review cycle `0000058-rc-20260520T191211Z-385d67b3`.

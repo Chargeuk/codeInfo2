@@ -1542,7 +1542,7 @@ If later manual validation is helpful after this task but before final close-out
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `10`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-4`: new flow runs still lack a true replay barrier under duplicate click or ambiguous retry because `startFlowRun('run')` has no synchronous re-entry guard before minting a fresh client conversation id and posting the launch request.
 

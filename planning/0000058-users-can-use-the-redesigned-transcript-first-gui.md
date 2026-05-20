@@ -1624,7 +1624,7 @@ If later manual validation is useful after the automated repair lands, use the s
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `11, 12`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Final validation for review pass `0000058-20260520T055359Z-8bffd025`, covering task-required findings `finding-1` and `finding-4`.
   - Final revalidation owner for inline-resolved minor findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7` from the same active review cycle `0000058-rc-20260520T072406Z-8e4d883c`.
@@ -1713,6 +1713,7 @@ No additional repositories are in scope for this review cycle. The current findi
 - Subtask 2 complete: refreshed the PR summary so Tasks 11 through 13, the inline minor findings, the review-cycle id, and the explicit no-additional-repository decision are recorded as the durable proof homes for final revalidation.
 - Subtask 3 complete: re-read the plan, refreshed PR summary, and review-disposition state together and confirmed the ownership keys still agree on Task 13 as the final revalidation owner for the current review cycle.
 - Manual testing ran as full-story proof against the supported main stack and proved startup (`http://localhost:5010/health`), Home/provider-readiness rendering, `/lmstudio` redirect-to-Home behavior, chat/provider availability, agents shell loading, and the mobile app-menu route completion into `/flows`, but the first mobile-arrival `New Flow` plus rapid `Run` double-click still minted two accepted `POST /flows/echo/run` requests with distinct conversation ids before a second in-place rerun collapsed to one. Added focused `FlowsPage` plus client/e2e replay-guard follow-up subtasks, reopened `npm run format:check` as the last checked automated proof item so the normal validation loop reruns before later manual retest, and saved the scratch failure evidence under `codeInfoTmp/manual-testing/0000058/13/`.
+- Planner normalization reopened Task 13 to `__in_progress__` because the manual-proof follow-up subtasks and the reopened `npm run format:check` step remain honest unfinished work, so the task could not stay `__done__` without breaking selector ownership.
 
 
 #### Manual Testing Guidance

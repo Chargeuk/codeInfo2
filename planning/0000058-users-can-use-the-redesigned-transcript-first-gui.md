@@ -1700,7 +1700,7 @@ No additional repositories are in scope for this review cycle. The current findi
 6. [x] Run `npm run test:summary:e2e`. 
 7. [x] Run `npm run compose:build:summary`. 
 8. [x] Run `npm run compose:up`. 
-9. [ ] Run `npm run compose:down`.
+9. [x] Run `npm run compose:down`. 
 10. [ ] Run `npm run lint`.
 11. [ ] Run `npm run format:check`.
 

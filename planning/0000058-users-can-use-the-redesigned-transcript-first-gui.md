@@ -1702,7 +1702,7 @@ No additional repositories are in scope for this review cycle. The current findi
 8. [x] Run `npm run compose:up`. 
 9. [x] Run `npm run compose:down`. 
 10. [x] Run `npm run lint`. 
-11. [ ] Run `npm run format:check`.
+11. [x] Run `npm run format:check`. 
 
 #### Implementation Notes
 

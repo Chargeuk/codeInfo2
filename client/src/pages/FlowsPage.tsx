@@ -1072,9 +1072,12 @@ export default function FlowsPage() {
   ]);
 
   const startFlowRun = useCallback(
-    async (mode: 'run' | 'resume') => {
+    async (mode: 'run' | 'resume', launchClickDetail = 1) => {
       if (!selectedFlowName) return;
       const shouldGuardFreshRun = mode === 'run';
+      if (shouldGuardFreshRun && launchClickDetail > 1) {
+        return;
+      }
       if (shouldGuardFreshRun && freshRunReplayGuardRef.current) {
         return;
       }
@@ -1538,7 +1541,7 @@ export default function FlowsPage() {
           <Button
             type="button"
             variant="outlined"
-            onClick={() => startFlowRun('run')}
+            onClick={(event) => void startFlowRun('run', event.detail)}
             disabled={
               !selectedFlowName ||
               flowsLoading ||
@@ -1554,7 +1557,7 @@ export default function FlowsPage() {
           <Button
             type="button"
             variant="outlined"
-            onClick={() => startFlowRun('resume')}
+            onClick={(event) => void startFlowRun('resume', event.detail)}
             disabled={
               !selectedFlowName ||
               flowsLoading ||

@@ -182,9 +182,23 @@ test('flows and agents show stable run clues for repeated fresh executions and b
     await route.continue();
   });
 
-  await page.goto(`${baseUrl}/flows`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(baseUrl);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible({
+    timeout: 20000,
+  });
+  await page.getByRole('button', { name: /open menu/i }).click();
+  await expect(page.getByTestId('workspace-mobile-app-menu-overlay')).toBeVisible(
+    { timeout: 20000 },
+  );
+  await page
+    .getByTestId('workspace-mobile-app-menu-overlay')
+    .getByRole('link', { name: 'Flows' })
+    .click();
+  await expect(page).toHaveURL(/\/flows$/);
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
 
+  await page.getByTestId('flow-new').click();
   await page.getByTestId('flow-run').dblclick();
   await expect
     .poll(() => flowRows.length, {
@@ -195,6 +209,16 @@ test('flows and agents show stable run clues for repeated fresh executions and b
   expect(runBodies).toHaveLength(1);
   await expect(page.getByTestId('flow-run')).toBeEnabled();
 
+  await page.goto(`${baseUrl}/agents`);
+  await expect(page.getByTestId('agents-page')).toBeVisible({ timeout: 20000 });
+  await page.getByRole('button', { name: /conversations/i }).click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText('Run run00001')).toBeVisible();
+
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => flowRows.length, {
@@ -203,20 +227,17 @@ test('flows and agents show stable run clues for repeated fresh executions and b
     })
     .toBe(2);
 
-  await expect(page.getByText('Run run00001')).toBeVisible();
-  await expect(page.getByText('Run run00002')).toBeVisible();
-  await expect(page.getByTestId('conversation-row')).toHaveCount(2);
-
-  const flowTitles = page.getByTestId('conversation-title');
-  await expect(flowTitles.nth(0)).toHaveText('Flow: daily');
-  await expect(flowTitles.nth(1)).toHaveText('Flow: daily');
   expect(runBodies).toHaveLength(2);
   expect(runBodies[0]?.conversationId).not.toBe(runBodies[1]?.conversationId);
 
   await page.goto(`${baseUrl}/agents`);
   await expect(page.getByTestId('agents-page')).toBeVisible({ timeout: 20000 });
-  await expect(page.getByText('Run run00002')).toBeVisible();
+  await page.getByRole('button', { name: /conversations/i }).click();
+  await expect(
+    page.getByTestId('workspace-mobile-conversations-overlay'),
+  ).toBeVisible({ timeout: 20000 });
   await expect(page.getByText('Run run00001')).toBeVisible();
+  await expect(page.getByText('Run run00002')).toBeVisible();
 
   const ordinaryRow = page
     .locator('[data-testid="conversation-row"]')

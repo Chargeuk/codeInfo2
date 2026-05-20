@@ -1084,6 +1084,10 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - Renamed `e2e/lmstudio.spec.ts` to describe the Home-hosted compatibility route explicitly so the browser proof wording matches the migrated ownership model.
 - `npm run lint --workspace client` passed with only the existing cross-story warnings outside this task-owned Home/LM Studio work, and `npm run format:check --workspace client` passed after formatting the touched client files.
 
+- `npm run test:summary:client` failed with 2 failures outside this task's owned tests: `src/test/version.test.tsx` and `src/test/router.test.tsx`. Task-owned unit tests (lmstudio, useLmStudioStatus, homePage.layout, homePage.status) passed on targeted runs. This appears to be a shared client-test baseline issue and should be investigated separately.
+
+- **BLOCKER** `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts` failed during setup (docker compose) due to host Docker mounts denied: "The path /app/codex/.codex is not shared from the host and is not known to Docker." Attempts: ran the e2e wrapper once and inspected logs. Reason blocked: required Docker host file-share is not configured in this environment. Recommendation: run e2e on CI or a developer machine with proper Docker file-sharing configured or adjust compose to avoid host mounts. Do not proceed with e2e in this environment.
+
 ---
 
 ### Task 8. Apply The Utility Shell To Ingest And Logs

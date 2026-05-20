@@ -1098,6 +1098,62 @@ test('fresh executions of the same flow can run concurrently in different parent
   }
 });
 
+test('fresh-run retryOwnershipId reuses the accepted launch while the original run is still active', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const localFixturesDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../fixtures/flows',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-retry-ownership-'),
+  );
+  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    const firstResult = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-a',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new DelayedInstantChat(75),
+    });
+    const secondResult = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-b',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new DelayedInstantChat(75),
+    });
+
+    assert.deepEqual(secondResult, firstResult);
+
+    await waitForTurns(firstResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+    assert.equal(
+      getFlowExecutionId(firstResult.conversationId),
+      getFlowExecutionId(secondResult.conversationId),
+    );
+  } finally {
+    cleanupMemory('flow-retry-ownership-a', 'flow-retry-ownership-b');
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

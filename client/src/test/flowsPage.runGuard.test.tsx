@@ -456,7 +456,7 @@ describe('Flows page run guards', () => {
     ).toBe(false);
   });
 
-  it('releases the replay guard after a failed fresh run and keeps stale resume-only launch values out of the retry payload', async () => {
+  it('releases the replay guard after a genuine rejected fresh run and clears stale retry ownership before the next launch', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
     let runRequestCount = 0;
@@ -609,12 +609,17 @@ describe('Flows page run guards', () => {
     await user.click(runButton);
 
     await waitFor(() => expect(requestBodies).toHaveLength(2));
+    expect(typeof requestBodies[0].retryOwnershipId).toBe('string');
+    expect(requestBodies[0].retryOwnershipId).not.toBe('');
     expect(requestBodies[0]).not.toHaveProperty('customTitle');
     expect(requestBodies[0]).not.toHaveProperty('resumeStepPath');
     expect(requestBodies[1]).not.toHaveProperty('customTitle');
     expect(requestBodies[1]).not.toHaveProperty('resumeStepPath');
     expect(requestBodies[1].conversationId).not.toBe(
       requestBodies[0].conversationId,
+    );
+    expect(requestBodies[1].retryOwnershipId).not.toBe(
+      requestBodies[0].retryOwnershipId,
     );
   });
 

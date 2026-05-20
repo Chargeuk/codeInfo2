@@ -11,6 +11,7 @@ type Deps = {
 
 type FlowRunBody = {
   conversationId?: unknown;
+  retryOwnershipId?: unknown;
   sourceId?: unknown;
   working_folder?: unknown;
   resumeStepPath?: unknown;
@@ -26,6 +27,7 @@ const validateBody = (
   body: unknown,
 ): {
   conversationId?: string;
+  retryOwnershipId?: string;
   sourceId?: string;
   working_folder?: string;
   resumeStepPath?: number[];
@@ -53,6 +55,18 @@ const validateBody = (
   const sourceId =
     typeof rawSourceId === 'string' && rawSourceId.trim().length > 0
       ? rawSourceId.trim()
+      : undefined;
+
+  const rawRetryOwnershipId = candidate.retryOwnershipId;
+  if (rawRetryOwnershipId !== undefined && rawRetryOwnershipId !== null) {
+    if (typeof rawRetryOwnershipId !== 'string') {
+      throw new Error('retryOwnershipId must be a string');
+    }
+  }
+  const retryOwnershipId =
+    typeof rawRetryOwnershipId === 'string' &&
+    rawRetryOwnershipId.trim().length > 0
+      ? rawRetryOwnershipId.trim()
       : undefined;
 
   const rawWorkingFolder = candidate.working_folder;
@@ -100,6 +114,7 @@ const validateBody = (
 
   return {
     conversationId,
+    retryOwnershipId,
     sourceId,
     working_folder,
     resumeStepPath,
@@ -131,6 +146,7 @@ export function createFlowsRunRouter(
 
     let parsedBody: {
       conversationId?: string;
+      retryOwnershipId?: string;
       sourceId?: string;
       working_folder?: string;
       resumeStepPath?: number[];
@@ -158,6 +174,7 @@ export function createFlowsRunRouter(
       const result = await deps.startFlowRun({
         flowName,
         conversationId: parsedBody.conversationId,
+        retryOwnershipId: parsedBody.retryOwnershipId,
         sourceId: parsedBody.sourceId,
         working_folder: parsedBody.working_folder,
         resumeStepPath: parsedBody.resumeStepPath,

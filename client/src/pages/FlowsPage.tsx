@@ -163,6 +163,7 @@ export default function FlowsPage() {
     string | null
   >(null);
   const freshRunReplayGuardRef = useRef(false);
+  const freshRunRetryOwnershipIdRef = useRef<string | null>(null);
   const [flowModelId, setFlowModelId] = useState('unknown');
   const [flowProviderId, setFlowProviderId] = useState('unknown');
 
@@ -956,6 +957,7 @@ export default function FlowsPage() {
     setRunErrorCode(null);
     setLaunchWarnings([]);
     setLaunchConversationId(null);
+    freshRunRetryOwnershipIdRef.current = null;
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(reset(), { clearMessages: true });
@@ -1017,6 +1019,7 @@ export default function FlowsPage() {
     resetTurns();
     setSuppressAutoSelect(false);
     setConversation(conversationId, { clearMessages: true });
+    freshRunRetryOwnershipIdRef.current = null;
     serverVisibleInflightIdRef.current = null;
     stoppingVisibleLoggedRef.current = null;
     const summary = flowConversations.find(
@@ -1087,6 +1090,9 @@ export default function FlowsPage() {
     async (mode: 'run' | 'resume', launchClickDetail = 1) => {
       if (!selectedFlowName) return;
       const shouldGuardFreshRun = mode === 'run';
+      if (mode === 'resume') {
+        freshRunRetryOwnershipIdRef.current = null;
+      }
       const releaseFreshRunReplayGuard = () => {
         if (!shouldGuardFreshRun) {
           return;
@@ -1150,6 +1156,11 @@ export default function FlowsPage() {
       setStartPending(true);
       setFlowModelId('unknown');
       setFlowProviderId('unknown');
+      const retryOwnershipId =
+        mode === 'run'
+          ? freshRunRetryOwnershipIdRef.current ??
+            (freshRunRetryOwnershipIdRef.current = makeClientConversationId())
+          : undefined;
 
       const nextConversationId =
         mode === 'run'
@@ -1183,6 +1194,7 @@ export default function FlowsPage() {
           flowName: selectedFlowName,
           sourceId: selectedFlow?.sourceId,
           conversationId: nextConversationId,
+          retryOwnershipId,
           customTitle: shouldIncludeCustomTitle
             ? trimmedCustomTitle
             : undefined,
@@ -1193,6 +1205,9 @@ export default function FlowsPage() {
         });
         setActiveConversationId(result.conversationId);
         setLaunchConversationId(result.conversationId);
+        if (shouldGuardFreshRun) {
+          freshRunRetryOwnershipIdRef.current = null;
+        }
         setRunErrorCode(null);
         setLaunchWarnings(result.warnings ?? []);
         if (result.providerId) {
@@ -1211,6 +1226,7 @@ export default function FlowsPage() {
           err.status === 409 &&
           err.code === 'RUN_IN_PROGRESS'
         ) {
+          freshRunRetryOwnershipIdRef.current = null;
           const errorMessage: ChatMessage = {
             id: makeClientConversationId(),
             role: 'assistant',
@@ -1245,6 +1261,9 @@ export default function FlowsPage() {
         setRunErrorCode(
           err instanceof FlowApiError ? (err.code ?? null) : null,
         );
+        if (err instanceof FlowApiError) {
+          freshRunRetryOwnershipIdRef.current = null;
+        }
       } finally {
         releaseFreshRunReplayGuard();
         setStartPending(false);

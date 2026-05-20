@@ -1048,6 +1048,212 @@ describe('Flows page run/resume controls', () => {
     expect(secondBody.conversationId).not.toBe(firstBody.conversationId);
   });
 
+  it('keeps one retry ownership token across an ambiguous fresh-run failure and reuses it on the retry', async () => {
+    const user = userEvent.setup();
+    const flowRows: Array<Record<string, unknown>> = [];
+    const requestBodies: Record<string, unknown>[] = [];
+    let acceptedConversationId: string | null = null;
+
+    mockFetch.mockImplementation(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        const target =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : 'url' in url && typeof url.url === 'string'
+                ? url.url
+                : url.toString();
+        const method =
+          init?.method ??
+          (typeof url === 'object' &&
+          url !== null &&
+          'method' in url &&
+          typeof url.method === 'string'
+            ? url.method
+            : undefined);
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (
+          target.includes('/flows/echo?') ||
+          target.endsWith('/flows/echo')
+        ) {
+          return mockJsonResponse({
+            flow: {
+              name: 'echo',
+              description: 'Echo flow',
+              disabled: false,
+              warnings: [],
+            },
+          });
+        }
+
+        const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target, [
+          { name: 'echo', description: 'Echo flow', disabled: false },
+        ]);
+        if (flowListOrDetails) {
+          return flowListOrDetails;
+        }
+
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (
+          target.includes('/conversations/') &&
+          target.includes('/working-folder') &&
+          method === 'POST'
+        ) {
+          return mockJsonResponse({
+            status: 'ok',
+            conversation: {
+              conversationId: 'flow-1',
+              title: 'Flow: echo',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              archived: false,
+              flowName: 'echo',
+              flags: {},
+            },
+          });
+        }
+
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: flowRows });
+        }
+
+        if (target.includes('/flows/echo/run')) {
+          const body =
+            typeof init?.body === 'string'
+              ? (JSON.parse(init.body) as Record<string, unknown>)
+              : {};
+          requestBodies.push(body);
+          const runIndex = requestBodies.length;
+          const freshConversationId =
+            typeof body.conversationId === 'string'
+              ? body.conversationId
+              : `flow-run-${runIndex}`;
+
+          if (runIndex === 1) {
+            acceptedConversationId = freshConversationId;
+            throw new TypeError('Network request lost after acceptance');
+          }
+
+          if (Array.isArray(body.resumeStepPath)) {
+            return mockJsonResponse(
+              {
+                status: 'started',
+                flowName: 'echo',
+                conversationId: freshConversationId,
+                inflightId: `i${runIndex}`,
+                providerId: 'codex',
+                modelId: 'gpt-5',
+              },
+              { status: 202 },
+            );
+          }
+
+          const conversationId =
+            runIndex === 2 && acceptedConversationId
+              ? acceptedConversationId
+              : freshConversationId;
+          if (runIndex === 2) {
+            flowRows.unshift({
+              conversationId,
+              title: 'Flow: echo',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: new Date().toISOString(),
+              archived: false,
+              flowName: 'echo',
+              flags: {
+                flow: {
+                  executionId: 'run0002-execution-id',
+                  stepPath: [0],
+                },
+              },
+            });
+          } else {
+            flowRows.unshift({
+              conversationId,
+              title: 'Flow: echo',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: new Date().toISOString(),
+              archived: false,
+              flowName: 'echo',
+              flags: {
+                flow: {
+                  executionId: `run000${runIndex}-execution-id`,
+                  stepPath: [0],
+                },
+              },
+            });
+          }
+
+          return mockJsonResponse(
+            {
+              status: 'started',
+              flowName: 'echo',
+              conversationId,
+              inflightId: `flow-inflight-${runIndex}`,
+              providerId: 'codex',
+              modelId: 'gpt-5',
+            },
+            { status: 202 },
+          );
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await user.click(runButton);
+    await waitFor(() => expect(requestBodies).toHaveLength(1));
+    expect(typeof requestBodies[0].retryOwnershipId).toBe('string');
+    expect(requestBodies[0].retryOwnershipId).not.toBe('');
+    expect(requestBodies[0]).not.toHaveProperty('resumeStepPath');
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await user.click(runButton);
+    await waitFor(() => expect(flowRows).toHaveLength(1));
+    await waitFor(() => expect(requestBodies).toHaveLength(2));
+    expect(requestBodies[0].retryOwnershipId).toBe(
+      requestBodies[1].retryOwnershipId,
+    );
+    expect(requestBodies[1]).not.toHaveProperty('resumeStepPath');
+    expect(flowRows).toHaveLength(1);
+
+    await selectFirstConversation();
+    await waitFor(() => expect(screen.getByTestId('flow-resume')).toBeEnabled());
+    await user.click(screen.getByTestId('flow-resume'));
+    await waitFor(() => expect(requestBodies).toHaveLength(3));
+    expect(requestBodies[2]).not.toHaveProperty('retryOwnershipId');
+
+    await user.click(screen.getByTestId('flow-new'));
+    await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
+    await user.click(screen.getByTestId('flow-run'));
+    await waitFor(() => expect(requestBodies).toHaveLength(4));
+    expect(typeof requestBodies[3].retryOwnershipId).toBe('string');
+    expect(requestBodies[3].retryOwnershipId).not.toBe('');
+    expect(requestBodies[3].retryOwnershipId).not.toBe(
+      requestBodies[1].retryOwnershipId,
+    );
+    await waitFor(() => expect(flowRows).toHaveLength(2));
+  });
+
   it('does not clone stale transcript turns into a failed fresh run conversation', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();

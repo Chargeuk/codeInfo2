@@ -265,6 +265,21 @@ When(
 );
 
 When(
+  'I start flow {string} with conversation id {string} and retry ownership {string}',
+  async (flowName: string, conversationId: string, retryOwnershipId: string) => {
+    const res = await fetch(`${baseUrl}/flows/${flowName}/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conversationId, retryOwnershipId }),
+    });
+    lastResponse = {
+      status: res.status,
+      body: (await res.json()) as Record<string, unknown>,
+    };
+  },
+);
+
+When(
   'I resume flow {string} for remembered conversation {string} from step path:',
   async (flowName: string, key: string, table: DataTable) => {
     const conversationId = rememberedConversationIds.get(key);

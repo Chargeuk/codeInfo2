@@ -1756,7 +1756,7 @@ test('flow run fails clearly when no fallback provider can execute after request
   }
 });
 
-test('unexpected thrown exceptions fail the current dedicated flow', async () => {
+test('unexpected thrown exceptions clear stale retry ownership for later legitimate fresh runs', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,
@@ -1772,6 +1772,7 @@ test('unexpected thrown exceptions fail the current dedicated flow', async () =>
     const result = await startFlowRun({
       flowName: 'reingest-throws',
       source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
       listIngestedRepositories: listDefaultReingestRepos,
     });
     subscribeConversation(ws, result.conversationId);
@@ -1786,6 +1787,28 @@ test('unexpected thrown exceptions fail the current dedicated flow', async () =>
     );
     assert.equal(turns.length, 2);
     assert.match(turns[1]?.content ?? '', /boom/i);
+
+    __setFlowServiceDepsForTests({
+      runReingestRepository: async () => ({
+        ok: true,
+        value: buildReingestSuccess(),
+      }),
+    });
+
+    const retryResult = await startFlowRun({
+      flowName: 'reingest-throws',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      listIngestedRepositories: listDefaultReingestRepos,
+    });
+    subscribeConversation(ws, retryResult.conversationId);
+    await waitForFlowFinal({
+      ws,
+      conversationId: retryResult.conversationId,
+      status: 'ok',
+    });
+
+    assert.notEqual(retryResult.conversationId, result.conversationId);
   });
 });
 

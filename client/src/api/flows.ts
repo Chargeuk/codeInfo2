@@ -255,6 +255,7 @@ export async function runFlow(params: {
   flowName: string;
   sourceId?: string;
   conversationId?: string;
+  retryOwnershipId?: string;
   customTitle?: string;
   isNewConversation?: boolean;
   mode?: 'run' | 'resume';
@@ -276,6 +277,10 @@ export async function runFlow(params: {
     Boolean(trimmedCustomTitle) &&
     params.isNewConversation === true &&
     (params.mode ?? 'run') === 'run';
+  const shouldIncludeRetryOwnershipId =
+    Boolean(params.retryOwnershipId?.trim()) &&
+    params.isNewConversation === true &&
+    (params.mode ?? 'run') === 'run';
 
   log('info', 'flows.run.payload.custom_title_included', {
     included: shouldIncludeCustomTitle,
@@ -293,6 +298,9 @@ export async function runFlow(params: {
       body: JSON.stringify({
         ...(params.conversationId
           ? { conversationId: params.conversationId }
+          : {}),
+        ...(shouldIncludeRetryOwnershipId
+          ? { retryOwnershipId: params.retryOwnershipId!.trim() }
           : {}),
         ...(params.sourceId?.trim() ? { sourceId: params.sourceId } : {}),
         ...(shouldIncludeCustomTitle

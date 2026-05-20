@@ -1,22 +1,16 @@
 @mongo
-Feature: Flow execution-scoped parent state
+Feature: Flow execution retry ownership
 
-  Scenario: Fresh starts create new parent conversations while resume keeps the same execution
+  Scenario: Ambiguous fresh-run retry returns the accepted launch and leaves later fresh runs independent
     Given a flow execution test server
-    And the flow execution fixture "resume-basic" is available
-    When I start flow "resume-basic" with conversation id "story53-parent"
+    And the flow execution fixture "llm-basic" is available
+    When I start flow "llm-basic" with conversation id "retry-attempt-1" and retry ownership "retry-1"
     Then the flow execution response status code is 202
-    When I remember the started conversation as "firstRun"
-    And I record the stored flow execution id for "firstRun" as "firstExecution"
-    And the child conversation execution id for "firstRun" matches "firstExecution"
-    When I start flow "resume-basic" with remembered conversation "firstRun"
+    When I remember the started conversation as "acceptedRun"
+    And I start flow "llm-basic" with conversation id "retry-attempt-2" and retry ownership "retry-1"
     Then the flow execution response status code is 202
-    When I remember the started conversation as "secondRun"
-    And remembered conversations "firstRun" and "secondRun" are different
-    And the stored flow execution id for "secondRun" differs from "firstExecution"
-    When I resume flow "resume-basic" for remembered conversation "firstRun" from step path:
-      | 0 |
+    And the latest started conversation matches "acceptedRun"
+    When I start flow "llm-basic" with conversation id "later-run"
     Then the flow execution response status code is 202
-    And the latest started conversation matches "firstRun"
-    And the stored flow execution id for "firstRun" still matches "firstExecution"
-    And the child conversation execution id for "firstRun" matches "firstExecution"
+    When I remember the started conversation as "laterRun"
+    And remembered conversations "acceptedRun" and "laterRun" are different

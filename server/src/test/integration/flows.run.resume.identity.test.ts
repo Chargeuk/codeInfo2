@@ -493,7 +493,7 @@ test('startFlowRun derives resumed runtime identity from the remaining step set 
   }
 });
 
-test('startFlowRun restores requested-provider identity from saved flow-agent state instead of reusing the child execution provider', async () => {
+test('startFlowRun ignores stale fresh-run retry ownership while resuming a flow', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -513,6 +513,14 @@ test('startFlowRun restores requested-provider identity from saved flow-agent st
   const executionId = 'resume-execution-requested-provider';
 
   try {
+    const freshRetryResult = await startFlowRun({
+      flowName: 'resume-basic',
+      conversationId: 'fresh-retry-resume-1',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
+    });
+
     const seededFlowConversation: Conversation = {
       _id: conversationId,
       provider: 'codex',
@@ -558,15 +566,21 @@ test('startFlowRun restores requested-provider identity from saved flow-agent st
     await withMockedMongoConversationPersistence({
       seedConversations: [seededFlowConversation, seededChildConversation],
       run: async ({ conversations, turns }) => {
-        await startFlowRun({
+        const resumedResult = await startFlowRun({
           flowName: 'resume-basic',
           conversationId,
           resumeStepPath: [0],
           source: 'REST',
+          retryOwnershipId: 'fresh-run-retry-1',
           chatFactory: () => new MinimalChat(),
         });
 
         await waitFor(() => turns.length >= 2, 5000);
+        assert.equal(resumedResult.conversationId, conversationId);
+        assert.notEqual(
+          resumedResult.conversationId,
+          freshRetryResult.conversationId,
+        );
 
         const flowConversation = conversations.get(conversationId);
         const flowFlags = (flowConversation?.flags ?? {}) as {
@@ -583,6 +597,8 @@ test('startFlowRun restores requested-provider identity from saved flow-agent st
       },
     });
   } finally {
+    memoryConversations.delete('fresh-retry-resume-1');
+    memoryTurns.delete('fresh-retry-resume-1');
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

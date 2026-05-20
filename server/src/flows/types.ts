@@ -34,6 +34,7 @@ export type FlowRunStartParams = {
   flowName: string;
   sourceId?: string;
   conversationId?: string;
+  retryOwnershipId?: string;
   working_folder?: string;
   resumeStepPath?: number[];
   customTitle?: string;

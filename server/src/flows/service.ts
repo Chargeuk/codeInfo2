@@ -208,6 +208,80 @@ const flowServiceDeps: FlowServiceDeps = {
   ...defaultFlowServiceDeps,
 };
 
+type FreshRunRetryOwnershipRecord = {
+  runToken: string;
+  result: FlowRunStartResult;
+};
+
+const freshRunRetryOwnershipByKey = new Map<
+  string,
+  FreshRunRetryOwnershipRecord
+>();
+
+const makeFreshRunRetryOwnershipKey = (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+}) =>
+  `${params.flowName}::${params.sourceId?.trim() ?? ''}::${params.retryOwnershipId.trim()}`;
+
+const cloneFlowRunStartResult = (
+  result: FlowRunStartResult,
+): FlowRunStartResult => ({
+  ...result,
+  ...(result.warnings ? { warnings: [...result.warnings] } : {}),
+});
+
+const rememberFreshRunRetryOwnership = (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  runToken: string;
+  result: FlowRunStartResult;
+}) => {
+  freshRunRetryOwnershipByKey.set(
+    makeFreshRunRetryOwnershipKey(params),
+    {
+      runToken: params.runToken,
+      result: cloneFlowRunStartResult(params.result),
+    },
+  );
+};
+
+const getFreshRunRetryOwnership = (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+}): FreshRunRetryOwnershipRecord | null => {
+  const record = freshRunRetryOwnershipByKey.get(
+    makeFreshRunRetryOwnershipKey(params),
+  );
+  if (!record) return null;
+  return {
+    runToken: record.runToken,
+    result: cloneFlowRunStartResult(record.result),
+  };
+};
+
+const clearFreshRunRetryOwnership = (params: {
+  flowName: string;
+  sourceId?: string;
+  retryOwnershipId: string;
+  expectedRunToken?: string;
+}) => {
+  const key = makeFreshRunRetryOwnershipKey(params);
+  const existing = freshRunRetryOwnershipByKey.get(key);
+  if (!existing) return false;
+  if (
+    params.expectedRunToken !== undefined &&
+    existing.runToken !== params.expectedRunToken
+  ) {
+    return false;
+  }
+  freshRunRetryOwnershipByKey.delete(key);
+  return true;
+};
+
 export function __setFlowServiceDepsForTests(
   overrides: Partial<FlowServiceDeps>,
 ) {
@@ -216,6 +290,7 @@ export function __setFlowServiceDepsForTests(
 
 export function __resetFlowServiceDepsForTests() {
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
+  freshRunRetryOwnershipByKey.clear();
 }
 
 const toFlowRunError = (
@@ -4304,6 +4379,7 @@ export async function startFlowRun(
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
   const sourceId = params.sourceId?.trim() || undefined;
+  const retryOwnershipId = params.retryOwnershipId?.trim() || undefined;
   const requestedConversationId = params.conversationId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
@@ -4312,6 +4388,16 @@ export async function startFlowRun(
       'INVALID_REQUEST',
       'resumeStepPath requires an existing conversationId',
     );
+  }
+  if (retryOwnershipId && !resumeStepPath) {
+    const existingRetry = getFreshRunRetryOwnership({
+      flowName,
+      sourceId,
+      retryOwnershipId,
+    });
+    if (existingRetry) {
+      return existingRetry.result;
+    }
   }
   const listRepos = params.listIngestedRepositories ?? listIngestedRepositories;
   let existingConversation = requestedConversationId
@@ -4530,6 +4616,22 @@ export async function startFlowRun(
         });
       }
     }
+    if (retryOwnershipId && !resumeStepPath) {
+      rememberFreshRunRetryOwnership({
+        flowName,
+        sourceId,
+        retryOwnershipId,
+        runToken,
+        result: {
+          flowName,
+          conversationId,
+          inflightId,
+          providerId,
+          modelId,
+          ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
+        },
+      });
+    }
     await persistFlowResumeState({
       conversationId,
       executionId,
@@ -4622,6 +4724,14 @@ export async function startFlowRun(
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
       const released = releaseConversationLockFn(conversationId, runToken);
+      if (retryOwnershipId && !resumeStepPath) {
+        clearFreshRunRetryOwnership({
+          flowName,
+          sourceId,
+          retryOwnershipId,
+          expectedRunToken: runToken,
+        });
+      }
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.finally.exit',
         conversationId,

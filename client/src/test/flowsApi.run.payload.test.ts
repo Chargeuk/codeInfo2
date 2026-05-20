@@ -40,6 +40,19 @@ describe('Flows API runFlow payload', () => {
     expect(body.resumeStepPath).toEqual([1, 0]);
   });
 
+  it('includes retryOwnershipId for fresh runs and trims it before submission', async () => {
+    await runFlow({
+      flowName: 'daily',
+      retryOwnershipId: '  retry-1  ',
+      mode: 'run',
+      isNewConversation: true,
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.retryOwnershipId).toBe('retry-1');
+  });
+
   it('omits optional payload fields when not provided', async () => {
     await runFlow({ flowName: 'daily' });
 
@@ -47,6 +60,7 @@ describe('Flows API runFlow payload', () => {
     const body = JSON.parse(init.body as string) as Record<string, unknown>;
     expect(body).not.toHaveProperty('working_folder');
     expect(body).not.toHaveProperty('resumeStepPath');
+    expect(body).not.toHaveProperty('retryOwnershipId');
   });
 
   it('includes customTitle only for new runs', async () => {
@@ -89,6 +103,20 @@ describe('Flows API runFlow payload', () => {
       unknown
     >;
     expect(nextBody).not.toHaveProperty('customTitle');
+  });
+
+  it('omits retryOwnershipId for resumes even when a fresh-run retry token is present', async () => {
+    await runFlow({
+      flowName: 'daily',
+      retryOwnershipId: 'retry-2',
+      mode: 'resume',
+      isNewConversation: false,
+      resumeStepPath: [0],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('retryOwnershipId');
   });
 
   it('keeps providerId and warnings from the run-start payload instead of narrowing them away', async () => {

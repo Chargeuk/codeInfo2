@@ -15,25 +15,11 @@ const skipIfUnreachable = async (page: Page) => {
   }
 };
 
-test('flows and agents show stable run clues for repeated fresh executions and block quick-settling replay on the mobile first-arrival path', async ({
+test('flows keep one accepted launch for an ambiguous fresh-run retry and clear stale retry ownership on resume and later fresh runs', async ({
   page,
 }) => {
   await skipIfUnreachable(page);
   await installMockChatWs(page);
-  await page.addInitScript(() => {
-    const callbacks: FrameRequestCallback[] = [];
-    const globalWindow = window as typeof window & {
-      __flushReplayBarrier?: () => void;
-    };
-    globalWindow.requestAnimationFrame = ((callback: FrameRequestCallback) => {
-      callbacks.push(callback);
-      return callbacks.length;
-    }) as typeof window.requestAnimationFrame;
-    globalWindow.__flushReplayBarrier = () => {
-      const queued = callbacks.splice(0);
-      queued.forEach((callback) => callback(performance.now()));
-    };
-  });
 
   const flowRows: Array<Record<string, unknown>> = [];
   const agentRows: Array<Record<string, unknown>> = [
@@ -49,6 +35,7 @@ test('flows and agents show stable run clues for repeated fresh executions and b
     },
   ];
   const runBodies: Array<Record<string, unknown>> = [];
+  let acceptedConversationId: string | null = null;
 
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
@@ -98,24 +85,6 @@ test('flows and agents show stable run clues for repeated fresh executions and b
       return;
     }
 
-    if (path === '/agents' && method === 'GET') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ agents: [{ name: 'planner' }] }),
-      });
-      return;
-    }
-
-    if (path === '/agents/planner/commands' && method === 'GET') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ commands: [] }),
-      });
-      return;
-    }
-
     if (path === '/conversations' && method === 'GET') {
       const flowName = url.searchParams.get('flowName');
       const agentName = url.searchParams.get('agentName');
@@ -146,37 +115,71 @@ test('flows and agents show stable run clues for repeated fresh executions and b
       const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
       runBodies.push(payload);
       const runIndex = runBodies.length;
-      const executionId = `run0000${runIndex}-execution-id`;
-      const conversationId =
+      const freshConversationId =
         typeof payload.conversationId === 'string'
           ? payload.conversationId
           : `flow-run-${runIndex}`;
-      const childConversationId = `planner-run-${runIndex}`;
       const timestamp = `2025-01-0${runIndex + 1}T00:00:00.000Z`;
 
-      flowRows.unshift({
-        conversationId,
-        title: 'Flow: echo',
-        provider: 'codex',
-        model: 'gpt-5.2',
-        source: 'REST',
-        lastMessageAt: timestamp,
-        archived: false,
-        flowName: 'echo',
-        flags: { flow: { executionId } },
-      });
+      if (runIndex === 1) {
+        acceptedConversationId = freshConversationId;
+        await route.abort();
+        return;
+      }
 
-      agentRows.unshift({
-        conversationId: childConversationId,
-        title: `Planner child conversation ${runIndex}`,
-        provider: 'codex',
-        model: 'gpt-5.2',
-        source: 'REST',
-        lastMessageAt: timestamp,
-        archived: false,
-        agentName: 'planner',
-        flags: { flowChild: { executionId } },
-      });
+      if (Array.isArray(payload.resumeStepPath)) {
+        await route.fulfill({
+          status: 202,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'started',
+            flowName: 'echo',
+            conversationId: freshConversationId,
+            inflightId: `flow-inflight-${runIndex}`,
+            providerId: 'codex',
+            modelId: 'gpt-5.2',
+          }),
+        });
+        return;
+      }
+
+      const replayConversationId =
+        acceptedConversationId ?? freshConversationId;
+      if (runIndex === 2) {
+        flowRows.unshift({
+          conversationId: replayConversationId,
+          title: 'Flow: echo',
+          provider: 'codex',
+          model: 'gpt-5.2',
+          source: 'REST',
+          lastMessageAt: timestamp,
+          archived: false,
+          flowName: 'echo',
+          flags: {
+            flow: {
+              executionId: 'run00002-execution-id',
+              stepPath: [0],
+            },
+          },
+        });
+      } else {
+        flowRows.unshift({
+          conversationId: freshConversationId,
+          title: 'Flow: echo',
+          provider: 'codex',
+          model: 'gpt-5.2',
+          source: 'REST',
+          lastMessageAt: timestamp,
+          archived: false,
+          flowName: 'echo',
+          flags: {
+            flow: {
+              executionId: `run0000${runIndex}-execution-id`,
+              stepPath: [0],
+            },
+          },
+        });
+      }
 
       await route.fulfill({
         status: 202,
@@ -184,7 +187,8 @@ test('flows and agents show stable run clues for repeated fresh executions and b
         body: JSON.stringify({
           status: 'started',
           flowName: 'echo',
-          conversationId,
+          conversationId:
+            runIndex === 2 ? replayConversationId : freshConversationId,
           inflightId: `flow-inflight-${runIndex}`,
           providerId: 'codex',
           modelId: 'gpt-5.2',
@@ -213,65 +217,64 @@ test('flows and agents show stable run clues for repeated fresh executions and b
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
 
   await page.getByTestId('flow-new').click();
-  await page.getByTestId('flow-run').dblclick();
+  await page.getByTestId('flow-run').click();
+  await expect
+    .poll(() => runBodies.length, {
+      timeout: 10000,
+      message: 'Expected first fresh run to be recorded',
+    })
+    .toBe(1);
+  await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
+
+  await page.getByTestId('flow-run').click();
   await expect
     .poll(() => flowRows.length, {
       timeout: 10000,
-      message: 'Expected first-arrival replay barrier to mint only one run',
+      message: 'Expected retry ownership replay to settle on one visible run',
     })
     .toBe(1);
-  expect(runBodies).toHaveLength(1);
+  expect(runBodies).toHaveLength(2);
+  expect(runBodies[0]?.retryOwnershipId).toBe(runBodies[1]?.retryOwnershipId);
+  expect(flowRows).toHaveLength(1);
+
   await page.getByTestId('conversation-drawer-toggle').click();
   await expect(
     page.getByTestId('workspace-mobile-conversations-overlay'),
   ).toBeVisible({ timeout: 20000 });
-  await expect(page.getByText('Flow: echo')).toBeVisible();
-  await expect(page.getByTestId('flow-run')).toBeDisabled();
-  expect(runBodies).toHaveLength(1);
-  expect(flowRows).toHaveLength(1);
-
-  await page.evaluate(() => {
-    (
-      window as typeof window & { __flushReplayBarrier?: () => void }
-    ).__flushReplayBarrier?.();
-  });
-  await expect(page.getByTestId('flow-run')).toBeEnabled();
-
-  await page.goto(`${baseUrl}/agents`);
-  await expect(page.getByTestId('agents-page')).toBeVisible({ timeout: 20000 });
-  await page.getByRole('button', { name: /conversations/i }).click();
+  await page
+    .locator('[data-testid="conversation-row"]')
+    .filter({ hasText: 'Flow: echo' })
+    .first()
+    .click();
+  await page.getByLabel('Close conversations').click();
   await expect(
     page.getByTestId('workspace-mobile-conversations-overlay'),
-  ).toBeVisible({ timeout: 20000 });
-  await expect(page.getByText('Run run00001')).toBeVisible();
+  ).toBeHidden({ timeout: 20000 });
+  await expect(page.getByTestId('flow-resume')).toBeEnabled({
+    timeout: 20000,
+  });
+  await page.getByTestId('flow-resume').click();
+  await expect
+    .poll(() => runBodies.length, {
+      timeout: 10000,
+      message: 'Expected resume request to be recorded',
+    })
+    .toBe(3);
+  expect(runBodies[2]).not.toHaveProperty('retryOwnershipId');
 
-  await page.goto(`${baseUrl}/flows`);
+  await page.getByTestId('flow-new').click();
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => flowRows.length, {
       timeout: 10000,
-      message: 'Expected second fresh flow execution to appear',
+      message: 'Expected later fresh run to appear independently',
     })
     .toBe(2);
-
-  expect(runBodies).toHaveLength(2);
-  expect(runBodies[0]?.conversationId).not.toBe(runBodies[1]?.conversationId);
-
-  await page.goto(`${baseUrl}/agents`);
-  await expect(page.getByTestId('agents-page')).toBeVisible({ timeout: 20000 });
-  await page.getByRole('button', { name: /conversations/i }).click();
-  await expect(
-    page.getByTestId('workspace-mobile-conversations-overlay'),
-  ).toBeVisible({ timeout: 20000 });
-  await expect(page.getByText('Run run00001')).toBeVisible();
-  await expect(page.getByText('Run run00002')).toBeVisible();
-
-  const ordinaryRow = page
-    .locator('[data-testid="conversation-row"]')
-    .filter({ hasText: 'Ordinary planner conversation' });
-  await expect(ordinaryRow).toBeVisible();
-  await expect(ordinaryRow.getByTestId('conversation-run-chip')).toHaveCount(0);
+  expect(runBodies).toHaveLength(4);
+  expect(typeof runBodies[3].retryOwnershipId).toBe('string');
+  expect(runBodies[3].retryOwnershipId).not.toBe(runBodies[1].retryOwnershipId);
+  expect(flowRows).toHaveLength(2);
 });
 
 test('flows warning rendering and disabled run guard stay visible at the browser surface', async ({

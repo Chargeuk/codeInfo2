@@ -1686,9 +1686,9 @@ No additional repositories are in scope for this review cycle. The current findi
 
 #### Subtasks
 
-1. [ ] Re-read the `Code Review Findings` block for review pass `0000058-20260520T055359Z-8bffd025`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7`, and the completed proof-owner sections for Tasks `11` and `12`; check off this subtask only after parser output shows both repair tasks are `__done__`, have no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so `R2`, `R4`, and `R5` each have a durable proof home: name Tasks `11` through `13`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T072406Z-8e4d883c`, the explicit no-additional-repository applicability decision, and the retained broad proof homes `logs/test-summaries/build-server-latest.log`, the latest `test-results/server-unit-tests-*.log`, the latest `test-results/server-cucumber-tests-*.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/client-tests-*.json`, `logs/test-summaries/e2e-tests-latest.log`, plus the later lint and format outputs.
-3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on `R2` and `R5`: the current review pass id, review cycle id `0000058-rc-20260520T072406Z-8e4d883c`, review-created Tasks `11` through `13`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+1. [x] Re-read the `Code Review Findings` block for review pass `0000058-20260520T055359Z-8bffd025`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7`, and the completed proof-owner sections for Tasks `11` and `12`; check off this subtask only after parser output shows both repair tasks are `__done__`, have no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+2. [x] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so `R2`, `R4`, and `R5` each have a durable proof home: name Tasks `11` through `13`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T072406Z-8e4d883c`, the explicit no-additional-repository applicability decision, and the retained broad proof homes `logs/test-summaries/build-server-latest.log`, the latest `test-results/server-unit-tests-*.log`, the latest `test-results/server-cucumber-tests-*.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/client-tests-*.json`, `logs/test-summaries/e2e-tests-latest.log`, plus the later lint and format outputs.
+3. [x] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on `R2` and `R5`: the current review pass id, review cycle id `0000058-rc-20260520T072406Z-8e4d883c`, review-created Tasks `11` through `13`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
 
 #### Testing
 
@@ -1705,6 +1705,10 @@ No additional repositories are in scope for this review cycle. The current findi
 11. [ ] Run `npm run format:check`.
 
 #### Implementation Notes
+
+- Subtask 1 complete: parser output confirms Tasks 11 and 12 are `__done__` with no unchecked subtasks, no unchecked testing, and no live blockers, so the review-cycle revalidation gate is now grounded in the live plan state instead of a stale reading.
+- Subtask 2 complete: refreshed the PR summary so Tasks 11 through 13, the inline minor findings, the review-cycle id, and the explicit no-additional-repository decision are recorded as the durable proof homes for final revalidation.
+- Subtask 3 complete: re-read the plan, refreshed PR summary, and review-disposition state together and confirmed the ownership keys still agree on Task 13 as the final revalidation owner for the current review cycle.
 
 
 #### Manual Testing Guidance

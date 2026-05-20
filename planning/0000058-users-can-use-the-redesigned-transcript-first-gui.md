@@ -1094,7 +1094,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2, Task 7`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview

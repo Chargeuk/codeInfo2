@@ -52,7 +52,7 @@ services:
       - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
       - ./scripts:/app/scripts:ro
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
-      - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
+      - ./codex:/host/codex:ro
       - ./logs:/app/logs
       - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
     depends_on:

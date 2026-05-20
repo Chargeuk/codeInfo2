@@ -1849,7 +1849,7 @@ No additional repositories are in scope for this review-created repair. The find
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts`.
 2. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature`.
 3. [x] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsApi.run.payload.test.ts`.
-4. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
+4. [x] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
 5. [x] Run `npm run lint`.
 6. [x] Run `npm run format:check`.
 
@@ -1863,7 +1863,7 @@ No additional repositories are in scope for this review-created repair. The find
 - Testing item 2 complete: the focused server Cucumber wrapper passed for the ambiguous retry route proof.
 - Testing items 5 and 6 complete: the repository hygiene pass reran `npm run lint` and `npm run format:check`, then recorded the resulting import-wrap cleanup in commit `25ccae88`, so no lint or format debt from the Task 14 repair remains in the current worktree.
 - Audit normalization complete: all Task 14 implementation subtasks are now checked from repository evidence, so this task remains `__in_progress__` only because automated proof is not fully complete yet.
-- Testing item 4 remains open for the next proof pass: the latest `logs/test-summaries/e2e-tests-latest.log` shows the targeted e2e wrapper still also runs `e2e/agents.spec.ts`, and that shared baseline spec currently times out on `page.goto` with `net::ERR_NETWORK_CHANGED` at `http://host.docker.internal:6001/agents`. That failure stays outside the fresh-run retry seam, so Task 14 is implementation-complete and ready for the remaining automated proof rerun rather than blocked on additional coding work in this audit.
+- Testing item 4 complete: ran `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts` after updating `docker-compose.e2e.yml` to mount the repository `./codex` into `/host/codex` instead of bind-mounting an externally-configured host path. The e2e wrapper passed (64 tests, 0 failures). Full log: `logs/test-summaries/e2e-tests-latest.log`.
 
 #### Manual Testing Guidance
 

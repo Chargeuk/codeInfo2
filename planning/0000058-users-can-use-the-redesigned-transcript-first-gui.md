@@ -1105,7 +1105,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2, Task 7`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1195,11 +1195,13 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 - The focused client proof runs for `client/src/test/ingestPage.layout.test.tsx`, `client/src/test/logsPage.layout.test.tsx`, `client/src/test/useIngestRoots.test.tsx`, and `client/src/test/useLogs.test.ts` reached a clean `29/29` pass in `test-results/client-tests-2026-05-20T01-21-44-804Z.json`, and the latest targeted e2e wrapper log shows `unexpected: 0` for the ingest/log utility-shell browser proofs.
 - `npm run lint --workspace client` passed with only existing unused `eslint-disable` warnings in cross-task Chat files, so Task 8's remaining implementation lint subtask closed without widening scope into unrelated cleanup.
 - `npm run format:check --workspace client` passed cleanly, which closed the last unchecked implementation subtask and left Task 8 waiting only on its later Testing section.
-- **RESOLVED ISSUE** Task 8's live implementation blocker is closed. The remaining unchecked implementation subtasks were the required client lint and format gates; `npm run lint --workspace client` passed with only existing unused `eslint-disable` warnings in cross-task Chat files, and `npm run format:check --workspace client` passed cleanly. Task 8 stays `__in_progress__` only because its later Testing section has not been run yet, not because an implementation-local blocker remains.
+- **RESOLVED ISSUE** Task 8's live implementation blocker is closed. The remaining unchecked implementation subtasks were the required client lint and format gates; `npm run lint --workspace client` passed with only existing unused `eslint-disable` warnings in cross-task Chat files, and `npm run format:check --workspace client` passed cleanly. Task 8 no longer has an implementation-local blocker.
 
 - Reran `npm run test:summary:e2e -- --file e2e/ingest.spec.ts` with `CODEINFO_HOST_CODEX_HOME=$PWD/codex` to avoid a Docker host-mount sharing denial; the wrapper passed with `tests run: 63`, `passed: 63`, `failed: 0`.
 
 - Reran `npm run test:summary:e2e -- --file e2e/logs.spec.ts` with `CODEINFO_HOST_CODEX_HOME=$PWD/codex`; the wrapper passed with `tests run: 63`, `passed: 63`, `failed: 0`.
+
+- Closed Task 8 after `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e -- --file e2e/ingest.spec.ts`, `npm run test:summary:e2e -- --file e2e/logs.spec.ts`, `npm run lint --workspace client`, and `npm run format:check --workspace client` were all recorded complete with no live blocker remaining.
 
 ---
 

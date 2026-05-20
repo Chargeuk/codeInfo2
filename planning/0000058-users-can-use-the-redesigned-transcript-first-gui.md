@@ -1448,7 +1448,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `10`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-1`: the main and e2e Compose stacks no longer provide a real host-backed Codex seed home at `/host/codex`, even though startup and user-facing guidance still rely on that split-home bootstrap contract.
 

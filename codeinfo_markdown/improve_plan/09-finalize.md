@@ -22,6 +22,7 @@ Perform a final verification pass, then make one coherent commit if the command 
 - Check portability: outside `Additional Repositories`, did the plan avoid absolute filesystem paths, usernames, or machine-specific checkout roots in favor of portable relative or logical locations, while keeping any multi-repository entries concrete enough for local branch and handoff automation to resolve from disk?
 - Check test-boundary safety: does the plan avoid production-code changes whose only purpose is to disable, bypass, or weaken real behavior for tests?
 - Check manual-testing realism: does the plan prefer the unmodified human Docker stack when feasible, and only require minimal test-only enablement when the normal stack is not enough?
+- If `Design Contract Present` is true, check that the plan now contains a `Design Contract` section or equivalent explicit design-contract text that names the exact design source files, mandatory visual invariants, allowed implementation flex, and later screenshot-comparison proof expectations.
 - Check whether the applicable categories from `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-preemption-checklist.md"` are either explicitly handled in the plan or explicitly not applicable.
   </verification_loop>
 

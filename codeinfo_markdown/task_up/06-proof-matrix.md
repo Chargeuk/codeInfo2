@@ -26,6 +26,12 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
   1. the requirement or invariant being proved;
   2. the implementation files that own the behavior;
   3. the exact existing or new proof-owning files, log markers, fixtures, harness files, or prepared proof surfaces that must be created or updated.
+- If `Design Contract Present` is true, require a visual proof map for each design-driven task that names:
+  1. the design file or design-asset subset;
+  2. the owned visual invariant;
+  3. the implementation files;
+  4. the proof owner;
+  5. the later screenshot views that manual proof must capture and compare.
 - Do not allow grouped proof instructions like “update these tests” unless each file and invariant is still listed separately in the task.
 - When one task changes multiple proof files, use separate numbered subtasks or clearly separated proof bullets so a reviewer can see which file proves which invariant.
 - Keep wrapper commands in the `Testing` section. Keep exact test-file references in subtasks.

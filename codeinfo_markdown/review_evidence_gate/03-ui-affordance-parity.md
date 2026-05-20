@@ -20,6 +20,7 @@ Capture detailed evidence for changed UI gating rules so the evidence artifact d
   - submit actions;
   - payload construction, submission, or reset paths.
 - Record whether each affordance has direct proof, indirect proof, or missing proof.
+- If the active plan explicitly names design-target assets intended as implementation references, also record whether each changed visual surface has direct proof, indirect proof, or missing proof of conformance to the named design contract rather than only to the UI state contract.
 - Do not treat proof for one affordance as sufficient proof for another affordance governed by the same invariant.
 - When one affordance is blocked but another sibling affordance could still trigger the same semantic action, add that mismatch to the review hotspots and the `Risk-Invariant Matrix`.
 - When UI state is disabled, hidden, or mode-gated, explicitly compare the UI rule against the payload, persistence, and submission paths it is supposed to control.

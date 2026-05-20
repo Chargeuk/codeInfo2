@@ -11,6 +11,7 @@ Run the blind-spot challenge for UI affordance parity so risky disabled, hidden,
   - checkboxes or row selection;
   - payload construction, submission, or reset behavior.
 - Attempt a contradiction where one affordance remains active or still leaks the same semantic action while a sibling affordance is blocked or hidden.
+- If the active plan explicitly names design-target assets intended as implementation references, also challenge one high-risk changed visual surface and ask whether the implementation is only directionally similar rather than actually conformant to the named design asset.
 - Record whether that contradiction:
   - creates a new endorsed finding;
   - strengthens a rejected-risk conclusion;

@@ -46,6 +46,10 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that any Playwright MCP screenshot guidance explains the staging-and-transfer flow instead of treating `$CODEINFO_ROOT/playwright-output-local` or the Playwright output directory as the final target repository artifact destination.
 - Verify that manual-testing guidance prefers the unmodified human Docker stack whenever repository evidence shows it is runnable, and only falls back to minimal test-only enablement when the normal stack is not enough.
 - Check that any planned screenshot or browser-artifact output path points only to ignored artifact storage rather than tracked repository files.
+- If `Design Contract Present` is true, verify that:
+  - every named design asset is owned by at least one task;
+  - every design-driven task has explicit visual invariants or equivalent concrete design obligations;
+  - later manual proof includes screenshot-to-design comparison guidance rather than screenshot capture alone.
 - Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>
 

@@ -18,6 +18,7 @@ Split bundled subtasks into smaller, more detailed units so each subtask express
 - Split any subtask that changes multiple unrelated files, multiple distinct invariants, or multiple separate acceptance paths unless those changes are inseparable.
 - If a subtask says “A and B and C,” split it unless all three changes are required to express one inseparable behavior.
 - Prefer one subtask per implementation seam and one subtask per proof seam, even when they point to the same file.
+- If `Design Contract Present` is true, prefer subtasks tied to concrete visual surfaces such as shell, rail, pane, composer, row chrome, or mobile overlay behavior instead of broad wording such as `improve layout` or `match the redesign`.
 - Do not split a task into subtasks that create a future-output dependency such as “prepare X now, then consume the result of later Testing step Y”.
 - Each subtask must still be executable and honestly completable before the formal `Testing` section begins.
 - Name the exact local file, folder, function, class, config, runtime asset, or proof artifact to update in each subtask.

@@ -169,6 +169,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If the bound task's `Manual Testing Guidance` is missing, incomplete, or stale for the proof surface, continue with the best supported repository and runtime evidence plus any story-level guidance rather than guessing.
 - If task-level guidance conflicts with story-level guidance for the same decision area, prefer the task-level guidance and record the override honestly in the implementation notes instead of silently following one source.
 - If story-level guidance or task-level guidance conflicts with fresher repository evidence or the stored runtime research, prefer the fresher evidence and record the conflict honestly in the implementation notes instead of silently following or ignoring the guidance.
+- If the active plan explicitly names design-target assets intended as implementation references, treat that as `Design Contract Present` for this manual-testing pass.
+- If `Design Contract Present` is true, identify the task-owned or story-owned design assets that the candidate task's visible surfaces are expected to match before starting browser proof.
 
 </story_and_task_guidance_rules>
 
@@ -217,10 +219,16 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - record any other observable proof signals needed by the task.
   - use those screenshots to assess whether the changed or added GUI is aligned, readable, usable, visually coherent, and correct for the acceptance criteria that can honestly be observed from the frontend;
   - identify whether any layout, usability, behavioral, startup, or shutdown issues remain.
+- If `Design Contract Present` is true and the task has a browser-visible or connected frontend surface, manual testing must also:
+  - compare each captured screenshot against the named design asset that owns that view;
+  - record for each comparison whether it `matches`, has a `minor mismatch`, or has a `material mismatch`;
+  - summarize what matches and what differs in the implementation notes or retained support artifact;
+  - treat screenshot capture alone as insufficient proof of visual conformance.
 - If the completed task has a browser-visible or connected frontend surface but you do not capture screenshots, treat the manual proof as incomplete unless a concrete tooling limitation prevents capture.
 - If screenshot capture is blocked, record that limitation explicitly in the implementation notes instead of silently skipping screenshots.
 - Save any captured manual-proof artifacts to the correct repository-relative scratch destination for this task: `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
 - For Playwright MCP screenshots, first capture to the Playwright MCP output directory with a relative staging filename, then transfer the file to the repository-relative destination above using the `playwright_mcp_artifact_transfer_rules`.
+- If `Design Contract Present` is true, keep the screenshot basenames and comparison notes specific enough that a later reviewer can tell which retained screenshot corresponds to which design asset.
 - Prefer the smallest honest manual proof that validates the candidate task's owned behavior.
 - When the candidate task is the final task in the story, extend that manual proof into the smallest honest full-story validation that still proves the story's end-to-end observable outcomes.
 - When the candidate task is the final task in the story, prefer capturing scratch proof that later closeout can curate honestly into `codeInfoStatus/manual-proof/<story-number>/`, including screenshots, console or network captures, and runtime log evidence that map back to the story acceptance criteria.
@@ -280,6 +288,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - why that limitation does not invalidate the candidate task's own exit criteria.
 
 - If manual testing reveals an issue, do a bounded diagnosis pass before mutating the task.
+- If `Design Contract Present` is true, treat any `material mismatch` against a mandatory visual invariant as an issue that manual testing has revealed, even when the underlying behavior still works.
 - That diagnosis pass must:
   - re-read the relevant task requirements and the changed proof surface;
   - inspect the relevant logs, console output, network failures, screenshots, or API responses;

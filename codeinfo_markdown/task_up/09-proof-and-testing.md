@@ -52,6 +52,10 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - If manual testing for the task will write task-level proof artifacts into `codeInfoTmp/` and the current repository does not already ignore that scratch path, add the minimal `.gitignore` update needed before later proof depends on it.
 - When a task needs manual-testing proof guidance, direct any manual-testing screenshots, logs, or similar proof artifacts to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and state that those artifacts must not be committed because `codeInfoTmp/` is ignored.
 - For Playwright MCP screenshots, Manual Testing Guidance should name both steps: capture to the Playwright output directory first, then transfer into the target repository's `codeInfoTmp/manual-testing/<story-number>/<task-number>/` scratch destination.
+- If `Design Contract Present` is true and the task changes a browser-visible surface, Manual Testing Guidance must name:
+  - the screenshot views to capture;
+  - the exact design assets those screenshots must be compared against;
+  - that screenshot capture alone is not sufficient and comparison notes are part of the proof.
 - End each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;
   - a prettier or format-check step that names the exact repository-supported prettier or formatting command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available.
@@ -125,6 +129,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - Check whether any task that writes manual-testing proof artifacts into `codeInfoTmp/` also includes the required `.gitignore` update when that scratch path was not already ignored.
 - Check whether any task-level manual-testing proof guidance uses `codeInfoTmp/manual-testing/<story-number>/<task-number>/` and states that those artifacts must not be committed.
 - Check whether any Manual Testing Guidance that mentions Playwright MCP screenshots distinguishes the Playwright output staging path from the final target repository artifact destination.
+- If `Design Contract Present` is true, check whether each design-driven task's manual-proof guidance requires screenshot-to-design comparison rather than screenshot capture alone.
 - Check whether manual-testing guidance prefers the normal human Docker stack whenever repository evidence supports it.
 - Check whether the final task's manual-testing proof guidance still uses `codeInfoTmp/manual-testing/<story-number>/<task-number>/` for task-scoped artifacts and truthfully points durable story proof at `codeInfoStatus/manual-proof/<story-number>/`.
   </verification_loop>

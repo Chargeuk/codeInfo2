@@ -401,18 +401,25 @@
               "identifier": "reviewer",
               "commandName": "review_evidence_gate"
             },
-            {
-              "type": "command",
-              "label": "Run Code Review Findings",
-              "agentType": "review_agent",
-              "identifier": "reviewer",
-              "commandName": "code_review_findings"
-            },
-            {
-              "type": "command",
-              "label": "Run Findings Saturation",
-              "agentType": "review_agent",
-              "identifier": "reviewer",
+        {
+          "type": "command",
+          "label": "Run Code Review Findings",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
+          "commandName": "code_review_findings"
+        },
+        {
+          "type": "llm",
+          "label": "Review Visual Design Conformance",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
+          "markdownFile": "review_visual_design_conformance.md"
+        },
+        {
+          "type": "command",
+          "label": "Run Findings Saturation",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
               "commandName": "review_findings_saturation"
             },
             {

@@ -13,6 +13,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - Interpret the review handoff semantically instead of as a brittle exact schema. If optional or newer comparison metadata is missing or shaped differently, use the evidence artifact, current-plan handoff, referenced artifacts, and direct git state to infer the safest usable meaning.
 - If the handoff and artifacts still cannot provide the minimum context needed to review, produce a visible incomplete-review findings artifact or summary when enough path information exists, do not edit the plan, and do not claim that no findings exist.
 - If the handoff is usable directly or by safe inference, perform the actual review against the planned work and the branch diff for every repository in scope.
+- If the active plan explicitly names design-target assets intended as implementation references, include design-conformance review against those named assets and any screenshot-comparison proof that the story or tasks claim to own.
 - This step MUST produce findings or a visible incomplete-review outcome only, and MUST NOT edit the plan yet.
 - Do not commit scratch review artifacts in this step. Only commit if a separate tracked repository change is genuinely required to repair the workflow state.
 - Treat `flows/**` as approved workflow-support paths. Do not raise findings solely because those paths changed without being named in the active plan, but continue to review them normally for workflow semantics, instruction safety, stale-handoff handling, commit/push behavior, plan-selection rules, and other agent-control correctness.
@@ -48,6 +49,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
   - the user has explicitly approved that scope expansion.
 - When a finding touches `.env*`, `docker-compose*`, startup env loaders, entrypoints, mounted-path mapping, or working-folder selection surfaces, compare the current known-working behavior before recommending a behavior-changing cleanup.
 - If the current behavior is known to work and the review concern is only portability or neatness, prefer `optional_simplification` plus `Scope Impact: cleanup_preference`, or record the concern as a rejected-risk note instead of reopening the story.
+- If the active plan explicitly names design-target assets intended as implementation references, treat material design-contract mismatch and missing screenshot-to-design comparison proof as actionable findings. Prefer `Scope Impact: proof_gap` for missing comparison proof, and use `behavioral_regression` or `unknown_scope_impact` when the visual mismatch changes usability, interaction clarity, or the intended visible contract.
 
 </finding_taxonomy_rules>
 
@@ -101,6 +103,7 @@ The findings file or incomplete-review artifact MUST:
 - state each finding's `Scope Impact` using the taxonomy above when findings can be produced; if the value is missing or unclear, use `unknown_scope_impact` or omit it and continue the review rather than failing;
 - identify the affected repository scope for every finding or incomplete-review blocker using the reviewed repository roots or aliases when available;
 - for every `must_fix` or `should_fix` finding, name the defect class and the most likely same-class sibling surfaces that should be checked next, or state explicitly why no meaningful sibling surface exists for that finding;
+- when the active plan explicitly names design-target assets intended as implementation references, include any material visual mismatch or missing screenshot-comparison proof alongside the normal findings output rather than treating it as an optional style note;
 - include a short `Finding Saturation Seeds` section that records the likely same-class sibling files, mirrored producers or consumers, lifecycle-adjacent seams, proof-owner chains, or support-file families that a later bounded saturation pass should check before disposition when findings can be produced;
 - when no actionable findings exist after a complete review, include a `Checked Defect Families` section that lists the main same-class defect families actively ruled out during the findings pass rather than implying they were never considered;
 - when the artifact is an incomplete-review outcome, name the missing context, the artifacts inspected, and the minimum evidence needed to complete the review.
@@ -136,6 +139,7 @@ This findings file is a high-quality local review artifact for the active flow r
 - Confirm every actionable finding includes a defect class plus likely same-class sibling surfaces, or an explicit reason no meaningful sibling surface exists.
 - Confirm the findings artifact includes `Finding Saturation Seeds`, or `Checked Defect Families` when no actionable findings exist.
 - Confirm any finding raised against allowed support files was either a wording issue or an explicit secret/artifact-hygiene issue.
+- If the active plan explicitly names design-target assets intended as implementation references, confirm the review explicitly checked visual conformance and screenshot-comparison proof instead of limiting itself to behavioral correctness.
 - Confirm the findings file path and the handoff `findings_file` field match.
 
 </verification_loop>

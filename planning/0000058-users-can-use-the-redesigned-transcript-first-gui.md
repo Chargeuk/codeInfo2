@@ -1624,7 +1624,7 @@ If later manual validation is useful after the automated repair lands, use the s
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `11, 12`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - Final validation for review pass `0000058-20260520T055359Z-8bffd025`, covering task-required findings `finding-1` and `finding-4`.
   - Final revalidation owner for inline-resolved minor findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7` from the same active review cycle `0000058-rc-20260520T072406Z-8e4d883c`.

@@ -1319,6 +1319,8 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Reclosed Task 9 after the reopened mobile app-menu accessibility follow-up completed cleanly; all `15/15` subtasks and `5/5` testing steps are now complete with no live blocker remaining.
 
+- Manual testing reran task-scoped against the rebuilt main compose stack and proved the shared desktop/mobile navigation shell, direct `/lmstudio` redirect plus reload behavior into `Home`, desktop rail reachability for `Chat`, `Agents`, `Flows`, `Ingest`, and `Logs`, and the mobile app-menu navigation path into `Chat` without the focused-hidden-drawer accessibility warning returning. Captured fresh scratch proof in `codeInfoTmp/manual-testing/0000058/9/` as `proof-01-desktop-home-nav.png`, `proof-02-desktop-lmstudio-redirect.png`, `proof-03-mobile-home.png`, `proof-04-mobile-app-menu.png`, `proof-05-mobile-chat-after-menu.png`, `support-console.txt`, `support-network.json`, `support-observations.json`, and `support-runtime.txt`; the console stayed free of warning/error lines, and the only non-200 network entries were expected `net::ERR_ABORTED` fetch/event-stream cancellations caused by navigating away between workspace routes. No additional subtasks were needed.
+
 ---
 
 ### Task 10. Final Story 58 Validation And Close-Out

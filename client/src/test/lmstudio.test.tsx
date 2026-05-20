@@ -1,6 +1,7 @@
 import type { LmStudioStatusOk } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
@@ -17,7 +18,7 @@ await jest.unstable_mockModule('@codeinfo2/common', async () => ({
 }));
 
 const { default: HomePage } = await import('../pages/HomePage');
-const { default: LmStudioPage } = await import('../pages/LmStudioPage');
+const { router } = await import('../routes/router');
 
 const okResponse: LmStudioStatusOk = {
   status: 'ok',
@@ -127,15 +128,19 @@ describe('LM Studio utility shell integration', () => {
     );
   });
 
-  it('reuses the same LM Studio section from the compatibility route', async () => {
-    render(<LmStudioPage />);
+  it('reuses the same LM Studio section from the routed /lmstudio compatibility path', async () => {
+    const memoryRouter = createMemoryRouter(router.routes, {
+      initialEntries: ['/lmstudio'],
+    });
+
+    render(<RouterProvider router={memoryRouter} />);
 
     expect(
-      await screen.findByRole('heading', { name: 'LM Studio', level: 1 }),
+      await screen.findByRole('heading', { name: 'Home' }),
     ).toBeInTheDocument();
     expect(
-      (await screen.findAllByText(/Local runtime status and model list/i))
-        .length,
-    ).toBeGreaterThan(0);
+      screen.getByRole('heading', { name: 'LM Studio' }),
+    ).toBeInTheDocument();
+    expect(memoryRouter.state.location.pathname).toBe('/');
   });
 });

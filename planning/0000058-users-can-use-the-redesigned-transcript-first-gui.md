@@ -1693,7 +1693,7 @@ No additional repositories are in scope for this review cycle. The current findi
 #### Testing
 
 1. [x] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
+2. [x] Run `npm run build:summary:client`.
 3. [ ] Run `npm run test:summary:server:unit`.
 4. [ ] Run `npm run test:summary:server:cucumber`.
 5. [ ] Run `npm run test:summary:client`.

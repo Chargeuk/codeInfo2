@@ -890,8 +890,6 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 5. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the client files changed by this task before closing the task.
 
 #### Implementation notes
-
-- Starts empty.
 - Added a Story 58 traceability ledger that maps each acceptance criterion and major Description promise to the exact implementation task, proof owner, and approved design packet that delivered it. The ledger explicitly ties the transcript-first shell family to Tasks 1, 3, 4, 5, and 6; the utility shell family to Tasks 7 and 8; the Home/LM Studio migration to Task 7; and the visible navigation plus `/lmstudio` compatibility redirect to Task 9.
 - Added a second ledger entry that makes the highest-risk invariants explicit instead of implied: transcript copy isolation, scroll-away anchor preservation, workspace-shell state retention, Home LM Studio migration, `/lmstudio` redirect behavior, utility-page adoption, and intentionally unchanged backend/auth surfaces are each called out by task, proof home, and design packet.
 - Created `codeInfoStatus/pr-summaries/0000058-pr-summary.md` as the durable reviewer-facing close-out artifact for Story 58. It records the final redesign scope, the task/proof map, the wrapper and browser proof evidence that already exists, and the bounded caveats reviewers should keep in view.
@@ -1411,4 +1409,5 @@ If provider-auth proof on `Home` is blocked only because restoring the provider 
 
 #### Implementation notes
 
-- Starts empty.
+- Implementation-only audit confirmed commit `3a3aa21b` added the Story 58 traceability ledger, invariant ledger, durable PR summary artifact, and the no-extra-doc-update closeout note that support completed subtasks 1 through 6.
+- **BLOCKER** Implementation cannot continue honestly from this pass without finishing the remaining unchecked implementation subtasks `7. Run npm run lint` and `8. Run npm run format:check`. Audit evidence checked: `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 10`, the current Task 10 section on disk, and commit `3a3aa21b` (`DEV-[58] - add story 58 closeout artifacts`). Those sources show the closeout notes and PR summary were added, but the required repo-wide lint and format gates were not completed during the latest implementation pass, so the task must stay `__in_progress__` with this blocker visible until that work is finished or the plan is repaired.

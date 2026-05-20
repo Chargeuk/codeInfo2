@@ -1742,3 +1742,194 @@ No additional repositories are in scope for this review cycle. The current findi
 #### Manual Testing Guidance
 
 Later manual validation for this review-created block should use the supported main stack from the repository root through the standard `docker-compose.yml` path, not `codeinfo:local`, with the usual compose env loading handled by the repository wrappers. Treat `http://localhost:5001` and `http://localhost:5010` as the supported manual surfaces, wait for the stack to finish booting before checking UI state, and use the mounted manual agent catalogs from `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` rather than ad hoc container edits. Useful non-blocking checks are: confirm the repaired main stack no longer strands Codex on a fresh runtime when valid host-backed auth seed state already exists at `/host/codex`; confirm the visible `Run` interaction on a launchable flow does not produce duplicate fresh conversations or a visibly repeated launch after a rapid double-click; and recheck the previously inline-resolved Story 58 surfaces already listed in `## Minor Review Fixes`. For the replay-barrier retest, start from the mobile app-menu route into `/flows` before the first `New Flow` plus rapid `Run` double-click, because that first-arrival path is where the duplicate accepted launch requests reproduced during final story proof. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory and then transfer only the retained files into `codeInfoTmp/manual-testing/0000058/13/`.
+
+## Code Review Findings - Review Pass `0000058-20260520T175414Z-385d67b3`
+
+Review pass `0000058-20260520T175414Z-385d67b3` reviewed local `HEAD` `385d67b352d159909fe73bdcb811fcaace959dd7` against remote base `origin/main` commit `0b72897cd96f630d912c961ae3c9c8f4b2e909f8` using comparison rule `local_head_vs_resolved_base`. The current repository is the only repository in scope; `additional_repositories` is empty and the stored review handoff recorded `remote_fetch_status: success`.
+
+Durable review artifacts for this pass:
+
+- Review handoff: `codeInfoTmp/reviews/0000058-current-review.json`
+- Evidence: `codeInfoTmp/reviews/0000058-20260520T175414Z-385d67b3-evidence.md`
+- Findings: `codeInfoTmp/reviews/0000058-20260520T175414Z-385d67b3-findings.md`
+- Saturation: `codeInfoTmp/reviews/0000058-20260520T175414Z-385d67b3-findings-saturation.md`
+- Blind-spot challenge: `codeInfoTmp/reviews/0000058-20260520T175414Z-385d67b3-blind-spot-challenge.md`
+
+The active `codeInfoStatus/flow-state/review-disposition-state.json` for review cycle `0000058-rc-20260520T191211Z-385d67b3` is the authoritative routing source for this appended findings block. That state now records one unresolved task-required finding, zero unresolved minor-batchable findings, five inline-resolved minor findings already documented in `## Minor Review Fixes`, and no incomplete-review blockers. The inline-resolved minor findings `1`, `3`, `4`, `5`, and `6` must stay covered by the fresh final revalidation task below rather than reopening as numbered repair tasks.
+
+Endorsed findings requiring plan follow-up:
+
+- `finding-2` `should_fix`: fresh-run retries can still start duplicate logical launches after an ambiguous network failure because each retry remints a new `conversationId` and no cross-request launch ownership token or equivalent idempotency seam ties the retry back to the earlier accepted launch.
+
+### Task 14. Add Fresh-Run Retry Idempotency Ownership After Review Pass `0000058-20260520T175414Z-385d67b3`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `13`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `finding-2`: fresh-run retries can still start duplicate logical launches after an ambiguous network failure because the client remints a new `conversationId` and the server has no bounded replay-ownership seam for the earlier accepted launch.
+
+#### Overview
+
+Repair the fresh-run launch contract so one logical new-run intent owns one launch even when the first accepted `/run` response is lost or surfaces to the client as an ambiguous failure. This task owns the client/server retry-identity seam, the fresh-run request contract, and the focused proof needed to show that ambiguous retries no longer start a second logical launch while the already-repaired same-frame replay barrier and the existing resume contract remain intact.
+
+#### Affected Repositories
+
+- `Current Repository`: owns the full repair for the ambiguous fresh-run retry seam across the Flows page launch path, the flows API request contract, the server run route/service seam, and the focused automated proof for that contract.
+
+No additional repositories are in scope for this review-created repair. The finding crosses client and server seams inside the same repository, so the task remains single-owner while still covering both sides of the current local-HEAD-vs-resolved-base review.
+
+#### Task Exit Criteria
+
+- `R1.` An ambiguous fresh-run retry cannot start a second logical launch after the first request was already accepted server-side.
+- `R2.` The repair preserves the current fresh-run versus resume boundary, including selected-flow revalidation, custom-title handling, and the same-frame replay barrier already proven for duplicate clicks.
+- `R3.` The client/server contract for fresh-run retry ownership is explicit and bounded, rather than depending on a newly reminted `conversationId` to imply launch identity.
+- `R4.` Focused proof covers the exact ambiguous-retry seam and shows one logical launch outcome instead of two distinct accepted launches from one retried intent.
+
+#### Proof Mapping
+
+- `P1.` fresh-run retry ownership proof for `R1`, `R2`, and `R3`: implementation owners are `client/src/pages/FlowsPage.tsx`, `client/src/api/flows.ts`, `server/src/routes/flowsRun.ts`, and `server/src/flows/service.ts`; proof homes are focused updates under the existing Flows page client tests and focused server-unit coverage for the launch contract seam.
+- `P2.` user-visible ambiguous-retry proof for `R1` and `R4`: implementation owners are the same client/server launch seam plus `e2e/flows-execution-runs.spec.ts`; proof home is the targeted e2e wrapper path for the fresh-run launch flow.
+- `P3.` broad regression proof for the current review-created findings block: proof home is the fresh final revalidation task below, which reruns the relevant repository-supported wrappers after this repair lands.
+
+#### Risk Ownership
+
+- Highest-risk invariant: the fix must stop ambiguous-retry duplicate launches without widening or redefining the already-correct resume path, custom-title rules, or same-frame replay-barrier behavior.
+- Keep the repair inside the current repository’s Flows launch seam; do not split it into artificial client-only or server-only micro-tasks when the reviewed issue is one coherent retry-ownership contract.
+
+#### High-Risk Invariants And Blocker Family
+
+- Retry-identity proof required: the repaired seam must tie the retried client intent back to the earlier accepted launch instead of starting a second distinct run.
+- Fresh-vs-resume proof required: the repair must not leak fresh-run retry ownership into resume-only behavior or contradictory hidden launch state.
+- Existing barrier proof required: the already-resolved same-frame replay barrier must stay intact while the ambiguous-retry seam is repaired.
+- Likely blocker family: product or story seam in the current repository’s Flows launch contract, with direct proof ownership in the client launch path, server run seam, and the targeted browser flow.
+
+#### Documentation Locations
+
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/api/flows.ts`
+- `server/src/routes/flowsRun.ts`
+- `server/src/flows/service.ts`
+- `client/src/test/flowsPage.run.test.tsx`
+- `client/src/test/flowsPage.runGuard.test.tsx`
+- `e2e/flows-execution-runs.spec.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current finding evidence, the fresh-run launch path in `client/src/pages/FlowsPage.tsx`, the request seam in `client/src/api/flows.ts`, and the matching server run route/service ownership in `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts` so the exact ambiguous-retry contract gap is isolated before patching.
+2. [ ] Repair the client/server fresh-run launch contract so one logical fresh-run intent keeps a bounded retry-ownership seam after an ambiguous failure instead of reminting a second distinct launch.
+3. [ ] Preserve the existing fresh-run versus resume boundary, selected-flow revalidation, custom-title handling, and the already-resolved same-frame replay barrier while adding the retry-ownership repair.
+4. [ ] Add or update focused proof owners for the ambiguous-retry seam in the existing Flows page and server contract surfaces, and extend the targeted browser proof only where the user-visible retry path needs it.
+5. [ ] Address any lint issues introduced by the repair in touched files.
+6. [ ] Address any format-check issues introduced by the repair in touched files.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:client`.
+5. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
+6. [ ] Run `npm run lint`.
+7. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Pending review-created repair for review pass `0000058-20260520T175414Z-385d67b3`: this task was appended from `review-disposition-state.json` because finding `2` exceeds the inline minor-fix guardrails and still requires a bounded client/server contract repair before the story can close.
+
+#### Manual Testing Guidance
+
+If later manual validation is useful after this repair lands, start from the supported main stack and reproduce the user-visible fresh-run retry path only after an intentionally ambiguous launch outcome has been induced in a controlled way. Keep manual proof non-blocking and observational; the authoritative contract proof for this task remains the focused automated client/server and e2e wrapper coverage listed above.
+
+
+### Task 15. Re-Validate Story 58 After Review Pass `0000058-20260520T175414Z-385d67b3`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `14`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - Final validation for review pass `0000058-20260520T175414Z-385d67b3`, covering unresolved task-required finding `2`.
+  - Final revalidation owner for inline-resolved minor findings `1`, `3`, `4`, `5`, and `6` from the same active review cycle `0000058-rc-20260520T191211Z-385d67b3`.
+
+#### Overview
+
+Revalidate Story 58 after the current review-created retry-ownership repair is complete. This task owns the broad current-repository regression proof for review pass `0000058-20260520T175414Z-385d67b3`, also closes the loop on the already-resolved inline minor findings from the same active review cycle, and remains the one final revalidation owner for review cycle `0000058-rc-20260520T191211Z-385d67b3`.
+
+#### Affected Repositories
+
+- `Current Repository`: owns the full final regression proof for unresolved task-required finding `2` plus the inline-resolved minor findings `1`, `3`, `4`, `5`, and `6`.
+
+No additional repositories are in scope for this review cycle. Server cucumber is not applicable to this findings block unless Task 14 adds a cucumber-owned proof seam, because the active unresolved finding and the inline-resolved minors are already owned by server-unit, client, e2e, and compose-contract proof surfaces inside the current repository.
+
+#### Task Exit Criteria
+
+- `R1.` Task `14` is `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `R2.` The appended `Code Review Findings` block for review pass `0000058-20260520T175414Z-385d67b3` still matches the active `review-disposition-state.json`, including unresolved task-required finding `2`, inline-resolved minor findings `1`, `3`, `4`, `5`, and `6`, and this task’s ownership of final revalidation for review cycle `0000058-rc-20260520T191211Z-385d67b3`.
+- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this findings block: supported server build, supported client build, full server-unit wrapper, full client wrapper, targeted or full e2e wrapper as appropriate for the repaired launch seam, supported compose build-plus-up/down smoke, lint, and format.
+- `R4.` The final pass records explicitly that no additional repository was in scope for this review-created findings block and that server cucumber stayed not applicable unless the repair itself made it applicable.
+- `R5.` `review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title`, keeps `final_revalidation_owned_by_task_up_path: true`, and leaves `needs_final_minor_fix_revalidation_task: false`, so this review cycle cannot accidentally create a second final revalidation owner.
+
+#### Proof Mapping
+
+- `P1.` dependency-completion proof for `R1`: proof home is parser output for Task `14` plus its checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
+- `P2.` findings-block and review-loop ownership proof for `R2` and `R5`: proof homes are this `Code Review Findings` block, `## Minor Review Fixes`, `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000058-pr-summary.md`.
+- `P3.` supported server-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-server-latest.log`.
+- `P4.` supported client-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-client-latest.log`.
+- `P5.` full server-unit wrapper proof for the current review-created findings block in `R3`: proof home is the latest `test-results/server-unit-tests-*.log`.
+- `P6.` full client-wrapper proof for the current review-created findings block in `R3`: proof homes are the latest `test-results/client-tests-*.log` and the latest `test-results/client-tests-*.json`.
+- `P7.` targeted or full e2e wrapper proof for the repaired launch seam in `R3`: proof home is `logs/test-summaries/e2e-tests-latest.log`.
+- `P8.` supported compose build-and-smoke proof for `R3` and `R4`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P9.` repository-hygiene and applicability proof for `R3` and `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary close-out.
+
+#### Risk Ownership
+
+- Highest-risk invariant: final validation must prove both the new serious retry-ownership repair and the already-resolved inline minor fixes through the repository-supported wrapper and runtime paths, not only through the targeted owner tests from the repair task.
+- If a broad wrapper exposes a new defect, preserve it honestly instead of silently reclosing the story.
+
+#### High-Risk Invariants And Blocker Family
+
+- Default-path proof required: final validation must cover the repaired findings block through the supported server build, server-unit, client, e2e, compose, lint, and format wrappers, not only the targeted repair-task reruns.
+- Review-loop ownership proof required: this task must remain the one final revalidation owner for review cycle `0000058-rc-20260520T191211Z-385d67b3`, and the inline minor findings already resolved in `## Minor Review Fixes` must stay covered here instead of spawning a second final task later.
+- Applicability proof required: the final pass must state clearly why no additional repository validation was needed and why server cucumber is or is not applicable after Task 14 lands.
+- Likely blocker family: shared wrapper or shared baseline seam for broad automated proof and review-cycle closeout ownership.
+
+#### Documentation Locations
+
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- `codeInfoStatus/pr-summaries/0000058-pr-summary.md`
+- `client/src/pages/FlowsPage.tsx`
+- `client/src/api/flows.ts`
+- `server/src/routes/flowsRun.ts`
+- `server/src/flows/service.ts`
+- `docker-compose.yml`
+- `e2e/flows-execution-runs.spec.ts`
+
+#### Subtasks
+
+1. [ ] Re-read this appended `Code Review Findings` block, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `1`, `3`, `4`, `5`, and `6`, and the completed proof-owner sections for Task `14`; check off this subtask only after parser output shows Task `14` is `__done__`, has no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so `R2`, `R4`, and `R5` each have a durable proof home for this review cycle: name Tasks `14` and `15`, finding `2`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T191211Z-385d67b3`, the no-additional-repository applicability decision, and the retained broad proof homes for server build, client build, server-unit, client, e2e, compose, lint, and format.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on `R2` and `R5`: the current review pass id, review cycle id `0000058-rc-20260520T191211Z-385d67b3`, review-created Tasks `14` and `15`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+4. [ ] Address any lint issues introduced by the final revalidation updates in touched tracked files.
+5. [ ] Address any format-check issues introduced by the final revalidation updates in touched tracked files.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run test:summary:client`.
+5. [ ] Run `npm run test:summary:e2e`.
+6. [ ] Run `npm run compose:build:summary`.
+7. [ ] Run `npm run compose:up`.
+8. [ ] Run `npm run compose:down`.
+9. [ ] Run `npm run lint`.
+10. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Pending review-created final revalidation for review pass `0000058-20260520T175414Z-385d67b3`: this task was appended from `review-disposition-state.json` as the one final revalidation owner for review cycle `0000058-rc-20260520T191211Z-385d67b3`, covering unresolved task-required finding `2` plus inline-resolved minor findings `1`, `3`, `4`, `5`, and `6`.
+
+#### Manual Testing Guidance
+
+If later manual validation is useful after the automated repair lands, use the supported main stack and recheck the repaired fresh-run retry behavior from the normal `/flows` surface after the automated wrapper proof is complete. Keep that manual validation optional and non-blocking; the authoritative close-out proof for this task remains the broad automated wrapper set listed above.

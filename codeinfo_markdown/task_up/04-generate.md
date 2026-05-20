@@ -4,7 +4,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Work from the active plan only.
 - Do not leave investigation subtasks in the task list; investigations must be resolved now through the earlier research passes, repository evidence, and documentation.
 - Prefer the smallest set of tasks that fully implements the story without combining unrelated work.

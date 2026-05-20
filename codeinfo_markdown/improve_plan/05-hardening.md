@@ -4,7 +4,7 @@ Update the active plan so it is clearer, evidence-backed, and ready for a later 
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/improve_plan/01-shared-contract.md"`.
 - Do not create tasks.
 - Prefer the smallest set of plan edits that closes real gaps.
 - Keep wording concrete and junior-friendly.

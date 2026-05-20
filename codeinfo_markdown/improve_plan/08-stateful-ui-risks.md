@@ -4,7 +4,7 @@ If the story changes any user-visible or stateful interaction surface, make the 
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/improve_plan/01-shared-contract.md"`.
 - Only add detail when the story actually touches UI state, selection state, mode switches, form inputs, draft state, or persisted client-visible state.
 - If the story has no such surface, record that this pass is not applicable and do not bloat the plan.
 - Prefer precise behavioral rules over generic UI commentary.

@@ -4,7 +4,7 @@ Lock the active plan scope before doing any research or edits.
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `improve_plan/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/improve_plan/01-shared-contract.md"`.
 - Treat this command as an autonomous plan-improvement pass.
 - Do not create tasks in this command.
 - Do not ask the user follow-up questions unless you are blocked by information that cannot be retrieved from repository files, git state, MCP tools, or official documentation.

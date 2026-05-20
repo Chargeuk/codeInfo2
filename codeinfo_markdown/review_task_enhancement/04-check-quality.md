@@ -4,7 +4,7 @@ Re-read the plan after the scoped review-task-up command and keep improving the 
 
 <instruction_priority>
 
-- Follow `review_task_enhancement/01-shared-contract.md` and keep the scope limited to the selected newly added review-created `__to_do__` tasks.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"` and keep the scope limited to the selected newly added review-created `__to_do__` tasks.
 - Use fresh disk reads and current git state, not conversational memory.
 - Treat thin review notes, under-specified subtasks, and under-scoped testing as defects to repair now rather than acceptable output.
 - Treat over-fragmented subtasks, micro-subtasks, and duplicated broad testing inside selected review-created tasks as defects to repair now.

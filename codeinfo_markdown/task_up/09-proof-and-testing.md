@@ -4,7 +4,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Make proof paths realistic, runnable, and wrapper-first where possible.
 - Do not invent commands, services, health checks, runtimes, or harnesses that are not supported by repository evidence.
 - Keep testing proportional to the actual change surface.

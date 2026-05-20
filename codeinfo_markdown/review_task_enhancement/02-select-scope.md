@@ -4,7 +4,7 @@ Identify exactly which newly added review-created `__to_do__` tasks are eligible
 
 <instruction_priority>
 
-- Follow the scoped contract from `review_task_enhancement/01-shared-contract.md`.
+- Follow the scoped contract from `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"`.
 - Be conservative. It is better to enhance too few tasks than to silently retask older story work.
 - Use on-disk plan evidence and current working-tree diff evidence, not memory, to identify the eligible tasks.
 

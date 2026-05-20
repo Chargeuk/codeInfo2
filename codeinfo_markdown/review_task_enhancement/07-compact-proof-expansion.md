@@ -4,7 +4,7 @@ Add honest proof ownership to selected review-created tasks without creating one
 
 <instruction_priority>
 
-- Follow `review_task_enhancement/01-shared-contract.md` and keep the scope limited to the selected review-created `__to_do__` tasks.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"` and keep the scope limited to the selected review-created `__to_do__` tasks.
 - Preserve selected review-created task identities and grouping.
 - Prefer one proof-authoring subtask per proof file, proof surface, or harness path.
 - Compactness must not weaken exact ordering, producer-consumer, default-path, runtime-handoff, or review-finding proof.

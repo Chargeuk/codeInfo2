@@ -4,7 +4,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Use fresh disk reads for the final pass.
 - Keep the final task list concrete, traceable, and in scope.
 - Prefer one coherent commit over many small commits.
@@ -22,7 +22,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that each task has realistic exit criteria, dependencies, proof steps, and runnable validation.
 - Check that no absolute filesystem paths, usernames, or machine-specific checkout roots were written into tasks, subtasks, testing steps, or manual-testing guidance.
 - Check that the final validation task proves the whole story rather than only isolated task-level behavior.
-- Check that the applicable categories from `shared/review-preemption-checklist.md` are represented honestly in the final task list or explicitly not applicable.
+- Check that the applicable categories from `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-preemption-checklist.md"` are represented honestly in the final task list or explicitly not applicable.
 - Check that `Testing` is automated-only in every task.
 - Check that any `Manual Testing Guidance` section is optional, non-blocking, and checkbox-free.
 - Check that no subtask depends on future automated or manual proof output.

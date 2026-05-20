@@ -4,7 +4,7 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Run this pass only where the story affects UI state, mode switches, restored fields, or any client-visible state machine.
 - If the story has no such surface, leave the plan unchanged and record that this pass is not applicable.
 - Prefer concrete state transitions over generic UX wording.

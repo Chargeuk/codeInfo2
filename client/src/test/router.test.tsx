@@ -41,7 +41,7 @@ describe('router navigation', () => {
 
     expect(router.state.location.pathname).toBe('/lmstudio');
     expect(
-      await screen.findByRole('heading', { name: /LM Studio/i }),
+      await screen.findByRole('heading', { name: /LM Studio/i, level: 1 }),
     ).toBeInTheDocument();
   });
 });

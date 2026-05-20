@@ -149,6 +149,7 @@ describe('useLmStudioStatus', () => {
   });
 
   it('surfaces malformed explicit input through the existing failure path', async () => {
+    localStorage.setItem('lmstudio.baseUrl', 'http://persisted.example:1234');
     getFetchMock().mockImplementation(async (input) => {
       const href = typeof input === 'string' ? input : input.toString();
       if (href.includes('/lmstudio/status?baseUrl=notaurl')) {
@@ -160,6 +161,16 @@ describe('useLmStudioStatus', () => {
           } satisfies LmStudioStatusResponse,
           { status: 400 },
         );
+      }
+      if (
+        href.includes(
+          '/lmstudio/status?baseUrl=http%3A%2F%2Fpersisted.example%3A1234',
+        )
+      ) {
+        return mockJsonResponse({
+          ...okMany,
+          baseUrl: 'http://persisted.example:1234',
+        });
       }
       throw new Error(`Unexpected fetch: ${href}`);
     });
@@ -178,6 +189,28 @@ describe('useLmStudioStatus', () => {
     expect(
       result.current.state.status === 'error' && result.current.state.error,
     ).toContain('lmstudio status failed');
+    expect(result.current.committedBaseUrl).toBe(
+      'http://persisted.example:1234',
+    );
+    expect(result.current.baseUrl).toBe('http://persisted.example:1234');
+    expect(localStorage.getItem('lmstudio.baseUrl')).toBe(
+      'http://persisted.example:1234',
+    );
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(getFetchMock()).toHaveBeenLastCalledWith(
+      expect.stringContaining(
+        '/lmstudio/status?baseUrl=http%3A%2F%2Fpersisted.example%3A1234',
+      ),
+    );
+    expect(result.current.state.status).toBe('success');
+    expect(
+      result.current.state.status === 'success' &&
+        result.current.state.data.baseUrl,
+    ).toBe('http://persisted.example:1234');
   });
 
   it('ignores stale overlapping refresh results after a newer committed base URL wins', async () => {

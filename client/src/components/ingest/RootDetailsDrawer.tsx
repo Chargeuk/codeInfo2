@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close';
 import {
   Box,
   Chip,
@@ -17,7 +18,6 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo } from 'react';
-import CloseIcon from '@mui/icons-material/Close';
 import type { IngestRoot } from '../../hooks/useIngestRoots';
 import { createLogger } from '../../logging';
 

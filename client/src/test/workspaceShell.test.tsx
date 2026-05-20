@@ -1,14 +1,14 @@
-import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { type ConversationFilterState } from '../hooks/useConversations';
 import ConversationList, {
   type ConversationListItem,
 } from '../components/chat/ConversationList';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
 import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
+import { type ConversationFilterState } from '../hooks/useConversations';
 
 const workspaceDestinationNames = [
   'Home',

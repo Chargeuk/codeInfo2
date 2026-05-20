@@ -19,8 +19,8 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
-import useLogs from '../hooks/useLogs';
 import UtilityPageShell from '../components/utility/UtilityPageShell';
+import useLogs from '../hooks/useLogs';
 import { createLogger } from '../logging';
 
 const levelOptions: LogEntry['level'][] = ['error', 'warn', 'info', 'debug'];

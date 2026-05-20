@@ -3,8 +3,8 @@ import {
   type LmStudioStatusResponse,
 } from '@codeinfo2/common';
 import { renderHook, act } from '@testing-library/react';
-import { useLmStudioStatus } from '../hooks/useLmStudioStatus';
 import { getLmStudioBaseUrl } from '../config/runtimeConfig';
+import { useLmStudioStatus } from '../hooks/useLmStudioStatus';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const okMany: LmStudioStatusOk = {

@@ -1,13 +1,18 @@
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import type {
+  ChatProviderInfo,
+  LmStudioModel,
+  VersionInfo,
+} from '@codeinfo2/common';
 import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MemoryOutlinedIcon from '@mui/icons-material/MemoryOutlined';
-import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
-import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import KeyRoundedIcon from '@mui/icons-material/KeyRounded';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
+import MemoryOutlinedIcon from '@mui/icons-material/MemoryOutlined';
+import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import {
   Alert,
   Box,
@@ -29,11 +34,6 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { type ReactNode } from 'react';
-import type {
-  ChatProviderInfo,
-  LmStudioModel,
-  VersionInfo,
-} from '@codeinfo2/common';
 import type { HomeProviderPresentation } from './homePageData';
 
 function formatTime(value: string | null | undefined) {

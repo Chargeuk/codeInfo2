@@ -1,8 +1,8 @@
-import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
 import type { ReactNode } from 'react';
 

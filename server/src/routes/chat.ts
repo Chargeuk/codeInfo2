@@ -6,12 +6,12 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { Router, json } from 'express';
 
+import { resolveAgentHomeEnv } from '../agents/roots.js';
 import {
   getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../agents/runLock.js';
-import { resolveAgentHomeEnv } from '../agents/roots.js';
 import { buildConversationFlags } from '../chat/agentFlags.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { CopilotLifecycle } from '../chat/copilotLifecycle.js';

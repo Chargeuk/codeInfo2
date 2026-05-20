@@ -2,6 +2,7 @@ import { fetchServerVersion, type VersionInfo } from '@codeinfo2/common';
 import { Alert, Box, Stack, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import pkg from '../../package.json';
+import { getApiBaseUrl } from '../api/baseUrl';
 import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import {
   HomeLmStudioSection,
@@ -10,12 +11,11 @@ import {
 } from '../components/home/HomePageSections';
 import { createHomeProviderSummaries } from '../components/home/homePageData';
 import UtilityPageShell from '../components/utility/UtilityPageShell';
-import { getApiBaseUrl } from '../api/baseUrl';
 import { getApiBaseUrlBlockingIssueMessage } from '../config/runtimeConfig';
+import { getLmStudioBaseUrl } from '../config/runtimeConfig';
 import { useHomeProviders } from '../hooks/useHomeProviders';
 import useLmStudioStatus from '../hooks/useLmStudioStatus';
 import { createLogger } from '../logging';
-import { getLmStudioBaseUrl } from '../config/runtimeConfig';
 
 const homeSubtitle =
   'System status overview, provider logon state, and LM Studio runtime details.';

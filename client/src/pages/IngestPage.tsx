@@ -11,11 +11,11 @@ import ActiveRunCard from '../components/ingest/ActiveRunCard';
 import IngestForm from '../components/ingest/IngestForm';
 import RootDetailsDrawer from '../components/ingest/RootDetailsDrawer';
 import RootsTable from '../components/ingest/RootsTable';
+import UtilityPageShell from '../components/utility/UtilityPageShell';
 import type { ChatWsIngestStatus } from '../hooks/useChatWs';
 import useIngestModels from '../hooks/useIngestModels';
 import useIngestRoots, { type IngestRoot } from '../hooks/useIngestRoots';
 import useIngestStatus from '../hooks/useIngestStatus';
-import UtilityPageShell from '../components/utility/UtilityPageShell';
 import { createLogger } from '../logging/logger';
 
 const normalizeEmbeddingProvider = (

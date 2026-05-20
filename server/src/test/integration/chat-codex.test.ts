@@ -14,11 +14,11 @@ import type {
 import express from 'express';
 import request from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
+import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../../agents/runLock.js';
-import { resolveAgentHomeEnv } from '../../agents/roots.js';
 import {
   getMemoryTurns,
   memoryConversations,

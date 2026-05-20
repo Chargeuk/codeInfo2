@@ -1465,10 +1465,11 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 
 #### Proof Mapping
 
-- `P1.` split-home bootstrap helper proof for `R1` and `R2`: implementation owners are `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts`; proof homes are `server/src/test/unit/codexAuthCopy.test.ts` and `server/src/test/integration/codexAuthCopy.integration.test.ts`.
-- `P2.` user-visible Codex guidance proof for `R3`: implementation owners are `README.md` and `client/src/pages/ChatPage.tsx`; proof home is `client/src/test/chatPage.codexBanners.test.tsx` when banner or warning wording changes.
-- `P3.` targeted supported runtime contract proof for `R1`, `R2`, and `R4`: implementation owners are `docker-compose.yml` and `docker-compose.e2e.yml`; proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down` for the supported main stack after this task lands.
-- `P4.` review-cycle broad regression proof for `R1` through `R4`: proof home is the later review-cycle final revalidation task that reruns the supported compose, server-unit, client, and e2e wrappers after this targeted seam repair lands.
+- `P1.` split-home Compose mount proof for `R1` and `R4`: implementation owners are `docker-compose.yml` and `docker-compose.e2e.yml`; proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down` for the supported main stack after this task lands.
+- `P2.` startup seeding-order proof for `R2`: implementation owners are `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts`; proof home is `server/src/test/unit/codexAuthCopy.test.ts`.
+- `P3.` startup split-home integration proof for `R1` and `R2`: implementation owners are `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts`; proof home is `server/src/test/integration/codexAuthCopy.integration.test.ts`.
+- `P4.` user-visible Codex guidance proof for `R3`: implementation owners are `README.md` and `client/src/pages/ChatPage.tsx`; proof home is `client/src/test/chatPage.codexBanners.test.tsx` when banner or warning wording changes.
+- `P5.` review-cycle broad regression proof for `R1` through `R4`: proof home is the later review-cycle final revalidation task that reruns the supported compose, server-unit, client, and e2e wrappers after this targeted seam repair lands.
 
 #### Risk Ownership
 
@@ -1497,10 +1498,11 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 #### Subtasks
 
 1. [ ] Re-read `docker-compose.yml`, `docker-compose.e2e.yml`, `server/src/index.ts`, and `server/src/utils/codexAuthCopy.ts` so the exact split-home bootstrap contract and the current `/host/codex` regression are isolated before editing.
-2. [ ] Patch the supported main and e2e Compose stacks so `/host/codex` is again a real host-backed seed source distinct from `/app/codex`, while preserving the current runtime-home ownership and the intentionally separate local-stack contract in `docker-compose.local.yml`.
-3. [ ] If the repaired runtime contract changes any user-facing or reviewer-facing Codex guidance, update only the smallest honest wording surfaces in `README.md` and `client/src/pages/ChatPage.tsx` so they describe the real supported bootstrap path instead of a stale host-login promise.
-4. [ ] Add or update focused proof in `server/src/test/unit/codexAuthCopy.test.ts` and `server/src/test/integration/codexAuthCopy.integration.test.ts` so the helper proves the repaired split-home seeding contract directly rather than inferring it from shared-home or no-host-mount cases.
-5. [ ] If UI wording changes, add or update `client/src/test/chatPage.codexBanners.test.tsx` so the visible Codex guidance still matches the repaired runtime contract.
+2. [ ] Patch `docker-compose.yml` and `docker-compose.e2e.yml` so `R1` and `R4` are satisfied directly: `/host/codex` must be a real host-backed seed source distinct from `/app/codex`, and the intentionally separate local-stack contract in `docker-compose.local.yml` must stay untouched.
+3. [ ] Patch `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts` so `R2` remains true after the mount repair: startup may seed `/app/codex` only when runtime auth is missing, and it must not overwrite an already-authenticated runtime home or treat a duplicate runtime mount as distinct seed material.
+4. [ ] Add or update `server/src/test/unit/codexAuthCopy.test.ts` so it proves the `R2` helper invariants directly, including no overwrite when `/app/codex` already has auth material and no copy when `/host/codex` is absent or not meaningfully distinct.
+5. [ ] Add or update `server/src/test/integration/codexAuthCopy.integration.test.ts` so it proves the repaired `R1` and `R2` split-home bootstrap path with the supported mount layout instead of inferring behavior from shared-home or no-host-mount cases.
+6. [ ] If the repaired runtime contract changes any user-facing or reviewer-facing Codex guidance, update `README.md` and `client/src/pages/ChatPage.tsx` for `R3`, then add or update `client/src/test/chatPage.codexBanners.test.tsx` so the visible guidance still matches the real supported bootstrap path.
 
 #### Testing
 
@@ -1566,9 +1568,11 @@ Repair the fresh-run launch seam on the Flows page so one logical new-run intent
 #### Subtasks
 
 1. [ ] Re-read `startFlowRun('run')`, `makeClientConversationId()`, and the `Run` button disable path in `client/src/pages/FlowsPage.tsx`, then re-read the closest fresh-run and guard proofs in `client/src/test/flowsPage.run.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx` so the exact duplicate-launch seam is isolated before patching.
-2. [ ] Patch the fresh-run launch seam in `client/src/pages/FlowsPage.tsx` so duplicate clicks or ambiguous retries cannot mint more than one fresh client conversation id or submit the same logical `Run` intent twice before the disabled render commits, while preserving the current resume path and custom-title rules.
-3. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` with a dedicated same-frame duplicate-click or re-entry scenario that proves only one fresh-run launch reaches the API seam and only one client conversation id is minted for that logical intent.
-4. [ ] Re-open `client/src/test/flowsPage.runGuard.test.tsx` and `client/src/test/flowsApi.run.payload.test.ts` only as needed so the repaired replay barrier still coexists honestly with selected-flow revalidation, resume semantics, and fresh-run payload rules.
+2. [ ] Patch `client/src/pages/FlowsPage.tsx` so `R1` and `R4` are satisfied at the source seam: duplicate clicks or ambiguous retries must not mint more than one fresh client conversation id or submit the same logical `Run` intent twice before the disabled render commits.
+3. [ ] In the same `client/src/pages/FlowsPage.tsx` patch, preserve the `R2` and `R3` invariants by keeping the current resume path, custom-title rules, selected-flow detail revalidation, and retry-ready reset behavior intact after the in-flight state resolves.
+4. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` so it proves `R1`, `R3`, and `R4` with a same-frame duplicate-click or re-entry scenario that reaches the API seam only once, mints only one fresh client conversation id, and returns the control to an honest retry-ready state after the request resolves.
+5. [ ] Add or update `client/src/test/flowsPage.runGuard.test.tsx` so it proves `R2` still holds after the replay-barrier repair, including selected-flow revalidation and the existing fresh-run versus resume boundary.
+6. [ ] If the replay-barrier repair touches fresh-run payload construction or custom-title serialization, update `client/src/api/flows.ts` and `client/src/test/flowsApi.run.payload.test.ts` so `R2` still has an explicit payload-contract proof home instead of relying on indirect coverage.
 
 #### Testing
 
@@ -1617,8 +1621,10 @@ No additional repositories are in scope for this review cycle. The current findi
 - `P3.` supported server-build wrapper proof for the runtime bootstrap seam in `R3`: proof home is `logs/test-summaries/build-server-latest.log`.
 - `P4.` full server-unit wrapper proof for the runtime bootstrap seam in `R3`: proof home is the latest `test-results/server-unit-tests-*.log`.
 - `P5.` supported compose build-and-smoke proof for the runtime bootstrap seam in `R3`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
-- `P6.` client and browser-visible regression proof for the flow replay barrier and inline Story 58 redesign surfaces in `R3`: proof homes are `logs/test-summaries/build-client-latest.log`, the latest `test-results/client-tests-*.log`, the latest `test-results/client-tests-*.json`, and `logs/test-summaries/e2e-tests-latest.log`.
-- `P7.` repository-hygiene and applicability proof for `R3` and `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary close-out.
+- `P6.` supported client-build wrapper proof for the flow replay barrier and inline Story 58 redesign surfaces in `R3`: proof home is `logs/test-summaries/build-client-latest.log`.
+- `P7.` full client-wrapper proof for the flow replay barrier and inline Story 58 redesign surfaces in `R3`: proof homes are the latest `test-results/client-tests-*.log` and the latest `test-results/client-tests-*.json`.
+- `P8.` supported e2e wrapper proof for the flow replay barrier and inline Story 58 redesign surfaces in `R3`: proof home is `logs/test-summaries/e2e-tests-latest.log`.
+- `P9.` repository-hygiene and applicability proof for `R3` and `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary close-out.
 
 #### Risk Ownership
 
@@ -1645,8 +1651,8 @@ No additional repositories are in scope for this review cycle. The current findi
 #### Subtasks
 
 1. [ ] Re-read the `Code Review Findings` block for review pass `0000058-20260520T055359Z-8bffd025`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7`, and the completed proof-owner sections for Tasks `11` and `12`; check off this subtask only after parser output shows both repair tasks are `__done__`, have no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` with a findings-to-proof map for review pass `0000058-20260520T055359Z-8bffd025`, naming Tasks `11` through `13`, the five inline-resolved minor findings, the review cycle id `0000058-rc-20260520T072406Z-8e4d883c`, the retained broad proof homes, and the explicit statement that no additional repository was required for this review-created findings block.
-3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on the current review pass id, review cycle id `0000058-rc-20260520T072406Z-8e4d883c`, review-created Tasks `11` through `13`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so `R2`, `R4`, and `R5` each have a durable proof home: name Tasks `11` through `13`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T072406Z-8e4d883c`, the explicit no-additional-repository applicability decision, and the retained broad proof homes `logs/test-summaries/build-server-latest.log`, the latest `test-results/server-unit-tests-*.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/client-tests-*.json`, `logs/test-summaries/e2e-tests-latest.log`, plus the later lint and format outputs.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on `R2` and `R5`: the current review pass id, review cycle id `0000058-rc-20260520T072406Z-8e4d883c`, review-created Tasks `11` through `13`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
 
 #### Testing
 

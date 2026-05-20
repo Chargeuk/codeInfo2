@@ -9,7 +9,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import WorkspaceAppRail from './workspace/WorkspaceAppRail';
 import WorkspaceMobileAppMenuOverlay from './workspace/WorkspaceMobileAppMenuOverlay';
 
@@ -17,6 +17,12 @@ export default function NavBar() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const closeMobileMenu = useCallback(() => {
+    menuButtonRef.current?.focus();
+    setMobileMenuOpen(false);
+  }, []);
 
   if (!isMobile) {
     return <WorkspaceAppRail />;
@@ -42,6 +48,7 @@ export default function NavBar() {
             </Typography>
           </Stack>
           <IconButton
+            ref={menuButtonRef}
             aria-label="Open menu"
             edge="end"
             onClick={() => setMobileMenuOpen(true)}
@@ -52,7 +59,7 @@ export default function NavBar() {
       </AppBar>
       <WorkspaceMobileAppMenuOverlay
         open={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
+        onClose={closeMobileMenu}
       />
     </Box>
   );

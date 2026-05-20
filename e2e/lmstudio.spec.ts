@@ -47,3 +47,36 @@ test('LM Studio compatibility route lands on Home with the LM Studio section vis
     ).toBeVisible();
   }
 });
+
+test('mobile app-menu navigation returns focus before the drawer unmounts', async ({
+  page,
+}) => {
+  const browserWarnings: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'warning' || msg.type() === 'error') {
+      browserWarnings.push(msg.text());
+    }
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(baseUrl);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+
+  await page.getByRole('button', { name: /open menu/i }).click();
+  await expect(page.getByTestId('workspace-mobile-app-menu-overlay')).toBeVisible();
+
+  await page
+    .getByTestId('workspace-mobile-app-menu-overlay')
+    .getByText('Chat', { exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/chat$/);
+  await page.waitForTimeout(250);
+
+  expect(
+    browserWarnings.some((text) =>
+      text.includes(
+        'Blocked aria-hidden on an element because its descendant retained focus',
+      ),
+    ),
+  ).toBe(false);
+});

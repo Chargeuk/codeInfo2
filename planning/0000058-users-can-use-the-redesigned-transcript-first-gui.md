@@ -1765,7 +1765,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `13`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `finding-2`: fresh-run retries can still start duplicate logical launches after an ambiguous network failure because the client remints a new `conversationId` and the server has no bounded replay-ownership seam for the earlier accepted launch.
 

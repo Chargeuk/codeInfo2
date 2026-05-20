@@ -1,7 +1,6 @@
 import { Alert, Box, Container, CssBaseline } from '@mui/material';
 import { useEffect, useMemo } from 'react';
 import { Outlet } from 'react-router-dom';
-import NavBar from './components/NavBar';
 import { getApiBaseUrlBlockingIssueMessage } from './config/runtimeConfig';
 import { createLogger } from './logging';
 import { isDevEnv } from './utils/isDevEnv';
@@ -25,7 +24,6 @@ export default function App() {
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <CssBaseline />
-      <NavBar />
       <Container
         maxWidth={false}
         sx={{

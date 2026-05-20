@@ -1,6 +1,7 @@
 import {
   createBrowserRouter,
   createRoutesFromElements,
+  Navigate,
   Route,
 } from 'react-router-dom';
 import App from '../App';
@@ -9,7 +10,6 @@ import ChatPage from '../pages/ChatPage';
 import FlowsPage from '../pages/FlowsPage';
 import HomePage from '../pages/HomePage';
 import IngestPage from '../pages/IngestPage';
-import LmStudioPage from '../pages/LmStudioPage';
 import LogsPage from '../pages/LogsPage';
 import RouterErrorBoundary from './RouterErrorBoundary';
 
@@ -20,7 +20,7 @@ export const router = createBrowserRouter(
       <Route path="chat" element={<ChatPage />} />
       <Route path="agents" element={<AgentsPage />} />
       <Route path="flows" element={<FlowsPage />} />
-      <Route path="lmstudio" element={<LmStudioPage />} />
+      <Route path="lmstudio" element={<Navigate to="/" replace />} />
       <Route path="ingest" element={<IngestPage />} />
       <Route path="logs" element={<LogsPage />} />
     </Route>,

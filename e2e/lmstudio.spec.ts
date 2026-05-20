@@ -6,7 +6,7 @@ const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
 const lmBaseUrl =
   process.env.CODEINFO_LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
 
-test('Home LM Studio models render through the compatibility route', async ({
+test('LM Studio compatibility route lands on Home with the LM Studio section visible', async ({
   page,
 }) => {
   let statusJson: LmStudioStatusResponse;
@@ -30,6 +30,10 @@ test('Home LM Studio models render through the compatibility route', async ({
     statusJson.models.length > 0;
 
   await page.goto(`${baseUrl}/lmstudio`);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await expect(page.getByTestId('utility-page-shell')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'LM Studio' })).toBeVisible();
   await page.getByLabel(/Base URL/i).fill(lmBaseUrl);
   await page.getByRole('button', { name: /^Check$/i }).click();
 

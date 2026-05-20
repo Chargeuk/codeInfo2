@@ -150,6 +150,7 @@ export default function FlowsPage() {
   const [launchConversationId, setLaunchConversationId] = useState<
     string | null
   >(null);
+  const freshRunReplayGuardRef = useRef(false);
   const [flowModelId, setFlowModelId] = useState('unknown');
   const [flowProviderId, setFlowProviderId] = useState('unknown');
 
@@ -1073,9 +1074,16 @@ export default function FlowsPage() {
   const startFlowRun = useCallback(
     async (mode: 'run' | 'resume') => {
       if (!selectedFlowName) return;
+      const shouldGuardFreshRun = mode === 'run';
+      if (shouldGuardFreshRun && freshRunReplayGuardRef.current) {
+        return;
+      }
       setRunError(null);
       setRunErrorCode(null);
       setLaunchWarnings([]);
+      if (shouldGuardFreshRun) {
+        freshRunReplayGuardRef.current = true;
+      }
 
       let details = selectedFlowDetails;
       if (!details) {
@@ -1211,6 +1219,9 @@ export default function FlowsPage() {
           err instanceof FlowApiError ? (err.code ?? null) : null,
         );
       } finally {
+        if (shouldGuardFreshRun) {
+          freshRunReplayGuardRef.current = false;
+        }
         setStartPending(false);
       }
     },

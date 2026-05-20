@@ -938,6 +938,116 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
+  it('blocks same-frame duplicate fresh runs, mints one client conversation id, and re-enables retry after resolve', async () => {
+    const user = userEvent.setup();
+    let resolveRun: ((value: Response) => void) | undefined;
+    const runPromise = new Promise<Response>((resolve) => {
+      resolveRun = resolve;
+    });
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      const flowListOrDetails = mockDailyFlowListOrDetailsResponse(target);
+      if (flowListOrDetails) {
+        return flowListOrDetails;
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return runPromise;
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await act(async () => {
+      fireEvent.click(runButton);
+      fireEvent.click(runButton);
+    });
+
+    await waitFor(() => {
+      const runCalls = mockFetch.mock.calls.filter(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCalls).toHaveLength(1);
+    });
+    const firstRunCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes('/flows/daily/run'),
+    );
+    expect(firstRunCall).toBeTruthy();
+    const [, firstInit] = firstRunCall as [unknown, RequestInit];
+    const firstBody = JSON.parse(firstInit.body as string) as Record<
+      string,
+      unknown
+    >;
+    expect(typeof firstBody.conversationId).toBe('string');
+    expect(firstBody.conversationId).not.toBe('');
+
+    const completeRun = resolveRun;
+    if (!completeRun) {
+      throw new Error('Expected fresh flow run promise resolver to be set');
+    }
+
+    await act(async () => {
+      completeRun(
+        new Response(
+          JSON.stringify({
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'fresh-flow-1',
+            inflightId: 'i1',
+            providerId: 'codex',
+            modelId: 'gpt-5',
+          }),
+          {
+            status: 202,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    });
+
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await user.click(runButton);
+
+    await waitFor(() => {
+      const runCalls = mockFetch.mock.calls.filter(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCalls).toHaveLength(2);
+    });
+    const secondRunCall = mockFetch.mock.calls.filter(([url]) =>
+      String(url).includes('/flows/daily/run'),
+    )[1];
+    expect(secondRunCall).toBeTruthy();
+    const [, secondInit] = secondRunCall as [unknown, RequestInit];
+    const secondBody = JSON.parse(secondInit.body as string) as Record<
+      string,
+      unknown
+    >;
+    expect(secondBody.conversationId).toBeDefined();
+    expect(secondBody.conversationId).not.toBe(firstBody.conversationId);
+  });
+
   it('does not clone stale transcript turns into a failed fresh run conversation', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();

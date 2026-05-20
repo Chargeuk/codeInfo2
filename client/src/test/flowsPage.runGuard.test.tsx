@@ -449,4 +449,161 @@ describe('Flows page run guards', () => {
       mockFetch.mock.calls.some(([url]) => String(url).includes('/run')),
     ).toBe(false);
   });
+
+  it('releases the replay guard after a failed fresh run and keeps stale resume-only launch values out of the retry payload', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+    let runRequestCount = 0;
+    const requestBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+      const method =
+        init?.method ??
+        (typeof url === 'object' &&
+        url !== null &&
+        'method' in url &&
+        typeof url.method === 'string'
+          ? url.method
+          : undefined);
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows/daily?') || target.endsWith('/flows/daily')) {
+        return mockJsonResponse({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: false,
+          },
+        });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (
+        target.includes('/conversations/') &&
+        target.includes('/working-folder') &&
+        method === 'POST'
+      ) {
+        return mockJsonResponse({
+          status: 'ok',
+          conversation: {
+            conversationId: 'flow-resume-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            archived: false,
+            flowName: 'daily',
+            flags: {},
+          },
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-resume-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {
+                flow: {
+                  stepPath: [2, 0],
+                },
+              },
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        const body =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as Record<string, unknown>)
+            : {};
+        requestBodies.push(body);
+        runRequestCount += 1;
+        if (runRequestCount === 1) {
+          return mockJsonResponse(
+            {
+              code: 'FLOW_FAILED',
+              message: 'Flow request failed',
+            },
+            { status: 500 },
+          );
+        }
+
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'daily',
+            conversationId: 'flow-2',
+            inflightId: 'i2',
+            modelId: 'gpt-5',
+          },
+          { status: 202 },
+        );
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const titleInput = await screen.findByTestId('flow-custom-title');
+    await user.type(titleInput, 'Should not leak');
+
+    const firstConversation = await screen.findByText('Flow: daily');
+    const firstRow = firstConversation.closest(
+      '[data-testid="conversation-row"]',
+    );
+    expect(firstRow).toBeTruthy();
+    await user.click(firstRow!);
+    await waitFor(() => expect(titleInput).toBeDisabled());
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    expect(await screen.findByText('Flow request failed')).toBeInTheDocument();
+    await waitFor(() => expect(runButton).toBeEnabled());
+
+    await user.click(runButton);
+
+    await waitFor(() => expect(requestBodies).toHaveLength(2));
+    expect(requestBodies[0]).not.toHaveProperty('customTitle');
+    expect(requestBodies[0]).not.toHaveProperty('resumeStepPath');
+    expect(requestBodies[1]).not.toHaveProperty('customTitle');
+    expect(requestBodies[1]).not.toHaveProperty('resumeStepPath');
+    expect(requestBodies[1].conversationId).not.toBe(
+      requestBodies[0].conversationId,
+    );
+  });
 });

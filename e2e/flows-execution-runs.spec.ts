@@ -15,7 +15,7 @@ const skipIfUnreachable = async (page: Page) => {
   }
 };
 
-test('flows and agents show stable run clues for repeated fresh executions', async ({
+test('flows and agents show stable run clues for repeated fresh executions and block same-frame replay', async ({
   page,
 }) => {
   await skipIfUnreachable(page);
@@ -185,13 +185,15 @@ test('flows and agents show stable run clues for repeated fresh executions', asy
   await page.goto(`${baseUrl}/flows`);
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
 
-  await page.getByTestId('flow-run').click();
+  await page.getByTestId('flow-run').dblclick();
   await expect
     .poll(() => flowRows.length, {
       timeout: 10000,
-      message: 'Expected first fresh flow execution to appear',
+      message: 'Expected same-frame double-click to mint only one run',
     })
     .toBe(1);
+  expect(runBodies).toHaveLength(1);
+  await expect(page.getByTestId('flow-run')).toBeEnabled();
 
   await page.getByTestId('flow-run').click();
   await expect

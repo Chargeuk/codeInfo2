@@ -404,7 +404,7 @@ The design references for this story already exist and should be treated as the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -1689,6 +1689,9 @@ No additional repositories are in scope for this review cycle. The current findi
 1. [x] Re-read the `Code Review Findings` block for review pass `0000058-20260520T055359Z-8bffd025`, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7`, and the completed proof-owner sections for Tasks `11` and `12`; check off this subtask only after parser output shows both repair tasks are `__done__`, have no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
 2. [x] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so `R2`, `R4`, and `R5` each have a durable proof home: name Tasks `11` through `13`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T072406Z-8e4d883c`, the explicit no-additional-repository applicability decision, and the retained broad proof homes `logs/test-summaries/build-server-latest.log`, the latest `test-results/server-unit-tests-*.log`, the latest `test-results/server-cucumber-tests-*.log`, `logs/test-summaries/compose-build-latest.log`, `logs/test-summaries/build-client-latest.log`, the latest `test-results/client-tests-*.json`, `logs/test-summaries/e2e-tests-latest.log`, plus the later lint and format outputs.
 3. [x] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they all agree on `R2` and `R5`: the current review pass id, review cycle id `0000058-rc-20260520T072406Z-8e4d883c`, review-created Tasks `11` through `13`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+4. [ ] Update `client/src/pages/FlowsPage.tsx` so the fresh-run replay barrier suppresses duplicate `runFlow` submissions that can still slip through on the first mobile-app-menu arrival to `/flows` after `New Flow` and a rapid `Run` double-click, while preserving the intended single fresh conversation and single accepted launch request.
+5. [ ] Extend `client/src/test/flowsPage.runGuard.test.tsx` to cover the first fresh-run `New Flow` guard path and assert that one rapid `Run` double-click cannot dispatch a second `runFlow` request or mint a second optimistic conversation id before the first launch settles.
+6. [ ] Extend `e2e/flows-execution-runs.spec.ts` to enter `/flows` through the mobile app-menu route, perform the `New Flow` plus rapid `Run` double-click repro, and assert the live client emits only one accepted `/flows/<name>/run` request and one new conversation row on that first arrival path.
 
 #### Testing
 
@@ -1702,15 +1705,17 @@ No additional repositories are in scope for this review cycle. The current findi
 8. [x] Run `npm run compose:up`. 
 9. [x] Run `npm run compose:down`. 
 10. [x] Run `npm run lint`. 
-11. [x] Run `npm run format:check`. 
+11. [ ] Run `npm run format:check`. 
 
 #### Implementation Notes
 
 - Subtask 1 complete: parser output confirms Tasks 11 and 12 are `__done__` with no unchecked subtasks, no unchecked testing, and no live blockers, so the review-cycle revalidation gate is now grounded in the live plan state instead of a stale reading.
 - Subtask 2 complete: refreshed the PR summary so Tasks 11 through 13, the inline minor findings, the review-cycle id, and the explicit no-additional-repository decision are recorded as the durable proof homes for final revalidation.
 - Subtask 3 complete: re-read the plan, refreshed PR summary, and review-disposition state together and confirmed the ownership keys still agree on Task 13 as the final revalidation owner for the current review cycle.
+- Manual testing ran as full-story proof against the supported main stack and proved startup (`http://localhost:5010/health`), Home/provider-readiness rendering, `/lmstudio` redirect-to-Home behavior, chat/provider availability, agents shell loading, and the mobile app-menu route completion into `/flows`, but the first mobile-arrival `New Flow` plus rapid `Run` double-click still minted two accepted `POST /flows/echo/run` requests with distinct conversation ids before a second in-place rerun collapsed to one. Added focused `FlowsPage` plus client/e2e replay-guard follow-up subtasks, reopened `npm run format:check` as the last checked automated proof item so the normal validation loop reruns before later manual retest, and saved the scratch failure evidence under `codeInfoTmp/manual-testing/0000058/13/`.
 
 
 #### Manual Testing Guidance
 
 Later manual validation for this review-created block should use the supported main stack from the repository root through the standard `docker-compose.yml` path, not `codeinfo:local`, with the usual compose env loading handled by the repository wrappers. Treat `http://localhost:5001` and `http://localhost:5010` as the supported manual surfaces, wait for the stack to finish booting before checking UI state, and use the mounted manual agent catalogs from `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` rather than ad hoc container edits. Useful non-blocking checks are: confirm the repaired main stack no longer strands Codex on a fresh runtime when valid host-backed auth seed state already exists at `/host/codex`; confirm the visible `Run` interaction on a launchable flow does not produce duplicate fresh conversations or a visibly repeated launch after a rapid double-click; and recheck the previously inline-resolved Story 58 surfaces already listed in `## Minor Review Fixes`. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory and then transfer only the retained files into `codeInfoTmp/manual-testing/0000058/13/`.
+After the next repair, start the replay-barrier retest from the mobile app-menu route into `/flows` before the first `New Flow` plus rapid `Run` double-click, because that first-arrival path is where the duplicate accepted launch requests reproduced during final story proof.

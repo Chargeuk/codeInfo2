@@ -1,5 +1,6 @@
 import type {
   ChatProviderInfo,
+  ChatProvidersResponse,
   LmStudioModel,
   VersionInfo,
 } from '@codeinfo2/common';
@@ -291,6 +292,9 @@ export function HomeSummaryCards({
 
 export function HomeProviderStatusSection({
   providerSummaries,
+  selectedProvider,
+  selectedModel,
+  fallbackApplied,
   loading,
   error,
   onProviderAuth,
@@ -299,6 +303,9 @@ export function HomeProviderStatusSection({
   lastCheckedLabel,
 }: {
   providerSummaries: HomeProviderPresentation[];
+  selectedProvider?: ChatProvidersResponse['selectedProvider'];
+  selectedModel?: ChatProvidersResponse['selectedModel'];
+  fallbackApplied?: boolean;
   loading: boolean;
   error: string | null;
   onProviderAuth: () => void;
@@ -308,6 +315,14 @@ export function HomeProviderStatusSection({
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const selectedProviderLabel =
+    providerSummaries.find((entry) => entry.provider.id === selectedProvider)
+      ?.provider.label ??
+    selectedProvider ??
+    'Unknown';
+  const showRuntimeSelection = Boolean(
+    selectedProvider || selectedModel || fallbackApplied !== undefined,
+  );
 
   if (isMobile) {
     return (
@@ -343,6 +358,26 @@ export function HomeProviderStatusSection({
               <Typography variant="body2" color="text.secondary">
                 Loading provider readiness…
               </Typography>
+            ) : null}
+            {showRuntimeSelection ? (
+              <Paper
+                variant="outlined"
+                sx={{ p: 2 }}
+                data-testid="home-provider-runtime-selection"
+              >
+                <Stack spacing={0.75}>
+                  <Typography variant="subtitle2">Runtime selection</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Provider: {selectedProviderLabel}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Model: {selectedModel ?? 'Unknown'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Fallback applied: {fallbackApplied ? 'Yes' : 'No'}
+                  </Typography>
+                </Stack>
+              </Paper>
             ) : null}
             <Stack spacing={1.5}>
               {providerSummaries.map((entry) => (
@@ -429,6 +464,26 @@ export function HomeProviderStatusSection({
             <Typography variant="body2" color="text.secondary">
               Loading provider readiness…
             </Typography>
+          ) : null}
+          {showRuntimeSelection ? (
+            <Paper
+              variant="outlined"
+              sx={{ p: 2 }}
+              data-testid="home-provider-runtime-selection"
+            >
+              <Stack spacing={0.75}>
+                <Typography variant="subtitle2">Runtime selection</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Provider: {selectedProviderLabel}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Model: {selectedModel ?? 'Unknown'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Fallback applied: {fallbackApplied ? 'Yes' : 'No'}
+                </Typography>
+              </Stack>
+            </Paper>
           ) : null}
           <Table size="small" aria-label="Provider readiness">
             <TableHead>

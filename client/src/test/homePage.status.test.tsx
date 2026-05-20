@@ -51,6 +51,9 @@ function installProviderFetch() {
             toolsAvailable: true,
           },
         ],
+        selectedProvider: 'copilot',
+        selectedModel: 'copilot-gpt-5',
+        fallbackApplied: true,
       });
     }
     throw new Error(`Unexpected fetch: ${href}`);
@@ -97,6 +100,15 @@ describe('Home page status', () => {
     expect(
       (await screen.findAllByText('No login required')).length,
     ).toBeGreaterThan(0);
+    expect(
+      await screen.findByTestId('home-provider-runtime-selection'),
+    ).toHaveTextContent('Provider: GitHub Copilot');
+    expect(
+      screen.getByTestId('home-provider-runtime-selection'),
+    ).toHaveTextContent('Model: copilot-gpt-5');
+    expect(
+      screen.getByTestId('home-provider-runtime-selection'),
+    ).toHaveTextContent('Fallback applied: Yes');
 
     await userEvent.click(
       screen.getAllByRole('button', { name: /provider auth/i })[0],

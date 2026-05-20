@@ -31,6 +31,9 @@ export default function HomePage() {
   const clientVersion = pkg.version;
   const {
     providers,
+    selectedProvider,
+    selectedModel,
+    fallbackApplied,
     loading: providersLoading,
     error: providersError,
     refreshProviders,
@@ -181,6 +184,9 @@ export default function HomePage() {
 
         <HomeProviderStatusSection
           providerSummaries={providerSummaries}
+          selectedProvider={selectedProvider}
+          selectedModel={selectedModel}
+          fallbackApplied={fallbackApplied}
           loading={providersLoading}
           error={providersError}
           onProviderAuth={handleProviderAuthOpen}

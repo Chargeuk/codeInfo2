@@ -584,7 +584,7 @@ export function ConversationList({
                                       });
                                     });
                                 }}
-                                disabled={mutationDisabled}
+                                disabled={bulkDisabled}
                                 data-testid="conversation-restore"
                                 aria-label="Restore conversation"
                               >
@@ -617,7 +617,7 @@ export function ConversationList({
                                       });
                                     });
                                 }}
-                                disabled={mutationDisabled}
+                                disabled={bulkDisabled}
                                 data-testid="conversation-archive"
                                 aria-label="Archive conversation"
                               >

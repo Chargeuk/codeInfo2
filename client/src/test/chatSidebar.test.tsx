@@ -772,6 +772,21 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     expect(screen.getByTestId('conversation-select-all')).toBeDisabled();
     expect(screen.getByTestId('conversation-select')).toBeDisabled();
   });
+
+  it('disables row-level archive and restore actions when mongoConnected is false', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          conversations: baseConversations,
+          filterState: 'all',
+          mongoConnected: false,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('conversation-archive')).toBeDisabled();
+    expect(screen.getByTestId('conversation-restore')).toBeDisabled();
+  });
 });
 
 describe('Chat sidebar WS upserts (ChatPage)', () => {

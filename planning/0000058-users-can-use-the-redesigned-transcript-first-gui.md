@@ -1792,8 +1792,9 @@ No additional repositories are in scope for this review-created repair. The find
 - `P2.` client resume-boundary and failure-release proof for `R2` and `R3`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.runGuard.test.tsx`.
 - `P3.` fresh-run request-shaping proof for `R2` and `R3`: implementation owners are `client/src/pages/FlowsPage.tsx` and `client/src/api/flows.ts`; proof home is `client/src/test/flowsApi.run.payload.test.ts`.
 - `P4.` server-side replay, accepted-launch ownership, and ownership-release proof for `R1`, `R3`, and `R4`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof homes are `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts`.
-- `P5.` user-visible ambiguous-retry proof for `R1` and `R4`: implementation owners are the same client/server launch seam plus `e2e/flows-execution-runs.spec.ts`; proof home is the targeted e2e wrapper path for the normal `/flows` launch flow.
-- `P6.` broad regression proof for the current review-created findings block: proof home is the fresh final revalidation task below, which reruns the relevant repository-supported wrappers after this repair lands.
+- `P5.` server-owned route-level integration proof for `R1`, `R3`, and `R4`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof homes are `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts`.
+- `P6.` user-visible ambiguous-retry proof for `R1` and `R4`: implementation owners are the same client/server launch seam plus `e2e/flows-execution-runs.spec.ts`; proof home is the targeted e2e wrapper path for the normal `/flows` launch flow.
+- `P7.` broad regression proof for the current review-created findings block: proof home is the fresh final revalidation task below, which reruns the relevant repository-supported wrappers after this repair lands.
 
 #### Risk Ownership
 
@@ -1818,6 +1819,8 @@ No additional repositories are in scope for this review-created repair. The find
 - `server/src/test/integration/flows.run.basic.test.ts`
 - `server/src/test/integration/flows.run.errors.test.ts`
 - `server/src/test/integration/flows.run.resume.identity.test.ts`
+- `server/src/test/features/flows-execution-runs.feature`
+- `server/src/test/steps/flows-execution-runs.steps.ts`
 - `client/src/test/flowsPage.run.test.tsx`
 - `client/src/test/flowsPage.runGuard.test.tsx`
 - `client/src/test/flowsApi.run.payload.test.ts`
@@ -1836,17 +1839,19 @@ No additional repositories are in scope for this review-created repair. The find
 9. [ ] Add or update `server/src/test/integration/flows.run.basic.test.ts` so it proves one accepted launch is owned by one logical fresh-run retry value even when the client retries after an ambiguous response loss, proves the reader side of any accepted-launch ownership record resolves to the existing run instead of minting a second run, and renames, splits, or rewrites any reused case whose title would otherwise still claim only fresh-conversation creation or concurrency behavior instead of the combined accepted-launch ownership invariant.
 10. [ ] Add or update `server/src/test/integration/flows.run.errors.test.ts` so it proves the repaired server seam distinguishes an ambiguous retry from a genuine rejected launch instead of collapsing both paths into the same duplicate-run outcome, proves stale or already-released ownership state does not trap a later legitimate fresh run, and uses a deterministic assertion boundary with test wording that explicitly claims that distinction instead of a neighboring error-path invariant.
 11. [ ] Add or update `server/src/test/integration/flows.run.resume.identity.test.ts` so it proves the repaired fresh-run ownership field does not leak into the existing resume identity contract, and renames, splits, or rewrites any reused proof whose title would otherwise still describe only resume-step validation or provider-restoration behavior.
-12. [ ] Add or update `e2e/flows-execution-runs.spec.ts` so the browser proof drives the normal `/flows` launch path through one ambiguous fresh-run retry seam, proves the UI converges on one accepted launch plus one visible conversation for that logical intent, proves the later legitimate fresh run is no longer blocked by stale retry ownership, and renames or splits any reused scenario whose title would otherwise still claim only rapid double-click replay on the first-arrival path.
-13. [ ] Address any lint issues introduced by the repair in touched files.
-14. [ ] Address any format-check issues introduced by the repair in touched files.
+12. [ ] Add or update `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts` so the server-owned Cucumber proof drives the normal `/flows/:flowName/run` route through one ambiguous retry after an accepted launch response loss, proves the route returns the already-owned launch instead of starting a second run, and keeps stale retry ownership out of later legitimate fresh runs.
+13. [ ] Add or update `e2e/flows-execution-runs.spec.ts` so the browser proof drives the normal `/flows` launch path through one ambiguous fresh-run retry seam, proves the UI converges on one accepted launch plus one visible conversation for that logical intent, proves the later legitimate fresh run is no longer blocked by stale retry ownership, and renames or splits any reused scenario whose title would otherwise still claim only rapid double-click replay on the first-arrival path.
+14. [ ] Address any lint issues introduced by the repair in touched files.
+15. [ ] Address any format-check issues introduced by the repair in touched files.
 
 #### Testing
 
 1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.resume.identity.test.ts`.
-2. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsApi.run.payload.test.ts`.
-3. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature`.
+3. [ ] Run `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsApi.run.payload.test.ts`.
+4. [ ] Run `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts`.
+5. [ ] Run `npm run lint`.
+6. [ ] Run `npm run format:check`.
 
 #### Implementation Notes
 
@@ -1874,14 +1879,14 @@ Revalidate Story 58 after the current review-created retry-ownership repair is c
 
 - `Current Repository`: owns the full final regression proof for unresolved task-required finding `2` plus the inline-resolved minor findings `1`, `3`, `4`, `5`, and `6`.
 
-No additional repositories are in scope for this review cycle. Server cucumber is not applicable to this findings block unless Task 14 adds a cucumber-owned proof seam, because the active unresolved finding and the inline-resolved minors are already owned by server-unit, client, e2e, and compose-contract proof surfaces inside the current repository.
+No additional repositories are in scope for this review cycle. Server cucumber is applicable to this findings block because Task 14 adds route-level proof in `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts`, while the active unresolved finding and the inline-resolved minors remain fully owned inside the current repository.
 
 #### Task Exit Criteria
 
 - `R1.` Task `14` is `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
 - `R2.` The appended `Code Review Findings` block for review pass `0000058-20260520T175414Z-385d67b3` still matches the active `review-disposition-state.json`, including unresolved task-required finding `2`, inline-resolved minor findings `1`, `3`, `4`, `5`, and `6`, and this task’s ownership of final revalidation for review cycle `0000058-rc-20260520T191211Z-385d67b3`.
-- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this findings block: supported server build, supported client build, full server-unit wrapper, full client wrapper, targeted or full e2e wrapper as appropriate for the repaired launch seam, supported compose build-plus-up/down smoke, lint, and format.
-- `R4.` The final pass records explicitly that no additional repository was in scope for this review-created findings block and that server cucumber stayed not applicable unless the repair itself made it applicable.
+- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for this findings block: supported server build, full server-unit wrapper, full server-cucumber wrapper, supported client build, full client wrapper, targeted or full e2e wrapper as appropriate for the repaired launch seam, supported compose build-plus-up/down smoke, lint, and format.
+- `R4.` The final pass records explicitly that no additional repository was in scope for this review-created findings block and that server cucumber remained part of the required current-repository proof path through `server/src/test/features/flows-execution-runs.feature`.
 - `R5.` `review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title`, keeps `final_revalidation_owned_by_task_up_path: true`, and leaves `needs_final_minor_fix_revalidation_task: false`, so this review cycle cannot accidentally create a second final revalidation owner.
 
 #### Proof Mapping
@@ -1889,12 +1894,13 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 - `P1.` dependency-completion proof for `R1`: proof home is parser output for Task `14` plus its checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
 - `P2.` findings-block and review-loop ownership proof for `R2` and `R5`: proof homes are this `Code Review Findings` block, `## Minor Review Fixes`, `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000058-pr-summary.md`.
 - `P3.` supported server-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-server-latest.log`.
-- `P4.` supported client-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-client-latest.log`.
-- `P5.` full server-unit wrapper proof for the current review-created findings block in `R3`: proof home is the latest `test-results/server-unit-tests-*.log`.
-- `P6.` full client-wrapper proof for the current review-created findings block in `R3`: proof homes are the latest `test-results/client-tests-*.log` and the latest `test-results/client-tests-*.json`.
-- `P7.` targeted or full e2e wrapper proof for the repaired launch seam in `R3`: proof home is `logs/test-summaries/e2e-tests-latest.log`.
-- `P8.` supported compose build-and-smoke proof for `R3` and `R4`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
-- `P9.` repository-hygiene and applicability proof for `R3` and `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary close-out.
+- `P4.` full server-unit wrapper proof for the current review-created findings block in `R3`: proof home is the latest `test-results/server-unit-tests-*.log`.
+- `P5.` full server-cucumber wrapper proof for the current review-created findings block in `R3`: proof home is the latest `test-results/server-cucumber-tests-*.log`.
+- `P6.` supported client-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-client-latest.log`.
+- `P7.` full client-wrapper proof for the current review-created findings block in `R3`: proof homes are the latest `test-results/client-tests-*.log` and the latest `test-results/client-tests-*.json`.
+- `P8.` targeted or full e2e wrapper proof for the repaired launch seam in `R3`: proof home is `logs/test-summaries/e2e-tests-latest.log`.
+- `P9.` supported compose build-and-smoke proof for `R3` and `R4`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P10.` repository-hygiene and applicability proof for `R3` and `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary close-out.
 
 #### Risk Ownership
 
@@ -1903,9 +1909,9 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 
 #### High-Risk Invariants And Blocker Family
 
-- Default-path proof required: final validation must cover the repaired findings block through the supported server build, server-unit, client, e2e, compose, lint, and format wrappers, not only the targeted repair-task reruns.
+- Default-path proof required: final validation must cover the repaired findings block through the supported server build, server-unit, server cucumber, client, e2e, compose, lint, and format wrappers, not only the targeted repair-task reruns.
 - Review-loop ownership proof required: this task must remain the one final revalidation owner for review cycle `0000058-rc-20260520T191211Z-385d67b3`, and the inline minor findings already resolved in `## Minor Review Fixes` must stay covered here instead of spawning a second final task later.
-- Applicability proof required: the final pass must state clearly why no additional repository validation was needed and why server cucumber is or is not applicable after Task 14 lands.
+- Applicability proof required: the final pass must state clearly why no additional repository validation was needed and why server cucumber remains part of the required current-repository proof path after Task 14 lands.
 - Likely blocker family: shared wrapper or shared baseline seam for broad automated proof and review-cycle closeout ownership.
 
 #### Documentation Locations
@@ -1917,13 +1923,15 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 - `client/src/api/flows.ts`
 - `server/src/routes/flowsRun.ts`
 - `server/src/flows/service.ts`
+- `server/src/test/features/flows-execution-runs.feature`
+- `server/src/test/steps/flows-execution-runs.steps.ts`
 - `docker-compose.yml`
 - `e2e/flows-execution-runs.spec.ts`
 
 #### Subtasks
 
 1. [ ] Re-read this appended `Code Review Findings` block, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `1`, `3`, `4`, `5`, and `6`, and the completed proof-owner sections for Task `14`, then run the plan parser and confirm Task `14` is `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before starting broad wrapper proof.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so it records Tasks `14` and `15`, finding `2`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T191211Z-385d67b3`, the no-additional-repository applicability decision, the supported main-stack runtime contract for later manual proof (`docker-compose.yml`, `server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`, ports `5001` and `5010`, `/health` readiness, and the `manual_testing/codeinfo_agents` plus `manual_testing/codex_agents` seed roots), and the retained broad proof homes for server build, client build, server-unit, client, e2e, compose, lint, and format.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so it records Tasks `14` and `15`, finding `2`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T191211Z-385d67b3`, the no-additional-repository applicability decision, the supported main-stack runtime contract for later manual proof (`docker-compose.yml`, `server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`, ports `5001` and `5010`, `/health` readiness, and the `manual_testing/codeinfo_agents` plus `manual_testing/codex_agents` seed roots), that server cucumber remains required through `server/src/test/features/flows-execution-runs.feature`, and the retained broad proof homes for server build, server-unit, server-cucumber, client build, client, e2e, compose, lint, and format.
 3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they still agree on the current review pass id, the review cycle id `0000058-rc-20260520T191211Z-385d67b3`, review-created Tasks `14` and `15`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
 4. [ ] Compare Task `14`'s final proof surface list against this task's `Affected Repositories`, `Task Exit Criteria`, `Proof Mapping`, and `Documentation Locations`, then update any stale references so the broad revalidation scope stays honest before wrapper execution begins.
 5. [ ] Address any lint issues introduced by the final revalidation updates in touched tracked files.
@@ -1934,13 +1942,14 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 1. [ ] Run `npm run build:summary:server`.
 2. [ ] Run `npm run build:summary:client`.
 3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run test:summary:client`.
-5. [ ] Run `npm run test:summary:e2e`.
-6. [ ] Run `npm run compose:build:summary`.
-7. [ ] Run `npm run compose:up`.
-8. [ ] Run `npm run compose:down`.
-9. [ ] Run `npm run lint`.
-10. [ ] Run `npm run format:check`.
+4. [ ] Run `npm run test:summary:server:cucumber`.
+5. [ ] Run `npm run test:summary:client`.
+6. [ ] Run `npm run test:summary:e2e`.
+7. [ ] Run `npm run compose:build:summary`.
+8. [ ] Run `npm run compose:up`.
+9. [ ] Run `npm run compose:down`.
+10. [ ] Run `npm run lint`.
+11. [ ] Run `npm run format:check`.
 
 #### Implementation Notes
 

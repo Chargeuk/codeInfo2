@@ -1211,7 +1211,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2, Task 4, Task 5, Task 6, Task 7, Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -1307,7 +1307,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Reran `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts` with CODEINFO_HOST_CODEX_HOME set to $PWD/.codex to avoid a host Docker file-sharing mount failure; wrapper reported clean_success with `tests run: 62`, `passed: 62`, `failed: 0`. Log: logs/test-summaries/e2e-tests-latest.log.
 
-- Implementation-only audit normalized the already-completed `npm run test:summary:client`, `npm run lint --workspace client`, `npm run format:check --workspace client`, `npm run build:summary:client`, and the targeted `npm run test:summary:e2e -- --file e2e/lmstudio.spec.ts` testing entries from the recorded Task 9 evidence; the task remains `__in_progress__` pending final story close-out.
+- Closed Task 9 after confirming all `13/13` subtasks and `5/5` testing steps were complete with no live blocker; the remaining open work belongs to final Story 58 close-out in Task 10, not to this task.
 
 ---
 

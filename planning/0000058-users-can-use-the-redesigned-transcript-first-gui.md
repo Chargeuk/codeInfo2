@@ -1331,7 +1331,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 1, Task 2, Task 3, Task 4, Task 5, Task 6, Task 7, Task 8, Task 9`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 - Notes: This final validation task depends on all earlier Story 58 implementation and proof-authoring tasks because it must prove the full redesign, not isolated page fragments.
 
@@ -1412,5 +1412,6 @@ If provider-auth proof on `Home` is blocked only because restoring the provider 
 - Implementation-only audit confirmed commit `3a3aa21b` added the Story 58 traceability ledger, invariant ledger, durable PR summary artifact, and the no-extra-doc-update closeout note that support completed subtasks 1 through 6.
 - Repo-wide `npm run lint` initially failed only on `import/order` warnings across 14 already-touched client and server files; `npm run lint:fix` auto-reordered those imports, and the full `npm run lint` rerun then passed cleanly.
 - Repo-wide `npm run format:check` passed cleanly without requiring any file rewrites after the lint-ordering repair.
-- **RESOLVED ISSUE** The Task 10 implementation-local blocker is retired because the remaining implementation subtasks `7. Run npm run lint` and `8. Run npm run format:check` now both pass. Task 10 stays `__in_progress__` only because its story-closeout `Testing` section still remains to be run in a later proof pass.
+- **RESOLVED ISSUE** The Task 10 implementation-local blocker is retired because the remaining implementation subtasks `7. Run npm run lint` and `8. Run npm run format:check` now both pass.
 - Implementation: Replaced host codex bind with named volume `codex-data` in `docker-compose.e2e.yml` and `docker-compose.yml` to avoid Docker host-mount denial errors (common on Docker Desktop). Reran the e2e wrapper and main compose wrappers; `npm run test:summary:e2e`, `npm run compose:up`, and `npm run compose:down` now pass. These targeted config edits were committed to the feature branch and recorded above.
+- Automated-proof audit confirmed the remaining Story 58 closeout wrappers are now fully complete: `logs/test-summaries/compose-build-latest.log` shows the supported main compose build succeeding, `logs/test-summaries/build-client-latest.log` ends with `✓ built in 5.05s`, `test-results/client-tests-2026-05-20T04-45-22-118Z.json` reports `785/785` tests passed, and `logs/test-summaries/e2e-tests-latest.log` ends with `expected: 63` and `unexpected: 0`. With all subtasks and automated testing complete and no live blocker remaining, Task 10 closes as the final Story 58 implementation-and-proof task.

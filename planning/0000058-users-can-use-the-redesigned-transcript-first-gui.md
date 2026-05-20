@@ -1203,6 +1203,8 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Closed Task 8 after `npm run build:summary:client`, `npm run test:summary:client`, `npm run test:summary:e2e -- --file e2e/ingest.spec.ts`, `npm run test:summary:e2e -- --file e2e/logs.spec.ts`, `npm run lint --workspace client`, and `npm run format:check --workspace client` were all recorded complete with no live blocker remaining.
 
+- Manual proof ran task-scoped on the restarted main compose stack because the prior runtime freshness was unknown; `/health`, `/ingest`, and `/logs` all came back healthy, the shared utility shell rendered on desktop and mobile for both pages, `Ingest` kept its model-lock notice/form/embedded-folder table, and `Logs` kept its live controls plus end-to-end sample-emitter path. Screenshots and support artifacts were saved under `codeInfoTmp/manual-testing/0000058/8/` as `proof-01-desktop-ingest.png`, `proof-02-desktop-logs.png`, `proof-03-mobile-ingest.png`, `proof-04-mobile-logs.png`, `support-console.txt`, `support-network.json`, and `support-runtime.txt`; no additional subtasks were needed.
+
 ---
 
 ### Task 9. Replace Top Tabs With The Shared Navigation Model And `/lmstudio` Compatibility Redirect

@@ -1395,7 +1395,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. F
 5. [x] Current Repository: Run `npm run compose:up`. Use this repository wrapper because final Story 58 validation must also prove the normal supported human stack, not only the e2e stack. Confirm the client at `http://localhost:5001` and `http://localhost:5010/health` both become healthy through the wrapper-owned main Compose path before closing the step. If startup or health fails, inspect `npm run compose:logs`, fix the issue, and rerun `npm run compose:up`.
 6. [x] Current Repository: Run `npm run compose:down`. Use this repository wrapper to stop the normal supported human stack started by the previous smoke step. If teardown fails, capture enough context from `npm run compose:logs` to diagnose the issue, then rerun `npm run compose:down` until the wrapper-owned main Compose stack is stopped cleanly.
 7. [x] Current Repository: Run `npm run lint`. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining lint issues required to leave the repository in an honestly passing state before closing the story.
-8. [ ] Current Repository: Run `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues required to leave the repository in an honestly passing state before closing the story.
+8. [x] Current Repository: Run `npm run format:check`. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining formatting issues required to leave the repository in an honestly passing state before closing the story.
 
 #### Manual Testing Guidance
 

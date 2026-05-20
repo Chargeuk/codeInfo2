@@ -1,8 +1,8 @@
 import type { LmStudioStatusOk } from '@codeinfo2/common';
 import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
-import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const mockFetchServerVersion = jest

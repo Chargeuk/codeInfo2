@@ -332,7 +332,10 @@ export function HomeProviderStatusSection({
               Last checked: {lastCheckedLabel ?? 'Unknown'}
             </Typography>
             {error ? (
-              <Alert severity="warning" data-testid="home-provider-status-error">
+              <Alert
+                severity="warning"
+                data-testid="home-provider-status-error"
+              >
                 Provider readiness unavailable: {error}
               </Alert>
             ) : null}

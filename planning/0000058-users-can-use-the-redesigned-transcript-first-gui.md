@@ -1462,14 +1462,16 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 - `R2.` Server startup still seeds `/app/codex` only when the runtime home is missing auth and the host-backed `/host/codex` mount actually provides distinct seed material.
 - `R3.` Any README text or visible Codex guidance touched by the repair describes the real supported contract instead of claiming host login is enough when the selected stack can no longer read the host seed home.
 - `R4.` The local-stack sibling contract in `docker-compose.local.yml` stays intentionally distinct instead of being silently widened or narrowed by the repair.
+- `R5.` `/host/codex` remains a read-only seed input, `/app/codex` remains the writable runtime home, and the startup copy path does not perform delete, rename, or partial-cleanup operations against either auth location during repeated startup or missing-host scenarios.
 
 #### Proof Mapping
 
 - `P1.` split-home Compose mount proof for `R1` and `R4`: implementation owners are `docker-compose.yml` and `docker-compose.e2e.yml`; proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down` for the supported main stack after this task lands.
 - `P2.` startup seeding-order proof for `R2`: implementation owners are `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts`; proof home is `server/src/test/unit/codexAuthCopy.test.ts`.
 - `P3.` startup split-home integration proof for `R1` and `R2`: implementation owners are `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts`; proof home is `server/src/test/integration/codexAuthCopy.integration.test.ts`.
-- `P4.` user-visible Codex guidance proof for `R3`: implementation owners are `README.md` and `client/src/pages/ChatPage.tsx`; proof home is `client/src/test/chatPage.codexBanners.test.tsx` when banner or warning wording changes.
-- `P5.` review-cycle broad regression proof for `R1` through `R4`: proof home is the later review-cycle final revalidation task that reruns the supported compose, server-unit, client, and e2e wrappers after this targeted seam repair lands.
+- `P4.` auth writer-reader ownership and no-destructive-cleanup proof for `R2` and `R5`: implementation owners are `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts`; proof home is `server/src/test/integration/codexAuthCopy.integration.test.ts`.
+- `P5.` user-visible Codex guidance proof for `R3`: implementation owners are `README.md` and `client/src/pages/ChatPage.tsx`; proof home is `client/src/test/chatPage.codexBanners.test.tsx` when banner or warning wording changes.
+- `P6.` review-cycle broad regression proof for `R1` through `R5`: proof home is the later review-cycle final revalidation task that reruns the supported compose, server-unit, client, and e2e wrappers after this targeted seam repair lands.
 
 #### Risk Ownership
 
@@ -1480,6 +1482,7 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 
 - Split-home proof required: the repaired stack must no longer present `/host/codex` as a second view of the runtime volume.
 - Startup-order proof required: the helper must still seed only when runtime auth is missing, not overwrite an existing runtime auth home.
+- Reader-writer ownership proof required: `/host/codex` must stay a seed-only read surface, `/app/codex` must stay the writable runtime surface, and startup validation must not perform destructive cleanup against either location.
 - Guidance-alignment proof required: docs and visible warnings must stay aligned with the repaired runtime contract.
 - Likely blocker family: product or story seam in Compose startup ownership and Codex auth bootstrap, with direct proof owners in the helper tests and later full-stack wrapper validation.
 
@@ -1499,9 +1502,9 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 
 1. [ ] Re-read `docker-compose.yml`, `docker-compose.e2e.yml`, `server/src/index.ts`, and `server/src/utils/codexAuthCopy.ts` so the exact split-home bootstrap contract and the current `/host/codex` regression are isolated before editing.
 2. [ ] Patch `docker-compose.yml` and `docker-compose.e2e.yml` so `R1` and `R4` are satisfied directly: `/host/codex` must be a real host-backed seed source distinct from `/app/codex`, and the intentionally separate local-stack contract in `docker-compose.local.yml` must stay untouched.
-3. [ ] Patch `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts` so `R2` remains true after the mount repair: startup may seed `/app/codex` only when runtime auth is missing, and it must not overwrite an already-authenticated runtime home or treat a duplicate runtime mount as distinct seed material.
+3. [ ] Patch `server/src/index.ts` and `server/src/utils/codexAuthCopy.ts` so `R2` and `R5` remain true after the mount repair: startup may seed `/app/codex` only when runtime auth is missing, it must not overwrite an already-authenticated runtime home or treat a duplicate runtime mount as distinct seed material, and it must leave host-seed cleanup ownership outside the bootstrap helper.
 4. [ ] Add or update `server/src/test/unit/codexAuthCopy.test.ts` so it proves the `R2` helper invariants directly, including no overwrite when `/app/codex` already has auth material and no copy when `/host/codex` is absent or not meaningfully distinct; if an existing case title would still read like generic shared-home acceptance after the repair, rename or split that case so the title matches the exact helper invariant being asserted.
-5. [ ] Add or update `server/src/test/integration/codexAuthCopy.integration.test.ts` so it proves the repaired `R1` and `R2` split-home bootstrap path with the supported mount layout instead of inferring behavior from shared-home or no-host-mount cases; keep any reused shared-home safety cases explicitly named as shared-home behavior and rename or split any case whose title would otherwise claim the wrong startup contract after the split-home repair.
+5. [ ] Add or update `server/src/test/integration/codexAuthCopy.integration.test.ts` so it proves the repaired `R1`, `R2`, and `R5` split-home bootstrap path with the supported mount layout instead of inferring behavior from shared-home or no-host-mount cases; keep any reused shared-home safety cases explicitly named as shared-home behavior, and make repeated-startup, read-only host-seed, and no-delete/no-rename ownership checks explicit if the file would otherwise hide them inside adjacent assertions.
 6. [ ] If the repaired runtime contract changes any user-facing or reviewer-facing Codex guidance, update `README.md` and `client/src/pages/ChatPage.tsx` for `R3`, then add or update `client/src/test/chatPage.codexBanners.test.tsx` so the visible guidance still matches the real supported bootstrap path.
 
 #### Testing
@@ -1536,14 +1539,15 @@ Repair the fresh-run launch seam on the Flows page so one logical new-run intent
 
 - `R1.` A duplicate click or same-frame re-entry cannot mint multiple client conversation ids for one logical fresh `Run` intent.
 - `R2.` The repair still preserves the current fresh-run versus resume contract, including custom-title ownership, selected-flow detail revalidation before launch, and the correct active-mode boundary for launch state.
-- `R3.` The visible run control still returns to the supported retry path after the in-flight state resolves, rather than becoming permanently locked by the new replay barrier.
+- `R3.` The visible run control still returns to the supported retry path after a success or rejected launch attempt resolves, rather than becoming permanently locked by the new replay barrier.
 - `R4.` Proof covers the exact re-entry seam where React has not yet committed the disabled render, instead of only proving eventual button disable after the first click.
 - `R5.` Resume-only identifiers or other hidden, disabled, or restored opposite-mode launch values may remain in local UI state only when the active submit path excludes them from the request payload; otherwise the active-mode transition clears them before submission.
+- `R6.` A failed fresh-run attempt does not leave behind a sticky replay guard, stale minted conversation id, or contradictory run-vs-resume state that changes the next launch request.
 
 #### Proof Mapping
 
-- `P1.` duplicate-click and ambiguous-retry replay-barrier proof for `R1`, `R3`, and `R4`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.run.test.tsx`.
-- `P2.` selected-flow revalidation, fresh-vs-resume contract, and mixed-state mode-boundary proof for `R2` and `R5`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.runGuard.test.tsx`.
+- `P1.` duplicate-click, same-frame ordering, and retry-reset proof for `R1`, `R3`, `R4`, and `R6`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.run.test.tsx`.
+- `P2.` selected-flow revalidation, fresh-vs-resume contract, and mixed-state mode-boundary proof for `R2`, `R5`, and `R6`: implementation owner is `client/src/pages/FlowsPage.tsx`; proof home is `client/src/test/flowsPage.runGuard.test.tsx`.
 - `P3.` run-payload contradictory-state exclusion proof for `R2` and `R5`: implementation owners are `client/src/pages/FlowsPage.tsx` and `client/src/api/flows.ts`; proof home is `client/src/test/flowsApi.run.payload.test.ts`.
 
 #### Risk Ownership
@@ -1556,6 +1560,7 @@ Repair the fresh-run launch seam on the Flows page so one logical new-run intent
 - Exact re-entry proof required: the proof must hit the same-frame seam before the disabled render commits, not only the later visible disabled state.
 - Fresh-vs-resume proof required: the repair must not leak the replay barrier into resume-only behavior or stale custom-title exclusion rules.
 - Retry-path proof required: a resolved request must still return the UI to an honest retry-ready state when the supported launch flow allows it.
+- Failure-reset proof required: a rejected launch must release the replay guard and prevent stale fresh-run state from contaminating the next attempt.
 - Likely blocker family: product or story seam in the Flows page client launch path, with direct proof ownership in the existing Flows page client tests.
 
 #### Documentation Locations
@@ -1570,10 +1575,10 @@ Repair the fresh-run launch seam on the Flows page so one logical new-run intent
 
 1. [ ] Re-read `startFlowRun('run')`, `makeClientConversationId()`, and the `Run` button disable path in `client/src/pages/FlowsPage.tsx`, then re-read the closest fresh-run and guard proofs in `client/src/test/flowsPage.run.test.tsx` and `client/src/test/flowsPage.runGuard.test.tsx` so the exact duplicate-launch seam is isolated before patching.
 2. [ ] Patch `client/src/pages/FlowsPage.tsx` so `R1` and `R4` are satisfied at the source seam: duplicate clicks or ambiguous retries must not mint more than one fresh client conversation id or submit the same logical `Run` intent twice before the disabled render commits.
-3. [ ] In the same `client/src/pages/FlowsPage.tsx` patch, preserve the `R2` and `R3` invariants by keeping the current resume path, custom-title rules, selected-flow detail revalidation, and retry-ready reset behavior intact after the in-flight state resolves.
+3. [ ] In the same `client/src/pages/FlowsPage.tsx` patch, preserve the `R2`, `R3`, and `R6` invariants by keeping the current resume path, custom-title rules, selected-flow detail revalidation, retry-ready reset behavior, and failure-path replay-guard release intact after the in-flight state resolves.
 4. [ ] In `client/src/pages/FlowsPage.tsx`, make the `R5` mixed-state policy explicit: any resume-only identifiers or other hidden, disabled, or restored opposite-mode launch values may be retained locally only for UI restoration, and the active fresh-run submit path must exclude them from the request payload instead of letting them leak into a contradictory launch request.
-5. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` so it proves `R1`, `R3`, and `R4` with one exact same-frame duplicate-click or re-entry scenario that reaches the API seam only once, mints only one fresh client conversation id, and returns the control to an honest retry-ready state after the request resolves; do not rely on separate adjacent assertions that only observe the earlier click or only the later disabled state.
-6. [ ] Add or update `client/src/test/flowsPage.runGuard.test.tsx` so it proves `R2` and `R5` still hold after the replay-barrier repair, including selected-flow revalidation, the existing fresh-run versus resume boundary, and the active-mode treatment of hidden or restored opposite-mode launch state; if a reused case title would still read like a generic run guard while now asserting stale-state or mixed-mode behavior, rename or split that case so the title matches the combined invariant.
+5. [ ] Add or update `client/src/test/flowsPage.run.test.tsx` so it proves `R1`, `R3`, `R4`, and `R6` with one exact same-frame duplicate-click or re-entry scenario that reaches the API seam only once, mints only one fresh client conversation id, and returns the control to an honest retry-ready state after the request resolves or rejects; do not rely on separate adjacent assertions that only observe the earlier click or only the later disabled state.
+6. [ ] Add or update `client/src/test/flowsPage.runGuard.test.tsx` so it proves `R2`, `R5`, and `R6` still hold after the replay-barrier repair, including selected-flow revalidation, the existing fresh-run versus resume boundary, the active-mode treatment of hidden or restored opposite-mode launch state, and the absence of stale resume-only state on the next fresh-run attempt after a failed launch; if a reused case title would still read like a generic run guard while now asserting stale-state or mixed-mode behavior, rename or split that case so the title matches the combined invariant.
 7. [ ] If the active-mode launch patch changes request shaping, update `client/src/api/flows.ts` and `client/src/test/flowsApi.run.payload.test.ts` so `R2` and `R5` have an explicit payload-boundary proof home: fresh runs exclude resume-only identifiers and other contradictory hidden values, while resume launches do not inherit fresh-run-only state by accident; rename or add the payload cases so they claim contradictory-state exclusion directly instead of sounding like generic optional-field omission.
 
 #### Testing
@@ -1674,4 +1679,4 @@ No additional repositories are in scope for this review cycle. The current findi
 
 #### Manual Testing Guidance
 
-Later manual validation for this review-created block should use the supported main stack from the repository root rather than `codeinfo:local`. Useful non-blocking checks are: confirm the repaired main stack no longer strands Codex on a fresh runtime when valid host-backed auth seed state already exists; confirm the visible `Run` interaction on a launchable flow does not produce duplicate fresh conversations or a visibly repeated launch after a rapid double-click; and recheck the previously inline-resolved Story 58 surfaces already listed in `## Minor Review Fixes`. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory and then transfer only the retained files into `codeInfoTmp/manual-testing/0000058/13/`.
+Later manual validation for this review-created block should use the supported main stack from the repository root through the standard `docker-compose.yml` path, not `codeinfo:local`, with the usual compose env loading handled by the repository wrappers. Treat `http://localhost:5001` and `http://localhost:5010` as the supported manual surfaces, wait for the stack to finish booting before checking UI state, and use the mounted manual agent catalogs from `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` rather than ad hoc container edits. Useful non-blocking checks are: confirm the repaired main stack no longer strands Codex on a fresh runtime when valid host-backed auth seed state already exists at `/host/codex`; confirm the visible `Run` interaction on a launchable flow does not produce duplicate fresh conversations or a visibly repeated launch after a rapid double-click; and recheck the previously inline-resolved Story 58 surfaces already listed in `## Minor Review Fixes`. If Playwright MCP screenshots are useful, capture them first with a relative staging filename in the Playwright output directory and then transfer only the retained files into `codeInfoTmp/manual-testing/0000058/13/`.

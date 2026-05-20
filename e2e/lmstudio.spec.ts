@@ -29,10 +29,9 @@ test('Home LM Studio models render through the compatibility route', async ({
     Array.isArray(statusJson.models) &&
     statusJson.models.length > 0;
 
-  await page.goto(baseUrl);
-  await page.getByRole('tab', { name: /LM Studio/i }).click();
-  await page.getByLabel(/LM Studio base URL/i).fill(lmBaseUrl);
-  await page.getByRole('button', { name: /Check status/i }).click();
+  await page.goto(`${baseUrl}/lmstudio`);
+  await page.getByLabel(/Base URL/i).fill(lmBaseUrl);
+  await page.getByRole('button', { name: /^Check$/i }).click();
 
   if (hasModels) {
     await expect(

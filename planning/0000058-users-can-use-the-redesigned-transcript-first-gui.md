@@ -1624,7 +1624,7 @@ If later manual validation is useful after the automated repair lands, use the s
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `11, 12`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - Final validation for review pass `0000058-20260520T055359Z-8bffd025`, covering task-required findings `finding-1` and `finding-4`.
   - Final revalidation owner for inline-resolved minor findings `finding-2`, `finding-3`, `finding-5`, `finding-6`, and `finding-7` from the same active review cycle `0000058-rc-20260520T072406Z-8e4d883c`.
@@ -1722,6 +1722,7 @@ No additional repositories are in scope for this review cycle. The current findi
 - Testing 11 complete: ran `npm run format` to auto-fix Prettier issues, re-ran `npm run format:check` which passed, and committed the formatting changes.
 - Automated-proof audit closed Task 13 after parser output confirmed all subtasks and testing steps are checked and no live blockers remain, so the stale repair-only hold-open state was no longer honest.
 - Manual testing reran as full-story proof against a freshly restarted supported main stack and proved startup (`http://localhost:5010/health`), provider availability (`/chat/providers` still reported `codex` available), and the live `/flows` browser shell (`codeInfoTmp/manual-testing/0000058/13/proof-01-flows-main-stack.png`), but the bounded diagnosis pass found the checked-in main-stack server currently mounts `codex-data` at both `/app/codex` and `/host/codex` instead of exposing a distinct host-backed read-only `/host/codex` seam. Added concrete compose-wiring repair plus cucumber-proof subtasks, reopened `npm run format:check` so automated proof must rerun before the next manual retest, and saved the runtime evidence under `codeInfoTmp/manual-testing/0000058/13/` (`support-server-mounts.json`, `support-compose-config.txt`, `support-chat-providers.json`, `support-server-log-tail.txt`, and related support files).
+- Final proof-closeout audit marked Task 13 `__done__` because parser output now confirms every subtask and automated testing step is complete and no live blocker remains.
 
 
 #### Manual Testing Guidance

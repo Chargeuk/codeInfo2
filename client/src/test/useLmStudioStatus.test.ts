@@ -19,6 +19,14 @@ function mockFetchResponse(response: Response) {
   getFetchMock().mockResolvedValue(response);
 }
 
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 describe('useLmStudioStatus', () => {
   const originalFetch = global.fetch;
 
@@ -170,5 +178,70 @@ describe('useLmStudioStatus', () => {
     expect(
       result.current.state.status === 'error' && result.current.state.error,
     ).toContain('lmstudio status failed');
+  });
+
+  it('ignores stale overlapping refresh results after a newer committed base URL wins', async () => {
+    const older = deferredResponse();
+    const newer = deferredResponse();
+    getFetchMock()
+      .mockImplementationOnce(async () => older.promise)
+      .mockImplementationOnce(async () => newer.promise);
+
+    const { result } = renderHook(() => useLmStudioStatus());
+
+    let firstRefresh!: Promise<void>;
+    let secondRefresh!: Promise<void>;
+    await act(async () => {
+      firstRefresh = result.current.refresh('http://older.example:1234');
+      secondRefresh = result.current.refresh('http://newer.example:5678');
+    });
+
+    newer.resolve(
+      mockJsonResponse({
+        status: 'ok',
+        baseUrl: 'http://newer.example:5678',
+        models: [
+          { modelKey: 'new', displayName: 'New Model', type: 'gguf' },
+        ],
+      } satisfies LmStudioStatusOk),
+    );
+    await act(async () => {
+      await secondRefresh;
+    });
+
+    expect(result.current.committedBaseUrl).toBe('http://newer.example:5678');
+    expect(result.current.state.status).toBe('success');
+    expect(
+      result.current.state.status === 'success' &&
+        result.current.state.data.baseUrl,
+    ).toBe('http://newer.example:5678');
+    expect(
+      result.current.state.status === 'success' &&
+        result.current.state.data.models[0]?.displayName,
+    ).toBe('New Model');
+
+    older.resolve(
+      mockJsonResponse({
+        status: 'ok',
+        baseUrl: 'http://older.example:1234',
+        models: [
+          { modelKey: 'old', displayName: 'Old Model', type: 'gguf' },
+        ],
+      } satisfies LmStudioStatusOk),
+    );
+    await act(async () => {
+      await firstRefresh;
+    });
+
+    expect(result.current.committedBaseUrl).toBe('http://newer.example:5678');
+    expect(result.current.state.status).toBe('success');
+    expect(
+      result.current.state.status === 'success' &&
+        result.current.state.data.baseUrl,
+    ).toBe('http://newer.example:5678');
+    expect(
+      result.current.state.status === 'success' &&
+        result.current.state.data.models[0]?.displayName,
+    ).toBe('New Model');
   });
 });

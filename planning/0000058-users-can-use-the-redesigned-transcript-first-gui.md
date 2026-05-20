@@ -1697,7 +1697,7 @@ No additional repositories are in scope for this review cycle. The current findi
 3. [x] Run `npm run test:summary:server:unit`.
 4. [x] Run `npm run test:summary:server:cucumber`. 
 5. [x] Run `npm run test:summary:client`. 
-6. [ ] Run `npm run test:summary:e2e`.
+6. [x] Run `npm run test:summary:e2e`. 
 7. [ ] Run `npm run compose:build:summary`.
 8. [ ] Run `npm run compose:up`.
 9. [ ] Run `npm run compose:down`.

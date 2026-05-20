@@ -1077,10 +1077,7 @@ describe('Flows page run/resume controls', () => {
           return mockJsonResponse({ mongoConnected: true });
         }
 
-        if (
-          target.includes('/flows/echo?') ||
-          target.endsWith('/flows/echo')
-        ) {
+        if (target.includes('/flows/echo?') || target.endsWith('/flows/echo')) {
           return mockJsonResponse({
             flow: {
               name: 'echo',
@@ -1237,7 +1234,9 @@ describe('Flows page run/resume controls', () => {
     expect(flowRows).toHaveLength(1);
 
     await selectFirstConversation();
-    await waitFor(() => expect(screen.getByTestId('flow-resume')).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-resume')).toBeEnabled(),
+    );
     await user.click(screen.getByTestId('flow-resume'));
     await waitFor(() => expect(requestBodies).toHaveLength(3));
     expect(requestBodies[2]).not.toHaveProperty('retryOwnershipId');

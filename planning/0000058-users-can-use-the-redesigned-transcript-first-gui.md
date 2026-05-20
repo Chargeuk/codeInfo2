@@ -1939,12 +1939,12 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 
 #### Subtasks
 
-1. [ ] Re-read this appended `Code Review Findings` block, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `1`, `3`, `4`, `5`, and `6`, and the completed proof-owner sections for Task `14`, then record the exact parser-owned dependency gate this task will enforce before broad wrapper proof begins: Task `14` must be `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so it records Tasks `14` and `15`, finding `2`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T191211Z-385d67b3`, the no-additional-repository applicability decision, the supported main-stack runtime contract for later manual proof (`docker-compose.yml`, `server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`, ports `5001` and `5010`, `/health` readiness, and the `manual_testing/codeinfo_agents` plus `manual_testing/codex_agents` seed roots), that server cucumber remains required through `server/src/test/features/flows-execution-runs.feature`, and the retained broad proof homes for server build, server-unit, server-cucumber, client build, client, e2e, compose, lint, and format.
-3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they still agree on the current review pass id, the review cycle id `0000058-rc-20260520T191211Z-385d67b3`, review-created Tasks `14` and `15`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
-4. [ ] Compare Task `14`'s final proof surface list against this task's `Affected Repositories`, `Task Exit Criteria`, `Proof Mapping`, and `Documentation Locations`, then update any stale references so the broad revalidation scope stays honest before wrapper execution begins.
-5. [ ] Address any lint issues introduced by the final revalidation updates in touched tracked files.
-6. [ ] Address any format-check issues introduced by the final revalidation updates in touched tracked files.
+1. [x] Re-read this appended `Code Review Findings` block, the active `review-disposition-state.json`, the `## Minor Review Fixes` entries for findings `1`, `3`, `4`, `5`, and `6`, and the completed proof-owner sections for Task `14`, then record the exact parser-owned dependency gate this task will enforce before broad wrapper proof begins: Task `14` must be `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+2. [x] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so it records Tasks `14` and `15`, finding `2`, the five inline-resolved minor findings, review cycle `0000058-rc-20260520T191211Z-385d67b3`, the no-additional-repository applicability decision, the supported main-stack runtime contract for later manual proof (`docker-compose.yml`, `server/.env`, `server/.env.local`, `client/.env`, `client/.env.local`, ports `5001` and `5010`, `/health` readiness, and the `manual_testing/codeinfo_agents` plus `manual_testing/codex_agents` seed roots), that server cucumber remains required through `server/src/test/features/flows-execution-runs.feature`, and the retained broad proof homes for server build, server-unit, server-cucumber, client build, client, e2e, compose, lint, and format.
+3. [x] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they still agree on the current review pass id, the review cycle id `0000058-rc-20260520T191211Z-385d67b3`, review-created Tasks `14` and `15`, the inline minor findings already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+4. [x] Compare Task `14`'s final proof surface list against this task's `Affected Repositories`, `Task Exit Criteria`, `Proof Mapping`, and `Documentation Locations`, then update any stale references so the broad revalidation scope stays honest before wrapper execution begins.
+5. [x] Address any lint issues introduced by the final revalidation updates in touched tracked files.
+6. [x] Address any format-check issues introduced by the final revalidation updates in touched tracked files.
 
 #### Testing
 
@@ -1958,12 +1958,16 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 8. [ ] Run `npm run compose:build:summary`.
 9. [ ] Run `npm run compose:up`.
 10. [ ] Run `npm run compose:down`.
-11. [ ] Run `npm run lint`.
-12. [ ] Run `npm run format:check`.
+11. [x] Run `npm run lint`.
+12. [x] Run `npm run format:check`.
 
 #### Implementation Notes
 
 - Pending review-created final revalidation for review pass `0000058-20260520T175414Z-385d67b3`: this task was appended from `review-disposition-state.json` as the one final revalidation owner for review cycle `0000058-rc-20260520T191211Z-385d67b3`, covering unresolved task-required finding `2` plus inline-resolved minor findings `1`, `3`, `4`, `5`, and `6`.
+- Subtask 1 complete: re-read the review findings block and review-disposition state, confirmed Task 14 is parser-done with no unchecked subtasks/testing or live blockers, and locked Task 15 to the remaining broad review-cycle revalidation gate.
+- Subtasks 2 and 3 complete: refreshed the durable PR summary and verified it against the current plan and review-disposition state so Tasks 14 and 15, the review-cycle ids, and the ownership keys now agree on disk.
+- Subtask 4 complete: compared Task 14’s proof surfaces against Task 15’s affected repositories, exit criteria, proof mapping, and documentation locations and found no stale-references cleanup needed beyond the summary/task ownership refresh already recorded.
+- Subtasks 5 and 6 complete: reran `npm run lint` and `npm run format:check`, then applied the small Prettier cleanup needed in `client/src/pages/FlowsPage.tsx` and `client/src/test/flowsPage.run.test.tsx` before the format gate passed cleanly.
 
 #### Manual Testing Guidance
 

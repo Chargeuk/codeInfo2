@@ -1158,8 +1158,8 @@ export default function FlowsPage() {
       setFlowProviderId('unknown');
       const retryOwnershipId =
         mode === 'run'
-          ? freshRunRetryOwnershipIdRef.current ??
-            (freshRunRetryOwnershipIdRef.current = makeClientConversationId())
+          ? (freshRunRetryOwnershipIdRef.current ??
+            (freshRunRetryOwnershipIdRef.current = makeClientConversationId()))
           : undefined;
 
       const nextConversationId =

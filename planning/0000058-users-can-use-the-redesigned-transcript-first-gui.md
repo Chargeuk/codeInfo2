@@ -1448,7 +1448,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `10`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `finding-1`: the main and e2e Compose stacks no longer provide a real host-backed Codex seed home at `/host/codex`, even though startup and user-facing guidance still rely on that split-home bootstrap contract.
 
@@ -1528,7 +1528,7 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 - `ensureCodexAuthFromHost` now treats same-path aliases and same backing stores as shared runtime homes, keeping startup on the seed-only path without adding any destructive cleanup behavior.
 - Added direct unit coverage for the runtime-auth, missing-host, and duplicate-alias helper invariants, plus integration coverage for repeated startup, read-only host seed, and no-delete/no-rename behavior.
 - Added a dedicated Cucumber bootstrap feature for the split-home server-owned path and updated the visible Codex banner text/tests so the host-backed guidance matches the repaired contract.
-- Verified the Task 11 helper, integration, Cucumber, and client banner proof slices with targeted summary wrappers; broader compose and final close-out validation remains for the task’s Testing section.
+- Verified the full Task 11 automated proof set: server build, targeted server unit and Cucumber wrappers, supported compose build/up/down smoke, and the targeted client banner wrapper for the repaired Codex guidance surface.
 
 
 #### Manual Testing Guidance

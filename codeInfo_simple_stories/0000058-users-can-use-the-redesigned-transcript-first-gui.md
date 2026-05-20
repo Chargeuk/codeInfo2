@@ -65,7 +65,7 @@ This story redesigns CodeInfo2 around a transcript-first interface so the main w
 - Remove the old top-tab navigation and switch the visible route chrome to the shared navigation model.
 - Redirect `/lmstudio` into `Home` and prove direct navigation, refresh, and bookmarks still work.
 
-10. [codeInfo2] - Run final Story 58 validation and close out the redesign
+10. [codeInfo2] - Final Story 58 validation and close-out
 
 - Re-run the full redesign validation path and refresh the reviewer-facing closeout summary.
 - Keep traceability, wrapper evidence, and final proof ownership honest for the base redesign rollout.
@@ -80,7 +80,7 @@ This story redesigns CodeInfo2 around a transcript-first interface so the main w
 - Patch the fresh flow launch seam so one logical new-run intent cannot submit twice before the disabled state commits.
 - Prove the replay barrier without breaking resume behavior, payload shaping, or retry-ready reset behavior.
 
-13. [codeInfo2] - Re-validate Story 58 after the review-created follow-up work
+13. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260520T055359Z-8bffd025`
 
 - Re-run the full current-repository regression pass after the Codex auth and replay-barrier fixes are complete.
-- Refresh the final review-cycle summary so the serious findings and inline minor fixes close with one final proof owner.
+- Refresh the final review-cycle summary so the serious findings and inline minor fixes from this review pass close with one final proof owner.

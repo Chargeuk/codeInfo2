@@ -1519,7 +1519,7 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 3. [x] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/codex-auth-bootstrap.feature`.
 4. [x] Run `npm run compose:build:summary`. 
 5. [x] Run `npm run compose:up`. 
-6. [ ] Run `npm run compose:down`.
+6. [x] Run `npm run compose:down`. 
 7. [x] If Chat-page wording or banner behavior changes, run `npm run test:summary:client -- --file client/src/test/chatPage.codexBanners.test.tsx`.
 
 #### Implementation Notes

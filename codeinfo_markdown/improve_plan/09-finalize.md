@@ -23,6 +23,7 @@ Perform a final verification pass, then make one coherent commit if the command 
 - Check test-boundary safety: does the plan avoid production-code changes whose only purpose is to disable, bypass, or weaken real behavior for tests?
 - Check manual-testing realism: does the plan prefer the unmodified human Docker stack when feasible, and only require minimal test-only enablement when the normal stack is not enough?
 - If `Design Contract Present` is true, check that the plan now contains a `Design Contract` section or equivalent explicit design-contract text that names the exact design source files, mandatory visual invariants, allowed implementation flex, and later screenshot-comparison proof expectations.
+- If `Design Contract Present` is true and paired design markdown plus image assets exist for the same surface, check that the plan explicitly states that the markdown is canonical, the image is supporting visual reference, and the markdown wins on conflicts.
 - If `Design Contract Present` is true, check that the plan now expects the later final story validation task to capture screenshots for the entire implemented frontend surface area that the named design assets govern.
 - Check whether the applicable categories from `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-preemption-checklist.md"` are either explicitly handled in the plan or explicitly not applicable.
   </verification_loop>

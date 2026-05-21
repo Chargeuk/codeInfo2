@@ -51,6 +51,7 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 
 - A story has `Design Contract Present` when the plan explicitly names design-target assets intended as implementation references, such as final `*.png`, `*.svg`, `*.md`, a `## Design Contract` section, or a task-scoped design packet.
 - If `Design Contract Present` is false, do not add design-specific tasking requirements.
+- If `Design Contract Present` is true and a paired design markdown plus design image both exist for the same surface, treat the markdown as canonical, treat the image as supporting visual reference, and follow the markdown when they conflict.
 - If `Design Contract Present` is true, every design-driven task must name the exact design assets it owns and must not rely on vague phrases such as `match the approved design direction` without concrete visual obligations.
 - If `Design Contract Present` is true, every design-driven task should include a short `Visual Invariants` subsection or equivalent concrete wording that states what must match, what may vary slightly, and what later proof must compare against the named design assets.
 - If `Design Contract Present` is true, every visual implementation subtask must reference the exact design file or file subset that governs the surface it is changing.

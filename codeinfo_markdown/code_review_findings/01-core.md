@@ -14,6 +14,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - If the handoff and artifacts still cannot provide the minimum context needed to review, produce a visible incomplete-review findings artifact or summary when enough path information exists, do not edit the plan, and do not claim that no findings exist.
 - If the handoff is usable directly or by safe inference, perform the actual review against the planned work and the branch diff for every repository in scope.
 - If the active plan explicitly names design-target assets intended as implementation references, identify whether design-conformance review is relevant and whether the active review context includes usable retained screenshots and named design assets. Leave screenshot-to-design mismatch finding generation to `"$CODEINFO_ROOT/codeinfo_markdown/review_visual_design_conformance.md"`.
+- If the active plan explicitly names paired design markdown plus image assets for the same surface, treat the markdown as canonical and the image as supporting visual reference during review.
 - This step MUST produce findings or a visible incomplete-review outcome only, and MUST NOT edit the plan yet.
 - Do not commit scratch review artifacts in this step. Only commit if a separate tracked repository change is genuinely required to repair the workflow state.
 - Treat `flows/**` as approved workflow-support paths. Do not raise findings solely because those paths changed without being named in the active plan, but continue to review them normally for workflow semantics, instruction safety, stale-handoff handling, commit/push behavior, plan-selection rules, and other agent-control correctness.
@@ -50,6 +51,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - When a finding touches `.env*`, `docker-compose*`, startup env loaders, entrypoints, mounted-path mapping, or working-folder selection surfaces, compare the current known-working behavior before recommending a behavior-changing cleanup.
 - If the current behavior is known to work and the review concern is only portability or neatness, prefer `optional_simplification` plus `Scope Impact: cleanup_preference`, or record the concern as a rejected-risk note instead of reopening the story.
 - If the active plan explicitly names design-target assets intended as implementation references, treat material design-contract mismatch and screenshot-comparison proof gaps as actionable only through `"$CODEINFO_ROOT/codeinfo_markdown/review_visual_design_conformance.md"` when that step activates.
+- Do not treat an image-only mismatch as actionable when explicit paired design markdown supports the implementation on that same point.
 - Do not raise a review finding solely because screenshots are absent. The manual-testing pass owns the attempt to capture them first.
 
 </finding_taxonomy_rules>

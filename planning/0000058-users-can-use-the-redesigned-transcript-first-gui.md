@@ -2170,7 +2170,7 @@ No additional repositories are in scope for this repair. Because this finding ch
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `16, 17`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Affected Repositories
 
@@ -2265,7 +2265,7 @@ Revalidate Story 58 after the current review-created repairs for findings `1` an
 
 #### Implementation Notes
 
-- Pending review-created final revalidation for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` as the one final revalidation owner for review cycle `0000058-rc-20260521T020645Z-65288aea`, covering unresolved task-required findings `1` and `3` plus inline-resolved minor finding `2`.
+- Review-created final revalidation for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` as the one final revalidation owner for review cycle `0000058-rc-20260521T020645Z-65288aea`, covering unresolved task-required findings `1` and `3` plus inline-resolved minor finding `2`.
 - Confirmed the dependency gate for broad proof by parser-checking Tasks `16` and `17`; both are `__done__` with no unchecked subtasks, no unchecked testing, and no live blockers.
 - Refreshed `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so the summary surface now names review pass `0000058-20260521T010700Z-65288aea`, review cycle `0000058-rc-20260521T020645Z-65288aea`, review-created Tasks `16` through `18`, the no-additional-repository decision, and the broad proof homes for this final revalidation owner.
 - Ran `npm run lint` and `npm run format:check` cleanly after the summary and plan bookkeeping updates.

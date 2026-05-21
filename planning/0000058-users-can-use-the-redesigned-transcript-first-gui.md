@@ -2170,7 +2170,7 @@ No additional repositories are in scope for this repair. Because this finding ch
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `16, 17`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Affected Repositories
 

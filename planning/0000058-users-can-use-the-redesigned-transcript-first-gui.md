@@ -2010,7 +2010,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `15`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Addresses Findings:
   - `1`: release fresh-run retry ownership when pre-launch persistence fails so stale accepted replays cannot survive a failed start.
 
@@ -2081,7 +2081,7 @@ No additional repositories are in scope for this review-created repair. The find
 - Pending review-created repair for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` because finding `1` remains unresolved task-required lifecycle work in the current server retry-ownership seam.
 - Re-read the Task 16 boundary, moved fresh-run retry ownership recording until after durable flow-state persistence succeeds, and updated the proof-owner files so the pre-launch failure cleanup boundary and later accepted replay path are both explicit.
 - `npm run lint` and `npm run format:check` both passed after the proof-file edits.
-- Audit normalization marked subtasks `6` and `7` complete from the existing lint and format evidence already recorded above; targeted server-unit and cucumber proof remain the only open work before this task can close.
+- Audit normalization marked subtasks `6` and `7` complete from the existing lint and format evidence already recorded above, and the later targeted server-unit plus cucumber proof completed the remaining automated validation for this task.
 - Ran targeted server-unit tests; initial failures due to TypeScript typing mismatches and a test-harness memory-persistence mismatch. Patched tests (type casts and simulated memory persistence failure) and re-ran the targeted server-unit wrapper; all targeted server-unit tests passed.
 - Ran the targeted cucumber feature; initial failure due to DB vs memory persistence mismatch in the step harness. Patched the feature step to override memory persistence when appropriate and restored DB override behavior; cucumber feature passed.
 

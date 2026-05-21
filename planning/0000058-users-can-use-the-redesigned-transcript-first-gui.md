@@ -2350,16 +2350,16 @@ No additional repositories are in scope for this review cycle.
 
 #### Subtasks
 
-1. [ ] Re-read the current `## Minor Review Fixes` entries for findings `1` and `unparsed-1`, plus the active `review-disposition-state.json`, and confirm this task's proof scope still covers every inline-resolved finding and affected repository before wrapper proof begins.
-2. [ ] Refresh this task's proof-owner notes after the wrapper pass so the plan records explicitly that the inline minor fixes already landed in commits `9caa563fe51bcefdef03636c378b0c25c3772a3e` and `298548e65c792af6a7ebebf9f3119fc11e8e657a`, and that this task owns the broad final automated confidence check before story closure.
+1. [x] Re-read the current `## Minor Review Fixes` entries for findings `1` and `unparsed-1`, plus the active `review-disposition-state.json`, and confirm this task's proof scope still covers every inline-resolved finding and affected repository before wrapper proof begins.
+2. [x] Refresh this task's proof-owner notes after the wrapper pass so the plan records explicitly that the inline minor fixes already landed in commits `9caa563fe51bcefdef03636c378b0c25c3772a3e` and `298548e65c792af6a7ebebf9f3119fc11e8e657a`, and that this task owns the broad final automated confidence check before story closure.
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported client build wrapper because both resolved minor fixes changed client-owned Story 58 surfaces, and this final task must re-prove the normal client build gate after the inline repairs rather than relying only on the focused proof files from the minor-fix steps.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task owns broad client regression proof across the transcript and conversation-list surfaces touched by the inline minor fixes, not only the focused proof files recorded during those fixes.
-3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported e2e wrapper because Story 58 is a frontend redesign, and the final automated confidence pass should still exercise the broader browser-path surface after the inline client fixes.
-4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this final revalidation task owns the last broad automated repository check before story closure.
-5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this final revalidation task owns the last broad automated repository check before story closure.
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported client build wrapper because both resolved minor fixes changed client-owned Story 58 surfaces, and this final task must re-prove the normal client build gate after the inline repairs rather than relying only on the focused proof files from the minor-fix steps.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task owns broad client regression proof across the transcript and conversation-list surfaces touched by the inline minor fixes, not only the focused proof files recorded during those fixes.
+3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported e2e wrapper because Story 58 is a frontend redesign, and the final automated confidence pass should still exercise the broader browser-path surface after the inline client fixes.
+4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this final revalidation task owns the last broad automated repository check before story closure.
+5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this final revalidation task owns the last broad automated repository check before story closure.
 
 #### Implementation Notes
 
@@ -2367,3 +2367,10 @@ No additional repositories are in scope for this review cycle.
 - Review Cycle Id: `0000058-rc-20260521T145159Z-719712fa`
 - Inline minor findings `1` and `unparsed-1` were already resolved and documented in commits `9caa563fe51bcefdef03636c378b0c25c3772a3e` and `298548e65c792af6a7ebebf9f3119fc11e8e657a`; this task exists so the review loop gets one broad automated revalidation owner before story closure.
 - The focused proof recorded during the inline-fix steps remains valuable, but it is not, by itself, the full story-level regression pass for this review cycle.
+- Checked proof scope against the current minor review fixes and review-disposition state before wrapper proof; this task continues to own the broad final automated confidence check for the two inline-resolved findings in the current repository only.
+- `npm run build:summary:client` passed during this task's broad proof pass, confirming the normal client build gate still succeeds after the inline fixes.
+- `npm run test:summary:client` passed during this task's broad proof pass, confirming the full client regression suite still succeeds after the inline fixes.
+- `npm run test:summary:e2e` passed during this task's broad proof pass, confirming the broader browser-path surface still succeeds after the inline fixes.
+- `npm run lint` passed during this task's broad proof pass, confirming the repository-root lint gate still succeeds after the inline fixes.
+- `npm run format:check` passed during this task's broad proof pass, confirming the repository-root format gate still succeeds after the inline fixes.
+- Proof-owner notes were refreshed after the wrapper pass to point at commits `9caa563fe51bcefdef03636c378b0c25c3772a3e` and `298548e65c792af6a7ebebf9f3119fc11e8e657a` and to state that this task owns the broad final automated confidence check before story closure.

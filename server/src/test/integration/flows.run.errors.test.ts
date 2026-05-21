@@ -39,7 +39,7 @@ import type {
 } from '../../ingest/reingestService.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
-import { ConversationModel } from '../../mongo/conversation.js';
+import type { Conversation } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -1764,16 +1764,16 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
       flowName: 'retry-ownership-persist-fails',
       steps: [makeLlmStep()],
     });
-    const originalSet = memoryConversations.set.bind(memoryConversations);
+    const originalSet = memoryConversations.set;
     let failedConversationId = '';
 
     // Override memoryConversations.set to throw when the flow flag is being set.
-    (memoryConversations as any).set = function (key: string, value: any) {
+    memoryConversations.set = ((key: string, value: Conversation) => {
       if (value?.flags && Object.prototype.hasOwnProperty.call(value.flags, 'flow')) {
         throw new Error('boom');
       }
-      return originalSet(key, value);
-    };
+      return originalSet.call(memoryConversations, key, value);
+    }) as typeof memoryConversations.set;
 
     try {
       await assert.rejects(
@@ -1804,7 +1804,7 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
       );
     } finally {
       // Restore original Map.set implementation
-      (memoryConversations as any).set = originalSet;
+      memoryConversations.set = originalSet;
     }
 
     const retryResult = await startFlowRun({

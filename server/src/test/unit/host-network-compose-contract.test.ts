@@ -223,6 +223,26 @@ test('e2e server host-network contract removes checked-in runtime-tree mounts', 
   assert.doesNotMatch(e2eServer, /codex-data:\/host\/codex:ro/u);
 });
 
+test('checked-in env and README keep the documented host Codex-home fallback contract intact', () => {
+  const serverEnv = readRepoFile('server/.env');
+  const e2eEnv = readRepoFile('.env.e2e');
+  const readme = readRepoFile('README.md');
+  const mainCompose = readRepoFile('docker-compose.yml');
+  const e2eCompose = readRepoFile('docker-compose.e2e.yml');
+
+  assert.doesNotMatch(
+    serverEnv,
+    /^CODEINFO_HOST_CODEX_HOME=\.\/codex$/mu,
+  );
+  assert.doesNotMatch(e2eEnv, /^CODEINFO_HOST_CODEX_HOME=\.\/codex$/mu);
+  assert.match(
+    readme,
+    /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}/u,
+  );
+  assert.match(mainCompose, /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u);
+  assert.match(e2eCompose, /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u);
+});
+
 test('checked-in default launcher awaits provider bootstrap before listen instead of firing it off in the background', () => {
   const indexSource = readRepoFile('server/src/index.ts');
 

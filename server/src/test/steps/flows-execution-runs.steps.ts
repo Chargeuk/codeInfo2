@@ -17,6 +17,7 @@ import {
   shouldUseMemoryPersistence,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import { TurnModel } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
@@ -60,7 +61,9 @@ let previousNodeEnv: string | undefined;
 let originalConversationFindByIdAndUpdate:
   | typeof ConversationModel.findByIdAndUpdate
   | null = null;
-let originalMemoryConversationsSet: ((key: string, value: any) => any) | null = null;
+let originalMemoryConversationsSet:
+  | typeof memoryConversations.set
+  | null = null;
 
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
@@ -201,7 +204,7 @@ After({ tags: '@mongo' }, async () => {
     originalConversationFindByIdAndUpdate = null;
   }
   if (originalMemoryConversationsSet) {
-    (memoryConversations as any).set = originalMemoryConversationsSet;
+    memoryConversations.set = originalMemoryConversationsSet;
     originalMemoryConversationsSet = null;
   }
 });
@@ -254,12 +257,10 @@ Given('the flow state write fails once', () => {
   if (shouldUseMemoryPersistence()) {
     // Memory-mode: override Map.set so that an attempt to set flags.flow fails once.
     if (!originalMemoryConversationsSet) {
-      originalMemoryConversationsSet = memoryConversations.set.bind(
-        memoryConversations,
-      );
+      originalMemoryConversationsSet = memoryConversations.set;
     }
     let shouldFail = true;
-    (memoryConversations as any).set = function (key: string, value: any) {
+    memoryConversations.set = ((key: string, value: Conversation) => {
       if (
         shouldFail &&
         value?.flags &&
@@ -268,8 +269,12 @@ Given('the flow state write fails once', () => {
         shouldFail = false;
         throw new Error('boom');
       }
-      return originalMemoryConversationsSet!(key, value);
-    };
+      return originalMemoryConversationsSet!.call(
+        memoryConversations,
+        key,
+        value,
+      );
+    }) as typeof memoryConversations.set;
     return;
   }
 
@@ -290,11 +295,17 @@ Given('the flow state write fails once', () => {
       shouldFail = false;
       throw new Error('boom');
     }
+    const updateQuery = update as Parameters<
+      typeof ConversationModel.findByIdAndUpdate
+    >[1];
+    const updateOptions = options as Parameters<
+      typeof ConversationModel.findByIdAndUpdate
+    >[2];
     return originalConversationFindByIdAndUpdate!.call(
       ConversationModel,
-      id as any,
-      update as any,
-      options as any,
+      id,
+      updateQuery,
+      updateOptions,
     );
   }) as typeof ConversationModel.findByIdAndUpdate;
 });

@@ -2285,3 +2285,40 @@ Revalidate Story 58 after the current review-created repairs for findings `1` an
 #### Manual Testing Guidance
 
 If later manual validation is useful after the automated repair lands, use the supported main stack from `docker-compose.yml` with the wrapper-managed env files `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`, and recheck the repaired `/flows` and launcher-contract surfaces from `http://localhost:5001` against `http://localhost:5010` only after the server `/health` endpoint and the client root are ready. If Playwright MCP screenshots help, capture them to the Playwright output staging directory first, then transfer the selected artifacts into `codeInfoTmp/manual-testing/0000058/18/`; later closeout can curate any durable reviewer bundle separately. Keep that manual validation optional and non-blocking; the authoritative close-out proof for this task remains the broad automated wrapper set listed above.
+
+### Task 19. Re-Validate Story 58 After Inline Minor Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Affected Repositories
+
+- `Current Repository`: owns the final automated revalidation for inline-resolved minor finding `1` from review cycle `0000058-rc-20260521T103320Z-1ae33229`.
+
+No additional repositories are in scope for this review cycle. Validation scope for this task is driven by `Affected Repositories`, not by `Repository Name` alone.
+
+#### Addresses Findings
+
+- Finding `1` (`current_repository`): Hide the Home runtime-selection summary when provider discovery fails instead of rendering fake unknown-selection state. Resolved inline in commit `2fe9bae1d9a1daa4e7a5e32369c1a527b60658fb`.
+
+#### Subtasks
+
+1. [ ] Re-read the current `## Minor Review Fixes` entry for finding `1`, the active `review-disposition-state.json`, and the current no-findings review artifacts so this task's final proof scope stays bound to the already-resolved Home runtime-selection fix and to the clean rerun that left no unresolved findings in the active review cycle.
+2. [ ] Refresh this task's proof-owner notes after the wrapper pass so the plan records explicitly that the inline minor fix already landed in commit `2fe9bae1d9a1daa4e7a5e32369c1a527b60658fb` and that this task owns the broader final automated confidence check before story closure.
+3. [ ] Address any lint issues introduced by tracked proof-owner updates for this final revalidation task.
+4. [ ] Address any format-check issues introduced by tracked proof-owner updates for this final revalidation task.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported client build wrapper because the resolved minor finding changed `Home` client surfaces, and this final task must re-prove the normal client build gate for the story after the inline fix rather than relying only on the focused task-local rerun.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because the final automated close-out should prove the broader client regression surface around the resolved `Home` runtime-selection behavior, not only the one focused proof file from the inline-fix step.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported e2e wrapper because this story is a frontend redesign and the final automated confidence pass should still exercise the broader browser-path surface after the inline `Home` fix, even though the fix itself was localized.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this final revalidation task can touch tracked proof-owner surfaces while recording the cycle close-out path.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this final revalidation task can touch tracked proof-owner surfaces while recording the cycle close-out path.
+
+#### Implementation Notes
+
+- Review Task Role: `final_minor_fix_revalidation`
+- Review Cycle Id: `0000058-rc-20260521T103320Z-1ae33229`
+- Inline minor finding `1` was already resolved and documented in commit `2fe9bae1d9a1daa4e7a5e32369c1a527b60658fb`; this task exists so the review loop gets one broad automated revalidation owner before story closure.
+- The focused client proof recorded during the inline-fix step remains valuable but is not, by itself, the full story-level regression pass for this review cycle.

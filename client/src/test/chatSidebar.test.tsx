@@ -630,6 +630,82 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     await waitFor(() => expect(bulkDelete).toHaveBeenCalledTimes(1));
   });
 
+  it('keeps archived bulk-delete confirmation disabled when mutations become unavailable before submit', async () => {
+    const user = userEvent.setup();
+    const bulkDelete = jest.fn(async (ids: string[]) =>
+      makeBulkDeleteResult(ids),
+    );
+
+    function Wrapper() {
+      const [mongoConnected, setMongoConnected] = useState(true);
+      const [filterState, setFilterState] =
+        useState<ConversationFilterState>('archived');
+      const conversations: ConversationListItem[] = [
+        {
+          conversationId: 'c1',
+          title: 'Archived conversation',
+          provider: 'lmstudio',
+          model: 'm1',
+          lastMessageAt: '2025-01-01T00:00:00Z',
+          archived: true,
+        },
+      ];
+
+      return (
+        <>
+          <button
+            type="button"
+            data-testid="disconnect-mongo"
+            onClick={() => setMongoConnected(false)}
+          >
+            Disconnect Mongo
+          </button>
+          <ConversationList
+            conversations={filterConversations(conversations, filterState)}
+            selectedId={undefined}
+            isLoading={false}
+            isError={false}
+            error={undefined}
+            hasMore={false}
+            filterState={filterState}
+            mongoConnected={mongoConnected}
+            disabled={false}
+            onSelect={() => undefined}
+            onFilterChange={setFilterState}
+            onArchive={() => undefined}
+            onRestore={() => undefined}
+            onBulkArchive={async (ids) => makeBulkArchiveResult(ids)}
+            onBulkRestore={async (ids) => makeBulkArchiveResult(ids)}
+            onBulkDelete={bulkDelete}
+            onLoadMore={async () => undefined}
+            onRefresh={() => undefined}
+            onRetry={() => undefined}
+          />
+        </>
+      );
+    }
+
+    render(<Wrapper />);
+
+    await user.click(
+      within(rowByTitle('Archived conversation')).getByTestId(
+        'conversation-select',
+      ),
+    );
+    await user.click(screen.getByTestId('conversation-bulk-delete'));
+
+    expect(
+      await screen.findByTestId('conversation-delete-confirm'),
+    ).toBeEnabled();
+
+    await user.click(screen.getByTestId('disconnect-mongo'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('conversation-delete-confirm')).toBeDisabled(),
+    );
+    expect(bulkDelete).not.toHaveBeenCalled();
+  });
+
   it('keeps unresolved rows selected after partial bulk archive and excludes confirmed rows from the next request', async () => {
     const user = userEvent.setup();
     const bulkArchive = jest

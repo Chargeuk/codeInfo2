@@ -257,6 +257,10 @@ export function ConversationList({
     Boolean(onBulkDelete);
 
   const handleBulk = async (action: 'archive' | 'restore' | 'delete') => {
+    if (action === 'archive' && !canBulkArchive) return;
+    if (action === 'restore' && !canBulkRestore) return;
+    if (action === 'delete' && !canBulkDelete) return;
+
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
@@ -801,7 +805,9 @@ export function ConversationList({
           <Button
             color="error"
             variant="contained"
+            disabled={!canBulkDelete}
             onClick={() => {
+              if (!canBulkDelete) return;
               setDeleteDialogOpen(false);
               void handleBulk('delete');
             }}

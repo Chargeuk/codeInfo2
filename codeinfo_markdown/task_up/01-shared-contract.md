@@ -43,9 +43,21 @@ Establish the shared operating contract for the full `task_up2` workflow before 
   - `Testing` contains only automated proof execution steps that the coding agent can run with repository-supported wrappers, commands, or harnesses.
   - `Manual Testing Guidance` contains optional, non-blocking guidance for the manual testing agent. It must not contain checkboxes, pass/fail gating language, or any requirement that blocks task completion.
   - Task-level `Manual Testing Guidance` may refine or override story-level `Story Manual Testing Guidance` for that one task when needed, may name paired or supporting repositories for task-specific proof paths, must not contradict fresher repository truth, and should carry forward any relevant repository-defined manual-testing skip or narrowing conditions from `AGENTS.md` or `codeinfo_markdown/repository_information.md` when those conditions affect that task's honest proof path.
-  - These manual-testing guidance sections help the later `manual_testing_agent`, but they do not strictly limit which supporting repositories the manual tester may investigate when honest proof requires more context.
+- These manual-testing guidance sections help the later `manual_testing_agent`, but they do not strictly limit which supporting repositories the manual tester may investigate when honest proof requires more context.
 
 </section_ownership_contract>
+
+<design_contract_rules>
+
+- A story has `Design Contract Present` when the plan explicitly names design-target assets intended as implementation references, such as final `*.png`, `*.svg`, `*.md`, a `## Design Contract` section, or a task-scoped design packet.
+- If `Design Contract Present` is false, do not add design-specific tasking requirements.
+- If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical, treat the visual asset as supporting visual reference, and follow the markdown when they conflict.
+- If `Design Contract Present` is true, every design-driven task must name the exact design assets it owns and must not rely on vague phrases such as `match the approved design direction` without concrete visual obligations.
+- If `Design Contract Present` is true, every design-driven task should include a short `Visual Invariants` subsection or equivalent concrete wording that states what must match, what may vary slightly, and what later proof must compare against the named design assets.
+- If `Design Contract Present` is true, every visual implementation subtask must reference the exact design file or file subset that governs the surface it is changing.
+- If `Design Contract Present` is true, the final task in the story must include `Manual Testing Guidance` that asks for full-story screenshots of all implemented frontend surfaces so later review can compare them against the named design assets.
+
+</design_contract_rules>
 
 <phase_dependency_contract>
 
@@ -61,6 +73,8 @@ Establish the shared operating contract for the full `task_up2` workflow before 
 - Treat the workflow as incomplete until every Acceptance Criterion, important Description requirement, and meaningful failure mode has a clear place in the task list or is explicitly kept out of scope by the story.
 - Treat the workflow as incomplete until every important requirement has both an implementation home and a named proof home.
 - Treat the workflow as incomplete until the final task list is understandable to a weak, junior, forgetful developer who may only read one subtask at a time.
+- If `Design Contract Present` is true, treat the workflow as incomplete until every named design asset has at least one task owner, explicit visual invariants, and later screenshot-comparison proof guidance.
+- If `Design Contract Present` is true, treat the workflow as incomplete until the final task's manual-testing guidance covers full-story screenshot capture for the implemented frontend surfaces, not only the latest task-local screen.
   </completeness_contract>
 
 <missing_context_policy>

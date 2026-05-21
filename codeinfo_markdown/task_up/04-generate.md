@@ -45,6 +45,12 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Add documentation tasks only when the story actually changes documentation-relevant behavior, files, architecture, commands, contracts, or screenshots.
 - When the story needs auth bypasses, seeded identities, mocked providers, alternate login flows, or similar test-enablement seams, generate that work as test-only harness, fixture, support-code, or test-configuration changes rather than as shipped production-code behavior changes.
 - When manual testing for the story will write task-level proof artifacts into `codeInfoTmp/` and the current repository does not already ignore that scratch path, generate the minimal `.gitignore` update needed before later proof depends on it.
+- If `Design Contract Present` is true, add explicit task ownership for the design assets:
+  - assign each named design asset to at least one bounded task;
+  - narrow each task to the smallest honest subset of design files it must follow;
+  - add task exit criteria that include visual outcomes, not just behavioral outcomes;
+  - make the relevant visual implementation subtasks cite the exact design files they are implementing;
+  - when paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, make the task reference both assets while treating the markdown as canonical and the visual asset as supporting visual reference.
   </task_generation_rules>
 
 <task_shape_rules>
@@ -60,6 +66,9 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Each documentation file update belongs in its own subtask.
 - Each task should be detailed enough for a junior developer who may only read the current task and its subtasks.
 - Add explicit proof-authoring subtasks whenever code must be written or updated to prove a requirement, edge case, error path, recovery path, or mixed-state path. Those subtasks must name the exact test file(s), fixtures, markers, harness files, or prepared proof surfaces to create or edit.
+- If `Design Contract Present` is true, add a short `Visual Invariants` subsection or equivalent task wording for each design-driven task that lists the concrete required visual matches and any allowed implementation flex.
+- When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, write those visual invariants from the markdown first and use the visual asset only to preserve the intended visual direction when the markdown is silent.
+- If `Design Contract Present` is true, ensure the final task in the story carries `Manual Testing Guidance` that asks for screenshots covering the full implemented frontend for the story, not just the final task's narrow local seam.
 - Do not make a subtask's completion depend on executed test output, later screenshots, later logs, or later manual validation.
 - When a changed behavior could leave an existing test title misleading, add an explicit subtask to rename or rewrite that proof so the stated invariant still matches the assertions.
 - When a UI surface changes enablement, visibility, mode gating, or create-vs-reuse behavior, add an explicit subtask for stale-state handling and proof that disabled or hidden state is either cleared or excluded from submission.

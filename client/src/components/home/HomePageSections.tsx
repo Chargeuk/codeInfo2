@@ -667,8 +667,7 @@ export function HomeLmStudioSection({
             </Button>
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            Using base URL:{' '}
-            {status === 'success' ? committedBaseUrl : draftBaseUrl}
+            Using base URL: {committedBaseUrl}
           </Typography>
           {isEmpty ? (
             <Typography>No models reported by LM Studio.</Typography>

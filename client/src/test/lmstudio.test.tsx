@@ -128,6 +128,30 @@ describe('LM Studio utility shell integration', () => {
     );
   });
 
+  it('keeps showing the committed runtime URL after an explicit check fails on a dirty draft', async () => {
+    mockFetchLmStudioStatus
+      .mockResolvedValueOnce(okResponse)
+      .mockRejectedValueOnce(new Error('Invalid base URL'));
+
+    render(<HomePage />);
+
+    const input = await screen.findByLabelText(/Base URL/i);
+    await userEvent.clear(input);
+    await userEvent.type(input, 'notaurl');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'mock-icon Check' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText('Invalid base URL').length).toBeGreaterThan(0),
+    );
+    expect(input).toHaveValue('notaurl');
+    expect(screen.getByText(/Using base URL:/)).toHaveTextContent(
+      'Using base URL: http://host.docker.internal:1234',
+    );
+  });
+
   it('reuses the same LM Studio section from the routed /lmstudio compatibility path', async () => {
     const memoryRouter = createMemoryRouter(router.routes, {
       initialEntries: ['/lmstudio'],

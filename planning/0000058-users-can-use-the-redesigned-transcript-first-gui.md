@@ -2016,7 +2016,7 @@ Endorsed findings requiring plan follow-up:
 
 #### Overview
 
-Repair the server-side fresh-run retry ownership lifecycle so a launch only becomes replay-owning after the start is durable, or else releases any provisional ownership before the next retry can read it as an accepted result. This task owns the bounded `server/src/flows/service.ts` lifecycle seam plus the targeted proof that keeps accepted replay behavior intact while preventing stale started replays after pre-launch failure.
+Repair the server-side fresh-run retry ownership lifecycle so a launch only becomes replay-owning after the start is durable, or else releases any provisional ownership before the next retry can read it as an accepted result. This task owns the bounded `server/src/flows/service.ts` lifecycle seam plus the targeted proof that keeps accepted replay behavior intact while preventing stale started replays after pre-launch failure. The mixed-state rule for this seam must stay explicit: after a failed fresh run, stale remembered ownership must either be cleared or be retained only as non-submittable state that is excluded from later replay selection.
 
 #### Affected Repositories
 
@@ -2028,15 +2028,27 @@ No additional repositories are in scope for this review-created repair. The find
 
 - `R1.` A failure after fresh-run retry ownership is remembered but before `persistFlowResumeState(...)` succeeds cannot leave a stale accepted replay winner behind for the next retry.
 - `R2.` Successful accepted-launch replay still resolves to the existing in-flight launch instead of minting a second logical run.
-- `R3.` Later legitimate fresh runs are not trapped by stale retry ownership after a pre-launch failure path or ownership cleanup.
+- `R3.` Later legitimate fresh runs are not trapped by stale retry ownership after a pre-launch failure path or ownership cleanup; any provisional replay owner is either cleared before the next request or excluded from later replay selection so a restored fresh-run request behaves like a new run unless a real durable in-flight launch exists.
 - `R4.` The repair stays bounded to the current server lifecycle seam and does not redefine the separate fresh-run versus resume contract.
 
 #### Proof Mapping
 
-- `P1.` lifecycle ordering proof for `R1` and `R3`: implementation owner is `server/src/flows/service.ts`; proof home is `server/src/test/integration/flows.run.errors.test.ts`.
-- `P2.` accepted replay continuity proof for `R2`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof home is `server/src/test/integration/flows.run.basic.test.ts`.
-- `P3.` route-level default-path proof for `R1` through `R3`: implementation owners are `server/src/routes/flowsRun.ts`, `server/src/flows/service.ts`, `server/src/test/features/flows-execution-runs.feature`, and `server/src/test/steps/flows-execution-runs.steps.ts`; proof home is the focused cucumber feature and steps.
+- `P1.` lifecycle ordering and stale-state exclusion proof for `R1` and `R3`: implementation owner is `server/src/flows/service.ts`; proof home is `server/src/test/integration/flows.run.errors.test.ts`.
+- `P2.` accepted replay continuity and mixed-state fresh-run-versus-reuse proof for `R2` and `R3`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof home is `server/src/test/integration/flows.run.basic.test.ts`.
+- `P3.` route-level default-path proof for `R1` through `R3`: implementation owners are `server/src/routes/flowsRun.ts`, `server/src/flows/service.ts`, `server/src/test/features/flows-execution-runs.feature`, and `server/src/test/steps/flows-execution-runs.steps.ts`; proof home is the focused cucumber feature and steps, including the restored fresh-run request path after a failed remembered owner.
 - `P4.` broad regression proof for the whole current findings block: proof home is the fresh final revalidation task below, which reruns the repository-supported broad wrappers after Tasks `16` and `17` land.
+
+#### Risk Ownership
+
+- Highest-risk invariant: no retry may observe a cached accepted-launch winner unless the original launch actually crossed the durable-start boundary.
+- Keep this repair inside the bounded server lifecycle seam; do not broaden it into a fresh reinterpretation of the existing client retry identity or the separate resume path contract.
+
+#### High-Risk Invariants And Blocker Family
+
+- Exact ordering proof required: the focused proof must hold the boundary where ownership is remembered, durable launch persistence fails, and the next retry arrives before any detached cleanup path could have hidden the stale state.
+- Writer-reader-release proof required: the launch path must either write replay-owning state only after durable start or prove that any provisional state is released, or otherwise excluded from replay selection, before a later retry can read it as accepted.
+- Accepted-replay continuity proof required: the same repair must keep the existing accepted replay path honest for genuinely in-flight launches rather than fixing the stale case by disabling bounded accepted replay entirely.
+- Likely blocker family: product or story seam in one same-repository lifecycle path, with proof owned by focused server integration and route-level cucumber coverage.
 
 #### Documentation Locations
 
@@ -2049,20 +2061,20 @@ No additional repositories are in scope for this review-created repair. The find
 
 #### Subtasks
 
-1. [ ] Re-read the current review finding, `server/src/flows/service.ts`, `server/src/routes/flowsRun.ts`, and the focused proof owners to pin the exact lifecycle boundary where retry ownership is remembered before durable launch persistence completes.
-2. [ ] Patch `server/src/flows/service.ts` so a pre-launch failure after ownership is remembered cannot leave a stale accepted replay winner behind, while preserving the existing accepted replay path for genuinely in-flight launches.
-3. [ ] Update `server/src/test/integration/flows.run.errors.test.ts` so it proves a failure between remembered ownership and durable start cannot poison the next retry or a later legitimate fresh run.
-4. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` so it still proves accepted replay continuity for the bounded same-repository retry-ownership seam after the lifecycle repair lands.
-5. [ ] Update `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts` so the route-level proof claims the repaired pre-launch failure boundary explicitly instead of relying only on adjacent accepted-run behavior.
+1. [ ] Re-read the current review finding plus `server/src/flows/service.ts`, `server/src/routes/flowsRun.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/features/flows-execution-runs.feature`, and `server/src/test/steps/flows-execution-runs.steps.ts` to pin the exact boundary where ownership is remembered before `persistFlowResumeState(...)` succeeds and to confirm which route-owned proof surfaces already reach that seam through the normal `/flows/:flowName/run` path.
+2. [ ] Patch the bounded lifecycle seam in `server/src/flows/service.ts` so the writer, reader, and cleanup owner stay explicit in one place: the service path that remembers retry ownership must either write it only after durable launch persistence succeeds or synchronously clear it when `persistFlowResumeState(...)` fails, and the later retry-selection reader must ignore any provisional state that was retained only for local bookkeeping. If `server/src/routes/flowsRun.ts` needs a matching same-seam adjustment, keep it limited to forwarding or reading that same bounded ownership contract rather than redefining fresh-run versus resume behavior.
+3. [ ] Update the proof owner `server/src/test/integration/flows.run.errors.test.ts` so that one file covers the lifecycle ordering, partial-state, and cleanup-ownership assertions together: a failure after ownership is remembered but before durable start cannot poison the next retry, cannot trap a later legitimate fresh run, and cannot leave behind hidden remembered state that still influences request admission at a deterministic writer-reader-release boundary. If the existing test title or setup only claims generic thrown-exception cleanup, rename or split it so the title and assertions both explicitly describe pre-launch remembered-ownership failure and later fresh-run independence.
+4. [ ] Update the proof owner `server/src/test/integration/flows.run.basic.test.ts` so that one file covers the accepted-replay continuity and mixed-state assertions together: a genuinely in-flight accepted launch still resolves to the existing run, does not mint a second logical run after the lifecycle repair lands, and a later fresh-run request without a real durable in-flight launch is treated as a new run rather than contradictory reuse of stale remembered ownership. If the existing `retryOwnershipId` test title only claims active-run reuse, rename or split it so the proof file separately names the happy accepted-replay path versus any restored fresh-run independence assertion.
+5. [ ] Update the route-level proof surface `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts` so that one default-path harness proves both repaired boundaries together: the pre-launch failure cleanup boundary and the accepted-replay continuity boundary must remain reachable through the normal `/flows/:flowName/run` path, including the restored fresh-run request path after a failed remembered owner instead of only adjacent accepted-run behavior. Rename or replace any scenario title that still claims only ambiguous accepted-launch reuse unless its steps now assert the full combined failure-then-fresh-run scenario.
 6. [ ] Address any lint issues introduced by the repair in touched files.
 7. [ ] Address any format-check issues introduced by the repair in touched files.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`.
-2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature`.
-3. [ ] Run `npm run lint`.
-4. [ ] Run `npm run format:check`.
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`. Use this repository wrapper because Task 16 stays inside one bounded server lifecycle seam and the targeted server-unit wrapper already exercises the supported server build gate before rerunning the exact proof-owner files for `R1` through `R3`. If `failed > 0`, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose task-owned failures in `server/src/test/integration/flows.run.basic.test.ts` and `server/src/test/integration/flows.run.errors.test.ts` first, then rerun the same targeted wrapper before broad regression is left to Task `18`.
+2. [ ] Current Repository: Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature`. Use this repository wrapper because Task 16 must still prove the repaired retry-ownership seam through the normal `/flows/:flowName/run` route-level harness instead of only through direct service tests. If the wrapper reports failure or ambiguity, inspect the printed `test-results/server-cucumber-tests-*.log` path, fix the task-owned feature or step regressions in `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts`, then rerun the same targeted wrapper.
+3. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint path because this task can touch both server source and shared plan-owned proof surfaces. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining task-owned lint issues in the touched files before closing the task.
+4. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task can touch both server source and the focused proof surfaces named above. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining task-owned formatting issues in the touched files before closing the task.
 
 #### Implementation Notes
 
@@ -2099,6 +2111,20 @@ No additional repositories are in scope for this repair. Because this finding ch
 - `P2.` compose-runtime preserved-behavior proof for `R2` and `R4`: implementation owners are `docker-compose.yml`, `docker-compose.e2e.yml`, and any touched startup env-loading surfaces; proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
 - `P3.` broad regression proof for the whole current findings block: proof home is the fresh final revalidation task below, which reruns the repository-supported broad wrappers after Tasks `16` and `17` land.
 
+#### Risk Ownership
+
+- Highest-risk invariant: the restored launcher contract must preserve previously working user-visible and startup behavior instead of trading one checked-in path default for another undocumented runtime contract.
+- Current reproduced defect to preserve against: the checked-in env files force `CODEINFO_HOST_CODEX_HOME=./codex` while the compose files and README still advertise `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` as the supported default launcher contract.
+- Keep this repair focused on the checked-in env, compose, contract-test, and documentation surfaces; do not add production-only fallback code whose sole purpose is to paper over a bad startup contract in tests.
+
+#### High-Risk Invariants And Blocker Family
+
+- Runtime-contract proof required: the checked-in defaults, compose mounts, and README wording must all describe the same host Codex-home fallback contract after the repair lands.
+- Preserved-behavior proof required: the supported compose path must still expose a real host-backed seed path and survive the normal build-plus-up/down lifecycle after the contract repair, not just satisfy file-level assertions.
+- Startup-path proof required: if any env-loading or mount-routing seam changes, the repair must still prove the normal supported launcher path rather than a narrow diagnosis-only startup variant.
+- Baseline-ownership proof required: the targeted contract test owns producer-consumer alignment across env, compose, and README surfaces, while the compose build-plus-up/down smoke owns preserved runtime behavior; if compose smoke fails for an unrelated shared baseline reason, record that distinctly instead of treating it as proof that the launcher-contract repair itself passed or failed.
+- Likely blocker family: shared wrapper or baseline seam across checked-in env and compose ownership, with proof split between contract tests and supported compose smoke.
+
 #### Documentation Locations
 
 - `server/.env`
@@ -2110,21 +2136,21 @@ No additional repositories are in scope for this repair. Because this finding ch
 
 #### Subtasks
 
-1. [ ] Re-read the current review finding, `server/.env`, `.env.e2e`, `docker-compose.yml`, `docker-compose.e2e.yml`, `README.md`, and `server/src/test/unit/host-network-compose-contract.test.ts` to pin the exact checked-in defaults that now narrow the documented host Codex-home contract.
-2. [ ] Patch the env and compose ownership surfaces so the supported launcher path preserves the documented host Codex-home fallback contract instead of forcing checked-in `./codex` defaults on the main and e2e wrapper paths.
-3. [ ] Update `README.md` and any touched contract wording so the user-facing launcher instructions match the restored runtime contract exactly.
-4. [ ] Update `server/src/test/unit/host-network-compose-contract.test.ts` so it proves the restored fallback contract across the checked-in env and compose surfaces, not just one file in isolation.
+1. [ ] Re-read the current review finding plus `server/.env`, `.env.e2e`, `docker-compose.yml`, `docker-compose.e2e.yml`, `README.md`, and `server/src/test/unit/host-network-compose-contract.test.ts` to pin the exact checked-in defaults and mount expressions that now narrow the documented `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` host fallback contract.
+2. [ ] Patch the checked-in env producer surfaces in `server/.env` and `.env.e2e` plus the compose consumer surfaces in `docker-compose.yml` and `docker-compose.e2e.yml` so the supported main and e2e launcher paths preserve the documented host Codex-home fallback contract instead of forcing checked-in `./codex` defaults or a conflicting mount contract.
+3. [ ] Update `README.md` and any touched contract wording so the user-facing launcher instructions describe the same restored host Codex-home fallback contract that the checked-in env and compose surfaces now enforce.
+4. [ ] Update the proof owner `server/src/test/unit/host-network-compose-contract.test.ts` so that one file covers the producer-consumer contract assertions together across the checked-in env, compose, and documentation surfaces: the documented `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` fallback must remain the live contract, the checked-in defaults must not silently narrow it to `./codex`, and the host-backed seed path assumptions must still match the supported startup path that later compose smoke reruns will exercise. Rename or split any reused test whose current title is historical, task-number-specific, or only about adjacent overlay-mount behavior so the title and assertion block explicitly claim the restored host Codex-home fallback contract being proved.
 5. [ ] Address any lint issues introduced by the repair in touched files.
 6. [ ] Address any format-check issues introduced by the repair in touched files.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts`.
-2. [ ] Run `npm run compose:build:summary`.
-3. [ ] Run `npm run compose:up`.
-4. [ ] Run `npm run compose:down`.
-5. [ ] Run `npm run lint`.
-6. [ ] Run `npm run format:check`.
+1. [ ] Current Repository: Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts`. Use this repository wrapper because Task 17 changes checked-in env, compose, and documentation contract surfaces and the targeted server-unit wrapper already exercises the supported server build gate before proving the producer-consumer contract in `server/src/test/unit/host-network-compose-contract.test.ts`. If `failed > 0`, inspect the printed `test-results/server-unit-tests-*.log` path, fix task-owned contract failures in the touched env, compose, README, or contract-test files first, then rerun the same targeted wrapper.
+2. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported compose-build wrapper because Task 17 changes checked-in launcher ownership and must keep the normal main-stack image build path healthy instead of proving only file-shape assertions. If the wrapper reports failure, warnings, or ambiguous output, inspect `logs/test-summaries/compose-build-latest.log`, fix the task-owned compose or env regression, and rerun `npm run compose:build:summary`.
+3. [ ] Current Repository: Run `npm run compose:up`. Use the supported main-stack startup wrapper because this runtime-contract repair must still prove preserved launcher behavior through the normal compose path, not only through env dumps or contract-test assertions. If startup, readiness, or health fails, inspect `npm run compose:logs`, separate task-owned launcher-contract regressions from unrelated shared-baseline failures, fix the task-owned issue, and rerun `npm run compose:up`. The broader e2e and full regression reruns for the same review-created findings block stay owned by Task `18`.
+4. [ ] Current Repository: Run `npm run compose:down`. Use the supported main-stack teardown wrapper to prove the repaired launcher path also survives normal shutdown after startup succeeds. If teardown fails, capture enough context from `npm run compose:logs` to distinguish task-owned launcher fallout from unrelated shared-baseline problems, then rerun `npm run compose:down` until the supported main stack stops cleanly.
+5. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint path because this task can touch server env defaults, compose files, README, and contract-test code together. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining task-owned lint issues in the touched files before closing the task.
+6. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task can touch env, compose, README, and contract-test surfaces together. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining task-owned formatting issues in the touched files before closing the task.
 
 #### Implementation Notes
 
@@ -2151,30 +2177,81 @@ No additional repositories are in scope for this review cycle. Validation scope 
 
 Revalidate Story 58 after the current review-created repairs for findings `1` and `3` are complete. This task is the one final revalidation owner for review cycle `0000058-rc-20260521T020645Z-65288aea`, and it also keeps the already-resolved inline minor finding `2` inside the same broad close-out proof instead of leaving it to a second final task later.
 
+#### Task Exit Criteria
+
+- `R1.` Tasks `16` and `17` are both `__done__` with no unchecked subtasks, unchecked testing, or live blockers.
+- `R2.` This appended `Code Review Findings` block, the `## Minor Review Fixes` entry for finding `2`, the refreshed PR summary, and `review-disposition-state.json` still agree on review pass `0000058-20260521T010700Z-65288aea`, review cycle `0000058-rc-20260521T020645Z-65288aea`, unresolved task-required findings `1` and `3`, inline-resolved minor finding `2`, and this task's ownership of final revalidation for the cycle.
+- `R3.` Fresh automated validation reruns the relevant current-repository proof surfaces for the whole findings block: supported server and client builds, full server-unit wrapper, full server-cucumber wrapper, full client wrapper, full e2e wrapper, supported compose build-plus-up/down smoke, lint, and format.
+- `R4.` The final pass records explicitly that no additional repository was in scope for this review-created findings block and that the broad proof remained fully current-repository owned even though it covered both the server lifecycle seam and the launcher-contract seam.
+- `R5.` `review-disposition-state.json` still records this exact task title as `task_up_owned_final_revalidation_task_title`, keeps `final_revalidation_owned_by_task_up_path: true`, and leaves `needs_final_minor_fix_revalidation_task: false`, so this review cycle cannot accidentally create a second final revalidation owner.
+
+#### Proof Mapping
+
+- `P1.` dependency-completion proof for `R1`: proof homes are parser output for Tasks `16` and `17` plus their checked `Subtasks`, checked `Testing`, and absence of live blockers in this plan.
+- `P2.` findings-block and review-cycle ownership proof for `R2` and `R5`: proof homes are this `Code Review Findings` block, `## Minor Review Fixes`, `codeInfoStatus/flow-state/review-disposition-state.json`, and `codeInfoStatus/pr-summaries/0000058-pr-summary.md`.
+- `P3.` supported server-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-server-latest.log`.
+- `P4.` full server-unit wrapper proof for the current review-created findings block in `R3`: proof home is the latest `test-results/server-unit-tests-*.log`.
+- `P5.` full server-cucumber wrapper proof for the current review-created findings block in `R3`: proof home is the latest `test-results/server-cucumber-tests-*.log`.
+- `P6.` supported client-build wrapper proof for `R3`: proof home is `logs/test-summaries/build-client-latest.log`.
+- `P7.` full client-wrapper proof for the current review-created findings block in `R3`: proof homes are the latest `test-results/client-tests-*.log` and the latest `test-results/client-tests-*.json`.
+- `P8.` full e2e wrapper proof for the current review-created findings block in `R3`: proof home is `logs/test-summaries/e2e-tests-latest.log`.
+- `P9.` supported compose build-and-smoke proof for `R3` and `R4`: proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P10.` repository-hygiene and applicability proof for `R3` and `R4`: proof homes are the terminal output from `npm run lint` and `npm run format:check`, plus the refreshed PR summary close-out.
+
+#### Risk Ownership
+
+- Highest-risk invariant: the final pass must prove both serious repairs and the already-resolved inline minor finding through the repository-supported default wrapper path, not only through the focused owner tests in Tasks `16` and `17`.
+- If a broad wrapper exposes a new defect, preserve that failure honestly instead of silently narrowing the final proof scope to the earlier targeted tests.
+
+#### High-Risk Invariants And Blocker Family
+
+- Default-path proof required: final validation must cover the repaired findings block through the supported server build, server-unit, server-cucumber, client, e2e, compose, lint, and format wrappers, not only the targeted repair-task reruns.
+- Review-loop ownership proof required: this task must remain the one final revalidation owner for review cycle `0000058-rc-20260521T020645Z-65288aea`, and inline-resolved finding `2` must stay covered here instead of spawning a second final task later.
+- Cross-seam applicability proof required: the final pass must state clearly why no additional repository validation was needed even though the findings block spans both a server lifecycle seam and a launcher-contract seam inside the same repository.
+- Likely blocker family: shared wrapper or baseline seam for broad automated proof and review-cycle closeout ownership.
+
+#### Documentation Locations
+
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+- `codeInfoStatus/flow-state/review-disposition-state.json`
+- `codeInfoStatus/pr-summaries/0000058-pr-summary.md`
+- `server/src/flows/service.ts`
+- `server/src/routes/flowsRun.ts`
+- `server/.env`
+- `.env.e2e`
+- `docker-compose.yml`
+- `docker-compose.e2e.yml`
+- `README.md`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/unit/host-network-compose-contract.test.ts`
+- `server/src/test/features/flows-execution-runs.feature`
+- `server/src/test/steps/flows-execution-runs.steps.ts`
+
 #### Subtasks
 
 1. [ ] Re-read this appended `Code Review Findings` block, the active `review-disposition-state.json`, the `## Minor Review Fixes` entry for finding `2`, and the completed proof-owner sections for Tasks `16` and `17`, then record the exact dependency gate this task will enforce before broad wrapper proof begins: Tasks `16` and `17` must both be `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
-2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so it records review pass `0000058-20260521T010700Z-65288aea`, review cycle `0000058-rc-20260521T020645Z-65288aea`, review-created Tasks `16` through `18`, unresolved task-required findings `1` and `3`, inline-resolved minor finding `2`, the no-additional-repository applicability decision, and the broad proof homes for build, server-unit, server-cucumber, client, e2e, compose, lint, and format.
-3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they still agree on the current review pass id, the active review cycle id, the review-created tasks for this appended block, the inline minor finding already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
-4. [ ] Compare Tasks `16` and `17` against this task's `Affected Repositories`, proof scope, and documentation references, then update any stale references so the broad revalidation scope stays honest before wrapper execution begins.
+2. [ ] Refresh the proof-owner surface `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so that one summary surface records review pass `0000058-20260521T010700Z-65288aea`, review cycle `0000058-rc-20260521T020645Z-65288aea`, review-created Tasks `16` through `18`, unresolved task-required findings `1` and `3`, inline-resolved minor finding `2`, the no-additional-repository applicability decision, and the exact broad proof homes for server build, client build, server unit, server cucumber, client, e2e, compose build, compose up/down, lint, and format.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` so that those proof surfaces jointly cover the review-loop ownership assertions together: they must still agree on the current review pass id, the active review cycle id, the review-created tasks for this appended block, the inline minor finding already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+4. [ ] Compare Tasks `16` and `17` against this task's `Affected Repositories`, `Task Exit Criteria`, `Proof Mapping`, and `Documentation Locations` so that this task's own plan surfaces keep the broad revalidation story honest together: no-additional-repository applicability, default-wrapper proof scope, and coverage of findings `1`, `3`, and inline-resolved finding `2` must all remain explicit before wrapper execution begins.
 5. [ ] Address any lint issues introduced by the final revalidation updates in touched tracked files.
 6. [ ] Address any format-check issues introduced by the final revalidation updates in touched tracked files.
 
 #### Testing
 
-1. [ ] Run `python3 scripts/plan_status.py --task-number 16` and confirm the parser reports Task `16` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
-2. [ ] Run `python3 scripts/plan_status.py --task-number 17` and confirm the parser reports Task `17` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
-3. [ ] Run `npm run build:summary:server`.
-4. [ ] Run `npm run build:summary:client`.
-5. [ ] Run `npm run test:summary:server:unit`.
-6. [ ] Run `npm run test:summary:server:cucumber`.
-7. [ ] Run `npm run test:summary:client`.
-8. [ ] Run `npm run test:summary:e2e`.
-9. [ ] Run `npm run compose:build:summary`.
-10. [ ] Run `npm run compose:up`.
-11. [ ] Run `npm run compose:down`.
-12. [ ] Run `npm run lint`.
-13. [ ] Run `npm run format:check`.
+1. [ ] Current Repository: Run `python3 scripts/plan_status.py --task-number 16` and confirm the parser reports Task `16` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
+2. [ ] Current Repository: Run `python3 scripts/plan_status.py --task-number 17` and confirm the parser reports Task `17` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
+3. [ ] Current Repository: Run `npm run build:summary:server`. Use the supported server-build wrapper because this final task owns the full current-repository regression proof for the review-created findings block, including the server lifecycle repair from Task `16` and the launcher-contract repair from Task `17`. If the wrapper reports failure, warnings, or ambiguous output, inspect `logs/test-summaries/build-server-latest.log`, fix the task-owned regression or record the shared-baseline failure honestly, then rerun `npm run build:summary:server`.
+4. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported client-build wrapper because the broad review-cycle closeout must also prove the client surfaces that consume the repaired flow-run and launcher-contract behavior still build through the normal repository path. If the wrapper reports failure, warnings, or ambiguous output, inspect `logs/test-summaries/build-client-latest.log`, fix the task-owned regression or record the shared-baseline failure honestly, then rerun `npm run build:summary:client`.
+5. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the full repository wrapper because this final task owns broad server regression proof beyond the targeted owner files from Tasks `16` and `17`. If `failed > 0`, inspect the printed `test-results/server-unit-tests-*.log` path, diagnose whether the failure belongs to the repaired findings block or to shared baseline first, then rerun the full wrapper after the task-owned issue is fixed.
+6. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use the full repository wrapper because the final pass must re-prove route-level and lifecycle behavior for the repaired findings block through the supported server integration harness, not only through targeted task-local scenarios. If the wrapper reports failure or ambiguity, inspect the printed `test-results/server-cucumber-tests-*.log` path, fix the task-owned regression or record the shared-baseline failure honestly, then rerun the full wrapper.
+7. [ ] Current Repository: Run `npm run test:summary:client`. Use the full repository wrapper because the current review-created findings block still affects client-visible flow-run behavior and launcher guidance even though the implementation owners stayed server-side. If `failed > 0`, inspect the printed `test-results/client-tests-*.log` and `test-results/client-tests-*.json` paths, diagnose task-owned regressions first, then rerun the full wrapper after the relevant fix lands.
+8. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the full repository wrapper because this final task owns the one broad end-to-end proof pass for the whole current review-created findings block, including the runtime-contract seam that Task `17` does not prove locally through e2e on its own. If the wrapper reports failure or ambiguity, inspect `logs/test-summaries/e2e-tests-latest.log`, fix the task-owned regression or record the shared e2e baseline issue honestly, then rerun the full wrapper.
+9. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported compose-build wrapper because this final task must re-prove the current repository's normal main-stack image build after the repaired findings land together. If the wrapper reports failure, warnings, or ambiguous output, inspect `logs/test-summaries/compose-build-latest.log`, fix the task-owned regression or record the shared-baseline failure honestly, then rerun `npm run compose:build:summary`.
+10. [ ] Current Repository: Run `npm run compose:up`. Use the supported main-stack startup wrapper because the final pass must prove the repaired findings block through the normal repository runtime path, including the launcher-contract seam and the flow-run server path, rather than only through targeted harnesses. If startup, readiness, or health fails, inspect `npm run compose:logs`, separate task-owned regressions from unrelated shared-baseline failures, fix the task-owned issue if present, and rerun `npm run compose:up`.
+11. [ ] Current Repository: Run `npm run compose:down`. Use the supported main-stack teardown wrapper to prove the same normal runtime path shuts down cleanly after the final startup smoke. If teardown fails, capture enough context from `npm run compose:logs` to distinguish task-owned fallout from shared-baseline issues, then rerun `npm run compose:down` until the supported main stack stops cleanly.
+12. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this final task can refresh plan, PR summary, review-state, server, client, env, compose, and README surfaces together while closing the cycle. If the check fails, first run `npm run lint:fix`, then rerun `npm run lint`, and manually fix any remaining task-owned lint issues before closing the task.
+13. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this final task can touch tracked proof-owner and documentation surfaces across the whole findings block. If the check fails, first run `npm run format`, then rerun `npm run format:check`, and manually fix any remaining task-owned formatting issues before closing the task.
 
 #### Implementation Notes
 

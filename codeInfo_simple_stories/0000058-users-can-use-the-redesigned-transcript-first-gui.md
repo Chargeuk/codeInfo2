@@ -13,11 +13,13 @@
 9. Users can rely on the supported runtime to pick up host-backed Codex auth state again in the main and e2e stacks.
 10. Users cannot accidentally submit duplicate fresh flow runs from a rapid double-click before the disabled state appears.
 11. Users cannot start a second logical fresh flow run when they retry after an ambiguous lost response from an already accepted launch.
-12. Support and engineering reviewers can trust the rollout because the story closes with wrapper-first build, test, compose, browser, and final review revalidation for both the main redesign and the review-created follow-up fixes.
+12. Users can retry a fresh flow launch after an early startup failure without inheriting stale remembered ownership from a launch that never became durable.
+13. Users and operators can rely on the documented host Codex-home launcher contract instead of being silently forced onto a checked-in fallback path.
+14. Support and engineering reviewers can trust the rollout because the story closes with wrapper-first build, test, compose, browser, and final review revalidation for both the main redesign and the review-created follow-up fixes.
 
 # Description
 
-This story redesigns CodeInfo2 around a transcript-first interface so the main workspaces feel like one coherent product instead of separate admin-style pages. It gives users more room to read and work in conversations, moves global runtime setup into `Home`, keeps old LM Studio links working, and preserves the current supported chat, agent, flow, ingest, and log behavior. The final tasked version of the story also includes the follow-up runtime and flow-safety fixes needed to keep Codex auth seeding reliable, prevent duplicate fresh flow launches from rapid replays, and stop ambiguous fresh-run retries from creating a second logical launch.
+This story redesigns CodeInfo2 around a transcript-first interface so the main workspaces feel like one coherent product instead of separate admin-style pages. It gives users more room to read and work in conversations, moves global runtime setup into `Home`, keeps old LM Studio links working, and preserves the current supported chat, agent, flow, ingest, and log behavior. The final tasked version of the story also includes the follow-up runtime and flow-safety fixes needed to keep Codex auth seeding reliable, prevent duplicate fresh flow launches from rapid replays, release stale retry ownership after a failed pre-launch start, and restore the documented host launcher contract before the story closes.
 
 # Tasks
 
@@ -95,3 +97,18 @@ This story redesigns CodeInfo2 around a transcript-first interface so the main w
 
 - Re-run the broad current-repository regression proof after the retry-ownership repair is complete.
 - Refresh the final review-cycle summary so the remaining task-required finding and the inline-resolved minor fixes close under one final revalidation owner.
+
+16. [codeInfo2] - Release fresh-run retry ownership on pre-launch persistence failure after review pass `0000058-20260521T010700Z-65288aea`
+
+- Patch the server flow-launch lifecycle so remembered retry ownership is not left behind when the durable start never completes.
+- Keep the accepted replay path working for real in-flight launches while proving the cleaned-up fresh-run retry boundary.
+
+17. [codeInfo2] - Restore the host Codex launcher contract after review pass `0000058-20260521T010700Z-65288aea`
+
+- Repair the checked-in env, compose, and README contract so the supported launcher path uses the documented host Codex-home fallback again.
+- Prove the repaired runtime contract through targeted contract tests plus main-stack compose smoke.
+
+18. [codeInfo2] - Re-validate Story 58 after review pass `0000058-20260521T010700Z-65288aea`
+
+- Re-run the broad current-repository regression proof after the latest review-created repairs land.
+- Refresh the final review-cycle summary so the open task-required findings and the inline-resolved minor fix close under one final revalidation owner.

@@ -1098,7 +1098,7 @@ test('fresh executions of the same flow can run concurrently in different parent
   }
 });
 
-test('fresh-run retryOwnershipId reuses the accepted launch while the original run is still active', async () => {
+test('fresh-run retryOwnershipId reuses the accepted launch while the original run is still active, then clears for a later fresh run', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -1142,8 +1142,24 @@ test('fresh-run retryOwnershipId reuses the accepted launch while the original r
       getFlowExecutionId(firstResult.conversationId),
       getFlowExecutionId(secondResult.conversationId),
     );
+    await delay(50);
+    const thirdResult = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-c',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new DelayedInstantChat(75),
+    });
+    await waitForTurns(thirdResult.conversationId, (turns) =>
+      turns.some((turn) => turn.role === 'assistant'),
+    );
+    assert.notEqual(thirdResult.conversationId, firstResult.conversationId);
   } finally {
-    cleanupMemory('flow-retry-ownership-a', 'flow-retry-ownership-b');
+    cleanupMemory(
+      'flow-retry-ownership-a',
+      'flow-retry-ownership-b',
+      'flow-retry-ownership-c',
+    );
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
       process.env.FLOWS_DIR = prevFlowsDir;

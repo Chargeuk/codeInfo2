@@ -57,6 +57,9 @@ let previousAgentsHome: string | undefined;
 let previousFlowsDir: string | undefined;
 let previousCodexHome: string | undefined;
 let previousNodeEnv: string | undefined;
+let originalConversationFindByIdAndUpdate:
+  | typeof ConversationModel.findByIdAndUpdate
+  | null = null;
 
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
@@ -192,6 +195,10 @@ After({ tags: '@mongo' }, async () => {
   } else {
     process.env.NODE_ENV = previousNodeEnv;
   }
+  if (originalConversationFindByIdAndUpdate) {
+    ConversationModel.findByIdAndUpdate = originalConversationFindByIdAndUpdate;
+    originalConversationFindByIdAndUpdate = null;
+  }
 });
 
 Given('a flow execution test server', () => {
@@ -231,6 +238,37 @@ Given(
     );
   },
 );
+
+Given('the flow state write fails once', () => {
+  if (!originalConversationFindByIdAndUpdate) {
+    originalConversationFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+  }
+
+  let shouldFail = true;
+  ConversationModel.findByIdAndUpdate = ((
+    id: unknown,
+    update: unknown,
+    options: unknown,
+  ) => {
+    const candidate = update as {
+      $set?: Record<string, unknown>;
+    } | null;
+    if (
+      shouldFail &&
+      candidate?.$set &&
+      Object.prototype.hasOwnProperty.call(candidate.$set, 'flags.flow')
+    ) {
+      shouldFail = false;
+      throw new Error('boom');
+    }
+    return originalConversationFindByIdAndUpdate!.call(
+      ConversationModel,
+      id,
+      update,
+      options,
+    );
+  }) as typeof ConversationModel.findByIdAndUpdate;
+});
 
 When(
   'I start flow {string} with conversation id {string}',

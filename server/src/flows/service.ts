@@ -4616,22 +4616,6 @@ export async function startFlowRun(
         });
       }
     }
-    if (retryOwnershipId && !resumeStepPath) {
-      rememberFreshRunRetryOwnership({
-        flowName,
-        sourceId,
-        retryOwnershipId,
-        runToken,
-        result: {
-          flowName,
-          conversationId,
-          inflightId,
-          providerId,
-          modelId,
-          ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
-        },
-      });
-    }
     await persistFlowResumeState({
       conversationId,
       executionId,
@@ -4649,6 +4633,22 @@ export async function startFlowRun(
         : null,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
     });
+    if (retryOwnershipId && !resumeStepPath) {
+      rememberFreshRunRetryOwnership({
+        flowName,
+        sourceId,
+        retryOwnershipId,
+        runToken,
+        result: {
+          flowName,
+          conversationId,
+          inflightId,
+          providerId,
+          modelId,
+          ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
+        },
+      });
+    }
     params.working_folder = effectiveWorkingFolder;
   } catch (err) {
     cleanupPendingConversationCancel({ conversationId, runToken });

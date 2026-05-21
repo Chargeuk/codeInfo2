@@ -39,6 +39,7 @@ import type {
 } from '../../ingest/reingestService.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -1756,50 +1757,60 @@ test('flow run fails clearly when no fallback provider can execute after request
   }
 });
 
-test('unexpected thrown exceptions clear stale retry ownership for later legitimate fresh runs', async () => {
+test('pre-launch persistence failure clears stale retry ownership for later legitimate fresh runs', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({
       tmpDir,
-      flowName: 'reingest-throws',
-      steps: [{ type: 'reingest', sourceId: '/repo/source-a' }, makeLlmStep()],
+      flowName: 'retry-ownership-persist-fails',
+      steps: [makeLlmStep()],
     });
-    __setFlowServiceDepsForTests({
-      runReingestRepository: async () => {
+    const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+    let failedConversationId = '';
+
+    ConversationModel.findByIdAndUpdate = ((
+      id: unknown,
+      update: unknown,
+      options: unknown,
+    ) => {
+      const candidate = update as {
+        $set?: Record<string, unknown>;
+      } | null;
+      if (
+        candidate?.$set &&
+        Object.prototype.hasOwnProperty.call(candidate.$set, 'flags.flow')
+      ) {
         throw new Error('boom');
-      },
-    });
+      }
+      return originalFindByIdAndUpdate.call(
+        ConversationModel,
+        id,
+        update,
+        options,
+      );
+    }) as typeof ConversationModel.findByIdAndUpdate;
 
-    const result = await startFlowRun({
-      flowName: 'reingest-throws',
-      source: 'REST',
-      retryOwnershipId: 'fresh-run-retry-1',
-      listIngestedRepositories: listDefaultReingestRepos,
-    });
-    subscribeConversation(ws, result.conversationId);
-    await waitForFlowFinal({
-      ws,
-      conversationId: result.conversationId,
-      status: 'failed',
-    });
-    const turns = await waitForTurns(
-      result.conversationId,
-      (items) => items.length >= 2,
-    );
-    assert.equal(turns.length, 2);
-    assert.match(turns[1]?.content ?? '', /boom/i);
-
-    __setFlowServiceDepsForTests({
-      runReingestRepository: async () => ({
-        ok: true,
-        value: buildReingestSuccess(),
-      }),
-    });
+    try {
+      await assert.rejects(
+        startFlowRun({
+          flowName: 'retry-ownership-persist-fails',
+          source: 'REST',
+          retryOwnershipId: 'fresh-run-retry-1',
+          chatFactory: () => new MinimalChat(),
+          onOwnershipReady: ({ conversationId }) => {
+            failedConversationId = conversationId;
+          },
+        }),
+        /boom/i,
+      );
+    } finally {
+      ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+    }
 
     const retryResult = await startFlowRun({
-      flowName: 'reingest-throws',
+      flowName: 'retry-ownership-persist-fails',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
-      listIngestedRepositories: listDefaultReingestRepos,
+      chatFactory: () => new MinimalChat(),
     });
     subscribeConversation(ws, retryResult.conversationId);
     await waitForFlowFinal({
@@ -1807,8 +1818,12 @@ test('unexpected thrown exceptions clear stale retry ownership for later legitim
       conversationId: retryResult.conversationId,
       status: 'ok',
     });
-
-    assert.notEqual(retryResult.conversationId, result.conversationId);
+    const turns = await waitForTurns(
+      retryResult.conversationId,
+      (items) => items.length >= 2,
+    );
+    assert.equal(turns.length, 2);
+    assert.notEqual(retryResult.conversationId, failedConversationId);
   });
 });
 

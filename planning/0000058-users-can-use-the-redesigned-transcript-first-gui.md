@@ -2289,7 +2289,7 @@ If later manual validation is useful after the automated repair lands, use the s
 ### Task 19. Re-Validate Story 58 After Inline Minor Review Fixes
 
 - Repository Name: `Current Repository`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Affected Repositories
 

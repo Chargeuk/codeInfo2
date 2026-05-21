@@ -2010,7 +2010,7 @@ Endorsed findings requiring plan follow-up:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `15`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `1`: release fresh-run retry ownership when pre-launch persistence fails so stale accepted replays cannot survive a failed start.
 

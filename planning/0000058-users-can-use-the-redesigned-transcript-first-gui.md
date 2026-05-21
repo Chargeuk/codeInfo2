@@ -2090,7 +2090,7 @@ No additional repositories are in scope for this review-created repair. The find
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `15`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Addresses Findings:
   - `3`: restore the documented host Codex-home launcher contract instead of silently forcing checked-in `./codex` defaults.
 

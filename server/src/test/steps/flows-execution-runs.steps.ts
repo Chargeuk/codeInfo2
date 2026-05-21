@@ -60,6 +60,7 @@ let previousNodeEnv: string | undefined;
 let originalConversationFindByIdAndUpdate:
   | typeof ConversationModel.findByIdAndUpdate
   | null = null;
+let originalMemoryConversationsSet: ((key: string, value: any) => any) | null = null;
 
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
@@ -199,6 +200,10 @@ After({ tags: '@mongo' }, async () => {
     ConversationModel.findByIdAndUpdate = originalConversationFindByIdAndUpdate;
     originalConversationFindByIdAndUpdate = null;
   }
+  if (originalMemoryConversationsSet) {
+    (memoryConversations as any).set = originalMemoryConversationsSet;
+    originalMemoryConversationsSet = null;
+  }
 });
 
 Given('a flow execution test server', () => {
@@ -240,8 +245,32 @@ Given(
 );
 
 Given('the flow state write fails once', () => {
+  // Keep a DB-level override when running against Mongo, but fall back to
+  // memory-persistence overrides when the tests are running in memory mode.
   if (!originalConversationFindByIdAndUpdate) {
     originalConversationFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+  }
+
+  if (shouldUseMemoryPersistence()) {
+    // Memory-mode: override Map.set so that an attempt to set flags.flow fails once.
+    if (!originalMemoryConversationsSet) {
+      originalMemoryConversationsSet = memoryConversations.set.bind(
+        memoryConversations,
+      );
+    }
+    let shouldFail = true;
+    (memoryConversations as any).set = function (key: string, value: any) {
+      if (
+        shouldFail &&
+        value?.flags &&
+        Object.prototype.hasOwnProperty.call(value.flags, 'flow')
+      ) {
+        shouldFail = false;
+        throw new Error('boom');
+      }
+      return originalMemoryConversationsSet!(key, value);
+    };
+    return;
   }
 
   let shouldFail = true;
@@ -263,9 +292,9 @@ Given('the flow state write fails once', () => {
     }
     return originalConversationFindByIdAndUpdate!.call(
       ConversationModel,
-      id,
-      update,
-      options,
+      id as any,
+      update as any,
+      options as any,
     );
   }) as typeof ConversationModel.findByIdAndUpdate;
 });

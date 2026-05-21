@@ -1764,30 +1764,16 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
       flowName: 'retry-ownership-persist-fails',
       steps: [makeLlmStep()],
     });
-    const originalFindByIdAndUpdate = ConversationModel.findByIdAndUpdate;
+    const originalSet = memoryConversations.set.bind(memoryConversations);
     let failedConversationId = '';
 
-    ConversationModel.findByIdAndUpdate = ((
-      id: unknown,
-      update: unknown,
-      options: unknown,
-    ) => {
-      const candidate = update as {
-        $set?: Record<string, unknown>;
-      } | null;
-      if (
-        candidate?.$set &&
-        Object.prototype.hasOwnProperty.call(candidate.$set, 'flags.flow')
-      ) {
+    // Override memoryConversations.set to throw when the flow flag is being set.
+    (memoryConversations as any).set = function (key: string, value: any) {
+      if (value?.flags && Object.prototype.hasOwnProperty.call(value.flags, 'flow')) {
         throw new Error('boom');
       }
-      return originalFindByIdAndUpdate.call(
-        ConversationModel,
-        id,
-        update,
-        options,
-      );
-    }) as typeof ConversationModel.findByIdAndUpdate;
+      return originalSet(key, value);
+    };
 
     try {
       await assert.rejects(
@@ -1798,12 +1784,27 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
           chatFactory: () => new MinimalChat(),
           onOwnershipReady: ({ conversationId }) => {
             failedConversationId = conversationId;
+            // Pre-create a memory conversation so the subsequent flow-state save will attempt an update that triggers our override.
+            originalSet(conversationId, {
+              _id: conversationId,
+              provider: 'codex',
+              model: 'gpt-5.1-codex-max',
+              title: 'retry-ownership-persist-fails',
+              flowName: 'retry-ownership-persist-fails',
+              source: 'REST',
+              flags: {},
+              lastMessageAt: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              archivedAt: null,
+            });
           },
         }),
         /boom/i,
       );
     } finally {
-      ConversationModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+      // Restore original Map.set implementation
+      (memoryConversations as any).set = originalSet;
     }
 
     const retryResult = await startFlowRun({

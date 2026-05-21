@@ -1785,7 +1785,7 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
           onOwnershipReady: ({ conversationId }) => {
             failedConversationId = conversationId;
             // Pre-create a memory conversation so the subsequent flow-state save will attempt an update that triggers our override.
-            originalSet(conversationId, {
+            originalSet.call(memoryConversations, conversationId, {
               _id: conversationId,
               provider: 'codex',
               model: 'gpt-5.1-codex-max',

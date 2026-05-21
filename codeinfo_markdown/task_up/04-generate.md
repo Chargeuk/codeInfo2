@@ -50,7 +50,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
   - narrow each task to the smallest honest subset of design files it must follow;
   - add task exit criteria that include visual outcomes, not just behavioral outcomes;
   - make the relevant visual implementation subtasks cite the exact design files they are implementing;
-  - when paired design markdown plus image assets both exist for the same surface, make the task reference both assets while treating the markdown as canonical and the image as supporting visual reference.
+  - when paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, make the task reference both assets while treating the markdown as canonical and the visual asset as supporting visual reference.
   </task_generation_rules>
 
 <task_shape_rules>
@@ -67,7 +67,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
 - Each task should be detailed enough for a junior developer who may only read the current task and its subtasks.
 - Add explicit proof-authoring subtasks whenever code must be written or updated to prove a requirement, edge case, error path, recovery path, or mixed-state path. Those subtasks must name the exact test file(s), fixtures, markers, harness files, or prepared proof surfaces to create or edit.
 - If `Design Contract Present` is true, add a short `Visual Invariants` subsection or equivalent task wording for each design-driven task that lists the concrete required visual matches and any allowed implementation flex.
-- When paired design markdown plus image assets both exist for the same surface, write those visual invariants from the markdown first and use the image only to preserve the intended visual direction when the markdown is silent.
+- When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, write those visual invariants from the markdown first and use the visual asset only to preserve the intended visual direction when the markdown is silent.
 - If `Design Contract Present` is true, ensure the final task in the story carries `Manual Testing Guidance` that asks for screenshots covering the full implemented frontend for the story, not just the final task's narrow local seam.
 - Do not make a subtask's completion depend on executed test output, later screenshots, later logs, or later manual validation.
 - When a changed behavior could leave an existing test title misleading, add an explicit subtask to rename or rewrite that proof so the stated invariant still matches the assertions.

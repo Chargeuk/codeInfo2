@@ -48,18 +48,18 @@ If either the design assets or the screenshots cannot be found honestly from dis
 <comparison_rules>
 
 - Identify design assets from the active plan only. Prefer explicit `## Design Contract`, task-scoped design packets, story manual-testing guidance, and explicit final-design references over inference.
-- Prefer paired design markdown plus image assets when both exist.
-- When paired design markdown plus image assets both exist for the same surface, treat the markdown as canonical, treat the image as supporting visual reference, and follow the markdown when they conflict.
+- Prefer paired design markdown plus visual design assets such as `*.png` or `*.svg` when both exist.
+- When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical, treat the visual asset as supporting visual reference, and follow the markdown when they conflict.
 - Inspect retained screenshots and design images with available local image-view tools when possible.
 - Read the paired design markdown and use it as the text contract for hierarchy, placement, spacing priorities, interaction patterns, exact specified colors, and other explicit requirements that may not be reliably inferred from the image alone.
-- If the implementation differs from the image but matches explicit paired design markdown requirements on that same point, do not treat that difference by itself as a mismatch.
-- If the implementation matches the image but violates explicit paired design markdown requirements on that same point, treat that as a design-contract mismatch.
+- If the implementation differs from the paired visual design asset but matches explicit paired design markdown requirements on that same point, do not treat that difference by itself as a mismatch.
+- If the implementation matches the paired visual design asset but violates explicit paired design markdown requirements on that same point, treat that as a design-contract mismatch.
 - Keep the scan bounded to the most relevant screenshot/design pairs. If many screenshots exist, prioritize the screenshots most clearly tied to:
   - the final revalidation task;
   - the highest-numbered task folder;
   - or the surfaces explicitly named by the design contract.
 - Do not promote a mismatch finding for tiny spacing noise, font-rendering differences, or obvious environment-level rendering variation when the mandatory visual invariant is still honestly met.
-- When paired design markdown and image disagree, judge mandatory visual invariants from the markdown first and use the image only where the markdown is silent.
+- When paired design markdown and visual design asset disagree, judge mandatory visual invariants from the markdown first and use the visual asset only where the markdown is silent.
 - Do promote a finding when the implementation is only directionally similar and misses a mandatory visual invariant such as:
   - wrong shell structure;
   - missing or misplaced rail, pane, composer, or overlay;

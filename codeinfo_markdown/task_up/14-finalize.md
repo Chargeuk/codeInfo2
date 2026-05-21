@@ -50,7 +50,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
   - every named design asset is owned by at least one task;
   - every design-driven task has explicit visual invariants or equivalent concrete design obligations;
   - later manual proof includes screenshot-to-design comparison guidance rather than screenshot capture alone;
-  - any task that references paired design markdown plus image assets treats the markdown as canonical and the image as supporting visual reference;
+  - any task that references paired design markdown plus visual design assets such as `*.png` or `*.svg` treats the markdown as canonical and the visual asset as supporting visual reference;
   - the final task's `Manual Testing Guidance` requests full-story screenshots for every implemented frontend surface that the design assets govern.
 - Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>

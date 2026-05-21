@@ -56,7 +56,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
   - the screenshot views to capture;
   - the exact design assets those screenshots must be compared against;
   - that screenshot capture alone is not sufficient and comparison notes are part of the proof;
-  - that paired design markdown is canonical when paired markdown and image assets both exist for the same surface, while the image remains supporting visual reference.
+  - that paired design markdown is canonical when paired markdown and visual design assets such as `*.png` or `*.svg` both exist for the same surface, while the visual asset remains supporting visual reference.
 - If `Design Contract Present` is true and the task is the final task in the story, its `Manual Testing Guidance` must request screenshots for all implemented frontend surfaces across the whole story that can honestly be observed, along with the design assets those screenshots should later be compared against.
 - End each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;

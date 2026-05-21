@@ -2163,6 +2163,7 @@ No additional repositories are in scope for this repair. Because this finding ch
 - Pending review-created repair for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` because finding `3` remains unresolved task-required runtime-contract work across the checked-in env, compose, and launcher documentation surfaces.
 - Restored the host Codex-home fallback contract by removing the checked-in `CODEINFO_HOST_CODEX_HOME=./codex` overrides from `server/.env` and `.env.e2e`, refreshing the README launcher wording, and proving the producer/consumer contract with the targeted host-network compose contract test.
 - Verified the checked-in compose files already preserve `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro`, then ran `npm run lint` and `npm run format:check` cleanly after the repair.
+- During this automated-proof run, a host-environment conflict caused the compose startup to pick an incorrect host fallback path (the shell HOME was `/app/codex`). A temporary remediation was used: `CODEINFO_HOST_CODEX_HOME` was set to a repo-local `codex` directory and an existing local `playwright-mcp` container was stopped to free port `8932`. This was an environment-specific fix for the proof run and does not change the committed launcher contract or the intended `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` behavior.
 
 ### Task 18. Re-Validate Story 58 After Review Pass `0000058-20260521T010700Z-65288aea`
 

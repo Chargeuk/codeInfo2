@@ -4,7 +4,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Use fresh disk reads for the final pass.
 - Keep the final task list concrete, traceable, and in scope.
 - Prefer one coherent commit over many small commits.
@@ -22,7 +22,7 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that each task has realistic exit criteria, dependencies, proof steps, and runnable validation.
 - Check that no absolute filesystem paths, usernames, or machine-specific checkout roots were written into tasks, subtasks, testing steps, or manual-testing guidance.
 - Check that the final validation task proves the whole story rather than only isolated task-level behavior.
-- Check that the applicable categories from `shared/review-preemption-checklist.md` are represented honestly in the final task list or explicitly not applicable.
+- Check that the applicable categories from `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-preemption-checklist.md"` are represented honestly in the final task list or explicitly not applicable.
 - Check that `Testing` is automated-only in every task.
 - Check that any `Manual Testing Guidance` section is optional, non-blocking, and checkbox-free.
 - Check that no subtask depends on future automated or manual proof output.
@@ -46,6 +46,12 @@ Perform the final tasking audit and synchronize repository ownership before the 
 - Check that any Playwright MCP screenshot guidance explains the staging-and-transfer flow instead of treating `$CODEINFO_ROOT/playwright-output-local` or the Playwright output directory as the final target repository artifact destination.
 - Verify that manual-testing guidance prefers the unmodified human Docker stack whenever repository evidence shows it is runnable, and only falls back to minimal test-only enablement when the normal stack is not enough.
 - Check that any planned screenshot or browser-artifact output path points only to ignored artifact storage rather than tracked repository files.
+- If `Design Contract Present` is true, verify that:
+  - every named design asset is owned by at least one task;
+  - every design-driven task has explicit visual invariants or equivalent concrete design obligations;
+  - later manual proof includes screenshot-to-design comparison guidance rather than screenshot capture alone;
+  - any task that references paired design markdown plus visual design assets such as `*.png` or `*.svg` treats the markdown as canonical and the visual asset as supporting visual reference;
+  - the final task's `Manual Testing Guidance` requests full-story screenshots for every implemented frontend surface that the design assets govern.
 - Check that no actual secrets, passwords, or tokens were written into the plan.
   </verification_loop>
 

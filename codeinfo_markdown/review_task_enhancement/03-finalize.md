@@ -4,7 +4,7 @@ Finalize the enhancement pass by verifying that the new review-created tasks wer
 
 <instruction_priority>
 
-- Follow the scoped contract from `review_task_enhancement/01-shared-contract.md`.
+- Follow the scoped contract from `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"`.
 - Treat scope drift or execution-order regressions as failures of this command.
 - Keep the final result maintainable: improve the new review-created tasks, do not churn the story.
 

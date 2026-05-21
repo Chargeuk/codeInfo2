@@ -4,7 +4,7 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Run this pass only where the story affects UI state, mode switches, restored fields, or any client-visible state machine.
 - If the story has no such surface, leave the plan unchanged and record that this pass is not applicable.
 - Prefer concrete state transitions over generic UX wording.
@@ -23,6 +23,7 @@ Harden tasks that touch stateful UI or stateful interaction flows so mixed-state
 - Add explicit proof subtasks that name the exact test files or proof artifacts needed to cover those mixed states.
 - Make tasks say whether the correct behavior is to clear the stale state, retain it locally, or exclude it from submission.
 - If the server must ignore or reject contradictory payloads coming from these states, make that proof explicit too.
+- If `Design Contract Present` is true, require the affected task to state how the redesigned control, pane, overlay, or footer surface must still conform to the named design assets while preserving the mixed-state behavior above.
 - When UI work benefits from later browser checks, keep required automated browser proof in `Testing` and place optional manual or browser follow-up only in `Manual Testing Guidance`.
 - Do not create manual testing checklist items or subtasks for stateful UI flows.
   </stateful_ui_rules>

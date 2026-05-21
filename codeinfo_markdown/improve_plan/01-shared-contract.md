@@ -27,11 +27,23 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 - Never copy machine-specific checkout roots, usernames, home-directory paths, or other developer-specific path material into checked-in planning text.
   </portability_and_safety_contract>
 
+<design_contract_rules>
+
+- A story has `Design Contract Present` when the plan explicitly names design-target assets intended as implementation references, such as final `*.png`, `*.svg`, `*.md`, a `## Design Contract` section, or a task-scoped design packet.
+- If `Design Contract Present` is false, do not add design-specific planning requirements.
+- If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical, treat the visual asset as supporting visual reference, and follow the markdown when they conflict.
+- If `Design Contract Present` is true, treat the workflow as incomplete until the plan converts the provided design assets into explicit implementation obligations rather than leaving them as loose visual references.
+- If `Design Contract Present` is true, the plan must name the relevant design files explicitly and map them to the story surfaces they govern.
+
+</design_contract_rules>
+
 <completeness_contract>
 
 - Treat the workflow as incomplete until the selected plan is specific enough for a later tasking pass without hidden senior knowledge.
 - Treat the workflow as incomplete until every relevant planning area is either improved with evidence-backed edits or explicitly confirmed not applicable.
 - Do not stop after improving only the Description or only the Acceptance Criteria; all relevant plan sections must remain mutually consistent.
+- If `Design Contract Present` is true, treat the workflow as incomplete until every named design asset has a concrete planning home, explicit visual invariants, and a later proof expectation.
+- If `Design Contract Present` is true, treat the workflow as incomplete until the later final validation path is expected to capture full-story screenshots for every implemented frontend surface that those assets govern.
   </completeness_contract>
 
 <missing_context_policy>

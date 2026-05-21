@@ -4,7 +4,7 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Keep the matrix lightweight, but do not allow proof to remain implied.
 - Preserve the repository-specific task structure already created in earlier steps.
 - Do not replace wrapper-first testing with narrow execution commands.
@@ -26,6 +26,14 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
   1. the requirement or invariant being proved;
   2. the implementation files that own the behavior;
   3. the exact existing or new proof-owning files, log markers, fixtures, harness files, or prepared proof surfaces that must be created or updated.
+- If `Design Contract Present` is true, require a visual proof map for each design-driven task that names:
+  1. the canonical design file or design-asset subset, with paired design markdown named as canonical when it exists and any paired visual design asset such as `*.png` or `*.svg` named as supporting reference;
+  2. the owned visual invariant;
+  3. the implementation files;
+  4. the proof owner;
+  5. the later screenshot views that manual proof must capture and compare.
+- If paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, require the visual proof map to say whether the owned visual invariant came from the markdown, the visual asset, or both, and treat the markdown as controlling when they differ.
+- If `Design Contract Present` is true and the task is the final task in the story, require that visual proof map to cover the full set of implemented frontend surfaces that the story owns, not only the final task's smallest local seam.
 - Do not allow grouped proof instructions like “update these tests” unless each file and invariant is still listed separately in the task.
 - When one task changes multiple proof files, use separate numbered subtasks or clearly separated proof bullets so a reviewer can see which file proves which invariant.
 - Keep wrapper commands in the `Testing` section. Keep exact test-file references in subtasks.

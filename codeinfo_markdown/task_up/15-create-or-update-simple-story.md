@@ -4,7 +4,7 @@ Create or update the simple-story companion document so business readers have a 
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
 - Use fresh disk reads and current git state, not conversational memory.
 - Base the simple story on the active plan after all tasking edits are complete.
 - If a simple-story file already exists for this story, update it instead of creating a duplicate.

@@ -11,6 +11,8 @@ Use the stored current-plan handoff as the only source of plan scope for this st
 - Do NOT independently switch to a different story or plan.
 - Do NOT make file changes in this step.
 - After resolving the plan, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` and use its JSON output as the source of truth for whether story-level manual-testing guidance exists.
+- If the active plan explicitly names design-target assets intended as implementation references, treat that as `Design Contract Present` for the manual-testing summary.
+- If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as the authoritative comparison contract and the visual asset as supporting visual reference.
 
 </critical_rules>
 
@@ -48,8 +50,11 @@ When validation succeeds, return a concise response that includes:
 3. A short overview of the story.
 4. Whether story-level manual-testing guidance is present.
 5. If story-level guidance is present, a short summary of its defaults.
-6. What is still remaining to be done.
-7. Any additional supporting repositories that later manual proof may need beyond the declared story repositories, when that is already evident.
+6. Whether `Design Contract Present` is true.
+7. If `Design Contract Present` is true, the named design assets or plan sections the manual tester must use as the visual comparison source.
+8. If `Design Contract Present` is true and the final story task expects story-wide screenshots, say that explicitly so the later manual-testing pass knows it must try to capture the whole implemented frontend surface, not only the current task-local seam.
+9. What is still remaining to be done.
+10. Any additional supporting repositories that later manual proof may need beyond the declared story repositories, when that is already evident.
 
 </output_contract>
 

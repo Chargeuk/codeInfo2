@@ -4,8 +4,8 @@ Audit the draft task list against the shared review-hotspot checklist and force 
 
 <instruction_priority>
 
-- Follow the shared workflow contract from `task_up/01-shared-contract.md`.
-- Read and apply `shared/review-preemption-checklist.md` before editing tasks.
+- Follow the shared workflow contract from `"$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md"`.
+- Read and apply `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-preemption-checklist.md"` before editing tasks.
 - Treat missing review-preemption coverage as a tasking defect, not a note for later review.
 - Do not leave a likely review hotspot implicit if it can be expressed as a concrete subtask or proof obligation now.
   </instruction_priority>

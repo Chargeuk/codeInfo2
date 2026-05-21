@@ -41,6 +41,13 @@
           "commandName": "external_review_findings"
         },
         {
+          "type": "llm",
+          "label": "Review Visual Design Conformance",
+          "agentType": "review_agent",
+          "identifier": "reviewer",
+          "markdownFile": "review_visual_design_conformance.md"
+        },
+        {
           "type": "command",
           "label": "Run External Findings Saturation",
           "agentType": "review_agent",

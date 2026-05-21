@@ -2066,8 +2066,8 @@ No additional repositories are in scope for this review-created repair. The find
 3. [x] Update the proof owner `server/src/test/integration/flows.run.errors.test.ts` so that one file covers the lifecycle ordering, partial-state, and cleanup-ownership assertions together: a failure after ownership is remembered but before durable start cannot poison the next retry, cannot trap a later legitimate fresh run, and cannot leave behind hidden remembered state that still influences request admission at a deterministic writer-reader-release boundary. If the existing test title or setup only claims generic thrown-exception cleanup, rename or split it so the title and assertions both explicitly describe pre-launch remembered-ownership failure and later fresh-run independence.
 4. [x] Update the proof owner `server/src/test/integration/flows.run.basic.test.ts` so that one file covers the accepted-replay continuity and mixed-state assertions together: a genuinely in-flight accepted launch still resolves to the existing run, does not mint a second logical run after the lifecycle repair lands, and a later fresh-run request without a real durable in-flight launch is treated as a new run rather than contradictory reuse of stale remembered ownership. If the existing `retryOwnershipId` test title only claims active-run reuse, rename or split it so the proof file separately names the happy accepted-replay path versus any restored fresh-run independence assertion.
 5. [x] Update the route-level proof surface `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts` so that one default-path harness proves both repaired boundaries together: the pre-launch failure cleanup boundary and the accepted-replay continuity boundary must remain reachable through the normal `/flows/:flowName/run` path, including the restored fresh-run request path after a failed remembered owner instead of only adjacent accepted-run behavior. Rename or replace any scenario title that still claims only ambiguous accepted-launch reuse unless its steps now assert the full combined failure-then-fresh-run scenario.
-6. [ ] Address any lint issues introduced by the repair in touched files.
-7. [ ] Address any format-check issues introduced by the repair in touched files.
+6. [x] Address any lint issues introduced by the repair in touched files.
+7. [x] Address any format-check issues introduced by the repair in touched files.
 
 #### Testing
 
@@ -2081,6 +2081,7 @@ No additional repositories are in scope for this review-created repair. The find
 - Pending review-created repair for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` because finding `1` remains unresolved task-required lifecycle work in the current server retry-ownership seam.
 - Re-read the Task 16 boundary, moved fresh-run retry ownership recording until after durable flow-state persistence succeeds, and updated the proof-owner files so the pre-launch failure cleanup boundary and later accepted replay path are both explicit.
 - `npm run lint` and `npm run format:check` both passed after the proof-file edits.
+- Audit normalization marked subtasks `6` and `7` complete from the existing lint and format evidence already recorded above; targeted server-unit and cucumber proof remain the only open work before this task can close.
 
 ### Task 17. Restore The Host Codex Launcher Contract After Review Pass `0000058-20260521T010700Z-65288aea`
 

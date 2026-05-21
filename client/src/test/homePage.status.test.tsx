@@ -134,6 +134,9 @@ describe('Home page status', () => {
       expect(
         await screen.findByTestId('home-provider-status-error'),
       ).toHaveTextContent(`Provider readiness unavailable: ${expectedMessage}`);
+      expect(
+        screen.queryByTestId('home-provider-runtime-selection'),
+      ).not.toBeInTheDocument();
     },
   );
 });

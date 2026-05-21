@@ -23,7 +23,8 @@ export function useHomeProviders(): HomeProvidersState {
     useState<ChatProvidersResponse['selectedProvider']>();
   const [selectedModel, setSelectedModel] =
     useState<ChatProvidersResponse['selectedModel']>();
-  const [fallbackApplied, setFallbackApplied] = useState(false);
+  const [fallbackApplied, setFallbackApplied] =
+    useState<ChatProvidersResponse['fallbackApplied']>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,12 +47,12 @@ export function useHomeProviders(): HomeProvidersState {
       setProviders(body.providers);
       setSelectedProvider(body.selectedProvider);
       setSelectedModel(body.selectedModel);
-      setFallbackApplied(Boolean(body.fallbackApplied));
+      setFallbackApplied(body.fallbackApplied);
     } catch (err) {
       setProviders([]);
       setSelectedProvider(undefined);
       setSelectedModel(undefined);
-      setFallbackApplied(false);
+      setFallbackApplied(undefined);
       setError((err as Error).message);
     } finally {
       setLoading(false);

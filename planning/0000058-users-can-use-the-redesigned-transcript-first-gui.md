@@ -1954,7 +1954,7 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 4. [x] Run `npm run test:summary:server:unit`.
 5. [x] Run `npm run test:summary:server:cucumber`.
 6. [x] Run `npm run test:summary:client`.
-7. [ ] Run `npm run test:summary:e2e`.
+7. [x] Run `npm run test:summary:e2e`.
 8. [ ] Run `npm run compose:build:summary`.
 9. [ ] Run `npm run compose:up`.
 10. [ ] Run `npm run compose:down`.
@@ -1974,6 +1974,7 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 - Testing 4 complete: initial `npm run test:summary:server:unit` run failed with 1 failing test: "e2e server host-network contract removes checked-in runtime-tree mounts". Investigation showed `docker-compose.e2e.yml` contained a checked-in mount `- ./codex:/host/codex:ro`. Replaced it with `- ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro`, committed the change, and reran the server-unit wrapper. All server unit tests now pass; new log: `test-results/server-unit-tests-2026-05-20T23-43-37-603Z.log`.
 - Testing 5 complete: ran `npm run test:summary:server:cucumber`; wrapper reported clean_success and produced `test-results/server-cucumber-tests-2026-05-21T00-07-49-395Z.log`.
 - Testing 6 complete: ran `npm run test:summary:client`; wrapper reported clean_success and produced `test-results/client-tests-2026-05-21T00-09-39-978Z.log`.
+- Testing 7 complete: ran `npm run test:summary:e2e`; wrapper reported clean_success and produced `logs/test-summaries/e2e-tests-latest.log`. Note: added `CODEINFO_HOST_CODEX_HOME=./codex` to `.env.e2e` to provide a shareable host path for codex during e2e compose; this is a narrow runtime config change to avoid host mount 'path not shared' errors on typical local Docker Desktop setups.
 
 #### Manual Testing Guidance
 

@@ -2331,3 +2331,39 @@ No additional repositories are in scope for this review cycle. Validation scope 
 - Ran `npm run test:summary:client` cleanly after the client build, marked testing item 2 complete; client test log: test-results/client-tests-2026-05-21T12-37-50-538Z.log.
 - **RESOLVED ISSUE** Testing step `Current Repository: Run `npm run test:summary:e2e`` originally failed during e2e setup because Compose interpolated `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` from this agent shell's `HOME=/app/codex`, which made Docker try to mount the non-shareable host path `/app/codex/.codex`. Repaired `scripts/docker-compose-with-env.sh` so the wrapper now normalizes `CODEINFO_HOST_CODEX_HOME` to the repo-local `./codex` tree when `HOME` resolves to a container-local `/app/*` or `/workspace/*` path, added a focused wrapper contract assertion in `server/src/test/unit/copilot-compose-contract.test.ts`, and reran both `npm run test:summary:server:unit -- --file server/src/test/unit/copilot-compose-contract.test.ts` (`12` run, `12` passed, `0` failed) and the original `npm run test:summary:e2e` task gate (`64` run, `64` passed, `0` failed; log `logs/test-summaries/e2e-tests-latest.log`). The browser-path blocker is closed and Task 19 can finish honestly on current disk.
 - Final-task manual proof expanded to full-story scope after restarting the supported main stack from a previously stopped baseline with `CODEINFO_HOST_CODEX_HOME=/Users/danielstapleton/.codex`, then shutting it back down with `npm run compose:down` once proof completed. Browser and API proof under `codeInfoTmp/manual-testing/0000058/19/` shows `Home` still renders the redesigned desktop/mobile shells, `/lmstudio` redirects back to `/`, the inline Task 19 seam hides `home-provider-runtime-selection` while surfacing `Provider readiness unavailable: Malformed chat providers response`, and the saved MT19 echo-flow conversation still exposes copy-only message content (`Hello. No tools were used.`) without transcript UI labels leaking into the clipboard. The scratch artifacts also capture desktop `Home`/`Chat`/`Agents`/`Flows`, mobile `Home` plus the mobile `Flows` conversation overlay, and the supporting provider / turns / console / network JSON needed to tie this final proof back to the story-visible outcomes; no additional subtasks were needed.
+
+### Task 20. Re-Validate Story 58 After Inline Minor Review Fixes
+
+- Repository Name: `Current Repository`
+- Task Status: `__to_do__`
+
+#### Affected Repositories
+
+- `Current Repository`: owns the final automated revalidation for resolved inline minor findings `1` and `unparsed-1` from review cycle `0000058-rc-20260521T145159Z-719712fa`.
+
+No additional repositories are in scope for this review cycle.
+
+#### Addresses Findings
+
+- Finding `1` (`current_repository`): Remove unconditional `SharedTranscript` debug console logging from normal runtime mounts. Resolved inline in commit `9caa563fe51bcefdef03636c378b0c25c3772a3e`.
+- Finding `unparsed-1` (`current_repository`): Re-check the archived bulk-delete confirmation path against the current mutation-disable gate before dispatching delete. Resolved inline in commit `298548e65c792af6a7ebebf9f3119fc11e8e657a`.
+
+#### Subtasks
+
+1. [ ] Re-read the current `## Minor Review Fixes` entries for findings `1` and `unparsed-1`, plus the active `review-disposition-state.json`, and confirm this task's proof scope still covers every inline-resolved finding and affected repository before wrapper proof begins.
+2. [ ] Refresh this task's proof-owner notes after the wrapper pass so the plan records explicitly that the inline minor fixes already landed in commits `9caa563fe51bcefdef03636c378b0c25c3772a3e` and `298548e65c792af6a7ebebf9f3119fc11e8e657a`, and that this task owns the broad final automated confidence check before story closure.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported client build wrapper because both resolved minor fixes changed client-owned Story 58 surfaces, and this final task must re-prove the normal client build gate after the inline repairs rather than relying only on the focused proof files from the minor-fix steps.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task owns broad client regression proof across the transcript and conversation-list surfaces touched by the inline minor fixes, not only the focused proof files recorded during those fixes.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported e2e wrapper because Story 58 is a frontend redesign, and the final automated confidence pass should still exercise the broader browser-path surface after the inline client fixes.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this final revalidation task owns the last broad automated repository check before story closure.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this final revalidation task owns the last broad automated repository check before story closure.
+
+#### Implementation Notes
+
+- Review Task Role: `final_minor_fix_revalidation`
+- Review Cycle Id: `0000058-rc-20260521T145159Z-719712fa`
+- Inline minor findings `1` and `unparsed-1` were already resolved and documented in commits `9caa563fe51bcefdef03636c378b0c25c3772a3e` and `298548e65c792af6a7ebebf9f3119fc11e8e657a`; this task exists so the review loop gets one broad automated revalidation owner before story closure.
+- The focused proof recorded during the inline-fix steps remains valuable, but it is not, by itself, the full story-level regression pass for this review cycle.

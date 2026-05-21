@@ -100,7 +100,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 - If this step activates, update the current review handoff with:
   - `visual_review_file`
   - `visual_review_outcome`
-  - `visual_review_generated_findings`
+  - `visual_review_generated_findings: true|false`, where the value is `true` only if this step added one or more actionable visual findings to the canonical findings artifact, otherwise `false`
 - Preserve all existing top-level fields and every existing `repos[]` entry in the review handoff exactly unless this step explicitly owns the field being changed.
 - If this step does not activate because screenshots or design assets are missing, do not write any artifact or handoff update.
 

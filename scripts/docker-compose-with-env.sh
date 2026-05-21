@@ -272,6 +272,28 @@ ensure_repo_bind_mount_dirs_for_profile() {
   fi
 }
 
+resolve_host_codex_home_dir() {
+  if [ -n "${CODEINFO_HOST_CODEX_HOME:-}" ]; then
+    printf '%s\n' "${CODEINFO_HOST_CODEX_HOME}"
+    return 0
+  fi
+
+  local default_host_codex_home repo_root fallback_host_codex_home
+  default_host_codex_home="${HOME:-}/.codex"
+
+  case "${default_host_codex_home}" in
+    /app/* | /workspace/*)
+      repo_root="$(repo_root_for_compose_wrapper)"
+      fallback_host_codex_home="${repo_root}/codex"
+      mkdir -p "${fallback_host_codex_home}"
+      printf '%s\n' "${fallback_host_codex_home}"
+      return 0
+      ;;
+  esac
+
+  printf '%s\n' "${default_host_codex_home}"
+}
+
 should_run_compose_preflight() {
   case "${COMPOSE_SUBCOMMAND}" in
     up | start | restart | run | create | config)
@@ -730,6 +752,7 @@ export CODEINFO_DOCKER_UID="${DOCKER_UID}"
 export CODEINFO_DOCKER_GID="${DOCKER_GID}"
 export CODEINFO_DOCKER_SOCK_GID="${SOCKET_GID}"
 export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="$(resolve_runtime_codeinfo_config_dir)"
+export CODEINFO_HOST_CODEX_HOME="$(resolve_host_codex_home_dir)"
 
 compose_args="$*"
 if [[ "${compose_args}" == *"--env-file .env.e2e"* ]]; then

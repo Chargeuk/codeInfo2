@@ -261,3 +261,25 @@ test('compose wrapper resolves a non-repo fallback mount for absent codeinfo_con
     /export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="\$\(resolve_runtime_codeinfo_config_dir\)"/u,
   );
 });
+
+test('compose wrapper normalizes host Codex-home mounts when HOME resolves to a container-local path', () => {
+  const composeWrapper = readRepoFile('scripts/docker-compose-with-env.sh');
+
+  assert.match(composeWrapper, /resolve_host_codex_home_dir\(\)/u);
+  assert.match(
+    composeWrapper,
+    /default_host_codex_home="\$\{HOME:-\}\/\.codex"/u,
+  );
+  assert.match(
+    composeWrapper,
+    /\/app\/\* \| \/workspace\/\*/u,
+  );
+  assert.match(
+    composeWrapper,
+    /fallback_host_codex_home="\$\{repo_root\}\/codex"/u,
+  );
+  assert.match(
+    composeWrapper,
+    /export CODEINFO_HOST_CODEX_HOME="\$\(resolve_host_codex_home_dir\)"/u,
+  );
+});

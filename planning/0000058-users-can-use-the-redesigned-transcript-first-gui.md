@@ -2289,7 +2289,7 @@ If later manual validation is useful after the automated repair lands, use the s
 ### Task 19. Re-Validate Story 58 After Inline Minor Review Fixes
 
 - Repository Name: `Current Repository`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Affected Repositories
 
@@ -2312,7 +2312,7 @@ No additional repositories are in scope for this review cycle. Validation scope 
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported client build wrapper because the resolved minor finding changed `Home` client surfaces, and this final task must re-prove the normal client build gate for the story after the inline fix rather than relying only on the focused task-local rerun.
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because the final automated close-out should prove the broader client regression surface around the resolved `Home` runtime-selection behavior, not only the one focused proof file from the inline-fix step.
-3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported e2e wrapper because this story is a frontend redesign and the final automated confidence pass should still exercise the broader browser-path surface after the inline `Home` fix, even though the fix itself was localized.
+3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported e2e wrapper because this story is a frontend redesign and the final automated confidence pass should still exercise the broader browser-path surface after the inline `Home` fix, even though the fix itself was localized.
 4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this final revalidation task can touch tracked proof-owner surfaces while recording the cycle close-out path.
 5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this final revalidation task can touch tracked proof-owner surfaces while recording the cycle close-out path.
 
@@ -2327,4 +2327,4 @@ No additional repositories are in scope for this review cycle. Validation scope 
 - Ran `npm run lint` and `npm run format:check` cleanly after the proof-owner note refresh, and marked the matching lint/format testing items complete because they were the direct validation gates for the tracked proof-owner updates.
 - Ran `npm run build:summary:client` cleanly after proof-owner refresh, marked testing item 1 complete; build summary log: logs/test-summaries/build-client-latest.log.
 - Ran `npm run test:summary:client` cleanly after the client build, marked testing item 2 complete; client test log: test-results/client-tests-2026-05-21T12-37-50-538Z.log.
-- **BLOCKER** Testing step `Current Repository: Run `npm run test:summary:e2e`` failed during e2e setup. Actions taken: ran the e2e wrapper and inspected logs (logs/test-summaries/e2e-tests-latest.log). In-scope repair attempts: re-ran the wrapper and scanned docker-compose for problematic mounts; these did not resolve the issue. Exact reason: Docker on the host denied mounts with message: "mounts denied: The path /app/codex/.codex is not shared from the host and is not known to Docker." This requires host Docker Desktop file-sharing configuration or running the e2e wrapper in CI with appropriate mounts and cannot be fixed from the repository alone. Recommendation: reassign or involve infra/host-owner to enable host path sharing or run this e2e wrapper in a CI environment; leave the task `__in_progress__` until the environment is prepared.
+- **RESOLVED ISSUE** Testing step `Current Repository: Run `npm run test:summary:e2e`` originally failed during e2e setup because Compose interpolated `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` from this agent shell's `HOME=/app/codex`, which made Docker try to mount the non-shareable host path `/app/codex/.codex`. Repaired `scripts/docker-compose-with-env.sh` so the wrapper now normalizes `CODEINFO_HOST_CODEX_HOME` to the repo-local `./codex` tree when `HOME` resolves to a container-local `/app/*` or `/workspace/*` path, added a focused wrapper contract assertion in `server/src/test/unit/copilot-compose-contract.test.ts`, and reran both `npm run test:summary:server:unit -- --file server/src/test/unit/copilot-compose-contract.test.ts` (`12` run, `12` passed, `0` failed) and the original `npm run test:summary:e2e` task gate (`64` run, `64` passed, `0` failed; log `logs/test-summaries/e2e-tests-latest.log`). The browser-path blocker is closed and Task 19 can finish honestly on current disk.

@@ -1,0 +1,71 @@
+{
+  "requestFailures": [
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/chat/providers",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/chat/providers",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/logs",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/logs",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/logs",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/logs",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/chat/providers",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/logs",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/agents",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "mobile",
+      "url": "http://localhost:5010/chat/providers",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "page": "desktop",
+      "url": "http://localhost:5010/conversations/9dcc7e60-0ec1-4be9-9a4f-52adf094f230/turns",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "responseErrors": []
+}

@@ -1,0 +1,91 @@
+[redirect] console.info: DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG {apiBaseUrl: http://localhost:5010, apiBaseUrlSource: runtime, apiBaseUrlMode: browser_host, lmStudioBaseUrl: http://host.docker.internal:1234, lmStudioBaseUrlSource: runtime}
+[redirect] console.log: {level: info, message: DEV-0000028[T8] regression baseline ready, timestamp: 2026-05-21T13:34:16.131Z, source: client, route: /}
+[desktop-flows-copy] console.info: DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG {apiBaseUrl: http://localhost:5010, apiBaseUrlSource: runtime, apiBaseUrlMode: browser_host, lmStudioBaseUrl: http://host.docker.internal:1234, lmStudioBaseUrlSource: runtime}
+[desktop-flows-copy] console.info: [SharedTranscript] container inline style: 1 1 0% 0px auto
+[desktop-flows-copy] console.log: {level: info, message: chat.sidebar.selection_changed, timestamp: 2026-05-21T13:34:17.173Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: 0000023 conversationlist controls visible, timestamp: 2026-05-21T13:34:17.174Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: 0000023 sidebar list panel layout, timestamp: 2026-05-21T13:34:17.174Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T05:flows_shared_transcript_rendered, timestamp: 2026-05-21T13:34:17.174Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-21T13:34:17.174Z, source: client, route: /flows}
+[desktop-flows-copy] console.info: [conversations] fetch start {mode: replace, agentName: undefined, flowName: , filterState: active, cursor: undefined}
+[desktop-flows-copy] console.log: {level: info, message: flows.filter.requested, timestamp: 2026-05-21T13:34:17.175Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: flows.ui.opened, timestamp: 2026-05-21T13:34:17.176Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: flows.api.list, timestamp: 2026-05-21T13:34:17.176Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000028[T8] regression baseline ready, timestamp: 2026-05-21T13:34:17.177Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: chat.ws.client_connect, timestamp: 2026-05-21T13:34:17.189Z, source: client, route: /flows}
+[desktop-flows-copy] console.info: [conversations] fetch success {mode: replace, received: 20, hasMore: true}
+[desktop-flows-copy] console.info: [conversations] fetch start {mode: replace, agentName: undefined, flowName: echo, filterState: active, cursor: undefined}
+[desktop-flows-copy] console.log: {level: info, message: flows.filter.requested, timestamp: 2026-05-21T13:34:17.581Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: flows.qa.validation_ready, timestamp: 2026-05-21T13:34:17.582Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: flows.api.list, timestamp: 2026-05-21T13:34:17.582Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.info: [turns] fetch start {conversationId: mt19-1779370180455-flow}
+[desktop-flows-copy] console.log: {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-21T13:34:17.590Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: flows.page.active_conversation_hidden_reset, timestamp: 2026-05-21T13:34:17.591Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T08:shared_transcript_scroll_mode_changed, timestamp: 2026-05-21T13:34:17.599Z, source: client, route: /flows}
+[desktop-flows-copy] console.info: [conversations] fetch success {mode: replace, received: 20, hasMore: true}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-21T13:34:17.625Z, source: client, route: /flows}
+[desktop-flows-copy] console.info: [turns] fetch start {conversationId: mt19-1779370180455-flow}
+[desktop-flows-copy] console.log: {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-21T13:34:17.626Z, source: client, route: /flows}
+[desktop-flows-copy] console.info: DEV_0000048_T6_PICKER_SYNC {surface: flows, conversationId: mt19-1779370180455-flow, action: clear, pickerState: }
+[desktop-flows-copy] console.log: {level: info, message: flows.metadata.normalized, timestamp: 2026-05-21T13:34:17.639Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: flows.metadata.normalized, timestamp: 2026-05-21T13:34:17.639Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000024:T7:rest_usage_mapped, timestamp: 2026-05-21T13:34:17.639Z, source: client, route: /flows}
+[desktop-flows-copy] console.info: [turns] fetch success {conversationId: mt19-1779370180455-flow, count: 2, inflight: null}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T08:shared_transcript_scroll_mode_changed, timestamp: 2026-05-21T13:34:17.647Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T03:hydrated_persisted_turn_status, timestamp: 2026-05-21T13:34:17.648Z, source: client-flows, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-21T13:34:17.659Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000035:T10:chat_user_markdown_render_result, timestamp: 2026-05-21T13:34:17.666Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T09:virtualized_transcript_window_changed, timestamp: 2026-05-21T13:34:17.666Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T05:flows_shared_transcript_rendered, timestamp: 2026-05-21T13:34:17.666Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-21T13:34:17.668Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-05-21T13:34:17.669Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-21T13:34:17.881Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-05-21T13:34:17.882Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-21T13:34:17.983Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-21T13:34:17.987Z, source: client, route: /flows}
+[desktop-flows-copy] console.log: {level: info, message: shared_transcript_copy_succeeded, timestamp: 2026-05-21T13:34:20.131Z, source: client, route: /flows}
+[mobile-flows] console.info: DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG {apiBaseUrl: http://localhost:5010, apiBaseUrlSource: runtime, apiBaseUrlMode: browser_host, lmStudioBaseUrl: http://host.docker.internal:1234, lmStudioBaseUrlSource: runtime}
+[mobile-flows] console.info: [SharedTranscript] container inline style: 1 1 0% 0px auto
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T05:flows_shared_transcript_rendered, timestamp: 2026-05-21T13:34:20.251Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-21T13:34:20.252Z, source: client, route: /flows}
+[mobile-flows] console.info: [conversations] fetch start {mode: replace, agentName: undefined, flowName: , filterState: active, cursor: undefined}
+[mobile-flows] console.log: {level: info, message: flows.filter.requested, timestamp: 2026-05-21T13:34:20.253Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: flows.ui.opened, timestamp: 2026-05-21T13:34:20.254Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: flows.api.list, timestamp: 2026-05-21T13:34:20.254Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000028[T8] regression baseline ready, timestamp: 2026-05-21T13:34:20.255Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: chat.ws.client_connect, timestamp: 2026-05-21T13:34:20.262Z, source: client, route: /flows}
+[mobile-flows] console.info: [conversations] fetch success {mode: replace, received: 20, hasMore: true}
+[mobile-flows] console.info: [conversations] fetch start {mode: replace, agentName: undefined, flowName: echo, filterState: active, cursor: undefined}
+[mobile-flows] console.log: {level: info, message: flows.filter.requested, timestamp: 2026-05-21T13:34:20.639Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: flows.qa.validation_ready, timestamp: 2026-05-21T13:34:20.640Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: flows.api.list, timestamp: 2026-05-21T13:34:20.641Z, source: client-flows, route: /flows}
+[mobile-flows] console.info: [turns] fetch start {conversationId: mt19-1779370180455-flow}
+[mobile-flows] console.log: {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-21T13:34:20.646Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: flows.page.active_conversation_hidden_reset, timestamp: 2026-05-21T13:34:20.646Z, source: client-flows, route: /flows}
+[mobile-flows] console.info: [conversations] fetch success {mode: replace, received: 20, hasMore: true}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T06:transcript_measurement_support_ready, timestamp: 2026-05-21T13:34:20.656Z, source: client, route: /flows}
+[mobile-flows] console.info: [turns] fetch start {conversationId: mt19-1779370180455-flow}
+[mobile-flows] console.log: {level: info, message: chat.ws.client_subscribe_conversation, timestamp: 2026-05-21T13:34:20.657Z, source: client, route: /flows}
+[mobile-flows] console.info: DEV_0000048_T6_PICKER_SYNC {surface: flows, conversationId: mt19-1779370180455-flow, action: clear, pickerState: }
+[mobile-flows] console.log: {level: info, message: flows.metadata.normalized, timestamp: 2026-05-21T13:34:20.661Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: flows.metadata.normalized, timestamp: 2026-05-21T13:34:20.662Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000024:T7:rest_usage_mapped, timestamp: 2026-05-21T13:34:20.662Z, source: client, route: /flows}
+[mobile-flows] console.info: [turns] fetch success {conversationId: mt19-1779370180455-flow, count: 2, inflight: null}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T08:shared_transcript_scroll_mode_changed, timestamp: 2026-05-21T13:34:20.664Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T03:hydrated_persisted_turn_status, timestamp: 2026-05-21T13:34:20.664Z, source: client-flows, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-21T13:34:20.671Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000035:T10:chat_user_markdown_render_result, timestamp: 2026-05-21T13:34:20.676Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T09:virtualized_transcript_window_changed, timestamp: 2026-05-21T13:34:20.677Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T05:flows_shared_transcript_rendered, timestamp: 2026-05-21T13:34:20.677Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-21T13:34:20.681Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-05-21T13:34:20.682Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-21T13:34:20.897Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-05-21T13:34:20.898Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-21T13:34:21.026Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-21T13:34:21.030Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000035:T10:chat_user_markdown_render_evaluated, timestamp: 2026-05-21T13:34:23.706Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: chat.sidebar.selection_changed, timestamp: 2026-05-21T13:34:23.733Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: 0000023 conversationlist controls visible, timestamp: 2026-05-21T13:34:23.733Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: 0000023 sidebar list panel layout, timestamp: 2026-05-21T13:34:23.733Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_remeasured, timestamp: 2026-05-21T13:34:23.743Z, source: client, route: /flows}
+[mobile-flows] console.log: {level: info, message: DEV-0000049:T10:virtualized_row_growth_settled, timestamp: 2026-05-21T13:34:23.744Z, source: client, route: /flows}

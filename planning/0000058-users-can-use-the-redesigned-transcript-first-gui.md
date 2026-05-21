@@ -1949,9 +1949,9 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 #### Testing
 
 1. [x] Run `python3 scripts/plan_status.py --task-number 14` and confirm the parser reports Task `14` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
-2. [ ] Run `npm run build:summary:server`.
-3. [ ] Run `npm run build:summary:client`.
-4. [ ] Run `npm run test:summary:server:unit`.
+2. [x] Run `npm run build:summary:server`.
+3. [x] Run `npm run build:summary:client`.
+4. [x] Run `npm run test:summary:server:unit`.
 5. [ ] Run `npm run test:summary:server:cucumber`.
 6. [ ] Run `npm run test:summary:client`.
 7. [ ] Run `npm run test:summary:e2e`.
@@ -1969,6 +1969,9 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 - Subtask 4 complete: compared Task 14’s proof surfaces against Task 15’s affected repositories, exit criteria, proof mapping, and documentation locations and found no stale-references cleanup needed beyond the summary/task ownership refresh already recorded.
 - Subtasks 5 and 6 complete: reran `npm run lint` and `npm run format:check`, then applied the small Prettier cleanup needed in `client/src/pages/FlowsPage.tsx` and `client/src/test/flowsPage.run.test.tsx` before the format gate passed cleanly.
 - Testing 1 complete: ran `python3 scripts/plan_status.py --task-number 14`; parser reports Task `14` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+- Testing 2 complete: ran `npm run build:summary:server`; wrapper reported clean_success and produced `logs/test-summaries/build-server-latest.log`.
+- Testing 3 complete: ran `npm run build:summary:client`; wrapper reported clean_success and produced `logs/test-summaries/build-client-latest.log`.
+- Testing 4 complete: initial `npm run test:summary:server:unit` run failed with 1 failing test: "e2e server host-network contract removes checked-in runtime-tree mounts". Investigation showed `docker-compose.e2e.yml` contained a checked-in mount `- ./codex:/host/codex:ro`. Replaced it with `- ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro`, committed the change, and reran the server-unit wrapper. All server unit tests now pass; new log: `test-results/server-unit-tests-2026-05-20T23-43-37-603Z.log`.
 
 #### Manual Testing Guidance
 

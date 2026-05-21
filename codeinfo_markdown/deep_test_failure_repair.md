@@ -22,6 +22,8 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Re-open the exact relative `plan_path` from disk before starting.
 - If `current-task.json` does not clearly resolve a task for this loop pass, stop and say the task handoff must be regenerated before deep automated-proof repair continues.
 - Use fresh disk reads and current git state, not conversational memory.
+- Do not run `git switch`, `git checkout`, `git branch`, or otherwise create or change branches in this step.
+- Perform all work on the branch already selected by the active `codeInfoStatus/flow-state/current-plan.json` handoff.
 
 </scope_rules>
 

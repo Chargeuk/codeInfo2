@@ -224,7 +224,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If `Design Contract Present` is true and the task has a browser-visible or connected frontend surface, manual testing must also:
   - compare each captured screenshot against the named design asset or paired design assets that own that view;
   - record for each comparison whether it `matches`, has a `minor mismatch`, or has a `material mismatch`;
-  - summarize what matches and what differs in the implementation notes or retained support artifact, including whether the judgment came from markdown, image, or both;
+  - summarize what matches and what differs in the implementation notes or retained support artifact, including whether the judgment came from markdown, the visual design asset, or both;
   - if a screenshot differs from the paired visual design asset but matches explicit paired design markdown requirements, do not treat that difference by itself as a mismatch;
   - if a screenshot matches the paired visual design asset but violates explicit paired design markdown requirements, treat that as a mismatch against the design contract;
   - treat screenshot capture alone as insufficient proof of visual conformance.

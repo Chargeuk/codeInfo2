@@ -1986,3 +1986,200 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 #### Manual Testing Guidance
 
 If later manual validation is useful after the automated repair lands, use the supported main stack from `docker-compose.yml` with the wrapper-managed env files `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`, and recheck the repaired fresh-run retry behavior from the normal `/flows` surface at `http://localhost:5001` against `http://localhost:5010` only after the server `/health` endpoint and the client root are ready. Use the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs as the supported seed/setup source for any provider-specific retry path. If Playwright MCP screenshots help, capture them to the Playwright output staging directory first, then transfer the selected artifacts into `codeInfoTmp/manual-testing/0000058/15/`; later closeout can curate any durable reviewer bundle separately. Keep that manual validation optional and non-blocking; the authoritative close-out proof for this task remains the broad automated wrapper set listed above.
+
+## Code Review Findings - Review Pass `0000058-20260521T010700Z-65288aea`
+
+Review pass `0000058-20260521T010700Z-65288aea` reviewed local `HEAD` `65288aea78f298d1a2ceb264c02aaa348d22dc67` against remote base `origin/main` commit `616218fb35661c1be36bf85f216fc180d24edd83` using comparison rule `local_head_vs_resolved_base`. The current repository was the only repository in scope; `additional_repositories` was empty and no local fallback base was used because the stored review handoff recorded `remote_fetch_status: success`.
+
+Durable review artifacts for this pass:
+
+- Review handoff: `codeInfoTmp/reviews/0000058-current-review.json`
+- Evidence: `codeInfoTmp/reviews/0000058-20260521T010700Z-65288aea-evidence.md`
+- Findings: `codeInfoTmp/reviews/0000058-20260521T010700Z-65288aea-findings.md`
+- Saturation: `codeInfoTmp/reviews/0000058-20260521T010700Z-65288aea-findings-saturation.md`
+- Blind-spot challenge: `codeInfoTmp/reviews/0000058-20260521T010700Z-65288aea-blind-spot-challenge.md`
+
+The active `codeInfoStatus/flow-state/review-disposition-state.json` for review cycle `0000058-rc-20260521T020645Z-65288aea` is the authoritative routing source for this findings block. It currently records two unresolved task-required findings (`1` and `3`), zero unresolved minor-batchable findings, one inline-resolved minor finding (`2`), and no incomplete-review blockers. Inline-resolved finding `2` remains documented in `## Minor Review Fixes` and must be covered by the fresh final revalidation task below instead of spawning a second final task later.
+
+Endorsed findings requiring plan follow-up:
+
+- `1` `should_fix`: release fresh-run retry ownership when pre-launch persistence fails so stale accepted replays cannot survive a failed start.
+- `3` `should_fix`: restore the documented host Codex-home launcher contract instead of silently forcing checked-in `./codex` defaults.
+
+### Task 16. Release Fresh-Run Retry Ownership On Pre-Launch Persistence Failure After Review Pass `0000058-20260521T010700Z-65288aea`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `15`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `1`: release fresh-run retry ownership when pre-launch persistence fails so stale accepted replays cannot survive a failed start.
+
+#### Overview
+
+Repair the server-side fresh-run retry ownership lifecycle so a launch only becomes replay-owning after the start is durable, or else releases any provisional ownership before the next retry can read it as an accepted result. This task owns the bounded `server/src/flows/service.ts` lifecycle seam plus the targeted proof that keeps accepted replay behavior intact while preventing stale started replays after pre-launch failure.
+
+#### Affected Repositories
+
+- `Current Repository`: owns the service lifecycle repair, the focused server proof, and the route-level validation proof for this retry-ownership failure seam.
+
+No additional repositories are in scope for this review-created repair. The finding remains one same-repository lifecycle seam even though later story-wide revalidation will still rerun broader current-repository wrappers.
+
+#### Task Exit Criteria
+
+- `R1.` A failure after fresh-run retry ownership is remembered but before `persistFlowResumeState(...)` succeeds cannot leave a stale accepted replay winner behind for the next retry.
+- `R2.` Successful accepted-launch replay still resolves to the existing in-flight launch instead of minting a second logical run.
+- `R3.` Later legitimate fresh runs are not trapped by stale retry ownership after a pre-launch failure path or ownership cleanup.
+- `R4.` The repair stays bounded to the current server lifecycle seam and does not redefine the separate fresh-run versus resume contract.
+
+#### Proof Mapping
+
+- `P1.` lifecycle ordering proof for `R1` and `R3`: implementation owner is `server/src/flows/service.ts`; proof home is `server/src/test/integration/flows.run.errors.test.ts`.
+- `P2.` accepted replay continuity proof for `R2`: implementation owners are `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`; proof home is `server/src/test/integration/flows.run.basic.test.ts`.
+- `P3.` route-level default-path proof for `R1` through `R3`: implementation owners are `server/src/routes/flowsRun.ts`, `server/src/flows/service.ts`, `server/src/test/features/flows-execution-runs.feature`, and `server/src/test/steps/flows-execution-runs.steps.ts`; proof home is the focused cucumber feature and steps.
+- `P4.` broad regression proof for the whole current findings block: proof home is the fresh final revalidation task below, which reruns the repository-supported broad wrappers after Tasks `16` and `17` land.
+
+#### Documentation Locations
+
+- `server/src/flows/service.ts`
+- `server/src/routes/flowsRun.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/integration/flows.run.errors.test.ts`
+- `server/src/test/features/flows-execution-runs.feature`
+- `server/src/test/steps/flows-execution-runs.steps.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current review finding, `server/src/flows/service.ts`, `server/src/routes/flowsRun.ts`, and the focused proof owners to pin the exact lifecycle boundary where retry ownership is remembered before durable launch persistence completes.
+2. [ ] Patch `server/src/flows/service.ts` so a pre-launch failure after ownership is remembered cannot leave a stale accepted replay winner behind, while preserving the existing accepted replay path for genuinely in-flight launches.
+3. [ ] Update `server/src/test/integration/flows.run.errors.test.ts` so it proves a failure between remembered ownership and durable start cannot poison the next retry or a later legitimate fresh run.
+4. [ ] Update `server/src/test/integration/flows.run.basic.test.ts` so it still proves accepted replay continuity for the bounded same-repository retry-ownership seam after the lifecycle repair lands.
+5. [ ] Update `server/src/test/features/flows-execution-runs.feature` and `server/src/test/steps/flows-execution-runs.steps.ts` so the route-level proof claims the repaired pre-launch failure boundary explicitly instead of relying only on adjacent accepted-run behavior.
+6. [ ] Address any lint issues introduced by the repair in touched files.
+7. [ ] Address any format-check issues introduced by the repair in touched files.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`.
+2. [ ] Run `npm run test:summary:server:cucumber -- --feature server/src/test/features/flows-execution-runs.feature`.
+3. [ ] Run `npm run lint`.
+4. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Pending review-created repair for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` because finding `1` remains unresolved task-required lifecycle work in the current server retry-ownership seam.
+
+### Task 17. Restore The Host Codex Launcher Contract After Review Pass `0000058-20260521T010700Z-65288aea`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `15`
+- Task Status: `__to_do__`
+- Addresses Findings:
+  - `3`: restore the documented host Codex-home launcher contract instead of silently forcing checked-in `./codex` defaults.
+
+#### Overview
+
+Repair the checked-in env, compose, and contract-documentation surfaces so the supported launcher path once again honors the documented host Codex-home fallback contract instead of silently narrowing users onto checked-in `./codex` defaults. This task owns the runtime-contract surfaces and the preserved-behavior proof needed for env-loading, compose ownership, mounted-path mapping, and the existing operator-facing README wording.
+
+#### Affected Repositories
+
+- `Current Repository`: owns the env defaults, compose files, contract tests, and documentation updates for the host Codex-home fallback contract.
+
+No additional repositories are in scope for this repair. Because this finding changes checked-in env and compose startup ownership, its proof must include preserved behavior through the supported compose path rather than only config-shape assertions.
+
+#### Task Exit Criteria
+
+- `R1.` The checked-in main and e2e env defaults no longer silently override the documented `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` host fallback contract.
+- `R2.` The compose and startup surfaces still expose a real host-backed Codex seed path that matches the documented launcher contract.
+- `R3.` The README and contract-proof surfaces describe the same runtime contract the supported compose stack now enforces.
+- `R4.` Preserved behavior is proved through the supported compose and contract-test path, not only through env dumps or contract-shape assertions.
+
+#### Proof Mapping
+
+- `P1.` env/compose contract proof for `R1` through `R3`: implementation owners are `server/.env`, `.env.e2e`, `docker-compose.yml`, `docker-compose.e2e.yml`, and `README.md`; proof home is `server/src/test/unit/host-network-compose-contract.test.ts`.
+- `P2.` compose-runtime preserved-behavior proof for `R2` and `R4`: implementation owners are `docker-compose.yml`, `docker-compose.e2e.yml`, and any touched startup env-loading surfaces; proof homes are `logs/test-summaries/compose-build-latest.log` plus the terminal output from `npm run compose:up` and `npm run compose:down`.
+- `P3.` broad regression proof for the whole current findings block: proof home is the fresh final revalidation task below, which reruns the repository-supported broad wrappers after Tasks `16` and `17` land.
+
+#### Documentation Locations
+
+- `server/.env`
+- `.env.e2e`
+- `docker-compose.yml`
+- `docker-compose.e2e.yml`
+- `README.md`
+- `server/src/test/unit/host-network-compose-contract.test.ts`
+
+#### Subtasks
+
+1. [ ] Re-read the current review finding, `server/.env`, `.env.e2e`, `docker-compose.yml`, `docker-compose.e2e.yml`, `README.md`, and `server/src/test/unit/host-network-compose-contract.test.ts` to pin the exact checked-in defaults that now narrow the documented host Codex-home contract.
+2. [ ] Patch the env and compose ownership surfaces so the supported launcher path preserves the documented host Codex-home fallback contract instead of forcing checked-in `./codex` defaults on the main and e2e wrapper paths.
+3. [ ] Update `README.md` and any touched contract wording so the user-facing launcher instructions match the restored runtime contract exactly.
+4. [ ] Update `server/src/test/unit/host-network-compose-contract.test.ts` so it proves the restored fallback contract across the checked-in env and compose surfaces, not just one file in isolation.
+5. [ ] Address any lint issues introduced by the repair in touched files.
+6. [ ] Address any format-check issues introduced by the repair in touched files.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts`.
+2. [ ] Run `npm run compose:build:summary`.
+3. [ ] Run `npm run compose:up`.
+4. [ ] Run `npm run compose:down`.
+5. [ ] Run `npm run lint`.
+6. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Pending review-created repair for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` because finding `3` remains unresolved task-required runtime-contract work across the checked-in env, compose, and launcher documentation surfaces.
+
+### Task 18. Re-Validate Story 58 After Review Pass `0000058-20260521T010700Z-65288aea`
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `16, 17`
+- Task Status: `__to_do__`
+
+#### Affected Repositories
+
+- `Current Repository`: owns the full broad regression proof for unresolved task-required findings `1` and `3`, and for inline-resolved minor finding `2` from review cycle `0000058-rc-20260521T020645Z-65288aea`.
+
+No additional repositories are in scope for this review cycle. Validation scope for this task is driven by `Affected Repositories`, not by `Repository Name` alone.
+
+#### Addresses Findings
+
+- Final validation for review pass `0000058-20260521T010700Z-65288aea`, covering unresolved task-required findings `1` and `3`.
+- Final revalidation owner for inline-resolved minor finding `2` from the same active review cycle `0000058-rc-20260521T020645Z-65288aea`, resolved in commit `bae676c56d21679dfe00c7d1f4fd3a815eaa24d4`.
+
+#### Overview
+
+Revalidate Story 58 after the current review-created repairs for findings `1` and `3` are complete. This task is the one final revalidation owner for review cycle `0000058-rc-20260521T020645Z-65288aea`, and it also keeps the already-resolved inline minor finding `2` inside the same broad close-out proof instead of leaving it to a second final task later.
+
+#### Subtasks
+
+1. [ ] Re-read this appended `Code Review Findings` block, the active `review-disposition-state.json`, the `## Minor Review Fixes` entry for finding `2`, and the completed proof-owner sections for Tasks `16` and `17`, then record the exact dependency gate this task will enforce before broad wrapper proof begins: Tasks `16` and `17` must both be `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers.
+2. [ ] Refresh `codeInfoStatus/pr-summaries/0000058-pr-summary.md` so it records review pass `0000058-20260521T010700Z-65288aea`, review cycle `0000058-rc-20260521T020645Z-65288aea`, review-created Tasks `16` through `18`, unresolved task-required findings `1` and `3`, inline-resolved minor finding `2`, the no-additional-repository applicability decision, and the broad proof homes for build, server-unit, server-cucumber, client, e2e, compose, lint, and format.
+3. [ ] Re-open this plan, the refreshed PR summary, and `codeInfoStatus/flow-state/review-disposition-state.json` after the summary refresh and verify they still agree on the current review pass id, the active review cycle id, the review-created tasks for this appended block, the inline minor finding already handled in `## Minor Review Fixes`, and the exact ownership keys `final_revalidation_owned_by_task_up_path`, `task_up_owned_final_revalidation_task_title`, `review_created_tasks_added_or_updated`, and `needs_final_minor_fix_revalidation_task`.
+4. [ ] Compare Tasks `16` and `17` against this task's `Affected Repositories`, proof scope, and documentation references, then update any stale references so the broad revalidation scope stays honest before wrapper execution begins.
+5. [ ] Address any lint issues introduced by the final revalidation updates in touched tracked files.
+6. [ ] Address any format-check issues introduced by the final revalidation updates in touched tracked files.
+
+#### Testing
+
+1. [ ] Run `python3 scripts/plan_status.py --task-number 16` and confirm the parser reports Task `16` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
+2. [ ] Run `python3 scripts/plan_status.py --task-number 17` and confirm the parser reports Task `17` as `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blockers before broad wrapper proof begins.
+3. [ ] Run `npm run build:summary:server`.
+4. [ ] Run `npm run build:summary:client`.
+5. [ ] Run `npm run test:summary:server:unit`.
+6. [ ] Run `npm run test:summary:server:cucumber`.
+7. [ ] Run `npm run test:summary:client`.
+8. [ ] Run `npm run test:summary:e2e`.
+9. [ ] Run `npm run compose:build:summary`.
+10. [ ] Run `npm run compose:up`.
+11. [ ] Run `npm run compose:down`.
+12. [ ] Run `npm run lint`.
+13. [ ] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Pending review-created final revalidation for review pass `0000058-20260521T010700Z-65288aea`: this task was appended from `review-disposition-state.json` as the one final revalidation owner for review cycle `0000058-rc-20260521T020645Z-65288aea`, covering unresolved task-required findings `1` and `3` plus inline-resolved minor finding `2`.
+
+#### Manual Testing Guidance
+
+If later manual validation is useful after the automated repair lands, use the supported main stack from `docker-compose.yml` with the wrapper-managed env files `server/.env`, `server/.env.local`, `client/.env`, and `client/.env.local`, and recheck the repaired `/flows` and launcher-contract surfaces from `http://localhost:5001` against `http://localhost:5010` only after the server `/health` endpoint and the client root are ready. If Playwright MCP screenshots help, capture them to the Playwright output staging directory first, then transfer the selected artifacts into `codeInfoTmp/manual-testing/0000058/18/`; later closeout can curate any durable reviewer bundle separately. Keep that manual validation optional and non-blocking; the authoritative close-out proof for this task remains the broad automated wrapper set listed above.

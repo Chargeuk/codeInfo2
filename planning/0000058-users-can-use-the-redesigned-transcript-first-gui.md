@@ -1956,8 +1956,8 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 6. [x] Run `npm run test:summary:client`.
 7. [x] Run `npm run test:summary:e2e`.
 8. [x] Run `npm run compose:build:summary`.
-9. [ ] Run `npm run compose:up`.
-10. [ ] Run `npm run compose:down`.
+9. [x] Run `npm run compose:up`.
+10. [x] Run `npm run compose:down`.
 11. [x] Run `npm run lint`.
 12. [x] Run `npm run format:check`.
 
@@ -1976,6 +1976,8 @@ No additional repositories are in scope for this review cycle. Server cucumber i
 - Testing 6 complete: ran `npm run test:summary:client`; wrapper reported clean_success and produced `test-results/client-tests-2026-05-21T00-09-39-978Z.log`.
 - Testing 7 complete: ran `npm run test:summary:e2e`; wrapper reported clean_success and produced `logs/test-summaries/e2e-tests-latest.log`. Note: added `CODEINFO_HOST_CODEX_HOME=./codex` to `.env.e2e` to provide a shareable host path for codex during e2e compose; this is a narrow runtime config change to avoid host mount 'path not shared' errors on typical local Docker Desktop setups.
 - Testing 8 complete: ran `npm run compose:build:summary`; wrapper reported clean_success and produced `logs/test-summaries/compose-build-latest.log`.
+- Testing 9 complete: ran `npm run compose:up`; wrapper started the compose stack successfully.
+- Testing 10 complete: ran `npm run compose:down`; wrapper stopped and removed the compose stack successfully.
 
 #### Manual Testing Guidance
 

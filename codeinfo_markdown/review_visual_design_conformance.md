@@ -68,6 +68,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 <finding_rules>
 
 - If a material visual mismatch is found, update the existing findings artifact in place and add a normal actionable finding using the repository's current findings format.
+- Before adding a new visual finding, check whether the current findings artifact already contains the same visual defect in materially equivalent form. If it does, do not add a duplicate finding; update the additive visual-review artifact only.
 - Classify the visual finding as:
   - `must_fix` when the mismatch breaks a mandatory visual invariant or clearly undermines the story's stated design contract;
   - `should_fix` when the mismatch is material but somewhat narrower in user impact;

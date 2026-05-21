@@ -71,6 +71,37 @@ describe('Shared transcript row proof contract', () => {
     logSpy.mockReset();
   });
 
+  it('does not emit SharedTranscript console diagnostics during normal render', async () => {
+    const consoleInfoSpy = jest
+      .spyOn(console, 'info')
+      .mockImplementation(() => {});
+    try {
+      render(
+        <SharedTranscript
+          surface="chat"
+          conversationId="quiet-render"
+          messages={buildMessages(2)}
+          activeToolsAvailable={false}
+          emptyMessage="Empty"
+          citationsOpen={{}}
+          thinkOpen={{}}
+          toolOpen={{}}
+          toolErrorOpen={{}}
+          onToggleCitation={() => {}}
+          onToggleThink={() => {}}
+          onToggleTool={() => {}}
+          onToggleToolError={() => {}}
+        />,
+      );
+
+      await screen.findByTestId('chat-transcript');
+
+      expect(consoleInfoSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleInfoSpy.mockRestore();
+    }
+  });
+
   it('uses T08 for scroll mode changes and T10 for anchor-preserving row growth', async () => {
     const harness = installTranscriptMeasurementHarness();
 

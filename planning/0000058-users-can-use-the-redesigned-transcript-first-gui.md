@@ -27,9 +27,9 @@ When tasks are later added to this story, use this section contract:
 
 CodeInfo2 already exposes the right product areas for repository-grounded AI work, but the current frontend spends too much vertical space on top navigation and page-specific chrome. That makes `Chat`, `Agents`, and `Flows` feel more like separate admin pages than like focused transcript workspaces, especially on smaller screens and longer conversations.
 
-This story redesigns the GUI around the shared layout system already prepared under `planning/layout-ideas/plan/final-designs`. The redesign should make the transcript the center of gravity of the product, move the active composer to the bottom of workspace pages, and make the newest messages feel naturally anchored at the bottom while preserving the current virtualized transcript behavior. The desktop experience should replace the top navigation with a left app rail and a persistent conversations pane, while the mobile experience should use a full-screen conversations view from the left and a full-screen app menu from the right.
+This story redesigns the GUI around the shared layout system already prepared under `planning/layout-ideas/plan/final-designs`. The redesign should make the transcript the center of gravity of the product, move the active composer to the bottom of workspace pages, and change the visible transcript reading order so older conversation content appears higher in the transcript and newer conversation content appears lower in the transcript while preserving the current virtualized transcript behavior. The desktop experience should replace the top navigation with a left app rail and a persistent conversations pane, while the mobile experience should use a full-screen conversations view from the left and a full-screen app menu from the right.
 
-For transcript behavior, the product rule is now explicit: if a user has scrolled up to read older messages, new activity must keep their current reading position rather than snapping them back to the bottom. Automatic bottom-follow behavior should happen only when the user was already near the bottom. This same rule should apply consistently across `Chat`, `Agents`, and `Flows`.
+For transcript behavior, the product rule is now explicit: the transcript must read chronologically from top to bottom, with older content higher and newer content lower. When a user opens an existing conversation, the transcript should land at the newest visible content at the bottom so they start at the latest part of the conversation. If a user has scrolled up to read older messages, new activity must keep their current reading position rather than snapping them back to the bottom. Automatic bottom-follow behavior should happen only when the user was already near the bottom. This same rule should apply consistently across `Chat`, `Agents`, and `Flows`.
 
 The redesign is intentionally a frontend-first story. It should reuse existing backend capabilities and keep visible behavior within contracts that already exist today, including provider selection, auth and logon actions, ingest status, logs browsing, conversation history, transcript streaming, and flow or agent controls. Backend changes are allowed only if the frontend cannot honestly realize the approved design using current APIs and runtime data.
 
@@ -49,7 +49,9 @@ The design references for this story already exist and should be treated as the 
 - The top tab bar is removed and replaced with the new desktop app rail and mobile app-menu pattern.
 - Workspace pages reclaim vertical space so the transcript area is visibly prioritized over navigation and non-essential chrome.
 - The active composer is bottom-anchored on workspace pages.
-- The visible transcript reading flow is updated so the newest messages appear at the bottom while preserving the existing virtualized transcript path and pinned-bottom behavior.
+- The visible transcript reading flow is updated so older conversation content appears higher in the transcript and newer conversation content appears lower in the transcript across `Chat`, `Agents`, and `Flows`.
+- Opening an existing conversation initially lands at the newest visible content at the bottom rather than at the oldest content at the top.
+- The shared transcript preserves the existing virtualized transcript path, dynamic row measurement, pinned-bottom behavior, and scroll-away stability while using the final chronological top-to-bottom reading order.
 - If a user is reading older messages away from the bottom, new transcript activity keeps their place instead of snapping them back to the bottom.
 - If a user is already near the bottom, new transcript activity keeps following the newest messages automatically.
 - Assistant output and user bubbles adopt the new shared transcript style defined by the approved design references.
@@ -95,16 +97,16 @@ The design references for this story already exist and should be treated as the 
 - Prefer validating the redesign in the checked-in main stack surfaces at `http://localhost:5001` and `http://localhost:5010` unless later tasking documents a narrower proof seam.
 - Manual proof for auth-dependent provider state on `Home` may use the repository-owned skip rule from `codeinfo_markdown/repository_information.md` when the missing state would require human-controlled two-factor authentication; skip only the affected auth-dependent surface and keep the rest of the redesign proof active.
 - When screenshots are needed, capture them first in the Playwright output directory and then transfer the chosen artifacts into `codeInfoTmp/manual-testing/0000058/<task-number>/` with deterministic names such as `proof-01-desktop-chat.png`, `proof-02-mobile-home.png`, and `support-console.txt`.
-- Later tasking should include desktop and mobile proof across both shell families, with special attention on transcript height, bottom composer behavior, conversation-pane interactions, Home absorbing LM Studio and provider logon concerns, the `/lmstudio` redirect path, and the rule that message `Copy` actions copy only message content while scroll-away transcript reading keeps its place during new activity.
+- Later tasking should include desktop and mobile proof across both shell families, with special attention on transcript height, chronological top-to-bottom transcript ordering, opening existing conversations at the newest visible content at the bottom, bottom composer behavior, conversation-pane interactions, Home absorbing LM Studio and provider logon concerns, the `/lmstudio` redirect path, and the rule that message `Copy` actions copy only message content while scroll-away transcript reading keeps its place during new activity.
 
 ## Decisions
 
-1. Transcript scroll-away behavior
-   - The question being addressed: If someone scrolls up to read older messages, should new activity keep their place or jump them back to the bottom?
-   - Why the question matters: This sets one shared transcript rule for `Chat`, `Agents`, and `Flows`, and it directly affects whether long-running workspaces feel stable.
-   - What the answer is: Keep the user's place when they are reading older messages, and only auto-follow new activity when they were already near the bottom.
+1. Transcript ordering and scroll-away behavior
+   - The question being addressed: In the redesigned bottom-composer shell, should the transcript read chronologically from top to bottom and open existing conversations at the newest content, and if someone scrolls up to read older messages should new activity keep their place or jump them back to the bottom?
+   - Why the question matters: This sets one shared transcript rule for `Chat`, `Agents`, and `Flows`, and it directly affects whether long-running workspaces feel stable and whether the bottom composer aligns with the visible conversation flow.
+   - What the answer is: Show older content higher in the transcript and newer content lower in the transcript, open existing conversations at the newest visible content at the bottom, keep the user's place when they are reading older messages, and only auto-follow new activity when they were already near the bottom.
    - Where the answer came from: User answer in this planning session, plus repo evidence from `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/VirtualizedTranscript.tsx`, supported by TanStack Virtual guidance on scroll adjustment during dynamic size changes.
-   - Why it is the best answer: It matches the current shared transcript architecture, preserves virtualization stability, and fits the transcript-first product goal without surprising jumps.
+   - Why it is the best answer: It matches the final transcript-first shell direction, preserves virtualization stability, and makes the bottom composer and newest conversation content line up naturally without surprising jumps.
 2. LM Studio route handoff
    - The question being addressed: After the redesign, should the old LM Studio page redirect to Home, or stay as a separate page?
    - Why the question matters: The plan moves LM Studio and provider status into `Home`, so the routing contract must stay clear for navigation, bookmarks, tests, and later cleanup.
@@ -127,7 +129,7 @@ The design references for this story already exist and should be treated as the 
   - Rework `client/src/components/chat/SharedTranscript.tsx` and `client/src/components/chat/SharedTranscriptMessageRow.tsx` so assistant and user rows match the approved transcript-first visual language without changing the underlying transcript data model.
   - Keep this seam focused on row presentation, footer layout, `Info` affordances, and the message-level `Copy` action that extracts only visible message body content.
 - Shared transcript scroll and follow seam
-  - Keep the transcript behavior contract in one dedicated seam: bottom-follow only when the user was already near the bottom, preserved reading position when the user has scrolled away, and stable scroll anchors when row heights change during streaming or tool expansion.
+  - Keep the transcript behavior contract in one dedicated seam: chronological top-to-bottom transcript ordering, initial landing on the newest visible content at the bottom when an existing conversation opens, bottom-follow only when the user was already near the bottom, preserved reading position when the user has scrolled away, and stable scroll anchors when row heights change during streaming or tool expansion.
   - Keep this seam grounded in the existing shared transcript path rather than page-local overrides so `Chat`, `Agents`, and `Flows` continue to share one behavior model.
 - Shared desktop workspace-shell seam
   - Replace the top-tab layout with one reusable desktop shell that owns the app rail, the persistent conversations pane, and the main transcript/composer frame.
@@ -190,8 +192,9 @@ The design references for this story already exist and should be treated as the 
   - The redesign still needs a shared visual shell for assistant and user slices plus footer `Info` and `Copy` affordances that fit the new layouts without breaking the current transcript data path.
 - Assumptions currently invalid:
   - The current transcript is not yet styled like the approved desktop and mobile document-style slices, and the current footer treatment does not yet match the approved designs.
+  - The current workspace pages still behave like newest conversation content belongs at the top of the rendered transcript, which contradicts the final bottom-composer workspace direction for this story.
 - Feasibility and sequencing note:
-  - This seam is feasible entirely in the frontend because the shared transcript abstraction and proof hooks already exist; it should be updated before page-shell work so later shells can plug into one stable transcript surface.
+  - This seam is feasible entirely in the frontend because the shared transcript abstraction and proof hooks already exist; it should be updated before later shell closeout so the shared transcript lands on chronological top-to-bottom ordering and bottom-initial-open behavior without giving up virtualization stability.
 
 ### 2. Workspace shell, conversations pane, and mobile overlays
 
@@ -296,8 +299,8 @@ The design references for this story already exist and should be treated as the 
 
 - Shared transcript anchor preservation
   - Risk owner now: `client/src/components/chat/SharedTranscript.tsx` plus `client/src/components/chat/VirtualizedTranscript.tsx`
-  - Invariant to preserve: when the user is scrolled away from the bottom, later row growth, streaming output, tool expansion, or transcript refresh must preserve the visible anchor instead of snapping to the newest message.
-  - Most dangerous contradiction or interleaving: a row above the viewport grows after a transcript refresh or tool toggle while the current scroll mode is `scrolled-away`.
+  - Invariant to preserve: the shared transcript reads chronologically from top to bottom, existing conversations initially land at the newest visible content at the bottom, and when the user is scrolled away from the bottom later row growth, streaming output, tool expansion, or transcript refresh must preserve the visible anchor instead of snapping to the newest message.
+  - Most dangerous contradiction or interleaving: transcript hydration or refresh still opens at the top, or a row above the viewport grows after a transcript refresh or tool toggle while the current scroll mode is `scrolled-away`.
   - Current proof status: direct for row-growth and scroll-mode markers, but missing for the redesigned transcript visual shell plus any new message-level controls.
   - Future task seam that should own proof: shared transcript visual seam plus shared transcript scroll and follow seam.
 - Transcript copy versus metadata leakage
@@ -355,6 +358,8 @@ The design references for this story already exist and should be treated as the 
   - workspace-page shell regressions: `client/src/test/chatPage.layoutHeight.test.tsx`, `client/src/test/chatPage.layoutWrap.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, and the existing `flowsPage` unit-test surface under `client/src/test/flowsPage*.test.tsx`;
   - browser-visible end-to-end workspace behavior: `e2e/chat.spec.ts`, `e2e/agents.spec.ts`, `e2e/flows-execution-runs.spec.ts`, `e2e/ingest.spec.ts`, and `e2e/logs.spec.ts`.
 - Later tasking should keep the likely ordering-sensitive proofs explicit rather than implicit:
+  - prove that existing conversations initially open at the newest visible content at the bottom rather than at the oldest content at the top;
+  - prove that the visible transcript ordering is chronological from top to bottom, with older content higher and newer content lower;
   - prove that direct `/lmstudio` navigation redirects before the `Home` LM Studio section assertion is evaluated;
   - prove that a dirty LM Studio draft field does not change the committed refresh target until the user chooses a committing action;
   - prove negative assertions such as “no standalone LM Studio page remains” through stable route/UI boundaries rather than arbitrary delays.
@@ -366,6 +371,7 @@ The design references for this story already exist and should be treated as the 
 
 ## Edge Cases And Failure Modes
 
+- The transcript must read chronologically from top to bottom across `Chat`, `Agents`, and `Flows`: older content appears higher in the transcript, newer content appears lower in the transcript, and opening an existing conversation must land at the newest visible content at the bottom.
 - When a user is reading older transcript content, new assistant output, tool expansion, or dynamic row growth above the viewport must preserve the visible scroll anchor instead of snapping to the bottom. When the user is already near the bottom, the transcript should continue following the newest content automatically.
 - The redesigned workspace shell must preserve existing page-specific control semantics:
   - `Chat` provider/model changes create a fresh next-send context and must not mutate a locked resumed conversation.
@@ -3564,3 +3570,161 @@ Items to verify manually:
 - None yet.
 
 
+### Task 30. Unify The Mobile Top Bar And Remove Bulky Mobile Shell Padding Across Workspace And Utility Pages
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the shared mobile page chrome into parity with the final Story 58 mobile shell design by replacing the current oversized mobile headers and bulky top button row with one shared mobile top-bar component family. This task owns the mobile top bar, the mobile page-level shell padding around the top of the page, and the removal of the current outlined `Conversations` / `Menu` button row from the mobile `Chat`, `Agents`, and `Flows` pages. This task does not own transcript message styling, conversation-row styling, composer internals, or desktop shell layout.
+
+This task must correct the current mobile-shell framing problems visible in:
+- `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+- `codeInfoStatus/manual-proof/0000058/task-20/proof-05-home-mobile.png`
+
+when compared against:
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+
+The main required corrections are:
+- remove the significant top, side, and bottom padding or border-like framing currently surrounding the mobile conversation pages
+- replace the oversized conversation-page top button row with a true shared mobile top bar
+- reduce the vertical height of the mobile top bars
+- make the mobile top bar styling match one shared component family across utility pages and conversation pages
+- keep conversation pages as the only mobile pages that also show a leading conversations-panel icon in the top bar
+
+Implementation order matters and must be followed in this exact sequence:
+1. build the shared mobile top-bar component first
+2. migrate utility pages to it second
+3. migrate `Chat`, `Agents`, and `Flows` mobile wrappers to it third
+4. remove leftover bulky mobile shell padding and fake top-bar button rows last
+
+All mobile top-bar rendering must flow through the new shared component after this task. No page may keep bespoke mobile-header JSX once the shared top-bar migration is complete.
+
+Where the current implementation conflicts with the final mobile workspace shell design and this task, follow the final design and this task. In particular, mobile pages must not use a large outlined card row containing `Conversations` and `Menu` buttons as a substitute for a top bar, and mobile headers must not remain oversized in height or typography.
+
+#### Non-Goals
+
+- Do not redesign transcript message surfaces in this task.
+- Do not redesign the mobile app menu overlay contents in this task.
+- Do not redesign the mobile conversations overlay contents in this task.
+- Do not redesign composer internals in this task.
+- Do not redesign desktop shells or desktop headers in this task.
+- Do not create separate unrelated mobile top bars for utility pages and conversation pages.
+- Do not keep the current large outlined `Conversations` / `Menu` button row on the mobile `Chat`, `Agents`, or `Flows` pages.
+- Do not leave any page with bespoke mobile-header JSX after the shared top-bar migration is complete.
+
+#### Task Exit Criteria
+
+- All mobile pages use one shared mobile top-bar component.
+- The shared mobile top-bar component exposes one explicit API with:
+  - `title`
+  - `showConversationsButton`
+  - `onConversationsClick`
+  - `onMenuClick`
+- Utility mobile pages show a compact mobile top bar with title and trailing hamburger icon.
+- Mobile `Chat`, `Agents`, and `Flows` pages show a compact mobile top bar with one horizontal row containing:
+  - leading conversations-panel icon
+  - title text
+  - trailing hamburger icon
+- The current outlined `Conversations` / `Menu` button row is removed from mobile `Chat`, `Agents`, and `Flows`.
+- The mobile top bars are much shorter vertically and no longer read as oversized headers.
+- The mobile page shell no longer adds bulky top, side, or bottom padding around the workspace framing shown in the final mobile design.
+- The conversation-panel icon still opens the mobile conversations overlay on workspace pages.
+- The hamburger icon still opens the mobile app menu on workspace pages and utility pages.
+- The mobile shell now reads as one consistent design family across `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, and `Logs`.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-app-bar.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-box.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-stack.md`
+- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-05-home-mobile.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections that define the mobile top bar, mobile shell spacing, transcript/composer placement, and page-level mobile behavior. Then compare `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png` against `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png` and `codeInfoStatus/manual-proof/0000058/task-20/proof-05-home-mobile.png`. Explicitly record the mobile-shell mismatches this task owns: oversized header height, incorrect top-bar styling, fake button-row top bar on workspace pages, and bulky outer padding around mobile pages. Purpose: lock the exact mobile shell target before editing shared wrappers.
+2. [ ] Current Repository: Inspect `client/src/components/utility/UtilityPageShell.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`, `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`, and `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`. Identify every current mobile-header code path, mobile top-row spacing rule, and mobile button-row substitute that must be unified. Purpose: prevent a weak implementation agent from fixing only one page while leaving the split mobile-header architecture in place.
+3. [ ] Current Repository: Create one shared mobile top-bar component in a shared frontend location such as `client/src/components/workspace/` or `client/src/components/layout/`. Define one explicit shared API with exactly these inputs:
+   - `title`
+   - `showConversationsButton`
+   - `onConversationsClick`
+   - `onMenuClick`
+   Use this exact API for utility pages and workspace pages rather than creating page-specific prop shapes. Purpose: give a weak implementation agent one concrete shared seam instead of an abstract “component family”.
+4. [ ] Current Repository: In the new shared mobile top-bar component, implement the compact final vertical sizing. Do not keep the current `minHeight: 64`, large vertical padding, or oversized title treatment from `UtilityPageShell.tsx`, and do not replace it with another arbitrary tall header. Purpose: directly fix the oversized-header problem visible in both mobile proofs.
+5. [ ] Current Repository: In the new shared mobile top-bar component, implement the exact shared row structure. For workspace pages, the bar must render one horizontal row with leading conversations icon, title text, and trailing hamburger icon. For utility pages, the bar must render one horizontal row with title text and trailing hamburger icon only. Do not invent centered-title variants or page-specific alignment rules. Purpose: remove ambiguity so a weak implementation agent does not create inconsistent mobile headers.
+6. [ ] Current Repository: In the new shared mobile top-bar component, style the controls as compact icon-driven mobile header actions rather than full-width outlined buttons. The workspace-page variant must expose the conversations trigger as a compact leading icon and the app-menu trigger as a compact trailing hamburger icon. Purpose: replace the fake top-bar button row with the final mobile header interaction model.
+7. [ ] Current Repository: Update `client/src/components/utility/UtilityPageShell.tsx` so mobile utility pages use the new shared mobile top-bar component instead of the current oversized inline `Stack` header. Preserve utility-page title semantics, but remove the current extra header height and overscaled title styling. Purpose: fix the mobile utility-page header in the shared path first.
+8. [ ] Current Repository: Update the mobile workspace path in `client/src/pages/ChatPage.tsx` so it uses the shared mobile top bar instead of the current outlined `Paper` row containing `Conversations` and `Menu` buttons. Keep the conversations trigger wired to `WorkspaceMobileConversationsOverlay` and keep the menu trigger wired to `WorkspaceMobileAppMenuOverlay`. Purpose: migrate `Chat` to the final shared mobile top-bar pattern.
+9. [ ] Current Repository: Update the mobile workspace path in `client/src/pages/AgentsPage.tsx` so it uses the shared mobile top bar instead of the current outlined `Paper` row containing `Conversations` and `Menu` buttons. Keep the conversations trigger wired to `WorkspaceMobileConversationsOverlay` and keep the menu trigger wired to `WorkspaceMobileAppMenuOverlay`. Purpose: migrate `Agents` to the final shared mobile top-bar pattern.
+10. [ ] Current Repository: Update the mobile workspace path in `client/src/pages/FlowsPage.tsx` so it uses the shared mobile top bar instead of the current outlined `Paper` row containing `Conversations` and `Menu` buttons. Keep the conversations trigger wired to `WorkspaceMobileConversationsOverlay` and keep the menu trigger wired to `WorkspaceMobileAppMenuOverlay`. Purpose: migrate `Flows` to the final shared mobile top-bar pattern.
+11. [ ] Current Repository: Remove the current top mobile `Paper` wrapper and the mobile `gap: 2` layout from `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` after the shared top bar is in place. Do not leave a reduced version of that fake top-bar row behind. Purpose: prevent a weak implementation agent from restyling the old structure instead of deleting it.
+12. [ ] Current Repository: After the shared top bar is in place, remove the leftover bulky mobile shell spacing around the mobile workspace pages. Specifically audit the outer `gap`, `Paper`, `Container`, `px`, `py`, `pt`, and `pb` rules in the mobile `Chat`, `Agents`, and `Flows` wrappers so the mobile page chrome no longer wastes space above, beside, or below the core workspace content. Purpose: fix the oversized mobile shell framing rather than only swapping the header controls.
+13. [ ] Current Repository: After the shared top bar is in place, remove leftover bulky mobile shell spacing around utility pages in `UtilityPageShell.tsx` so the utility-page mobile chrome aligns to the same compact top-bar rhythm and page-edge behavior as the final design. Preserve intentional content spacing inside page bodies, but do not leave the current oversized shell spacing intact. Purpose: make the mobile shell one family across utility and workspace pages.
+14. [ ] Current Repository: Verify that `WorkspaceMobileConversationsOverlay` still opens from the new leading conversations icon on `Chat`, `Agents`, and `Flows`, and verify that `WorkspaceMobileAppMenuOverlay` still opens from the trailing hamburger icon on all mobile pages that use the shared top bar. Do not break these flows while replacing the header structure. Purpose: preserve the mobile navigation behaviors while changing the header architecture.
+15. [ ] Current Repository: Verify that only workspace pages (`Chat`, `Agents`, `Flows`) render the leading conversations-panel icon in the mobile top bar, while utility pages (`Home`, `Ingest`, `Logs`, and similar pages using `UtilityPageShell`) render only the title and trailing hamburger icon. Purpose: keep the shared top-bar component configurable without collapsing the utility/workspace distinction.
+16. [ ] Current Repository: Verify that no page keeps bespoke mobile-header JSX after the shared top-bar migration is complete. All mobile top-bar rendering must flow through the new shared component. Purpose: prevent the codebase from keeping a split mobile-header architecture after this task.
+17. [ ] Current Repository: Create or extend a focused shared test file such as `client/src/components/workspace/MobileTopBar.test.tsx`. Description: prove the shared mobile top bar supports utility-page mode and workspace-page mode, renders the correct icon set in each mode, and does not render the old full-width `Conversations` / `Menu` button row. Implementation files: the new shared mobile top-bar component and any page-shell wrappers touched by this task.
+18. [ ] Current Repository: Create or extend a focused integration test such as `client/src/test/mobileShell.parity.test.tsx`. Description: prove `Chat`, `Agents`, and `Flows` render the shared workspace mobile top bar, prove utility pages render the shared utility mobile top bar, and prove the conversations trigger and menu trigger still open the correct overlays. Implementation files: `client/src/components/utility/UtilityPageShell.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`, and the new shared mobile top-bar component.
+19. [ ] Current Repository: Extend the relevant browser-path proof, likely in Playwright coverage for mobile workspace and utility shells, so it proves the mobile top bar is compact, proves the old outlined `Conversations` / `Menu` button row is gone, and proves the workspace top bar still opens both the conversations overlay and the app menu. If no suitable mobile shell proof exists yet, add a focused mobile-shell browser-path proof instead of relying only on unit tests. Purpose: add real browser validation for the new shared mobile header and reduced shell padding.
+20. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+21. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared mobile page chrome used across utility and workspace pages.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared mobile header rendering, page-shell spacing, and overlay-trigger behavior across multiple pages.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible mobile shell framing, top-bar interactions, and overlay entry points in a real browser.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may add or update browser-path proof in addition to shared client code.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may add or update browser-path proof in addition to shared client code.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check sections that define the mobile top bar, page-edge framing, transcript/composer placement, and overall mobile shell behavior
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-05-home-mobile.png`
+
+Items to verify manually:
+- `Chat`, `Agents`, and `Flows` mobile pages no longer show the old outlined `Conversations` / `Menu` button row
+- no outlined top button row remains on the mobile workspace pages
+- `Chat`, `Agents`, and `Flows` mobile pages now show one compact shared top bar
+- the workspace mobile top bar shows a leading conversations-panel icon
+- the workspace mobile top bar shows title text in the same row
+- the workspace mobile top bar shows a trailing hamburger icon
+- the workspace mobile top bar is much shorter vertically than the current implementation
+- no large top-header padding remains on the mobile workspace pages
+- the mobile `Home` page no longer shows an oversized header
+- utility mobile pages use the same top-bar component as workspace pages, without the leading conversations icon
+- utility mobile pages show title text and trailing hamburger icon in one compact row
+- the mobile shell no longer wastes large amounts of space at the top, sides, or bottom of the conversation pages
+- the mobile shell no longer reads like stacked outlined cards before the main content begins
+- the conversations trigger still opens the mobile conversations overlay on `Chat`, `Agents`, and `Flows`
+- the hamburger trigger still opens the mobile app menu on workspace and utility pages
+- no page keeps a bespoke mobile-header layout after the migration
+- the mobile page chrome now feels like one family across `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, and `Logs`
+
+#### Implementation Notes
+
+- None yet.

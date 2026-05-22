@@ -2534,6 +2534,161 @@ Items to verify manually:
 
 - None yet.
 
+### Task 31. Reverse The Shared Transcript Reading Order And Open Existing Conversations At The Latest Content While Preserving Story 49 Virtualization
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20, Task 25`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the shared transcript behavior into parity with the final Story 58 workspace direction by reversing the current visible conversation ordering across `Chat`, `Agents`, and `Flows`. After this task, older conversation content must appear higher in the transcript and newer conversation content must appear lower in the transcript. The visible transcript must no longer prepend new content at the top of the reading surface.
+
+This task also owns the initial-open behavior for existing conversations. When a user opens, reloads, or switches to an existing conversation, the shared transcript must initially land at the newest visible content at the bottom of the transcript so the user starts at the latest part of the conversation rather than at the oldest part at the top.
+
+This task must preserve the virtualized transcript architecture introduced by `planning/0000049-responsive-long-conversation-transcript-rendering.md`. Do not remove virtualization, do not replace the shared transcript with page-specific transcript code, and do not give `Chat`, `Agents`, and `Flows` different ordering behavior. The shared transcript must continue to preserve:
+- dynamic row measurement
+- bottom-pinned versus scrolled-away mode
+- scroll-anchor stability during row growth
+- stable behavior during streaming output and tool expansion
+
+Implementation order matters and must be followed in this exact sequence:
+1. remove the old reversed page-adapter behavior first
+2. remove the old shared initial-top-landing behavior second
+3. implement the new chronological shared ordering contract third
+4. implement the new initial bottom-landing behavior fourth
+5. update proof and regression coverage last
+
+Where the current implementation conflicts with this task and the updated Story 58 contract, follow Story 58. In particular:
+- older content belongs higher in the transcript
+- newer content belongs lower in the transcript
+- existing conversations must initially open at the newest visible content at the bottom
+- the Story 49 virtualization path must remain in place
+
+#### Non-Goals
+
+- Do not redesign transcript visuals in this task.
+- Do not redesign composer visuals in this task.
+- Do not redesign desktop or mobile shell chrome in this task.
+- Do not remove transcript virtualization.
+- Do not create separate transcript ordering implementations for `Chat`, `Agents`, and `Flows`.
+- Do not fix this by disabling shared transcript logic and rendering raw page-local lists.
+- Do not fix this by forcing the browser to jump on every new message even when the user has scrolled away to read older content.
+- Do not leave one half of the old system in place, such as page-level reversing without shared top-landing, or shared bottom-landing without removing page-level reversing.
+
+#### Task Exit Criteria
+
+- `Chat`, `Agents`, and `Flows` all render transcript content in chronological top-to-bottom reading order.
+- Older conversation content appears higher in the transcript.
+- Newer conversation content appears lower in the transcript.
+- New transcript activity appears at the bottom of the reading flow rather than at the top.
+- Opening, reloading, or switching to an existing conversation initially lands at the newest visible content at the bottom.
+- A brand-new empty conversation remains in its normal empty-state position and does not perform fake scroll jumps.
+- When the user is already near the bottom, new activity continues to auto-follow the newest content.
+- When the user has scrolled away from the bottom to read older content, new activity preserves their reading position instead of snapping them back to the bottom.
+- The shared virtualized transcript path from Story 49 remains in place and continues to preserve dynamic measurement and scroll-anchor stability.
+- No page introduces page-specific transcript-ordering overrides to achieve this behavior.
+
+#### Documentation Locations
+
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- `https://tanstack.com/virtual/latest/docs/api/virtualizer`
+- `https://tanstack.com/virtual/latest/docs/framework/react/react-virtual`
+
+#### Task Design Packet
+
+- Story-level behavior contract:
+  - `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+    - check sections: `Description`, `Acceptance Criteria`, `Story Manual Testing Guidance`, `Decisions`, `Implementation Ideas`, `Risk And Invariant Matrix`, `Log Or Proof Markers`, `Edge Cases And Failure Modes`
+- Virtualization reference and proof-owner context:
+  - `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+- Final visual shell references that establish the bottom-composer / newest-at-bottom reading direction:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read the updated Story 58 transcript-ordering contract in `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`, especially `Description`, `Acceptance Criteria`, `Decisions`, `Implementation Ideas`, `Risk And Invariant Matrix`, and `Edge Cases And Failure Modes`. Then re-read `planning/0000049-responsive-long-conversation-transcript-rendering.md` to understand which shared virtualization guarantees must survive this task. Purpose: prevent a weak implementation agent from preserving the old top-prepended transcript direction by mistake.
+2. [ ] Current Repository: Inspect `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` to identify every page-level place where transcript message arrays are currently reversed or otherwise adapted into newest-first display order before being passed into the shared transcript. Inspect `client/src/components/chat/SharedTranscript.tsx` to identify the current initial top-landing behavior for existing conversations. Purpose: identify both halves of the old ordering system before changing behavior.
+3. [ ] Current Repository: Remove the current page-level reverse-order transcript adapters in `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx`, and remove the current initial top-landing behavior in `client/src/components/chat/SharedTranscript.tsx`. Do not leave one old behavior path behind while replacing the other. Purpose: prevent a weak implementation agent from changing only one half of the old ordering system.
+4. [ ] Current Repository: Inspect `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/VirtualizedTranscript.tsx`, and `client/src/components/chat/useSharedTranscriptState.ts` to identify where the shared transcript currently assumes initial top landing, initial scroll position, pinned-bottom behavior, or scroll-mode transitions that were built around the old visible ordering. Purpose: locate all shared ordering assumptions before implementing the new contract.
+5. [ ] Current Repository: Update the shared transcript input and rendering contract so it treats the transcript as chronological top-to-bottom data rather than as data that must appear reversed for display. Do this in the shared transcript path rather than by introducing new page-local ordering hacks. Purpose: centralize the new Story 58 reading-order contract in one shared seam.
+6. [ ] Current Repository: Implement the existing-conversation open behavior so the shared transcript waits for the conversation rows to hydrate into the virtualized transcript, then lands on the newest visible content at the bottom as the initial settled position. Do not leave the transcript at the top on first open and do not rely on repeated forced jumps after the user has already started reading. Purpose: make the initial-open contract concrete for a weak implementation agent.
+7. [ ] Current Repository: Make the conversation-entry behavior explicit across shared transcript state transitions. At minimum:
+   - opening an existing conversation lands at the bottom
+   - switching to another existing conversation lands at the bottom of that conversation
+   - reloading the current conversation lands at the bottom
+   - a brand-new empty conversation stays in the empty-state position without fake scroll jumps
+   - once the user manually scrolls upward, later transcript activity must preserve that scrolled-away position
+   Purpose: prevent partial ordering fixes that only work on one conversation-entry path.
+8. [ ] Current Repository: Preserve the current bottom-follow behavior when the user is already near the bottom. New transcript activity, streaming output, and row growth should continue to keep the user following the newest content automatically in that mode. Purpose: keep the Story 49 bottom-pinned experience intact while changing visible ordering.
+9. [ ] Current Repository: Preserve the current scrolled-away behavior when the user has moved upward to read older content. New transcript activity, streaming output, tool expansion, and row growth must preserve the visible reading anchor rather than snapping the user back to the bottom. Purpose: keep the Story 49 scroll-away stability intact while changing visible ordering.
+10. [ ] Current Repository: Audit the shared virtualized measurement and scroll-settling logic so the new chronological ordering does not break row remeasurement, bottom anchoring, or later row growth handling. Do not replace the virtualized transcript with a non-virtualized fallback to make this task easier. Purpose: explicitly protect the Story 49 performance and stability seam.
+11. [ ] Current Repository: Verify that `Chat`, `Agents`, and `Flows` all use the same shared transcript ordering and initial-open behavior after the refactor. Do not leave one page on the old reversed path while another page uses the new chronological path. Purpose: keep transcript behavior shared rather than page-specific.
+12. [ ] Current Repository: Update any shared proof markers, inline test descriptions, or helper wording that would misdescribe the transcript after the ordering change. In particular, keep proof wording aligned with the new contract that older content is higher, newer content is lower, and existing conversations open at the newest visible content at the bottom. Purpose: prevent proof text from silently preserving the old contract after implementation changes.
+13. [ ] Current Repository: Extend focused shared transcript unit coverage in `client/src/test/sharedTranscript.scrollBehavior.test.tsx`. Description: prove all of the following explicitly:
+   - chronological visible order from top to bottom
+   - initial settled position is at the bottom for existing conversations
+   - appending a newer row keeps the viewer at the bottom only when already bottom-pinned
+   - appending a newer row preserves the visible anchor when scrolled away
+   Implementation files: `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/VirtualizedTranscript.tsx`, and `client/src/components/chat/useSharedTranscriptState.ts`. Purpose: give the weak implementation agent exact proof targets rather than broad behavior themes.
+14. [ ] Current Repository: Extend a page-integration proof such as `client/src/test/chatPage.layoutHeight.test.tsx`, `client/src/test/agentsPage.layoutWrap.test.tsx`, `client/src/test/flowsPage.test.tsx`, or add a new focused shared transcript integration test. Description: prove the page adapters no longer reverse transcript rows before rendering and that `Chat`, `Agents`, and `Flows` all feed the shared transcript in the new chronological order. Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/pages/FlowsPage.tsx`, and the shared transcript files.
+15. [ ] Current Repository: Extend the relevant browser-path proof, likely in `e2e/chat.spec.ts`, `e2e/agents.spec.ts`, and/or `e2e/flows-execution-runs.spec.ts`, so it proves:
+   - existing conversations initially open at the newest visible content at the bottom
+   - older content is above newer content in the visible reading flow
+   - new activity appears at the bottom
+   - scrolling upward to older content prevents forced snapping back to the bottom
+   Purpose: add real browser validation for the Story 58 ordering contract while preserving Story 49 scroll stability.
+16. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+17. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared transcript code and page adapters used across all workspace pages.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared transcript ordering, initial-open behavior, virtualization-sensitive scroll behavior, and page transcript adapters.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript ordering and initial landing behavior in a real browser on workspace pages.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
+
+#### Manual Testing Guidance
+
+Use these design and story files as the manual checklist source:
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+  - check sections: `Description`, `Acceptance Criteria`, `Story Manual Testing Guidance`, `Decisions`, `Edge Cases And Failure Modes`
+- `planning/0000049-responsive-long-conversation-transcript-rendering.md`
+  - check the sections that describe the shared virtualized transcript behavior and proof ownership
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check the workspace-shell sections that establish the transcript-first bottom-composer reading direction
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check the mobile workspace-shell sections that establish the same bottom-composer reading direction
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+Items to verify manually:
+- existing conversations open at the newest visible content at the bottom rather than at the oldest content at the top
+- older conversation content appears above newer conversation content in the transcript
+- new transcript activity appears at the bottom of the visible reading flow
+- `Chat`, `Agents`, and `Flows` all use the same transcript ordering behavior
+- when the user is already near the bottom, new activity keeps following the newest content automatically
+- when the user scrolls upward to read older content, new activity does not snap them back to the bottom
+- streaming output and tool expansion do not break the user’s reading position when scrolled away
+- the ordering change does not break transcript virtualization behavior on long conversations
+- the bottom composer now matches the visible transcript direction instead of fighting against a top-prepended conversation flow
+- no page still behaves like new transcript content belongs at the top
+
+#### Implementation Notes
+
+- None yet.
+
 ### Task 25. Rebuild The Shared Assistant And User Transcript Surfaces To Match The Final Desktop And Mobile Reading Design
 
 - Repository Name: `Current Repository`

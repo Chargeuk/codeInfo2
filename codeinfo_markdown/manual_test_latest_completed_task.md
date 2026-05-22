@@ -171,7 +171,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If story-level guidance or task-level guidance conflicts with fresher repository evidence or the stored runtime research, prefer the fresher evidence and record the conflict honestly in the implementation notes instead of silently following or ignoring the guidance.
 - If the active plan explicitly names design-target assets intended as implementation references, treat that as `Design Contract Present` for this manual-testing pass.
 - If `Design Contract Present` is true, identify the task-owned or story-owned design assets that the candidate task's visible surfaces are expected to match before starting browser proof.
-- If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical, treat the visual asset as supporting visual reference, and follow the markdown when they conflict.
+- If `Design Contract Present` is true, evaluate visual conformance in this order: the current task's explicit subtasks and task-level requirements first, then the story plan or `Design Contract`, then paired design markdown, then the supporting visual asset.
+- Only explicit task wording overrides lower-precedence design sources. Broad wording such as `match the redesign` does not override the story plan or `Design Contract`, paired design markdown, or the supporting visual asset by itself.
 - If `Design Contract Present` is true and the candidate task is the final task in the story, identify the full set of implemented frontend surfaces across the whole story that later review will expect screenshots for.
 
 </story_and_task_guidance_rules>
@@ -222,11 +223,12 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - use those screenshots to assess whether the changed or added GUI is aligned, readable, usable, visually coherent, and correct for the acceptance criteria that can honestly be observed from the frontend;
   - identify whether any layout, usability, behavioral, startup, or shutdown issues remain.
 - If `Design Contract Present` is true and the task has a browser-visible or connected frontend surface, manual testing must also:
-  - compare each captured screenshot against the named design asset or paired design assets that own that view;
+  - compare each captured screenshot against the current task's explicit visual requirements for that view first; if the task is silent on that point, fall back to the story plan or `Design Contract`, then to paired design markdown, and finally to the supporting visual asset;
   - record for each comparison whether it `matches`, has a `minor mismatch`, or has a `material mismatch`;
-  - summarize what matches and what differs in the implementation notes or retained support artifact, including whether the judgment came from markdown, the visual design asset, or both;
-  - if a screenshot differs from the paired visual design asset but matches explicit paired design markdown requirements, do not treat that difference by itself as a mismatch;
-  - if a screenshot matches the paired visual design asset but violates explicit paired design markdown requirements, treat that as a mismatch against the design contract;
+  - summarize what matches and what differs in the implementation notes or retained support artifact, including whether the judgment came from the explicit task contract, the story plan or `Design Contract`, the paired design markdown, the visual design asset, or a combination;
+  - if the implementation matches an explicit current-task requirement but differs from paired design markdown or the supporting visual asset on that same point, do not treat that difference by itself as a mismatch;
+  - if the current task is silent on that point, fall back to the story plan or `Design Contract`, then to paired design markdown, then to the supporting visual asset;
+  - if the current task is vague and the implementation diverges from the highest-precedence fallback source that answers that point, without an explicit task-level override, treat that as a mismatch against the design contract. That fallback order is: story plan or `Design Contract`, then paired design markdown, then the supporting visual asset.
   - treat screenshot capture alone as insufficient proof of visual conformance.
 - If the candidate task is the final task in the story and has a browser-visible or connected frontend surface, manual testing must try to capture screenshots for all implemented frontend surfaces across the story that can honestly be exercised in this pass.
 - If the completed task has a browser-visible or connected frontend surface, manual testing must try to capture the relevant screenshots whenever honest tooling and runtime access allow it.
@@ -294,7 +296,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 - If manual testing reveals an issue, do a bounded diagnosis pass before mutating the task.
 - If `Design Contract Present` is true, treat any `material mismatch` against a mandatory visual invariant as an issue that manual testing has revealed, even when the underlying behavior still works.
-- When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, determine that material mismatch against the markdown first and use the visual asset as supporting reference when the markdown is silent.
+- When `Design Contract Present` is true, determine that material mismatch from the current task's explicit requirements first, then from the story plan or `Design Contract`, then from paired design markdown, and only then from the supporting visual asset when the higher-precedence sources are silent.
 - That diagnosis pass must:
   - re-read the relevant task requirements and the changed proof surface;
   - inspect the relevant logs, console output, network failures, screenshots, or API responses;

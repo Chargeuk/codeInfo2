@@ -48,18 +48,21 @@ If either the design assets or the screenshots cannot be found honestly from dis
 <comparison_rules>
 
 - Identify design assets from the active plan only. Prefer explicit `## Design Contract`, task-scoped design packets, story manual-testing guidance, and explicit final-design references over inference.
-- Prefer paired design markdown plus visual design assets such as `*.png` or `*.svg` when both exist.
-- When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical, treat the visual asset as supporting visual reference, and follow the markdown when they conflict.
+- Re-open the current task requirements that own the reviewed screenshots before judging visual conformance, including the task's explicit subtasks, task-level visual invariants, task exit criteria, and any task-level `Manual Testing Guidance`.
+- When lower-precedence design sources are needed for the same surface, consult both paired design markdown and any paired visual design asset such as `*.png` or `*.svg` when both exist.
+- When judging visual conformance, use the current task's explicit subtasks and task-level requirements as the immediate contract first, then the story plan or `Design Contract`, then paired design markdown, then the supporting visual asset.
+- When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical only relative to that lower-precedence visual asset.
 - Inspect retained screenshots and design images with available local image-view tools when possible.
 - Read the paired design markdown and use it as the text contract for hierarchy, placement, spacing priorities, interaction patterns, exact specified colors, and other explicit requirements that may not be reliably inferred from the image alone.
-- If the implementation differs from the paired visual design asset but matches explicit paired design markdown requirements on that same point, do not treat that difference by itself as a mismatch.
-- If the implementation matches the paired visual design asset but violates explicit paired design markdown requirements on that same point, treat that as a design-contract mismatch.
+- If the implementation matches an explicit current-task requirement but differs from a lower-precedence design source on that same point, do not treat that difference by itself as a mismatch.
+- If the current task is silent on that point, fall back to the story plan or `Design Contract`, then to paired design markdown, then to the supporting visual asset.
+- If the current task is vague or silent and the implementation violates a higher-precedence fallback source, treat that as a design-contract mismatch.
 - Keep the scan bounded to the most relevant screenshot/design pairs. If many screenshots exist, prioritize the screenshots most clearly tied to:
   - the final revalidation task;
   - the highest-numbered task folder;
   - or the surfaces explicitly named by the design contract.
 - Do not promote a mismatch finding for tiny spacing noise, font-rendering differences, or obvious environment-level rendering variation when the mandatory visual invariant is still honestly met.
-- When paired design markdown and visual design asset disagree, judge mandatory visual invariants from the markdown first and use the visual asset only where the markdown is silent.
+- When paired design markdown and visual design asset disagree, judge mandatory visual invariants from the highest-precedence source that actually answers the disputed point, using the visual asset only when the higher-precedence sources are silent.
 - Do promote a finding when the implementation is only directionally similar and misses a mandatory visual invariant such as:
   - wrong shell structure;
   - missing or misplaced rail, pane, composer, or overlay;

@@ -49,7 +49,7 @@ If either the design assets or the screenshots cannot be found honestly from dis
 
 - Identify design assets from the active plan only. Prefer explicit `## Design Contract`, task-scoped design packets, story manual-testing guidance, and explicit final-design references over inference.
 - Re-open the current task requirements that own the reviewed screenshots before judging visual conformance, including the task's explicit subtasks, task-level visual invariants, task exit criteria, and any task-level `Manual Testing Guidance`.
-- Prefer paired design markdown plus visual design assets such as `*.png` or `*.svg` when both exist.
+- When lower-precedence design sources are needed for the same surface, consult both paired design markdown and any paired visual design asset such as `*.png` or `*.svg` when both exist.
 - When judging visual conformance, use the current task's explicit subtasks and task-level requirements as the immediate contract first, then the story plan or `Design Contract`, then paired design markdown, then the supporting visual asset.
 - When paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical only relative to that lower-precedence visual asset.
 - Inspect retained screenshots and design images with available local image-view tools when possible.

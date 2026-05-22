@@ -51,7 +51,7 @@ Continue the current story review using ONLY the stored review handoff, perform 
 - When a finding touches `.env*`, `docker-compose*`, startup env loaders, entrypoints, mounted-path mapping, or working-folder selection surfaces, compare the current known-working behavior before recommending a behavior-changing cleanup.
 - If the current behavior is known to work and the review concern is only portability or neatness, prefer `optional_simplification` plus `Scope Impact: cleanup_preference`, or record the concern as a rejected-risk note instead of reopening the story.
 - If the active plan explicitly names design-target assets intended as implementation references, treat material design-contract mismatch and screenshot-comparison proof gaps as actionable only through `"$CODEINFO_ROOT/codeinfo_markdown/review_visual_design_conformance.md"` when that step activates.
-- Do not treat a lower-precedence design-source mismatch as actionable when an explicit current-task requirement supports the implementation on that same point.
+- Do not treat a lower-precedence design-source mismatch as actionable when an explicit current-task requirement clearly and specifically answers that disputed point in a way that supports the implementation on that same point. Broad or underspecified task wording is not enough to suppress the mismatch.
 - Do not raise a review finding solely because screenshots are absent. The manual-testing pass owns the attempt to capture them first.
 
 </finding_taxonomy_rules>

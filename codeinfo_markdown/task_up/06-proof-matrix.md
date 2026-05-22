@@ -27,7 +27,7 @@ Make every task traceable by forcing a requirement-to-proof matrix before the wr
   2. the implementation files that own the behavior;
   3. the exact existing or new proof-owning files, log markers, fixtures, harness files, or prepared proof surfaces that must be created or updated.
 - If `Design Contract Present` is true, require a visual proof map for each design-driven task that names:
-  1. the canonical design file or design-asset subset, and when the current task explicitly overrides a disputed point for this surface, name that explicit task-level override first; otherwise use the story plan or `Design Contract`, then paired design markdown when it exists, and finally any paired visual design asset such as `*.png` or `*.svg` as supporting reference;
+  1. the controlling comparison or contract source(s) for the surface: when the current task explicitly overrides a disputed point, name that explicit task-level override; otherwise use the story plan or `Design Contract`, then paired design markdown when it exists, and finally any paired visual design asset such as `*.png` or `*.svg` as supporting reference;
   2. the owned visual invariant;
   3. the implementation files;
   4. the proof owner;

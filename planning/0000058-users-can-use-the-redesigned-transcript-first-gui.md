@@ -2528,6 +2528,524 @@ Items to verify manually:
 
 - None yet.
 
+### Task 25. Rebuild The Shared Assistant And User Transcript Surfaces To Match The Final Desktop And Mobile Reading Design
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the shared assistant and user transcript surfaces into exact parity with the approved Story 58 desktop and mobile reading designs. This task owns the shared conversation-reading surface only: assistant full-width slices, assistant footer layout, assistant status-chip placement, assistant `Info` popup behavior, user dark right-aligned bubbles, user footer layout, and removal of the current inset-card treatment. Desktop and mobile already share the same transcript message renderer, so this task should keep one shared transcript system while splitting the assistant and user row rendering into separate role-specific components for clarity and maintainability. This task does not own the input, composer, provider/model selectors, working-folder controls, or any other option interface below the transcript.
+
+Where the latest Story 58 follow-up direction is stricter than the transcript markdown wording, follow the newer requirement. In particular, treat the assistant transcript slice as a light blue, borderless reading surface rather than a neutral outlined card, keep the user bubble dark charcoal/black with white text, and keep the `Info` affordance assistant-only. Use these exact implementation target colors, based on the mobile final PNG design, for the shared transcript surfaces:
+- assistant slice background: `#F3F8FF`
+- assistant primary text: `#1F2933`
+- assistant secondary/footer text: `#52606D`
+- assistant action/icon blue: `#2F80ED`
+- user bubble background: `#111827`
+- user bubble text: `#FFFFFF`
+- user footer secondary text/tick baseline: `#D7DEE7`
+- user acknowledgement tick when confirmed: `#2F80ED`
+- `Working` status chip background/text: `#E8F1FF` / `#2F80ED`
+- `Complete` status chip background/text: `#E7F7EC` / `#2F855A`
+- `Failed` status chip background/text: `#FDECEC` / `#C53030`
+- `Stopped` status chip background/text: `#FFF4E5` / `#B7791F`
+
+#### Non-Goals
+
+- Do not redesign or move the composer, input box, provider selector, model selector, working-folder controls, send button, stop button, or agent-flags panel.
+- Do not redesign the conversation list, mobile conversations overlay, or mobile app menu as part of this task.
+- Do not change the shared destination/navigation contract.
+- Do not add assistant-only controls to user bubbles.
+- Do not add provider or model labels to the visible assistant footer.
+- Do not leave desktop and mobile with separate transcript message implementations; keep the transcript surface shared and only split the role-specific message renderers within that shared system.
+
+#### Task Exit Criteria
+
+- Assistant transcript outputs span the full available transcript width on desktop and mobile.
+- Assistant transcript outputs render as pale light-blue document-style slices using background `#F3F8FF` with no visible border or outline.
+- Assistant transcript outputs use primary text `#1F2933`, footer/secondary text `#52606D`, and action/icon blue `#2F80ED`.
+- Assistant transcript outputs use a required footer with:
+  - left side: `Info`, response time, status chip
+  - right side: completion date or relative time, `Copy`
+- Assistant transcript status chips use only the supported labels `Working`, `Complete`, `Failed`, and `Stopped`, with the icon treatments described in the final markdown.
+- The assistant `Info` popup is opened only from the assistant footer `Info` button and reads as attached to that button.
+- User transcript bubbles render as `#111827` right-aligned bubbles with `#FFFFFF` text, non-full-width sizing, and a required footer with acknowledgement tick, completion date or relative time, and `Copy`.
+- User bubbles do not render the `Info` button.
+- The transcript area no longer reads as a boxed or rounded card container; assistant outputs read as one shared reading surface and user replies sit between them as right-aligned dark bubbles.
+- The same shared transcript system drives both desktop and mobile transcript message rendering after the task completes.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-box.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-stack.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-popover.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-chip.md`
+- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `Transcript Workspace`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections `Transcript Surface`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, and `Acceptance Summary`. After that, compare `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png` and `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png` against the two final PNGs. Then inspect `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx`. Purpose: lock the exact shared transcript target, confirm that desktop and mobile already share the transcript message renderer, and identify the current card-like transcript shortfalls before code changes begin.
+2. [ ] Current Repository: Refactor `client/src/components/chat/SharedTranscriptMessageRow.tsx` into a thin shared role switch that delegates assistant rendering to a new `client/src/components/chat/AssistantTranscriptSlice.tsx` component and user rendering to a new `client/src/components/chat/UserTranscriptBubble.tsx` component. Keep `SharedTranscript.tsx` as the shared transcript list/container and do not create separate desktop and mobile transcript row systems. Purpose: split the two message contracts cleanly while preserving one shared transcript architecture.
+3. [ ] Current Repository: Create `client/src/components/chat/transcriptSurfaceTokens.ts` or an equivalent shared transcript-style constants file and define the exact assistant, user, footer, action, and status-chip colors listed in this task overview there. Use that shared token file from both new role-specific transcript renderers instead of scattering hard-coded color strings. Purpose: make the stricter PNG-derived color contract explicit and reusable across desktop and mobile transcript surfaces.
+4. [ ] Current Repository: Create `client/src/components/chat/AssistantTranscriptSlice.tsx` and move all assistant-specific transcript rendering there. The new component must render assistant content as a full-width document-style slice with background `#F3F8FF`, no title bar, no top-left icon, no top-right metadata, and no visible border or outline that makes it read like an inset card. Purpose: replace the current generic outlined chat-bubble treatment with the final assistant reading surface.
+5. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, implement the assistant footer exactly as the design packet requires. The visible footer must use:
+  - left side: `Info` button, response time, status chip
+  - right side: completion date or relative time, `Copy`
+  Use footer/secondary text color `#52606D` and action/icon blue `#2F80ED`. Do not show provider or model in the visible footer, and do not add extra controls there. Purpose: make the assistant footer match the final transcript contract instead of the current generic action row.
+6. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, move the assistant status presentation out of the top-of-message card area and into the footer. Support only the target labels `Working`, `Complete`, `Failed`, and `Stopped`, using the task-defined target chip colors:
+  - `Working`: `#E8F1FF` background with `#2F80ED` text
+  - `Complete`: `#E7F7EC` background with `#2F855A` text
+  - `Failed`: `#FDECEC` background with `#C53030` text
+  - `Stopped`: `#FFF4E5` background with `#B7791F` text
+  Do not keep the current generic top chip placement or labels such as `Processing`, `Stopping`, or `Ready` as the visible final transcript contract. Purpose: match the final assistant status model and placement.
+7. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, implement the assistant `Info` popup as an anchored popover or mini-panel opened only from the footer `Info` button. The visible popup content must include `Provider`, `Model`, `Tokens in`, `Tokens out`, `Cached`, and `Total`, and it must read as visually attached to the trigger rather than as a detached floating utility card in the transcript middle. Purpose: satisfy the assistant-only metadata-detail contract from the final markdown.
+8. [ ] Current Repository: Create `client/src/components/chat/UserTranscriptBubble.tsx` and move all user-specific transcript rendering there. The new component must render a `#111827` dark charcoal or black right-aligned bubble with `#FFFFFF` text, no title bar, no top-right metadata, and non-full-width sizing that still behaves like the current constrained right-aligned user bubble width. Do not render user messages as full-width slices. Purpose: replace the current generic outlined card with the final user-bubble contract.
+9. [ ] Current Repository: In `client/src/components/chat/UserTranscriptBubble.tsx`, implement the user footer exactly as the design packet requires. The visible footer must use acknowledgement tick, completion date or relative time, and `Copy`. The acknowledgement tick must support the documented meaning using the target colors named in this task overview: grey/base tick state `#D7DEE7` before acknowledgement and blue `#2F80ED` after acknowledgement. Do not render an `Info` button in the user footer. Purpose: match the final user footer contract and remove assistant-only controls from user bubbles.
+10. [ ] Current Repository: Update `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/chatTranscriptFormatting.ts`, and any supporting transcript-format helpers only as needed so assistant footer metadata and user footer metadata are routed into the correct new components. Remove the current generic `hasFooterMetadata` / shared `Info`-button behavior when it would incorrectly make the user bubble render assistant-only controls. Purpose: preserve shared transcript utilities while stopping the generic footer logic from violating the design contract.
+11. [ ] Current Repository: Update the shared transcript container and transcript wrappers so the transcript surface stops reading as a boxed panel. Specifically inspect and adjust the transcript container treatment in `client/src/components/chat/SharedTranscript.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx` so the transcript surface no longer shows a visible boxed or rounded outer transcript panel that conflicts with the final desktop and mobile reading surfaces. Do not redesign the composer or lower controls while doing this. Purpose: remove the outer transcript framing mismatch that the role-specific row components alone cannot fix.
+12. [ ] Current Repository: Verify that `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx` still consume the same shared `SharedTranscript` list/container and the same role-specific assistant/user row components after this task. If any early refactor accidentally forks desktop and mobile transcript row rendering, collapse it back into the shared transcript path before finishing. Purpose: preserve the desired shared transcript architecture across desktop and mobile.
+13. [ ] Current Repository: Create `client/src/components/chat/AssistantTranscriptSlice.test.tsx`. Description: prove assistant transcript outputs render full-width slices, use background `#F3F8FF` with no visible border, use the assistant footer order `Info`, response time, status chip on the left and completion time plus `Copy` on the right, and render no visible provider/model text in the footer. Implementation files: `client/src/components/chat/AssistantTranscriptSlice.tsx`, `client/src/components/chat/transcriptSurfaceTokens.ts`, and any supporting transcript-format helpers touched by this task.
+14. [ ] Current Repository: Create `client/src/components/chat/UserTranscriptBubble.test.tsx`. Description: prove user bubbles render as right-aligned dark bubbles using background `#111827` and text `#FFFFFF`, keep constrained width, render the acknowledgement tick plus time plus `Copy`, and never render the assistant `Info` button. Implementation files: `client/src/components/chat/UserTranscriptBubble.tsx`, `client/src/components/chat/transcriptSurfaceTokens.ts`, and any supporting acknowledgement/time formatting helpers touched by this task.
+15. [ ] Current Repository: Create `client/src/components/chat/SharedTranscriptMessageRow.parity.test.tsx`. Description: prove `SharedTranscriptMessageRow.tsx` delegates assistant messages to `AssistantTranscriptSlice`, delegates user messages to `UserTranscriptBubble`, and preserves the shared transcript path used by desktop and mobile transcript surfaces. Implementation files: `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`, and `client/src/components/chat/UserTranscriptBubble.tsx`.
+16. [ ] Current Repository: Update the browser-path proof in the existing e2e chat surface, likely `e2e/chat.spec.ts`, so it proves the shared transcript contract in a real browser on the supported runtime. The e2e proof must cover at least one assistant transcript slice and one user bubble, and it must assert that the user bubble does not expose the assistant `Info` control while the assistant slice does. If screenshot assertions are already used in that proof surface, update them only within ignored artifact output paths. Purpose: add durable browser-level proof for the shared desktop/mobile transcript contract instead of relying only on unit tests.
+17. [ ] Current Repository: Extend `client/src/test/workspaceShell.test.tsx`, `client/src/test/chatPage.status.test.tsx`, or create a dedicated transcript-surface integration test so the shared transcript wrapper path proves the outer transcript surface no longer renders as an obvious boxed panel while the composer and option interface remain present and unchanged below it. Purpose: protect the wrapper-level transcript-surface contract separately from the role-specific row tests.
+18. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+19. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared transcript message surface used by `Chat`, `Agents`, and `Flows`.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared assistant/user transcript rendering, shared transcript wrapper treatment, and role-specific footer behavior across desktop and mobile.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript behavior, footer controls, popup attachment behavior, and shared desktop/mobile reading-surface layout that should be re-proved in a real browser.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task changes shared frontend surfaces and adds or updates browser-path proof that may touch root-owned e2e files.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task changes shared frontend surfaces and may also update root-owned e2e proof files.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `Transcript Workspace`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check sections: `Transcript Surface`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+Where the latest Story 58 transcript direction is stricter than the markdown wording, use these newer requirements as the source of truth:
+- assistant slice background must be light blue `#F3F8FF` with no border
+- assistant actions/icons should use `#2F80ED`
+- user bubble background must be `#111827` with `#FFFFFF` text
+- only assistant outputs may show the `Info` button
+- the target status-chip colors are:
+  - `Working`: `#E8F1FF` / `#2F80ED`
+  - `Complete`: `#E7F7EC` / `#2F855A`
+  - `Failed`: `#FDECEC` / `#C53030`
+  - `Stopped`: `#FFF4E5` / `#B7791F`
+
+Items to verify manually:
+- assistant outputs take the full available transcript width on desktop
+- assistant outputs take the full available transcript width on mobile
+- assistant outputs use background `#F3F8FF` and do not read as inset outlined cards
+- assistant outputs have no title bar, no top-left icon, and no top-right metadata
+- assistant outputs use the required footer layout:
+  - left: `Info`, response time, status chip
+  - right: completion time or relative time, `Copy`
+- assistant visible footer does not show provider or model
+- assistant status labels and colors match the approved target set
+- the assistant `Info` popup opens from the footer `Info` button and reads as attached to it
+- user bubbles are `#111827` with `#FFFFFF` text
+- user bubbles remain right-aligned and width-constrained rather than becoming full-width
+- user bubbles use the required footer layout:
+  - acknowledgement tick
+  - completion time or relative time
+  - `Copy`
+- user bubbles do not show the `Info` button
+- the transcript surface no longer reads as a boxed or rounded outer transcript panel
+- the shared reading surface feels dense and document-like rather than like stacked message cards
+- the input/composer and option interface below the transcript remain out of scope for this task and should not be judged as part of this transcript-only pass
+
+#### Implementation Notes
+
+- None yet.
+### Task 26. Build The Shared Composer Shell And Migrate The Chat Composer To The Final Desktop And Mobile Design
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20, Task 25`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Build the shared composer foundation for Story 58 and use it to fully migrate the `Chat` composer to the final design. This task owns the shared composer shell, shared send-button treatment, shared footer-control layout, shared desktop and mobile overlay behavior, and the page-specific `Chat` footer controls. The visible composer layout must be the same on desktop and mobile: one rounded outer composer surface, one dominant full-width input row, and one compact footer row below it. Desktop and mobile must diverge only in interaction behavior: desktop footer controls open anchored popovers that rise upward above the composer, and mobile footer controls open large centered modal selection surfaces rather than tiny anchored menus.
+
+Where the latest Story 58 follow-up direction is stricter than the composer markdown wording, follow the newer requirement. In particular, desktop popovers must open upward above the input/footer region rather than downward below it, and mobile control surfaces must open in the center of the screen as large modal dialogs rather than as tiny popovers or low-positioned dropdown menus.
+
+This task does not own the transcript reading surface, the mobile app menu, the mobile conversations overlay, or page-header controls outside the composer.
+
+#### Non-Goals
+
+- Do not redesign the transcript message surface, transcript container, or transcript footer behavior.
+- Do not redesign the mobile app menu, desktop app rail, or conversation list as part of this task.
+- Do not leave `Chat`, `Agents`, and `Flows` with three unrelated composer architectures after the shared shell work lands.
+- Do not keep page-header actions such as `New conversation` or `Re-authenticate` inside the final `Chat` composer surface.
+- Do not use downward-opening desktop popovers for the final composer controls.
+- Do not use tiny anchored popovers on mobile for the final composer controls.
+- Do not render the full working path inline in the footer.
+
+#### Task Exit Criteria
+
+- The `Chat` composer matches `planning/layout-ideas/plan/final-designs/chat-composer-final.png`.
+- The shared composer shell renders one rounded outer surface, one dominant input row, and one footer row.
+- The main text input remains visually identical in structure on desktop and mobile and takes the available width.
+- The send button is a dark circular button with an up-arrow and remains visually attached to the right side of the input row.
+- The `Chat` footer control order is exactly `Info`, working path, provider, model, `Options`.
+- Desktop composer controls open anchored popovers attached to the pressed footer control and positioned upward above the composer rather than downward below it.
+- Mobile composer controls open large centered modal dialog-style selection surfaces rather than tiny anchored popovers.
+- The working-path footer control shows a folder icon plus only the final folder name.
+- The `Model` control opens one flat list surface with thinking modes first, a separator, and models for the selected provider below.
+- The `Options` control remains visible even when there are no currently available options and opens a compact empty state instead of disappearing.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-popover.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-dialog.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-menu.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-text-field.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
+- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.png`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/chat-composer-final.md` sections `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` and `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections that show the composer’s placement inside the workspace shell. After that, compare `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png` and `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png` against `planning/layout-ideas/plan/final-designs/chat-composer-final.png`. Then inspect `client/src/pages/ChatPage.tsx`, `client/src/components/workspace/WorkspaceDesktopShell.tsx`, and the relevant mobile workspace wrapper path in `client/src/pages/ChatPage.tsx`. Purpose: lock the exact `Chat` composer target and confirm how the current shared shell hosts the existing composer.
+2. [ ] Current Repository: Create a shared composer component family in `client/src/components/chat/` or another clearly shared frontend location. At minimum, add a shared outer shell component, a shared main-input row component, a shared footer-row layout component, a shared desktop popover wrapper, and a shared mobile centered dialog wrapper. Use names consistent with the design packet such as `CommonComposerShell`, `CommonComposerFooter`, `ComposerDesktopPopover`, `ComposerMobileDialog`, and `ComposerSendButton`. Purpose: establish one reusable composer architecture for `Chat`, `Agents`, and `Flows` instead of preserving three unrelated form panels.
+3. [ ] Current Repository: In the new shared desktop popover wrapper, implement anchored composer popovers so they open upward above the composer control that triggered them. Explicitly avoid the current downward pattern by anchoring from the top edge of the trigger and transforming from the bottom edge of the popover surface so the popover rises above the footer row instead of falling beneath it. Purpose: codify the newer Story 58 requirement that desktop composer popups must not open downward where there is no space.
+4. [ ] Current Repository: In the new shared mobile overlay wrapper, implement large centered modal selection surfaces for footer controls. Do not use tiny anchored popovers on mobile, and do not rely on the browser’s or MUI’s default select dropdown behavior. The mobile interaction must feel like one focused centered selection task at a time. Purpose: codify the newer Story 58 requirement that mobile composer control surfaces open in the center of the screen.
+5. [ ] Current Repository: Add shared composer-footer button primitives for `Info`, working path, provider, model, and options-style controls. These shared footer controls must support compact inline text, clean truncation, icon-plus-label treatment where required, and enough shared styling that `Chat`, `Agents`, and `Flows` can all inherit the same footer rhythm. Purpose: keep the footer compact and reusable across all composer variants.
+6. [ ] Current Repository: Update `client/src/pages/ChatPage.tsx` to replace the current stacked admin-form composer with the new shared `Chat` composer shell. Remove the old top-row provider/model selects, inline working-folder text field row, and separate send-button arrangement from the final `Chat` composer surface. Purpose: replace the old control panel with the final rounded composer layout.
+7. [ ] Current Repository: Implement the `Chat` main input row inside the shared shell so the message field takes the available width and the dark circular send button with up-arrow is visually attached to its right edge. If `Stop` must remain available during active sends, keep it integrated in a way that does not break the final input-row dominance or move the send affordance away from the input edge. Purpose: match the final `Chat` input-row hierarchy without regressing active-run control behavior.
+8. [ ] Current Repository: Implement the `Chat` footer in the exact final order `Info`, working path, provider, model, `Options`. The `Info` control must be a small `i` icon button. The working-path control must show a folder icon plus only the final folder name. The provider and model controls must be compact footer controls rather than full text fields. The `Options` control must remain visible even when it opens to an empty state. Purpose: match the final `Chat` footer contract exactly.
+9. [ ] Current Repository: Implement the `Chat` `Info` summary surface so it reflects the currently selected provider, model, thinking mode, selected working path, and active options. On desktop this must open as an upward anchored popover attached to the `Info` button; on mobile it must open as a large centered modal summary surface. Purpose: deliver the final composer summary behavior instead of leaving this information distributed across the old form rows.
+10. [ ] Current Repository: Implement the `Chat` working-path selector so the footer shows only the final folder name while the selection surface can still support folder picking and any necessary editing flow. Do not show the full absolute path inline in the footer after this task. Purpose: satisfy the design contract while preserving functional path selection behavior.
+11. [ ] Current Repository: Implement the `Chat` provider selector as a compact footer control backed by the shared desktop-upward-popover and mobile-centered-dialog interaction model. Remove the old in-form provider select from the visible composer body. Purpose: move provider selection into the final footer-driven model.
+12. [ ] Current Repository: Implement the `Chat` model selector as one flat selection surface that shows thinking modes first, then a separator, then models for the selected provider. Do not implement nested model submenus. On desktop the selector must open upward as an anchored popover; on mobile it must open as a centered large modal selection surface. Purpose: satisfy the final model-picker contract exactly.
+13. [ ] Current Repository: Implement the `Chat` `Options` selector as a compact footer control that opens provider/model-relevant options only. If there are no options available, the control must still open and show a compact empty state rather than disappearing or disabling itself without explanation. Purpose: align the current `AgentFlagsPanel`-style behavior with the final `Options` contract.
+14. [ ] Current Repository: Remove page-header-style buttons such as `New conversation` and `Re-authenticate` from the visible final `Chat` composer surface in `client/src/pages/ChatPage.tsx`. If those actions must still exist, relocate them outside the composer surface rather than leaving them in the composer shell. Purpose: satisfy the hard constraint that page-header controls do not live inside the composer.
+15. [ ] Current Repository: Verify that the mobile `Chat` workspace still renders the same visible composer shell as desktop while using the mobile centered-dialog interaction surfaces for footer controls. Do not fork the visible composer layout between desktop and mobile. Purpose: preserve the shared layout contract while changing only the interaction pattern.
+16. [ ] Current Repository: Create `client/src/components/chat/CommonComposerShell.test.tsx` or an equivalent shared-composer test file. Description: prove the shared shell renders one dominant input row, one footer row, and the attached send-button position expected by the design packet. Implementation files: the new shared composer shell components created in this task.
+17. [ ] Current Repository: Create `client/src/pages/ChatComposer.parity.test.tsx` or an equivalent focused test file. Description: prove the `Chat` footer renders in the order `Info`, working path, provider, model, `Options`, prove the working-path footer text omits the full path, and prove the `Options` control remains visible even when it opens to an empty state. Implementation files: `client/src/pages/ChatPage.tsx` and the new shared composer components.
+18. [ ] Current Repository: Extend the relevant desktop/mobile integration or e2e proof, likely in `e2e/chat.spec.ts`, so it proves desktop composer controls open upward above the composer and mobile composer controls open as centered modal selection surfaces. The proof must cover at least `Info` and `Model`, and it must show that the model picker remains one flat list rather than nested menus. Purpose: add browser-level validation for the most interaction-specific Story 58 composer behavior.
+19. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+20. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task introduces the shared composer shell used by `Chat`, `Agents`, and `Flows`.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared composer rendering and `Chat`-specific composer behavior across desktop and mobile.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer layout, desktop popover direction, mobile modal interaction surfaces, and footer-control behavior.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may add or update browser-path proof files in addition to shared client code.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may add or update browser-path proof files in addition to shared client code.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
+  - check sections: `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check the composer placement sections that show how the composer sits below the transcript on desktop
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check the composer placement sections that show how the composer sits below the transcript on mobile
+- `planning/layout-ideas/plan/final-designs/chat-composer-final.png`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+Where the latest Story 58 composer direction is stricter than the markdown wording, use these newer requirements as the source of truth:
+- desktop composer popovers must open upward above the input/footer area
+- mobile composer control surfaces must open as large centered modal selection views
+- the visible input layout remains the same on desktop and mobile
+- the main input should take the available width
+- the footer controls remain visible on mobile rather than being hidden behind a different mobile-only chrome pattern
+
+Items to verify manually:
+- the `Chat` composer is one rounded outer surface rather than multiple stacked admin rows
+- the main input row is visually dominant
+- the input takes the available width
+- the send button is dark, circular, and attached to the right edge of the input row
+- the footer order is exactly `Info`, working path, provider, model, `Options`
+- the working-path control shows only the final folder name, not the full absolute path
+- the desktop `Info` popup opens upward above the composer and feels attached to the `i` button
+- the desktop provider, model, and options surfaces open upward above the composer rather than downward below it
+- the mobile `Info`, provider, model, working path, and options surfaces open as large centered modal views
+- the model selector remains one flat list with thinking modes first and models second
+- `Options` still opens when empty and shows a compact empty state
+- `New conversation` and `Re-authenticate` are not visible inside the final composer surface
+- the visible composer layout is the same family on desktop and mobile
+
+#### Implementation Notes
+
+- None yet.
+
+### Task 27. Migrate The Agents Composer Onto The Shared Composer Shell And Match The Final Agents Footer Contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 26`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Migrate the `Agents` composer onto the shared composer shell introduced by `Task 26` and bring the `Agents` footer controls into exact parity with the final design. This task owns the `Agents` page-specific footer controls, dependency-reset behavior between agent, command, and step, the `Agents` `Info` summary content, and the removal of the current multi-row command/prompt admin-panel treatment from the visible composer surface. The visible `Agents` composer layout must remain the same shared shell used by `Chat`: one rounded outer composer surface, one dominant full-width input row, and one compact footer row. Desktop selectors must open upward above the composer; mobile selectors must open as large centered modal selection surfaces.
+
+Where the latest Story 58 follow-up direction is stricter than the composer markdown wording, follow the newer requirement. In particular, desktop popovers must rise above the composer instead of opening downward, and mobile composer controls must open in the center of the screen as focused modal views.
+
+#### Non-Goals
+
+- Do not fork a new `Agents`-only composer shell.
+- Do not redesign the transcript surface, mobile app menu, or conversation list.
+- Do not preserve the current multi-row admin layout as the visible final `Agents` composer.
+- Do not leave `Execute command`, `Execute Prompt`, prompt-select rows, or similar old panel rows inside the final visible composer surface if they conflict with the final footer contract.
+- Do not use tiny anchored mobile popovers for `Agents` footer controls.
+
+#### Task Exit Criteria
+
+- The `Agents` composer matches `planning/layout-ideas/plan/final-designs/agents-composer-final.png`.
+- The visible `Agents` composer uses the same shared shell structure as `Chat`.
+- The `Agents` footer control order is exactly `Info`, working path, agent, command, step.
+- Desktop `Agents` footer controls open upward above the composer as anchored popovers attached to the triggering control.
+- Mobile `Agents` footer controls open as large centered modal selection surfaces.
+- Agent changes clearly invalidate dependent command and step selections.
+- Command changes clearly invalidate dependent step selections.
+- The `Info` summary reflects selected agent, command, step, working path, and provider/model information when relevant.
+- The final visible composer no longer reads like a stacked admin command-execution form.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-popover.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-dialog.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-menu.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
+- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.png`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/agents-composer-final.md` sections `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`. After that, inspect `client/src/components/agents/AgentsComposerPanel.tsx` and the `composerSurface` handoff in `client/src/pages/AgentsPage.tsx`. Purpose: lock the exact `Agents` composer target and the current points where the old multi-row command/prompt panel diverges from the final design.
+2. [ ] Current Repository: Update `client/src/components/agents/AgentsComposerPanel.tsx` to stop owning its own old panel layout and instead render the shared composer shell from `Task 26`. Keep the main input row identical in structure to the shared composer contract and move `Agents`-specific logic into footer controls and page-specific overlay content. Purpose: prevent `Agents` from remaining a custom panel while `Chat` uses the shared shell.
+3. [ ] Current Repository: Implement the `Agents` footer in the exact order `Info`, working path, agent, command, step`. Use the shared footer primitives from `Task 26` rather than leaving the current agent select, command row, and start-step select split across multiple stacked rows. Purpose: match the final `Agents` footer hierarchy exactly.
+4. [ ] Current Repository: Implement the `Agents` `Info` summary so it reflects selected agent, selected command, selected step, selected working path, and provider/model information when relevant to the current agent execution context. On desktop it must open upward above the composer; on mobile it must open in the center of the screen as a large modal summary surface. Purpose: replace the current split `agent-info` / `command-info` model with the final composer summary pattern.
+5. [ ] Current Repository: Implement the `Agents` working-path control using the shared working-path footer treatment from `Task 26`, showing only the final folder name inline and never the full path. Purpose: align `Agents` with the shared footer contract and remove the current inline full-path text field from the visible footer presentation.
+6. [ ] Current Repository: Implement the `Agents` agent selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. Purpose: move agent selection into the final footer-driven interaction pattern.
+7. [ ] Current Repository: Implement the `Agents` command selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. The command list must clearly belong to the selected agent, and changing the selected agent must reset or invalidate command state clearly and predictably. Purpose: satisfy the dependency-chain requirements from the final markdown.
+8. [ ] Current Repository: Implement the `Agents` step selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. The step list must clearly belong to the selected command, and changing the selected command must reset or invalidate step state clearly and predictably. Purpose: complete the final dependency-driven footer contract.
+9. [ ] Current Repository: Remove the current visible multi-row command execution chrome from the final `Agents` composer surface, including the stacked command row, separate start-step row treatment, prompt row, and separate execute buttons where those rows conflict with the final footer-first layout. Preserve underlying dependency and execution logic where needed, but do not leave the old admin-panel arrangement visible after this task. Purpose: make the final `Agents` composer read like a shared composer instead of a custom control console.
+10. [ ] Current Repository: Keep the main `Instruction` input row in the shared shell and attach the send/stop behavior to that shared input-row treatment rather than leaving it as a separate old action slot. Purpose: align the `Agents` input row with the shared final composer pattern.
+11. [ ] Current Repository: Verify that the visible `Agents` composer layout remains the same on desktop and mobile while desktop uses upward anchored popovers and mobile uses centered modal selection surfaces. Purpose: preserve the shared visible layout contract and vary only the interaction style.
+12. [ ] Current Repository: Create `client/src/components/agents/AgentsComposerPanel.parity.test.tsx`. Description: prove the `Agents` footer renders in the order `Info`, working path, agent, command, step, prove the visible footer omits the full working path, and prove dependency invalidation clears or resets dependent controls when the parent selection changes. Implementation files: `client/src/components/agents/AgentsComposerPanel.tsx` and the shared composer components from `Task 26`.
+13. [ ] Current Repository: Extend the relevant browser-path `Agents` proof, likely in the existing e2e flow that covers `Agents`, so it proves desktop `Agents` popovers open upward above the composer and mobile `Agents` selectors open as centered modal surfaces. The proof must cover at least `Info`, `Agent`, `Command`, and `Step`. Purpose: add browser-level validation for the shared interaction contract on `Agents`.
+14. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+15. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Agents` page.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, and shared composer interactions across desktop and mobile.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Agents`, including upward desktop popovers and centered mobile modal selection surfaces.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/agents-composer-final.md`
+  - check sections: `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/agents-composer-final.png`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+
+Where the latest Story 58 composer direction is stricter than the markdown wording, use these newer requirements as the source of truth:
+- desktop composer popovers must open upward above the input/footer area
+- mobile composer control surfaces must open as large centered modal selection views
+- the visible input layout remains the same on desktop and mobile
+- the main input should take the available width
+
+Items to verify manually:
+- the visible `Agents` composer uses the same overall shell shape as the shared `Chat` composer
+- the footer order is exactly `Info`, working path, agent, command, step
+- the working-path control shows only the final folder name
+- the desktop `Info`, `Agent`, `Command`, and `Step` surfaces open upward above the composer
+- the mobile `Info`, `Agent`, `Command`, and `Step` surfaces open as large centered modal views
+- agent changes clearly reset or invalidate dependent command and step values
+- command changes clearly reset or invalidate dependent step values
+- the final visible composer no longer shows the old stacked command row, prompt row, and separate execute-button panel treatment
+- the main input row remains visually dominant
+- the visible composer layout is the same family on desktop and mobile
+
+#### Implementation Notes
+
+- None yet.
+
+### Task 28. Migrate The Flows Composer Onto The Shared Composer Shell And Match The Final Flows Footer Contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 26`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Migrate the `Flows` composer onto the shared composer shell introduced by `Task 26` and bring the `Flows` footer controls into exact parity with the final design. This task owns the `Flows` page-specific footer controls, the title-control behavior, the `Flows` `Info` summary content, and the removal of the current multi-row flow-run form treatment from the visible composer surface. The visible `Flows` composer layout must remain the same shared shell used by `Chat`: one rounded outer composer surface, one dominant full-width input row, and one compact footer row. Desktop selectors must open upward above the composer; mobile selectors must open as large centered modal selection surfaces.
+
+Where the latest Story 58 follow-up direction is stricter than the composer markdown wording, follow the newer requirement. In particular, desktop popovers must rise above the composer instead of opening downward, and mobile composer controls must open in the center of the screen as focused modal views.
+
+#### Non-Goals
+
+- Do not fork a new `Flows`-only composer shell.
+- Do not redesign the transcript surface, mobile app menu, or conversation list.
+- Do not preserve the current stacked flow-selection, path, title, run/resume/stop form rows as the visible final `Flows` composer.
+- Do not keep launch-identity captions or resume-path status lines as permanent visible composer rows if they conflict with the final footer-driven contract.
+- Do not use tiny anchored mobile popovers for `Flows` footer controls.
+
+#### Task Exit Criteria
+
+- The `Flows` composer matches `planning/layout-ideas/plan/final-designs/flows-composer-final.png`.
+- The visible `Flows` composer uses the same shared shell structure as `Chat`.
+- The `Flows` footer control order is exactly `Info`, working path, selected flow, title.
+- Desktop `Flows` footer controls open upward above the composer as anchored popovers attached to the triggering control.
+- Mobile `Flows` footer controls open as large centered modal selection surfaces.
+- The title control is clearly actionable when unset and remains compact and editable when set.
+- The `Info` summary reflects selected flow, title state, selected working path, and provider/model details when applicable.
+- The final visible composer no longer reads like a stacked run/resume admin form.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-popover.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-dialog.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-menu.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-text-field.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.png`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/flows-composer-final.md` sections `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`. After that, inspect the current `Flows` composer implementation in `client/src/pages/FlowsPage.tsx`. Purpose: lock the exact `Flows` composer target and identify where the current stacked run/resume form diverges from the final footer-driven design.
+2. [ ] Current Repository: Update `client/src/pages/FlowsPage.tsx` so the visible `Flows` composer renders through the shared composer shell from `Task 26` rather than keeping the current custom outlined form layout. Keep the main input row identical in structure to the shared composer contract and move `Flows`-specific logic into footer controls and page-specific overlay content. Purpose: prevent `Flows` from remaining the one-off old composer implementation after the shared shell exists.
+3. [ ] Current Repository: Implement the `Flows` footer in the exact order `Info`, working path, selected flow, title`. Use the shared footer primitives from `Task 26` rather than keeping the current flow select, full working-folder field, and title field as separate stacked rows. Purpose: match the final `Flows` footer hierarchy exactly.
+4. [ ] Current Repository: Implement the `Flows` `Info` summary so it reflects selected flow, title state, selected working path, and provider/model details if applicable to the current flow context. On desktop it must open upward above the composer; on mobile it must open in the center of the screen as a large modal summary surface. Purpose: replace the current flow-info treatment with the final composer summary pattern.
+5. [ ] Current Repository: Implement the `Flows` working-path control using the shared working-path footer treatment from `Task 26`, showing only the final folder name inline and never the full path. Purpose: align `Flows` with the shared footer contract and remove the current inline full-path working-folder row from the visible composer presentation.
+6. [ ] Current Repository: Implement the `Flows` selected-flow control as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. Purpose: move flow selection into the final footer-driven interaction pattern.
+7. [ ] Current Repository: Implement the `Flows` title control so the unset state is clearly actionable, such as `Set title`, and the set state remains compact and editable. On desktop the title editor may be slightly richer than a simple menu, but it must still open upward above the composer and remain visually attached to the control that opened it. On mobile the title editor must open as a centered focused modal editing surface. Purpose: satisfy the final title behavior contract exactly.
+8. [ ] Current Repository: Remove the current visible stacked flow-run admin chrome from the final `Flows` composer surface, including the old flow row, working-folder row, custom title row, and run/resume/stop button row where those rows conflict with the final shared composer pattern. Preserve underlying flow-launch behavior where needed, but do not leave the old multi-row panel visible after this task. Purpose: make the final `Flows` composer read like the shared composer family rather than a custom run form.
+9. [ ] Current Repository: Keep the main prompt/input row in the shared shell and attach the send/stop behavior to that shared input-row treatment rather than leaving `Flows` with its old separated run/resume action-row model. Purpose: align the `Flows` input row with the shared final composer pattern.
+10. [ ] Current Repository: Verify that the visible `Flows` composer layout remains the same on desktop and mobile while desktop uses upward anchored popovers and mobile uses centered modal selection surfaces. Purpose: preserve the shared visible layout contract and vary only the interaction style.
+11. [ ] Current Repository: Create `client/src/pages/FlowsComposer.parity.test.tsx` or an equivalent focused test file. Description: prove the `Flows` footer renders in the order `Info`, working path, selected flow, title, prove the working-path footer omits the full path, and prove the unset-title and set-title states both remain visible and actionable. Implementation files: `client/src/pages/FlowsPage.tsx` and the shared composer components from `Task 26`.
+12. [ ] Current Repository: Extend the relevant browser-path `Flows` proof, likely in the existing e2e flow that covers `Flows`, so it proves desktop `Flows` popovers open upward above the composer and mobile `Flows` selectors open as centered modal surfaces. The proof must cover at least `Info`, `Selected flow`, and `Title`. Purpose: add browser-level validation for the shared interaction contract on `Flows`.
+13. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+14. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Flows` page.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Flows` composer rendering, title behavior, and shared composer interactions across desktop and mobile.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Flows`, including upward desktop popovers and centered mobile modal selection surfaces.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/flows-composer-final.md`
+  - check sections: `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/flows-composer-final.png`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+
+Where the latest Story 58 composer direction is stricter than the markdown wording, use these newer requirements as the source of truth:
+- desktop composer popovers must open upward above the input/footer area
+- mobile composer control surfaces must open as large centered modal selection views
+- the visible input layout remains the same on desktop and mobile
+- the main input should take the available width
+
+Items to verify manually:
+- the visible `Flows` composer uses the same overall shell shape as the shared `Chat` composer
+- the footer order is exactly `Info`, working path, selected flow, title
+- the working-path control shows only the final folder name
+- the desktop `Info`, `Selected flow`, and `Title` surfaces open upward above the composer
+- the mobile `Info`, `Selected flow`, and `Title` surfaces open as large centered modal views
+- the unset-title state is obviously actionable
+- the set-title state remains compact and editable
+- the final visible composer no longer shows the old stacked flow-selection row, working-folder row, custom-title row, and run/resume/stop row treatment
+- the main input row remains visually dominant
+- the visible composer layout is the same family on desktop and mobile
+
+#### Implementation Notes
+
+- None yet.
+
 ### Task 24. Make The Mobile App Menu Match The Final Full-Screen Navigation Design Without Changing The Desktop Rail
 
 - Repository Name: `Current Repository`
@@ -2818,162 +3336,3 @@ Items to verify manually:
 
 - None yet.
 
-### Task 25. Rebuild The Shared Assistant And User Transcript Surfaces To Match The Final Desktop And Mobile Reading Design
-
-- Repository Name: `Current Repository`
-- Task Dependencies: `Task 20`
-- Task Status: `__to_do__`
-
-#### Overview
-
-Bring the shared assistant and user transcript surfaces into exact parity with the approved Story 58 desktop and mobile reading designs. This task owns the shared conversation-reading surface only: assistant full-width slices, assistant footer layout, assistant status-chip placement, assistant `Info` popup behavior, user dark right-aligned bubbles, user footer layout, and removal of the current inset-card treatment. Desktop and mobile already share the same transcript message renderer, so this task should keep one shared transcript system while splitting the assistant and user row rendering into separate role-specific components for clarity and maintainability. This task does not own the input, composer, provider/model selectors, working-folder controls, or any other option interface below the transcript.
-
-Where the latest Story 58 follow-up direction is stricter than the transcript markdown wording, follow the newer requirement. In particular, treat the assistant transcript slice as a light blue, borderless reading surface rather than a neutral outlined card, keep the user bubble dark charcoal/black with white text, and keep the `Info` affordance assistant-only. Use these exact implementation target colors, based on the mobile final PNG design, for the shared transcript surfaces:
-- assistant slice background: `#F3F8FF`
-- assistant primary text: `#1F2933`
-- assistant secondary/footer text: `#52606D`
-- assistant action/icon blue: `#2F80ED`
-- user bubble background: `#111827`
-- user bubble text: `#FFFFFF`
-- user footer secondary text/tick baseline: `#D7DEE7`
-- user acknowledgement tick when confirmed: `#2F80ED`
-- `Working` status chip background/text: `#E8F1FF` / `#2F80ED`
-- `Complete` status chip background/text: `#E7F7EC` / `#2F855A`
-- `Failed` status chip background/text: `#FDECEC` / `#C53030`
-- `Stopped` status chip background/text: `#FFF4E5` / `#B7791F`
-
-#### Non-Goals
-
-- Do not redesign or move the composer, input box, provider selector, model selector, working-folder controls, send button, stop button, or agent-flags panel.
-- Do not redesign the conversation list, mobile conversations overlay, or mobile app menu as part of this task.
-- Do not change the shared destination/navigation contract.
-- Do not add assistant-only controls to user bubbles.
-- Do not add provider or model labels to the visible assistant footer.
-- Do not leave desktop and mobile with separate transcript message implementations; keep the transcript surface shared and only split the role-specific message renderers within that shared system.
-
-#### Task Exit Criteria
-
-- Assistant transcript outputs span the full available transcript width on desktop and mobile.
-- Assistant transcript outputs render as pale light-blue document-style slices using background `#F3F8FF` with no visible border or outline.
-- Assistant transcript outputs use primary text `#1F2933`, footer/secondary text `#52606D`, and action/icon blue `#2F80ED`.
-- Assistant transcript outputs use a required footer with:
-  - left side: `Info`, response time, status chip
-  - right side: completion date or relative time, `Copy`
-- Assistant transcript status chips use only the supported labels `Working`, `Complete`, `Failed`, and `Stopped`, with the icon treatments described in the final markdown.
-- The assistant `Info` popup is opened only from the assistant footer `Info` button and reads as attached to that button.
-- User transcript bubbles render as `#111827` right-aligned bubbles with `#FFFFFF` text, non-full-width sizing, and a required footer with acknowledgement tick, completion date or relative time, and `Copy`.
-- User bubbles do not render the `Info` button.
-- The transcript area no longer reads as a boxed or rounded card container; assistant outputs read as one shared reading surface and user replies sit between them as right-aligned dark bubbles.
-- The same shared transcript system drives both desktop and mobile transcript message rendering after the task completes.
-
-#### Documentation Locations
-
-- `https://llms.mui.com/material-ui/7.3.11/react-box.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-stack.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-popover.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-chip.md`
-- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
-
-#### Task Design Packet
-
-- Final visual targets and implementation contracts:
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
-- Initial structural source files:
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
-- Current implementation comparison inputs:
-  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
-  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
-
-#### Subtasks
-
-1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `Transcript Workspace`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections `Transcript Surface`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, and `Acceptance Summary`. After that, compare `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png` and `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png` against the two final PNGs. Then inspect `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx`. Purpose: lock the exact shared transcript target, confirm that desktop and mobile already share the transcript message renderer, and identify the current card-like transcript shortfalls before code changes begin.
-2. [ ] Current Repository: Refactor `client/src/components/chat/SharedTranscriptMessageRow.tsx` into a thin shared role switch that delegates assistant rendering to a new `client/src/components/chat/AssistantTranscriptSlice.tsx` component and user rendering to a new `client/src/components/chat/UserTranscriptBubble.tsx` component. Keep `SharedTranscript.tsx` as the shared transcript list/container and do not create separate desktop and mobile transcript row systems. Purpose: split the two message contracts cleanly while preserving one shared transcript architecture.
-3. [ ] Current Repository: Create `client/src/components/chat/transcriptSurfaceTokens.ts` or an equivalent shared transcript-style constants file and define the exact assistant, user, footer, action, and status-chip colors listed in this task overview there. Use that shared token file from both new role-specific transcript renderers instead of scattering hard-coded color strings. Purpose: make the stricter PNG-derived color contract explicit and reusable across desktop and mobile transcript surfaces.
-4. [ ] Current Repository: Create `client/src/components/chat/AssistantTranscriptSlice.tsx` and move all assistant-specific transcript rendering there. The new component must render assistant content as a full-width document-style slice with background `#F3F8FF`, no title bar, no top-left icon, no top-right metadata, and no visible border or outline that makes it read like an inset card. Purpose: replace the current generic outlined chat-bubble treatment with the final assistant reading surface.
-5. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, implement the assistant footer exactly as the design packet requires. The visible footer must use:
-  - left side: `Info` button, response time, status chip
-  - right side: completion date or relative time, `Copy`
-  Use footer/secondary text color `#52606D` and action/icon blue `#2F80ED`. Do not show provider or model in the visible footer, and do not add extra controls there. Purpose: make the assistant footer match the final transcript contract instead of the current generic action row.
-6. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, move the assistant status presentation out of the top-of-message card area and into the footer. Support only the target labels `Working`, `Complete`, `Failed`, and `Stopped`, using the task-defined target chip colors:
-  - `Working`: `#E8F1FF` background with `#2F80ED` text
-  - `Complete`: `#E7F7EC` background with `#2F855A` text
-  - `Failed`: `#FDECEC` background with `#C53030` text
-  - `Stopped`: `#FFF4E5` background with `#B7791F` text
-  Do not keep the current generic top chip placement or labels such as `Processing`, `Stopping`, or `Ready` as the visible final transcript contract. Purpose: match the final assistant status model and placement.
-7. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, implement the assistant `Info` popup as an anchored popover or mini-panel opened only from the footer `Info` button. The visible popup content must include `Provider`, `Model`, `Tokens in`, `Tokens out`, `Cached`, and `Total`, and it must read as visually attached to the trigger rather than as a detached floating utility card in the transcript middle. Purpose: satisfy the assistant-only metadata-detail contract from the final markdown.
-8. [ ] Current Repository: Create `client/src/components/chat/UserTranscriptBubble.tsx` and move all user-specific transcript rendering there. The new component must render a `#111827` dark charcoal or black right-aligned bubble with `#FFFFFF` text, no title bar, no top-right metadata, and non-full-width sizing that still behaves like the current constrained right-aligned user bubble width. Do not render user messages as full-width slices. Purpose: replace the current generic outlined card with the final user-bubble contract.
-9. [ ] Current Repository: In `client/src/components/chat/UserTranscriptBubble.tsx`, implement the user footer exactly as the design packet requires. The visible footer must use acknowledgement tick, completion date or relative time, and `Copy`. The acknowledgement tick must support the documented meaning using the target colors named in this task overview: grey/base tick state `#D7DEE7` before acknowledgement and blue `#2F80ED` after acknowledgement. Do not render an `Info` button in the user footer. Purpose: match the final user footer contract and remove assistant-only controls from user bubbles.
-10. [ ] Current Repository: Update `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/chatTranscriptFormatting.ts`, and any supporting transcript-format helpers only as needed so assistant footer metadata and user footer metadata are routed into the correct new components. Remove the current generic `hasFooterMetadata` / shared `Info`-button behavior when it would incorrectly make the user bubble render assistant-only controls. Purpose: preserve shared transcript utilities while stopping the generic footer logic from violating the design contract.
-11. [ ] Current Repository: Update the shared transcript container and transcript wrappers so the transcript surface stops reading as a boxed panel. Specifically inspect and adjust the transcript container treatment in `client/src/components/chat/SharedTranscript.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx` so the transcript surface no longer shows a visible boxed or rounded outer transcript panel that conflicts with the final desktop and mobile reading surfaces. Do not redesign the composer or lower controls while doing this. Purpose: remove the outer transcript framing mismatch that the role-specific row components alone cannot fix.
-12. [ ] Current Repository: Verify that `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx` still consume the same shared `SharedTranscript` list/container and the same role-specific assistant/user row components after this task. If any early refactor accidentally forks desktop and mobile transcript row rendering, collapse it back into the shared transcript path before finishing. Purpose: preserve the desired shared transcript architecture across desktop and mobile.
-13. [ ] Current Repository: Create `client/src/components/chat/AssistantTranscriptSlice.test.tsx`. Description: prove assistant transcript outputs render full-width slices, use background `#F3F8FF` with no visible border, use the assistant footer order `Info`, response time, status chip on the left and completion time plus `Copy` on the right, and render no visible provider/model text in the footer. Implementation files: `client/src/components/chat/AssistantTranscriptSlice.tsx`, `client/src/components/chat/transcriptSurfaceTokens.ts`, and any supporting transcript-format helpers touched by this task.
-14. [ ] Current Repository: Create `client/src/components/chat/UserTranscriptBubble.test.tsx`. Description: prove user bubbles render as right-aligned dark bubbles using background `#111827` and text `#FFFFFF`, keep constrained width, render the acknowledgement tick plus time plus `Copy`, and never render the assistant `Info` button. Implementation files: `client/src/components/chat/UserTranscriptBubble.tsx`, `client/src/components/chat/transcriptSurfaceTokens.ts`, and any supporting acknowledgement/time formatting helpers touched by this task.
-15. [ ] Current Repository: Create `client/src/components/chat/SharedTranscriptMessageRow.parity.test.tsx`. Description: prove `SharedTranscriptMessageRow.tsx` delegates assistant messages to `AssistantTranscriptSlice`, delegates user messages to `UserTranscriptBubble`, and preserves the shared transcript path used by desktop and mobile transcript surfaces. Implementation files: `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`, and `client/src/components/chat/UserTranscriptBubble.tsx`.
-16. [ ] Current Repository: Update the browser-path proof in the existing e2e chat surface, likely `e2e/chat.spec.ts`, so it proves the shared transcript contract in a real browser on the supported runtime. The e2e proof must cover at least one assistant transcript slice and one user bubble, and it must assert that the user bubble does not expose the assistant `Info` control while the assistant slice does. If screenshot assertions are already used in that proof surface, update them only within ignored artifact output paths. Purpose: add durable browser-level proof for the shared desktop/mobile transcript contract instead of relying only on unit tests.
-17. [ ] Current Repository: Extend `client/src/test/workspaceShell.test.tsx`, `client/src/test/chatPage.status.test.tsx`, or create a dedicated transcript-surface integration test so the shared transcript wrapper path proves the outer transcript surface no longer renders as an obvious boxed panel while the composer and option interface remain present and unchanged below it. Purpose: protect the wrapper-level transcript-surface contract separately from the role-specific row tests.
-18. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-19. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
-
-#### Testing
-
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared transcript message surface used by `Chat`, `Agents`, and `Flows`.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared assistant/user transcript rendering, shared transcript wrapper treatment, and role-specific footer behavior across desktop and mobile.
-3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript behavior, footer controls, popup attachment behavior, and shared desktop/mobile reading-surface layout that should be re-proved in a real browser.
-4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task changes shared frontend surfaces and adds or updates browser-path proof that may touch root-owned e2e files.
-5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task changes shared frontend surfaces and may also update root-owned e2e proof files.
-
-#### Manual Testing Guidance
-
-Use these design files and sections as the manual checklist source:
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - check sections: `Transcript Workspace`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
-  - check sections: `Transcript Surface`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
-- compare against current-state references:
-  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
-  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
-
-Where the latest Story 58 transcript direction is stricter than the markdown wording, use these newer requirements as the source of truth:
-- assistant slice background must be light blue `#F3F8FF` with no border
-- assistant actions/icons should use `#2F80ED`
-- user bubble background must be `#111827` with `#FFFFFF` text
-- only assistant outputs may show the `Info` button
-- the target status-chip colors are:
-  - `Working`: `#E8F1FF` / `#2F80ED`
-  - `Complete`: `#E7F7EC` / `#2F855A`
-  - `Failed`: `#FDECEC` / `#C53030`
-  - `Stopped`: `#FFF4E5` / `#B7791F`
-
-Items to verify manually:
-- assistant outputs take the full available transcript width on desktop
-- assistant outputs take the full available transcript width on mobile
-- assistant outputs use background `#F3F8FF` and do not read as inset outlined cards
-- assistant outputs have no title bar, no top-left icon, and no top-right metadata
-- assistant outputs use the required footer layout:
-  - left: `Info`, response time, status chip
-  - right: completion time or relative time, `Copy`
-- assistant visible footer does not show provider or model
-- assistant status labels and colors match the approved target set
-- the assistant `Info` popup opens from the footer `Info` button and reads as attached to it
-- user bubbles are `#111827` with `#FFFFFF` text
-- user bubbles remain right-aligned and width-constrained rather than becoming full-width
-- user bubbles use the required footer layout:
-  - acknowledgement tick
-  - completion time or relative time
-  - `Copy`
-- user bubbles do not show the `Info` button
-- the transcript surface no longer reads as a boxed or rounded outer transcript panel
-- the shared reading surface feels dense and document-like rather than like stacked message cards
-- the input/composer and option interface below the transcript remain out of scope for this task and should not be judged as part of this transcript-only pass
-
-#### Implementation Notes
-
-- None yet.

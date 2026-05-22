@@ -2430,7 +2430,7 @@ No additional repositories are in scope for this review cycle.
 4. What a reviewer should take particular interest in.
    Reviewers should focus on the shared workspace-shell and transcript seams in `client/src/components/workspace/`, `client/src/components/chat/`, and `client/src/routes/router.tsx`; the `Home` and LM Studio ownership path in `client/src/pages/HomePage.tsx` and `client/src/hooks/useLmStudioStatus.ts`; the `Flows` execution-boundary and retry-ownership seams in `client/src/pages/FlowsPage.tsx` and `server/src/flows/service.ts`; and the launcher-contract wrapper path in `scripts/docker-compose-with-env.sh` plus its focused server proof. For closeout evidence, the strongest curated manual/browser proof now lives under `codeInfoStatus/manual-proof/0000058/`, while the clean post-implementation review closeout records the remaining weaker-confidence edges around the flow retry cleanup interleaving and startup/bootstrap reachability.
 
-### Task 21. Make The Desktop App Rail Match The Final Workspace Navigation Design
+### Task 21. Make The Desktop App Rail Match The Final Workspace Navigation Design Without Changing The Mobile App Menu
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
@@ -2438,16 +2438,26 @@ No additional repositories are in scope for this review cycle.
 
 #### Overview
 
-Bring the shared desktop app rail to exact parity with the approved Story 58 desktop navigation design. This task owns the desktop rail only: destination order, icon placement, one-word labels, spacing, colors, selected-state treatment, and the explicit no-logo / no-avatar constraints in the final design packet.
+Bring the shared desktop app rail to exact parity with the approved Story 58 desktop navigation design without changing the rendered mobile app-menu appearance or content model. This task owns the desktop rail only: destination order, icon placement, one-word labels, spacing, colors, selected-state treatment, and the explicit no-logo / no-avatar constraints in the final design packet. The mobile app menu must keep its sentence-style secondary descriptions and must not inherit desktop one-word-only presentation rules as a side effect of this task.
+
+#### Non-Goals
+
+- Do not change the rendered mobile app-menu layout.
+- Do not remove, shorten, or rewrite the sentence-style secondary descriptions used by the mobile app menu.
+- Do not apply desktop one-word-only presentation rules to the mobile app menu.
+- Do not change the mobile app-menu top bar, explanatory text, row spacing, row-card treatment, trailing-navigation treatment, or selected-row styling as part of this task.
+- Do not change the mobile app-menu destination order, destination names, or close behavior while completing this desktop-rail task.
 
 #### Task Exit Criteria
 
 - The desktop rail matches `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`.
-- Each destination renders one centered icon with one centered single-word label below it.
+- Each desktop destination renders one centered icon with one centered single-word label below it.
 - The desktop rail uses the approved dark navy palette and understated selected-state treatment.
 - The desktop rail includes no product logo at the top and no avatar, profile, or account block at the bottom.
 - The desktop rail destination order and naming exactly match the shared navigation contract used by the mobile app menu: `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, `Logs`.
 - The shared destination config remains the single source of truth for both the desktop rail and the mobile app menu.
+- The mobile app menu continues to use the same destination set and sentence-style secondary descriptions after this task completes.
+- The desktop rail suppresses descriptive text in desktop rendering only; the mobile app menu does not lose or change its sentence-style descriptions as a side effect of this task.
 
 #### Documentation Locations
 
@@ -2467,24 +2477,28 @@ Bring the shared desktop app rail to exact parity with the approved Story 58 des
   - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
   - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.md`
   - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png`
+  - `codeInfoStatus/manual-proof/0000058/task-9/proof-04-mobile-app-menu.png`
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `High-Level Layout`, `App Rail`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md` sections `Destination List`, `Interaction Behavior`, `Hard Constraints`, and `Acceptance Summary`. After that, inspect `client/src/components/workspace/WorkspaceAppRail.tsx`, `client/src/components/workspace/workspaceNavigation.ts`, `client/src/components/utility/UtilityPageShell.tsx`, `client/src/components/workspace/WorkspaceDesktopShell.tsx`, and `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`. Purpose: lock the exact destination order, shared-config contract, and no-logo / no-avatar constraints before changing the rail.
-2. [ ] Current Repository: Update `client/src/components/workspace/workspaceNavigation.ts` so the shared navigation config defines the exact final destination order `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, `Logs`, keeps one-word primary labels for the desktop rail, and keeps concise secondary descriptions available for the mobile app menu. Purpose: keep one shared navigation contract instead of duplicating labels in components.
-3. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceAppRail.tsx` so each desktop destination renders as one vertically stacked rail item with the icon centered horizontally and one centered single-word label below it, with no descriptive secondary text shown on desktop. Purpose: replace the current sidebar-style title-plus-description treatment with the final compact rail model.
-4. [ ] Current Repository: Update the desktop rail width, padding, spacing, background, hover state, selected state, and border treatment in `client/src/components/workspace/WorkspaceAppRail.tsx` so they match `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png` as closely as practical. Purpose: land the final rail palette and emphasis, not only the final layout.
-5. [ ] Current Repository: Remove any desktop top branding block and any desktop bottom avatar, profile, or account block from `client/src/components/workspace/WorkspaceAppRail.tsx`. Purpose: enforce the final design rule that the rail has no product logo at the top and no user avatar at the bottom.
-6. [ ] Current Repository: Verify `client/src/components/utility/UtilityPageShell.tsx` and `client/src/components/workspace/WorkspaceDesktopShell.tsx` host the revised rail without page-local spacing drift or destination-order drift. Purpose: keep one identical desktop rail across workspace and utility pages.
-7. [ ] Current Repository: Create `client/src/test/workspaceAppRail.parity.test.tsx`. Description: prove the desktop rail renders exactly six destinations in the final order with one-word labels only, no descriptive secondary rail text, and the shared active-destination state. Implementation files: `client/src/components/workspace/WorkspaceAppRail.tsx`, `client/src/components/workspace/workspaceNavigation.ts`, `client/src/components/utility/UtilityPageShell.tsx`, and `client/src/components/workspace/WorkspaceDesktopShell.tsx`.
-8. [ ] Current Repository: Extend `client/src/test/workspaceAppRail.parity.test.tsx` to prove the shared navigation config still provides concise secondary descriptions to `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` while the desktop rail intentionally suppresses them. Purpose: prevent a fix that makes desktop correct by breaking the mobile menu contract.
-9. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-10. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `High-Level Layout`, `App Rail`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md` sections `Destination List`, `Interaction Behavior`, `Hard Constraints`, and `Acceptance Summary`. After that, inspect `client/src/components/workspace/WorkspaceAppRail.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, `client/src/components/utility/UtilityPageShell.tsx`, `client/src/components/workspace/WorkspaceDesktopShell.tsx`, and `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`. Purpose: lock the exact desktop rail target and the explicit non-goal that mobile app-menu rendering must not change.
+2. [ ] Current Repository: Update `client/src/components/workspace/workspaceNavigation.tsx` so the shared navigation config defines the exact final destination order `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, `Logs`, keeps one-word primary labels for the desktop rail, and preserves the sentence-style secondary descriptions needed by `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`. Do not delete, shorten, or stop exporting the mobile descriptions while making the desktop rail one-word-only. Purpose: keep one shared navigation contract while protecting mobile-only descriptive content.
+3. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceAppRail.tsx` so each desktop destination renders as one vertically stacked rail item with the icon centered horizontally and one centered single-word label below it, with no descriptive secondary text shown on desktop. Suppress descriptive text only in desktop rendering; do not move that suppression into shared destination data and do not change `WorkspaceMobileAppMenuOverlay.tsx` row content. Purpose: replace the current desktop sidebar-style title-plus-description treatment without removing mobile row descriptions.
+4. [ ] Current Repository: Update the desktop rail width, padding, spacing, background, hover state, selected state, and border treatment in `client/src/components/workspace/WorkspaceAppRail.tsx` so they match `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png` as closely as practical. Do not copy these desktop rail presentation rules into the mobile app menu overlay. Purpose: land desktop-only rail parity without changing the mobile surface.
+5. [ ] Current Repository: Remove any desktop top branding block and any desktop bottom avatar, profile, or account block from `client/src/components/workspace/WorkspaceAppRail.tsx`. Do not remove or restyle any content inside `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` as part of this step. Purpose: enforce the final desktop rail structure while keeping mobile navigation untouched.
+6. [ ] Current Repository: Open `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` and verify it still renders sentence-style secondary descriptions from the shared destination config and still uses its existing mobile row structure after the desktop rail changes. If any earlier code change accidentally removes, shortens, or suppresses the mobile descriptions, restore the mobile overlay behavior before finishing the task. Purpose: give a junior agent an explicit stop-check that desktop-only text removal must not break mobile.
+7. [ ] Current Repository: Verify `client/src/components/utility/UtilityPageShell.tsx` and `client/src/components/workspace/WorkspaceDesktopShell.tsx` host the revised desktop rail without page-local spacing drift or destination-order drift, and verify `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` remains functionally unchanged except for shared destination ordering if that config was corrected. Purpose: keep desktop parity work isolated from mobile overlay rendering.
+8. [ ] Current Repository: Create `client/src/test/workspaceAppRail.parity.test.tsx`. Description: prove the desktop rail renders exactly six destinations in the final order with one-word labels only, no descriptive secondary rail text, and the shared active-destination state. Implementation files: `client/src/components/workspace/WorkspaceAppRail.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, `client/src/components/utility/UtilityPageShell.tsx`, and `client/src/components/workspace/WorkspaceDesktopShell.tsx`.
+9. [ ] Current Repository: Extend `client/src/test/workspaceAppRail.parity.test.tsx` to prove the shared navigation config still provides sentence-style secondary descriptions to `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` while the desktop rail intentionally suppresses those descriptions. The proof must assert that mobile descriptions are still present and desktop descriptions are still absent. Purpose: prevent a fix that makes desktop correct by breaking the mobile app-menu contract.
+10. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+11. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
 
 #### Testing
 
 1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared navigation primitives used by workspace and utility pages.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared desktop navigation and shared destination config that affect multiple pages and overlays.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared desktop navigation and shared destination config, and it must also prove that the mobile app-menu descriptions and mobile overlay content did not regress while desktop text was removed.
 3. [ ] Current Repository: Run `npm run lint --workspace client`.
 4. [ ] Current Repository: Run `npm run format:check --workspace client`.
 
@@ -2500,14 +2514,15 @@ Use these design files and sections as the manual checklist source:
 
 Items to verify manually:
 - the desktop rail uses the same dark navy background and subtle selected-state treatment as the final desktop PNG
-- each icon is centered horizontally within its rail item
-- each destination has one centered single-word label below the icon
+- each desktop icon is centered horizontally within its rail item
+- each desktop destination has one centered single-word label below the icon
 - there is no descriptive secondary text on desktop
-- there is no product logo at the top of the rail
-- there is no avatar, profile, or account block at the bottom of the rail
+- there is no product logo at the top of the desktop rail
+- there is no avatar, profile, or account block at the bottom of the desktop rail
 - the destination order is exactly `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, `Logs`
-- the shared destination naming still matches the mobile app-menu contract
-- the rail reads as a slim app rail, not a generic left sidebar
+- the mobile app menu still shows sentence-style secondary descriptions under each destination
+- the mobile app menu did not lose, shorten, or visually suppress its descriptive text as a side effect of the desktop rail task
+- the mobile app menu still behaves like the mobile counterpart to the shared destination contract rather than inheriting desktop one-word-only presentation rules
 
 #### Implementation Notes
 

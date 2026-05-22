@@ -12,7 +12,7 @@ Use the stored current-plan handoff as the only source of plan scope for this st
 - Do NOT make file changes in this step.
 - After resolving the plan, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` and use its JSON output as the source of truth for whether story-level manual-testing guidance exists.
 - If the active plan explicitly names design-target assets intended as implementation references, treat that as `Design Contract Present` for the manual-testing summary.
-- If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as the authoritative comparison contract and the visual asset as supporting visual reference.
+- If `Design Contract Present` is true, summarize the visual-comparison precedence in this order: the current task's explicit subtasks and task-level requirements first, then the story plan or `Design Contract`, then paired design markdown, then the supporting visual asset.
 
 </critical_rules>
 

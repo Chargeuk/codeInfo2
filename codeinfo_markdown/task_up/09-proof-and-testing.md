@@ -54,9 +54,10 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - For Playwright MCP screenshots, Manual Testing Guidance should name both steps: capture to the Playwright output directory first, then transfer into the target repository's `codeInfoTmp/manual-testing/<story-number>/<task-number>/` scratch destination.
 - If `Design Contract Present` is true and the task changes a browser-visible surface, Manual Testing Guidance must name:
   - the screenshot views to capture;
-  - the exact design assets those screenshots must be compared against;
+  - the exact current-task visual requirements those screenshots must be compared against first, plus the design assets to use as fallbacks when the task is silent;
   - that screenshot capture alone is not sufficient and comparison notes are part of the proof;
-  - that paired design markdown is canonical when paired markdown and visual design assets such as `*.png` or `*.svg` both exist for the same surface, while the visual asset remains supporting visual reference.
+  - that the current task's explicit subtasks and task-level requirements are the immediate comparison contract first, with the story plan or `Design Contract`, paired design markdown, and then the supporting visual asset used only as fallbacks when the task is silent;
+  - that paired design markdown is canonical only relative to the supporting visual asset when paired markdown and visual design assets such as `*.png` or `*.svg` both exist for the same surface.
 - If `Design Contract Present` is true and the task is the final task in the story, its `Manual Testing Guidance` must request screenshots for all implemented frontend surfaces across the whole story that can honestly be observed, along with the design assets those screenshots should later be compared against.
 - End each task's `Testing` section with these two separate final steps in this order:
   - a lint step that names the exact repository-supported lint command and says to fix any issues found, using any supported auto-fix path before manual cleanup when available;

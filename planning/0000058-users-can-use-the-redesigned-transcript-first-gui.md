@@ -3434,3 +3434,133 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
+
+### Task 29. Remove Outer Workspace Gutters And Restore Full-Page Scroll Behavior Across Desktop And Mobile Shells
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the shared page-shell layout into parity with the final Story 58 workspace framing by removing unintended outer whitespace, making the desktop rail flush with the browser edge, tightening the transcript-side outer gutter, and restoring vertical scrolling anywhere page content can exceed the viewport. This task owns shared shell and page-wrapper layout only. It does not redesign the desktop rail, transcript message surface, conversation list, composer internals, or any other individual component that already has its own follow-up task.
+
+This task must correct the current desktop-shell framing problems visible in `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png` when compared against `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`, especially:
+- unintended whitespace to the left of the desktop rail
+- unintended whitespace across the top of the full page
+- unintended whitespace across the bottom of the full page
+- excessive whitespace to the right of the main workspace content
+- page wrappers that block vertical scrolling on non-chat pages when content exceeds the viewport
+
+Implementation order matters and must be followed in this exact sequence:
+1. fix the root app shell first
+2. fix the shared desktop and utility shells second
+3. fix page-level wrappers only if shell-level gaps or scroll bugs still remain after the shared fixes
+
+Where the existing implementation conflicts with the final shell framing shown in the design packet, follow the design packet and this task. In particular, the app shell must not add generic outer `Container` gutters or top/bottom spacing around the full workspace, shared shell wrappers must not leave a generic outer right gutter around the workspace, and shared shell wrappers must not use overflow rules that prevent the user from reaching off-screen content.
+
+#### Non-Goals
+
+- Do not redesign the desktop app rail visuals, transcript visuals, chat composer visuals, or conversation-list visuals in this task.
+- Do not change message bubble styling, assistant footers, user footers, or transcript metadata behavior in this task.
+- Do not implement the future desktop rail, transcript, or composer follow-up tasks as part of this shell/layout pass.
+- Do not remove intended internal spacing inside specific page components unless that spacing is directly caused by shared shell wrappers.
+- Do not leave any page unable to scroll vertically when its content exceeds the viewport.
+- Do not solve vertical reachability by creating multiple competing nested scroll containers unless a nested container is intentionally the page’s main scrolling surface.
+
+#### Task Exit Criteria
+
+- The desktop app rail sits flush against the left edge of the browser window with no unintended outer gutter.
+- The full desktop workspace has no unintended whitespace strip above the top edge of the workspace shell.
+- The full desktop workspace has no unintended whitespace strip below the bottom edge of the workspace shell.
+- The app-level outer right gutter around the main desktop workspace is removed as a generic shell behavior; only intentional component-owned internal spacing from the design packet remains.
+- Shared app-level wrappers no longer add generic `Container` gutters, top margin, or bottom padding around the full-page workspace shell.
+- Desktop `Chat`, `Agents`, `Flows`, and utility pages can scroll vertically when their content exceeds the viewport.
+- Mobile wrappers also preserve vertical scrolling where content exceeds the viewport.
+- No shared shell change regresses the ability of transcript surfaces or composers to remain visible within the intended workspace structure.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-box.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-container.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-stack.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-paper.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `High-Level Layout`, `App Rail`, `Conversation Pane`, `Transcript Workspace`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections that define the outer shell framing and vertical page behavior for mobile. After that, compare `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png` against `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png` and note each shell-level mismatch this task owns: left gutter, top gutter, bottom gutter, oversized right gutter, and blocked vertical scrolling. Purpose: lock the exact shell/layout target before editing shared wrappers.
+2. [ ] Current Repository: Inspect `client/src/App.tsx`, `client/src/main.tsx`, `client/src/index.css`, `client/src/components/workspace/WorkspaceDesktopShell.tsx`, and `client/src/components/utility/UtilityPageShell.tsx`. Identify every app-level or shell-level wrapper that adds generic outer spacing, default container gutters, fixed viewport framing, or overflow rules that can block scrolling. Purpose: prevent a weak implementation agent from fixing only one page while leaving the root shell bug intact.
+3. [ ] Current Repository: Fix the root app shell in `client/src/App.tsx` before editing individual page wrappers. Remove the outer `Container`-driven left and right gutter, top margin, and bottom padding there first, then re-check the desktop workspace proof before touching page-level layout files. Preserve runtime-config error-banner visibility, but do not let the full app shell keep generic page gutters around the workspace. Purpose: remove the shared root cause first and prevent a weak implementation agent from scattering shell fixes across many page files.
+4. [ ] Current Repository: Update `client/src/index.css` and any related root wrapper styles so `html`, `body`, and `#root` support a true full-height application shell without browser-default gaps or collapsing-height side effects. Purpose: ensure the shared shell can fill the viewport cleanly and scroll correctly across desktop and mobile.
+5. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceDesktopShell.tsx` so the desktop workspace uses edge-to-edge framing with no unintended outer left, top, or bottom gutter, and so the app-level outer right gutter is removed as a generic shell behavior. Preserve only intentional component-owned internal spacing shown in the final design packet; do not leave a reduced but still arbitrary shell gutter on the right side. Do not redesign the rail, conversation pane, transcript, or composer internals here; only correct shell-level framing and width behavior. Purpose: bring the desktop workspace shell itself into parity with the final desktop shell framing.
+6. [ ] Current Repository: Update `client/src/components/utility/UtilityPageShell.tsx` so desktop utility pages share the same corrected full-page shell framing as `Chat`, `Agents`, and `Flows`. Preserve intentional page-title spacing inside the content area, but remove shell-level outer gutters and any shared overflow rules that stop the page from feeling edge-aligned and fully reachable. Purpose: apply the shell fix consistently to non-chat pages instead of fixing only the chat workspace.
+7. [ ] Current Repository: Restore vertical reachability through the shared shell path rather than by creating multiple competing nested scroll containers. Only keep nested scrolling where a container is intentionally the page’s main scrolling surface, and remove or adjust wrapper-level `overflow: hidden`, `overflowY: hidden`, `height: 100%`, `height: 100vh`, or similar rules when they trap content outside the reachable page area. Purpose: prevent double-scroll or trapped-scroll regressions while fixing page reachability.
+8. [ ] Current Repository: Audit `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/pages/FlowsPage.tsx` for page-owned wrapper `Container`, `Stack`, `Box`, or `Paper` spacing that duplicates shell-level padding or still blocks flex children from scrolling after the root and shared-shell fixes are in place. Remove only the page-level wrapper spacing or overflow behavior that remains problematic after the shared shell updates. Purpose: finish the shell cleanup without letting a weak implementation agent start from page-level patches too early.
+9. [ ] Current Repository: Audit `client/src/pages/HomePage.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/pages/LogsPage.tsx`, and `client/src/pages/LmStudioPage.tsx` through their `UtilityPageShell` usage to confirm each page can scroll vertically to reveal all content when it exceeds the viewport. If any page still clips content because an intermediate wrapper uses blocking overflow or inflexible height rules, correct that wrapper in the shared path or the page-level wrapper as appropriate. Purpose: explicitly fix the non-chat vertical-scroll regression mentioned in this task.
+10. [ ] Current Repository: Verify that the desktop rail remains flush-left and the workspace still renders correctly when the conversation pane is open and when it is collapsed. Do not reintroduce left or right outer gutters as a side effect of drawer-open or drawer-closed layout states. Purpose: ensure shell parity survives both desktop conversation-pane states.
+11. [ ] Current Repository: Verify that mobile page wrappers still behave correctly after the root-shell changes. In particular, confirm the mobile workspace and mobile utility pages can scroll vertically when their content is taller than the viewport and that no new root-level whitespace bands appear above or below the page. Purpose: cover the likely mobile version of the same overflow bug without creating a separate mobile-only shell task.
+12. [ ] Current Repository: Create or extend a shared shell test file, such as `client/src/components/workspace/WorkspaceDesktopShell.test.tsx` or `client/src/test/workspaceShell.test.tsx`. Description: prove the desktop shell renders edge-to-edge without app-level container gutters and that the workspace rail sits at the left edge of the shell. Implementation files: `client/src/App.tsx`, `client/src/components/workspace/WorkspaceDesktopShell.tsx`, and any shared root-style files touched by this task.
+13. [ ] Current Repository: Create or extend a utility-shell test file, such as `client/src/components/utility/UtilityPageShell.test.tsx` or `client/src/test/utilityPageShell.test.tsx`. Description: prove utility pages use the corrected shell framing and preserve vertical scrolling when content exceeds the viewport. Implementation files: `client/src/components/utility/UtilityPageShell.tsx` and any shared root-style files touched by this task.
+14. [ ] Current Repository: Extend the relevant desktop/mobile browser-path proof, likely in existing Playwright coverage for workspace and utility pages, so it proves the desktop workspace has no outer top/bottom/left shell gutters and proves at least one non-chat page can scroll vertically to reveal clipped content. If no suitable browser-path proof exists yet, add one focused shell-layout proof rather than relying only on unit tests. Purpose: add real browser validation for viewport framing and scrolling behavior.
+15. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+16. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared app-shell and workspace-shell layout used across the client.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes root wrappers, workspace shells, utility shells, and page-scroll behavior that can affect multiple pages.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible viewport framing, edge alignment, and real-browser scroll behavior across desktop and mobile.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may add or update browser-path proof in addition to shared client code.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may add or update browser-path proof in addition to shared client code.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `High-Level Layout`, `App Rail`, `Conversation Pane`, `Transcript Workspace`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check sections that define the full-page shell framing, transcript/composer placement, and overall page reachability on mobile
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+Items to verify manually:
+- the desktop app rail is flush against the left edge of the browser window
+- there is no unintended white strip above the top of the desktop workspace
+- there is no unintended white strip below the bottom of the desktop workspace
+- the app-level outer right gutter is removed and only intentional internal component spacing remains
+- the corrected shell framing applies when the desktop conversation pane is open
+- the corrected shell framing still applies when the desktop conversation pane is collapsed
+- the desktop shell still leaves intentional internal spacing inside components without adding generic outer shell gutters
+- at least one non-chat desktop page can scroll vertically to reveal all content when the page is taller than the viewport
+- the `Chat` desktop page still fills the available workspace height correctly after the shell changes
+- the `Agents` desktop page can scroll vertically to reveal all content when needed
+- the `Flows` desktop page can scroll vertically to reveal all content when needed
+- utility pages such as `Home`, `Ingest`, and `Logs` can scroll vertically to reveal all content when needed
+- mobile pages still reach all content by vertical scrolling when page content exceeds the viewport
+- no new top or bottom whitespace bands appear on mobile after the root-shell changes
+- the vertical-scroll fix does not create awkward double-scroll behavior between the page shell and nested page content unless a nested surface is intentionally the main scrolling surface
+
+#### Implementation Notes
+
+- None yet.
+
+

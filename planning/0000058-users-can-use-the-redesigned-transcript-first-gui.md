@@ -2436,6 +2436,7 @@ No additional repositories are in scope for this review cycle.
 4. What a reviewer should take particular interest in.
    Reviewers should focus on the shared workspace-shell and transcript seams in `client/src/components/workspace/`, `client/src/components/chat/`, and `client/src/routes/router.tsx`; the `Home` and LM Studio ownership path in `client/src/pages/HomePage.tsx` and `client/src/hooks/useLmStudioStatus.ts`; the `Flows` execution-boundary and retry-ownership seams in `client/src/pages/FlowsPage.tsx` and `server/src/flows/service.ts`; and the launcher-contract wrapper path in `scripts/docker-compose-with-env.sh` plus its focused server proof. For closeout evidence, the strongest curated manual/browser proof now lives under `codeInfoStatus/manual-proof/0000058/`, while the clean post-implementation review closeout records the remaining weaker-confidence edges around the flow retry cleanup interleaving and startup/bootstrap reachability.
 
+
 ### Task 21. Make The Desktop App Rail Match The Final Workspace Navigation Design Without Changing The Mobile App Menu
 
 - Repository Name: `Current Repository`
@@ -2533,6 +2534,342 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
+
+
+### Task 22. Redesign Shared Conversation Rows To Match The Final Desktop And Mobile Metadata Model
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Replace the current utility-heavy conversation row treatment with the final shared row model used by the desktop conversation pane and the mobile conversations surface. This task owns row composition only: provider icon semantics, title and preview hierarchy, provider/model/protocol chips, timestamp rules, compact row density, and direct archive-action placement.
+
+The row content contract must be made explicit for weak implementation agents. In particular:
+- preview text must be derived from one deterministic shared helper, not improvised inline
+- provider or runtime icon selection must come from one deterministic shared helper, not ad-hoc JSX branching
+- if preview text is missing, the helper must fall back to one stable placeholder rather than leaving the row blank
+- if provider or model information is missing, the icon helper must fall back to one stable generic runtime icon rather than reusing git or source-control branding
+
+#### Task Exit Criteria
+
+- Desktop and mobile conversation rows use the same shared information model and visual hierarchy.
+- Each row shows a model or runtime provider icon on the left, a compact title plus preview and provider/model/protocol chips in the middle, last-update time on the right, and the archive affordance on the far right.
+- Provider icons represent runtime or model providers rather than git or source-control branding.
+- Preview text always resolves through one deterministic shared fallback path and never leaves the row with an empty preview slot.
+- Provider icon selection always resolves through one deterministic shared fallback path and never falls back to git or source-control branding when provider metadata is missing.
+- The row no longer reads like a bulk-selection admin table with scattered metadata.
+- Row-level actions remain directly visible without moving into overflow-only controls.
+- The shared row contract preserves existing routing and conversation-ownership behavior.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-list.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-chip.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.svg`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `Conversation Pane` and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md` sections `Conversation Rows`, `Visual Style`, `Hard Constraints`, and `Acceptance Summary`. After that, inspect `client/src/components/chat/ConversationList.tsx`, `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/hooks/useConversations.ts`, and `client/src/api/conversations.ts`. Purpose: lock the final shared row schema before changing the renderer.
+2. [ ] Current Repository: Update `client/src/components/chat/ConversationList.tsx` so each conversation row renders the provider icon on the left, the title plus compact preview and provider/model/protocol chips in the central content area, the last-update timestamp on the right, and the archive action on the far right. Purpose: land the final row hierarchy in the one shared row renderer.
+3. [ ] Current Repository: Replace any row-level source-control or git branding in `client/src/components/chat/ConversationList.tsx` or supporting helpers with provider or runtime icon semantics that match the final design contract. Purpose: make the left icon represent the runtime or model provider rather than an unrelated tool or repo concept.
+4. [ ] Current Repository: Remove checkbox-first and bulk-action-first row chrome from `client/src/components/chat/ConversationList.tsx` so the shared row reads as a compact conversation entry with a direct archive affordance instead of an admin-table selection surface. Purpose: match the final row design instead of preserving transitional management chrome.
+5. [ ] Current Repository: Add one shared preview-text helper in `client/src/components/chat/` or `client/src/hooks/` so rows derive a deterministic compact preview string without duplicating preview logic in JSX. The helper must apply one explicit fallback contract in this order:
+   - first meaningful user prompt or user text when available
+   - otherwise first meaningful assistant or system summary text when that is the best available visible row context
+   - otherwise one stable placeholder string such as `No preview available`
+   Do not let different row types invent different empty-preview behavior in JSX. Purpose: give the shared row renderer one stable preview seam that a weak implementation agent can follow without guessing.
+6. [ ] Current Repository: Add one shared row-timestamp formatter in `client/src/components/chat/` or `client/src/utils/` so rows show relative “how long ago” text when the last update is less than 24 hours old and exact local date/time text when the last update is 24 hours old or older. Purpose: match the final timestamp rule instead of one generic date style.
+7. [ ] Current Repository: Add one shared provider or runtime icon helper in `client/src/components/chat/` or a nearby shared helper file so icon selection follows one explicit contract:
+   - show the correct runtime or model provider icon when provider metadata is present
+   - if provider metadata is missing but a model family or runtime family still maps cleanly, use that stable mapped icon
+   - otherwise use one stable generic runtime fallback icon
+   - never fall back to git, source-control, or repository branding
+   Do not duplicate this fallback logic across desktop and mobile wrappers. Purpose: give the shared row renderer one deterministic icon seam instead of leaving missing-provider behavior to guesswork.
+8. [ ] Current Repository: Update row density, spacing, truncation, chip sizing, and border treatment in `client/src/components/chat/ConversationList.tsx` so the shared row remains compact and list-like on desktop and mobile rather than turning into white cards or bulky stacked admin rows. Purpose: match the final list feel described in both final markdown files.
+9. [ ] Current Repository: Create `client/src/test/conversationList.rowParity.test.tsx`. Description: prove the shared row renders provider icon, title, preview text, provider/model/protocol chips, timestamp block, and direct archive action in the final left-to-right order for active and archived rows. Implementation files: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, and any new preview, icon, or time-format helper files added by this task.
+10. [ ] Current Repository: Extend `client/src/test/conversationList.rowParity.test.tsx` to prove the shared preview helper and shared icon helper both use their fallback contracts correctly:
+   - rows with meaningful user text use that text for preview
+   - rows without meaningful user text fall back to the next allowed preview source
+   - rows with no usable preview content show the stable placeholder
+   - rows with missing provider metadata use the stable generic runtime icon
+   - no row falls back to git or source-control branding
+   Purpose: protect the most ambiguity-prone row details with focused automated proof.
+11. [ ] Current Repository: Extend `client/src/test/conversationList.rowParity.test.tsx` to prove the shared timestamp formatter switches between relative text and exact local date/time at the 24-hour threshold. Purpose: protect the timestamp rule separately from the preview and icon fallback rules.
+12. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+13. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared conversation-row renderer used across `Chat`, `Agents`, and `Flows`.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared row rendering and timestamp logic that affect multiple shells and list tests.
+3. [ ] Current Repository: Run `npm run lint --workspace client`.
+4. [ ] Current Repository: Run `npm run format:check --workspace client`.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `Conversation Pane`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+  - check sections: `Conversation Rows`, `Visual Style`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
+
+Items to verify manually:
+- the provider icon is on the left edge of each row
+- the provider icon represents the runtime or model provider, not source control or git branding
+- rows with missing provider metadata still render the stable generic runtime fallback icon rather than a blank slot or git branding
+- the title is the primary row text and the preview is compact secondary context
+- rows with missing preview text still show the stable preview placeholder rather than leaving the preview area blank
+- provider, model, and protocol chips appear together as one metadata cluster
+- the row timestamp shows relative text when recent and exact local date/time when older than 24 hours
+- the archive action is clearly placed on the far right
+- row actions remain directly visible without an overflow-only menu
+- the shared row feels compact and list-like rather than like a bulk-action admin table
+- desktop and mobile use the same row schema instead of breakpoint-specific metadata layouts
+
+#### Implementation Notes
+
+- None yet.
+
+
+### Task 23. Make The Shared Conversation Controls And Mobile Conversations Overlay Match The Final Design Contract
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20, Task 22`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the shared conversation controls and the mobile conversations overlay into line with the final design contract. This task owns the controls row, the `Active` and `Archived` independent-toggle behavior, the `Refresh` placement, the no-search constraint, the full-screen left-slide mobile conversations surface, the workspace-only mobile scope, and the final conversation-pane palette on desktop and mobile.
+
+The filter-state contract must be made explicit for weak implementation agents. The final behavior is:
+- `Active` on and `Archived` off shows only active conversations
+- `Active` off and `Archived` on shows only archived conversations
+- `Active` on and `Archived` on shows both sets together
+- `Active` off and `Archived` off must not leave the user in an ambiguous broken state; it must immediately fall back to one explicit safe behavior chosen in code and tests, either restoring `Active` on by default or showing a clearly empty state that is intentionally supported
+
+#### Task Exit Criteria
+
+- Desktop and mobile conversations surfaces share the same top control layout: `Active` and `Archived` together on the left and `Refresh` on the right.
+- The visible control redesign uses the correct behavior contract: `Active` and `Archived` are independent toggles, enabling one shows that set, and enabling both shows both active and archived conversations at the same time.
+- The `Active` off and `Archived` off state is handled by one explicit safe contract rather than by accidental leftover behavior.
+- No search control, placeholder search input, or search icon is introduced.
+- The mobile conversations surface reads like the approved full-screen left-slide temporary navigation view rather than a partial-width drawer.
+- The mobile conversations surface is used only for `Chat`, `Agents`, and `Flows`.
+- Desktop and mobile conversation containers use the approved cooler palette and lower-contrast border treatment from the final mobile conversations markdown.
+- The shared conversation controls and overlay shell no longer conflict with the final design contract.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-drawer.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-toggle-button.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-use-media-query.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `Conversation Pane` and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md` sections `High-Level Layout`, `Top Bar`, `Controls Row`, `Mobile Interaction Behavior`, `Intended Color Palette`, `Visual Style`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`, and then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections `Top Bar`, `Mobile Behavior Notes`, and `Acceptance Summary`. After that, inspect `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationSidebarToggle.tsx`, and `client/src/routes/router.tsx`. Purpose: lock the final control and shell contract before changing shared logic.
+2. [ ] Current Repository: Replace the current three-state conversation filter model in `client/src/hooks/useConversations.ts` and any supporting types with an explicit independent-toggle contract for `Active` and `Archived`. Implement all four states explicitly:
+   - `Active` on, `Archived` off -> active only
+   - `Active` off, `Archived` on -> archived only
+   - `Active` on, `Archived` on -> both active and archived together
+   - `Active` off, `Archived` off -> one explicit safe fallback behavior chosen in code and tests
+   Do not leave the all-off state to accidental implementation side effects. Purpose: make the final design behavior real instead of only styling the controls to look correct.
+3. [ ] Current Repository: Update `client/src/components/chat/ConversationList.tsx` so the controls row renders `Active` and `Archived` side by side on the left and `Refresh` on the right, without adding search, placeholder search UI, or a replacement middle-state control. Purpose: align the visible controls with the final desktop and mobile design contract.
+4. [ ] Current Repository: Update the shared conversation-pane styling in `client/src/components/chat/ConversationList.tsx` and `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx` to use the exact palette relationships described in `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md` section `Intended Color Palette`, including conversation-surface background `#F4F6F8`, top bar `#DCE7F2`, divider and borders `#D9E2EC`, main list container `#EEF2F6`, active row emphasis `#E8F1FB`, active toggle background `#20354A`, primary dark text `#1F2933`, and secondary text `#52606D`. Purpose: give desktop and mobile conversation surfaces one approved color system instead of preserving the current brighter utility styling.
+5. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx` so the mobile conversations surface is a true full-screen left-slide temporary navigation layer with an edge-flush top bar, the final `Conversations` title treatment, divider, explanatory text, and full-screen container structure instead of the current drawer-like presentation. Purpose: match the final mobile conversations shell rather than a transitional overlay.
+6. [ ] Current Repository: Verify in `client/src/routes/router.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the relevant page shells that the mobile conversations overlay remains available only for `Chat`, `Agents`, and `Flows` and is not added to `Home`, `Ingest`, or `Logs`. Purpose: enforce the final mobile scope constraint directly in code.
+7. [ ] Current Repository: Update `client/src/components/chat/ConversationSidebarToggle.tsx` only where needed so the desktop collapse affordance and mobile open-close affordances still read correctly after the control-row and full-screen-overlay parity work lands. Purpose: keep the conversation-surface entry and exit affordances consistent with the redesigned shell.
+8. [ ] Current Repository: Create `client/src/test/conversationControls.parity.test.tsx`. Description: prove the visible controls render `Active` and `Archived` on the left and `Refresh` on the right, prove the underlying state model supports all four filter-state combinations, prove the both-on case shows both datasets, prove the all-off case follows the one explicit safe fallback contract chosen by this task, and prove no search control is rendered. Implementation files: `client/src/components/chat/ConversationList.tsx` and `client/src/hooks/useConversations.ts`.
+9. [ ] Current Repository: Create `client/src/test/workspaceMobileConversationsOverlay.parity.test.tsx`. Description: prove the mobile conversations overlay remains full-screen, left-anchored, and workspace-only, and prove the final top-bar structure and explanatory text are present for `Chat`, `Agents`, and `Flows`. Implementation files: `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationSidebarToggle.tsx`, `client/src/routes/router.tsx`, and the relevant workspace shell wrappers.
+10. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+11. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared conversation controls, shared filter-state logic, and the shared mobile conversations overlay.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared conversation behavior and shared shell wrappers used across multiple pages.
+3. [ ] Current Repository: Run `npm run lint --workspace client`.
+4. [ ] Current Repository: Run `npm run format:check --workspace client`.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `Conversation Pane`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+  - check sections: `High-Level Layout`, `Top Bar`, `Controls Row`, `Mobile Interaction Behavior`, `Intended Color Palette`, `Visual Style`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check sections: `Top Bar`, `Mobile Behavior Notes`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+
+Items to verify manually:
+- `Active` and `Archived` appear next to each other on the left
+- `Refresh` appears on the right
+- `Active` on and `Archived` off shows only active conversations
+- `Active` off and `Archived` on shows only archived conversations
+- enabling both `Active` and `Archived` shows both conversation sets at once
+- disabling both `Active` and `Archived` follows the one explicit safe fallback contract implemented by the task and does not leave the page in an ambiguous broken state
+- no search field, search icon, or search placeholder appears
+- the mobile conversations view is full-screen and left-slide in feel, not a partial-width drawer
+- the mobile conversations top bar is edge-flush and uses the final `Conversations` title treatment
+- the explanatory text under the top bar matches the final mobile design intent
+- the mobile conversations surface appears only on `Chat`, `Agents`, and `Flows`
+- the desktop and mobile conversation surfaces now feel like one family
+- the palette matches the final markdown guidance, especially `#F4F6F8`, `#DCE7F2`, `#D9E2EC`, `#EEF2F6`, `#E8F1FB`, `#20354A`, `#1F2933`, and `#52606D`
+- the surface does not regress into oversized white floating cards or a utility-drawer look
+
+#### Implementation Notes
+
+- None yet.
+
+
+### Task 24. Make The Mobile App Menu Match The Final Full-Screen Navigation Design Without Changing The Desktop Rail
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 21`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the mobile app menu into exact parity with the approved Story 58 full-screen mobile navigation design without changing the rendered desktop rail appearance. This task owns the mobile app-menu overlay only: top-bar height and close treatment, explanatory copy, row spacing, row separators, selected-row treatment, left icon scale, trailing right chevrons, and removal of the current card-like stacked-item appearance. The shared destination set, order, and names must remain aligned with the desktop rail, but sentence-style secondary descriptions are required on mobile only and must not be introduced into the desktop rail.
+
+#### Non-Goals
+
+- Do not change the rendered desktop rail appearance.
+- Do not add sentence-style secondary descriptions to the desktop rail.
+- Do not add trailing chevrons, row cards, row separators, larger icon sizing, or top-bar mobile menu styling to the desktop rail.
+- Do not change the desktop rail destination order, one-word labels, or active-state structure while completing this task.
+
+#### Task Exit Criteria
+
+- The mobile app menu matches `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`.
+- The mobile app menu reads as a full-screen temporary navigation layer rather than a stacked-card drawer.
+- There is no vertical gap between mobile menu rows; the destination list reads as one continuous divided list.
+- Each mobile destination row uses a larger left icon and a trailing right-side `>` navigation cue.
+- The top bar is vertically tighter and uses an explicit close affordance on the right rather than the current chevron-only button.
+- The explanatory copy and row descriptions match the final design intent more closely.
+- The destination set, order, labels, and selected-state ownership remain aligned to the shared desktop rail contract.
+- The desktop rail remains visually unchanged.
+- Sentence-style secondary descriptions remain present on mobile and remain absent on desktop.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-drawer.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-list.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
+- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.svg`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png`
+  - `codeInfoStatus/manual-proof/0000058/task-9/proof-04-mobile-app-menu.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md` sections `High-Level Layout`, `Top Bar`, `Destination List`, `Interaction Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `App Rail` and `Acceptance Summary`. After that, compare `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png` against `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`, and inspect `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, and `client/src/components/workspace/WorkspaceAppRail.tsx`. Purpose: lock the exact mobile parity target and the explicit non-goal that desktop rail visuals must not change.
+2. [ ] Current Repository: Update `client/src/components/workspace/workspaceNavigation.tsx` so the shared navigation config keeps the exact final destination order and one-word labels, and exposes sentence-style descriptions only as data consumed by the mobile app menu. Do not change `label` values to sentence text, and do not move description rendering responsibility into `WorkspaceAppRail.tsx`. If needed, add an explicit mobile-only description field or keep `description` but ensure only the mobile overlay renders it. Purpose: keep one shared navigation source of truth while preventing desktop rendering regressions.
+3. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` top-bar JSX so the header becomes visually tighter, keeps the `Menu` title on the left, replaces the current chevron-only close button with an explicit close affordance on the right, and preserves the full-width divider below. Do not move any of this header logic into `WorkspaceAppRail.tsx` or shared desktop shell code. Purpose: match the final top-bar hierarchy while isolating the change to the mobile overlay.
+4. [ ] Current Repository: Update the explanatory-text block in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the copy matches the final design tone more closely than `Jump to another workspace or utility page.` and keeps the short one-line helper treatment shown in `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`. Do not reuse this explanatory text in desktop navigation surfaces. Purpose: align the mobile menu with the approved language without leaking mobile copy into desktop.
+5. [ ] Current Repository: Replace the current bordered-card destination list JSX in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` with one continuous list treatment that uses divider-based separation instead of per-row card gaps. Specifically remove the visual pattern created by per-item bottom margins, rounded outer cards, and per-item boxed backgrounds so the rows read as one uninterrupted navigation list. Do not apply this row structure to `WorkspaceAppRail.tsx`. Purpose: satisfy the final full-screen list model and keep the change isolated to the mobile overlay.
+6. [ ] Current Repository: Update each mobile menu row in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the left icon is visibly larger, the center block shows the destination name plus sentence-style secondary description, and the far right shows a trailing `>` navigation cue for every row. Add the right-side chevron directly in the mobile overlay row JSX rather than adding it to shared destination data or desktop rail rendering. Purpose: match the final row hierarchy while preventing desktop from inheriting mobile-only row chrome.
+7. [ ] Current Repository: Update the selected-row styling in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the active destination looks closer to the final blue-accented selected state and clearly differs from unselected rows without turning into a heavy filled button. Keep the selected-state logic source shared, but keep the selected-state presentation mobile-overlay-specific. Purpose: fix the mobile selected state without changing desktop selected styling.
+8. [ ] Current Repository: Open `client/src/components/workspace/WorkspaceAppRail.tsx` and verify it still renders icon plus one-word label only. Do not add `ListItemText.secondary`, trailing chevrons, larger mobile icon sizing, row dividers, row cards, or sentence descriptions to the desktop rail. If any earlier code change accidentally causes `WorkspaceAppRail.tsx` to render mobile descriptions or mobile row chrome, remove that regression before finishing the task. Purpose: give a junior agent an explicit stop-check that desktop must remain unchanged.
+9. [ ] Current Repository: Verify `client/src/components/NavBar.tsx`, `client/src/components/utility/UtilityPageShell.tsx`, and the relevant mobile shell entry points still open and close the revised mobile app-menu overlay correctly on workspace and utility pages, while `client/src/components/workspace/WorkspaceAppRail.tsx` remains visually unchanged. Purpose: keep the mobile menu available from all required top-level pages without altering desktop rail presentation.
+10. [ ] Current Repository: Create `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx`. Description: prove the mobile app menu renders the exact six shared destinations in the final order, renders sentence-style secondary descriptions on mobile, renders a trailing right chevron for every row, and preserves the selected-destination state. Implementation files: `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, and any mobile-shell integration files touched by this task.
+11. [ ] Current Repository: Extend `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` to prove the desktop rail in `client/src/components/workspace/WorkspaceAppRail.tsx` still renders one-word labels only, still omits sentence-style secondary descriptions, still omits trailing right chevrons, and still omits mobile row-card styling. Purpose: protect the explicit desktop-non-change contract with automated proof that a weak junior agent can rerun confidently.
+12. [ ] Current Repository: Extend `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` to prove the mobile app menu does not render account, profile, settings, or conversation-specific controls. Purpose: lock the hard constraints from `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`.
+13. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+14. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared mobile navigation overlay used from workspace and utility pages.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared mobile navigation rendering, selected-state presentation, and shared destination content while also requiring proof that the desktop rail remains visually unchanged.
+3. [ ] Current Repository: Run `npm run lint --workspace client`.
+4. [ ] Current Repository: Run `npm run format:check --workspace client`.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - check sections: `High-Level Layout`, `Top Bar`, `Destination List`, `Interaction Behavior`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `App Rail`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png`
+  - `codeInfoStatus/manual-proof/0000058/task-9/proof-04-mobile-app-menu.png`
+
+Items to verify manually:
+- the menu appears as a full-screen temporary right-side navigation layer rather than a stacked-card drawer
+- the top title bar is vertically tighter than the current implementation
+- the title remains `Menu`
+- the top-right control is an explicit close affordance rather than the current chevron-style button
+- the explanatory copy is closer to the final design wording and tone
+- there is no vertical gap between destination rows
+- the list reads as one continuous list with separators rather than separate bordered cards
+- the left icons are larger and visually closer to the final PNG
+- each destination row shows a trailing right-side `>` navigation cue
+- the selected destination treatment is closer to the final blue-accented design and is clearly distinct from unselected rows
+- the destination order remains exactly `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, `Logs`
+- the mobile menu keeps sentence-style secondary descriptions under each destination
+- the desktop rail still renders one-word labels only
+- the desktop rail does not gain sentence-style secondary descriptions
+- the desktop rail does not gain trailing chevrons, divider-list rows, larger mobile icon sizing, row cards, or other mobile menu styling
+- there is no `Account`, `Profile`, `Settings`, or conversation-specific control content
+- the mobile app menu feels like the mobile counterpart to the desktop app rail rather than a generic drawer
+
+#### Implementation Notes
+
+- None yet.
+
 
 ### Task 25. Rebuild The Shared Assistant And User Transcript Surfaces To Match The Final Desktop And Mobile Reading Design
 
@@ -2693,6 +3030,7 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
+
 ### Task 26. Build The Shared Composer Shell And Migrate The Chat Composer To The Final Desktop And Mobile Design
 
 - Repository Name: `Current Repository`
@@ -2836,6 +3174,7 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
+
 
 ### Task 27. Migrate The Agents Composer Onto The Shared Composer Shell And Match The Final Agents Footer Contract
 
@@ -3039,6 +3378,7 @@ Items to verify manually:
 
 - None yet.
 
+
 ### Task 28. Migrate The Flows Composer Onto The Shared Composer Shell And Match The Final Flows Footer Contract
 
 - Repository Name: `Current Repository`
@@ -3151,295 +3491,6 @@ Items to verify manually:
 
 - None yet.
 
-### Task 24. Make The Mobile App Menu Match The Final Full-Screen Navigation Design Without Changing The Desktop Rail
-
-- Repository Name: `Current Repository`
-- Task Dependencies: `Task 21`
-- Task Status: `__to_do__`
-
-#### Overview
-
-Bring the mobile app menu into exact parity with the approved Story 58 full-screen mobile navigation design without changing the rendered desktop rail appearance. This task owns the mobile app-menu overlay only: top-bar height and close treatment, explanatory copy, row spacing, row separators, selected-row treatment, left icon scale, trailing right chevrons, and removal of the current card-like stacked-item appearance. The shared destination set, order, and names must remain aligned with the desktop rail, but sentence-style secondary descriptions are required on mobile only and must not be introduced into the desktop rail.
-
-#### Non-Goals
-
-- Do not change the rendered desktop rail appearance.
-- Do not add sentence-style secondary descriptions to the desktop rail.
-- Do not add trailing chevrons, row cards, row separators, larger icon sizing, or top-bar mobile menu styling to the desktop rail.
-- Do not change the desktop rail destination order, one-word labels, or active-state structure while completing this task.
-
-#### Task Exit Criteria
-
-- The mobile app menu matches `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`.
-- The mobile app menu reads as a full-screen temporary navigation layer rather than a stacked-card drawer.
-- There is no vertical gap between mobile menu rows; the destination list reads as one continuous divided list.
-- Each mobile destination row uses a larger left icon and a trailing right-side `>` navigation cue.
-- The top bar is vertically tighter and uses an explicit close affordance on the right rather than the current chevron-only button.
-- The explanatory copy and row descriptions match the final design intent more closely.
-- The destination set, order, labels, and selected-state ownership remain aligned to the shared desktop rail contract.
-- The desktop rail remains visually unchanged.
-- Sentence-style secondary descriptions remain present on mobile and remain absent on desktop.
-
-#### Documentation Locations
-
-- `https://llms.mui.com/material-ui/7.3.11/react-drawer.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-list.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
-- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
-
-#### Task Design Packet
-
-- Final visual targets and implementation contracts:
-  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
-  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-- Initial structural source files:
-  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.md`
-  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.svg`
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
-- Current implementation comparison inputs:
-  - `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png`
-  - `codeInfoStatus/manual-proof/0000058/task-9/proof-04-mobile-app-menu.png`
-
-#### Subtasks
-
-1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md` sections `High-Level Layout`, `Top Bar`, `Destination List`, `Interaction Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `App Rail` and `Acceptance Summary`. After that, compare `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png` against `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`, and inspect `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, and `client/src/components/workspace/WorkspaceAppRail.tsx`. Purpose: lock the exact mobile parity target and the explicit non-goal that desktop rail visuals must not change.
-2. [ ] Current Repository: Update `client/src/components/workspace/workspaceNavigation.tsx` so the shared navigation config keeps the exact final destination order and one-word labels, and exposes sentence-style descriptions only as data consumed by the mobile app menu. Do not change `label` values to sentence text, and do not move description rendering responsibility into `WorkspaceAppRail.tsx`. If needed, add an explicit mobile-only description field or keep `description` but ensure only the mobile overlay renders it. Purpose: keep one shared navigation source of truth while preventing desktop rendering regressions.
-3. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` top-bar JSX so the header becomes visually tighter, keeps the `Menu` title on the left, replaces the current chevron-only close button with an explicit close affordance on the right, and preserves the full-width divider below. Do not move any of this header logic into `WorkspaceAppRail.tsx` or shared desktop shell code. Purpose: match the final top-bar hierarchy while isolating the change to the mobile overlay.
-4. [ ] Current Repository: Update the explanatory-text block in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the copy matches the final design tone more closely than `Jump to another workspace or utility page.` and keeps the short one-line helper treatment shown in `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`. Do not reuse this explanatory text in desktop navigation surfaces. Purpose: align the mobile menu with the approved language without leaking mobile copy into desktop.
-5. [ ] Current Repository: Replace the current bordered-card destination list JSX in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` with one continuous list treatment that uses divider-based separation instead of per-row card gaps. Specifically remove the visual pattern created by per-item bottom margins, rounded outer cards, and per-item boxed backgrounds so the rows read as one uninterrupted navigation list. Do not apply this row structure to `WorkspaceAppRail.tsx`. Purpose: satisfy the final full-screen list model and keep the change isolated to the mobile overlay.
-6. [ ] Current Repository: Update each mobile menu row in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the left icon is visibly larger, the center block shows the destination name plus sentence-style secondary description, and the far right shows a trailing `>` navigation cue for every row. Add the right-side chevron directly in the mobile overlay row JSX rather than adding it to shared destination data or desktop rail rendering. Purpose: match the final row hierarchy while preventing desktop from inheriting mobile-only row chrome.
-7. [ ] Current Repository: Update the selected-row styling in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the active destination looks closer to the final blue-accented selected state and clearly differs from unselected rows without turning into a heavy filled button. Keep the selected-state logic source shared, but keep the selected-state presentation mobile-overlay-specific. Purpose: fix the mobile selected state without changing desktop selected styling.
-8. [ ] Current Repository: Open `client/src/components/workspace/WorkspaceAppRail.tsx` and verify it still renders icon plus one-word label only. Do not add `ListItemText.secondary`, trailing chevrons, larger mobile icon sizing, row dividers, row cards, or sentence descriptions to the desktop rail. If any earlier code change accidentally causes `WorkspaceAppRail.tsx` to render mobile descriptions or mobile row chrome, remove that regression before finishing the task. Purpose: give a junior agent an explicit stop-check that desktop must remain unchanged.
-9. [ ] Current Repository: Verify `client/src/components/NavBar.tsx`, `client/src/components/utility/UtilityPageShell.tsx`, and the relevant mobile shell entry points still open and close the revised mobile app-menu overlay correctly on workspace and utility pages, while `client/src/components/workspace/WorkspaceAppRail.tsx` remains visually unchanged. Purpose: keep the mobile menu available from all required top-level pages without altering desktop rail presentation.
-10. [ ] Current Repository: Create `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx`. Description: prove the mobile app menu renders the exact six shared destinations in the final order, renders sentence-style secondary descriptions on mobile, renders a trailing right chevron for every row, and preserves the selected-destination state. Implementation files: `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, and any mobile-shell integration files touched by this task.
-11. [ ] Current Repository: Extend `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` to prove the desktop rail in `client/src/components/workspace/WorkspaceAppRail.tsx` still renders one-word labels only, still omits sentence-style secondary descriptions, still omits trailing right chevrons, and still omits mobile row-card styling. Purpose: protect the explicit desktop-non-change contract with automated proof that a weak junior agent can rerun confidently.
-12. [ ] Current Repository: Extend `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` to prove the mobile app menu does not render account, profile, settings, or conversation-specific controls. Purpose: lock the hard constraints from `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`.
-13. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-14. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
-
-#### Testing
-
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared mobile navigation overlay used from workspace and utility pages.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared mobile navigation rendering, selected-state presentation, and shared destination content while also requiring proof that the desktop rail remains visually unchanged.
-3. [ ] Current Repository: Run `npm run lint --workspace client`.
-4. [ ] Current Repository: Run `npm run format:check --workspace client`.
-
-#### Manual Testing Guidance
-
-Use these design files and sections as the manual checklist source:
-- `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
-  - check sections: `High-Level Layout`, `Top Bar`, `Destination List`, `Interaction Behavior`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - check sections: `App Rail`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-- compare against current-state references:
-  - `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png`
-  - `codeInfoStatus/manual-proof/0000058/task-9/proof-04-mobile-app-menu.png`
-
-Items to verify manually:
-- the menu appears as a full-screen temporary right-side navigation layer rather than a stacked-card drawer
-- the top title bar is vertically tighter than the current implementation
-- the title remains `Menu`
-- the top-right control is an explicit close affordance rather than the current chevron-style button
-- the explanatory copy is closer to the final design wording and tone
-- there is no vertical gap between destination rows
-- the list reads as one continuous list with separators rather than separate bordered cards
-- the left icons are larger and visually closer to the final PNG
-- each destination row shows a trailing right-side `>` navigation cue
-- the selected destination treatment is closer to the final blue-accented design and is clearly distinct from unselected rows
-- the destination order remains exactly `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, `Logs`
-- the mobile menu keeps sentence-style secondary descriptions under each destination
-- the desktop rail still renders one-word labels only
-- the desktop rail does not gain sentence-style secondary descriptions
-- the desktop rail does not gain trailing chevrons, divider-list rows, larger mobile icon sizing, row cards, or other mobile menu styling
-- there is no `Account`, `Profile`, `Settings`, or conversation-specific control content
-- the mobile app menu feels like the mobile counterpart to the desktop app rail rather than a generic drawer
-
-#### Implementation Notes
-
-- None yet.
-
-### Task 22. Redesign Shared Conversation Rows To Match The Final Desktop And Mobile Metadata Model
-
-- Repository Name: `Current Repository`
-- Task Dependencies: `Task 20`
-- Task Status: `__to_do__`
-
-#### Overview
-
-Replace the current utility-heavy conversation row treatment with the final shared row model used by the desktop conversation pane and the mobile conversations surface. This task owns row composition only: provider icon semantics, title and preview hierarchy, provider/model/protocol chips, timestamp rules, compact row density, and direct archive-action placement.
-
-#### Task Exit Criteria
-
-- Desktop and mobile conversation rows use the same shared information model and visual hierarchy.
-- Each row shows a model or runtime provider icon on the left, a compact title plus preview and provider/model/protocol chips in the middle, last-update time on the right, and the archive affordance on the far right.
-- Provider icons represent runtime or model providers rather than git or source-control branding.
-- The row no longer reads like a bulk-selection admin table with scattered metadata.
-- Row-level actions remain directly visible without moving into overflow-only controls.
-- The shared row contract preserves existing routing and conversation-ownership behavior.
-
-#### Documentation Locations
-
-- `https://llms.mui.com/material-ui/7.3.11/react-list.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-chip.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
-
-#### Task Design Packet
-
-- Final visual targets and implementation contracts:
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
-- Initial structural source files:
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.md`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.svg`
-
-#### Subtasks
-
-1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `Conversation Pane` and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md` sections `Conversation Rows`, `Visual Style`, `Hard Constraints`, and `Acceptance Summary`. After that, inspect `client/src/components/chat/ConversationList.tsx`, `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/hooks/useConversations.ts`, and `client/src/api/conversations.ts`. Purpose: lock the final shared row schema before changing the renderer.
-2. [ ] Current Repository: Update `client/src/components/chat/ConversationList.tsx` so each conversation row renders the provider icon on the left, the title plus compact preview and provider/model/protocol chips in the central content area, the last-update timestamp on the right, and the archive action on the far right. Purpose: land the final row hierarchy in the one shared row renderer.
-3. [ ] Current Repository: Replace any row-level source-control or git branding in `client/src/components/chat/ConversationList.tsx` or supporting helpers with provider or runtime icon semantics that match the final design contract. Purpose: make the left icon represent the runtime or model provider rather than an unrelated tool or repo concept.
-4. [ ] Current Repository: Remove checkbox-first and bulk-action-first row chrome from `client/src/components/chat/ConversationList.tsx` so the shared row reads as a compact conversation entry with a direct archive affordance instead of an admin-table selection surface. Purpose: match the final row design instead of preserving transitional management chrome.
-5. [ ] Current Repository: Add one shared preview-text helper in `client/src/components/chat/` or `client/src/hooks/` so rows derive a deterministic compact preview string from the first prompt or first meaningful user text without duplicating preview logic in JSX. Purpose: give the shared row renderer one stable preview seam.
-6. [ ] Current Repository: Add one shared row-timestamp formatter in `client/src/components/chat/` or `client/src/utils/` so rows show relative “how long ago” text when the last update is less than 24 hours old and exact local date/time text when the last update is 24 hours old or older. Purpose: match the final timestamp rule instead of one generic date style.
-7. [ ] Current Repository: Update row density, spacing, truncation, chip sizing, and border treatment in `client/src/components/chat/ConversationList.tsx` so the shared row remains compact and list-like on desktop and mobile rather than turning into white cards or bulky stacked admin rows. Purpose: match the final list feel described in both final markdown files.
-8. [ ] Current Repository: Create `client/src/test/conversationList.rowParity.test.tsx`. Description: prove the shared row renders provider icon, title, preview text, provider/model/protocol chips, timestamp block, and direct archive action in the final left-to-right order for active and archived rows. Implementation files: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, and any new preview or time-format helper files added by this task.
-9. [ ] Current Repository: Extend `client/src/test/conversationList.rowParity.test.tsx` to prove the shared timestamp formatter switches between relative text and exact local date/time at the 24-hour threshold and to prove provider or runtime icon semantics do not regress back to git or source-control branding. Purpose: protect the most design-specific row details with focused automated proof.
-10. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-11. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
-
-#### Testing
-
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared conversation-row renderer used across `Chat`, `Agents`, and `Flows`.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared row rendering and timestamp logic that affect multiple shells and list tests.
-3. [ ] Current Repository: Run `npm run lint --workspace client`.
-4. [ ] Current Repository: Run `npm run format:check --workspace client`.
-
-#### Manual Testing Guidance
-
-Use these design files and sections as the manual checklist source:
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - check sections: `Conversation Pane`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
-  - check sections: `Conversation Rows`, `Visual Style`, `Hard Constraints`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
-
-Items to verify manually:
-- the provider icon is on the left edge of each row
-- the provider icon represents the runtime or model provider, not source control or git branding
-- the title is the primary row text and the preview is compact secondary context
-- provider, model, and protocol chips appear together as one metadata cluster
-- the row timestamp shows relative text when recent and exact local date/time when older than 24 hours
-- the archive action is clearly placed on the far right
-- row actions remain directly visible without an overflow-only menu
-- the shared row feels compact and list-like rather than like a bulk-action admin table
-- desktop and mobile use the same row schema instead of breakpoint-specific metadata layouts
-
-#### Implementation Notes
-
-- None yet.
-
-### Task 23. Make The Shared Conversation Controls And Mobile Conversations Overlay Match The Final Design Contract
-
-- Repository Name: `Current Repository`
-- Task Dependencies: `Task 20, Task 22`
-- Task Status: `__to_do__`
-
-#### Overview
-
-Bring the shared conversation controls and the mobile conversations overlay into line with the final design contract. This task owns the controls row, the `Active` and `Archived` independent-toggle behavior, the `Refresh` placement, the no-search constraint, the full-screen left-slide mobile conversations surface, the workspace-only mobile scope, and the final conversation-pane palette on desktop and mobile.
-
-#### Task Exit Criteria
-
-- Desktop and mobile conversations surfaces share the same top control layout: `Active` and `Archived` together on the left and `Refresh` on the right.
-- The visible control redesign uses the correct behavior contract: `Active` and `Archived` are independent toggles, enabling one shows that set, and enabling both shows both active and archived conversations at the same time.
-- No search control, placeholder search input, or search icon is introduced.
-- The mobile conversations surface reads like the approved full-screen left-slide temporary navigation view rather than a partial-width drawer.
-- The mobile conversations surface is used only for `Chat`, `Agents`, and `Flows`.
-- Desktop and mobile conversation containers use the approved cooler palette and lower-contrast border treatment from the final mobile conversations markdown.
-- The shared conversation controls and overlay shell no longer conflict with the final design contract.
-
-#### Documentation Locations
-
-- `https://llms.mui.com/material-ui/7.3.11/react-drawer.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-toggle-button.md`
-- `https://llms.mui.com/material-ui/7.3.11/react-use-media-query.md`
-
-#### Task Design Packet
-
-- Final visual targets and implementation contracts:
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
-  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
-- Initial structural source files:
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
-  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.md`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-conversations.svg`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
-  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
-
-#### Subtasks
-
-1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `Conversation Pane` and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md` sections `High-Level Layout`, `Top Bar`, `Controls Row`, `Mobile Interaction Behavior`, `Intended Color Palette`, `Visual Style`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`, and then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections `Top Bar`, `Mobile Behavior Notes`, and `Acceptance Summary`. After that, inspect `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationSidebarToggle.tsx`, and `client/src/routes/router.tsx`. Purpose: lock the final control and shell contract before changing shared logic.
-2. [ ] Current Repository: Replace the current three-state conversation filter model in `client/src/hooks/useConversations.ts` and any supporting types with an explicit independent-toggle contract for `Active` and `Archived`, where enabling both shows both datasets at once. Purpose: make the final design behavior real instead of only styling the controls to look correct.
-3. [ ] Current Repository: Update `client/src/components/chat/ConversationList.tsx` so the controls row renders `Active` and `Archived` side by side on the left and `Refresh` on the right, without adding search, placeholder search UI, or a replacement middle-state control. Purpose: align the visible controls with the final desktop and mobile design contract.
-4. [ ] Current Repository: Update the shared conversation-pane styling in `client/src/components/chat/ConversationList.tsx` and `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx` to use the exact palette relationships described in `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md` section `Intended Color Palette`, including conversation-surface background `#F4F6F8`, top bar `#DCE7F2`, divider and borders `#D9E2EC`, main list container `#EEF2F6`, active row emphasis `#E8F1FB`, active toggle background `#20354A`, primary dark text `#1F2933`, and secondary text `#52606D`. Purpose: give desktop and mobile conversation surfaces one approved color system instead of preserving the current brighter utility styling.
-5. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx` so the mobile conversations surface is a true full-screen left-slide temporary navigation layer with an edge-flush top bar, the final `Conversations` title treatment, divider, explanatory text, and full-screen container structure instead of the current drawer-like presentation. Purpose: match the final mobile conversations shell rather than a transitional overlay.
-6. [ ] Current Repository: Verify in `client/src/routes/router.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and the relevant page shells that the mobile conversations overlay remains available only for `Chat`, `Agents`, and `Flows` and is not added to `Home`, `Ingest`, or `Logs`. Purpose: enforce the final mobile scope constraint directly in code.
-7. [ ] Current Repository: Update `client/src/components/chat/ConversationSidebarToggle.tsx` only where needed so the desktop collapse affordance and mobile open-close affordances still read correctly after the control-row and full-screen-overlay parity work lands. Purpose: keep the conversation-surface entry and exit affordances consistent with the redesigned shell.
-8. [ ] Current Repository: Create `client/src/test/conversationControls.parity.test.tsx`. Description: prove the visible controls render `Active` and `Archived` on the left and `Refresh` on the right, prove the underlying state model supports the both-on case, and prove no search control is rendered. Implementation files: `client/src/components/chat/ConversationList.tsx` and `client/src/hooks/useConversations.ts`.
-9. [ ] Current Repository: Create `client/src/test/workspaceMobileConversationsOverlay.parity.test.tsx`. Description: prove the mobile conversations overlay remains full-screen, left-anchored, and workspace-only, and prove the final top-bar structure and explanatory text are present for `Chat`, `Agents`, and `Flows`. Implementation files: `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationSidebarToggle.tsx`, `client/src/routes/router.tsx`, and the relevant workspace shell wrappers.
-10. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-11. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
-
-#### Testing
-
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared conversation controls, shared filter-state logic, and the shared mobile conversations overlay.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared conversation behavior and shared shell wrappers used across multiple pages.
-3. [ ] Current Repository: Run `npm run lint --workspace client`.
-4. [ ] Current Repository: Run `npm run format:check --workspace client`.
-
-#### Manual Testing Guidance
-
-Use these design files and sections as the manual checklist source:
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
-  - check sections: `Conversation Pane`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
-  - check sections: `High-Level Layout`, `Top Bar`, `Controls Row`, `Mobile Interaction Behavior`, `Intended Color Palette`, `Visual Style`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
-  - check sections: `Top Bar`, `Mobile Behavior Notes`, `Acceptance Summary`
-- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
-- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
-
-Items to verify manually:
-- `Active` and `Archived` appear next to each other on the left
-- `Refresh` appears on the right
-- enabling both `Active` and `Archived` shows both conversation sets at once
-- no search field, search icon, or search placeholder appears
-- the mobile conversations view is full-screen and left-slide in feel, not a partial-width drawer
-- the mobile conversations top bar is edge-flush and uses the final `Conversations` title treatment
-- the explanatory text under the top bar matches the final mobile design intent
-- the mobile conversations surface appears only on `Chat`, `Agents`, and `Flows`
-- the desktop and mobile conversation surfaces now feel like one family
-- the palette matches the final markdown guidance, especially `#F4F6F8`, `#DCE7F2`, `#D9E2EC`, `#EEF2F6`, `#E8F1FB`, `#20354A`, `#1F2933`, and `#52606D`
-- the surface does not regress into oversized white floating cards or a utility-drawer look
-
-#### Implementation Notes
-
-- None yet.
 
 ### Task 29. Remove Outer Workspace Gutters And Restore Full-Page Scroll Behavior Across Desktop And Mobile Shells
 
@@ -3568,6 +3619,7 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
+
 
 
 ### Task 30. Unify The Mobile Top Bar And Remove Bulky Mobile Shell Padding Across Workspace And Utility Pages
@@ -3729,6 +3781,7 @@ Items to verify manually:
 
 - None yet.
 
+
 ### Task 31. Reverse The Shared Transcript Reading Order And Open Existing Conversations At The Latest Content While Preserving Story 49 Virtualization
 
 - Repository Name: `Current Repository`
@@ -3883,4 +3936,3 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
-

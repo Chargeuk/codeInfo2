@@ -54,7 +54,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - For Playwright MCP screenshots, Manual Testing Guidance should name both steps: capture to the Playwright output directory first, then transfer into the target repository's `codeInfoTmp/manual-testing/<story-number>/<task-number>/` scratch destination.
 - If `Design Contract Present` is true and the task changes a browser-visible surface, Manual Testing Guidance must name:
   - the screenshot views to capture;
-  - the exact current-task visual requirements those screenshots must be compared against first, plus the design assets to use as fallbacks when the task is silent;
+  - any explicit current-task visual requirements those screenshots must be compared against first, plus the story plan or `Design Contract`, paired design markdown, and supporting visual assets to use as fallbacks when the task is silent;
   - that screenshot capture alone is not sufficient and comparison notes are part of the proof;
   - that the current task's explicit subtasks and task-level requirements are the immediate comparison contract first, with the story plan or `Design Contract`, paired design markdown, and then the supporting visual asset used only as fallbacks when the task is silent;
   - that paired design markdown is canonical only relative to the supporting visual asset when paired markdown and visual design assets such as `*.png` or `*.svg` both exist for the same surface.

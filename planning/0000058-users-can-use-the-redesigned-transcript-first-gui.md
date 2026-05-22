@@ -2832,28 +2832,64 @@ Items to verify manually:
 
 #### Overview
 
-Migrate the `Agents` composer onto the shared composer shell introduced by `Task 26` and bring the `Agents` footer controls into exact parity with the final design. This task owns the `Agents` page-specific footer controls, dependency-reset behavior between agent, command, and step, the `Agents` `Info` summary content, and the removal of the current multi-row command/prompt admin-panel treatment from the visible composer surface. The visible `Agents` composer layout must remain the same shared shell used by `Chat`: one rounded outer composer surface, one dominant full-width input row, and one compact footer row. Desktop selectors must open upward above the composer; mobile selectors must open as large centered modal selection surfaces.
+Migrate the `Agents` composer onto the shared composer shell introduced by `Task 26` and bring the `Agents` footer controls into exact parity with the final design, with one important Story 58 override to the original design packet: the old dedicated `Execute command` and `Execute Prompt` buttons must not exist in the final composer. Instead, the shared arrow-style send button becomes the single execution action for all `Agents` composer modes.
 
-Where the latest Story 58 follow-up direction is stricter than the composer markdown wording, follow the newer requirement. In particular, desktop popovers must rise above the composer instead of opening downward, and mobile composer controls must open in the center of the screen as focused modal views.
+This task owns the `Agents` page-specific footer controls, dependency-reset behavior between agent, action selection, step, and saved prompts, the `Agents` `Info` summary content, and the removal of the current multi-row command/prompt admin-panel treatment from the visible composer surface. The visible `Agents` composer layout must remain the same shared shell used by `Chat`: one rounded outer composer surface, one dominant full-width input row, and one compact footer row. Desktop selectors must open upward above the composer; mobile selectors must open as large centered modal selection surfaces.
+
+Where the latest Story 58 follow-up direction is stricter than or conflicts with the original `agents-composer-final.md` and `agents-composer-final.png`, follow the newer requirement in this task. In particular:
+- desktop popovers must rise above the composer instead of opening downward
+- mobile composer controls must open in the center of the screen as focused modal views
+- there is no dedicated `Execute command` button
+- there is no dedicated `Execute Prompt` button
+- the shared send button is the only execution action
+- the `command` selector becomes a unified action selector with three modes:
+  - freeform instruction mode
+  - command execution mode
+  - saved prompt execution mode
+
+The unified action selector must behave as follows:
+1. first item: `Write instruction`
+2. then command entries
+3. then saved prompt entries, when available
+
+The resulting behavior contract is:
+- `Write instruction` selected:
+  - text input enabled
+  - send button sends the typed instruction
+  - step selector disabled
+- command selected:
+  - text input disabled
+  - send button executes the selected command
+  - step selector enabled
+- saved prompt selected:
+  - text input disabled
+  - send button executes the selected prompt
+  - step selector disabled
 
 #### Non-Goals
 
 - Do not fork a new `Agents`-only composer shell.
 - Do not redesign the transcript surface, mobile app menu, or conversation list.
 - Do not preserve the current multi-row admin layout as the visible final `Agents` composer.
-- Do not leave `Execute command`, `Execute Prompt`, prompt-select rows, or similar old panel rows inside the final visible composer surface if they conflict with the final footer contract.
+- Do not leave `Execute command`, `Execute Prompt`, prompt-select rows, or similar old panel rows inside the final visible composer surface.
 - Do not use tiny anchored mobile popovers for `Agents` footer controls.
+- Do not keep freeform instruction entry enabled while a command or saved prompt is selected.
+- Do not allow step selection for `Write instruction` mode or saved prompt mode.
 
 #### Task Exit Criteria
 
-- The `Agents` composer matches `planning/layout-ideas/plan/final-designs/agents-composer-final.png`.
+- The `Agents` composer matches `planning/layout-ideas/plan/final-designs/agents-composer-final.png` except where this task explicitly overrides the older design packet.
 - The visible `Agents` composer uses the same shared shell structure as `Chat`.
 - The `Agents` footer control order is exactly `Info`, working path, agent, command, step.
 - Desktop `Agents` footer controls open upward above the composer as anchored popovers attached to the triggering control.
 - Mobile `Agents` footer controls open as large centered modal selection surfaces.
-- Agent changes clearly invalidate dependent command and step selections.
+- The `command` selector acts as a unified action selector whose first item is `Write instruction`, followed by commands, then saved prompts when available.
+- Selecting `Write instruction` enables text entry and disables step selection.
+- Selecting a command disables text entry, enables step selection, and makes the shared send button execute the selected command.
+- Selecting a saved prompt disables text entry, disables step selection, and makes the shared send button execute the selected prompt.
+- Agent changes clearly invalidate dependent command/prompt and step selections.
 - Command changes clearly invalidate dependent step selections.
-- The `Info` summary reflects selected agent, command, step, working path, and provider/model information when relevant.
+- The `Info` summary reflects the current mode, selected agent, selected action, selected step when relevant, working path, and provider/model information when relevant.
 - The final visible composer no longer reads like a stacked admin command-execution form.
 
 #### Documentation Locations
@@ -2881,27 +2917,57 @@ Where the latest Story 58 follow-up direction is stricter than the composer mark
 
 #### Subtasks
 
-1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/agents-composer-final.md` sections `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`. After that, inspect `client/src/components/agents/AgentsComposerPanel.tsx` and the `composerSurface` handoff in `client/src/pages/AgentsPage.tsx`. Purpose: lock the exact `Agents` composer target and the current points where the old multi-row command/prompt panel diverges from the final design.
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/agents-composer-final.md` sections `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`. Then apply this task’s newer Story 58 override rules anywhere they conflict with the older markdown or PNG, especially around removing dedicated execute buttons, using the shared send button as the only execution action, and using upward desktop popovers plus centered mobile modal views. After that, inspect `client/src/components/agents/AgentsComposerPanel.tsx` and the `composerSurface` handoff in `client/src/pages/AgentsPage.tsx`. Purpose: lock the exact `Agents` composer target and explicitly prevent a weak implementation agent from following outdated command/prompt execution behavior from the older design packet.
 2. [ ] Current Repository: Update `client/src/components/agents/AgentsComposerPanel.tsx` to stop owning its own old panel layout and instead render the shared composer shell from `Task 26`. Keep the main input row identical in structure to the shared composer contract and move `Agents`-specific logic into footer controls and page-specific overlay content. Purpose: prevent `Agents` from remaining a custom panel while `Chat` uses the shared shell.
 3. [ ] Current Repository: Implement the `Agents` footer in the exact order `Info`, working path, agent, command, step`. Use the shared footer primitives from `Task 26` rather than leaving the current agent select, command row, and start-step select split across multiple stacked rows. Purpose: match the final `Agents` footer hierarchy exactly.
-4. [ ] Current Repository: Implement the `Agents` `Info` summary so it reflects selected agent, selected command, selected step, selected working path, and provider/model information when relevant to the current agent execution context. On desktop it must open upward above the composer; on mobile it must open in the center of the screen as a large modal summary surface. Purpose: replace the current split `agent-info` / `command-info` model with the final composer summary pattern.
-5. [ ] Current Repository: Implement the `Agents` working-path control using the shared working-path footer treatment from `Task 26`, showing only the final folder name inline and never the full path. Purpose: align `Agents` with the shared footer contract and remove the current inline full-path text field from the visible footer presentation.
-6. [ ] Current Repository: Implement the `Agents` agent selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. Purpose: move agent selection into the final footer-driven interaction pattern.
-7. [ ] Current Repository: Implement the `Agents` command selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. The command list must clearly belong to the selected agent, and changing the selected agent must reset or invalidate command state clearly and predictably. Purpose: satisfy the dependency-chain requirements from the final markdown.
-8. [ ] Current Repository: Implement the `Agents` step selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. The step list must clearly belong to the selected command, and changing the selected command must reset or invalidate step state clearly and predictably. Purpose: complete the final dependency-driven footer contract.
-9. [ ] Current Repository: Remove the current visible multi-row command execution chrome from the final `Agents` composer surface, including the stacked command row, separate start-step row treatment, prompt row, and separate execute buttons where those rows conflict with the final footer-first layout. Preserve underlying dependency and execution logic where needed, but do not leave the old admin-panel arrangement visible after this task. Purpose: make the final `Agents` composer read like a shared composer instead of a custom control console.
-10. [ ] Current Repository: Keep the main `Instruction` input row in the shared shell and attach the send/stop behavior to that shared input-row treatment rather than leaving it as a separate old action slot. Purpose: align the `Agents` input row with the shared final composer pattern.
-11. [ ] Current Repository: Verify that the visible `Agents` composer layout remains the same on desktop and mobile while desktop uses upward anchored popovers and mobile uses centered modal selection surfaces. Purpose: preserve the shared visible layout contract and vary only the interaction style.
-12. [ ] Current Repository: Create `client/src/components/agents/AgentsComposerPanel.parity.test.tsx`. Description: prove the `Agents` footer renders in the order `Info`, working path, agent, command, step, prove the visible footer omits the full working path, and prove dependency invalidation clears or resets dependent controls when the parent selection changes. Implementation files: `client/src/components/agents/AgentsComposerPanel.tsx` and the shared composer components from `Task 26`.
-13. [ ] Current Repository: Extend the relevant browser-path `Agents` proof, likely in the existing e2e flow that covers `Agents`, so it proves desktop `Agents` popovers open upward above the composer and mobile `Agents` selectors open as centered modal surfaces. The proof must cover at least `Info`, `Agent`, `Command`, and `Step`. Purpose: add browser-level validation for the shared interaction contract on `Agents`.
-14. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-15. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+4. [ ] Current Repository: Create one explicit unified action-selection state model in `client/src/components/agents/AgentsComposerPanel.tsx` or a nearby helper so the selected action can only be one of:
+   - `instruction`
+   - `command:<commandKey>`
+   - `prompt:<promptFullPath>`
+   Do not keep loosely coupled separate UI states that can allow both a command and a prompt to be selected at the same time. Purpose: give the weak implementation agent one clear state shape that can safely drive all three modes.
+5. [ ] Current Repository: Build one ordered unified action list for the `command` footer control. The list must always contain `Write instruction` first, then command entries, then saved prompt entries when available. If visual grouping is needed, include separators or group headings inside the desktop popover and mobile modal surfaces so the difference between commands and saved prompts remains obvious. Purpose: make the mixed command/prompt selector concrete instead of inferred.
+6. [ ] Current Repository: Implement `Write instruction` mode so selecting that first action item sets the unified action state to `instruction`, enables the text input, disables the `step` control, clears any command-specific or prompt-specific execution mode, and restores normal instruction editing behavior. Purpose: preserve freeform `Agents` chat while fitting the new unified action-selector model.
+7. [ ] Current Repository: Implement command mode so selecting a command sets the unified action state to `command:<commandKey>`, disables the text input, enables the `step` control, clears any saved-prompt mode, and prepares the shared send button to execute the selected command from the selected step. Do not leave a separate visible `Execute command` button anywhere in the final composer surface. Purpose: preserve command execution without violating the new single-primary-action composer model.
+8. [ ] Current Repository: Implement saved-prompt mode so selecting a saved prompt sets the unified action state to `prompt:<promptFullPath>`, disables the text input, disables the `step` control, clears any command mode, and prepares the shared send button to execute the selected prompt. Do not leave a separate visible `Execute Prompt` button anywhere in the final composer surface. Purpose: preserve prompt execution without violating the new single-primary-action composer model.
+9. [ ] Current Repository: Update the send or submit handler so it branches explicitly from the unified action state:
+   - `instruction` mode sends typed instruction text
+   - `command:<commandKey>` mode executes the selected command from the selected step
+   - `prompt:<promptFullPath>` mode executes the selected prompt
+   Do not leave this behavior implicit across multiple button handlers or scattered conditionals. Purpose: make the single-send-button execution contract explicit and testable.
+10. [ ] Current Repository: Add explicit invalidation and reset logic for dependent state. At minimum:
+    - changing the selected agent resets invalid command, prompt, and step state
+    - changing from one command to another resets step as needed
+    - changing from command mode to prompt mode clears step state
+    - changing from prompt mode back to `Write instruction` restores freeform mode cleanly
+    - changing from prompt mode to command mode clears prompt execution state
+    Purpose: prevent stale impossible state combinations that a weak agent might otherwise leave behind.
+11. [ ] Current Repository: Implement the `Agents` `Info` summary so it reflects the current mode explicitly, such as `Instruction mode`, `Command mode`, or `Saved prompt mode`, along with selected agent, selected action, selected step when relevant, selected working path, and provider/model information when relevant to the current agent execution context. On desktop it must open upward above the composer; on mobile it must open in the center of the screen as a large modal summary surface. Purpose: replace the current split `agent-info` / `command-info` model with the final composer summary pattern plus the new mode-aware execution contract.
+12. [ ] Current Repository: Implement the `Agents` working-path control using the shared working-path footer treatment from `Task 26`, showing only the final folder name inline and never the full path. Purpose: align `Agents` with the shared footer contract and remove the current inline full-path text field from the visible footer presentation.
+13. [ ] Current Repository: Implement the `Agents` agent selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. When the agent changes, reset or invalidate any selected command, saved prompt, and step state that no longer applies, and return to a safe mode such as `Write instruction` when needed. Purpose: move agent selection into the final footer-driven interaction pattern while keeping dependency resets predictable.
+14. [ ] Current Repository: Implement the unified `command` footer selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. Keep the footer control label aligned to the design contract, but ensure the opened selection surface clearly separates `Write instruction`, commands, and saved prompts so a user can understand what kind of action they are selecting. Purpose: satisfy the dependency-chain requirements while also implementing the newer unified action-selector override.
+15. [ ] Current Repository: Implement the `step` selector as a compact footer control backed by upward-opening desktop popovers and centered mobile modal selection surfaces. The `step` control must only be enabled when a real command is selected. It must be disabled in `Write instruction` mode and disabled in saved-prompt mode. Purpose: complete the final dependency-driven footer contract while preventing invalid step usage in non-command modes.
+16. [ ] Current Repository: Remove the current visible multi-row command execution chrome from the final `Agents` composer surface, including the stacked command row, separate start-step row treatment, prompt row, and separate execute buttons. Preserve underlying dependency and execution logic where needed, but do not leave the old admin-panel arrangement visible after this task. Purpose: make the final `Agents` composer read like a shared composer instead of a custom control console.
+17. [ ] Current Repository: Keep the main `Instruction` input row in the shared shell and attach the send or stop behavior to that shared input-row treatment rather than leaving it as a separate old action slot. The send button must be the only visible execution control and must change behavior according to the currently selected mode. Purpose: align the `Agents` input row with the shared final composer pattern and the new single-action execution contract.
+18. [ ] Current Repository: Verify that the visible `Agents` composer layout remains the same on desktop and mobile while desktop uses upward anchored popovers and mobile uses centered modal selection surfaces. Verify also that the visible differences between `Write instruction`, command mode, and saved-prompt mode are limited to enabled/disabled controls, summary content, and send behavior rather than totally different layouts. Purpose: preserve the shared visible layout contract and vary only the interaction and mode state.
+19. [ ] Current Repository: Create `client/src/components/agents/AgentsComposerPanel.parity.test.tsx`. Description: prove the `Agents` footer renders in the order `Info`, working path, agent, command, step, prove the visible footer omits the full working path, and prove the unified action selector contains `Write instruction`, commands, and saved prompts in the correct structure. Implementation files: `client/src/components/agents/AgentsComposerPanel.tsx` and the shared composer components from `Task 26`.
+20. [ ] Current Repository: Extend `client/src/components/agents/AgentsComposerPanel.parity.test.tsx` or add focused companion tests to prove mode behavior exactly:
+   - `Write instruction` enables text input and disables step
+   - command mode disables text input and enables step
+   - saved-prompt mode disables text input and disables step
+   - no dedicated `Execute command` button is rendered
+   - no dedicated `Execute Prompt` button is rendered
+   - changing agent resets invalid dependent selections
+   - changing from command mode to prompt mode clears step
+   Purpose: protect the most important Story 58 override behavior from regression.
+21. [ ] Current Repository: Extend the relevant browser-path `Agents` proof, likely in the existing e2e flow that covers `Agents`, so it proves desktop `Agents` popovers open upward above the composer and mobile `Agents` selectors open as centered modal surfaces. The proof must cover at least `Info`, `Agent`, unified `Command` selector, and `Step`, and it must prove that selecting a command or saved prompt disables freeform text entry while still allowing the shared send button to perform the correct execution action. Purpose: add browser-level validation for the shared interaction contract and the new unified action-selector behavior on `Agents`.
+22. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+23. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
 
 #### Testing
 
 1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Agents` page.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, and shared composer interactions across desktop and mobile.
-3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Agents`, including upward desktop popovers and centered mobile modal selection surfaces.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, unified mode selection, and shared composer interactions across desktop and mobile.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Agents`, including upward desktop popovers, centered mobile modal selection surfaces, and single-button execution behavior.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
 5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
 
@@ -2914,20 +2980,40 @@ Use these design files and sections as the manual checklist source:
 - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
 - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
 
-Where the latest Story 58 composer direction is stricter than the markdown wording, use these newer requirements as the source of truth:
+Where the latest Story 58 composer direction is stricter than or conflicts with the older design markdown and PNG, use these newer requirements as the source of truth:
 - desktop composer popovers must open upward above the input/footer area
 - mobile composer control surfaces must open as large centered modal selection views
 - the visible input layout remains the same on desktop and mobile
 - the main input should take the available width
+- there is no dedicated `Execute command` button
+- there is no dedicated `Execute Prompt` button
+- the shared arrow-style send button is the only execution action
+- the unified `command` selector must contain:
+  - `Write instruction`
+  - commands
+  - saved prompts, when available
+- selecting a command disables text input and enables step selection
+- selecting a saved prompt disables text input and disables step selection
+- selecting `Write instruction` enables text input and disables step selection
 
 Items to verify manually:
 - the visible `Agents` composer uses the same overall shell shape as the shared `Chat` composer
 - the footer order is exactly `Info`, working path, agent, command, step
 - the working-path control shows only the final folder name
-- the desktop `Info`, `Agent`, `Command`, and `Step` surfaces open upward above the composer
-- the mobile `Info`, `Agent`, `Command`, and `Step` surfaces open as large centered modal views
-- agent changes clearly reset or invalidate dependent command and step values
+- the unified `command` selector contains `Write instruction`, commands, and saved prompts in one control flow
+- selecting `Write instruction` enables the text input
+- selecting `Write instruction` disables the `step` selector
+- selecting a command disables the text input
+- selecting a command enables the `step` selector
+- selecting a saved prompt disables the text input
+- selecting a saved prompt disables the `step` selector
+- no dedicated `Execute command` button is visible
+- no dedicated `Execute Prompt` button is visible
+- the desktop `Info`, `Agent`, unified `Command`, and `Step` surfaces open upward above the composer
+- the mobile `Info`, `Agent`, unified `Command`, and `Step` surfaces open as large centered modal views
+- agent changes clearly reset or invalidate dependent command, saved-prompt, and step values
 - command changes clearly reset or invalidate dependent step values
+- the send button remains the only primary execution action across all modes
 - the final visible composer no longer shows the old stacked command row, prompt row, and separate execute-button panel treatment
 - the main input row remains visually dominant
 - the visible composer layout is the same family on desktop and mobile
@@ -3335,4 +3421,3 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
-

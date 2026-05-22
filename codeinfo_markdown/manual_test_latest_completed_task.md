@@ -223,7 +223,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - use those screenshots to assess whether the changed or added GUI is aligned, readable, usable, visually coherent, and correct for the acceptance criteria that can honestly be observed from the frontend;
   - identify whether any layout, usability, behavioral, startup, or shutdown issues remain.
 - If `Design Contract Present` is true and the task has a browser-visible or connected frontend surface, manual testing must also:
-  - compare each captured screenshot against the current task's explicit visual requirements for that view first, then against the named fallback design asset or paired fallback design assets when the task is silent;
+  - compare each captured screenshot against the current task's explicit visual requirements for that view first; if the task is silent on that point, fall back to the story plan or `Design Contract`, then to paired design markdown, and finally to the supporting visual asset;
   - record for each comparison whether it `matches`, has a `minor mismatch`, or has a `material mismatch`;
   - summarize what matches and what differs in the implementation notes or retained support artifact, including whether the judgment came from the explicit task contract, the story plan or `Design Contract`, the paired design markdown, the visual design asset, or a combination;
   - if the implementation matches an explicit current-task requirement but differs from paired design markdown or the supporting visual asset on that same point, do not treat that difference by itself as a mismatch;

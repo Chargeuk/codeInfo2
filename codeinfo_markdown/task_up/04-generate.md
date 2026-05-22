@@ -50,7 +50,7 @@ Create or rewrite the task list so it is specific, sequenced, and executable by 
   - narrow each task to the smallest honest subset of design files it must follow;
   - add task exit criteria that include visual outcomes, not just behavioral outcomes;
   - make the relevant visual implementation subtasks cite the exact design files they are implementing;
-  - when paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, make the task reference both assets while treating the markdown as canonical and the visual asset as supporting visual reference.
+  - when paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, make the task reference both assets while treating the markdown as canonical only relative to the supporting visual asset.
   - if the task intentionally differs from paired design markdown for that bounded surface, state that difference explicitly in the task wording or `Visual Invariants` rather than leaving the override implicit.
   </task_generation_rules>
 

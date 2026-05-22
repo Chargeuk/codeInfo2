@@ -2817,3 +2817,163 @@ Items to verify manually:
 #### Implementation Notes
 
 - None yet.
+
+### Task 25. Rebuild The Shared Assistant And User Transcript Surfaces To Match The Final Desktop And Mobile Reading Design
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 20`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the shared assistant and user transcript surfaces into exact parity with the approved Story 58 desktop and mobile reading designs. This task owns the shared conversation-reading surface only: assistant full-width slices, assistant footer layout, assistant status-chip placement, assistant `Info` popup behavior, user dark right-aligned bubbles, user footer layout, and removal of the current inset-card treatment. Desktop and mobile already share the same transcript message renderer, so this task should keep one shared transcript system while splitting the assistant and user row rendering into separate role-specific components for clarity and maintainability. This task does not own the input, composer, provider/model selectors, working-folder controls, or any other option interface below the transcript.
+
+Where the latest Story 58 follow-up direction is stricter than the transcript markdown wording, follow the newer requirement. In particular, treat the assistant transcript slice as a light blue, borderless reading surface rather than a neutral outlined card, keep the user bubble dark charcoal/black with white text, and keep the `Info` affordance assistant-only. Use these exact implementation target colors, based on the mobile final PNG design, for the shared transcript surfaces:
+- assistant slice background: `#F3F8FF`
+- assistant primary text: `#1F2933`
+- assistant secondary/footer text: `#52606D`
+- assistant action/icon blue: `#2F80ED`
+- user bubble background: `#111827`
+- user bubble text: `#FFFFFF`
+- user footer secondary text/tick baseline: `#D7DEE7`
+- user acknowledgement tick when confirmed: `#2F80ED`
+- `Working` status chip background/text: `#E8F1FF` / `#2F80ED`
+- `Complete` status chip background/text: `#E7F7EC` / `#2F855A`
+- `Failed` status chip background/text: `#FDECEC` / `#C53030`
+- `Stopped` status chip background/text: `#FFF4E5` / `#B7791F`
+
+#### Non-Goals
+
+- Do not redesign or move the composer, input box, provider selector, model selector, working-folder controls, send button, stop button, or agent-flags panel.
+- Do not redesign the conversation list, mobile conversations overlay, or mobile app menu as part of this task.
+- Do not change the shared destination/navigation contract.
+- Do not add assistant-only controls to user bubbles.
+- Do not add provider or model labels to the visible assistant footer.
+- Do not leave desktop and mobile with separate transcript message implementations; keep the transcript surface shared and only split the role-specific message renderers within that shared system.
+
+#### Task Exit Criteria
+
+- Assistant transcript outputs span the full available transcript width on desktop and mobile.
+- Assistant transcript outputs render as pale light-blue document-style slices using background `#F3F8FF` with no visible border or outline.
+- Assistant transcript outputs use primary text `#1F2933`, footer/secondary text `#52606D`, and action/icon blue `#2F80ED`.
+- Assistant transcript outputs use a required footer with:
+  - left side: `Info`, response time, status chip
+  - right side: completion date or relative time, `Copy`
+- Assistant transcript status chips use only the supported labels `Working`, `Complete`, `Failed`, and `Stopped`, with the icon treatments described in the final markdown.
+- The assistant `Info` popup is opened only from the assistant footer `Info` button and reads as attached to that button.
+- User transcript bubbles render as `#111827` right-aligned bubbles with `#FFFFFF` text, non-full-width sizing, and a required footer with acknowledgement tick, completion date or relative time, and `Copy`.
+- User bubbles do not render the `Info` button.
+- The transcript area no longer reads as a boxed or rounded card container; assistant outputs read as one shared reading surface and user replies sit between them as right-aligned dark bubbles.
+- The same shared transcript system drives both desktop and mobile transcript message rendering after the task completes.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-box.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-stack.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-popover.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-chip.md`
+- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-workspace-shell-main.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `Transcript Workspace`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md` sections `Transcript Surface`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, and `Acceptance Summary`. After that, compare `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png` and `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png` against the two final PNGs. Then inspect `client/src/components/chat/SharedTranscript.tsx`, `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx`. Purpose: lock the exact shared transcript target, confirm that desktop and mobile already share the transcript message renderer, and identify the current card-like transcript shortfalls before code changes begin.
+2. [ ] Current Repository: Refactor `client/src/components/chat/SharedTranscriptMessageRow.tsx` into a thin shared role switch that delegates assistant rendering to a new `client/src/components/chat/AssistantTranscriptSlice.tsx` component and user rendering to a new `client/src/components/chat/UserTranscriptBubble.tsx` component. Keep `SharedTranscript.tsx` as the shared transcript list/container and do not create separate desktop and mobile transcript row systems. Purpose: split the two message contracts cleanly while preserving one shared transcript architecture.
+3. [ ] Current Repository: Create `client/src/components/chat/transcriptSurfaceTokens.ts` or an equivalent shared transcript-style constants file and define the exact assistant, user, footer, action, and status-chip colors listed in this task overview there. Use that shared token file from both new role-specific transcript renderers instead of scattering hard-coded color strings. Purpose: make the stricter PNG-derived color contract explicit and reusable across desktop and mobile transcript surfaces.
+4. [ ] Current Repository: Create `client/src/components/chat/AssistantTranscriptSlice.tsx` and move all assistant-specific transcript rendering there. The new component must render assistant content as a full-width document-style slice with background `#F3F8FF`, no title bar, no top-left icon, no top-right metadata, and no visible border or outline that makes it read like an inset card. Purpose: replace the current generic outlined chat-bubble treatment with the final assistant reading surface.
+5. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, implement the assistant footer exactly as the design packet requires. The visible footer must use:
+  - left side: `Info` button, response time, status chip
+  - right side: completion date or relative time, `Copy`
+  Use footer/secondary text color `#52606D` and action/icon blue `#2F80ED`. Do not show provider or model in the visible footer, and do not add extra controls there. Purpose: make the assistant footer match the final transcript contract instead of the current generic action row.
+6. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, move the assistant status presentation out of the top-of-message card area and into the footer. Support only the target labels `Working`, `Complete`, `Failed`, and `Stopped`, using the task-defined target chip colors:
+  - `Working`: `#E8F1FF` background with `#2F80ED` text
+  - `Complete`: `#E7F7EC` background with `#2F855A` text
+  - `Failed`: `#FDECEC` background with `#C53030` text
+  - `Stopped`: `#FFF4E5` background with `#B7791F` text
+  Do not keep the current generic top chip placement or labels such as `Processing`, `Stopping`, or `Ready` as the visible final transcript contract. Purpose: match the final assistant status model and placement.
+7. [ ] Current Repository: In `client/src/components/chat/AssistantTranscriptSlice.tsx`, implement the assistant `Info` popup as an anchored popover or mini-panel opened only from the footer `Info` button. The visible popup content must include `Provider`, `Model`, `Tokens in`, `Tokens out`, `Cached`, and `Total`, and it must read as visually attached to the trigger rather than as a detached floating utility card in the transcript middle. Purpose: satisfy the assistant-only metadata-detail contract from the final markdown.
+8. [ ] Current Repository: Create `client/src/components/chat/UserTranscriptBubble.tsx` and move all user-specific transcript rendering there. The new component must render a `#111827` dark charcoal or black right-aligned bubble with `#FFFFFF` text, no title bar, no top-right metadata, and non-full-width sizing that still behaves like the current constrained right-aligned user bubble width. Do not render user messages as full-width slices. Purpose: replace the current generic outlined card with the final user-bubble contract.
+9. [ ] Current Repository: In `client/src/components/chat/UserTranscriptBubble.tsx`, implement the user footer exactly as the design packet requires. The visible footer must use acknowledgement tick, completion date or relative time, and `Copy`. The acknowledgement tick must support the documented meaning using the target colors named in this task overview: grey/base tick state `#D7DEE7` before acknowledgement and blue `#2F80ED` after acknowledgement. Do not render an `Info` button in the user footer. Purpose: match the final user footer contract and remove assistant-only controls from user bubbles.
+10. [ ] Current Repository: Update `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/chatTranscriptFormatting.ts`, and any supporting transcript-format helpers only as needed so assistant footer metadata and user footer metadata are routed into the correct new components. Remove the current generic `hasFooterMetadata` / shared `Info`-button behavior when it would incorrectly make the user bubble render assistant-only controls. Purpose: preserve shared transcript utilities while stopping the generic footer logic from violating the design contract.
+11. [ ] Current Repository: Update the shared transcript container and transcript wrappers so the transcript surface stops reading as a boxed panel. Specifically inspect and adjust the transcript container treatment in `client/src/components/chat/SharedTranscript.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx` so the transcript surface no longer shows a visible boxed or rounded outer transcript panel that conflicts with the final desktop and mobile reading surfaces. Do not redesign the composer or lower controls while doing this. Purpose: remove the outer transcript framing mismatch that the role-specific row components alone cannot fix.
+12. [ ] Current Repository: Verify that `client/src/pages/ChatPage.tsx`, `client/src/components/agents/AgentsTranscriptPane.tsx`, and `client/src/pages/FlowsPage.tsx` still consume the same shared `SharedTranscript` list/container and the same role-specific assistant/user row components after this task. If any early refactor accidentally forks desktop and mobile transcript row rendering, collapse it back into the shared transcript path before finishing. Purpose: preserve the desired shared transcript architecture across desktop and mobile.
+13. [ ] Current Repository: Create `client/src/components/chat/AssistantTranscriptSlice.test.tsx`. Description: prove assistant transcript outputs render full-width slices, use background `#F3F8FF` with no visible border, use the assistant footer order `Info`, response time, status chip on the left and completion time plus `Copy` on the right, and render no visible provider/model text in the footer. Implementation files: `client/src/components/chat/AssistantTranscriptSlice.tsx`, `client/src/components/chat/transcriptSurfaceTokens.ts`, and any supporting transcript-format helpers touched by this task.
+14. [ ] Current Repository: Create `client/src/components/chat/UserTranscriptBubble.test.tsx`. Description: prove user bubbles render as right-aligned dark bubbles using background `#111827` and text `#FFFFFF`, keep constrained width, render the acknowledgement tick plus time plus `Copy`, and never render the assistant `Info` button. Implementation files: `client/src/components/chat/UserTranscriptBubble.tsx`, `client/src/components/chat/transcriptSurfaceTokens.ts`, and any supporting acknowledgement/time formatting helpers touched by this task.
+15. [ ] Current Repository: Create `client/src/components/chat/SharedTranscriptMessageRow.parity.test.tsx`. Description: prove `SharedTranscriptMessageRow.tsx` delegates assistant messages to `AssistantTranscriptSlice`, delegates user messages to `UserTranscriptBubble`, and preserves the shared transcript path used by desktop and mobile transcript surfaces. Implementation files: `client/src/components/chat/SharedTranscriptMessageRow.tsx`, `client/src/components/chat/AssistantTranscriptSlice.tsx`, and `client/src/components/chat/UserTranscriptBubble.tsx`.
+16. [ ] Current Repository: Update the browser-path proof in the existing e2e chat surface, likely `e2e/chat.spec.ts`, so it proves the shared transcript contract in a real browser on the supported runtime. The e2e proof must cover at least one assistant transcript slice and one user bubble, and it must assert that the user bubble does not expose the assistant `Info` control while the assistant slice does. If screenshot assertions are already used in that proof surface, update them only within ignored artifact output paths. Purpose: add durable browser-level proof for the shared desktop/mobile transcript contract instead of relying only on unit tests.
+17. [ ] Current Repository: Extend `client/src/test/workspaceShell.test.tsx`, `client/src/test/chatPage.status.test.tsx`, or create a dedicated transcript-surface integration test so the shared transcript wrapper path proves the outer transcript surface no longer renders as an obvious boxed panel while the composer and option interface remain present and unchanged below it. Purpose: protect the wrapper-level transcript-surface contract separately from the role-specific row tests.
+18. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+19. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared transcript message surface used by `Chat`, `Agents`, and `Flows`.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared assistant/user transcript rendering, shared transcript wrapper treatment, and role-specific footer behavior across desktop and mobile.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript behavior, footer controls, popup attachment behavior, and shared desktop/mobile reading-surface layout that should be re-proved in a real browser.
+4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task changes shared frontend surfaces and adds or updates browser-path proof that may touch root-owned e2e files.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task changes shared frontend surfaces and may also update root-owned e2e proof files.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `Transcript Workspace`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check sections: `Transcript Surface`, `Assistant Output`, `Assistant Footer`, `Assistant Status Chip`, `Assistant Info Popup`, `User Bubble`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+Where the latest Story 58 transcript direction is stricter than the markdown wording, use these newer requirements as the source of truth:
+- assistant slice background must be light blue `#F3F8FF` with no border
+- assistant actions/icons should use `#2F80ED`
+- user bubble background must be `#111827` with `#FFFFFF` text
+- only assistant outputs may show the `Info` button
+- the target status-chip colors are:
+  - `Working`: `#E8F1FF` / `#2F80ED`
+  - `Complete`: `#E7F7EC` / `#2F855A`
+  - `Failed`: `#FDECEC` / `#C53030`
+  - `Stopped`: `#FFF4E5` / `#B7791F`
+
+Items to verify manually:
+- assistant outputs take the full available transcript width on desktop
+- assistant outputs take the full available transcript width on mobile
+- assistant outputs use background `#F3F8FF` and do not read as inset outlined cards
+- assistant outputs have no title bar, no top-left icon, and no top-right metadata
+- assistant outputs use the required footer layout:
+  - left: `Info`, response time, status chip
+  - right: completion time or relative time, `Copy`
+- assistant visible footer does not show provider or model
+- assistant status labels and colors match the approved target set
+- the assistant `Info` popup opens from the footer `Info` button and reads as attached to it
+- user bubbles are `#111827` with `#FFFFFF` text
+- user bubbles remain right-aligned and width-constrained rather than becoming full-width
+- user bubbles use the required footer layout:
+  - acknowledgement tick
+  - completion time or relative time
+  - `Copy`
+- user bubbles do not show the `Info` button
+- the transcript surface no longer reads as a boxed or rounded outer transcript panel
+- the shared reading surface feels dense and document-like rather than like stacked message cards
+- the input/composer and option interface below the transcript remain out of scope for this task and should not be judged as part of this transcript-only pass
+
+#### Implementation Notes
+
+- None yet.

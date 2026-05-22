@@ -2513,6 +2513,118 @@ Items to verify manually:
 
 - None yet.
 
+### Task 24. Make The Mobile App Menu Match The Final Full-Screen Navigation Design Without Changing The Desktop Rail
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 21`
+- Task Status: `__to_do__`
+
+#### Overview
+
+Bring the mobile app menu into exact parity with the approved Story 58 full-screen mobile navigation design without changing the rendered desktop rail appearance. This task owns the mobile app-menu overlay only: top-bar height and close treatment, explanatory copy, row spacing, row separators, selected-row treatment, left icon scale, trailing right chevrons, and removal of the current card-like stacked-item appearance. The shared destination set, order, and names must remain aligned with the desktop rail, but sentence-style secondary descriptions are required on mobile only and must not be introduced into the desktop rail.
+
+#### Non-Goals
+
+- Do not change the rendered desktop rail appearance.
+- Do not add sentence-style secondary descriptions to the desktop rail.
+- Do not add trailing chevrons, row cards, row separators, larger icon sizing, or top-bar mobile menu styling to the desktop rail.
+- Do not change the desktop rail destination order, one-word labels, or active-state structure while completing this task.
+
+#### Task Exit Criteria
+
+- The mobile app menu matches `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`.
+- The mobile app menu reads as a full-screen temporary navigation layer rather than a stacked-card drawer.
+- There is no vertical gap between mobile menu rows; the destination list reads as one continuous divided list.
+- Each mobile destination row uses a larger left icon and a trailing right-side `>` navigation cue.
+- The top bar is vertically tighter and uses an explicit close affordance on the right rather than the current chevron-only button.
+- The explanatory copy and row descriptions match the final design intent more closely.
+- The destination set, order, labels, and selected-state ownership remain aligned to the shared desktop rail contract.
+- The desktop rail remains visually unchanged.
+- Sentence-style secondary descriptions remain present on mobile and remain absent on desktop.
+
+#### Documentation Locations
+
+- `https://llms.mui.com/material-ui/7.3.11/react-drawer.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-list.md`
+- `https://llms.mui.com/material-ui/7.3.11/react-icon-button.md`
+- `https://llms.mui.com/material-ui/7.3.11/material-icons.md`
+
+#### Task Design Packet
+
+- Final visual targets and implementation contracts:
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- Initial structural source files:
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.md`
+  - `planning/layout-ideas/plan/initial-layout/mobile-app-menu.svg`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.md`
+  - `planning/layout-ideas/plan/initial-layout/desktop-workspace-shell.svg`
+- Current implementation comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png`
+  - `codeInfoStatus/manual-proof/0000058/task-9/proof-04-mobile-app-menu.png`
+
+#### Subtasks
+
+1. [ ] Current Repository: Re-read `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md` sections `High-Level Layout`, `Top Bar`, `Destination List`, `Interaction Behavior`, `Developer Watchouts`, `Hard Constraints`, and `Acceptance Summary`, then re-read `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md` sections `App Rail` and `Acceptance Summary`. After that, compare `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png` against `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`, and inspect `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, and `client/src/components/workspace/WorkspaceAppRail.tsx`. Purpose: lock the exact mobile parity target and the explicit non-goal that desktop rail visuals must not change.
+2. [ ] Current Repository: Update `client/src/components/workspace/workspaceNavigation.tsx` so the shared navigation config keeps the exact final destination order and one-word labels, and exposes sentence-style descriptions only as data consumed by the mobile app menu. Do not change `label` values to sentence text, and do not move description rendering responsibility into `WorkspaceAppRail.tsx`. If needed, add an explicit mobile-only description field or keep `description` but ensure only the mobile overlay renders it. Purpose: keep one shared navigation source of truth while preventing desktop rendering regressions.
+3. [ ] Current Repository: Update `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` top-bar JSX so the header becomes visually tighter, keeps the `Menu` title on the left, replaces the current chevron-only close button with an explicit close affordance on the right, and preserves the full-width divider below. Do not move any of this header logic into `WorkspaceAppRail.tsx` or shared desktop shell code. Purpose: match the final top-bar hierarchy while isolating the change to the mobile overlay.
+4. [ ] Current Repository: Update the explanatory-text block in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the copy matches the final design tone more closely than `Jump to another workspace or utility page.` and keeps the short one-line helper treatment shown in `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`. Do not reuse this explanatory text in desktop navigation surfaces. Purpose: align the mobile menu with the approved language without leaking mobile copy into desktop.
+5. [ ] Current Repository: Replace the current bordered-card destination list JSX in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` with one continuous list treatment that uses divider-based separation instead of per-row card gaps. Specifically remove the visual pattern created by per-item bottom margins, rounded outer cards, and per-item boxed backgrounds so the rows read as one uninterrupted navigation list. Do not apply this row structure to `WorkspaceAppRail.tsx`. Purpose: satisfy the final full-screen list model and keep the change isolated to the mobile overlay.
+6. [ ] Current Repository: Update each mobile menu row in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the left icon is visibly larger, the center block shows the destination name plus sentence-style secondary description, and the far right shows a trailing `>` navigation cue for every row. Add the right-side chevron directly in the mobile overlay row JSX rather than adding it to shared destination data or desktop rail rendering. Purpose: match the final row hierarchy while preventing desktop from inheriting mobile-only row chrome.
+7. [ ] Current Repository: Update the selected-row styling in `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` so the active destination looks closer to the final blue-accented selected state and clearly differs from unselected rows without turning into a heavy filled button. Keep the selected-state logic source shared, but keep the selected-state presentation mobile-overlay-specific. Purpose: fix the mobile selected state without changing desktop selected styling.
+8. [ ] Current Repository: Open `client/src/components/workspace/WorkspaceAppRail.tsx` and verify it still renders icon plus one-word label only. Do not add `ListItemText.secondary`, trailing chevrons, larger mobile icon sizing, row dividers, row cards, or sentence descriptions to the desktop rail. If any earlier code change accidentally causes `WorkspaceAppRail.tsx` to render mobile descriptions or mobile row chrome, remove that regression before finishing the task. Purpose: give a junior agent an explicit stop-check that desktop must remain unchanged.
+9. [ ] Current Repository: Verify `client/src/components/NavBar.tsx`, `client/src/components/utility/UtilityPageShell.tsx`, and the relevant mobile shell entry points still open and close the revised mobile app-menu overlay correctly on workspace and utility pages, while `client/src/components/workspace/WorkspaceAppRail.tsx` remains visually unchanged. Purpose: keep the mobile menu available from all required top-level pages without altering desktop rail presentation.
+10. [ ] Current Repository: Create `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx`. Description: prove the mobile app menu renders the exact six shared destinations in the final order, renders sentence-style secondary descriptions on mobile, renders a trailing right chevron for every row, and preserves the selected-destination state. Implementation files: `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, and any mobile-shell integration files touched by this task.
+11. [ ] Current Repository: Extend `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` to prove the desktop rail in `client/src/components/workspace/WorkspaceAppRail.tsx` still renders one-word labels only, still omits sentence-style secondary descriptions, still omits trailing right chevrons, and still omits mobile row-card styling. Purpose: protect the explicit desktop-non-change contract with automated proof that a weak junior agent can rerun confidently.
+12. [ ] Current Repository: Extend `client/src/test/workspaceMobileAppMenuOverlay.parity.test.tsx` to prove the mobile app menu does not render account, profile, settings, or conversation-specific controls. Purpose: lock the hard constraints from `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`.
+13. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+14. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared mobile navigation overlay used from workspace and utility pages.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared mobile navigation rendering, selected-state presentation, and shared destination content while also requiring proof that the desktop rail remains visually unchanged.
+3. [ ] Current Repository: Run `npm run lint --workspace client`.
+4. [ ] Current Repository: Run `npm run format:check --workspace client`.
+
+#### Manual Testing Guidance
+
+Use these design files and sections as the manual checklist source:
+- `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - check sections: `High-Level Layout`, `Top Bar`, `Destination List`, `Interaction Behavior`, `Developer Watchouts`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `App Rail`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+- compare against current-state references:
+  - `codeInfoStatus/manual-proof/0000058/task-20/proof-10-mobile-app-menu-refresh.png`
+  - `codeInfoStatus/manual-proof/0000058/task-9/proof-04-mobile-app-menu.png`
+
+Items to verify manually:
+- the menu appears as a full-screen temporary right-side navigation layer rather than a stacked-card drawer
+- the top title bar is vertically tighter than the current implementation
+- the title remains `Menu`
+- the top-right control is an explicit close affordance rather than the current chevron-style button
+- the explanatory copy is closer to the final design wording and tone
+- there is no vertical gap between destination rows
+- the list reads as one continuous list with separators rather than separate bordered cards
+- the left icons are larger and visually closer to the final PNG
+- each destination row shows a trailing right-side `>` navigation cue
+- the selected destination treatment is closer to the final blue-accented design and is clearly distinct from unselected rows
+- the destination order remains exactly `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, `Logs`
+- the mobile menu keeps sentence-style secondary descriptions under each destination
+- the desktop rail still renders one-word labels only
+- the desktop rail does not gain sentence-style secondary descriptions
+- the desktop rail does not gain trailing chevrons, divider-list rows, larger mobile icon sizing, row cards, or other mobile menu styling
+- there is no `Account`, `Profile`, `Settings`, or conversation-specific control content
+- the mobile app menu feels like the mobile counterpart to the desktop app rail rather than a generic drawer
+
+#### Implementation Notes
+
+- None yet.
+
 ### Task 22. Redesign Shared Conversation Rows To Match The Final Desktop And Mobile Metadata Model
 
 - Repository Name: `Current Repository`

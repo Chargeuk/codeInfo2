@@ -2535,6 +2535,172 @@ Items to verify manually:
 
 - None yet.
 
+### Task 32. Run Final Automated Validation And Manual Story Proof For The Full Story 58 Redesign
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 21, Task 22, Task 23, Task 24, Task 25, Task 26, Task 27, Task 28, Task 29, Task 30, Task 31`
+- Task Status: `__to_do__`
+
+#### Overview
+
+This is the final Story 58 closeout task. Its purpose is not to introduce new redesign behavior, but to prove that the full transcript-first GUI redesign is complete, working, and aligned with the story-level contract. This task owns final automated validation, final manual proof across desktop and mobile, final proof-artifact capture, and final confirmation that the implemented product matches the approved Story 58 design packet and story-level acceptance.
+
+This task must treat `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md` as the primary source of truth for what must be proven. Final proof must explicitly validate the story `Description`, `Acceptance Criteria`, `Story Manual Testing Guidance`, `Decisions`, `Implementation Ideas`, `Runtime And Repo Prerequisites`, `Risk And Invariant Matrix`, `Log Or Proof Markers`, and `Edge Cases And Failure Modes`.
+
+This task must also treat `Task 21` through `Task 31` as the source of truth for implementation-specific refinements, stricter follow-up requirements, and intentional overrides to older design markdown or PNG files. If an older design file conflicts with a newer requirement documented in `Task 21` through `Task 31`, the newer task text wins for final proof.
+
+This task must explicitly prove the final shared transcript contract after `Task 31`:
+- transcript reads chronologically from top to bottom
+- older content appears higher
+- newer content appears lower
+- existing conversations open at the newest visible content at the bottom
+- the shared virtualized transcript behavior remains stable on long conversations
+
+This task must not silently narrow proof scope. If a story-level acceptance item is not proven, this task must leave the story open and record the blocker honestly.
+
+#### Non-Goals
+
+- Do not introduce new redesign behavior unless a blocking proof failure requires a bounded repair.
+- Do not treat task-local success from earlier tasks as a substitute for final story-level proof.
+- Do not skip desktop proof because mobile passed.
+- Do not skip mobile proof because desktop passed.
+- Do not skip transcript-order proof because visual shell proof passed.
+- Do not skip manual proof just because automated tests passed.
+- Do not mark the story complete if any story-level acceptance item remains unproven or contradicted by the live product.
+- Do not treat older design markdown or PNG files as higher priority than the later Story 58 task text when those later tasks intentionally refine or override the earlier design packet.
+- Do not create new speculative follow-up tasks from this task unless a real blocker is found during proof.
+
+#### Task Exit Criteria
+
+- Every prerequisite task listed in `Task Dependencies` is `__done__` with no unchecked `Subtasks`, no unchecked `Testing`, and no live blocker in `Implementation Notes`.
+- The full supported automated validation suite passes through the repository wrapper paths required by this story.
+- Final manual proof is completed on both desktop and mobile.
+- Final manual proof explicitly covers the full Story 58 acceptance contract, not just individual task-level checks.
+- Final manual proof explicitly covers the transcript-ordering contract from `Task 31`.
+- Final manual proof explicitly covers the shared composer contract from `Tasks 26`, `27`, and `28`.
+- Final manual proof explicitly covers shared conversation surfaces, shared shells, desktop rail, mobile app menu, mobile top bar, transcript surfaces, and utility-page behavior from `Tasks 21` through `31`.
+- Final manual proof treats `Task 21` through `Task 31` as intentional Story 58 refinements and does not record those documented refinements as deviations from older design markdown or PNG files.
+- Manual-proof artifacts are saved in the required story-level proof location with deterministic filenames.
+- The story is only considered ready for closeout if the product behavior matches the story-level goals, acceptance, and approved Story 58 references across desktop and mobile.
+
+#### Documentation Locations
+
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+- `codeinfo_markdown/repository_information.md`
+- `AGENTS.md`
+
+#### Task Design Packet
+
+- Story-level source of truth:
+  - `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+    - check sections: `Description`, `Acceptance Criteria`, `Story Manual Testing Guidance`, `Decisions`, `Implementation Ideas`, `Runtime And Repo Prerequisites`, `Risk And Invariant Matrix`, `Log Or Proof Markers`, `Edge Cases And Failure Modes`
+- Task-level refinement and override sources of truth:
+  - `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+    - check `Task 21` through `Task 31`, especially each task’s `Overview`, `Task Exit Criteria`, and `Manual Testing Guidance`
+- Final desktop shell and transcript/composer references:
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.png`
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/chat-composer-final.png`
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/agents-composer-final.png`
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.md`
+  - `planning/layout-ideas/plan/final-designs/flows-composer-final.png`
+- Final mobile shell and overlay references:
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.png`
+- Utility-page references:
+  - `planning/layout-ideas/plan/final-designs/home-page-final.md`
+  - `planning/layout-ideas/plan/final-designs/home-page-final.png`
+- Current proof comparison inputs:
+  - `codeInfoStatus/manual-proof/0000058/`
+  - `codeInfoStatus/manual-proof/0000058/task-20/`
+  - any later task-scoped Story 58 proof directories created by Tasks `21` through `31`
+
+#### Subtasks
+
+1. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in files changed by this task before moving on.
+2. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in files changed by this task before moving on.
+
+#### Testing
+
+1. [ ] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this is the final story-level server build proof.
+2. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this is the final story-level client build proof.
+3. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this is the final story-level server unit/integration proof.
+4. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use the supported wrapper because this is the final story-level server acceptance-style proof.
+5. [ ] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this is the final story-level client proof across all redesigned surfaces.
+6. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported wrapper because this is the final browser-level story proof across desktop and mobile.
+7. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because final story closeout must prove the checked-in stack build path.
+8. [ ] Current Repository: Run `npm run compose:up`. Use the supported wrapper because final story manual proof must run on the checked-in supported stack.
+9. [ ] Current Repository: Run `npm run compose:down`. Use the supported wrapper because final story proof must leave the supported main stack shut down cleanly after proof completes.
+10. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this is the final story-level repository hygiene proof.
+11. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this is the final story-level repository formatting proof.
+
+#### Manual Testing Guidance
+
+Use these story and design files as the final manual checklist source:
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+  - check sections: `Description`, `Acceptance Criteria`, `Story Manual Testing Guidance`, `Decisions`, `Implementation Ideas`, `Runtime And Repo Prerequisites`, `Risk And Invariant Matrix`, `Log Or Proof Markers`, `Edge Cases And Failure Modes`
+- `planning/0000058-users-can-use-the-redesigned-transcript-first-gui.md`
+  - check `Task 21` through `Task 31`, especially each task’s `Overview`, `Task Exit Criteria`, and `Manual Testing Guidance`
+- `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`
+  - check sections: `High-Level Layout`, `App Rail`, `Conversation Pane`, `Transcript Workspace`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-main-final.md`
+  - check sections that define mobile shell framing, top bar, transcript/composer placement, and overall mobile behavior
+- `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`
+  - check sections: `High-Level Layout`, `Top Bar`, `Controls Row`, `Mobile Interaction Behavior`, `Intended Color Palette`, `Visual Style`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/mobile-app-menu-final.md`
+  - check sections: `High-Level Layout`, `Top Bar`, `Destination List`, `Interaction Behavior`, `Hard Constraints`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/chat-composer-final.md`
+  - check sections: `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/agents-composer-final.md`
+  - check sections: `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/flows-composer-final.md`
+  - check sections: `High-Level Structure`, `Main Input Row`, `Footer Row`, `Control Requirements`, `Desktop Behavior`, `Mobile Behavior`, `Acceptance Summary`
+- `planning/layout-ideas/plan/final-designs/home-page-final.md`
+  - check the sections that define the final `Home` page role and layout
+- corresponding final PNG references for all of the above surfaces
+
+When older design markdown or PNG files conflict with the later Story 58 task text, use the later task text as the manual-proof source of truth. This is especially important for:
+- `Task 25` transcript-surface refinements
+- `Task 26`, `Task 27`, and `Task 28` composer interaction refinements
+- `Task 27` unified `Agents` action-selector behavior
+- `Task 29` shell gutter and scrolling refinements
+- `Task 30` shared mobile top-bar refinements
+- `Task 31` transcript ordering and open-at-bottom behavior
+- do not treat any behavior explicitly required by `Task 21` through `Task 31` as a mistake just because an older design PNG or markdown shows an earlier version
+
+Final story-level items to verify manually:
+- `Chat`, `Agents`, and `Flows` share one workspace-shell family on desktop and one responsive mobile behavior model
+- the top tab bar is removed and replaced with the desktop app rail and mobile app-menu pattern
+- workspace pages reclaim vertical space and visibly prioritize the transcript
+- the active composer is bottom-anchored on workspace pages
+- the transcript reads chronologically from top to bottom, with older content above newer content
+- opening an existing conversation lands at the newest visible content at the bottom
+- bottom-follow works when already near the bottom
+- scroll-away reading position is preserved when reading older messages
+- the shared virtualized transcript behavior remains stable on long conversations
+- assistant and user transcript surfaces match the final shared design contract
+- the shared conversations pane, controls, and mobile conversations overlay match the final design contract
+- the desktop rail matches the final design contract
+- the mobile app menu matches the final design contract
+- the mobile top bar matches the final design contract
+- `Chat`, `Agents`, and `Flows` keep their page-specific behavior while using the shared composer shell
+- the shared primary action swaps between arrow-send and red stop using the intended existing logic
+- `Home` absorbs LM Studio status and provider logon concerns correctly
+- `/lmstudio` redirects to `Home` correctly
+- `Ingest` and `Logs` use the utility-page shell family correctly
+- message `Copy` actions copy only message content
+- no story-level acceptance item remains contradicted by the live product
+
+#### Implementation Notes
+
+- None yet.
+
 
 ### Task 22. Redesign Shared Conversation Rows To Match The Final Desktop And Mobile Metadata Model
 

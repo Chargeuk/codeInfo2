@@ -36,6 +36,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
   - extract the mandatory layout, hierarchy, spacing, metadata-placement, typography, and interaction-pattern invariants they imply when those qualities are visibly material to the design;
   - extract exact requirements from the paired design markdown first, then use the paired visual asset as supporting visual reference for overall shape, hierarchy, and feel;
   - if paired design markdown and visual design asset conflict, treat the markdown as canonical and record that the markdown overrides the visual asset for the plan contract;
+  - identify which of those requirements later task-up must restate explicitly in task subtasks, visual invariants, or task exit criteria so downstream implementation and review do not have to guess from the design files alone;
   - distinguish mandatory match requirements from acceptable implementation flex;
   - identify which page, shell, surface, or component each design asset governs;
   - identify which design-relevant files must be referenced later by the visual implementation tasks for those governed surfaces;
@@ -61,6 +62,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - Check whether any required credentials, seeded accounts, or access sources are documented in repository files, README guidance, environment conventions, helper scripts, or fixtures, and record only where they are found rather than copying values into the plan.
 - If `Design Contract Present` is true, check whether the plan already names the design assets, mandatory visual invariants, and later screenshot-comparison proof expectations; if not, add them now instead of leaving design fidelity implicit for tasking.
 - If `Design Contract Present` is true, check whether the plan makes paired design markdown precedence explicit wherever paired markdown and visual design assets such as `*.png` or `*.svg` both exist for the same surface.
+- If `Design Contract Present` is true, check whether the plan makes it clear that later explicit task wording can intentionally override paired design markdown for a bounded surface, while vague task wording cannot.
 - If `Design Contract Present` is true, check whether the plan expects the final story validation path to capture screenshots for every implemented frontend surface across the whole story so later review can compare them against the named design assets.
 - Check whether new message contracts or storage shapes are required.
 - Check whether new or changed env/config inputs have an explicit valid domain, including empty-string behavior, whitespace behavior, lower bounds, upper bounds, and whether invalid values must clamp, fallback, or fail.
@@ -88,6 +90,7 @@ Gather the minimum evidence needed to improve the active plan thoroughly and saf
 - Before moving on, check whether any broad implementation area still hides an unstated prerequisite, runtime seam, or proof gap that later passes must make explicit.
 - If `Design Contract Present` is true, check whether every named design asset now has an explicit planning purpose and whether the plan states what later proof must compare against it.
 - If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` exist, check whether the plan treats the markdown as canonical and the visual asset as supporting reference rather than allowing visual-asset-only interpretation to override explicit markdown requirements.
+- If `Design Contract Present` is true, check whether the plan leaves enough explicit design detail that later task-up can turn it into concrete task-level requirements instead of forcing manual testing or review to infer intent directly from design assets.
 - If `Design Contract Present` is true, check whether the plan makes it clear that missing screenshots alone are not a review finding, because the manual-testing pass owns the attempt to capture them first.
   </verification_loop>
 

@@ -31,7 +31,7 @@ Establish the shared operating contract for the full `improve_plan2` workflow be
 
 - A story has `Design Contract Present` when the plan explicitly names design-target assets intended as implementation references, such as final `*.png`, `*.svg`, `*.md`, a `## Design Contract` section, or a task-scoped design packet.
 - If `Design Contract Present` is false, do not add design-specific planning requirements.
-- If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical, treat the visual asset as supporting visual reference, and follow the markdown when they conflict.
+- If `Design Contract Present` is true and paired design markdown plus visual design assets such as `*.png` or `*.svg` both exist for the same surface, treat the markdown as canonical only relative to that supporting visual asset, and follow the markdown when those two lower-precedence sources conflict.
 - If `Design Contract Present` is true, the plan-level design contract is the story source of truth until a later task explicitly restates or intentionally narrows a requirement for a bounded implementation surface.
 - If a later task explicitly conflicts with paired design markdown for that bounded surface, treat the task wording as the immediate execution contract for that surface rather than as an automatic design mismatch.
 - Do not treat vague or underspecified task wording as an override of the plan-level design contract or paired design markdown.

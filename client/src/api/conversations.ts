@@ -13,6 +13,9 @@ export type ConversationApiSummary = {
   flags?: ConversationFlags;
   agentName?: string;
   flowName?: string;
+  previewUserText?: string;
+  previewAssistantSummary?: string;
+  previewSystemSummary?: string;
 };
 
 export type ConversationFlags = Record<string, unknown> & {
@@ -143,6 +146,18 @@ function parseConversationSummary(data: unknown): ConversationApiSummary {
     agentName:
       typeof record.agentName === 'string' ? record.agentName : undefined,
     flowName: typeof record.flowName === 'string' ? record.flowName : undefined,
+    previewUserText:
+      typeof record.previewUserText === 'string'
+        ? record.previewUserText
+        : undefined,
+    previewAssistantSummary:
+      typeof record.previewAssistantSummary === 'string'
+        ? record.previewAssistantSummary
+        : undefined,
+    previewSystemSummary:
+      typeof record.previewSystemSummary === 'string'
+        ? record.previewSystemSummary
+        : undefined,
   };
 }
 

@@ -21,6 +21,9 @@ export type ConversationSummary = {
   flags?: ConversationFlags;
   agentName?: string;
   flowName?: string;
+  previewUserText?: string;
+  previewAssistantSummary?: string;
+  previewSystemSummary?: string;
 };
 
 export type ConversationFilterState = 'active' | 'all' | 'archived';

@@ -5,7 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   Divider,
   Dialog,
@@ -14,10 +13,11 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  Checkbox,
   List,
   ListItem,
   ListItemButton,
-  ListItemText,
+  ListItemIcon,
   Snackbar,
   Stack,
   ToggleButton,
@@ -25,13 +25,19 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { type InputHTMLAttributes } from 'react';
 import type { ConversationFlags } from '../../api/conversations';
 import type {
   ConversationBulkResult,
   ConversationFilterState,
 } from '../../hooks/useConversations';
 import { createLogger } from '../../logging/logger';
+import {
+  buildConversationPreviewText,
+  formatConversationRowTimestamp,
+  getConversationProviderPresentation,
+} from './conversationRowFormatting';
 
 export type ConversationListItem = {
   conversationId: string;
@@ -44,7 +50,21 @@ export type ConversationListItem = {
   flags?: ConversationFlags;
   agentName?: string;
   flowName?: string;
+  previewUserText?: string;
+  previewAssistantSummary?: string;
+  previewSystemSummary?: string;
 };
+
+const checkboxInputProps = (
+  ariaLabel: string,
+  dataTestId: string,
+): InputHTMLAttributes<HTMLInputElement> & {
+  'aria-label': string;
+  'data-testid': string;
+} => ({
+  'aria-label': ariaLabel,
+  'data-testid': dataTestId,
+});
 
 type Props = {
   conversations: ConversationListItem[];
@@ -75,45 +95,6 @@ type Props = {
   showHeaderTitle?: boolean;
 };
 
-const checkboxInputProps = (
-  ariaLabel: string,
-  dataTestId: string,
-): InputHTMLAttributes<HTMLInputElement> & {
-  'aria-label': string;
-  'data-testid': string;
-} => ({
-  'aria-label': ariaLabel,
-  'data-testid': dataTestId,
-});
-
-function formatTimestamp(value?: string) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleString();
-}
-
-function readRunExecutionId(conversation: ConversationListItem) {
-  const parentExecutionId =
-    conversation.flowName &&
-    typeof conversation.flags?.flow?.executionId === 'string'
-      ? conversation.flags.flow.executionId.trim()
-      : '';
-  if (parentExecutionId.length > 0) return parentExecutionId;
-
-  const childExecutionId =
-    conversation.agentName &&
-    typeof conversation.flags?.flowChild?.executionId === 'string'
-      ? conversation.flags.flowChild.executionId.trim()
-      : '';
-  return childExecutionId.length > 0 ? childExecutionId : undefined;
-}
-
-function formatRunLabel(executionId?: string) {
-  if (!executionId) return undefined;
-  return `Run ${executionId.slice(0, 8)}`;
-}
-
 export function ConversationList({
   conversations,
   selectedId,
@@ -140,6 +121,7 @@ export function ConversationList({
 }: Props) {
   const log = useMemo(() => createLogger('client'), []);
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
+  const showBulkUi = false;
   const showFilters = true;
   const showRowActions = true;
   const mutationDisabled = Boolean(disabled || selectionDisabled);
@@ -436,7 +418,7 @@ export function ConversationList({
           flexDirection: 'column',
         }}
       >
-        {enableBulkUi && sorted.length > 0 && (
+        {showBulkUi && enableBulkUi && sorted.length > 0 && (
           <Stack
             direction="row"
             spacing={1}
@@ -548,207 +530,234 @@ export function ConversationList({
             <List dense disablePadding sx={{ width: '100%', minWidth: 0 }}>
               {sorted.map((conversation) => {
                 const selected = selectedId === conversation.conversationId;
-                const runLabel = formatRunLabel(
-                  readRunExecutionId(conversation),
+                const providerPresentation =
+                  getConversationProviderPresentation(
+                    conversation.provider,
+                    conversation.model,
+                  );
+                const previewText = buildConversationPreviewText({
+                  userText: conversation.previewUserText,
+                  assistantSummary: conversation.previewAssistantSummary,
+                  systemSummary: conversation.previewSystemSummary,
+                });
+                const timestamp = formatConversationRowTimestamp(
+                  conversation.lastMessageAt,
                 );
+                const sourceLabel = conversation.source ?? 'REST';
                 return (
                   <ListItem
                     key={conversation.conversationId}
                     disableGutters
+                    disablePadding
+                    secondaryAction={
+                      showRowActions ? (
+                        <Box
+                          sx={{
+                            width: 80,
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 0.25,
+                            pl: 1,
+                            borderLeft: '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          <Tooltip
+                            title={
+                              conversation.archived
+                                ? 'Restore conversation'
+                                : 'Archive conversation'
+                            }
+                          >
+                            <span>
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                onClick={() => {
+                                  void Promise.resolve(
+                                    conversation.archived
+                                      ? onRestore(conversation.conversationId)
+                                      : onArchive(conversation.conversationId),
+                                  )
+                                    .then(() => {
+                                      setToast({
+                                        severity: 'success',
+                                        message: conversation.archived
+                                          ? 'Conversation restored'
+                                          : 'Conversation archived',
+                                      });
+                                    })
+                                    .catch((err) => {
+                                      setToast({
+                                        severity: 'error',
+                                        message:
+                                          (err as Error).message ||
+                                          (conversation.archived
+                                            ? 'Restore failed'
+                                            : 'Archive failed'),
+                                      });
+                                    });
+                                }}
+                                disabled={bulkDisabled}
+                                data-testid={
+                                  conversation.archived
+                                    ? 'conversation-restore'
+                                    : 'conversation-archive'
+                                }
+                                aria-label={
+                                  conversation.archived
+                                    ? 'Restore conversation'
+                                    : 'Archive conversation'
+                                }
+                              >
+                                {conversation.archived ? (
+                                  <RestoreIcon fontSize="small" />
+                                ) : (
+                                  <ArchiveIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Typography
+                            variant="caption"
+                            color={
+                              conversation.archived
+                                ? 'text.secondary'
+                                : 'primary'
+                            }
+                            sx={{
+                              lineHeight: 1.1,
+                              textAlign: 'center',
+                              minWidth: 0,
+                            }}
+                          >
+                            {conversation.archived ? 'Restore' : 'Archive'}
+                          </Typography>
+                        </Box>
+                      ) : null
+                    }
                     sx={{
                       width: '100%',
                       minWidth: 0,
                       overflow: 'hidden',
-                      pr: showRowActions ? 7 : 0,
                     }}
-                    secondaryAction={
-                      showRowActions ? (
-                        conversation.archived ? (
-                          <Tooltip title="Restore conversation">
-                            <span>
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                onClick={() => {
-                                  void Promise.resolve(
-                                    onRestore(conversation.conversationId),
-                                  )
-                                    .then(() => {
-                                      setToast({
-                                        severity: 'success',
-                                        message: 'Conversation restored',
-                                      });
-                                    })
-                                    .catch((err) => {
-                                      setToast({
-                                        severity: 'error',
-                                        message:
-                                          (err as Error).message ||
-                                          'Restore failed',
-                                      });
-                                    });
-                                }}
-                                disabled={bulkDisabled}
-                                data-testid="conversation-restore"
-                                aria-label="Restore conversation"
-                              >
-                                <RestoreIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        ) : (
-                          <Tooltip title="Archive conversation">
-                            <span>
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                onClick={() => {
-                                  void Promise.resolve(
-                                    onArchive(conversation.conversationId),
-                                  )
-                                    .then(() => {
-                                      setToast({
-                                        severity: 'success',
-                                        message: 'Conversation archived',
-                                      });
-                                    })
-                                    .catch((err) => {
-                                      setToast({
-                                        severity: 'error',
-                                        message:
-                                          (err as Error).message ||
-                                          'Archive failed',
-                                      });
-                                    });
-                                }}
-                                disabled={bulkDisabled}
-                                data-testid="conversation-archive"
-                                aria-label="Archive conversation"
-                              >
-                                <ArchiveIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        )
-                      ) : null
-                    }
                   >
                     <ListItemButton
                       selected={selected}
                       onClick={() => onSelect(conversation.conversationId)}
                       disabled={mutationDisabled}
                       data-testid="conversation-row"
-                      style={{ paddingLeft: 12, paddingRight: 12 }}
                       sx={{
                         alignItems: 'flex-start',
+                        gap: 1.25,
                         py: 1.25,
-                        px: 1.5,
+                        pl: 1.5,
+                        pr: 10,
                         minWidth: 0,
                         width: '100%',
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: selected
+                          ? 'rgba(232, 241, 251, 0.85)'
+                          : 'inherit',
+                        '&.Mui-selected': {
+                          bgcolor: '#E8F1FB',
+                        },
+                        '&.Mui-selected:hover': {
+                          bgcolor: '#E8F1FB',
+                        },
                       }}
                     >
-                      {enableBulkUi && (
-                        <Checkbox
-                          size="small"
-                          checked={selectedIds.has(conversation.conversationId)}
-                          disabled={bulkDisabled}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={() => {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(conversation.conversationId)) {
-                                next.delete(conversation.conversationId);
-                              } else {
-                                next.add(conversation.conversationId);
-                              }
-                              return next;
-                            });
-                          }}
-                          slotProps={{
-                            input: checkboxInputProps(
-                              'Select conversation',
-                              'conversation-select',
-                            ),
-                          }}
-                          sx={{ mt: 0.25, mr: 0.5 }}
-                        />
-                      )}
-                      <ListItemText
-                        disableTypography
-                        sx={{ minWidth: 0, overflow: 'hidden' }}
-                        primary={
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            alignItems="center"
-                            sx={{ minWidth: 0, maxWidth: '100%' }}
+                      <ListItemIcon
+                        data-testid="conversation-provider-icon"
+                        aria-label={`${providerPresentation.label} provider icon`}
+                        sx={{
+                          minWidth: 40,
+                          mt: 0.25,
+                          color: selected ? '#20354A' : 'text.secondary',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {providerPresentation.icon}
+                      </ListItemIcon>
+                      <Box
+                        sx={{
+                          minWidth: 0,
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 0.5,
+                        }}
+                      >
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="flex-start"
+                          justifyContent="space-between"
+                          sx={{ minWidth: 0, width: '100%' }}
+                        >
+                          <Typography
+                            variant="body2"
+                            fontWeight={selected ? 700 : 600}
+                            noWrap
+                            data-testid="conversation-title"
+                            sx={{ minWidth: 0, flex: 1 }}
                           >
-                            <Typography
-                              variant="body2"
-                              fontWeight={selected ? 700 : 600}
-                              noWrap
-                              data-testid="conversation-title"
-                              sx={{ minWidth: 0, flex: 1 }}
-                            >
-                              {conversation.title || 'Untitled conversation'}
-                            </Typography>
-                            {conversation.archived && (
-                              <Chip
-                                label="Archived"
-                                size="small"
-                                color="default"
-                                variant="outlined"
-                                data-testid="conversation-archived-chip"
-                              />
-                            )}
-                          </Stack>
-                        }
-                        secondary={
-                          <Stack
-                            spacing={0.5}
-                            alignItems="flex-start"
-                            sx={{ minWidth: 0, maxWidth: '100%' }}
+                            {conversation.title || 'Untitled conversation'}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            data-testid="conversation-updated"
+                            noWrap
+                            sx={{ flexShrink: 0, pt: 0.125 }}
                           >
-                            <Stack
-                              direction="row"
-                              spacing={0.75}
-                              alignItems="center"
-                              flexWrap="wrap"
-                              useFlexGap
-                              sx={{ minWidth: 0, maxWidth: '100%' }}
-                            >
-                              {runLabel && (
-                                <Chip
-                                  label={runLabel}
-                                  size="small"
-                                  variant="outlined"
-                                  color="default"
-                                  data-testid="conversation-run-chip"
-                                />
-                              )}
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                data-testid="conversation-meta"
-                                noWrap
-                                sx={{ minWidth: 0, maxWidth: '100%' }}
-                              >
-                                {conversation.provider} · {conversation.model} ·{' '}
-                                {conversation.source ?? 'REST'}
-                              </Typography>
-                            </Stack>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              data-testid="conversation-updated"
-                              noWrap
-                              sx={{ maxWidth: '100%' }}
-                            >
-                              {formatTimestamp(conversation.lastMessageAt)}
-                            </Typography>
-                          </Stack>
-                        }
-                      />
+                            {timestamp}
+                          </Typography>
+                        </Stack>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          data-testid="conversation-preview"
+                          noWrap
+                          sx={{ minWidth: 0 }}
+                        >
+                          {previewText}
+                        </Typography>
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          alignItems="center"
+                          flexWrap="wrap"
+                          useFlexGap
+                          sx={{ minWidth: 0, maxWidth: '100%' }}
+                        >
+                          <Chip
+                            label={providerPresentation.label}
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            data-testid="conversation-provider-chip"
+                          />
+                          <Chip
+                            label={conversation.model || 'Unknown model'}
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            data-testid="conversation-model-chip"
+                          />
+                          <Chip
+                            label={sourceLabel}
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            data-testid="conversation-source-chip"
+                          />
+                        </Stack>
+                      </Box>
                     </ListItemButton>
                   </ListItem>
                 );

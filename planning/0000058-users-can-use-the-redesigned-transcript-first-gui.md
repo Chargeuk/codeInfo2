@@ -2548,7 +2548,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -2661,6 +2661,7 @@ Items to verify manually:
   - Updated affected tests (`client/src/test/chatSidebar.test.tsx`, `client/src/test/agentsPage.sidebarWs.test.tsx`, and `client/src/test/chatPage.source.test.tsx`) to match the redesigned row structure and to use flexible, order-insensitive matchers where appropriate.
   Re-ran the client test wrapper until all client tests passed.
 - Ran `npm run lint --workspace client` (warnings only) and `npm run format --workspace client` to fix formatting; both checks now pass. The plan's Testing checklist was updated to mark build, tests, lint, and format steps complete.
+- Closed Task 22 after the automated proof pass: the latest client build summary completed successfully, the newest full client wrapper passed `123/123` suites and `806/806` tests, `npm run lint --workspace client` remained green aside from existing non-failing warnings, and formatting checks were recorded clean after the targeted rewrite. No live blocker remains, so Task 22 is now complete and only later optional manual testing guidance remains.
 
 
 ### Task 23. Make The Shared Conversation Controls And Mobile Conversations Overlay Match The Final Design Contract

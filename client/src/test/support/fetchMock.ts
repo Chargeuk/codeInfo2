@@ -28,29 +28,33 @@ export function mockJsonResponse(
   // when tests use jest.mockResolvedValue(...), which can cause body
   // consumption problems.
   const status = init.status ?? 200;
+  const providedHeaders = init.headers as Record<string, string> | undefined;
+  const headerStore: Record<string, string> = {};
+  if (providedHeaders) {
+    Object.keys(providedHeaders).forEach((k) => {
+      headerStore[k.toLowerCase()] = providedHeaders[k];
+    });
+  }
   const headers =
     typeof Headers === 'function'
       ? new Headers(init.headers)
       : ({
           get(name: string) {
             const key = name.toLowerCase();
-            const providedHeaders = init.headers as
-              | Record<string, string>
-              | undefined;
             return (
-              providedHeaders?.[key] ??
-              providedHeaders?.[
-                key.replace(
-                  /(^|-)([a-z])/g,
-                  (_, prefix, char) => `${prefix}${char.toUpperCase()}`,
-                )
+              headerStore[key] ??
+              headerStore[
+                key.replace(/(^|-)([a-z])/g, (_, prefix, char) => `${prefix}${char.toUpperCase()}`)
               ] ??
               null
             );
           },
-        } as Pick<Headers, 'get'>);
-  if (headers.get('content-type') == null && 'set' in headers) {
-    headers.set('content-type', 'application/json');
+          set(name: string, value: string) {
+            headerStore[name.toLowerCase()] = value;
+          },
+        } as Pick<Headers, 'get' | 'set'>);
+  if (headers.get('content-type') == null && typeof (headers as any).set === 'function') {
+    (headers as any).set('content-type', 'application/json');
   }
 
   return {

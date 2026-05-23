@@ -181,8 +181,8 @@ describe('AgentsPage sidebar actions', () => {
 
     expect(screen.queryByTestId('conversation-bulk-delete')).toBeNull();
 
-    await user.click(screen.getByTestId('conversation-filter-active'));
     await user.click(screen.getByTestId('conversation-filter-archived'));
+    await user.click(screen.getByTestId('conversation-filter-active'));
     await waitFor(() =>
       expect(
         screen.getByTestId('conversation-bulk-delete'),

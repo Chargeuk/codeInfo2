@@ -2931,7 +2931,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 

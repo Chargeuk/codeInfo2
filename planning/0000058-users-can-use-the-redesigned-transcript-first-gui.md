@@ -2441,7 +2441,7 @@ No additional repositories are in scope for this review cycle.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -2541,6 +2541,7 @@ Items to verify manually:
 - Ran `npm run lint --workspace client`; it passed with only existing non-failing warnings in `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`, so no Task 21 lint repair was needed.
 - Ran `npm run format:check --workspace client`; it failed on `client/src/components/workspace/WorkspaceAppRail.tsx` and `client/src/test/useLmStudioStatus.test.ts`, so I applied targeted Prettier formatting to those files and reran the check until it passed cleanly.
 - **RESOLVED ISSUE** The audit blocker about unchecked implementation subtasks is now retired. Subtask 10 (`npm run lint --workspace client`) and Subtask 11 (`npm run format:check --workspace client`) were completed during this repair pass, and the remaining unchecked items for Task 21 are the later `Testing` gates only.
+- Closed Task 21 after the automated proof pass recorded all four Testing items complete: `npm run build:summary:client` finished successfully, the latest full client test wrapper passed `122/122` suites and `803/803` tests, `npm run lint --workspace client` remained clean aside from existing non-failing warnings, and `npm run format:check --workspace client` passed after the targeted formatting repair. No live blocker remains, so the task now waits only on later optional manual testing guidance rather than any blocking implementation or automated-proof gate.
 
 ### Task 22. Redesign Shared Conversation Rows To Match The Final Desktop And Mobile Metadata Model
 

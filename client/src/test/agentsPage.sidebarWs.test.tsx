@@ -125,7 +125,7 @@ describe('AgentsPage sidebar WS updates', () => {
     await screen.findByTestId('agents-page');
     await screen.findByText('First agent conversation');
     await waitFor(() =>
-      expect(screen.getAllByText('Run childrun').length).toBeGreaterThanOrEqual(
+      expect(screen.getAllByText(/Run childrun/).length).toBeGreaterThanOrEqual(
         1,
       ),
     );
@@ -167,7 +167,7 @@ describe('AgentsPage sidebar WS updates', () => {
     });
 
     await screen.findByText('Second agent conversation');
-    expect(screen.getAllByText('Run childrun')).toHaveLength(2);
+    expect(screen.getAllByText(/Run childrun/)).toHaveLength(2);
     expect(screen.queryByText('Ignored agent conversation')).toBeNull();
 
     await waitFor(() => {

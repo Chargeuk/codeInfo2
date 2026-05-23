@@ -65,6 +65,49 @@ const checkboxInputProps = (
   'data-testid': dataTestId,
 });
 
+const fallbackFilterState: ConversationFilterState = {
+  active: true,
+  archived: false,
+};
+
+const normalizeVisibleFilterState = (state: ConversationFilterState) =>
+  state.active || state.archived ? state : fallbackFilterState;
+
+const getNextVisibleFilterState = (
+  current: ConversationFilterState,
+  toggled: 'active' | 'archived',
+) => {
+  if (toggled === 'active') {
+    if (current.active) {
+      return current.archived
+        ? {
+            active: false,
+            archived: true,
+          }
+        : fallbackFilterState;
+    }
+
+    return {
+      active: true,
+      archived: current.archived,
+    };
+  }
+
+  if (current.archived) {
+    return current.active
+      ? {
+          active: true,
+          archived: false,
+        }
+      : fallbackFilterState;
+  }
+
+  return {
+    active: current.active,
+    archived: true,
+  };
+};
+
 type Props = {
   conversations: ConversationListItem[];
   selectedId?: string;
@@ -126,6 +169,7 @@ export function ConversationList({
   void showHeaderTitle;
   const mutationDisabled = Boolean(disabled || selectionDisabled);
   const bulkDisabled = Boolean(mutationDisabled || mongoConnected === false);
+  const visibleFilterState = normalizeVisibleFilterState(filterState);
   const sorted = useMemo(
     () =>
       [...conversations].sort((a, b) => {
@@ -173,10 +217,16 @@ export function ConversationList({
   useEffect(() => {
     if (!enableBulkUi) return;
     log('info', 'chat.sidebar.selection_changed', {
-      filterState,
+      filterState: visibleFilterState,
       selectedCount: selectedIds.size,
     });
-  }, [enableBulkUi, filterState, log, selectedIds.size, selectedKey]);
+  }, [
+    enableBulkUi,
+    log,
+    selectedIds.size,
+    selectedKey,
+    visibleFilterState,
+  ]);
 
   useEffect(() => {
     log('info', '0000023 conversationlist controls visible', {
@@ -235,8 +285,8 @@ export function ConversationList({
     enableBulkUi &&
     !bulkDisabled &&
     selectedIds.size > 0 &&
-    !filterState.active &&
-    filterState.archived &&
+    !visibleFilterState.active &&
+    visibleFilterState.archived &&
     Boolean(onBulkDelete);
 
   const handleBulk = async (action: 'archive' | 'restore' | 'delete') => {
@@ -248,7 +298,7 @@ export function ConversationList({
     if (ids.length === 0) return;
 
     log('info', 'chat.sidebar.bulk_action_request', {
-      filterState,
+      filterState: visibleFilterState,
       selectedCount: ids.length,
       action,
     });
@@ -291,7 +341,7 @@ export function ConversationList({
       setSelectedIds(new Set(result.pendingConversationIds));
 
       log('info', 'chat.sidebar.bulk_action_result', {
-        filterState,
+        filterState: visibleFilterState,
         selectedCount: ids.length,
         action,
         status: pendingCount > 0 ? 'partial' : 'ok',
@@ -304,7 +354,7 @@ export function ConversationList({
           ? String((err as { code?: unknown }).code)
           : undefined;
       log('info', 'chat.sidebar.bulk_action_result', {
-        filterState,
+        filterState: visibleFilterState,
         selectedCount: ids.length,
         action,
         status: 'failed',
@@ -345,12 +395,12 @@ export function ConversationList({
             <Stack direction="row" spacing={0.75} alignItems="center">
               <ToggleButton
                 value="active"
-                selected={filterState.active}
+                selected={visibleFilterState.active}
                 onClick={() => {
-                  const next = {
-                    active: !filterState.active,
-                    archived: filterState.archived,
-                  };
+                  const next = getNextVisibleFilterState(
+                    visibleFilterState,
+                    'active',
+                  );
                   log('info', 'chat.sidebar.filter_changed', {
                     filterState: next,
                   });
@@ -365,8 +415,8 @@ export function ConversationList({
                   px: 1.25,
                   py: 0.5,
                   borderColor: '#D9E2EC',
-                  color: filterState.active ? '#F4F6F8' : '#1F2933',
-                  bgcolor: filterState.active ? '#20354A' : '#F4F6F8',
+                  color: visibleFilterState.active ? '#F4F6F8' : '#1F2933',
+                  bgcolor: visibleFilterState.active ? '#20354A' : '#F4F6F8',
                   '&.Mui-selected': {
                     color: '#F4F6F8',
                     bgcolor: '#20354A',
@@ -380,12 +430,12 @@ export function ConversationList({
               </ToggleButton>
               <ToggleButton
                 value="archived"
-                selected={filterState.archived}
+                selected={visibleFilterState.archived}
                 onClick={() => {
-                  const next = {
-                    active: filterState.active,
-                    archived: !filterState.archived,
-                  };
+                  const next = getNextVisibleFilterState(
+                    visibleFilterState,
+                    'archived',
+                  );
                   log('info', 'chat.sidebar.filter_changed', {
                     filterState: next,
                   });
@@ -400,8 +450,8 @@ export function ConversationList({
                   px: 1.25,
                   py: 0.5,
                   borderColor: '#D9E2EC',
-                  color: filterState.archived ? '#F4F6F8' : '#1F2933',
-                  bgcolor: filterState.archived ? '#20354A' : '#F4F6F8',
+                  color: visibleFilterState.archived ? '#F4F6F8' : '#1F2933',
+                  bgcolor: visibleFilterState.archived ? '#20354A' : '#F4F6F8',
                   '&.Mui-selected': {
                     color: '#F4F6F8',
                     bgcolor: '#20354A',
@@ -542,7 +592,7 @@ export function ConversationList({
               >
                 Restore
               </Button>
-              {!filterState.active && filterState.archived && (
+              {!visibleFilterState.active && visibleFilterState.archived && (
                 <Button
                   size="small"
                   variant="outlined"

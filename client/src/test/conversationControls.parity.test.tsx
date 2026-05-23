@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import {
   act,
+  fireEvent,
   render,
   renderHook,
   screen,
@@ -69,25 +70,30 @@ function ControlsHarness() {
   });
 
   return (
-    <ConversationList
-      conversations={baseConversations}
-      selectedId={undefined}
-      isLoading={false}
-      isError={false}
-      hasMore={false}
-      filterState={filterState}
-      mongoConnected
-      onSelect={() => undefined}
-      onFilterChange={setFilterState}
-      onArchive={() => undefined}
-      onRestore={() => undefined}
-      onLoadMore={() => undefined}
-      onRefresh={() => undefined}
-      onRetry={() => undefined}
-      onBulkArchive={undefined}
-      onBulkRestore={undefined}
-      onBulkDelete={undefined}
-    />
+    <>
+      <div data-testid="conversation-filter-state">
+        {JSON.stringify(filterState)}
+      </div>
+      <ConversationList
+        conversations={baseConversations}
+        selectedId={undefined}
+        isLoading={false}
+        isError={false}
+        hasMore={false}
+        filterState={filterState}
+        mongoConnected
+        onSelect={() => undefined}
+        onFilterChange={setFilterState}
+        onArchive={() => undefined}
+        onRestore={() => undefined}
+        onLoadMore={() => undefined}
+        onRefresh={() => undefined}
+        onRetry={() => undefined}
+        onBulkArchive={undefined}
+        onBulkRestore={undefined}
+        onBulkDelete={undefined}
+      />
+    </>
   );
 }
 
@@ -156,5 +162,67 @@ describe('conversation controls parity', () => {
         'Active conversation',
       ]),
     );
+  });
+
+  it('restores the visible fallback state in the rendered controls when the last toggle is turned off', async () => {
+    render(<ControlsHarness />);
+
+    const active = screen.getByTestId('conversation-filter-active');
+    const archived = screen.getByTestId('conversation-filter-archived');
+    const stateProbe = screen.getByTestId('conversation-filter-state');
+
+    expect(active).toHaveAttribute('aria-pressed', 'true');
+    expect(archived).toHaveAttribute('aria-pressed', 'false');
+    expect(stateProbe).toHaveTextContent(
+      JSON.stringify({ active: true, archived: false }),
+    );
+
+    act(() => {
+      fireEvent.click(active);
+    });
+
+    await waitFor(() => {
+      expect(active).toHaveAttribute('aria-pressed', 'true');
+      expect(archived).toHaveAttribute('aria-pressed', 'false');
+      expect(stateProbe).toHaveTextContent(
+        JSON.stringify({ active: true, archived: false }),
+      );
+    });
+
+    act(() => {
+      fireEvent.click(archived);
+    });
+
+    await waitFor(() => {
+      expect(active).toHaveAttribute('aria-pressed', 'true');
+      expect(archived).toHaveAttribute('aria-pressed', 'true');
+      expect(stateProbe).toHaveTextContent(
+        JSON.stringify({ active: true, archived: true }),
+      );
+    });
+
+    act(() => {
+      fireEvent.click(active);
+    });
+
+    await waitFor(() => {
+      expect(active).toHaveAttribute('aria-pressed', 'false');
+      expect(archived).toHaveAttribute('aria-pressed', 'true');
+      expect(stateProbe).toHaveTextContent(
+        JSON.stringify({ active: false, archived: true }),
+      );
+    });
+
+    act(() => {
+      fireEvent.click(archived);
+    });
+
+    await waitFor(() => {
+      expect(active).toHaveAttribute('aria-pressed', 'true');
+      expect(archived).toHaveAttribute('aria-pressed', 'false');
+      expect(stateProbe).toHaveTextContent(
+        JSON.stringify({ active: true, archived: false }),
+      );
+    });
   });
 });

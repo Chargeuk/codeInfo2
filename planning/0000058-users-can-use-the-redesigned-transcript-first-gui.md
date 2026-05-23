@@ -3137,10 +3137,20 @@ This task does not own the transcript reading surface, the mobile app menu, the 
 - The shared primary action control swaps in place to a red stop button while execution is active, using the same visibility logic that currently controls whether `Send` or `Stop` is shown.
 - When execution stops or completes, the shared primary action control returns to the dark circular arrow-style send button without shifting the composer layout.
 - The `Chat` footer control order is exactly `Info`, working path, provider, model, `Options`.
+- On mobile, the footer controls stay on one compact non-wrapping row, the footer header text is hidden for every footer button, and the composer keeps a tiny centered inset instead of touching either screen edge.
+- On desktop, the composer keeps a small centered inset inside the workspace shell rather than sitting flush against one side.
+- The visible message-entry left edge aligns with the `Info` button column below it rather than starting noticeably to the right of the footer row.
+- The composer top and bottom inner padding feel balanced, with the top gap above the text entry matching the bottom gap below the footer controls.
 - Desktop composer controls open anchored popovers attached to the pressed footer control and positioned upward above the composer rather than downward below it.
 - Mobile composer controls open large centered modal dialog-style selection surfaces rather than tiny anchored popovers.
 - The working-path footer control shows a folder icon plus only the final folder name.
 - The `Model` control opens one flat list surface with thinking modes first, a separator, and models for the selected provider below.
+- The footer `Options` control is icon-only on desktop and mobile, and its selected values remain discoverable from the `Info` summary instead of inline footer text.
+- The footer `Model` value reads `model / thinking` on desktop, but on mobile it shows the model name without separate inline thinking text.
+- The footer `Model` trigger keeps the shared thinking-level meter icon on desktop and mobile instead of a generic icon.
+- The default message field height matches the attached send button height and grows vertically only as more text is entered.
+- The mobile provider footer trigger is icon-only, the desktop provider footer trigger keeps icon-plus-label treatment, and both use provider-specific brand marks rather than the old generic robot icon.
+- The model selector rows use provider-aware brand icons: `GPT*` rows use the OpenAI icon, `Claude*` rows use the Claude icon, and all other rows use the currently selected provider icon.
 - The `Options` control remains visible even when there are no currently available options and opens a compact empty state instead of disappearing.
 
 #### Documentation Locations
@@ -3195,6 +3205,10 @@ This task does not own the transcript reading surface, the mobile app menu, the 
 21. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
 22. [x] Current Repository: Update `client/src/components/workspace/composer/CommonComposerFooter.tsx`, `client/src/components/workspace/composer/ComposerFooterButton.tsx`, and the `Chat` composer usage in `client/src/pages/ChatPage.tsx` so the mobile `Chat` composer keeps `Info`, working path, provider, model, and `Options` inside one compact footer row beneath the input instead of wrapping them into stacked rows. Preserve the desktop control order and the existing upward-popover / centered-dialog interaction behavior while tightening the mobile footer widths, truncation, and spacing to match `planning/layout-ideas/plan/final-designs/chat-composer-final.png` plus the shared desktop/mobile shell references.
 23. [x] Current Repository: Extend `e2e/chat.spec.ts` with a focused mobile composer contract proof that loads `/chat` in the supported mobile viewport and proves the base composer keeps the footer controls inside one compact footer row while the `Model` control still opens as a centered modal dialog. The proof must fail if the footer spills into stacked rows or if the mobile model picker regresses to a small anchored popup.
+24. [x] Current Repository: Apply the post-proof mobile and desktop spacing refinements in `client/src/pages/ChatPage.tsx`, `client/src/components/workspace/WorkspaceDesktopShell.tsx`, and the shared composer primitives so the `Chat` composer keeps tiny centered side insets, balanced top/bottom inner padding, and a message-entry left edge that aligns with the `Info` button column. Preserve the shared shell structure while preventing the composer from touching the viewport edge on mobile or sitting flush to one side on desktop.
+25. [x] Current Repository: Update `client/src/pages/ChatPage.tsx`, `client/src/components/workspace/composer/ComposerSendButton.tsx`, and the shared shell/input-row styling so the default message box height matches the send button, the field grows only as more text is entered, the mobile send button stays compact, and the input remains visually attached to the button without regressing the send/stop swap behavior.
+26. [x] Current Repository: Refine the shared footer-button presentation in `client/src/components/workspace/composer/ComposerFooterButton.tsx` and related composer formatting so mobile footer buttons hide their header labels, the `Options` footer control becomes icon-only, the desktop model value reads `model / thinking`, the mobile model value drops separate inline thinking text, and the selected option details remain available through the `Info` summary instead of footer clutter.
+27. [x] Current Repository: Replace the generic provider/model branding in `client/src/assets/provider-logos/`, `client/src/components/chat/conversationRowFormatting.tsx`, `client/src/components/workspace/composer/composerFormatting.ts`, and `client/src/pages/ChatPage.tsx` with the final brand-aware treatment. The provider footer trigger must use provider-specific icons, the mobile provider trigger must be icon-only, the desktop provider trigger must remain icon-plus-label, and the model selector rows must show `OpenAI` branding for `GPT*`, `Claude` branding for `Claude*`, and the selected provider branding for all other models.
 
 #### Testing
 
@@ -3238,11 +3252,19 @@ Items to verify manually:
 - the red stop button returns to the arrow-style send button after stop or completion
 - the primary action control does not shift position when it changes between send and stop states
 - the footer order is exactly `Info`, working path, provider, model, `Options`
+- on mobile, every footer button hides its header text and the footer still stays on one compact row
+- on mobile and desktop, the composer keeps a tiny centered inset instead of touching or hugging one side of the shell
+- the message-entry left edge aligns with the `Info` button column below it
+- the top gap above the message field matches the bottom gap below the footer controls
 - the working-path control shows only the final folder name, not the full absolute path
+- the provider footer uses provider-specific branding, with icon-only treatment on mobile and icon-plus-label treatment on desktop
 - the desktop `Info` popup opens upward above the composer and feels attached to the `i` button
 - the desktop provider, model, and options surfaces open upward above the composer rather than downward below it
 - the mobile `Info`, provider, model, working path, and options surfaces open as large centered modal views
 - the model selector remains one flat list with thinking modes first and models second
+- the model footer trigger uses the thinking-level meter icon on desktop and mobile
+- the model selector shows `OpenAI` branding for `GPT*`, `Claude` branding for `Claude*`, and provider branding for all other rows
+- the footer `Options` control is icon-only and any selected option details are visible in the `Info` summary
 - `Options` still opens when empty and shows a compact empty state
 - `New conversation` and `Re-authenticate` are not visible inside the final composer surface
 - the visible composer layout is the same family on desktop and mobile
@@ -3269,6 +3291,8 @@ Items to verify manually:
 - Removed the mobile footer label row from the shared `ComposerFooterButton` so working path and model now show value-only content on small screens instead of header-plus-value chrome. Updated the focused mobile composer e2e proof to assert those mobile labels stay hidden, reran `npm run format:check`, reran `npm run test:summary:e2e -- --file e2e/chat.spec.ts --grep "mobile chat composer keeps one compact footer row and a centered model dialog"` (`1` test, `0` failed), and refreshed the Task 26 desktop/mobile screenshots before pushing this scoped pass.
 - Diagnosed the remaining mobile text-entry misalignment by measuring the live `/chat` layout in a fresh Playwright mobile context and confirming the hidden working-folder input inside `CommonComposerMainInputRow` was consuming the first-child slot for MUI Stack spacing. Moved that hidden input out of the horizontal main row in `client/src/pages/ChatPage.tsx`, restored the shared row wrapper to a neutral layout in `CommonComposerMainInputRow.tsx`, tightened the focused mobile e2e alignment assertion from `<8px` to `<3px`, reran `npm run format:check`, reran the focused mobile composer e2e proof (`1` test, `0` failed), rebuilt the supported main stack, and refreshed the Task 26 screenshots after verifying the mobile text field now starts within `1px` of the `Info` button column.
 - Ran a final layout pass to center the composer with tiny symmetric side gaps on mobile and desktop, even out the shell top/bottom spacing, and improve footer-value vertical centering. Updated `client/src/pages/ChatPage.tsx` to center the mobile composer against the viewport with a `4px` inset on each side, wrapped the desktop composer in `client/src/components/workspace/WorkspaceDesktopShell.tsx` with a small horizontal inset, adjusted the shared footer text stack in `ComposerFooterButton.tsx`, reran `npm run format:check`, reran the focused mobile composer e2e proof (`1` test, `0` failed), rebuilt the supported main stack, and refreshed the Task 26 screenshots as viewport captures so they no longer include the previous large blank bottom area.
+- Added the official rounded Claude icon from Anthropic's current press-kit bundle under `client/src/assets/provider-logos/anthropic-claude.svg`, taught the shared model-selector presentation helpers to show `OpenAI` for `GPT*` models, `Claude` for `Claude*` models, and the selected provider icon for all other rows, then updated `client/src/pages/ChatPage.tsx` so the model dialog now renders those branded row icons and secondary labels without changing the approved thinking-meter footer button. Reran `npm run test:summary:client -- --file client/src/test/chatPage.models.test.tsx` (`12` tests, `0` failed), reran the focused mobile composer e2e proof (`1` test, `0` failed), rebuilt and restarted the supported main stack, and refreshed `codeInfoTmp/manual-testing/0000058/26/` from the live `/chat` page after waiting for the selector fade transition to settle before capturing the desktop popover and mobile dialog views.
+- Folded the accepted manual-review refinements back into the Task 26 contract itself so later review work treats them as owned requirements rather than incidental polish. Added completed subtasks for the centered composer spacing pass, compact default input/send-button sizing, mobile footer-label removal plus icon-only options treatment, and the final provider/model branding rules; also expanded Task Exit Criteria and Manual Testing Guidance so future review must preserve the aligned input edge, balanced shell spacing, icon-only mobile/footer details, and `GPT*`/`Claude*` model-row branding behavior.
 
 
 ### Task 27. Migrate The Agents Composer Onto The Shared Composer Shell And Match The Final Agents Footer Contract

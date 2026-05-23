@@ -68,6 +68,7 @@ import {
   buildComposerOptionSummary,
   formatComposerModelLabel,
   formatThinkingModeLabel,
+  getComposerModelPresentation,
   getComposerProviderPresentation,
   getWorkingFolderName,
 } from '../components/workspace/composer/composerFormatting';
@@ -1709,42 +1710,43 @@ export default function ChatPage() {
       {composerReasoningOptions.length > 0 ? <Divider /> : null}
       <List disablePadding dense role="listbox" aria-label="Model options">
         {models.length > 0 ? (
-          models.map((model) => (
-            <ListItemButton
-              key={model.key}
-              component="div"
-              role="option"
-              aria-label={model.displayName}
-              aria-selected={selected === model.key}
-              selected={selected === model.key}
-              disabled={
-                isLoading ||
-                isError ||
-                isEmpty ||
-                !providerAvailable ||
-                nextSendContextLocked ||
-                resumedExecutionIdentityLocked
-              }
-              onClick={() => {
-                handleComposerModelClose();
-                applyModelSelection(model.key);
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
-                <ThinkingLevelIcon
-                  level={
-                    model.defaultReasoningEffort ??
-                    selectedModelCapabilities?.defaultReasoningEffort ??
-                    composerThinkingMode
-                  }
+          models.map((model) => {
+            const presentation = getComposerModelPresentation(
+              provider,
+              model.displayName,
+            );
+
+            return (
+              <ListItemButton
+                key={model.key}
+                component="div"
+                role="option"
+                aria-label={model.displayName}
+                aria-selected={selected === model.key}
+                selected={selected === model.key}
+                disabled={
+                  isLoading ||
+                  isError ||
+                  isEmpty ||
+                  !providerAvailable ||
+                  nextSendContextLocked ||
+                  resumedExecutionIdentityLocked
+                }
+                onClick={() => {
+                  handleComposerModelClose();
+                  applyModelSelection(model.key);
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  {presentation.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={model.displayName}
+                  secondary={presentation.label}
                 />
-              </ListItemIcon>
-              <ListItemText
-                primary={model.displayName}
-                secondary={provider ?? 'Model'}
-              />
-            </ListItemButton>
-          ))
+              </ListItemButton>
+            );
+          })
         ) : (
           <Stack sx={{ px: 1, py: 2 }}>
             <Typography variant="body2" color="text.secondary">

@@ -2,6 +2,7 @@ import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import DevicesOutlinedIcon from '@mui/icons-material/DevicesOutlined';
 import { Box } from '@mui/material';
 import type { ReactNode } from 'react';
+import anthropicClaudeLogo from '../../assets/provider-logos/anthropic-claude.svg';
 import githubCopilotLogo from '../../assets/provider-logos/github-copilot.svg';
 import lmStudioLogo from '../../assets/provider-logos/lmstudio.webp';
 import openAiCodexLogo from '../../assets/provider-logos/openai-codex.svg';
@@ -103,27 +104,28 @@ const ProviderLogoImage = ({ src, alt }: { src: string; alt: string }) => (
   />
 );
 
-export const getConversationProviderPresentation = (
-  provider?: string | null,
-  model?: string | null,
+type ConversationPresentationKey =
+  | 'openai'
+  | 'claude'
+  | 'codex'
+  | 'copilot'
+  | 'lmstudio'
+  | 'runtime';
+
+const buildPresentation = (
+  key: ConversationPresentationKey,
 ): ConversationProviderPresentation => {
-  const normalizedProvider = normalizeProviderKey(provider);
-  const normalizedModel = cleanConversationText(model)?.toLowerCase() ?? '';
-
-  const key =
-    normalizedProvider.includes('codex') || normalizedModel.includes('codex')
-      ? 'codex'
-      : normalizedProvider.includes('copilot') ||
-          normalizedModel.includes('copilot')
-        ? 'copilot'
-        : normalizedProvider.includes('lmstudio') ||
-            normalizedProvider.includes('lm studio') ||
-            normalizedModel.includes('lmstudio') ||
-            normalizedModel.includes('lm studio')
-          ? 'lmstudio'
-          : 'runtime';
-
   switch (key) {
+    case 'openai':
+      return {
+        label: 'OpenAI',
+        icon: <ProviderLogoImage src={openAiCodexLogo} alt="OpenAI logo" />,
+      };
+    case 'claude':
+      return {
+        label: 'Claude',
+        icon: <ProviderLogoImage src={anthropicClaudeLogo} alt="Claude logo" />,
+      };
     case 'codex':
       return {
         label: 'Codex',
@@ -152,4 +154,57 @@ export const getConversationProviderPresentation = (
         icon: <DevicesOutlinedIcon fontSize="small" />,
       };
   }
+};
+
+const resolveProviderPresentationKey = (
+  provider?: string | null,
+  model?: string | null,
+): ConversationPresentationKey => {
+  const normalizedProvider = normalizeProviderKey(provider);
+  const normalizedModel = cleanConversationText(model)?.toLowerCase() ?? '';
+
+  if (
+    normalizedProvider.includes('codex') ||
+    normalizedModel.includes('codex')
+  ) {
+    return 'codex';
+  }
+  if (
+    normalizedProvider.includes('copilot') ||
+    normalizedModel.includes('copilot')
+  ) {
+    return 'copilot';
+  }
+  if (
+    normalizedProvider.includes('lmstudio') ||
+    normalizedProvider.includes('lm studio') ||
+    normalizedModel.includes('lmstudio') ||
+    normalizedModel.includes('lm studio')
+  ) {
+    return 'lmstudio';
+  }
+
+  return 'runtime';
+};
+
+export const getConversationProviderPresentation = (
+  provider?: string | null,
+  model?: string | null,
+): ConversationProviderPresentation => {
+  return buildPresentation(resolveProviderPresentationKey(provider, model));
+};
+
+export const getConversationModelPresentation = (
+  provider?: string | null,
+  model?: string | null,
+): ConversationProviderPresentation => {
+  const normalizedModel = cleanConversationText(model)?.toLowerCase() ?? '';
+  if (normalizedModel.startsWith('gpt')) {
+    return buildPresentation('openai');
+  }
+  if (normalizedModel.startsWith('claude')) {
+    return buildPresentation('claude');
+  }
+
+  return buildPresentation(resolveProviderPresentationKey(provider, model));
 };

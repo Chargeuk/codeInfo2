@@ -1143,6 +1143,11 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
           models: [
             { key: 'auto', displayName: 'Auto', type: 'copilot' },
             {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
+              type: 'copilot',
+            },
+            {
               key: 'claude-sonnet-4.6',
               displayName: 'Claude Sonnet 4.6',
               type: 'copilot',
@@ -1235,6 +1240,21 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
     dialog.getByRole('heading', { name: 'Model', exact: true }),
   ).toBeVisible();
   await expect(dialog.getByText('Thinking modes')).toHaveCount(0);
+  await expect(
+    dialog
+      .getByRole('option', { name: /^Auto$/ })
+      .locator('img[alt=\"GitHub Copilot logo\"]'),
+  ).toBeVisible();
+  await expect(
+    dialog
+      .getByRole('option', { name: /gpt-5\.2/i })
+      .locator('img[alt=\"OpenAI logo\"]'),
+  ).toBeVisible();
+  await expect(
+    dialog
+      .getByRole('option', { name: /claude sonnet 4\.6/i })
+      .locator('img[alt=\"Claude logo\"]'),
+  ).toBeVisible();
 
   const dialogBox = await dialog.boundingBox();
   expect(dialogBox).not.toBeNull();

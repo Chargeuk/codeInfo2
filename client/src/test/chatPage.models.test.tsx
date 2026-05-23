@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
@@ -699,6 +699,74 @@ describe('Chat page models list', () => {
     ).toBeVisible();
     expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
   });
+
+  it('shows provider-aware brand icons in the model selector rows', async () => {
+    mockFetch.mockImplementation(
+      asFetchImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+        if (target.includes('/conversations')) {
+          return mockJsonResponse({ items: [], nextCursor: null });
+        }
+        if (target.includes('/chat/providers')) {
+          return mockJsonResponse({
+            providers: [
+              {
+                id: 'copilot',
+                label: 'GitHub Copilot',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          });
+        }
+        if (target.includes('/chat/models')) {
+          return mockJsonResponse({
+            provider: 'copilot',
+            available: true,
+            toolsAvailable: true,
+            models: [
+              { key: 'auto', displayName: 'Auto', type: 'copilot' },
+              {
+                key: 'gpt-5.2',
+                displayName: 'gpt-5.2',
+                type: 'copilot',
+              },
+              {
+                key: 'claude-sonnet-4.6',
+                displayName: 'Claude Sonnet 4.6',
+                type: 'copilot',
+              },
+            ],
+          });
+        }
+        return mockJsonResponse({});
+      }),
+    );
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await userEvent.click(
+      await screen.findByRole('combobox', { name: /model/i }),
+    );
+
+    const autoOption = await screen.findByRole('option', { name: /^auto$/i });
+    const gptOption = await screen.findByRole('option', { name: /gpt-5\.2/i });
+    const claudeOption = await screen.findByRole('option', {
+      name: /claude sonnet 4\.6/i,
+    });
+
+    expect(
+      within(autoOption).getByAltText(/github copilot logo/i),
+    ).toBeVisible();
+    expect(within(gptOption).getByAltText(/openai logo/i)).toBeVisible();
+    expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
+  }, 15000);
 
   it('renders non-standard runtime reasoning values from model capabilities', async () => {
     mockFetch.mockImplementation(

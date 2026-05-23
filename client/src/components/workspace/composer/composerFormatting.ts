@@ -2,7 +2,10 @@ import type {
   ChatAgentFlagDescriptor,
   ChatAgentFlagValue,
 } from '@codeinfo2/common';
-import { getConversationProviderPresentation } from '../../chat/conversationRowFormatting';
+import {
+  getConversationModelPresentation,
+  getConversationProviderPresentation,
+} from '../../chat/conversationRowFormatting';
 
 const cleanText = (value?: string | null) => {
   if (typeof value !== 'string') return '';
@@ -14,6 +17,22 @@ export const getComposerProviderPresentation = (
   model?: string | null,
 ) => {
   const presentation = getConversationProviderPresentation(provider, model);
+
+  if (presentation.label === 'Codex') {
+    return { ...presentation, label: 'OpenAI Codex' };
+  }
+  if (presentation.label === 'Copilot') {
+    return { ...presentation, label: 'GitHub Copilot' };
+  }
+
+  return presentation;
+};
+
+export const getComposerModelPresentation = (
+  provider?: string | null,
+  model?: string | null,
+) => {
+  const presentation = getConversationModelPresentation(provider, model);
 
   if (presentation.label === 'Codex') {
     return { ...presentation, label: 'OpenAI Codex' };

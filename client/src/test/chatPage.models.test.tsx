@@ -338,6 +338,54 @@ describe('Chat page models list', () => {
     expect(screen.queryByText(/Embedding Model/i)).toBeNull();
   });
 
+  it('renders the composer info surface as sectioned cards with icons', async () => {
+    const user = userEvent.setup();
+    mockCodexModelNextSendApi();
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/loading chat providers and models/i),
+      ).toBeNull(),
+    );
+
+    await user.click(await screen.findByTestId('chat-composer-info'));
+
+    const infoPopover = await screen.findByTestId('chat-composer-info-popover');
+    expect(
+      within(infoPopover).getByText(
+        'These values describe exactly what the next chat run will use.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(infoPopover).getByTestId('chat-composer-info-section-context'),
+    ).toBeInTheDocument();
+    expect(
+      within(infoPopover).getByTestId('chat-composer-info-section-options'),
+    ).toBeInTheDocument();
+    expect(
+      within(infoPopover).getByTestId('chat-composer-info-provider-icon'),
+    ).toBeInTheDocument();
+    expect(
+      within(infoPopover).getByTestId('chat-composer-info-model-icon'),
+    ).toBeInTheDocument();
+    expect(
+      within(infoPopover).getByTestId('chat-composer-info-thinking-icon'),
+    ).toBeInTheDocument();
+    expect(within(infoPopover).getByText('Run context')).toBeInTheDocument();
+    expect(within(infoPopover).getByText('Active options')).toBeInTheDocument();
+    expect(within(infoPopover).getByText('Defaults')).toBeInTheDocument();
+    expect(
+      within(infoPopover).getByText(
+        'No option overrides are active. New sends will use the current defaults.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('surfaces an error alert when model fetch fails without inventing fallback models', async () => {
     mockFetch.mockImplementation(
       asFetchImplementation(async (url: RequestInfo | URL) => {

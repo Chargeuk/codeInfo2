@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
-import UserTranscriptBubble from './UserTranscriptBubble';
 import { installTranscriptMeasurementHarness } from '../../test/support/transcriptMeasurementHarness';
+import UserTranscriptBubble from './UserTranscriptBubble';
 
 const log = () => undefined;
 

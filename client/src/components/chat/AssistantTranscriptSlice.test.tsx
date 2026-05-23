@@ -81,6 +81,13 @@ describe('AssistantTranscriptSlice', () => {
     fireEvent.click(infoButton);
 
     const popover = await screen.findByTestId('bubble-info-popover');
+    expect(within(popover).getByText('Message details')).toBeInTheDocument();
+    expect(
+      within(popover).getByTestId('bubble-info-section-context'),
+    ).toBeInTheDocument();
+    expect(
+      within(popover).getByTestId('bubble-info-section-usage'),
+    ).toBeInTheDocument();
     expect(
       within(popover).getByTestId('bubble-info-provider'),
     ).toHaveTextContent('Provider: codex');

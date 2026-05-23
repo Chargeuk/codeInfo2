@@ -1,20 +1,29 @@
+import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import BubbleChartRoundedIcon from '@mui/icons-material/BubbleChartRounded';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import DataUsageRoundedIcon from '@mui/icons-material/DataUsageRounded';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import ModelTrainingRoundedIcon from '@mui/icons-material/ModelTrainingRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
+  Avatar,
   Box,
   Button,
   Chip,
   CircularProgress,
   Collapse,
+  Divider,
   Popover,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   memo,
   useEffect,
@@ -36,6 +45,10 @@ import {
   buildStepLine,
   buildUsageLine,
 } from './chatTranscriptFormatting';
+import {
+  getConversationModelPresentation,
+  getConversationProviderPresentation,
+} from './conversationRowFormatting';
 import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 import {
   buildTranscriptInfoRows,
@@ -91,6 +104,7 @@ function AssistantTranscriptSlice({
   renderMetadataContent,
   log,
 }: AssistantTranscriptSliceProps) {
+  const theme = useTheme();
   const copyFeedbackTimerRef = useRef<number | null>(null);
   const [infoAnchorEl, setInfoAnchorEl] = useState<HTMLButtonElement | null>(
     null,
@@ -146,6 +160,14 @@ function AssistantTranscriptSlice({
   const status = visibleStreamStatus ?? message.streamStatus;
   const statusLabel = getTranscriptStatusLabel(status);
   const statusKey = getTranscriptStatusKey(status);
+  const providerPresentation = useMemo(
+    () => getConversationProviderPresentation(message.provider, message.model),
+    [message.model, message.provider],
+  );
+  const modelPresentation = useMemo(
+    () => getConversationModelPresentation(message.provider, message.model),
+    [message.model, message.provider],
+  );
   const visibleCopyText = useMemo(
     () =>
       buildSharedTranscriptCopyText({
@@ -158,6 +180,159 @@ function AssistantTranscriptSlice({
     citationsEnabled && activeToolsAvailable && !!message.citations?.length;
   const metadataContent = renderMetadataContent?.(message) ?? null;
   const metadataPopoverOpen = Boolean(infoAnchorEl);
+
+  const buildInfoAvatarSx = (variant: 'accent' | 'muted' = 'accent') => ({
+    width: 34,
+    height: 34,
+    borderRadius: 2,
+    bgcolor:
+      variant === 'accent'
+        ? alpha(theme.palette.info.main, 0.12)
+        : alpha(theme.palette.text.primary, 0.07),
+    color: variant === 'accent' ? 'info.main' : 'text.secondary',
+  });
+
+  const infoHeaderCard = (
+    <Box
+      sx={{
+        p: 1.5,
+        borderRadius: 3,
+        border: `1px solid ${alpha(theme.palette.info.main, 0.22)}`,
+        backgroundColor: alpha(theme.palette.info.main, 0.08),
+      }}
+    >
+      <Stack direction="row" spacing={1.25} alignItems="flex-start">
+        <Avatar sx={buildInfoAvatarSx()}>
+          <InfoOutlinedIcon fontSize="small" />
+        </Avatar>
+        <Stack spacing={0.25} minWidth={0}>
+          <Typography variant="subtitle2" fontWeight={700}>
+            Message details
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            This summary shows the response context, usage, and any extra
+            execution details attached to this assistant output.
+          </Typography>
+        </Stack>
+      </Stack>
+    </Box>
+  );
+
+  const contextRows = [
+    {
+      key: 'time',
+      label: 'Time',
+      value: completionLabel,
+      icon: <AccessTimeRoundedIcon fontSize="small" />,
+      testId: 'bubble-info-time',
+      text: `Time: ${completionLabel}`,
+      avatarVariant: 'accent' as const,
+    },
+    {
+      key: 'provider',
+      label: 'Provider',
+      value: message.provider?.trim() || 'Unknown',
+      icon: providerPresentation.icon,
+      testId: 'bubble-info-provider',
+      text: `Provider: ${message.provider?.trim() || 'Unknown'}`,
+      avatarVariant: 'accent' as const,
+    },
+    {
+      key: 'model',
+      label: 'Model',
+      value: message.model?.trim() || 'Unknown',
+      icon: modelPresentation.icon,
+      testId: 'bubble-info-model',
+      text: `Model: ${message.model?.trim() || 'Unknown'}`,
+      avatarVariant: 'accent' as const,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      value: statusLabel,
+      icon:
+        statusKey === 'complete' ? (
+          <CheckCircleOutlineIcon fontSize="small" />
+        ) : statusKey === 'failed' ? (
+          <ErrorOutlineIcon fontSize="small" />
+        ) : statusKey === 'stopped' ? (
+          <HourglassTopIcon fontSize="small" />
+        ) : (
+          <AutoAwesomeRoundedIcon fontSize="small" />
+        ),
+      testId: 'bubble-info-status',
+      text: `Status: ${statusLabel}`,
+      avatarVariant: 'muted' as const,
+    },
+  ];
+
+  const usageRows = [
+    ...infoRows
+      .filter((entry) =>
+        ['Tokens in', 'Tokens out', 'Cached', 'Total'].includes(entry.label),
+      )
+      .map((entry) => ({
+        key: entry.label,
+        label: entry.label,
+        value: entry.value,
+        icon:
+          entry.label === 'Cached' ? (
+            <BubbleChartRoundedIcon fontSize="small" />
+          ) : (
+            <DataUsageRoundedIcon fontSize="small" />
+          ),
+        testId: `bubble-info-${entry.label.toLowerCase().replace(/\s+/g, '-')}`,
+        text: `${entry.label}: ${entry.value}`,
+      })),
+    ...(usageSummary
+      ? [
+          {
+            key: 'usage-summary',
+            label: 'Usage',
+            value: usageSummary,
+            icon: <DataUsageRoundedIcon fontSize="small" />,
+            testId: 'bubble-info-usage',
+            text: `Usage: ${usageSummary}`,
+          },
+        ]
+      : []),
+    ...(timingSummary
+      ? [
+          {
+            key: 'timing-summary',
+            label: 'Timing',
+            value: timingSummary,
+            icon: <AccessTimeRoundedIcon fontSize="small" />,
+            testId: 'bubble-info-timing',
+            text: `Timing: ${timingSummary}`,
+          },
+        ]
+      : []),
+    ...(responseTimeLabel
+      ? [
+          {
+            key: 'response-time',
+            label: 'Response time',
+            value: responseTimeLabel,
+            icon: <AccessTimeRoundedIcon fontSize="small" />,
+            testId: 'bubble-info-response-time',
+            text: `Response time: ${responseTimeLabel}`,
+          },
+        ]
+      : []),
+    ...(stepSummary
+      ? [
+          {
+            key: 'step',
+            label: 'Step',
+            value: stepSummary,
+            icon: <ReceiptLongRoundedIcon fontSize="small" />,
+            testId: 'bubble-info-step',
+            text: `Step: ${stepSummary}`,
+          },
+        ]
+      : []),
+  ];
 
   useEffect(() => {
     if (!copyFeedback) {
@@ -697,65 +872,214 @@ function AssistantTranscriptSlice({
             },
           }}
         >
-          <Stack spacing={1} data-testid="bubble-info-popover">
-            <Stack spacing={0.25}>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                data-testid="bubble-info-time"
+          <Stack spacing={1.5} data-testid="bubble-info-popover">
+            {infoHeaderCard}
+            <Box
+              sx={{
+                borderRadius: 3,
+                border: `1px solid ${theme.palette.divider}`,
+                overflow: 'hidden',
+                bgcolor: 'background.paper',
+              }}
+              data-testid="bubble-info-section-context"
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
+                sx={{
+                  px: 1.5,
+                  py: 1.25,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  bgcolor: alpha(theme.palette.text.primary, 0.02),
+                }}
               >
-                Time: {completionLabel}
-              </Typography>
-              {infoRows.map((entry) => (
-                <Typography
-                  key={entry.label}
-                  variant="caption"
-                  color="text.secondary"
-                  data-testid={`bubble-info-${entry.label
-                    .toLowerCase()
-                    .replace(/\s+/g, '-')}`}
-                >
-                  {entry.label}: {entry.value}
-                </Typography>
-              ))}
-            </Stack>
-            {(usageSummary || timingSummary) && (
-              <Stack spacing={0.25}>
-                {usageSummary && (
+                <Avatar sx={buildInfoAvatarSx()}>
+                  <ModelTrainingRoundedIcon fontSize="small" />
+                </Avatar>
+                <Stack spacing={0.125} minWidth={0}>
                   <Typography
                     variant="caption"
                     color="text.secondary"
-                    data-testid="bubble-info-usage"
+                    sx={{
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      fontWeight: 700,
+                    }}
                   >
-                    Usage: {usageSummary}
+                    Response context
                   </Typography>
-                )}
-                {timingSummary && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    data-testid="bubble-info-timing"
-                  >
-                    Timing: {timingSummary}
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Message summary
                   </Typography>
-                )}
+                </Stack>
               </Stack>
-            )}
-            {stepSummary && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                data-testid="bubble-info-step"
+              <Stack divider={<Divider flexItem />}>
+                {contextRows.map((row) => (
+                  <Stack
+                    key={row.key}
+                    direction="row"
+                    spacing={1.25}
+                    alignItems="center"
+                    sx={{ px: 1.5, py: 1.25 }}
+                  >
+                    <Avatar sx={buildInfoAvatarSx(row.avatarVariant)}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {row.icon}
+                      </Box>
+                    </Avatar>
+                    <Stack spacing={0.2} minWidth={0} sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {row.label}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ wordBreak: 'break-word', fontWeight: 600 }}
+                        data-testid={row.testId}
+                      >
+                        {row.text}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
+            {usageRows.length > 0 ? (
+              <Box
+                sx={{
+                  borderRadius: 3,
+                  border: `1px solid ${theme.palette.divider}`,
+                  overflow: 'hidden',
+                  bgcolor: 'background.paper',
+                }}
+                data-testid="bubble-info-section-usage"
               >
-                Step: {stepSummary}
-              </Typography>
-            )}
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{
+                    px: 1.5,
+                    py: 1.25,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    bgcolor: alpha(theme.palette.text.primary, 0.02),
+                  }}
+                >
+                  <Avatar sx={buildInfoAvatarSx('muted')}>
+                    <DataUsageRoundedIcon fontSize="small" />
+                  </Avatar>
+                  <Stack spacing={0.125} minWidth={0}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Output metrics
+                    </Typography>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Usage and timing
+                    </Typography>
+                  </Stack>
+                </Stack>
+                <Stack divider={<Divider flexItem />}>
+                  {usageRows.map((row) => (
+                    <Stack
+                      key={row.key}
+                      direction="row"
+                      spacing={1.25}
+                      alignItems="center"
+                      sx={{ px: 1.5, py: 1.25 }}
+                    >
+                      <Avatar sx={buildInfoAvatarSx('muted')}>
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {row.icon}
+                        </Box>
+                      </Avatar>
+                      <Stack spacing={0.2} minWidth={0} sx={{ flex: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {row.label}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ wordBreak: 'break-word', fontWeight: 600 }}
+                          data-testid={row.testId}
+                        >
+                          {row.text}
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Box>
+            ) : null}
             {message.warnings && message.warnings.length > 0 && (
-              <Stack spacing={0.5}>
-                <Typography variant="caption" color="text.secondary">
-                  Warnings
-                </Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap">
+              <Box
+                sx={{
+                  borderRadius: 3,
+                  border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
+                  overflow: 'hidden',
+                  bgcolor: alpha(theme.palette.warning.main, 0.05),
+                }}
+                data-testid="bubble-info-section-warnings"
+              >
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{
+                    px: 1.5,
+                    py: 1.25,
+                    borderBottom: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      ...buildInfoAvatarSx('muted'),
+                      bgcolor: alpha(theme.palette.warning.main, 0.14),
+                      color: 'warning.main',
+                    }}
+                  >
+                    <WarningAmberIcon fontSize="small" />
+                  </Avatar>
+                  <Stack spacing={0.125}>
+                    <Typography
+                      variant="caption"
+                      color="warning.main"
+                      sx={{
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Attention
+                    </Typography>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Warnings
+                    </Typography>
+                  </Stack>
+                </Stack>
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  flexWrap="wrap"
+                  sx={{ px: 1.5, py: 1.25 }}
+                >
                   {message.warnings.map((warning) => (
                     <Chip
                       key={`${message.id}-warning-${warning}`}
@@ -769,9 +1093,52 @@ function AssistantTranscriptSlice({
                     />
                   ))}
                 </Stack>
-              </Stack>
+              </Box>
             )}
-            {metadataContent && <Box>{metadataContent}</Box>}
+            {metadataContent && (
+              <Box
+                sx={{
+                  borderRadius: 3,
+                  border: `1px solid ${theme.palette.divider}`,
+                  overflow: 'hidden',
+                  bgcolor: 'background.paper',
+                }}
+                data-testid="bubble-info-section-extra"
+              >
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{
+                    px: 1.5,
+                    py: 1.25,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    bgcolor: alpha(theme.palette.text.primary, 0.02),
+                  }}
+                >
+                  <Avatar sx={buildInfoAvatarSx('muted')}>
+                    <ReceiptLongRoundedIcon fontSize="small" />
+                  </Avatar>
+                  <Stack spacing={0.125} minWidth={0}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Additional context
+                    </Typography>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Provider and agent details
+                    </Typography>
+                  </Stack>
+                </Stack>
+                <Box sx={{ px: 1.5, py: 1.25 }}>{metadataContent}</Box>
+              </Box>
+            )}
           </Stack>
         </Popover>
       </Box>

@@ -1,4 +1,5 @@
 import { Alert, Box, Stack, Typography, type SxProps } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import {
   forwardRef,
   useCallback,
@@ -10,7 +11,6 @@ import {
   type ReactNode,
   type UIEventHandler,
 } from 'react';
-import type { Theme } from '@mui/material/styles';
 import type { ChatMessage, ToolCall } from '../../hooks/useChatStream';
 import { createLogger } from '../../logging/logger';
 import SharedTranscriptMessageRow from './SharedTranscriptMessageRow';

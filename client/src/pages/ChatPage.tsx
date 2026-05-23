@@ -6,9 +6,13 @@ import {
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LayersRoundedIcon from '@mui/icons-material/LayersRounded';
+import SettingsSuggestRoundedIcon from '@mui/icons-material/SettingsSuggestRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import {
   Alert,
+  Avatar,
+  Chip,
   Button,
   CircularProgress,
   DialogActions,
@@ -27,12 +31,13 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   type ChangeEvent,
   type FocusEvent,
   FormEvent,
   type MouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -167,6 +172,23 @@ const readConversationAgentFlags = (
     return undefined;
   }
   return flags.agentFlags;
+};
+
+type ComposerInfoEntry = {
+  key: string;
+  label: string;
+  value: string;
+  icon: ReactNode;
+  iconTestId?: string;
+};
+
+type ComposerInfoSection = {
+  key: string;
+  title: string;
+  eyebrow: string;
+  entries: ComposerInfoEntry[];
+  emptyMessage?: string;
+  summaryChipLabel?: string;
 };
 
 export default function ChatPage() {
@@ -1109,6 +1131,10 @@ export default function ChatPage() {
   const composerOptionDescriptors = availableAgentFlags.filter(
     (descriptor) => descriptor.key !== 'modelReasoningEffort',
   );
+  const composerOptionSummary = useMemo(
+    () => buildComposerOptionSummary(availableAgentFlags, agentFlagsDraft),
+    [agentFlagsDraft, availableAgentFlags],
+  );
   const composerReasoningOptions = useMemo(() => {
     const supportedReasoningEfforts = selectedModelCapabilities
       ?.supportedReasoningEfforts?.length
@@ -1122,24 +1148,78 @@ export default function ChatPage() {
       label: formatThinkingModeLabel(value),
     }));
   }, [reasoningDescriptor, selectedModelCapabilities]);
-  const composerInfoRows = useMemo(
+  const composerInfoSections = useMemo<ComposerInfoSection[]>(
     () => [
-      { label: 'Provider', value: composerProviderPresentation.label },
-      { label: 'Model', value: composerModelValue },
       {
-        label: 'Thinking mode',
-        value: formatThinkingModeLabel(composerThinkingMode),
+        key: 'context',
+        title: 'Run context',
+        eyebrow: 'Current chat send context',
+        summaryChipLabel: 'Live',
+        entries: [
+          {
+            key: 'provider',
+            label: 'Provider',
+            value: composerProviderPresentation.label,
+            icon: composerProviderPresentation.icon,
+            iconTestId: 'chat-composer-info-provider-icon',
+          },
+          {
+            key: 'model',
+            label: 'Model',
+            value: composerModelValue,
+            icon: getComposerModelPresentation(
+              provider,
+              selectedModelDisplayName,
+            ).icon,
+            iconTestId: 'chat-composer-info-model-icon',
+          },
+          {
+            key: 'thinking-mode',
+            label: 'Thinking mode',
+            value: formatThinkingModeLabel(composerThinkingMode),
+            icon: (
+              <ThinkingLevelIcon
+                level={composerThinkingMode}
+                data-testid="chat-composer-info-thinking-icon"
+              />
+            ),
+          },
+          {
+            key: 'working-path',
+            label: 'Selected working path',
+            value: composerWorkingFolderName,
+            icon: <FolderOutlinedIcon fontSize="small" />,
+            iconTestId: 'chat-composer-info-working-path-icon',
+          },
+        ],
       },
-      { label: 'Selected working path', value: composerWorkingFolderName },
-      ...buildComposerOptionSummary(availableAgentFlags, agentFlagsDraft),
+      {
+        key: 'options',
+        title: 'Active options',
+        eyebrow: 'Overrides from defaults',
+        summaryChipLabel:
+          composerOptionSummary.length > 0
+            ? `${composerOptionSummary.length} changed`
+            : 'Defaults',
+        emptyMessage:
+          'No option overrides are active. New sends will use the current defaults.',
+        entries: composerOptionSummary.map((entry) => ({
+          key: entry.label,
+          label: entry.label,
+          value: entry.value,
+          icon: <SettingsSuggestRoundedIcon fontSize="small" />,
+        })),
+      },
     ],
     [
-      agentFlagsDraft,
-      availableAgentFlags,
       composerModelValue,
+      composerOptionSummary,
+      composerProviderPresentation.icon,
       composerProviderPresentation.label,
       composerThinkingMode,
       composerWorkingFolderName,
+      provider,
+      selectedModelDisplayName,
     ],
   );
   const isComposerTestMode =
@@ -1533,16 +1613,165 @@ export default function ChatPage() {
   );
 
   const composerInfoContent = (
-    <Stack spacing={1.5}>
-      {composerInfoRows.map((row) => (
-        <Stack key={row.label} spacing={0.25}>
-          <Typography variant="caption" color="text.secondary">
-            {row.label}
-          </Typography>
-          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-            {row.value}
-          </Typography>
+    <Stack spacing={2} data-testid="chat-composer-info-content">
+      <Box
+        sx={{
+          p: 1.5,
+          borderRadius: 3,
+          border: `1px solid ${alpha(theme.palette.info.main, 0.22)}`,
+          backgroundColor: alpha(theme.palette.info.main, 0.08),
+        }}
+      >
+        <Stack direction="row" spacing={1.25} alignItems="flex-start">
+          <Avatar
+            sx={{
+              width: 34,
+              height: 34,
+              bgcolor: alpha(theme.palette.info.main, 0.16),
+              color: 'info.main',
+            }}
+          >
+            <InfoOutlinedIcon fontSize="small" />
+          </Avatar>
+          <Stack spacing={0.25} minWidth={0}>
+            <Typography variant="subtitle2" fontWeight={700}>
+              Current send context
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              These values describe exactly what the next chat run will use.
+            </Typography>
+          </Stack>
         </Stack>
+      </Box>
+
+      {composerInfoSections.map((section) => (
+        <Box
+          key={section.key}
+          sx={{
+            borderRadius: 3,
+            border: `1px solid ${theme.palette.divider}`,
+            overflow: 'hidden',
+            bgcolor: 'background.paper',
+          }}
+          data-testid={`chat-composer-info-section-${section.key}`}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            spacing={1}
+            sx={{
+              px: 1.5,
+              py: 1.25,
+              borderBottom: `1px solid ${theme.palette.divider}`,
+              bgcolor: alpha(theme.palette.text.primary, 0.02),
+            }}
+          >
+            <Stack spacing={0.125} minWidth={0}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  fontWeight: 700,
+                }}
+              >
+                {section.eyebrow}
+              </Typography>
+              <Typography variant="subtitle2" fontWeight={700}>
+                {section.title}
+              </Typography>
+            </Stack>
+            {section.summaryChipLabel ? (
+              <Chip
+                size="small"
+                label={section.summaryChipLabel}
+                color={section.key === 'options' ? 'default' : 'info'}
+                variant={section.key === 'options' ? 'outlined' : 'filled'}
+              />
+            ) : null}
+          </Stack>
+
+          {section.entries.length > 0 ? (
+            <Stack divider={<Divider flexItem />}>
+              {section.entries.map((entry) => (
+                <Stack
+                  key={entry.key}
+                  direction="row"
+                  spacing={1.25}
+                  alignItems="center"
+                  sx={{ px: 1.5, py: 1.25 }}
+                >
+                  <Avatar
+                    variant="rounded"
+                    sx={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 2,
+                      bgcolor:
+                        section.key === 'options'
+                          ? alpha(theme.palette.text.primary, 0.07)
+                          : alpha(theme.palette.info.main, 0.12),
+                      color:
+                        section.key === 'options'
+                          ? 'text.secondary'
+                          : 'info.main',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      data-testid={entry.iconTestId}
+                    >
+                      {entry.icon}
+                    </Box>
+                  </Avatar>
+                  <Stack spacing={0.2} minWidth={0} sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {entry.label}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        wordBreak: 'break-word',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {entry.value}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              ))}
+            </Stack>
+          ) : (
+            <Stack
+              direction="row"
+              spacing={1.25}
+              alignItems="center"
+              sx={{ px: 1.5, py: 1.5 }}
+            >
+              <Avatar
+                variant="rounded"
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.text.primary, 0.07),
+                  color: 'text.secondary',
+                }}
+              >
+                <LayersRoundedIcon fontSize="small" />
+              </Avatar>
+              <Typography variant="body2" color="text.secondary">
+                {section.emptyMessage}
+              </Typography>
+            </Stack>
+          )}
+        </Box>
       ))}
     </Stack>
   );

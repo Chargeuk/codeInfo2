@@ -2441,7 +2441,7 @@ No additional repositories are in scope for this review cycle.
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Overview
 

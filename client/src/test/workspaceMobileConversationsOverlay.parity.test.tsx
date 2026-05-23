@@ -6,7 +6,14 @@ import WorkspaceMobileConversationsOverlay from '../components/workspace/Workspa
 const repoRoot = process.cwd();
 
 function readPageSource(path: string) {
-  return readFileSync(join(repoRoot, path), 'utf8');
+  const candidate = join(repoRoot, path);
+  try {
+    return readFileSync(candidate, 'utf8');
+  } catch (err) {
+    // Running inside the client workspace sets cwd to <repo>/client; try the parent repo root as a fallback.
+    const alt = join(repoRoot, '..', path);
+    return readFileSync(alt, 'utf8');
+  }
 }
 
 describe('workspace mobile conversations overlay parity', () => {

@@ -269,9 +269,9 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
 
   await expect(providerSelect).toHaveText(/OpenAI Codex/i);
 
-  const agentFlagsToggle = page
-    .getByTestId('agent-flags-panel')
-    .getByRole('button', { name: /Agent Flags/i });
+  const agentFlagsPanel = page.getByTestId('agent-flags-panel');
+  await expect(agentFlagsPanel).toBeVisible({ timeout: 20000 });
+  const agentFlagsToggle = agentFlagsPanel.locator('[aria-expanded]').first();
   if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
     await agentFlagsToggle.click();
   }

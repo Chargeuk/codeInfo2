@@ -3246,6 +3246,7 @@ Items to verify manually:
 
 - Replaced the legacy stacked Chat composer with the shared composer shell, footer controls, popover/dialog surfaces, and page-header actions outside the composer surface.
 - Added a focused shared-shell test in `client/src/test/commonComposerShell.test.tsx` and validated the client lint/format gates after formatting the touched composer files.
+- **BLOCKER** `npm run test:summary:client` failed and prevents completing automated proof. Attempts made: (1) reran the client build after fixing the TypeScript type error; (2) reran the full client test wrapper which produced 103 failing tests (see test-results/client-tests-2026-05-23T07-59-34-019Z.json and wrapper output); (3) ran a targeted Jest test file which failed to parse TypeScript generic syntax (SyntaxError at client/src/test/chatPage.stop.test.tsx: "const mockFetch = jest.fn<typeof fetch>();"). Reason blocked: broad test-suite failures and a Jest/Babel transform or test-harness configuration regression that requires dedicated maintenance outside this task's implementation scope. Recommendation: split a follow-up maintenance task to restore the test transform/config and fix failing tests, then re-run automated proof.
 - Fixed TypeScript union mismatch in `client/src/components/chat/transcriptSurfaceFormatting.ts` by removing an invalid `"stopping"` branch. Re-ran `npm run build:summary:client` and confirmed the client build now passes.
 
 

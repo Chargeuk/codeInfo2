@@ -302,31 +302,39 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
       const observer = new ResizeObserver((entries) => {
         entries.forEach((entry) => {
-          if (!(entry.target instanceof HTMLElement)) {
-            return;
-          }
-          if (entry.target === transcriptElement) {
-            reconcileScrollPosition();
-            return;
-          }
-          const rowId = entry.target.dataset.transcriptRowId;
-          if (!rowId || entry.target.isConnected) {
-            return;
-          }
-          const missingRowKey = `${measurementKey}:${rowId}`;
-          if (missingRowLoggedRef.current.has(missingRowKey)) {
-            return;
-          }
-          missingRowLoggedRef.current.add(missingRowKey);
-          sharedTranscriptLog(
-            'info',
-            'DEV-0000049:T06:transcript_measurement_missing_row_ignored',
-            {
+          try {
+            if (!(entry.target instanceof HTMLElement)) {
+              return;
+            }
+            if (entry.target === transcriptElement) {
+              reconcileScrollPosition();
+              return;
+            }
+            const rowId = entry.target.dataset.transcriptRowId;
+            if (!rowId || entry.target.isConnected) {
+              return;
+            }
+            const missingRowKey = `${measurementKey}:${rowId}`;
+            if (missingRowLoggedRef.current.has(missingRowKey)) {
+              return;
+            }
+            missingRowLoggedRef.current.add(missingRowKey);
+            sharedTranscriptLog(
+              'info',
+              'DEV-0000049:T06:transcript_measurement_missing_row_ignored',
+              {
+                surface,
+                conversationId: conversationId ?? null,
+                reason: 'missing-row-target',
+              },
+            );
+          } catch (err) {
+            sharedTranscriptLog('warn', 'DEV-0000049:T06:transcript_measurement_error', {
               surface,
               conversationId: conversationId ?? null,
-              reason: 'missing-row-target',
-            },
-          );
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
         });
       });
 

@@ -346,7 +346,7 @@ function AssistantTranscriptSlice({
               </Stack>
             )}
             {hasCitations && (
-              <Stack spacing={1} data-testid="citations">
+              <>
                 <Button
                   size="small"
                   variant="text"
@@ -370,7 +370,7 @@ function AssistantTranscriptSlice({
                   timeout="auto"
                   unmountOnExit
                 >
-                  <Stack spacing={1}>
+                  <Stack spacing={1} data-testid="citations">
                     {message.citations?.map((citation: ToolCitation, idx) => {
                       const pathLabel = `${citation.repo}/${citation.relPath}`;
                       const hostSuffix = citation.hostPath
@@ -424,7 +424,7 @@ function AssistantTranscriptSlice({
                     })}
                   </Stack>
                 </Collapse>
-              </Stack>
+              </>
             )}
             {(message.thinkStreaming || message.think) && (
               <Box mt={1}>

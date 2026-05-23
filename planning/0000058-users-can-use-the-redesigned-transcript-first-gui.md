@@ -3093,6 +3093,9 @@ Items to verify manually:
 - Removed the outlined transcript wrappers from Chat, Agents, and Flows so the transcript reads as a continuous surface instead of a boxed panel.
 - Added dedicated assistant/user/parity/wrapper tests for the new transcript contract and updated stale transcript-status assertions to the `Working` label where the shared transcript chip now uses the new contract.
 - Validated the new transcript proof with targeted client tests plus `npm run lint --workspace client` and `npm run format:check --workspace client`; the remaining lint output is the repo’s existing unrelated warning noise in `useChatModel.ts` and `ChatPage.tsx`.
+- Ran `npm run test:summary:e2e`; the e2e wrapper reported clean_success with `tests run: 64`, `passed: 64`, `failed: 0`. Log: `logs/test-summaries/e2e-tests-latest.log`. Marked Testing item 3 complete.
+- Ran `npm run lint` and applied `eslint --fix`; lint now passes and reports no warnings. Marked Testing item 4 complete.
+- Ran `npm run format` (Prettier --write) and `npm run format:check`; formatting now passes. Marked Testing item 5 complete.
 - Marked Task 25 subtasks 7 through 19 complete after the assistant/user transcript split, shared wrapper cleanup, and the supporting transcript-surface validation passed.
 - Restored `data-transcript-row-id` on the virtualized transcript row wrapper so SharedTranscript’s resize-observer path and the late-row-removal scroll tests can target real rendered rows again, and aligned the stale Flows stop proof with the shared transcript status-chip contract already used by Chat and Agents (`Stopping` on the button, `Working` on the live assistant chip).
 - **RESOLVED ISSUE** The Task 25 client-proof blocker on Testing item 2 is retired. Targeted reruns for `chatPage.layoutHeight`, `flowsPage`, and `flowsPage.stop` passed after the fix, and the full `npm run test:summary:client` wrapper now passes cleanly (`816` run, `0` failed).

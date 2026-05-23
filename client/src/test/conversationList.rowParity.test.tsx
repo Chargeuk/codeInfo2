@@ -65,7 +65,7 @@ describe('Conversation row parity', () => {
         isLoading={false}
         isError={false}
         hasMore={false}
-        filterState="active"
+        filterState={{ active: true, archived: false }}
         onSelect={() => {}}
         onFilterChange={() => {}}
         onArchive={() => {}}

@@ -836,7 +836,7 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
         isError={false}
         error={undefined}
         hasMore={false}
-        filterState="active"
+        filterState={{ active: true, archived: false }}
         mongoConnected={false}
         disabled={false}
         onSelect={() => undefined}

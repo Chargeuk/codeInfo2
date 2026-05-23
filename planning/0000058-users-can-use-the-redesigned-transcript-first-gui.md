@@ -121,6 +121,7 @@ The design references for this story already exist and should be treated as the 
 - Manual proof for auth-dependent provider state on `Home` may use the repository-owned skip rule from `codeinfo_markdown/repository_information.md` when the missing state would require human-controlled two-factor authentication; skip only the affected auth-dependent surface and keep the rest of the redesign proof active.
 - When screenshots are needed, capture them first in the Playwright output directory and then transfer the chosen artifacts into `codeInfoTmp/manual-testing/0000058/<task-number>/` with deterministic names such as `proof-01-desktop-chat.png`, `proof-02-mobile-home.png`, and `support-console.txt`.
 - When final proof screenshots are needed, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart; if a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+- Use Chrome DevTools MCP first for live layout diagnosis, pixel-level spacing or alignment checks, clipping, stacking, and scroll-container inspection. Use Playwright for repeatable viewport setup, final screenshot capture, and retained proof artifacts; prefer the Playwright captures as the kept screenshots for this story.
 - Later tasking should include desktop and mobile proof across both shell families, with special attention on transcript height, chronological top-to-bottom transcript ordering, opening existing conversations at the newest visible content at the bottom, bottom composer behavior, conversation-pane interactions, Home absorbing LM Studio and provider logon concerns, the `/lmstudio` redirect path, and the rule that message `Copy` actions copy only message content while scroll-away transcript reading keeps its place during new activity.
 - Later tasking should also verify that `Chat` transcript footers stay compact on desktop and mobile, that mobile transcript footer actions use icon-only treatment where intended while still fitting on one row, and that the `Chat` conversation pane uses the compact new-conversation icon near `Refresh` without showing `Re-authenticate`.
 - Final manual proof should verify that long shared composer option surfaces scroll instead of clipping, that `Flows` uses the shared arrow button as `Run` for fresh flows and `Resume` for resumable existing flows, and that `Home`, `Ingest`, and `Logs` can all scroll vertically on both desktop and mobile.
@@ -3278,6 +3279,7 @@ Use these design files and sections as the manual checklist source:
 - corresponding final PNG references for the above surfaces
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+Use Chrome DevTools MCP first when diagnosing spacing, footer-height, row-fit, icon-only treatment, or affordance-layering problems on the live page. Use Playwright for the final desktop/mobile screenshots and other retained proof artifacts for this task.
 
 Items to verify manually:
 - `Chat` no longer shows a visible `Re-authenticate` action in the workspace surface
@@ -3823,6 +3825,7 @@ Where the latest Story 58 composer direction is stricter than the markdown wordi
 - preserve the accepted `Task 27` shared-shell refinements when proving `Flows`: no mobile footer headers, tiny centered side insets, balanced top/bottom composer padding, left-edge input alignment with the footer-control column, and the compact default input height that grows with content
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+Use Chrome DevTools MCP first when checking run-versus-resume state presentation, upward popover geometry, modal sizing, or pixel-level footer spacing on the live page. Use Playwright for the final desktop/mobile screenshots and any retained proof artifacts for this task.
 
 Items to verify manually:
 - the visible `Flows` composer uses the same overall shell shape as the shared `Chat` composer
@@ -3956,6 +3959,7 @@ Use these design files and sections as the manual checklist source:
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+Use Chrome DevTools MCP first when diagnosing shell gutters, centering, outer whitespace bands, double-scroll behavior, and scroll-container ownership on the live page. Use Playwright for the final desktop/mobile screenshots and retained proof artifacts for this task.
 
 Items to verify manually:
 - the desktop app rail is flush against the left edge of the browser window
@@ -4123,6 +4127,7 @@ Use these design files and sections as the manual checklist source:
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-05-home-mobile.png`
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+Use Chrome DevTools MCP first when diagnosing top-bar spacing, clipped controls, overlay layering, mobile padding, and pixel-level alignment on the live page. Use Playwright for the final desktop/mobile screenshots and retained proof artifacts for this task.
 
 Items to verify manually:
 - `Chat`, `Agents`, and `Flows` mobile pages no longer show the old outlined `Conversations` / `Menu` button row
@@ -4290,6 +4295,7 @@ Use these design and story files as the manual checklist source:
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+Use Chrome DevTools MCP first when diagnosing transcript landing position, scroll-anchor behavior, bottom-follow state, or layout regressions caused by the ordering change. Use Playwright for the final desktop/mobile screenshots and any retained proof artifacts for this task.
 
 Items to verify manually:
 - existing conversations open at the newest visible content at the bottom rather than at the oldest content at the top
@@ -4451,6 +4457,7 @@ When older design markdown or PNG files conflict with the later Story 58 task te
 - do not treat any behavior explicitly required by `Task 21` through `Task 32` as a mistake just because an older design PNG or markdown shows an earlier version
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+Use Chrome DevTools MCP first when diagnosing any remaining layout, clipping, spacing, layering, console, or network anomalies during the final story pass. Use Playwright for the kept desktop/mobile screenshots and other final retained proof artifacts.
 
 Final story-level items to verify manually:
 - `Chat`, `Agents`, and `Flows` share one workspace-shell family on desktop and one responsive mobile behavior model

@@ -410,7 +410,7 @@ The design references for this story already exist and should be treated as the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -2673,7 +2673,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20, Task 22`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Overview
 

@@ -3224,6 +3224,8 @@ Where the latest Story 58 composer direction is stricter than the markdown wordi
 - the main input should take the available width
 - the footer controls remain visible on mobile rather than being hidden behind a different mobile-only chrome pattern
 
+Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+
 Items to verify manually:
 - the `Chat` composer is one rounded outer surface rather than multiple stacked admin rows
 - the main input row is visually dominant
@@ -3425,6 +3427,8 @@ Where the latest Story 58 composer direction is stricter than or conflicts with 
 - selecting a saved prompt disables text input and disables step selection
 - selecting `Write instruction` enables text input and disables step selection
 
+Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+
 Items to verify manually:
 - the visible `Agents` composer uses the same overall shell shape as the shared `Chat` composer
 - the footer order is exactly `Info`, working path, agent, command, step
@@ -3547,6 +3551,8 @@ Where the latest Story 58 composer direction is stricter than the markdown wordi
 - mobile composer control surfaces must open as large centered modal selection views
 - the visible input layout remains the same on desktop and mobile
 - the main input should take the available width
+
+Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
 
 Items to verify manually:
 - the visible `Flows` composer uses the same overall shell shape as the shared `Chat` composer
@@ -3672,6 +3678,8 @@ Use these design files and sections as the manual checklist source:
 - compare against current-state references:
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
+
+Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
 
 Items to verify manually:
 - the desktop app rail is flush against the left edge of the browser window
@@ -3831,6 +3839,8 @@ Use these design files and sections as the manual checklist source:
 - compare against current-state references:
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-05-home-mobile.png`
+
+Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
 
 Items to verify manually:
 - `Chat`, `Agents`, and `Flows` mobile pages no longer show the old outlined `Conversations` / `Menu` button row
@@ -3995,6 +4005,8 @@ Use these design and story files as the manual checklist source:
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-02-chat-desktop.png`
   - `codeInfoStatus/manual-proof/0000058/task-20/proof-11-chat-mobile-conversation.png`
 
+Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
+
 Items to verify manually:
 - existing conversations open at the newest visible content at the bottom rather than at the oldest content at the top
 - older conversation content appears above newer conversation content in the transcript
@@ -4149,6 +4161,8 @@ When older design markdown or PNG files conflict with the later Story 58 task te
 - `Task 30` shared mobile top-bar refinements
 - `Task 31` transcript ordering and open-at-bottom behavior
 - do not treat any behavior explicitly required by `Task 21` through `Task 31` as a mistake just because an older design PNG or markdown shows an earlier version
+
+Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
 
 Final story-level items to verify manually:
 - `Chat`, `Agents`, and `Flows` share one workspace-shell family on desktop and one responsive mobile behavior model

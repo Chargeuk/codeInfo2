@@ -2,8 +2,10 @@ import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { Box, Button, Stack, Tooltip, Typography } from '@mui/material';
 import {
+  useCallback,
   memo,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -38,10 +40,16 @@ function UserTranscriptBubble({
   markdownLogSource = 'SharedTranscript',
 }: UserTranscriptBubbleProps) {
   const copyFeedbackTimerRef = useRef<number | null>(null);
+  const bubbleSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const textContentRef = useRef<HTMLDivElement | null>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<{
     severity: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [footerLayoutMode, setFooterLayoutMode] = useState<
+    'stacked' | 'inline'
+  >('stacked');
   const segments = useMemo<Extract<ChatSegment, { kind: 'text' }>[]>(
     () =>
       message.segments?.length
@@ -64,10 +72,25 @@ function UserTranscriptBubble({
     [message.content, segments],
   );
   const completionLabel = useMemo(
-    () => formatTranscriptTimestamp(message.createdAt),
-    [message.createdAt],
+    () =>
+      formatTranscriptTimestamp(message.createdAt, {
+        compact: footerLayoutMode === 'inline',
+      }),
+    [footerLayoutMode, message.createdAt],
   );
   const acknowledged = message.optimistic !== true;
+  const layoutContentKey = useMemo(
+    () =>
+      JSON.stringify({
+        id: message.id,
+        content: message.content ?? '',
+        segments: segments.map((segment) => ({
+          id: segment.id,
+          content: segment.content ?? '',
+        })),
+      }),
+    [message.content, message.id, segments],
+  );
 
   useEffect(() => {
     if (!copyFeedback) {
@@ -86,6 +109,82 @@ function UserTranscriptBubble({
       }
     };
   }, [copyFeedback]);
+
+  const measureFooterLayout = useCallback(() => {
+    const bubbleSurface = bubbleSurfaceRef.current;
+    const textContent = textContentRef.current;
+    const footer = footerRef.current;
+    if (!bubbleSurface || !textContent || !footer) {
+      return;
+    }
+
+    const contentStyle = window.getComputedStyle(textContent);
+    const bubbleStyle = window.getComputedStyle(bubbleSurface);
+    const fontSize = Number.parseFloat(contentStyle.fontSize) || 16;
+    const parsedLineHeight = Number.parseFloat(contentStyle.lineHeight);
+    const lineHeight = Number.isFinite(parsedLineHeight)
+      ? parsedLineHeight
+      : fontSize * 1.5;
+    const singleLineThreshold = lineHeight * 1.5;
+    const textHeight = textContent.getBoundingClientRect().height;
+    const bubbleRect = bubbleSurface.getBoundingClientRect();
+    const parentWidth =
+      bubbleSurface.parentElement?.getBoundingClientRect().width ??
+      bubbleRect.width;
+    const paddingLeft = Number.parseFloat(bubbleStyle.paddingLeft) || 0;
+    const paddingRight = Number.parseFloat(bubbleStyle.paddingRight) || 0;
+    const rawMaxWidth = bubbleStyle.maxWidth.trim();
+    const computedMaxWidth =
+      rawMaxWidth.endsWith('%') || rawMaxWidth === 'none'
+        ? Number.NaN
+        : Number.parseFloat(rawMaxWidth);
+    const configuredMaxWidth =
+      parentWidth * (window.innerWidth < 600 ? 0.92 : 0.78);
+    const maxAllowedWidth = Number.isFinite(computedMaxWidth)
+      ? computedMaxWidth
+      : configuredMaxWidth;
+    const maxInlineContentWidth = maxAllowedWidth - paddingLeft - paddingRight;
+    const inlineGapPx = window.innerWidth < 600 ? 6 : 8;
+    const textWidth = textContent.scrollWidth;
+    const footerWidth = footer.scrollWidth;
+    const shouldInline =
+      textHeight <= singleLineThreshold &&
+      textWidth + inlineGapPx + footerWidth <= maxInlineContentWidth + 1;
+
+    setFooterLayoutMode((current) =>
+      current === (shouldInline ? 'inline' : 'stacked')
+        ? current
+        : shouldInline
+          ? 'inline'
+          : 'stacked',
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    measureFooterLayout();
+  }, [layoutContentKey, measureFooterLayout]);
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      measureFooterLayout();
+    });
+
+    if (bubbleSurfaceRef.current) {
+      observer.observe(bubbleSurfaceRef.current);
+    }
+    if (textContentRef.current) {
+      observer.observe(textContentRef.current);
+    }
+    if (footerRef.current) {
+      observer.observe(footerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [measureFooterLayout]);
 
   const handleCopy = async () => {
     if (!visibleCopyText) {
@@ -121,6 +220,124 @@ function UserTranscriptBubble({
     }
   };
 
+  const textContent = (
+    <Box
+      ref={textContentRef}
+      data-testid="user-transcript-content"
+      sx={{
+        minWidth: 0,
+        flex: footerLayoutMode === 'inline' ? '1 1 auto' : '0 1 auto',
+        '& > :first-of-type': { mt: 0 },
+        '& > :last-child': { mb: 0 },
+      }}
+    >
+      <Box
+        sx={{
+          color: transcriptSurfaceTokens.user.text,
+          fontSize: { xs: '0.92rem', sm: '1rem' },
+          lineHeight: 1.5,
+        }}
+      >
+        <Stack spacing={1}>
+          {segments.map((segment) => {
+            const userContent = segment.content ?? ' ';
+            log('info', 'DEV-0000035:T10:chat_user_markdown_render_evaluated', {
+              messageId: message.id,
+              segmentId: segment.id,
+              role: message.role,
+              source: markdownLogSource,
+              contentLength: userContent.length,
+              hasMermaidFence: /```mermaid/i.test(userContent),
+            });
+
+            return (
+              <Markdown
+                key={segment.id}
+                content={userContent}
+                data-testid={userMarkdownTestId}
+              />
+            );
+          })}
+        </Stack>
+      </Box>
+    </Box>
+  );
+
+  const footerContent = (
+    <Stack
+      ref={footerRef}
+      direction="row"
+      spacing={{ xs: 0.5, sm: 1 }}
+      justifyContent="flex-end"
+      alignItems="center"
+      flexWrap="nowrap"
+      sx={{
+        pt: footerLayoutMode === 'inline' ? 0 : { xs: 0.75, sm: 1.25 },
+        pl: footerLayoutMode === 'inline' ? { xs: 1, sm: 1.25 } : 0,
+        color: transcriptSurfaceTokens.user.secondaryText,
+        flexShrink: 0,
+        alignSelf: footerLayoutMode === 'inline' ? 'flex-end' : 'stretch',
+      }}
+      data-testid="user-transcript-footer"
+    >
+      <Stack direction="row" spacing={0.75} alignItems="center">
+        <DoneAllIcon
+          fontSize="small"
+          data-testid="user-ack-tick"
+          sx={{
+            color: acknowledged
+              ? transcriptSurfaceTokens.user.confirmedTick
+              : transcriptSurfaceTokens.user.secondaryText,
+            fontSize: { xs: 14, sm: 16 },
+          }}
+        />
+      </Stack>
+      <Typography
+        variant="caption"
+        sx={{
+          color: transcriptSurfaceTokens.user.secondaryText,
+          fontSize: { xs: '0.62rem', sm: '0.7rem' },
+          lineHeight: 1.15,
+          whiteSpace: 'nowrap',
+        }}
+        data-testid="bubble-completion-time"
+      >
+        {completionLabel}
+      </Typography>
+      <Tooltip title="Copy visible message content">
+        <Button
+          size="small"
+          variant="text"
+          onClick={handleCopy}
+          data-testid="bubble-copy"
+          aria-label="Copy visible message content"
+          disabled={!visibleCopyText}
+          startIcon={<ContentCopyOutlinedIcon fontSize="small" />}
+          sx={{
+            color: transcriptSurfaceTokens.user.text,
+            textTransform: 'none',
+            minWidth: 0,
+            px: { xs: 0.125, sm: 0.375 },
+            py: 0,
+            minHeight: { xs: 22, sm: 26 },
+            fontSize: { xs: '0.64rem', sm: '0.72rem' },
+            '& .MuiButton-startIcon': {
+              mr: { xs: 0, sm: 0.375 },
+            },
+          }}
+        >
+          <Box
+            component="span"
+            data-testid="user-bubble-copy-label"
+            sx={{ display: { xs: 'none', sm: 'inline' } }}
+          >
+            Copy
+          </Box>
+        </Button>
+      </Tooltip>
+    </Stack>
+  );
+
   return (
     <Stack
       alignItems="flex-end"
@@ -130,121 +347,38 @@ function UserTranscriptBubble({
       sx={{ width: '100%' }}
     >
       <Box
+        ref={bubbleSurfaceRef}
         data-testid="user-transcript-bubble"
+        data-footer-layout={footerLayoutMode}
         sx={{
-          width: '100%',
+          width: 'fit-content',
           maxWidth: { xs: '92%', sm: '78%' },
           ml: 'auto',
           bgcolor: transcriptSurfaceTokens.user.background,
           color: transcriptSurfaceTokens.user.text,
           borderRadius: 3,
-          px: 2,
-          py: { xs: 1.25, sm: 1.75 },
+          px: { xs: 1.5, sm: 1.75 },
+          py: { xs: 0.875, sm: 1.125 },
           boxShadow: 0,
         }}
       >
-        <Box
-          sx={{
-            color: transcriptSurfaceTokens.user.text,
-            fontSize: { xs: '0.92rem', sm: '1rem' },
-            lineHeight: 1.5,
-          }}
-        >
-          <Stack spacing={1}>
-            {segments.map((segment) => {
-              const userContent = segment.content ?? ' ';
-              log(
-                'info',
-                'DEV-0000035:T10:chat_user_markdown_render_evaluated',
-                {
-                  messageId: message.id,
-                  segmentId: segment.id,
-                  role: message.role,
-                  source: markdownLogSource,
-                  contentLength: userContent.length,
-                  hasMermaidFence: /```mermaid/i.test(userContent),
-                },
-              );
-
-              return (
-                <Markdown
-                  key={segment.id}
-                  content={userContent}
-                  data-testid={userMarkdownTestId}
-                />
-              );
-            })}
-          </Stack>
-        </Box>
-
-        <Stack
-          direction="row"
-          spacing={{ xs: 0.5, sm: 1 }}
-          justifyContent="flex-end"
-          alignItems="center"
-          flexWrap="nowrap"
-          sx={{
-            pt: { xs: 0.75, sm: 1.25 },
-            color: transcriptSurfaceTokens.user.secondaryText,
-          }}
-          data-testid="user-transcript-footer"
-        >
-          <Stack direction="row" spacing={0.75} alignItems="center">
-            <DoneAllIcon
-              fontSize="small"
-              data-testid="user-ack-tick"
-              sx={{
-                color: acknowledged
-                  ? transcriptSurfaceTokens.user.confirmedTick
-                  : transcriptSurfaceTokens.user.secondaryText,
-                fontSize: { xs: 16, sm: 18 },
-              }}
-            />
-          </Stack>
-          <Typography
-            variant="caption"
-            sx={{
-              color: transcriptSurfaceTokens.user.secondaryText,
-              fontSize: { xs: '0.66rem', sm: '0.75rem' },
-              lineHeight: 1.15,
-              whiteSpace: 'nowrap',
-            }}
-            data-testid="bubble-completion-time"
+        {footerLayoutMode === 'inline' ? (
+          <Stack
+            direction="row"
+            alignItems="flex-end"
+            justifyContent="space-between"
+            spacing={{ xs: 0.5, sm: 0.75 }}
+            sx={{ minWidth: 0 }}
           >
-            {completionLabel}
-          </Typography>
-          <Tooltip title="Copy visible message content">
-            <Button
-              size="small"
-              variant="text"
-              onClick={handleCopy}
-              data-testid="bubble-copy"
-              aria-label="Copy visible message content"
-              disabled={!visibleCopyText}
-              startIcon={<ContentCopyOutlinedIcon fontSize="small" />}
-              sx={{
-                color: transcriptSurfaceTokens.user.text,
-                textTransform: 'none',
-                minWidth: 0,
-                px: { xs: 0.25, sm: 0.5 },
-                py: 0,
-                minHeight: { xs: 24, sm: 30 },
-                fontSize: { xs: '0.68rem', sm: '0.75rem' },
-                '& .MuiButton-startIcon': {
-                  mr: { xs: 0, sm: 0.5 },
-                },
-              }}
-            >
-              <Box
-                component="span"
-                data-testid="user-bubble-copy-label"
-                sx={{ display: { xs: 'none', sm: 'inline' } }}
-              >
-                Copy
-              </Box>
-            </Button>
-          </Tooltip>
-        </Stack>
+            {textContent}
+            {footerContent}
+          </Stack>
+        ) : (
+          <>
+            {textContent}
+            {footerContent}
+          </>
+        )}
 
         {copyFeedback && (
           <Typography

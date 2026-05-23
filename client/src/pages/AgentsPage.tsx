@@ -1,12 +1,4 @@
-import {
-  Alert,
-  Box,
-  Container,
-  Button,
-  Paper,
-  Stack,
-  useMediaQuery,
-} from '@mui/material';
+import { Alert, Box, Button, Paper, Stack, useMediaQuery } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import { useTheme } from '@mui/material/styles';
 import {
@@ -2213,16 +2205,14 @@ export default function AgentsPage() {
   );
 
   return (
-    <Container
-      maxWidth={false}
+    <Box
       data-testid="agents-page"
       sx={{
-        pt: 1,
-        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        width: '100%',
       }}
     >
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
@@ -2254,6 +2244,6 @@ export default function AgentsPage() {
 
         {isMobile ? mobileWorkspace : desktopWorkspace}
       </Stack>
-    </Container>
+    </Box>
   );
 }

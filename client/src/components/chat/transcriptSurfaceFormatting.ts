@@ -11,7 +11,11 @@ const formatDecimal = (value: number) =>
 const isNonNegativeFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
-export const formatTranscriptTimestamp = (value?: string) => {
+export const formatTranscriptTimestamp = (
+  value?: string,
+  options?: { compact?: boolean },
+) => {
+  const compact = options?.compact ?? false;
   const candidate = value ? new Date(value) : new Date();
   if (Number.isNaN(candidate.getTime())) {
     return dateTimeFormatter.format(new Date());
@@ -31,6 +35,18 @@ export const formatTranscriptTimestamp = (value?: string) => {
   }
   if (absDiffMs < 3_600_000) {
     return formatRelative(Math.max(1, Math.round(absDiffMs / 60_000)), 'm');
+  }
+  if (compact && absDiffMs < 24 * 60 * 60 * 1000 * 7) {
+    if (absDiffMs < 24 * 60 * 60 * 1000) {
+      return formatRelative(
+        Math.max(1, Math.round(absDiffMs / 3_600_000)),
+        'h',
+      );
+    }
+    return formatRelative(
+      Math.max(1, Math.round(absDiffMs / (24 * 60 * 60 * 1000))),
+      'd',
+    );
   }
   return formatRelative(Math.max(1, Math.round(absDiffMs / 3_600_000)), 'h');
 };

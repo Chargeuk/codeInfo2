@@ -226,8 +226,8 @@ function AssistantTranscriptSlice({
           bgcolor: transcriptSurfaceTokens.assistant.background,
           color: transcriptSurfaceTokens.assistant.text,
           borderRadius: 0,
-          px: { xs: 1.75, sm: 2.5 },
-          py: { xs: 1.5, sm: 2 },
+          px: { xs: 1.25, sm: 1.75 },
+          py: { xs: 1, sm: 1.375 },
         }}
       >
         <Box

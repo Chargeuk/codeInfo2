@@ -1459,8 +1459,6 @@ export default function ChatPage() {
   const transcriptSurface = (
     <Box
       sx={{
-        pt: 2,
-        pb: 2,
         flex: '1 1 0%',
         minHeight: 0,
         height: '100%',
@@ -2170,7 +2168,15 @@ export default function ChatPage() {
   );
 
   const desktopWorkspace = (
-    <Stack spacing={2} sx={{ flex: 1, minHeight: 0, width: '100%' }}>
+    <Box
+      sx={{
+        flex: 1,
+        minHeight: 0,
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <WorkspaceDesktopShell
         conversationPane={conversationList}
         transcript={transcriptSurface}
@@ -2182,7 +2188,7 @@ export default function ChatPage() {
           setDesktopDrawerOpen((prev) => !prev);
         }}
       />
-    </Stack>
+    </Box>
   );
 
   const mobileWorkspace = (
@@ -2192,7 +2198,7 @@ export default function ChatPage() {
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
+        gap: 0,
       }}
     >
       <Box

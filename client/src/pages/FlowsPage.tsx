@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Container,
   IconButton,
   MenuItem,
   Paper,
@@ -1759,16 +1758,14 @@ export default function FlowsPage() {
   );
 
   return (
-    <Container
-      maxWidth={false}
+    <Box
       data-testid="flows-page"
       sx={{
-        pt: 1,
-        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        width: '100%',
       }}
     >
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
@@ -1806,6 +1803,6 @@ export default function FlowsPage() {
 
         {isMobile ? mobileWorkspace : desktopWorkspace}
       </Stack>
-    </Container>
+    </Box>
   );
 }

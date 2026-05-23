@@ -123,14 +123,19 @@ function installTranscriptWidthMock(transcript: HTMLElement) {
   });
 }
 
-function installChatLayoutRectMocks() {
+function installChatLayoutRectMocks(options?: {
+  sidebar?: HTMLElement | null;
+  transcript?: HTMLElement | null;
+  chatColumn?: HTMLElement | null;
+}) {
   const smBreakpoint = 600;
   const sidebarWidth = 320;
   const columnGap = 16;
 
-  const sidebar = screen.queryByTestId('conversation-list');
-  const transcript = screen.queryByTestId('chat-transcript');
-  const chatColumn = screen.queryByTestId('chat-column');
+  const sidebar = options?.sidebar ?? screen.queryByTestId('conversation-list');
+  const transcript =
+    options?.transcript ?? screen.queryByTestId('chat-transcript');
+  const chatColumn = options?.chatColumn ?? screen.queryByTestId('chat-column');
   const isDesktop = window.innerWidth >= smBreakpoint;
 
   const chatColumnMinWidth = chatColumn?.style.minWidth;
@@ -390,15 +395,15 @@ describe('Chat shared shell layout alignment', () => {
 
     setupChatWsHarness({ mockFetch });
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+    const view = render(<RouterProvider router={router} />);
 
-    await screen.findByTestId('chat-transcript');
-    installChatLayoutRectMocks();
+    await view.findByTestId('chat-input');
+    const transcript = await view.findByTestId('chat-transcript');
+    const sidebar = await view.findByTestId('conversation-list');
+    const chatColumn = view.getByTestId('chat-column');
+    installChatLayoutRectMocks({ sidebar, transcript, chatColumn });
 
-    const sidebar = screen.getByTestId('conversation-list');
     expect(sidebar.getBoundingClientRect().width).toBeCloseTo(320, 0);
-
-    const transcript = screen.getByTestId('chat-transcript');
     expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(
       window.innerWidth,
     );

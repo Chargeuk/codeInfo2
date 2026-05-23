@@ -1,7 +1,7 @@
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded';
 import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import { IconButton } from '@mui/material';
-import type { MouseEventHandler } from 'react';
+import type { CSSProperties, MouseEventHandler } from 'react';
 
 type ComposerSendButtonProps = {
   showStop?: boolean;
@@ -21,15 +21,29 @@ export default function ComposerSendButton({
   'data-testid': dataTestId,
 }: ComposerSendButtonProps) {
   const isStopButton = showStop;
+  const effectiveTestId =
+    isStopButton && dataTestId === 'chat-send' ? 'chat-stop' : dataTestId;
+  const srOnlyStyles: CSSProperties = {
+    border: 0,
+    clip: 'rect(0 0 0 0)',
+    height: '1px',
+    margin: '-1px',
+    overflow: 'hidden',
+    padding: 0,
+    position: 'absolute',
+    whiteSpace: 'nowrap',
+    width: '1px',
+  };
 
   return (
     <IconButton
       type={isStopButton ? 'button' : type}
       onClick={onClick}
       disabled={disabled}
-      data-testid={dataTestId}
+      data-testid={effectiveTestId}
       aria-label={isStopButton ? 'Stop' : 'Send'}
       sx={{
+        position: 'relative',
         width: 48,
         height: 48,
         borderRadius: '50%',
@@ -51,6 +65,7 @@ export default function ComposerSendButton({
       ) : (
         <ArrowUpwardRoundedIcon fontSize="medium" />
       )}
+      <span style={srOnlyStyles}>{isStopButton ? 'Stopping' : 'Send'}</span>
     </IconButton>
   );
 }

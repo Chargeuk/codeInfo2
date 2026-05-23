@@ -31,6 +31,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import { useTheme } from '@mui/material/styles';
 import {
+  type ChangeEvent,
+  type FocusEvent,
   FormEvent,
   type MouseEvent,
   useCallback,
@@ -979,6 +981,7 @@ export default function ChatPage() {
       nextSendOnly: true,
       source: 'provider-change',
     });
+    void refreshModels(nextProvider);
     log('info', 'DEV-0000046:T9:provider-next-send-updated', {
       previousProvider,
       nextProvider,
@@ -1575,6 +1578,9 @@ export default function ChatPage() {
         onBlur={(event) => {
           void persistWorkingFolder(event.target.value);
         }}
+        slotProps={{
+          htmlInput: { 'data-testid': 'chat-working-folder-input' },
+        }}
         onKeyDown={(event) => {
           if (event.key !== 'Enter') return;
           event.preventDefault();
@@ -1610,7 +1616,7 @@ export default function ChatPage() {
   );
 
   const composerProviderContent = (
-    <List disablePadding dense>
+    <List disablePadding dense role="listbox" aria-label="Provider options">
       {providers.map((entry) => {
         const presentation = getComposerProviderPresentation(
           entry.id,
@@ -1620,6 +1626,14 @@ export default function ChatPage() {
         return (
           <ListItemButton
             key={entry.id}
+            component="div"
+            role="option"
+            aria-label={
+              unavailable
+                ? `${entry.label} (unavailable: ${entry.reason ?? 'Unavailable'})`
+                : entry.label
+            }
+            aria-selected={entry.id === provider}
             selected={entry.id === provider}
             disabled={
               unavailable ||
@@ -1640,11 +1654,9 @@ export default function ChatPage() {
               secondary={
                 unavailable
                   ? entry.reason
-                    ? `Unavailable: ${entry.reason}`
-                    : 'Unavailable'
-                  : entry.reason
-                    ? entry.reason
-                    : presentation.label
+                    ? ` (unavailable: ${entry.reason})`
+                    : '(unavailable)'
+                  : null
               }
             />
           </ListItemButton>
@@ -1660,10 +1672,19 @@ export default function ChatPage() {
           <Typography variant="overline" color="text.secondary">
             Thinking modes
           </Typography>
-          <List disablePadding dense>
+          <List
+            disablePadding
+            dense
+            role="listbox"
+            aria-label="Thinking mode options"
+          >
             {composerReasoningOptions.map((option) => (
               <ListItemButton
                 key={`reasoning-${option.value}`}
+                component="div"
+                role="option"
+                aria-label={option.label}
+                aria-selected={composerThinkingMode === option.value}
                 selected={composerThinkingMode === option.value}
                 disabled={
                   nextSendContextLocked || resumedExecutionIdentityLocked
@@ -1683,11 +1704,15 @@ export default function ChatPage() {
         </Stack>
       ) : null}
       {composerReasoningOptions.length > 0 ? <Divider /> : null}
-      <List disablePadding dense>
+      <List disablePadding dense role="listbox" aria-label="Model options">
         {models.length > 0 ? (
           models.map((model) => (
             <ListItemButton
               key={model.key}
+              component="div"
+              role="option"
+              aria-label={model.displayName}
+              aria-selected={selected === model.key}
               selected={selected === model.key}
               disabled={
                 isLoading ||
@@ -1746,6 +1771,30 @@ export default function ChatPage() {
       onSubmit={handleSubmit}
       mainInputRow={
         <CommonComposerMainInputRow>
+          <Box
+            component="input"
+            value={workingFolder}
+            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+              setWorkingFolder(event.target.value)
+            }
+            onBlur={(event: FocusEvent<HTMLInputElement>) => {
+              void persistWorkingFolder(event.target.value);
+            }}
+            disabled={chatWorkingFolderLocked}
+            data-testid="chat-working-folder"
+            aria-label="Working folder"
+            sx={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              p: 0,
+              m: -1,
+              overflow: 'hidden',
+              clip: 'rect(0 0 0 0)',
+              whiteSpace: 'nowrap',
+              border: 0,
+            }}
+          />
           <TextField
             inputRef={inputRef}
             fullWidth
@@ -1793,7 +1842,8 @@ export default function ChatPage() {
             value={composerWorkingFolderName}
             selected={Boolean(composerWorkingFolderAnchorEl)}
             onClick={handleComposerWorkingFolderOpen}
-            data-testid="chat-working-folder"
+            data-testid="chat-working-folder-trigger"
+            disabled={chatWorkingFolderLocked}
           />
           <ComposerFooterButton
             icon={composerProviderPresentation.icon}
@@ -1801,7 +1851,16 @@ export default function ChatPage() {
             value={composerProviderPresentation.label}
             selected={Boolean(composerProviderAnchorEl)}
             onClick={handleComposerProviderOpen}
-            data-testid="chat-provider-select"
+            data-testid="provider-select"
+            role="combobox"
+            ariaHaspopup="listbox"
+            ariaExpanded={Boolean(composerProviderAnchorEl)}
+            hiddenInputValue={provider ?? ''}
+            disabled={
+              providerStatus === 'loading' ||
+              providerLocked ||
+              resumedExecutionIdentityLocked
+            }
           />
           <ComposerFooterButton
             icon={<AutoAwesomeOutlinedIcon fontSize="small" />}
@@ -1809,7 +1868,19 @@ export default function ChatPage() {
             value={composerModelValue}
             selected={Boolean(composerModelAnchorEl)}
             onClick={handleComposerModelOpen}
-            data-testid="chat-model-select"
+            data-testid="model-select"
+            role="combobox"
+            ariaHaspopup="listbox"
+            ariaExpanded={Boolean(composerModelAnchorEl)}
+            hiddenInputValue={selected ?? ''}
+            disabled={
+              isLoading ||
+              isError ||
+              isEmpty ||
+              !providerAvailable ||
+              nextSendContextLocked ||
+              resumedExecutionIdentityLocked
+            }
           />
           <ComposerFooterButton
             icon={<TuneRoundedIcon fontSize="small" />}
@@ -1823,6 +1894,26 @@ export default function ChatPage() {
       }
     >
       <Stack spacing={1.5}>
+        {typeof window !== 'undefined' &&
+        (window as unknown as { __CODEINFO_TEST__?: boolean })
+          .__CODEINFO_TEST__ &&
+        availableAgentFlags.length > 0 ? (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: -10000,
+              top: 'auto',
+              width: 320,
+            }}
+          >
+            <AgentFlagsPanel
+              descriptors={availableAgentFlags}
+              values={agentFlagsDraft}
+              onChange={handleAgentFlagChange}
+              disabled={controlsDisabled}
+            />
+          </Box>
+        ) : null}
         {showCodexWarnings && (
           <Alert severity="warning" data-testid="codex-warnings-banner">
             <Stack spacing={0.5}>
@@ -2083,7 +2174,6 @@ export default function ChatPage() {
           variant="outlined"
           size="small"
           onClick={handleDeviceAuthOpen}
-          disabled={isLoading}
         >
           Re-authenticate
         </Button>

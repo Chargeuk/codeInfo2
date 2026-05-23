@@ -11,6 +11,10 @@ type ComposerFooterButtonProps = {
   iconOnly?: boolean;
   'data-testid'?: string;
   ariaLabel?: string;
+  role?: string;
+  ariaHaspopup?: string;
+  ariaExpanded?: boolean;
+  hiddenInputValue?: string;
 };
 
 export default function ComposerFooterButton({
@@ -23,6 +27,10 @@ export default function ComposerFooterButton({
   iconOnly = false,
   'data-testid': dataTestId,
   ariaLabel,
+  role,
+  ariaHaspopup,
+  ariaExpanded,
+  hiddenInputValue,
 }: ComposerFooterButtonProps) {
   if (iconOnly) {
     return (
@@ -30,6 +38,10 @@ export default function ComposerFooterButton({
         onClick={onClick}
         disabled={disabled}
         aria-label={ariaLabel ?? label}
+        aria-disabled={disabled ? 'true' : undefined}
+        aria-haspopup={ariaHaspopup}
+        aria-expanded={ariaExpanded}
+        role={role}
         data-testid={dataTestId}
         sx={{
           width: 48,
@@ -57,6 +69,10 @@ export default function ComposerFooterButton({
       data-testid={dataTestId}
       variant="outlined"
       aria-label={ariaLabel ?? label}
+      aria-disabled={disabled ? 'true' : undefined}
+      aria-haspopup={ariaHaspopup}
+      aria-expanded={ariaExpanded}
+      role={role}
       sx={{
         minHeight: 48,
         minWidth: 0,
@@ -91,6 +107,26 @@ export default function ComposerFooterButton({
         alignItems="center"
         sx={{ minWidth: 0 }}
       >
+        {hiddenInputValue !== undefined ? (
+          <Box
+            component="input"
+            value={hiddenInputValue}
+            readOnly
+            tabIndex={-1}
+            aria-hidden="true"
+            sx={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              p: 0,
+              m: -1,
+              overflow: 'hidden',
+              clip: 'rect(0 0 0 0)',
+              whiteSpace: 'nowrap',
+              border: 0,
+            }}
+          />
+        ) : null}
         <Box
           className="composer-footer-button-icon"
           sx={{ display: 'flex', alignItems: 'center' }}

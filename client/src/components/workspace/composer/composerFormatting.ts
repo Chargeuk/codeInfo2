@@ -12,7 +12,18 @@ const cleanText = (value?: string | null) => {
 export const getComposerProviderPresentation = (
   provider?: string | null,
   model?: string | null,
-) => getConversationProviderPresentation(provider, model);
+) => {
+  const presentation = getConversationProviderPresentation(provider, model);
+
+  if (presentation.label === 'Codex') {
+    return { ...presentation, label: 'OpenAI Codex' };
+  }
+  if (presentation.label === 'Copilot') {
+    return { ...presentation, label: 'GitHub Copilot' };
+  }
+
+  return presentation;
+};
 
 export const getWorkingFolderName = (path?: string | null) => {
   const cleaned = cleanText(path);

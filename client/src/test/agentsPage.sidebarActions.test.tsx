@@ -156,7 +156,18 @@ describe('AgentsPage sidebar actions', () => {
     expect(screen.getByTestId('conversation-bulk-restore')).toBeDisabled();
 
     await user.click(screen.getByTestId('conversation-filter-archived'));
-    await user.click(screen.getAllByTestId('conversation-select')[0]);
+    await user.click(screen.getByTestId('conversation-filter-active'));
+    await screen.findByText('Archived conversation');
+    await user.click(
+      screen
+        .getAllByTestId('conversation-select')
+        .find(
+          (checkbox) =>
+            checkbox.closest('[data-testid="conversation-row"]')?.textContent?.includes(
+              'Archived conversation',
+            ),
+        )!,
+    );
     expect(screen.getByTestId('conversation-bulk-restore')).toBeEnabled();
   });
 
@@ -192,6 +203,7 @@ describe('AgentsPage sidebar actions', () => {
     expect(screen.getByTestId('conversation-archive')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('conversation-filter-archived'));
+    await user.click(screen.getByTestId('conversation-filter-active'));
     await screen.findByText('Archived conversation');
     expect(screen.getByTestId('conversation-restore')).toBeInTheDocument();
   });

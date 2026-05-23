@@ -2741,7 +2741,7 @@ The filter-state contract must be made explicit for weak implementation agents. 
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared conversation controls, shared filter-state logic, and the shared mobile conversations overlay.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared conversation behavior and shared shell wrappers used across multiple pages.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared conversation behavior and shared shell wrappers used across multiple pages.
 3. [ ] Current Repository: Run `npm run lint --workspace client`.
 4. [ ] Current Repository: Run `npm run format:check --workspace client`.
 
@@ -2783,11 +2783,13 @@ Items to verify manually:
 - Subtask 5: updated the mobile conversations overlay to read as a full-screen left-slide temporary nav surface with the final title, divider, and explanatory text treatment.
 - Subtask 6: verified the mobile overlay is only mounted from the Chat, Agents, and Flows page shells and not from Home, Ingest, or Logs.
 - Subtask 7: adjusted the shared conversation sidebar toggle styling to stay visually aligned with the revised pane and overlay surfaces.
-- **BLOCKER** Testing step 2 (`npm run test:summary:client`) failed with numerous client test failures after multiple in-scope repair attempts. What was tried: 1) updated tests that passed `filterState` as a string to use the new `{ active, archived }` shape; 2) fixed the workspace mobile overlay parity test to resolve repo-relative path reads under the client workspace; 3) made the test fetch helpers return idempotent Response-like objects to avoid body-consumption issues when tests reuse mocked Response instances. Why blocked: the client test suite still reports ~30 failing tests spanning AgentsPage behaviors, live transcript handling, and useConversations edge cases; these failures indicate broader test and behavior mismatches that require coordinated refactor and test updates beyond a single bounded repair. Suggested action: split test-stabilization and API/behavior reconciliation into a follow-up task owned by the client test/core team; re-run the full client test wrapper after that work.
 - Subtask 8: added a parity test for the new controls row and the hook-level four-state filter contract, including the safe all-off fallback and no-search guard.
 - Subtask 9: added a parity test for the mobile conversations overlay shell and the page-file workspace-only mounting contract.
 - Subtask 10: ran the client lint wrapper; it passed with only existing warnings in unrelated files outside this task’s edit set.
 - Subtask 11: ran the client format-check wrapper, then formatted the changed files and reran the check until it passed.
+- Testing step 2 repair: reran `npm run test:summary:client`, traced 31 failures to three task-owned seams, and fixed them by making fetch results server-authoritative in `useConversations` while keeping scoped websocket/update filtering strict, restoring custom header support in `mockJsonResponse`, and updating the stale sidebar tests to match the independent `Active`/`Archived` toggle contract.
+- Testing step 2 repair: verified the fixes with focused client wrapper reruns covering `useConversations`, `fetchPolyfills`, `agentsPage`, `chatSidebar`, and `flowsPage`, then reran the full `npm run test:summary:client` wrapper and it passed cleanly (`810` tests, `0` failed).
+- **RESOLVED ISSUE** The Task 23 automated-proof blocker on Testing step 2 is retired. The full client wrapper now passes, and the remaining unchecked Testing items are the later task-owned lint and format gates only.
 
 
 ### Task 24. Make The Mobile App Menu Match The Final Full-Screen Navigation Design Without Changing The Desktop Rail

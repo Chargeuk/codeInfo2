@@ -169,6 +169,32 @@ function applyConversationFilter(
   return items.filter((item) => !item.archived);
 }
 
+function matchesScopedConversation(
+  item: ConversationSummary,
+  params: {
+    agentName: string;
+    flowName: string;
+  },
+) {
+  if (params.agentName) {
+    if (params.agentName === '__none__') {
+      if (item.agentName) return false;
+    } else if (item.agentName !== params.agentName) {
+      return false;
+    }
+  }
+
+  if (params.flowName) {
+    if (params.flowName === '__none__') {
+      if (item.flowName) return false;
+    } else if (item.flowName !== params.flowName) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function useConversations(params?: {
   agentName?: string;
   flowName?: string;
@@ -192,26 +218,9 @@ export function useConversations(params?: {
     typeof flowName === 'string' ? flowName.trim() : '';
 
   const applyFilter = useCallback(
-    (items: ConversationSummary[]) => {
-      const agentFiltered = normalizedAgentName
-        ? items.filter((item) => {
-            if (normalizedAgentName === '__none__') {
-              return !item.agentName;
-            }
-            return item.agentName === normalizedAgentName;
-          })
-        : items;
-      const flowFiltered = normalizedFlowName
-        ? agentFiltered.filter((item) => {
-            if (normalizedFlowName === '__none__') {
-              return !item.flowName;
-            }
-            return item.flowName === normalizedFlowName;
-          })
-        : agentFiltered;
-      return applyConversationFilter(flowFiltered, filterState);
-    },
-    [filterState, normalizedAgentName, normalizedFlowName],
+    (items: ConversationSummary[]) =>
+      applyConversationFilter(items, filterState),
+    [filterState],
   );
 
   const dedupeAndSort = useCallback((items: ConversationSummary[]) => {
@@ -631,6 +640,21 @@ export function useConversations(params?: {
           agentName: normalizedConversation.agentName,
         };
 
+        if (
+          !matchesScopedConversation(merged, {
+            agentName: normalizedAgentName,
+            flowName: normalizedFlowName,
+          })
+        ) {
+          return dedupeAndSort(
+            applyFilter(
+              prev.filter(
+                (c) => c.conversationId !== normalizedConversation.conversationId,
+              ),
+            ),
+          );
+        }
+
         return dedupeAndSort(
           applyFilter([
             merged,
@@ -641,7 +665,7 @@ export function useConversations(params?: {
         );
       });
     },
-    [applyFilter, dedupeAndSort, log],
+    [applyFilter, dedupeAndSort, log, normalizedAgentName, normalizedFlowName],
   );
 
   const applyWsDelete = useCallback(

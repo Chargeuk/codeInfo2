@@ -553,7 +553,7 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     expect(screen.getByTestId('conversation-bulk-archive')).toBeEnabled();
     expect(screen.queryByTestId('conversation-bulk-delete')).toBeNull();
 
-    await user.click(screen.getByTestId('conversation-filter-archived'));
+    await user.click(screen.getByTestId('conversation-filter-active'));
     await waitFor(() =>
       expect(
         screen.getByTestId('conversation-bulk-restore'),

@@ -27,22 +27,34 @@ export function mockJsonResponse(
   // ReadableStream-backed Response instance across multiple fetch calls
   // when tests use jest.mockResolvedValue(...), which can cause body
   // consumption problems.
-  const headersMap: Record<string, string> = {};
-  const providedHeaders = init.headers as Record<string, string> | undefined;
-  const contentType =
-    providedHeaders?.['content-type'] ?? providedHeaders?.['Content-Type'] ??
-    'application/json';
-  headersMap['content-type'] = contentType;
   const status = init.status ?? 200;
+  const headers =
+    typeof Headers === 'function'
+      ? new Headers(init.headers)
+      : ({
+          get(name: string) {
+            const key = name.toLowerCase();
+            const providedHeaders =
+              init.headers as Record<string, string> | undefined;
+            return (
+              providedHeaders?.[key] ??
+              providedHeaders?.[
+                key.replace(/(^|-)([a-z])/g, (_, prefix, char) =>
+                  `${prefix}${char.toUpperCase()}`,
+                )
+              ] ??
+              null
+            );
+          },
+        } as Pick<Headers, 'get'>);
+  if (headers.get('content-type') == null && 'set' in headers) {
+    headers.set('content-type', 'application/json');
+  }
 
   return {
     ok: status >= 200 && status < 300,
     status,
-    headers: {
-      get(name: string) {
-        return headersMap[name.toLowerCase()] ?? null;
-      },
-    },
+    headers,
     async json() {
       return payload;
     },

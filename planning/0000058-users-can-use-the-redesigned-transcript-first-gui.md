@@ -3164,14 +3164,17 @@ This task owns:
 - tightening assistant and user transcript footer spacing
 - making transcript footer actions icon-only on mobile while preserving text labels on desktop
 - reducing transcript typography slightly on mobile so footer actions fit one horizontal row cleanly
-- bringing the conversation row structure closer to `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`
-- fixing the mobile conversation-pane open/close affordance so it renders visibly above adjacent surfaces instead of appearing clipped
+- rebuilding the conversation rows into the accepted four-row desktop/mobile structure with full-width chips and compact archive treatment
+- fixing the mobile and desktop conversation-pane open/close affordance so it renders visibly above adjacent surfaces instead of appearing clipped
+- aligning the transcript reading surface to the full composer shell width and keeping the transcript pane, not the page, as the vertical scroll owner
 
 Where the latest Story 58 follow-up direction is stricter than older markdown or PNG assumptions, follow this task. In particular:
 - `Re-authenticate` must not be visible on the `Chat` page because provider login now belongs on `Home`
 - the visible `New conversation` affordance must move from a text button into a compact icon action in the conversations-pane header area
 - on mobile, transcript footer actions must prefer compact icon-only treatment over desktop-style text buttons
 - the mobile conversation-pane affordance must remain visibly on top of the conversation pane and transcript edge instead of appearing half hidden behind adjacent content
+- the desktop conversation-pane affordance must remain visible both when the pane is open and when it is collapsed, and in the collapsed state it should visibly straddle the app-rail/transcript seam
+- the transcript reading surface must align to the full composer shell width rather than only the inner text-entry box
 
 #### Non-Goals
 
@@ -3194,9 +3197,15 @@ Where the latest Story 58 follow-up direction is stricter than older markdown or
 - On desktop, transcript `Copy` and `Info` actions still render with visible text labels.
 - Mobile transcript footer typography is compact enough that footer actions remain on one horizontal row in the supported mobile viewport.
 - Mobile transcript body text is slightly smaller than desktop, but still larger than the mobile footer text.
-- The mobile conversations rows move closer to `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.png`, including larger provider icons, less left-edge crowding, and removal of the redundant provider chip when the provider icon is already shown.
+- The desktop and mobile conversation rows share the same accepted four-row structure: title on the first row, one-line preview on the second row, provider/model/protocol on the third row, and checkbox/time/archive on the fourth row.
+- The conversation-row third row places the provider icon at the left, the model chip centered, and the protocol chip at the right, with the provider icon scaled to the same visual height as the chips while preserving its aspect ratio.
+- The conversation-row fourth row places the selection checkbox at the left, the timestamp centered, and an archive icon-only action at the right without visible `Archive` text.
+- The provider chip is no longer shown in the conversation rows when the provider icon already communicates the provider.
 - The mobile conversation-pane open/close affordance remains fully visible, visually layered above adjacent surfaces, and no longer appears clipped by the transcript side.
-- The desktop conversation-pane collapse affordance remains visible and aligned after the same layering cleanup.
+- The desktop conversation-pane collapse affordance remains visible and aligned after the same layering cleanup, including while the pane is collapsed.
+- The transcript reading surface aligns to the same full-width horizontal contract as the visible composer shell on desktop and mobile.
+- Assistant transcript slices span that full transcript width, and user transcript bubbles stay narrower while preserving the same right edge as the assistant surface and composer shell.
+- On desktop, the transcript pane regains its own vertical scrolling and the overall `Chat` page no longer scrolls vertically while the app rail remains fixed.
 - The resulting `Chat` conversation pane and transcript chrome no longer visibly contradict the accepted Story 58 desktop/mobile direction.
 
 #### Documentation Locations
@@ -3245,19 +3254,21 @@ Where the latest Story 58 follow-up direction is stricter than older markdown or
     - give the title/model text block more left-side room
     - remove the redundant provider chip when the provider icon is already present
     Do not remove the model name or transport chip unless a later task explicitly says to. Purpose: move the mobile conversation rows closer to the accepted final information hierarchy.
-11. [x] Current Repository: Update the mobile and desktop conversation-pane affordance layering in `client/src/components/chat/ConversationSidebarToggle.tsx`, `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and any adjacent shell wrapper that controls stacking context so the open/close affordance renders visibly above the pane edge and transcript side instead of appearing clipped. On mobile, when the pane is closed, the affordance must remain visibly straddled across the left navigation edge and transcript side rather than disappearing behind one side. Purpose: fix the half-cut-off affordance problem without changing the accepted open/close behavior.
-12. [x] Current Repository: Verify that the `Chat`-only cleanup in `client/src/pages/ChatPage.tsx` does not accidentally reintroduce removed page-header controls into the shared composer or transcript path, and verify that any shared transcript-footer changes still behave safely for `Agents` and `Flows` if those pages reuse the same transcript components. Purpose: keep the cleanup scoped while avoiding an accidental shared-component regression.
-13. [x] Current Repository: Create or extend a focused transcript-footer test file such as `client/src/components/chat/SharedTranscriptMessageRow.parity.test.tsx`, `client/src/components/chat/AssistantTranscriptSlice.test.tsx`, and `client/src/components/chat/UserTranscriptBubble.test.tsx`. Description: prove mobile transcript footer actions render icon-only, prove desktop transcript footer actions keep visible labels, prove the footer stays on one horizontal row in the supported mobile viewport, and prove mobile footer typography is smaller than message-body typography. Implementation files: `AssistantTranscriptSlice.tsx`, `UserTranscriptBubble.tsx`, and any shared transcript formatting helper touched by this task.
-14. [x] Current Repository: Create or extend a focused conversation-pane test such as `client/src/test/conversationControls.parity.test.tsx` or a new `client/src/test/conversationPane.chrome.test.tsx`. Description: prove the `New conversation` text button is gone, prove the new compact icon action sits immediately to the left of `Refresh`, prove the provider chip is omitted from the mobile conversation row when the provider icon is present, and prove the provider icon remains visible and larger in the mobile row layout. Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/components/chat/ConversationList.tsx`, and `client/src/components/chat/conversationRowFormatting.tsx`.
-15. [x] Current Repository: Extend the relevant browser-path proof, likely in `e2e/chat.spec.ts`, so it proves:
+11. [x] Current Repository: Rebuild `client/src/components/chat/ConversationList.tsx` and `client/src/components/chat/conversationRowFormatting.tsx` so the accepted conversation-row structure is identical on desktop and mobile: a title-only first row, a one-line preview second row, a third row with provider icon left / centered model chip / protocol chip right, and a fourth row with checkbox left / centered time / archive icon right. Keep the provider icon scaled to the same visual height as the chips, remove visible `Archive` text from the row action, and do not reintroduce the redundant provider chip. Purpose: lock the final cross-breakpoint conversation-row information hierarchy.
+12. [x] Current Repository: Update the mobile and desktop conversation-pane affordance layering in `client/src/components/chat/ConversationSidebarToggle.tsx`, `client/src/components/workspace/WorkspaceDesktopConversationPane.tsx`, `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, and any adjacent shell wrapper that controls stacking context so the open/close affordance renders visibly above the pane edge and transcript side instead of appearing clipped. On mobile, when the pane is closed, the affordance must remain visibly straddled across the left navigation edge and transcript side rather than disappearing behind one side. On desktop, keep the handle visible in both the open and collapsed states, and when collapsed let it visibly straddle the app-rail/transcript seam instead of disappearing into either side. Purpose: fix the half-cut-off affordance problem without changing the accepted open/close behavior.
+13. [x] Current Repository: Align the `Chat` transcript reading surface in `client/src/pages/ChatPage.tsx`, `client/src/components/chat/SharedTranscript.tsx`, and `client/src/components/workspace/WorkspaceDesktopShell.tsx` to the full composer shell width on desktop and mobile rather than only the inner text-entry field. Assistant transcript slices must span that full width, user transcript bubbles must keep the same right edge while staying narrower, and the desktop transcript pane must remain the vertical scroll owner instead of the full page. Purpose: preserve one shared horizontal contract between the transcript and composer surfaces.
+14. [x] Current Repository: Verify that the `Chat`-only cleanup in `client/src/pages/ChatPage.tsx` does not accidentally reintroduce removed page-header controls into the shared composer or transcript path, and verify that any shared transcript-footer, transcript-width, or row-layout changes still behave safely for `Agents` and `Flows` if those pages reuse the same shared transcript components. Purpose: keep the cleanup scoped while avoiding an accidental shared-component regression.
+15. [x] Current Repository: Create or extend a focused transcript-footer test file such as `client/src/components/chat/SharedTranscriptMessageRow.parity.test.tsx`, `client/src/components/chat/AssistantTranscriptSlice.test.tsx`, and `client/src/components/chat/UserTranscriptBubble.test.tsx`. Description: prove mobile transcript footer actions render icon-only, prove desktop transcript footer actions keep visible labels, prove the footer stays on one horizontal row in the supported mobile viewport, and prove mobile footer typography is smaller than message-body typography. Implementation files: `AssistantTranscriptSlice.tsx`, `UserTranscriptBubble.tsx`, and any shared transcript formatting helper touched by this task.
+16. [x] Current Repository: Create or extend focused conversation-pane and transcript-layout proof such as `client/src/test/conversationControls.parity.test.tsx`, `client/src/test/conversationList.rowParity.test.tsx`, `client/src/test/chatPage.layoutWrap.test.tsx`, or a new `client/src/test/conversationPane.chrome.test.tsx`. Description: prove the `New conversation` text button is gone, prove the new compact icon action sits immediately to the left of `Refresh`, prove the provider chip is omitted from the conversation row when the provider icon is present, prove the accepted four-row conversation structure on desktop and mobile, and prove the transcript/composer width contract plus desktop transcript scroll ownership. Implementation files: `client/src/pages/ChatPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/components/chat/conversationRowFormatting.tsx`, `client/src/components/chat/SharedTranscript.tsx`, and `client/src/components/workspace/WorkspaceDesktopShell.tsx`.
+17. [x] Current Repository: Extend the relevant browser-path proof, likely in `e2e/chat.spec.ts`, so it proves:
     - the `Chat` page no longer shows `Re-authenticate`
     - the visible `New conversation` affordance is the compact icon immediately left of `Refresh`
     - mobile transcript footer actions remain on one horizontal row with icon-only action labels
     - the mobile conversation-pane affordance is fully visible and not clipped by the transcript edge
-    - the mobile conversation rows reflect the updated provider-icon-first treatment
+    - the desktop and mobile conversation rows reflect the accepted four-row layout and compact archive treatment
     Purpose: add browser-level validation for the exact cleanup issues that are easy to miss in unit tests.
-16. [x] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-17. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+18. [x] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+19. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
 
 #### Testing
 
@@ -3296,8 +3307,14 @@ Items to verify manually:
 - on mobile, message-body text is slightly smaller than desktop but still clearly larger than footer text
 - the mobile conversation rows use a larger provider icon with more room for the title/model text block
 - the provider chip is no longer shown when the provider icon already communicates the provider
+- the desktop and mobile conversation rows follow the same accepted four-row structure
+- the conversation-row third row keeps the provider icon left, the model chip centered, and the protocol chip right
+- the conversation-row fourth row keeps the checkbox left, the timestamp centered, and an archive icon-only action at the right
 - the mobile conversation-pane affordance is fully visible and no longer appears cut off by the transcript edge
 - the desktop conversation-pane collapse affordance still reads correctly after the same layering cleanup
+- the desktop collapsed conversation-pane toggle remains visibly straddled across the app-rail/transcript seam instead of disappearing behind either side
+- the transcript reading surface aligns to the same full-width horizontal contract as the full composer shell on desktop and mobile
+- the desktop transcript pane, not the page, owns vertical scrolling when transcript content exceeds the available height
 - the resulting `Chat` transcript chrome and conversation-pane chrome feel closer to the approved Story 58 final design direction
 
 #### Implementation Notes

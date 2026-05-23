@@ -49,7 +49,7 @@ describe('ConversationList source badges', () => {
     const models = screen.getAllByTestId('conversation-model-chip').map((n) => n.textContent || '');
     const sources = screen.getAllByTestId('conversation-source-chip').map((n) => n.textContent || '');
 
-    expect(providers.some((p) => /lmstudio/i.test(p))).toBe(true);
+    expect(providers.some((p) => /lm\s*studio/i.test(p))).toBe(true);
     expect(providers.some((p) => /codex/i.test(p))).toBe(true);
 
     expect(models.some((m) => /llama/i.test(m))).toBe(true);

@@ -17,37 +17,37 @@ export const WORKSPACE_DESTINATIONS: WorkspaceDestination[] = [
   {
     path: '/',
     label: 'Home',
-    description: 'System status and provider readiness',
+    description: 'System status and provider readiness.',
     icon: <HomeOutlinedIcon fontSize="small" />,
   },
   {
     path: '/chat',
     label: 'Chat',
-    description: 'Direct provider/model conversations',
+    description: 'Direct provider/model conversations.',
     icon: <ChatBubbleOutlineIcon fontSize="small" />,
   },
   {
     path: '/agents',
     label: 'Agents',
-    description: 'Named agents, commands, and steps',
+    description: 'Named agents, commands, and steps.',
     icon: <SmartToyOutlinedIcon fontSize="small" />,
   },
   {
     path: '/flows',
     label: 'Flows',
-    description: 'Multi-step workflow conversations',
+    description: 'Multi-step workflow conversations.',
     icon: <AccountTreeOutlinedIcon fontSize="small" />,
   },
   {
     path: '/ingest',
     label: 'Ingest',
-    description: 'Repository ingest and embedding operations',
+    description: 'Repository ingest and embedding operations.',
     icon: <Inventory2OutlinedIcon fontSize="small" />,
   },
   {
     path: '/logs',
     label: 'Logs',
-    description: 'Live operational logs and diagnostics',
+    description: 'Live operational logs and diagnostics.',
     icon: <TerminalOutlinedIcon fontSize="small" />,
   },
 ];

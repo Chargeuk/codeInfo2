@@ -368,7 +368,7 @@ describe('Flows page stop control', () => {
     });
 
     expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-      'Stopping',
+      'Working',
     );
 
     const cancelCount = parseSocketMessages().filter(

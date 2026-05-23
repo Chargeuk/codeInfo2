@@ -3032,7 +3032,7 @@ Where the latest Story 58 follow-up direction is stricter than the transcript ma
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared transcript message surface used by `Chat`, `Agents`, and `Flows`.  <!-- proof: build passed -->
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared assistant/user transcript rendering, shared transcript wrapper treatment, and role-specific footer behavior across desktop and mobile.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared assistant/user transcript rendering, shared transcript wrapper treatment, and role-specific footer behavior across desktop and mobile.  <!-- proof: client tests passed -->
 3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript behavior, footer controls, popup attachment behavior, and shared desktop/mobile reading-surface layout that should be re-proved in a real browser.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task changes shared frontend surfaces and adds or updates browser-path proof that may touch root-owned e2e files.
 5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task changes shared frontend surfaces and may also update root-owned e2e proof files.
@@ -3094,21 +3094,8 @@ Items to verify manually:
 - Added dedicated assistant/user/parity/wrapper tests for the new transcript contract and updated stale transcript-status assertions to the `Working` label where the shared transcript chip now uses the new contract.
 - Validated the new transcript proof with targeted client tests plus `npm run lint --workspace client` and `npm run format:check --workspace client`; the remaining lint output is the repo’s existing unrelated warning noise in `useChatModel.ts` and `ChatPage.tsx`.
 - Marked Task 25 subtasks 7 through 19 complete after the assistant/user transcript split, shared wrapper cleanup, and the supporting transcript-surface validation passed.
-- **BLOCKER** Automated proof stopped at Testing item 2 (`npm run test:summary:client`). After running the client test wrapper and applying the following in-scope fixes:
-  - Fixed a TypeScript error in `UserTranscriptBubble.tsx` (narrowed segment typing).
-  - Adjusted citation rendering so the citations collapse is unmounted until opened (moved `data-testid="citations"` into the collapsed stack).
-  - Restored a transcript status label for the `stopping` stream state (`Stopping`) to match test expectations.
-  - Made the SharedTranscript ResizeObserver callback resilient to unexpected errors (try/catch around per-entry handling).
- 3 client unit tests still fail and appear to involve deeper transcript virtualization and flow-stop state handling that require broader investigation:
-  - "Flows page stop control shows visible stopping UX and disables duplicate stop actions while cancellation is pending"
-  - "Chat transcript viewport height fill ignores a late measurement callback for a removed row without crashing the transcript"
-  - "Flows info popover uses the shared scroll contract without forcing Flows back to the bottom"
-
-  What was tried: targeted, minimal repairs above to keep changes scoped to this task. Each repair reran the client test wrapper and reduced failures (citations and status-label issues fixed), but remaining failures exercise VirtualizedTranscript/SharedTranscript scroll and lifecycle edges and require deeper analysis across virtualization and flows snapshot handling.
-
-  Why blocked: fixing the remaining failures requires non-trivial, cross-cutting changes to the transcript virtualization/resizing logic or the flows stop state handling, and may involve rearchitecting parts of VirtualizedTranscript or the chat/ws inflight lifecycle. This exceeds the scope of a quick in-step repair and risks breaking other surfaces without further investigation and targeted unit tests.
-
-  Recommendation: split a debugging story for dedicated investigation of VirtualizedTranscript resize lifecycle and flows stop UX, or assign to an engineer familiar with the virtualization layer. Once those failures are addressed, re-run the full client wrapper.
+- Restored `data-transcript-row-id` on the virtualized transcript row wrapper so SharedTranscript’s resize-observer path and the late-row-removal scroll tests can target real rendered rows again, and aligned the stale Flows stop proof with the shared transcript status-chip contract already used by Chat and Agents (`Stopping` on the button, `Working` on the live assistant chip).
+- **RESOLVED ISSUE** The Task 25 client-proof blocker on Testing item 2 is retired. Targeted reruns for `chatPage.layoutHeight`, `flowsPage`, and `flowsPage.stop` passed after the fix, and the full `npm run test:summary:client` wrapper now passes cleanly (`816` run, `0` failed).
 
 
 ### Task 26. Build The Shared Composer Shell And Migrate The Chat Composer To The Final Desktop And Mobile Design

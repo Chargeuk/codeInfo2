@@ -385,6 +385,7 @@ export default function VirtualizedTranscript({
           >
             <div
               data-index={virtualRow.index}
+              data-transcript-row-id={message.id}
               data-virtualized-message-id={message.id}
               data-virtualized-start={virtualRow.start}
               ref={(node) => {

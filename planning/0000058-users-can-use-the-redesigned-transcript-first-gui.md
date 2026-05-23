@@ -410,7 +410,7 @@ The design references for this story already exist and should be treated as the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview
@@ -522,7 +522,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Git Commits:
 
 #### Overview

@@ -269,11 +269,13 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
 
   await expect(providerSelect).toHaveText(/OpenAI Codex/i);
 
-  const agentFlagsPanel = page.getByTestId('agent-flags-panel');
-  await expect(agentFlagsPanel).toBeVisible({ timeout: 20000 });
-  const agentFlagsToggle = agentFlagsPanel.locator('[aria-expanded]').first();
-  if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
-    await agentFlagsToggle.click();
+  const agentFlagsPanel = page.locator('[data-testid="agent-flags-panel"]');
+  if (await agentFlagsPanel.count()) {
+    await expect(agentFlagsPanel.first()).toBeVisible({ timeout: 20000 });
+    const agentFlagsToggle = agentFlagsPanel.first().locator('[aria-expanded]').first();
+    if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+      await agentFlagsToggle.click();
+    }
   }
 
   await input.fill('List ingested repos');

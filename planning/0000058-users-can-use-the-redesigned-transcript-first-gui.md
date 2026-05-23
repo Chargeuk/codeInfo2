@@ -2871,7 +2871,7 @@ Bring the mobile app menu into exact parity with the approved Story 58 full-scre
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared mobile navigation overlay used from workspace and utility pages.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared mobile navigation rendering, selected-state presentation, and shared destination content while also requiring proof that the desktop rail remains visually unchanged.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared mobile navigation rendering, selected-state presentation, and shared destination content while also requiring proof that the desktop rail remains visually unchanged.
 3. [ ] Current Repository: Run `npm run lint --workspace client`.
 4. [ ] Current Repository: Run `npm run format:check --workspace client`.
 

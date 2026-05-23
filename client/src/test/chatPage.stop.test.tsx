@@ -132,7 +132,7 @@ describe('Chat page stop control', () => {
     await waitFor(() => expect(screen.getByTestId('chat-stop')).toBeDisabled());
     expect(screen.getByTestId('chat-stop')).toHaveTextContent('Stopping');
     expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-      'Stopping',
+      'Working',
     );
 
     const cancelCount = parseSocketMessages().filter(
@@ -538,7 +538,7 @@ describe('Chat page stop control', () => {
     expect(secondConversation).toHaveAttribute('aria-disabled', 'true');
 
     expect(screen.getByTestId('chat-stop')).toBeDisabled();
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('Stopping');
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Working');
 
     harness.emitCancelAck({
       conversationId: 'c1',

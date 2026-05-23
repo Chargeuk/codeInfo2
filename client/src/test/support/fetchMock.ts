@@ -44,7 +44,10 @@ export function mockJsonResponse(
             return (
               headerStore[key] ??
               headerStore[
-                key.replace(/(^|-)([a-z])/g, (_, prefix, char) => `${prefix}${char.toUpperCase()}`)
+                key.replace(
+                  /(^|-)([a-z])/g,
+                  (_, prefix, char) => `${prefix}${char.toUpperCase()}`,
+                )
               ] ??
               null
             );
@@ -53,8 +56,14 @@ export function mockJsonResponse(
             headerStore[name.toLowerCase()] = value;
           },
         } as Pick<Headers, 'get' | 'set'>);
-  if (headers.get('content-type') == null && typeof (headers as any).set === 'function') {
-    (headers as any).set('content-type', 'application/json');
+  const maybeHeadersWithSet = headers as {
+    set?: (name: string, value: string) => void;
+  };
+  if (
+    headers.get('content-type') == null &&
+    typeof maybeHeadersWithSet.set === 'function'
+  ) {
+    maybeHeadersWithSet.set('content-type', 'application/json');
   }
 
   return {

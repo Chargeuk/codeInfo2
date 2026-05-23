@@ -4,7 +4,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
-  Paper,
   Typography,
 } from '@mui/material';
 import { memo, useEffect, useMemo, useRef } from 'react';
@@ -160,8 +159,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
   }, [conversationId, displayMessages.length, renderStateKey]);
 
   return (
-    <Paper
-      variant="outlined"
+    <Box
       sx={{
         p: 2,
         flex: '1 1 0%',
@@ -214,7 +212,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
           },
         }}
       />
-    </Paper>
+    </Box>
   );
 });
 

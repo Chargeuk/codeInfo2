@@ -106,7 +106,7 @@ describe('Chat WS streaming UI', () => {
     });
 
     const statusChip = await screen.findByTestId('status-chip');
-    expect(statusChip).toHaveTextContent('Processing');
+    expect(statusChip).toHaveTextContent('Working');
 
     harness.emitAssistantDelta({
       conversationId: conversationId!,

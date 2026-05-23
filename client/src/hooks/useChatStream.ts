@@ -57,6 +57,7 @@ export type ChatMessage = {
   content: string;
   optimistic?: boolean;
   provider?: string;
+  model?: string;
   warnings?: string[];
   command?: {
     name: string;
@@ -589,6 +590,7 @@ export function useChatStream(
             id: resolvedAssistantId,
             role: 'assistant',
             content: '',
+            model,
             warnings: undefined,
             segments: segmentsRef.current,
             streamStatus: 'processing',
@@ -617,7 +619,7 @@ export function useChatStream(
 
       return assistantId;
     },
-    [updateMessages],
+    [model, updateMessages],
   );
 
   const syncAssistantMessage = useCallback(
@@ -673,11 +675,12 @@ export function useChatStream(
           id: makeId(),
           role: 'assistant',
           content: message,
+          model,
           kind: 'error',
         },
       ]);
     },
-    [updateMessages],
+    [model, updateMessages],
   );
 
   const extractCitations = useCallback((result: unknown): ToolCitation[] => {
@@ -978,13 +981,14 @@ export function useChatStream(
           id: messageId,
           role: 'user',
           content,
+          model,
           createdAt: new Date().toISOString(),
           optimistic: true,
         },
       ]);
       return messageId;
     },
-    [updateMessages],
+    [model, updateMessages],
   );
 
   const bindOptimisticUserMessageToInflight = useCallback(
@@ -1330,6 +1334,7 @@ export function useChatStream(
         id: makeId(),
         role: 'user',
         content: text,
+        model,
         createdAt: new Date().toISOString(),
       };
 
@@ -1727,6 +1732,7 @@ export function useChatStream(
             id: makeId(),
             role: 'user',
             content: event.content,
+            model,
             createdAt: event.createdAt,
           };
 
@@ -2189,6 +2195,7 @@ export function useChatStream(
       clearPendingStop,
       clearThinkingTimer,
       ensureAssistantMessage,
+      model,
       logFlowCommand,
       logWithChannel,
       getExistingAssistantMessageIdForInflight,

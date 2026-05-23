@@ -1178,6 +1178,7 @@ export default function ChatPage() {
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             provider: turn.provider,
+            model: turn.model,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus:
               turn.status === 'failed'
@@ -1319,8 +1320,7 @@ export default function ChatPage() {
   );
 
   const transcriptSurface = (
-    <Paper
-      variant="outlined"
+    <Box
       sx={{
         p: 2,
         flex: '1 1 0%',
@@ -1391,7 +1391,7 @@ export default function ChatPage() {
           }}
         />
       )}
-    </Paper>
+    </Box>
   );
 
   const composerSurface = (

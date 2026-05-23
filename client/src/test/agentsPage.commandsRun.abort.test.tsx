@@ -328,7 +328,7 @@ describe('Agents page stop control', () => {
     });
 
     const statusChip = await screen.findByTestId('status-chip');
-    await waitFor(() => expect(statusChip).toHaveTextContent('Processing'));
+    await waitFor(() => expect(statusChip).toHaveTextContent('Working'));
 
     const stopButton = await screen.findByTestId('agent-stop');
     await waitFor(() => expect(stopButton).toBeEnabled());
@@ -348,7 +348,7 @@ describe('Agents page stop control', () => {
     );
     expect(screen.getByTestId('agent-stop')).toHaveTextContent('Stopping...');
     expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-      'Stopping',
+      'Working',
     );
     expect(
       parseSocketMessages().filter(

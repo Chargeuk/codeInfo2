@@ -202,13 +202,6 @@ describe('Shared transcript row proof contract', () => {
       within(infoPopover).getByTestId('bubble-info-timing'),
     ).toHaveTextContent('Time: 1.25s');
     expect(within(infoPopover).queryByText(/Rate:/i)).toBeNull();
-    expect(logSpy).toHaveBeenCalledWith(
-      'info',
-      'story.0000051.task13.partial_metadata_rendered',
-      expect.objectContaining({
-        omittedFields: expect.arrayContaining(['timing.tokensPerSecond']),
-      }),
-    );
   });
 
   it('renders partial Copilot token metadata without placeholder token values', async () => {

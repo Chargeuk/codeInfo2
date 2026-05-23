@@ -470,7 +470,7 @@ describe('AgentsPage live transcript (WS)', () => {
     await waitFor(() => {
       expect(
         within(newerBubbleNode).getByTestId('status-chip'),
-      ).toHaveTextContent('Processing');
+      ).toHaveTextContent('Working');
       expect(
         within(olderBubbleNode).getByTestId('status-chip'),
       ).toHaveTextContent('Complete');

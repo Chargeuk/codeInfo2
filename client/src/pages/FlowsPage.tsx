@@ -893,6 +893,7 @@ export default function FlowsPage() {
                 : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
+            model: turn.model,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus:
               turn.status === 'failed'
@@ -1382,8 +1383,7 @@ export default function FlowsPage() {
   );
 
   const transcriptSurface = (
-    <Paper
-      variant="outlined"
+    <Box
       sx={{
         flex: '1 1 auto',
         minHeight: 0,
@@ -1451,7 +1451,7 @@ export default function FlowsPage() {
           },
         }}
       />
-    </Paper>
+    </Box>
   );
 
   const composerSurface = (

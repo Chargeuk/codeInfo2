@@ -220,13 +220,7 @@ export function ConversationList({
       filterState: visibleFilterState,
       selectedCount: selectedIds.size,
     });
-  }, [
-    enableBulkUi,
-    log,
-    selectedIds.size,
-    selectedKey,
-    visibleFilterState,
-  ]);
+  }, [enableBulkUi, log, selectedIds.size, selectedKey, visibleFilterState]);
 
   useEffect(() => {
     log('info', '0000023 conversationlist controls visible', {

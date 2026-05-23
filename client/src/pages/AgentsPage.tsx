@@ -1363,6 +1363,7 @@ export default function AgentsPage() {
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             provider: turn.provider,
+            model: turn.model,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus:
               turn.status === 'failed'

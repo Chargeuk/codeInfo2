@@ -37,7 +37,13 @@ The biggest user-facing goal is to reclaim vertical transcript space and make `C
 
 The redesign must preserve the current control semantics that already exist behind those pages. That includes `Chat` next-send provider and model switching plus working-folder lock behavior, `Agents` agent-to-command-to-step dependency resets and prompt-discovery invalidation rules, and `Flows` fresh-run versus resume distinctions such as custom titles only applying to new runs.
 
+The redesigned `Chat` workspace now also includes a final polish layer for transcript and conversation-pane chrome. Transcript footers should feel compact rather than like separate padded control bars, mobile transcript actions should collapse to icon-only treatment where space is tight, and mobile transcript typography may step down slightly from desktop as long as message-body text remains clearly larger than footer text. The conversation pane should also use compact final chrome, including a small new-conversation icon adjacent to `Refresh`, while obsolete workspace-level auth actions stay off the `Chat` surface because provider auth belongs on `Home`.
+
 Where the redesign hides, disables, collapses, or moves stateful controls, it must keep the current state-transition rules explicit. Some state must be retained locally but excluded from submission, such as a dirty LM Studio draft field or `Chat` next-send-only provider/model changes against a locked resumed conversation. Other state must be cleared when its parent choice changes, such as an `Agents` command/step selection after the chosen agent changes. The redesign should not leave any mixed mode where the UI presents one state but a stale hidden value from another state still reaches payloads or persistence.
+
+The shared composer/options model now includes two explicit interaction refinements. First, the old `Settings -> Agent Flags` nesting should be flattened so those choices appear as first-level settings options. Second, shared desktop popovers and mobile modal selection surfaces must remain vertically scrollable when their content exceeds the available viewport or container height instead of clipping or pushing options off-screen.
+
+For `Flows`, the shared arrow-style primary action remains one visible control, but its meaning must stay explicit: it means `Run` for a fresh flow without resumable context and `Resume` for an existing resumable flow. The redesign should not reintroduce separate visible run and resume buttons just to preserve that distinction.
 
 `Home`, `Ingest`, and `Logs` should move into a second shared layout family for utility pages. `Home` becomes the global system-status page by absorbing LM Studio status and provider logon state, so users no longer need to treat `Chat` as the place for global runtime setup. The old top-level `LM Studio` route should become a compatibility redirect into `Home` rather than remaining a second user-facing destination. `Ingest` and `Logs` should adopt the new utility-page layout language without adding new backend-dependent functionality or changing ingest and logging semantics.
 
@@ -55,11 +61,20 @@ The design references for this story already exist and should be treated as the 
 - If a user is reading older messages away from the bottom, new transcript activity keeps their place instead of snapping them back to the bottom.
 - If a user is already near the bottom, new transcript activity keeps following the newest messages automatically.
 - Assistant output and user bubbles adopt the new shared transcript style defined by the approved design references.
+- `Chat` transcript footers are compact and no longer consume unnecessary vertical space.
+- On mobile, transcript footer actions use icon-only compact treatment where space is tight, while desktop keeps visible action labels.
+- On mobile, transcript footer content fits on one horizontal row without making message-body text as small as the footer text.
 - The shared conversations pane matches the new design language and works consistently on both desktop and mobile.
+- The `Chat` conversation pane uses the compact final chrome, including a compact new-conversation icon adjacent to `Refresh`, and does not expose obsolete `Re-authenticate` workspace actions.
+- Mobile conversation rows follow the final provider-icon-first information hierarchy closely enough that a redundant provider chip is not needed when the provider icon already communicates provider identity.
+- Conversation-pane open/close affordances remain fully visible and correctly layered on desktop and mobile instead of appearing clipped by adjacent surfaces.
 - Mobile workspace behavior supports a full-screen conversations surface from the left and a full-screen app menu from the right.
 - `Chat`, `Agents`, and `Flows` keep their existing supported page behaviors while moving into the shared shell.
 - Page-specific workspace controls are retained through a common composer shell with page-specific footer controls for `Chat`, `Agents`, and `Flows`.
 - The redesigned footer controls preserve current execution semantics: `Chat` provider and model changes remain next-send-only and do not mutate a locked resumed conversation, `Agents` agent changes still clear the selected command and reset the start step, and `Flows` custom titles still apply only to fresh runs and stay out of resume payloads.
+- Shared composer option surfaces expose former `Agent Flags` choices as first-level settings options rather than a second-level submenu.
+- Shared composer selection surfaces remain scrollable when their content exceeds the available viewport or container height.
+- The `Flows` shared arrow-style primary action preserves current execution semantics by meaning `Run` for fresh flows and `Resume` for resumable existing flows without reintroducing separate visible run/resume buttons.
 - Desktop conversation-pane collapse and mobile conversations or app-menu overlays preserve current conversation selection, `Active` or `Archived` filter behavior, and row-level archive or restore actions instead of inventing new list semantics.
 - Hidden, collapsed, disabled, or read-only controls do not leak stale state into payloads or persistence. State that is no longer valid for the active mode is either cleared immediately or retained locally but explicitly excluded from submission, depending on the current contract for that surface.
 - `Home` becomes the global system-status page and absorbs LM Studio status plus provider logon state.
@@ -67,6 +82,7 @@ The design references for this story already exist and should be treated as the 
 - `Home` reuses the current provider and LM Studio contracts rather than inventing new status semantics: passive provider state is derived from existing `available`, `toolsAvailable`, and `reason` fields, while auth actions still run through the shared device-auth dialog flow.
 - The LM Studio controls moved onto `Home` preserve the current draft-versus-committed behavior: typing a new base URL changes only the local input until the user chooses `Check status` or `Reset to default`, and `Refresh models` reuses the currently committed base URL.
 - `Ingest` and `Logs` adopt the new utility-shell design family without introducing backend-dependent new features.
+- `Home`, `Ingest`, and `Logs` remain vertically reachable in both desktop and mobile layouts.
 - The dedicated LM Studio nav entry is removed.
 - The old `/lmstudio` route redirects into `Home` instead of remaining a separate user-facing page.
 - Direct navigation, browser refresh, and existing bookmarks for `/lmstudio` still land on `Home` with the LM Studio section visible.
@@ -85,6 +101,12 @@ The design references for this story already exist and should be treated as the 
 - Keeping `LM Studio` as a second visible top-level destination alongside the new `Home` status page.
 - Adding a new query-string deep-link contract such as `/lmstudio?baseUrl=...` when the current frontend only supports stored and runtime-configured LM Studio base URLs.
 - Expanding transcript copy behavior to include footer metadata or hidden diagnostics.
+- Reintroducing separate visible `Run` and `Resume` buttons for `Flows` instead of preserving the shared arrow-style primary action.
+- Preserving obsolete `Chat`-page auth entry points now that provider auth belongs on `Home`.
+- Keeping a nested `Settings -> Agent Flags` hierarchy when the shared composer settings surface can expose those options directly.
+- Allowing shared selection popovers or dialogs to clip or hide options off-screen instead of making those existing shared surfaces scrollable.
+- Inventing new conversation-row metadata or new conversation semantics while polishing the mobile conversation-pane presentation.
+- Treating utility-page vertical reachability as optional after the shell redesign lands.
 
 ### Additional Repositories
 
@@ -99,6 +121,8 @@ The design references for this story already exist and should be treated as the 
 - When screenshots are needed, capture them first in the Playwright output directory and then transfer the chosen artifacts into `codeInfoTmp/manual-testing/0000058/<task-number>/` with deterministic names such as `proof-01-desktop-chat.png`, `proof-02-mobile-home.png`, and `support-console.txt`.
 - When final proof screenshots are needed, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart; if a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
 - Later tasking should include desktop and mobile proof across both shell families, with special attention on transcript height, chronological top-to-bottom transcript ordering, opening existing conversations at the newest visible content at the bottom, bottom composer behavior, conversation-pane interactions, Home absorbing LM Studio and provider logon concerns, the `/lmstudio` redirect path, and the rule that message `Copy` actions copy only message content while scroll-away transcript reading keeps its place during new activity.
+- Later tasking should also verify that `Chat` transcript footers stay compact on desktop and mobile, that mobile transcript footer actions use icon-only treatment where intended while still fitting on one row, and that the `Chat` conversation pane uses the compact new-conversation icon near `Refresh` without showing `Re-authenticate`.
+- Final manual proof should verify that long shared composer option surfaces scroll instead of clipping, that `Flows` uses the shared arrow button as `Run` for fresh flows and `Resume` for resumable existing flows, and that `Home`, `Ingest`, and `Logs` can all scroll vertically on both desktop and mobile.
 
 ## Decisions
 

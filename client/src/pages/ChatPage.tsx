@@ -7,20 +7,32 @@ import {
   Alert,
   Button,
   CircularProgress,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Box,
+  IconButton,
   Link,
-  MenuItem,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   Paper,
   Stack,
   TextField,
   Typography,
-  Box,
   useMediaQuery,
 } from '@mui/material';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import { useTheme } from '@mui/material/styles';
 import {
-  ChangeEvent,
   FormEvent,
-  type HTMLAttributes,
+  type MouseEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -43,6 +55,21 @@ import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
 import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
+import CommonComposerFooter from '../components/workspace/composer/CommonComposerFooter';
+import CommonComposerMainInputRow from '../components/workspace/composer/CommonComposerMainInputRow';
+import CommonComposerShell from '../components/workspace/composer/CommonComposerShell';
+import ComposerDesktopPopover from '../components/workspace/composer/ComposerDesktopPopover';
+import ComposerFooterButton from '../components/workspace/composer/ComposerFooterButton';
+import ComposerMobileDialog from '../components/workspace/composer/ComposerMobileDialog';
+import ComposerSendButton from '../components/workspace/composer/ComposerSendButton';
+import {
+  buildComposerOptionSummary,
+  buildComposerOptionValueSummary,
+  formatComposerModelLabel,
+  getComposerProviderPresentation,
+  getWorkingFolderName,
+  formatThinkingModeLabel,
+} from '../components/workspace/composer/composerFormatting';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   type ChatAgentFlagDraft,
@@ -61,12 +88,6 @@ import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
 import { isDevEnv } from '../utils/isDevEnv';
-
-const selectDisplayTestId = (
-  value: string,
-): HTMLAttributes<HTMLDivElement> & { 'data-testid': string } => ({
-  'data-testid': value,
-});
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -183,6 +204,7 @@ export default function ChatPage() {
     models,
     selected,
     setSelected,
+    selectedModelCapabilities,
     agentFlags: availableAgentFlags,
     errorMessage,
     providerErrorMessage,
@@ -249,6 +271,16 @@ export default function ChatPage() {
   const [workingFolder, setWorkingFolder] = useState('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
+  const [composerInfoAnchorEl, setComposerInfoAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [composerWorkingFolderAnchorEl, setComposerWorkingFolderAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [composerProviderAnchorEl, setComposerProviderAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [composerModelAnchorEl, setComposerModelAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [composerOptionsAnchorEl, setComposerOptionsAnchorEl] =
+    useState<HTMLElement | null>(null);
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
   const toolDistanceLoggedRef = useRef(new Set<string>());
@@ -931,14 +963,11 @@ export default function ChatPage() {
     }
   };
 
-  const handleProviderChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
+  const applyProviderSelection = (nextProvider: string) => {
     if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
-    const nextProvider = event.target.value;
     const previousProvider = provider ?? null;
     const currentConversationId = activeConversationId ?? null;
     handleNewConversation({ reason: 'provider-change', nextProvider });
@@ -958,14 +987,11 @@ export default function ChatPage() {
     });
   };
 
-  const handleModelChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
+  const applyModelSelection = (nextModel: string) => {
     if (nextSendContextLocked || resumedExecutionIdentityLocked) {
       return;
     }
 
-    const nextModel = event.target.value;
     if (!nextModel || nextModel === selected) {
       return;
     }
@@ -1079,6 +1105,134 @@ export default function ChatPage() {
   const handleRestore = async (id: string) => {
     await restoreConversation(id);
     void refreshConversations();
+  };
+
+  const composerProviderPresentation = useMemo(
+    () => getComposerProviderPresentation(provider, selected),
+    [provider, selected],
+  );
+  const selectedModel = useMemo(
+    () => models.find((model) => model.key === selected),
+    [models, selected],
+  );
+  const selectedModelDisplayName =
+    selectedModel?.displayName ?? selected ?? 'Select model';
+  const reasoningDescriptor = availableAgentFlags.find(
+    (descriptor) => descriptor.key === 'modelReasoningEffort',
+  );
+  const composerThinkingMode =
+    typeof agentFlagsDraft.modelReasoningEffort === 'string'
+      ? agentFlagsDraft.modelReasoningEffort
+      : typeof reasoningDescriptor?.resolvedDefault === 'string'
+        ? reasoningDescriptor.resolvedDefault
+        : undefined;
+  const composerModelValue = formatComposerModelLabel(
+    composerThinkingMode,
+    selectedModelDisplayName,
+  );
+  const composerWorkingFolderName =
+    getWorkingFolderName(workingFolder) || 'Select folder';
+  const composerOptionDescriptors = availableAgentFlags.filter(
+    (descriptor) => descriptor.key !== 'modelReasoningEffort',
+  );
+  const composerReasoningOptions = useMemo(() => {
+    const supportedReasoningEfforts = selectedModelCapabilities
+      ?.supportedReasoningEfforts?.length
+      ? selectedModelCapabilities.supportedReasoningEfforts
+      : (reasoningDescriptor?.supportedValues?.map((entry) =>
+          String(entry.value),
+        ) ?? []);
+
+    return supportedReasoningEfforts.map((value) => ({
+      value,
+      label: formatThinkingModeLabel(value),
+    }));
+  }, [reasoningDescriptor, selectedModelCapabilities]);
+  const composerOptionsValue = buildComposerOptionValueSummary(
+    composerOptionDescriptors,
+    agentFlagsDraft,
+  );
+  const composerInfoRows = useMemo(
+    () => [
+      { label: 'Provider', value: composerProviderPresentation.label },
+      { label: 'Model', value: composerModelValue },
+      {
+        label: 'Thinking mode',
+        value: formatThinkingModeLabel(composerThinkingMode),
+      },
+      { label: 'Selected working path', value: composerWorkingFolderName },
+      ...buildComposerOptionSummary(availableAgentFlags, agentFlagsDraft),
+    ],
+    [
+      agentFlagsDraft,
+      availableAgentFlags,
+      composerModelValue,
+      composerProviderPresentation.label,
+      composerThinkingMode,
+      composerWorkingFolderName,
+    ],
+  );
+
+  const closeComposerSurfaces = () => {
+    setComposerInfoAnchorEl(null);
+    setComposerWorkingFolderAnchorEl(null);
+    setComposerProviderAnchorEl(null);
+    setComposerModelAnchorEl(null);
+    setComposerOptionsAnchorEl(null);
+  };
+
+  const handleComposerInfoOpen = (event: MouseEvent<HTMLElement>) => {
+    closeComposerSurfaces();
+    setComposerInfoAnchorEl(event.currentTarget);
+  };
+
+  const handleComposerInfoClose = () => {
+    setComposerInfoAnchorEl(null);
+  };
+
+  const handleComposerWorkingFolderOpen = (event: MouseEvent<HTMLElement>) => {
+    closeComposerSurfaces();
+    setComposerWorkingFolderAnchorEl(event.currentTarget);
+  };
+
+  const handleComposerWorkingFolderClose = () => {
+    setComposerWorkingFolderAnchorEl(null);
+  };
+
+  const handleComposerProviderOpen = (event: MouseEvent<HTMLElement>) => {
+    closeComposerSurfaces();
+    setComposerProviderAnchorEl(event.currentTarget);
+  };
+
+  const handleComposerProviderClose = () => {
+    setComposerProviderAnchorEl(null);
+  };
+
+  const handleComposerModelOpen = (event: MouseEvent<HTMLElement>) => {
+    closeComposerSurfaces();
+    setComposerModelAnchorEl(event.currentTarget);
+  };
+
+  const handleComposerModelClose = () => {
+    setComposerModelAnchorEl(null);
+  };
+
+  const handleComposerOptionsOpen = (event: MouseEvent<HTMLElement>) => {
+    closeComposerSurfaces();
+    setComposerOptionsAnchorEl(event.currentTarget);
+  };
+
+  const handleComposerOptionsClose = () => {
+    setComposerOptionsAnchorEl(null);
+  };
+
+  const handleComposerReasoningSelection = (nextReasoning: string) => {
+    if (nextSendContextLocked || resumedExecutionIdentityLocked) {
+      return;
+    }
+
+    handleAgentFlagChange('modelReasoningEffort', nextReasoning);
+    handleComposerModelClose();
   };
 
   useEffect(() => {
@@ -1394,248 +1548,281 @@ export default function ChatPage() {
     </Box>
   );
 
-  const composerSurface = (
-    <Paper
-      variant="outlined"
-      data-testid="chat-controls"
-      style={{ flex: '0 0 auto' }}
-      sx={{
-        p: 2,
-        borderRadius: 0,
-        borderLeft: 0,
-        borderRight: 0,
-        borderBottom: 0,
-        bgcolor: 'background.paper',
-      }}
-    >
-      <Stack spacing={2}>
-        <form onSubmit={handleSubmit}>
-          <Stack spacing={1.5}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={1.5}
-              alignItems="stretch"
-            >
-              <Stack
-                direction="row"
-                spacing={1.5}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                <TextField
-                  select
-                  size="small"
-                  id="chat-provider-select"
-                  label="Provider"
-                  value={provider ?? ''}
-                  onChange={handleProviderChange}
-                  disabled={
-                    providerStatus === 'loading' ||
-                    providerLocked ||
-                    resumedExecutionIdentityLocked
-                  }
-                  sx={{
-                    minWidth: { xs: 0, sm: 220 },
-                    flex: { xs: 1, sm: '0 0 220px' },
-                  }}
-                  SelectProps={{ displayEmpty: true }}
-                  slotProps={{
-                    select: {
-                      SelectDisplayProps: {
-                        ...selectDisplayTestId('provider-select'),
-                      },
-                    },
-                  }}
-                >
-                  {providers.map((entry) => (
-                    <MenuItem
-                      key={entry.id}
-                      value={entry.id}
-                      disabled={!entry.available}
-                    >
-                      {entry.label}
-                      {!entry.available
-                        ? entry.reason
-                          ? ` (unavailable: ${entry.reason})`
-                          : ' (unavailable)'
-                        : ''}
-                    </MenuItem>
-                  ))}
-                </TextField>
+  const composerInfoContent = (
+    <Stack spacing={1.5}>
+      {composerInfoRows.map((row) => (
+        <Stack key={row.label} spacing={0.25}>
+          <Typography variant="caption" color="text.secondary">
+            {row.label}
+          </Typography>
+          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+            {row.value}
+          </Typography>
+        </Stack>
+      ))}
+    </Stack>
+  );
 
-                <TextField
-                  select
-                  size="small"
-                  id="chat-model-select"
-                  label="Model"
-                  value={selected ?? ''}
-                  onChange={handleModelChange}
-                  disabled={
-                    isLoading ||
-                    isError ||
-                    isEmpty ||
-                    !providerAvailable ||
-                    nextSendContextLocked ||
-                    resumedExecutionIdentityLocked
-                  }
-                  sx={{ minWidth: { xs: 0, sm: 260 }, flex: 1 }}
-                  SelectProps={{ displayEmpty: true }}
-                  slotProps={{
-                    select: {
-                      SelectDisplayProps: {
-                        ...selectDisplayTestId('model-select'),
-                      },
-                    },
-                  }}
-                >
-                  {models.map((model) => (
-                    <MenuItem key={model.key} value={model.key}>
-                      {model.displayName}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
+  const composerWorkingFolderContent = (
+    <Stack spacing={2}>
+      <TextField
+        fullWidth
+        size="small"
+        label="Working folder"
+        placeholder="Absolute host path (optional)"
+        value={workingFolder}
+        onChange={(event) => setWorkingFolder(event.target.value)}
+        onBlur={(event) => {
+          void persistWorkingFolder(event.target.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          event.stopPropagation();
+          void persistWorkingFolder(
+            (event.currentTarget as HTMLInputElement).value,
+          );
+        }}
+        disabled={chatWorkingFolderLocked}
+      />
+      <Stack direction="row" spacing={1.5} justifyContent="space-between">
+        <Button
+          type="button"
+          variant="outlined"
+          size="small"
+          onClick={handleOpenDirPicker}
+          disabled={chatWorkingFolderLocked}
+          data-testid="chat-working-folder-picker"
+        >
+          Choose folder…
+        </Button>
+        <Button
+          type="button"
+          variant="text"
+          size="small"
+          onClick={() => void persistWorkingFolder('')}
+          disabled={chatWorkingFolderLocked}
+        >
+          Clear
+        </Button>
+      </Stack>
+    </Stack>
+  );
 
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                justifyContent="flex-end"
-                sx={{ minWidth: { xs: '100%', md: 220 } }}
-              >
-                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
-                  <Button
-                    type="button"
-                    variant="outlined"
-                    color="secondary"
-                    size="small"
-                    onClick={() => handleNewConversation()}
-                    disabled={isLoading || nextSendContextLocked}
-                    fullWidth
-                    sx={{ flex: 1 }}
-                  >
-                    New conversation
-                  </Button>
-                  {canShowDeviceAuth ? (
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      size="small"
-                      onClick={handleDeviceAuthOpen}
-                      disabled={isLoading}
-                      fullWidth
-                      sx={{ flex: 1 }}
-                    >
-                      Re-authenticate
-                    </Button>
-                  ) : null}
-                </Stack>
-              </Stack>
-            </Stack>
+  const composerProviderContent = (
+    <List disablePadding dense>
+      {providers.map((entry) => {
+        const presentation = getComposerProviderPresentation(
+          entry.id,
+          entry.defaultModel,
+        );
+        const unavailable = !entry.available;
+        return (
+          <ListItemButton
+            key={entry.id}
+            selected={entry.id === provider}
+            disabled={
+              unavailable ||
+              providerStatus === 'loading' ||
+              providerLocked ||
+              resumedExecutionIdentityLocked
+            }
+            onClick={() => {
+              handleComposerProviderClose();
+              applyProviderSelection(entry.id);
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+              {presentation.icon}
+            </ListItemIcon>
+            <ListItemText
+              primary={entry.label}
+              secondary={
+                unavailable
+                  ? entry.reason
+                    ? `Unavailable: ${entry.reason}`
+                    : 'Unavailable'
+                  : entry.reason
+                    ? entry.reason
+                    : presentation.label
+              }
+            />
+          </ListItemButton>
+        );
+      })}
+    </List>
+  );
 
-            <Stack
-              direction="row"
-              spacing={2}
-              alignItems="flex-start"
-              sx={{ minWidth: 0 }}
-            >
-              <TextField
-                fullWidth
-                size="small"
-                label="Working folder"
-                placeholder="Absolute host path (optional)"
-                value={workingFolder}
-                onChange={(event) => setWorkingFolder(event.target.value)}
-                onBlur={(event) => {
-                  void persistWorkingFolder(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  void persistWorkingFolder(
-                    (event.currentTarget as HTMLInputElement).value,
-                  );
-                }}
-                disabled={chatWorkingFolderLocked}
-                slotProps={{
-                  htmlInput: {
-                    'data-testid': 'chat-working-folder',
-                  },
-                }}
-                sx={{ flex: 1, minWidth: 0 }}
-              />
-              <Button
-                type="button"
-                variant="outlined"
-                size="small"
-                onClick={handleOpenDirPicker}
-                disabled={chatWorkingFolderLocked}
-                data-testid="chat-working-folder-picker"
-                sx={{ flexShrink: 0, minWidth: 160 }}
-              >
-                Choose folder…
-              </Button>
-            </Stack>
-
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={2}
-              alignItems={{ xs: 'stretch', sm: 'flex-start' }}
-            >
-              <TextField
-                inputRef={inputRef}
-                fullWidth
-                multiline
-                minRows={2}
-                size="small"
-                label="Message"
-                placeholder="Type your prompt"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                disabled={controlsDisabled}
-                slotProps={{
-                  htmlInput: { 'data-testid': 'chat-input' },
-                }}
-                helperText={
-                  providerIsCodex && (!providerAvailable || !toolsAvailable)
-                    ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
-                    : undefined
+  const composerModelContent = (
+    <Stack spacing={1.5}>
+      {composerReasoningOptions.length > 0 ? (
+        <Stack spacing={0.75}>
+          <Typography variant="overline" color="text.secondary">
+            Thinking modes
+          </Typography>
+          <List disablePadding dense>
+            {composerReasoningOptions.map((option) => (
+              <ListItemButton
+                key={`reasoning-${option.value}`}
+                selected={composerThinkingMode === option.value}
+                disabled={
+                  nextSendContextLocked || resumedExecutionIdentityLocked
                 }
+                onClick={() => handleComposerReasoningSelection(option.value)}
+              >
+                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+                  <AutoAwesomeOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText
+                  primary={option.label}
+                  secondary="Thinking mode"
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </Stack>
+      ) : null}
+      {composerReasoningOptions.length > 0 ? <Divider /> : null}
+      <List disablePadding dense>
+        {models.length > 0 ? (
+          models.map((model) => (
+            <ListItemButton
+              key={model.key}
+              selected={selected === model.key}
+              disabled={
+                isLoading ||
+                isError ||
+                isEmpty ||
+                !providerAvailable ||
+                nextSendContextLocked ||
+                resumedExecutionIdentityLocked
+              }
+              onClick={() => {
+                handleComposerModelClose();
+                applyModelSelection(model.key);
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+                <AutoAwesomeOutlinedIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={model.displayName}
+                secondary={provider ?? 'Model'}
               />
-              <Stack direction="row" spacing={1} alignItems="flex-start">
-                <Button
-                  type="submit"
-                  variant="contained"
-                  size="small"
-                  data-testid="chat-send"
-                  disabled={controlsDisabled || isSending}
-                >
-                  Send
-                </Button>
-                {showStop && (
-                  <Button
-                    type="button"
-                    variant="contained"
-                    color="error"
-                    size="small"
-                    onClick={handleStop}
-                    data-testid="chat-stop"
-                    disabled={isStopping}
-                  >
-                    {isStopping ? 'Stopping…' : 'Stop'}
-                  </Button>
-                )}
-              </Stack>
-            </Stack>
+            </ListItemButton>
+          ))
+        ) : (
+          <Stack sx={{ px: 1, py: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              No chat-capable models are available for the selected provider.
+            </Typography>
           </Stack>
-        </form>
-        <CodexDeviceAuthDialog
-          open={deviceAuthOpen}
-          onClose={handleDeviceAuthClose}
-          source="chat"
-          onSuccess={handleDeviceAuthSuccess}
-        />
+        )}
+      </List>
+    </Stack>
+  );
 
+  const composerOptionsContent = (
+    <Stack spacing={1.5}>
+      {composerOptionDescriptors.length > 0 ? (
+        <AgentFlagsPanel
+          descriptors={composerOptionDescriptors}
+          values={agentFlagsDraft}
+          onChange={handleAgentFlagChange}
+          disabled={controlsDisabled}
+        />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          No additional options are available for the selected provider and
+          model.
+        </Typography>
+      )}
+    </Stack>
+  );
+
+  const composerSurface = (
+    <CommonComposerShell
+      data-testid="chat-controls"
+      onSubmit={handleSubmit}
+      mainInputRow={
+        <CommonComposerMainInputRow>
+          <TextField
+            inputRef={inputRef}
+            fullWidth
+            multiline
+            minRows={2}
+            size="small"
+            label="Message"
+            placeholder="Type your prompt"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            disabled={controlsDisabled}
+            slotProps={{
+              htmlInput: { 'data-testid': 'chat-input' },
+            }}
+            helperText={
+              providerIsCodex && (!providerAvailable || !toolsAvailable)
+                ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
+                : undefined
+            }
+            sx={{ flex: 1, minWidth: 0 }}
+          />
+          <ComposerSendButton
+            showStop={showStop}
+            isStopping={isStopping}
+            disabled={showStop ? isStopping : controlsDisabled || isSending}
+            onClick={showStop ? handleStop : undefined}
+            data-testid="chat-send"
+          />
+        </CommonComposerMainInputRow>
+      }
+      footerRow={
+        <CommonComposerFooter>
+          <ComposerFooterButton
+            icon={<InfoOutlinedIcon fontSize="small" />}
+            label="Info"
+            iconOnly
+            ariaLabel="Composer info"
+            selected={Boolean(composerInfoAnchorEl)}
+            onClick={handleComposerInfoOpen}
+            data-testid="chat-composer-info"
+          />
+          <ComposerFooterButton
+            icon={<FolderOutlinedIcon fontSize="small" />}
+            label="Working path"
+            value={composerWorkingFolderName}
+            selected={Boolean(composerWorkingFolderAnchorEl)}
+            onClick={handleComposerWorkingFolderOpen}
+            data-testid="chat-working-folder"
+          />
+          <ComposerFooterButton
+            icon={composerProviderPresentation.icon}
+            label="Provider"
+            value={composerProviderPresentation.label}
+            selected={Boolean(composerProviderAnchorEl)}
+            onClick={handleComposerProviderOpen}
+            data-testid="chat-provider-select"
+          />
+          <ComposerFooterButton
+            icon={<AutoAwesomeOutlinedIcon fontSize="small" />}
+            label="Model"
+            value={composerModelValue}
+            selected={Boolean(composerModelAnchorEl)}
+            onClick={handleComposerModelOpen}
+            data-testid="chat-model-select"
+          />
+          <ComposerFooterButton
+            icon={<TuneRoundedIcon fontSize="small" />}
+            label="Options"
+            value={composerOptionsValue}
+            selected={Boolean(composerOptionsAnchorEl)}
+            onClick={handleComposerOptionsOpen}
+            data-testid="chat-options"
+          />
+        </CommonComposerFooter>
+      }
+    >
+      <Stack spacing={1.5}>
         {showCodexWarnings && (
           <Alert severity="warning" data-testid="codex-warnings-banner">
             <Stack spacing={0.5}>
@@ -1647,15 +1834,6 @@ export default function ChatPage() {
             </Stack>
           </Alert>
         )}
-        {availableAgentFlags.length > 0 ? (
-          <AgentFlagsPanel
-            descriptors={availableAgentFlags}
-            values={agentFlagsDraft}
-            onChange={handleAgentFlagChange}
-            disabled={controlsDisabled}
-          />
-        ) : null}
-
         {showCodexUnavailable ? (
           <Alert severity="warning" data-testid="codex-unavailable-banner">
             OpenAI Codex is unavailable. Install the CLI (`npm install -g
@@ -1687,34 +1865,247 @@ export default function ChatPage() {
             CLI/auth/config prerequisites above are satisfied.
           </Alert>
         )}
-
-        <DirectoryPickerDialog
-          open={dirPickerOpen}
-          path={workingFolder}
-          onClose={handleCloseDirPicker}
-          onPick={handlePickDir}
-        />
         {(isSending || isStopping) && (
           <Typography variant="body2" color="text.secondary">
             {isStopping ? 'Stopping…' : 'Responding...'}
           </Typography>
         )}
       </Stack>
+
+      <ComposerDesktopPopover
+        id="chat-composer-info-popover"
+        open={!isMobile && Boolean(composerInfoAnchorEl)}
+        anchorEl={composerInfoAnchorEl}
+        onClose={handleComposerInfoClose}
+        width={380}
+        data-testid="chat-composer-info-popover"
+      >
+        {composerInfoContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(composerInfoAnchorEl)}
+        onClose={handleComposerInfoClose}
+        data-testid="chat-composer-info-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Info</Typography>
+            <IconButton onClick={handleComposerInfoClose} aria-label="Close">
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{composerInfoContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleComposerInfoClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        id="chat-working-folder-popover"
+        open={!isMobile && Boolean(composerWorkingFolderAnchorEl)}
+        anchorEl={composerWorkingFolderAnchorEl}
+        onClose={handleComposerWorkingFolderClose}
+        width={420}
+        data-testid="chat-working-folder-popover"
+      >
+        {composerWorkingFolderContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(composerWorkingFolderAnchorEl)}
+        onClose={handleComposerWorkingFolderClose}
+        data-testid="chat-working-folder-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Working path</Typography>
+            <IconButton
+              onClick={handleComposerWorkingFolderClose}
+              aria-label="Close"
+            >
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{composerWorkingFolderContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleComposerWorkingFolderClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        id="chat-provider-popover"
+        open={!isMobile && Boolean(composerProviderAnchorEl)}
+        anchorEl={composerProviderAnchorEl}
+        onClose={handleComposerProviderClose}
+        width={360}
+        data-testid="chat-provider-popover"
+      >
+        {composerProviderContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(composerProviderAnchorEl)}
+        onClose={handleComposerProviderClose}
+        data-testid="chat-provider-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Provider</Typography>
+            <IconButton
+              onClick={handleComposerProviderClose}
+              aria-label="Close"
+            >
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{composerProviderContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleComposerProviderClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        id="chat-model-popover"
+        open={!isMobile && Boolean(composerModelAnchorEl)}
+        anchorEl={composerModelAnchorEl}
+        onClose={handleComposerModelClose}
+        width={460}
+        data-testid="chat-model-popover"
+      >
+        {composerModelContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(composerModelAnchorEl)}
+        onClose={handleComposerModelClose}
+        data-testid="chat-model-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Model</Typography>
+            <IconButton onClick={handleComposerModelClose} aria-label="Close">
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{composerModelContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleComposerModelClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        id="chat-options-popover"
+        open={!isMobile && Boolean(composerOptionsAnchorEl)}
+        anchorEl={composerOptionsAnchorEl}
+        onClose={handleComposerOptionsClose}
+        width={420}
+        data-testid="chat-options-popover"
+      >
+        {composerOptionsContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(composerOptionsAnchorEl)}
+        onClose={handleComposerOptionsClose}
+        data-testid="chat-options-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Options</Typography>
+            <IconButton onClick={handleComposerOptionsClose} aria-label="Close">
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{composerOptionsContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={handleComposerOptionsClose}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <CodexDeviceAuthDialog
+        open={deviceAuthOpen}
+        onClose={handleDeviceAuthClose}
+        source="chat"
+        onSuccess={handleDeviceAuthSuccess}
+      />
+
+      <DirectoryPickerDialog
+        open={dirPickerOpen}
+        path={workingFolder}
+        onClose={handleCloseDirPicker}
+        onPick={handlePickDir}
+      />
+    </CommonComposerShell>
+  );
+
+  const composerPageActions = (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 1.5,
+        display: 'flex',
+        gap: 1,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}
+    >
+      <Button
+        variant="outlined"
+        size="small"
+        onClick={() => handleNewConversation()}
+        disabled={isLoading || nextSendContextLocked}
+      >
+        New conversation
+      </Button>
+      {canShowDeviceAuth ? (
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={handleDeviceAuthOpen}
+          disabled={isLoading}
+        >
+          Re-authenticate
+        </Button>
+      ) : null}
     </Paper>
   );
 
   const desktopWorkspace = (
-    <WorkspaceDesktopShell
-      conversationPane={conversationList}
-      transcript={transcriptSurface}
-      composer={composerSurface}
-      conversationPaneOpen={conversationPaneOpen}
-      conversationPaneWidth={drawerWidth}
-      isMobile={isMobile}
-      onToggleConversationPane={() => {
-        setDesktopDrawerOpen((prev) => !prev);
-      }}
-    />
+    <Stack spacing={2} sx={{ flex: 1, minHeight: 0, width: '100%' }}>
+      {composerPageActions}
+      <WorkspaceDesktopShell
+        conversationPane={conversationList}
+        transcript={transcriptSurface}
+        composer={composerSurface}
+        conversationPaneOpen={conversationPaneOpen}
+        conversationPaneWidth={drawerWidth}
+        isMobile={isMobile}
+        onToggleConversationPane={() => {
+          setDesktopDrawerOpen((prev) => !prev);
+        }}
+      />
+    </Stack>
   );
 
   const mobileWorkspace = (
@@ -1751,6 +2142,7 @@ export default function ChatPage() {
           Menu
         </Button>
       </Paper>
+      {composerPageActions}
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {transcriptSurface}
       </Box>

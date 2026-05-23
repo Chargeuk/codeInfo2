@@ -3107,7 +3107,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20, Task 25`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 
 #### Overview
 
@@ -3193,6 +3193,8 @@ This task does not own the transcript reading surface, the mobile app menu, the 
 19. [x] Current Repository: Extend the relevant desktop/mobile integration or e2e proof, likely in `e2e/chat.spec.ts`, so it proves desktop composer controls open upward above the composer and mobile composer controls open as centered modal selection surfaces. The proof must cover at least `Info` and `Model`, and it must show that the model picker remains one flat list rather than nested menus. Purpose: add browser-level validation for the most interaction-specific Story 58 composer behavior.
 20. [x] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
 21. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+22. [ ] Current Repository: Update `client/src/components/workspace/composer/CommonComposerFooter.tsx`, `client/src/components/workspace/composer/ComposerFooterButton.tsx`, and the `Chat` composer usage in `client/src/pages/ChatPage.tsx` so the mobile `Chat` composer keeps `Info`, working path, provider, model, and `Options` inside one compact footer row beneath the input instead of wrapping them into stacked rows. Preserve the desktop control order and the existing upward-popover / centered-dialog interaction behavior while tightening the mobile footer widths, truncation, and spacing to match `planning/layout-ideas/plan/final-designs/chat-composer-final.png` plus the shared desktop/mobile shell references.
+23. [ ] Current Repository: Extend `e2e/chat.spec.ts` with a focused mobile composer contract proof that loads `/chat` in the supported mobile viewport and proves the base composer keeps the footer controls inside one compact footer row while the `Model` control still opens as a centered modal dialog. The proof must fail if the footer spills into stacked rows or if the mobile model picker regresses to a small anchored popup.
 
 #### Testing
 
@@ -3200,7 +3202,7 @@ This task does not own the transcript reading surface, the mobile app menu, the 
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared composer rendering and `Chat`-specific composer behavior across desktop and mobile.
 3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer layout, desktop popover direction, mobile modal interaction surfaces, and footer-control behavior.
 4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may add or update browser-path proof files in addition to shared client code.
-5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may add or update browser-path proof files in addition to shared client code.
+5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may add or update browser-path proof files in addition to shared client code.
 
 #### Manual Testing Guidance
 
@@ -3255,7 +3257,8 @@ Items to verify manually:
   - Ran `npm run test:summary:e2e`. Fixed failing e2e tests by hardening Playwright tests in `e2e/chat.spec.ts`, `e2e/chat-codex-mcp.spec.ts`, and `e2e/chat-codex-reasoning.spec.ts` to accept "Thinking / Model" labels and guard optional Agent Flags panel toggles; re-ran the e2e wrapper — all `64/64` tests passed.
   - Ran `npm run lint`; applied autofix for an `import/order` issue in `client/src/pages/ChatPage.tsx` (`eslint --fix`) and re-ran lint — passed.
   - Ran `npm run format` to apply Prettier fixes and committed the formatting changes; re-ran `npm run format:check` — passed.
-- All Testing checklist items for Task 26 are now complete.
+- All Testing checklist items for Task 26 were complete before this manual retest reopened follow-up work.
+- Manual testing ran task-scoped on a fresh main-stack restart because reuse was not provable from repository evidence. Fresh Playwright proof on `http://localhost:5001/chat` showed the mobile base composer still wraps `Info`, working path, provider, model, and `Options` into stacked rows instead of keeping one compact footer row under the input, even though the `Model` control still opens as a centered modal dialog; added concrete follow-up subtasks in `client/src/components/workspace/composer/CommonComposerFooter.tsx`, `client/src/components/workspace/composer/ComposerFooterButton.tsx`, `client/src/pages/ChatPage.tsx`, and `e2e/chat.spec.ts`, and reopened Testing item 5 so automated proof reruns before the next manual retest. Playwright screenshots were staged as `manual-testing/0000058/26/proof-01-desktop-chat-composer.png`, `manual-testing/0000058/26/proof-02-mobile-chat-composer-model-dialog.png`, and `manual-testing/0000058/26/proof-03-mobile-chat-composer-base.png`; transfer into `codeInfoTmp/manual-testing/0000058/26/` was attempted but remained blocked because the Playwright output was not host-visible from this workspace and the documented main-stack container volume did not contain the Task 26 staging files.
 
 
 ### Task 27. Migrate The Agents Composer Onto The Shared Composer Shell And Match The Final Agents Footer Contract

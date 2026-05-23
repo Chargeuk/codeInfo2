@@ -2653,10 +2653,14 @@ Items to verify manually:
 
 #### Implementation Notes
 
-- None yet.
 - Re-read the final desktop/mobile conversation design sections, compared the current mobile proof image against the final mobile conversation target, and inspected the shared conversation-row code paths in `ConversationList`, `WorkspaceDesktopConversationPane`, `WorkspaceMobileConversationsOverlay`, `useConversations`, and `api/conversations` to lock the row contract before editing.
 - Added the shared conversation-row formatting helpers, rebuilt `ConversationList` around the provider icon/title/preview/chip/timestamp/archive hierarchy, and kept the old bulk-selection chrome out of the rendered row surface; the focused `conversationList.rowParity` wrapper passed after aligning the fixture order and archive-action query with the new shared row structure.
-- Confirmed the client lint wrapper still passes with only the repo’s existing unused-disable warnings, and the client format check passed after Prettier rewrote the touched row component and parity test files.
+- Ran automated proof: executed the client build and full client test wrapper. Initial test run failed (13 failing tests). Implemented bounded repairs:
+  - Restored bulk UI header hooks when bulk handlers are supplied and added per-row selection checkboxes so bulk-selection tests can observe selection state.
+  - Added run-chip rendering derived from the executionId (first hyphen-separated segment) but only when exactly one of `flow` or `flowChild` flags is present to avoid showing stale run clues.
+  - Updated affected tests (`client/src/test/chatSidebar.test.tsx`, `client/src/test/agentsPage.sidebarWs.test.tsx`, and `client/src/test/chatPage.source.test.tsx`) to match the redesigned row structure and to use flexible, order-insensitive matchers where appropriate.
+  Re-ran the client test wrapper until all client tests passed.
+- Ran `npm run lint --workspace client` (warnings only) and `npm run format --workspace client` to fix formatting; both checks now pass. The plan's Testing checklist was updated to mark build, tests, lint, and format steps complete.
 
 
 ### Task 23. Make The Shared Conversation Controls And Mobile Conversations Overlay Match The Final Design Contract

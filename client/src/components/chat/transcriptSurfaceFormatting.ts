@@ -60,8 +60,6 @@ export const getTranscriptStatusLabel = (
       return 'Failed';
     case 'stopped':
       return 'Stopped';
-    case 'stopping':
-      return 'Stopping';
     default:
       return 'Working';
   }

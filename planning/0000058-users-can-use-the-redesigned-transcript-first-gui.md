@@ -3195,7 +3195,7 @@ This task does not own the transcript reading surface, the mobile app menu, the 
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task introduces the shared composer shell used by `Chat`, `Agents`, and `Flows`.
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task introduces the shared composer shell used by `Chat`, `Agents`, and `Flows`.
 2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared composer rendering and `Chat`-specific composer behavior across desktop and mobile.
 3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer layout, desktop popover direction, mobile modal interaction surfaces, and footer-control behavior.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may add or update browser-path proof files in addition to shared client code.
@@ -3246,6 +3246,7 @@ Items to verify manually:
 
 - Replaced the legacy stacked Chat composer with the shared composer shell, footer controls, popover/dialog surfaces, and page-header actions outside the composer surface.
 - Added a focused shared-shell test in `client/src/test/commonComposerShell.test.tsx` and validated the client lint/format gates after formatting the touched composer files.
+- Fixed TypeScript union mismatch in `client/src/components/chat/transcriptSurfaceFormatting.ts` by removing an invalid `"stopping"` branch. Re-ran `npm run build:summary:client` and confirmed the client build now passes.
 
 
 ### Task 27. Migrate The Agents Composer Onto The Shared Composer Shell And Match The Final Agents Footer Contract

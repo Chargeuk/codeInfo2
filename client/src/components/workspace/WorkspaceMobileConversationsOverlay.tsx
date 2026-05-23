@@ -42,7 +42,8 @@ export default function WorkspaceMobileConversationsOverlay({
           top: `${topOffsetPx}px`,
           height: drawerHeight,
           bgcolor: '#F4F6F8',
-          overflow: 'hidden',
+          overflow: 'visible',
+          zIndex: (theme) => theme.zIndex.drawer + 2,
         },
       }}
     >

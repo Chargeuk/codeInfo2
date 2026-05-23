@@ -104,6 +104,8 @@ export default function UtilityPageShell({
             px: { xs: 2, md: 3 },
             pt: { xs: 2, md: 2.5 },
             pb: { xs: 3, md: 4 },
+            overflowY: 'auto',
+            overflowX: 'hidden',
           }}
         >
           {children}

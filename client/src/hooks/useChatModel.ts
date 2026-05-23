@@ -587,8 +587,6 @@ export function useChatModel() {
 
       legacyBootstrapRef.current = false;
       const list = normalizeProviders(data.providers);
-      // debug: log provider order produced by normalizeProviders
-      // eslint-disable-next-line no-console
       console.info(
         '[useChatModel] normalized providers order:',
         list.map((p) => p.id),

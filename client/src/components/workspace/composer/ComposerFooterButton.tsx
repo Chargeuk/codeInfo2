@@ -1,5 +1,5 @@
 import { Box, Button, IconButton, Stack, Typography } from '@mui/material';
-import type { MouseEventHandler, ReactNode } from 'react';
+import type { AriaAttributes, MouseEventHandler, ReactNode } from 'react';
 
 type ComposerFooterButtonProps = {
   icon: ReactNode;
@@ -12,7 +12,7 @@ type ComposerFooterButtonProps = {
   'data-testid'?: string;
   ariaLabel?: string;
   role?: string;
-  ariaHaspopup?: string;
+  ariaHaspopup?: AriaAttributes['aria-haspopup'];
   ariaExpanded?: boolean;
   hiddenInputValue?: string;
   iconOnlyOnMobile?: boolean;

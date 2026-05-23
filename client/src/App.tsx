@@ -22,7 +22,7 @@ export default function App() {
   }, [logInfo]);
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CssBaseline />
       <Container
         maxWidth={false}
@@ -33,7 +33,7 @@ export default function App() {
           display: 'flex',
           flexDirection: 'column',
           minHeight: 0,
-          overflow: 'auto',
+          overflow: 'hidden',
         }}
       >
         {apiBaseUrlBlockingIssueMessage && (

@@ -22,6 +22,15 @@ export default function WorkspaceDesktopShell({
   isMobile = false,
   onToggleConversationPane,
 }: WorkspaceDesktopShellProps) {
+  const chatContentFrameSx = {
+    width: { xs: 'calc(100vw - 8px)', sm: '100%' },
+    maxWidth: 'none',
+    position: 'relative',
+    left: { xs: '50%', sm: 'auto' },
+    transform: { xs: 'translateX(-50%)', sm: 'none' },
+    px: { xs: 0, sm: 1.5 },
+  } as const;
+
   return (
     <Box
       sx={{
@@ -55,6 +64,7 @@ export default function WorkspaceDesktopShell({
         }}
       >
         <Container
+          disableGutters
           maxWidth={false}
           sx={{
             flex: 1,
@@ -65,15 +75,21 @@ export default function WorkspaceDesktopShell({
             py: 0,
           }}
         >
-          {transcript}
+          <Box
+            sx={{
+              ...chatContentFrameSx,
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              alignSelf: 'stretch',
+            }}
+          >
+            {transcript}
+          </Box>
         </Container>
-        <Box
-          sx={{
-            px: { xs: 0, sm: 1.5 },
-          }}
-        >
-          {composer}
-        </Box>
+        <Box sx={chatContentFrameSx}>{composer}</Box>
       </Box>
     </Box>
   );

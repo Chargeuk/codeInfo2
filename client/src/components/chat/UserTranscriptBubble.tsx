@@ -139,11 +139,17 @@ function UserTranscriptBubble({
           color: transcriptSurfaceTokens.user.text,
           borderRadius: 3,
           px: 2,
-          py: 1.75,
+          py: { xs: 1.25, sm: 1.75 },
           boxShadow: 0,
         }}
       >
-        <Box sx={{ color: transcriptSurfaceTokens.user.text }}>
+        <Box
+          sx={{
+            color: transcriptSurfaceTokens.user.text,
+            fontSize: { xs: '0.92rem', sm: '1rem' },
+            lineHeight: 1.5,
+          }}
+        >
           <Stack spacing={1}>
             {segments.map((segment) => {
               const userContent = segment.content ?? ' ';
@@ -173,11 +179,15 @@ function UserTranscriptBubble({
 
         <Stack
           direction="row"
-          spacing={1}
+          spacing={{ xs: 0.5, sm: 1 }}
           justifyContent="flex-end"
           alignItems="center"
-          flexWrap="wrap"
-          sx={{ pt: 1.25, color: transcriptSurfaceTokens.user.secondaryText }}
+          flexWrap="nowrap"
+          sx={{
+            pt: { xs: 0.75, sm: 1.25 },
+            color: transcriptSurfaceTokens.user.secondaryText,
+          }}
+          data-testid="user-transcript-footer"
         >
           <Stack direction="row" spacing={0.75} alignItems="center">
             <DoneAllIcon
@@ -187,12 +197,18 @@ function UserTranscriptBubble({
                 color: acknowledged
                   ? transcriptSurfaceTokens.user.confirmedTick
                   : transcriptSurfaceTokens.user.secondaryText,
+                fontSize: { xs: 16, sm: 18 },
               }}
             />
           </Stack>
           <Typography
             variant="caption"
-            sx={{ color: transcriptSurfaceTokens.user.secondaryText }}
+            sx={{
+              color: transcriptSurfaceTokens.user.secondaryText,
+              fontSize: { xs: '0.66rem', sm: '0.75rem' },
+              lineHeight: 1.15,
+              whiteSpace: 'nowrap',
+            }}
             data-testid="bubble-completion-time"
           >
             {completionLabel}
@@ -210,10 +226,22 @@ function UserTranscriptBubble({
                 color: transcriptSurfaceTokens.user.text,
                 textTransform: 'none',
                 minWidth: 0,
-                px: 0.5,
+                px: { xs: 0.25, sm: 0.5 },
+                py: 0,
+                minHeight: { xs: 24, sm: 30 },
+                fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                '& .MuiButton-startIcon': {
+                  mr: { xs: 0, sm: 0.5 },
+                },
               }}
             >
-              Copy
+              <Box
+                component="span"
+                data-testid="user-bubble-copy-label"
+                sx={{ display: { xs: 'none', sm: 'inline' } }}
+              >
+                Copy
+              </Box>
             </Button>
           </Tooltip>
         </Stack>

@@ -26,6 +26,7 @@ export default function WorkspaceDesktopConversationPane({
         flexShrink: 0,
         position: 'relative',
         overflow: 'visible',
+        zIndex: 2,
         bgcolor: '#F4F6F8',
         transition: 'width 160ms ease',
       }}
@@ -35,7 +36,6 @@ export default function WorkspaceDesktopConversationPane({
           className="MuiDrawer-paper"
           elevation={0}
           variant="outlined"
-          style={{ overflowX: 'hidden' }}
           sx={{
             width,
             height: '100%',
@@ -48,6 +48,7 @@ export default function WorkspaceDesktopConversationPane({
             bgcolor: '#F4F6F8',
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'visible',
             opacity: open ? 1 : 0,
             pointerEvents: open ? 'auto' : 'none',
             transition: 'opacity 160ms ease',
@@ -55,15 +56,15 @@ export default function WorkspaceDesktopConversationPane({
         >
           <Box sx={{ position: 'relative', height: '100%', minHeight: 0 }}>
             {children}
-            <ConversationSidebarToggle
-              drawerOpen={open}
-              drawerWidth={width}
-              isMobile={isMobile}
-              onToggle={onToggle}
-              controlsId="workspace-conversation-pane"
-            />
           </Box>
         </Paper>
+        <ConversationSidebarToggle
+          drawerOpen={open}
+          drawerWidth={width}
+          isMobile={isMobile}
+          onToggle={onToggle}
+          controlsId="workspace-conversation-pane"
+        />
       </Box>
     </Box>
   );

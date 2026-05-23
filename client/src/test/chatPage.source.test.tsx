@@ -24,7 +24,7 @@ const baseProps: ComponentProps<typeof ConversationList> = {
 };
 
 describe('ConversationList source badges', () => {
-  it('shows REST default and MCP source labels', () => {
+  it('shows provider icons plus REST default and MCP source labels without a redundant provider chip', () => {
     const conversations: ConversationListItem[] = [
       {
         conversationId: 'c1',
@@ -45,9 +45,9 @@ describe('ConversationList source badges', () => {
 
     render(<ConversationList {...baseProps} conversations={conversations} />);
 
-    const providers = screen
-      .getAllByTestId('conversation-provider-chip')
-      .map((n) => n.textContent || '');
+    const providerIcons = screen
+      .getAllByTestId('conversation-provider-icon')
+      .map((n) => n.getAttribute('aria-label') || '');
     const models = screen
       .getAllByTestId('conversation-model-chip')
       .map((n) => n.textContent || '');
@@ -55,8 +55,9 @@ describe('ConversationList source badges', () => {
       .getAllByTestId('conversation-source-chip')
       .map((n) => n.textContent || '');
 
-    expect(providers.some((p) => /lm\s*studio/i.test(p))).toBe(true);
-    expect(providers.some((p) => /codex/i.test(p))).toBe(true);
+    expect(providerIcons.some((p) => /lm\s*studio/i.test(p))).toBe(true);
+    expect(providerIcons.some((p) => /codex/i.test(p))).toBe(true);
+    expect(screen.queryByTestId('conversation-provider-chip')).toBeNull();
 
     expect(models.some((m) => /llama/i.test(m))).toBe(true);
     expect(models.some((m) => /gpt/i.test(m))).toBe(true);

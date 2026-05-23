@@ -1,4 +1,4 @@
-import { Alert, Box, Stack, Typography } from '@mui/material';
+import { Alert, Box, Stack, Typography, type SxProps } from '@mui/material';
 import {
   forwardRef,
   useCallback,
@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type UIEventHandler,
 } from 'react';
+import type { Theme } from '@mui/material/styles';
 import type { ChatMessage, ToolCall } from '../../hooks/useChatStream';
 import { createLogger } from '../../logging/logger';
 import SharedTranscriptMessageRow from './SharedTranscriptMessageRow';
@@ -62,6 +63,7 @@ type SharedTranscriptProps = {
   ) => ReactNode;
   renderMetadataContent?: (message: ChatMessage) => ReactNode;
   sharedRenderLogConfig?: SharedTranscriptLogConfig;
+  contentSx?: SxProps<Theme>;
 };
 
 const sharedTranscriptLog = createLogger('client');
@@ -99,6 +101,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       renderToolExtraContent,
       renderMetadataContent,
       sharedRenderLogConfig,
+      contentSx,
     },
     ref,
   ) {
@@ -504,14 +507,21 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
         }}
         sx={{
           flex: 1,
+          height: '100%',
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          pr: 1,
           minWidth: 0,
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': {
+            display: 'none',
+            width: 0,
+            height: 0,
+          },
+          ...contentSx,
         }}
       >
-        <Stack spacing={1} sx={{ minHeight: 0 }}>
+        <Stack spacing={1} sx={{ minHeight: 0, flex: 1, width: '100%' }}>
           {turnsLoading && (
             <Typography
               color="text.secondary"

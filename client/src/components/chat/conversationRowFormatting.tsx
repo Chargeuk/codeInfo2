@@ -1,4 +1,3 @@
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import DevicesOutlinedIcon from '@mui/icons-material/DevicesOutlined';
 import { Box } from '@mui/material';
 import type { ReactNode } from 'react';
@@ -90,7 +89,7 @@ export type ConversationProviderPresentation = {
   icon: ReactNode;
 };
 
-const ProviderLogoImage = ({ src, alt }: { src: string; alt: string }) => (
+const buildProviderLogoImage = (src: string, alt: string) => (
   <Box
     component="img"
     src={src}
@@ -119,34 +118,27 @@ const buildPresentation = (
     case 'openai':
       return {
         label: 'OpenAI',
-        icon: <ProviderLogoImage src={openAiCodexLogo} alt="OpenAI logo" />,
+        icon: buildProviderLogoImage(openAiCodexLogo, 'OpenAI logo'),
       };
     case 'claude':
       return {
         label: 'Claude',
-        icon: <ProviderLogoImage src={anthropicClaudeLogo} alt="Claude logo" />,
+        icon: buildProviderLogoImage(anthropicClaudeLogo, 'Claude logo'),
       };
     case 'codex':
       return {
         label: 'Codex',
-        icon: (
-          <ProviderLogoImage src={openAiCodexLogo} alt="OpenAI Codex logo" />
-        ),
+        icon: buildProviderLogoImage(openAiCodexLogo, 'OpenAI Codex logo'),
       };
     case 'copilot':
       return {
         label: 'Copilot',
-        icon: (
-          <ProviderLogoImage
-            src={githubCopilotLogo}
-            alt="GitHub Copilot logo"
-          />
-        ),
+        icon: buildProviderLogoImage(githubCopilotLogo, 'GitHub Copilot logo'),
       };
     case 'lmstudio':
       return {
         label: 'LM Studio',
-        icon: <ProviderLogoImage src={lmStudioLogo} alt="LM Studio logo" />,
+        icon: buildProviderLogoImage(lmStudioLogo, 'LM Studio logo'),
       };
     default:
       return {

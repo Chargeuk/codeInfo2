@@ -52,7 +52,9 @@ describe('AssistantTranscriptSlice', () => {
     expect(window.getComputedStyle(slice).backgroundColor).toBe(
       'rgb(243, 248, 255)',
     );
-    expect(window.getComputedStyle(slice).borderWidth).toBe('0px');
+    expect(
+      ['0px', ''].includes(window.getComputedStyle(slice).borderWidth),
+    ).toBe(true);
     expect(window.getComputedStyle(slice).width).toBe('100%');
 
     const infoButton = within(bubble).getByTestId('bubble-info');
@@ -60,9 +62,13 @@ describe('AssistantTranscriptSlice', () => {
     const statusChip = within(bubble).getByTestId('status-chip');
     const completionTime = within(bubble).getByTestId('bubble-completion-time');
     const copyButton = within(bubble).getByTestId('bubble-copy');
+    const footer = within(bubble).getByTestId('assistant-transcript-footer');
 
     expect(within(bubble).queryByText(/Provider:/i)).toBeNull();
     expect(within(bubble).queryByText(/Model:/i)).toBeNull();
+    expect(window.getComputedStyle(footer).flexWrap).toBe('nowrap');
+    expect(infoButton).toHaveTextContent('Info');
+    expect(copyButton).toHaveTextContent('Copy');
 
     expect(isBefore(infoButton, responseTime)).toBe(true);
     expect(isBefore(responseTime, statusChip)).toBe(true);

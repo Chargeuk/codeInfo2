@@ -227,10 +227,16 @@ function AssistantTranscriptSlice({
           color: transcriptSurfaceTokens.assistant.text,
           borderRadius: 0,
           px: { xs: 1.75, sm: 2.5 },
-          py: 2,
+          py: { xs: 1.5, sm: 2 },
         }}
       >
-        <Box sx={{ color: transcriptSurfaceTokens.assistant.text }}>
+        <Box
+          sx={{
+            color: transcriptSurfaceTokens.assistant.text,
+            fontSize: { xs: '0.95rem', sm: '1rem' },
+            lineHeight: 1.55,
+          }}
+        >
           <Stack spacing={1}>
             {segments.map((segment) => {
               if (segment.kind === 'text') {
@@ -473,22 +479,24 @@ function AssistantTranscriptSlice({
           </Stack>
 
           <Stack
-            direction={{ xs: 'column', sm: 'row' }}
+            direction="row"
             spacing={1}
             justifyContent="space-between"
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            flexWrap="wrap"
+            alignItems="center"
+            flexWrap="nowrap"
             sx={{
-              pt: 1.5,
+              gap: { xs: 0.75, sm: 1.25 },
+              pt: { xs: 0.875, sm: 1.5 },
               color: transcriptSurfaceTokens.assistant.secondaryText,
             }}
+            data-testid="assistant-transcript-footer"
           >
             <Stack
               direction="row"
-              spacing={1}
+              spacing={{ xs: 0.5, sm: 1 }}
               alignItems="center"
-              flexWrap="wrap"
-              sx={{ minWidth: 0 }}
+              flexWrap="nowrap"
+              sx={{ minWidth: 0, flex: 1 }}
             >
               <Tooltip title="Show message details">
                 <Button
@@ -512,10 +520,22 @@ function AssistantTranscriptSlice({
                     color: transcriptSurfaceTokens.assistant.action,
                     textTransform: 'none',
                     minWidth: 0,
-                    px: 0.5,
+                    px: { xs: 0.25, sm: 0.5 },
+                    py: 0,
+                    minHeight: { xs: 24, sm: 30 },
+                    fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                    '& .MuiButton-startIcon': {
+                      mr: { xs: 0, sm: 0.5 },
+                    },
                   }}
                 >
-                  Info
+                  <Box
+                    component="span"
+                    data-testid="bubble-info-label"
+                    sx={{ display: { xs: 'none', sm: 'inline' } }}
+                  >
+                    Info
+                  </Box>
                 </Button>
               </Tooltip>
               {responseTimeLabel && (
@@ -524,6 +544,9 @@ function AssistantTranscriptSlice({
                   data-testid="bubble-response-time"
                   sx={{
                     color: transcriptSurfaceTokens.assistant.secondaryText,
+                    fontSize: { xs: '0.66rem', sm: '0.75rem' },
+                    lineHeight: 1.15,
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {responseTimeLabel}
@@ -551,23 +574,39 @@ function AssistantTranscriptSlice({
                   color: transcriptSurfaceTokens.statusChip[statusKey].text,
                   fontWeight: 500,
                   border: 0,
+                  height: { xs: 22, sm: 24 },
+                  '& .MuiChip-label': {
+                    px: { xs: 0.75, sm: 1 },
+                    fontSize: { xs: '0.66rem', sm: '0.75rem' },
+                  },
                   '& .MuiChip-icon': {
                     color: transcriptSurfaceTokens.statusChip[statusKey].text,
+                    ml: { xs: 0.5, sm: 0.75 },
+                    mr: { xs: -0.25, sm: 0 },
+                    '&.MuiCircularProgress-root': {
+                      width: { xs: 12, sm: 14 },
+                      height: { xs: 12, sm: 14 },
+                    },
                   },
                 }}
               />
             </Stack>
             <Stack
               direction="row"
-              spacing={1}
+              spacing={{ xs: 0.5, sm: 1 }}
               alignItems="center"
               justifyContent="flex-end"
-              flexWrap="wrap"
+              flexWrap="nowrap"
               sx={{ minWidth: 0 }}
             >
               <Typography
                 variant="caption"
-                sx={{ color: transcriptSurfaceTokens.assistant.secondaryText }}
+                sx={{
+                  color: transcriptSurfaceTokens.assistant.secondaryText,
+                  fontSize: { xs: '0.66rem', sm: '0.75rem' },
+                  lineHeight: 1.15,
+                  whiteSpace: 'nowrap',
+                }}
                 data-testid="bubble-completion-time"
               >
                 {completionLabel}
@@ -585,10 +624,22 @@ function AssistantTranscriptSlice({
                     color: transcriptSurfaceTokens.assistant.action,
                     textTransform: 'none',
                     minWidth: 0,
-                    px: 0.5,
+                    px: { xs: 0.25, sm: 0.5 },
+                    py: 0,
+                    minHeight: { xs: 24, sm: 30 },
+                    fontSize: { xs: '0.68rem', sm: '0.75rem' },
+                    '& .MuiButton-startIcon': {
+                      mr: { xs: 0, sm: 0.5 },
+                    },
                   }}
                 >
-                  Copy
+                  <Box
+                    component="span"
+                    data-testid="bubble-copy-label"
+                    sx={{ display: { xs: 'none', sm: 'inline' } }}
+                  >
+                    Copy
+                  </Box>
                 </Button>
               </Tooltip>
             </Stack>

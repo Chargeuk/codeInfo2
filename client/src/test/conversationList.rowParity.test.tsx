@@ -27,7 +27,7 @@ describe('Conversation row parity', () => {
     jest.useRealTimers();
   });
 
-  it('renders the shared row hierarchy with provider icon, preview, chips, timestamp, and archive action', () => {
+  it('renders the shared row hierarchy with provider icon, preview, model/source chips, timestamp, and archive action', () => {
     render(
       <ConversationList
         conversations={[
@@ -87,9 +87,7 @@ describe('Conversation row parity', () => {
     expect(firstRow.getByTestId('conversation-preview')).toHaveTextContent(
       'Update step gating and retry behavior.',
     );
-    expect(
-      firstRow.getByTestId('conversation-provider-chip'),
-    ).toHaveTextContent('Codex');
+    expect(firstRow.queryByTestId('conversation-provider-chip')).toBeNull();
     expect(firstRow.getByTestId('conversation-model-chip')).toHaveTextContent(
       'gpt-4.1',
     );
@@ -109,9 +107,7 @@ describe('Conversation row parity', () => {
       archivedRow.getByTestId('conversation-provider-icon'),
     ).toHaveAttribute('aria-label', 'Codex provider icon');
     expect(screen.getAllByTestId('conversation-restore')[0]).toBeVisible();
-    expect(
-      archivedRow.getByTestId('conversation-provider-chip'),
-    ).toHaveTextContent('Codex');
+    expect(archivedRow.queryByTestId('conversation-provider-chip')).toBeNull();
 
     const runtimeRow = within(rows[2]);
     expect(

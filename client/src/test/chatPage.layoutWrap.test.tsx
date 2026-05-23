@@ -689,7 +689,7 @@ describe('Chat shared shell layout alignment', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides horizontal overflow on the conversations pane paper', async () => {
+  it('does not clip the desktop conversations handle with forced horizontal overflow hiding', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -704,10 +704,10 @@ describe('Chat shared shell layout alignment', () => {
       '.MuiDrawer-paper',
     ) as HTMLElement | null;
     expect(paper).not.toBeNull();
-    expect(getComputedStyle(paper!).overflowX).toBe('hidden');
+    expect(getComputedStyle(paper!).overflowX).not.toBe('hidden');
   });
 
-  it('keeps header and row padding aligned', async () => {
+  it('keeps the header controls slightly tighter than the conversation rows', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
 
@@ -737,13 +737,15 @@ describe('Chat shared shell layout alignment', () => {
 
     expect(headerContainer).not.toBeNull();
 
-    const headerPadding =
+    const headerPadding = Number.parseFloat(
       headerContainer!.style.paddingLeft ||
-      getComputedStyle(headerContainer!).paddingLeft;
-    const rowPadding =
-      rowButton.style.paddingLeft || getComputedStyle(rowButton).paddingLeft;
+        getComputedStyle(headerContainer!).paddingLeft,
+    );
+    const rowPadding = Number.parseFloat(
+      rowButton.style.paddingLeft || getComputedStyle(rowButton).paddingLeft,
+    );
 
-    expect(headerPadding).toBe(rowPadding);
+    expect(headerPadding).toBeLessThan(rowPadding);
   });
 
   it('logs layout configuration for manual verification', async () => {

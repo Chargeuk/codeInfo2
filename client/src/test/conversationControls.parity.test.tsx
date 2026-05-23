@@ -68,6 +68,7 @@ function ControlsHarness() {
     active: true,
     archived: false,
   });
+  const handleNewConversation = jest.fn();
 
   return (
     <>
@@ -89,6 +90,7 @@ function ControlsHarness() {
         onLoadMore={() => undefined}
         onRefresh={() => undefined}
         onRetry={() => undefined}
+        onNewConversation={handleNewConversation}
         onBulkArchive={undefined}
         onBulkRestore={undefined}
         onBulkDelete={undefined}
@@ -98,7 +100,7 @@ function ControlsHarness() {
 }
 
 describe('conversation controls parity', () => {
-  it('renders the shared controls row with no search control and with refresh on the right', () => {
+  it('renders the shared controls row with no search control and with the compact new-conversation icon immediately left of refresh', () => {
     render(<ControlsHarness />);
 
     const row = screen.getByTestId('conversation-filter');
@@ -107,6 +109,7 @@ describe('conversation controls parity', () => {
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Active conversations',
       'Archived conversations',
+      'New conversation',
       'Refresh conversations',
     ]);
     expect(screen.getByTestId('conversation-filter-active')).toHaveAttribute(
@@ -117,7 +120,9 @@ describe('conversation controls parity', () => {
       'aria-pressed',
       'false',
     );
+    expect(screen.getByTestId('conversation-new')).toBeInTheDocument();
     expect(screen.getByTestId('conversation-refresh')).toBeInTheDocument();
+    expect(screen.queryByText(/^New conversation$/)).toBeNull();
     expect(screen.queryByLabelText(/search/i)).toBeNull();
     expect(screen.queryByPlaceholderText(/search/i)).toBeNull();
   });

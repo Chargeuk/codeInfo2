@@ -3,7 +3,10 @@
 const config = {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'jest-environment-jsdom',
-  testMatch: ['**/src/test/**/*.test.(ts|tsx)'],
+  testMatch: [
+    '**/src/test/**/*.test.(ts|tsx)',
+    '**/src/components/**/*.test.(ts|tsx)',
+  ],
   setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts'],
   moduleNameMapper: {
     '@codeinfo2/common': '<rootDir>/../common/dist/index.js',

@@ -487,13 +487,13 @@ test('copilot happy-path send uses the Copilot provider contract end to end', as
   );
 });
 
-test('shared auth dialog renders Copilot verification details from the fake auth scenario', async ({
+test('chat no longer exposes re-authenticate inside the workspace surface', async ({
   page,
 }) => {
   await skipIfUnreachable(page);
   test.skip(
     !useMockChat,
-    'Copilot auth browser proof requires mock chat routing',
+    'chat chrome browser proof requires mock chat routing',
   );
 
   const authScenario = logPlaywrightCopilotScenarioRegistration({
@@ -570,35 +570,15 @@ test('shared auth dialog renders Copilot verification details from the fake auth
       body: JSON.stringify({ items: [], nextCursor: null }),
     }),
   );
-  await page.route('**/copilot/device-auth', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(authScenario.e2e.copilotAuthResponse),
-    }),
-  );
-
   await page.goto(`${baseUrl}/chat`);
 
   await expect(page.getByRole('combobox', { name: /Provider/i })).toHaveText(
     /OpenAI Codex/i,
     { timeout: 20000 },
   );
-  await page.getByRole('button', { name: /^Re-authenticate$/i }).click();
-
-  const dialog = page.getByRole('dialog');
   await expect(
-    dialog.getByRole('heading', { name: 'Choose Authentication' }),
-  ).toBeVisible();
-  await dialog.getByRole('button', { name: 'Copilot Auth' }).click();
-
-  await expect(dialog).toContainText('Verification URL');
-  await expect(
-    dialog
-      .getByRole('link', { name: 'https://github.com/login/device' })
-      .first(),
-  ).toBeVisible();
-  await expect(dialog).toContainText('TASK16-ABCD');
+    page.getByRole('button', { name: /^Re-authenticate$/i }),
+  ).toHaveCount(0);
 });
 
 test('chat preserves raw outbound payload and blocks whitespace-only submit', async ({
@@ -1267,6 +1247,205 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
   );
   expect(horizontalCenterDelta).toBeLessThan(12);
   expect(dialogBox?.width ?? 0).toBeGreaterThan(280);
+});
+
+test('chat conversation chrome keeps the compact header actions, provider-icon rows, and mobile icon-only transcript footers', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  test.skip(!useMockChat, 'chat chrome browser proof requires mock chat routing');
+
+  const mockWs = await installMockChatWs(page);
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+        selectedProvider: 'lmstudio',
+        selectedModel: 'mock-1',
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+      }),
+    }),
+  );
+  await page.route('**/conversations/**/turns*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route('**/conversations*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            conversationId: 'row-1',
+            title: 'Tighten transcript footer spacing',
+            provider: 'lmstudio',
+            model: 'qwen-coder-14b',
+            source: 'REST',
+            lastMessageAt: '2026-05-23T10:00:00.000Z',
+            previewUserText: 'Shrink the footer and remove the provider chip.',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      }),
+    }),
+  );
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      return route.continue();
+    }
+
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c1');
+    const inflightId = String(payload.inflightId ?? 'i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Footer cleanup proof.',
+    });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${baseUrl}/chat`);
+
+  await expect(page.getByRole('button', { name: /^Re-authenticate$/i })).toHaveCount(0);
+
+  const newConversationButton = page.getByTestId('conversation-new');
+  const refreshButton = page.getByTestId('conversation-refresh');
+  await expect(newConversationButton).toBeVisible();
+  await expect(refreshButton).toBeVisible();
+  await expect(page.getByText(/^New conversation$/)).toHaveCount(0);
+
+  const newButtonBox = await newConversationButton.boundingBox();
+  const refreshButtonBox = await refreshButton.boundingBox();
+  expect(newButtonBox).not.toBeNull();
+  expect(refreshButtonBox).not.toBeNull();
+  expect((newButtonBox?.x ?? 0) + (newButtonBox?.width ?? 0)).toBeLessThan(
+    (refreshButtonBox?.x ?? 0) + 2,
+  );
+
+  const firstConversationRow = page.getByTestId('conversation-row').first();
+  await expect(firstConversationRow.getByTestId('conversation-provider-icon')).toBeVisible();
+  await expect(firstConversationRow.getByTestId('conversation-model-chip')).toContainText(
+    'qwen-coder-14b',
+  );
+  await expect(firstConversationRow.getByTestId('conversation-source-chip')).toContainText(
+    'REST',
+  );
+  await expect(firstConversationRow.getByTestId('conversation-provider-chip')).toHaveCount(0);
+
+  await page.getByTestId('chat-input').fill('Chrome cleanup proof');
+  await page.getByTestId('chat-send').click();
+
+  const assistantBubble = page
+    .locator('[data-testid="chat-bubble"][data-role="assistant"]')
+    .first();
+  const userBubble = page
+    .locator('[data-testid="chat-bubble"][data-role="user"]')
+    .first();
+  await expect(assistantBubble.getByTestId('assistant-transcript-slice')).toBeVisible();
+  await expect(userBubble.getByTestId('user-transcript-bubble')).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const drawerToggle = page.getByTestId('conversation-drawer-toggle');
+  await expect(drawerToggle).toBeVisible();
+  const toggleBox = await drawerToggle.boundingBox();
+  expect(toggleBox).not.toBeNull();
+  expect(toggleBox?.x ?? 0).toBeGreaterThanOrEqual(0);
+  expect((toggleBox?.x ?? 0) + (toggleBox?.width ?? 0)).toBeLessThanOrEqual(
+    390,
+  );
+
+  const assistantFooter = page.getByTestId('assistant-transcript-footer').first();
+  const userFooter = page.getByTestId('user-transcript-footer').first();
+  await expect(assistantFooter).toBeVisible();
+  await expect(userFooter).toBeVisible();
+  await expect
+    .poll(() => assistantFooter.evaluate((node) => getComputedStyle(node).flexWrap))
+    .toBe('nowrap');
+  await expect
+    .poll(() => userFooter.evaluate((node) => getComputedStyle(node).flexWrap))
+    .toBe('nowrap');
+  await expect
+    .poll(() =>
+      page
+        .getByTestId('bubble-info-label')
+        .first()
+        .evaluate((node) => getComputedStyle(node).display),
+    )
+    .toBe('none');
+  await expect
+    .poll(() =>
+      page
+        .getByTestId('bubble-copy-label')
+        .first()
+        .evaluate((node) => getComputedStyle(node).display),
+    )
+    .toBe('none');
+  await expect
+    .poll(() =>
+      page
+        .getByTestId('user-bubble-copy-label')
+        .first()
+        .evaluate((node) => getComputedStyle(node).display),
+    )
+    .toBe('none');
+
+  await drawerToggle.click();
+  await expect(page.getByTestId('conversation-drawer')).toBeVisible();
+  await expect(page.getByTestId('conversation-row').first()).toBeVisible();
+  await expect(
+    page
+      .getByTestId('conversation-provider-icon')
+      .first()
+      .evaluate((node) => node.getBoundingClientRect().width),
+  ).resolves.toBeGreaterThan(20);
+  await expect(page.getByTestId('conversation-provider-chip')).toHaveCount(0);
 });
 
 test('conversation pane toggle works after resizing across breakpoints', async ({

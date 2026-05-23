@@ -22,7 +22,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Paper,
   Stack,
   TextField,
   Typography,
@@ -51,7 +50,6 @@ import {
   formatBubbleTimestamp,
 } from '../components/chat/chatTranscriptFormatting';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
-import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
@@ -272,7 +270,6 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [workingFolder, setWorkingFolder] = useState('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
-  const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
   const [composerInfoAnchorEl, setComposerInfoAnchorEl] =
     useState<HTMLElement | null>(null);
   const [composerWorkingFolderAnchorEl, setComposerWorkingFolderAnchorEl] =
@@ -353,10 +350,6 @@ export default function ChatPage() {
   }, [isMobile, persistenceUnavailable]);
 
   const log = useMemo(() => createLogger('client'), []);
-  const deviceAuthLog = useMemo(
-    () => createLogger('codex-device-auth-chat'),
-    [],
-  );
   const selectedConversation = useMemo(
     () =>
       conversations.find(
@@ -573,7 +566,6 @@ export default function ChatPage() {
     [providers],
   );
   const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
-  const canShowDeviceAuth = true;
   const showCodexUnavailable = providerIsCodex
     ? !providerAvailable
     : codexUnavailable;
@@ -676,13 +668,10 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    // debug: log chat-controls inline style for test diagnostics
-    // eslint-disable-next-line no-console
     const el = document.querySelector(
       '[data-testid="chat-controls"]',
     ) as HTMLElement | null;
     if (el) {
-      // eslint-disable-next-line no-console
       console.info(
         '[ChatPage] chat-controls inline style.flex:',
         el.style.flex,
@@ -1027,27 +1016,6 @@ export default function ChatPage() {
     },
     [],
   );
-
-  const handleDeviceAuthOpen = () => {
-    deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_button_click');
-    setDeviceAuthOpen(true);
-  };
-
-  const handleDeviceAuthClose = () => {
-    setDeviceAuthOpen(false);
-  };
-
-  const handleDeviceAuthSuccess = (response: {
-    provider: 'codex' | 'copilot';
-  }) => {
-    deviceAuthLog('info', 'DEV-0000031:T7:provider_device_auth_chat_success', {
-      provider: response.provider,
-    });
-    void refreshProviders();
-    if (provider === response.provider) {
-      void refreshModels(response.provider);
-    }
-  };
 
   const handleToggleTool = (id: string, messageId: string) => {
     const nextOpen = !toolOpen[id];
@@ -1475,17 +1443,30 @@ export default function ChatPage() {
       onLoadMore={loadMoreConversations}
       onRefresh={refreshConversations}
       onRetry={refreshConversations}
+      onNewConversation={() => handleNewConversation()}
     />
   );
+
+  const chatContentFrameSx = {
+    width: { xs: 'calc(100vw - 8px)', sm: '100%' },
+    maxWidth: 'none',
+    position: 'relative',
+    left: { xs: '50%', sm: 'auto' },
+    transform: { xs: 'translateX(-50%)', sm: 'none' },
+    px: { xs: 0, sm: 1.5 },
+  } as const;
 
   const transcriptSurface = (
     <Box
       sx={{
-        p: 2,
+        pt: 2,
+        pb: 2,
         flex: '1 1 0%',
         minHeight: 0,
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
       {isLoading && (
@@ -1957,11 +1938,7 @@ export default function ChatPage() {
             role="combobox"
             ariaHaspopup="listbox"
             ariaExpanded={Boolean(composerModelAnchorEl)}
-            ariaLabel={
-              isMobile
-                ? `Model ${selectedModelDisplayName}`
-                : `Model ${composerModelValue}`
-            }
+            ariaLabel="Model"
             hiddenInputValue={selected ?? ''}
             disabled={
               isLoading ||
@@ -2183,13 +2160,6 @@ export default function ChatPage() {
         </DialogActions>
       </ComposerMobileDialog>
 
-      <CodexDeviceAuthDialog
-        open={deviceAuthOpen}
-        onClose={handleDeviceAuthClose}
-        source="chat"
-        onSuccess={handleDeviceAuthSuccess}
-      />
-
       <DirectoryPickerDialog
         open={dirPickerOpen}
         path={workingFolder}
@@ -2199,36 +2169,8 @@ export default function ChatPage() {
     </CommonComposerShell>
   );
 
-  const composerPageActions = (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 1.5,
-        display: 'flex',
-        gap: 1,
-        alignItems: 'center',
-        flexWrap: 'wrap',
-      }}
-    >
-      <Button
-        variant="outlined"
-        size="small"
-        onClick={() => handleNewConversation()}
-        disabled={isLoading || nextSendContextLocked}
-      >
-        New conversation
-      </Button>
-      {canShowDeviceAuth ? (
-        <Button variant="outlined" size="small" onClick={handleDeviceAuthOpen}>
-          Re-authenticate
-        </Button>
-      ) : null}
-    </Paper>
-  );
-
   const desktopWorkspace = (
     <Stack spacing={2} sx={{ flex: 1, minHeight: 0, width: '100%' }}>
-      {composerPageActions}
       <WorkspaceDesktopShell
         conversationPane={conversationList}
         transcript={transcriptSurface}
@@ -2253,9 +2195,17 @@ export default function ChatPage() {
         gap: 2,
       }}
     >
-      <Paper
-        variant="outlined"
-        sx={{ p: 1.5, display: 'flex', gap: 1, alignItems: 'center' }}
+      <Box
+        sx={{
+          p: 1.5,
+          display: 'flex',
+          gap: 1,
+          alignItems: 'center',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          bgcolor: 'background.paper',
+        }}
       >
         <Button
           variant="outlined"
@@ -2276,22 +2226,20 @@ export default function ChatPage() {
         >
           Menu
         </Button>
-      </Paper>
-      {composerPageActions}
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        {transcriptSurface}
       </Box>
       <Box
         sx={{
-          width: 'calc(100vw - 8px)',
-          maxWidth: 'none',
-          position: 'relative',
-          left: '50%',
-          transform: 'translateX(-50%)',
+          ...chatContentFrameSx,
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
         }}
       >
-        {composerSurface}
+        {transcriptSurface}
       </Box>
+      <Box sx={chatContentFrameSx}>{composerSurface}</Box>
       <WorkspaceMobileConversationsOverlay
         open={mobileConversationsOpen}
         onClose={() => setMobileConversationsOpen(false)}

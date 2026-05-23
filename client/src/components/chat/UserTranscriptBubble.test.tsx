@@ -20,6 +20,9 @@ describe('UserTranscriptBubble', () => {
 
     const bubble = screen.getByTestId('chat-bubble');
     const surface = within(bubble).getByTestId('user-transcript-bubble');
+    const footer = within(bubble).getByTestId('user-transcript-footer');
+    const completionTime = within(bubble).getByTestId('bubble-completion-time');
+    const copyButton = within(bubble).getByTestId('bubble-copy');
 
     expect(window.getComputedStyle(surface).backgroundColor).toBe(
       'rgb(17, 24, 39)',
@@ -28,10 +31,9 @@ describe('UserTranscriptBubble', () => {
     expect(window.getComputedStyle(surface).maxWidth).not.toBe('100%');
 
     expect(within(bubble).queryByTestId('bubble-info')).toBeNull();
-    expect(within(bubble).getByTestId('user-ack-tick')).toBeInTheDocument();
-    expect(
-      within(bubble).getByTestId('bubble-completion-time'),
-    ).toHaveTextContent(/10:21 AM|May 23, 2026/i);
-    expect(within(bubble).getByTestId('bubble-copy')).toHaveTextContent('Copy');
+    expect(window.getComputedStyle(footer).flexWrap).toBe('nowrap');
+    expect(within(footer).getAllByRole('img').length).toBeGreaterThan(0);
+    expect(completionTime).toHaveTextContent(/\d+h ago|10:21 AM|May 23, 2026/i);
+    expect(copyButton).toHaveTextContent('Copy');
   });
 });

@@ -88,7 +88,6 @@ export default function ThinkingLevelIcon({
         const isActive = index < activeBarCount;
         return (
           <Box
-            // eslint-disable-next-line react/no-array-index-key
             key={`${height}-${index}`}
             sx={{
               width: 2.5,

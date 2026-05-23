@@ -1,4 +1,5 @@
 import ArchiveIcon from '@mui/icons-material/Archive';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RestoreIcon from '@mui/icons-material/Restore';
 import {
@@ -134,6 +135,7 @@ type Props = {
   onLoadMore: () => Promise<void> | void;
   onRefresh: () => void;
   onRetry: () => void;
+  onNewConversation?: () => void;
   showHeaderTitle?: boolean;
 };
 
@@ -159,6 +161,7 @@ export function ConversationList({
   onLoadMore,
   onRefresh,
   onRetry,
+  onNewConversation,
   showHeaderTitle = true,
 }: Props) {
   const log = useMemo(() => createLogger('client'), []);
@@ -462,20 +465,38 @@ export function ConversationList({
             <Box />
           )}
           {showFilters && (
-            <Tooltip title="Refresh list">
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={onRefresh}
-                  disabled={disabled}
-                  aria-label="Refresh conversations"
-                  data-testid="conversation-refresh"
-                  sx={{ color: '#1F2933' }}
-                >
-                  <RefreshIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
+            <Stack direction="row" spacing={0.25} alignItems="center">
+              {variant === 'chat' && onNewConversation ? (
+                <Tooltip title="New conversation">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={onNewConversation}
+                      disabled={disabled || selectionDisabled}
+                      aria-label="New conversation"
+                      data-testid="conversation-new"
+                      sx={{ color: '#1F2933' }}
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              ) : null}
+              <Tooltip title="Refresh list">
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={onRefresh}
+                    disabled={disabled}
+                    aria-label="Refresh conversations"
+                    data-testid="conversation-refresh"
+                    sx={{ color: '#1F2933' }}
+                  >
+                    <RefreshIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Stack>
           )}
         </Stack>
       </Stack>
@@ -640,94 +661,6 @@ export function ConversationList({
                     key={conversation.conversationId}
                     disableGutters
                     disablePadding
-                    secondaryAction={
-                      showRowActions ? (
-                        <Box
-                          sx={{
-                            width: 80,
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 0.25,
-                            pl: 1,
-                            borderLeft: '1px solid',
-                            borderColor: '#D9E2EC',
-                          }}
-                        >
-                          <Tooltip
-                            title={
-                              conversation.archived
-                                ? 'Restore conversation'
-                                : 'Archive conversation'
-                            }
-                          >
-                            <span>
-                              <IconButton
-                                edge="end"
-                                size="small"
-                                onClick={() => {
-                                  void Promise.resolve(
-                                    conversation.archived
-                                      ? onRestore(conversation.conversationId)
-                                      : onArchive(conversation.conversationId),
-                                  )
-                                    .then(() => {
-                                      setToast({
-                                        severity: 'success',
-                                        message: conversation.archived
-                                          ? 'Conversation restored'
-                                          : 'Conversation archived',
-                                      });
-                                    })
-                                    .catch((err) => {
-                                      setToast({
-                                        severity: 'error',
-                                        message:
-                                          (err as Error).message ||
-                                          (conversation.archived
-                                            ? 'Restore failed'
-                                            : 'Archive failed'),
-                                      });
-                                    });
-                                }}
-                                disabled={bulkDisabled}
-                                data-testid={
-                                  conversation.archived
-                                    ? 'conversation-restore'
-                                    : 'conversation-archive'
-                                }
-                                aria-label={
-                                  conversation.archived
-                                    ? 'Restore conversation'
-                                    : 'Archive conversation'
-                                }
-                              >
-                                {conversation.archived ? (
-                                  <RestoreIcon fontSize="small" />
-                                ) : (
-                                  <ArchiveIcon fontSize="small" />
-                                )}
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              lineHeight: 1.1,
-                              textAlign: 'center',
-                              minWidth: 0,
-                              color: conversation.archived
-                                ? '#52606D'
-                                : '#1F2933',
-                            }}
-                          >
-                            {conversation.archived ? 'Restore' : 'Archive'}
-                          </Typography>
-                        </Box>
-                      ) : null
-                    }
                     sx={{
                       width: '100%',
                       minWidth: 0,
@@ -741,10 +674,10 @@ export function ConversationList({
                       data-testid="conversation-row"
                       sx={{
                         alignItems: 'flex-start',
-                        gap: 1.25,
-                        py: 1.25,
-                        pl: 1.5,
-                        pr: 10,
+                        gap: { xs: 0.5, sm: 0.75 },
+                        py: { xs: 1, sm: 1.25 },
+                        pl: { xs: 1, sm: 1.5 },
+                        pr: { xs: 1, sm: 1.5 },
                         minWidth: 0,
                         width: '100%',
                         borderBottom: '1px solid',
@@ -758,43 +691,6 @@ export function ConversationList({
                         },
                       }}
                     >
-                      {showBulkUi && enableBulkUi && (
-                        <Checkbox
-                          size="small"
-                          checked={selectedIds.has(conversation.conversationId)}
-                          disabled={bulkDisabled}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            if (bulkDisabled) return;
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(conversation.conversationId))
-                                next.delete(conversation.conversationId);
-                              else next.add(conversation.conversationId);
-                              return next;
-                            });
-                          }}
-                          slotProps={{
-                            input: checkboxInputProps(
-                              'Select conversation',
-                              'conversation-select',
-                            ),
-                          }}
-                          sx={{ mr: 1, alignSelf: 'center', mt: 0.25 }}
-                        />
-                      )}
-                      <ListItemIcon
-                        data-testid="conversation-provider-icon"
-                        aria-label={`${providerPresentation.label} provider icon`}
-                        sx={{
-                          minWidth: 40,
-                          mt: 0.25,
-                          color: selected ? '#20354A' : '#52606D',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {providerPresentation.icon}
-                      </ListItemIcon>
                       <Box
                         sx={{
                           minWidth: 0,
@@ -802,95 +698,294 @@ export function ConversationList({
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 0.5,
+                          pr: 0.5,
                         }}
                       >
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          alignItems="flex-start"
-                          justifyContent="space-between"
-                          sx={{ minWidth: 0, width: '100%' }}
-                        >
-                          <Typography
-                            variant="body2"
-                            fontWeight={selected ? 700 : 600}
-                            noWrap
-                            data-testid="conversation-title"
-                            sx={{ minWidth: 0, flex: 1, color: '#1F2933' }}
-                          >
-                            {conversation.title || 'Untitled conversation'}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            data-testid="conversation-updated"
-                            noWrap
-                            sx={{
-                              flexShrink: 0,
-                              pt: 0.125,
-                              color: '#52606D',
-                            }}
-                          >
-                            {timestamp}
-                          </Typography>
-                        </Stack>
                         <Typography
                           variant="body2"
+                          fontWeight={selected ? 700 : 600}
+                          noWrap
+                          data-testid="conversation-title"
+                          sx={{
+                            minWidth: 0,
+                            width: '100%',
+                            color: '#1F2933',
+                            fontSize: { xs: '0.82rem', sm: '0.875rem' },
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {conversation.title || 'Untitled conversation'}
+                        </Typography>
+                        <Typography
+                          variant="caption"
                           data-testid="conversation-preview"
                           noWrap
-                          sx={{ minWidth: 0, color: '#52606D' }}
+                          sx={{
+                            minWidth: 0,
+                            width: '100%',
+                            color: '#52606D',
+                            fontSize: { xs: '0.72rem', sm: '0.78rem' },
+                            lineHeight: 1.25,
+                          }}
                         >
                           {previewText}
                         </Typography>
-                        <Stack
-                          direction="row"
-                          spacing={0.75}
-                          alignItems="center"
-                          flexWrap="wrap"
-                          useFlexGap
-                          sx={{ minWidth: 0, maxWidth: '100%' }}
+                        <Box
+                          sx={{
+                            width: '100%',
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            display: 'grid',
+                            gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                            alignItems: 'center',
+                            columnGap: 0.75,
+                          }}
                         >
-                          {conversation.flags?.flow?.executionId &&
-                            !conversation.flags?.flowChild?.executionId && (
-                              <Chip
-                                label={`Run ${conversation.flags.flow.executionId.split('-')[0]}`}
-                                size="small"
-                                variant="outlined"
-                                color="default"
-                                data-testid="conversation-run-chip"
-                              />
-                            )}
-                          {conversation.flags?.flowChild?.executionId &&
-                            !conversation.flags?.flow?.executionId && (
-                              <Chip
-                                label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
-                                size="small"
-                                variant="outlined"
-                                color="default"
-                                data-testid="conversation-run-chip"
-                              />
-                            )}
-                          <Chip
-                            label={providerPresentation.label}
-                            size="small"
-                            variant="outlined"
-                            color="default"
-                            data-testid="conversation-provider-chip"
-                          />
-                          <Chip
-                            label={conversation.model || 'Unknown model'}
-                            size="small"
-                            variant="outlined"
-                            color="default"
-                            data-testid="conversation-model-chip"
-                          />
+                          <ListItemIcon
+                            data-testid="conversation-provider-icon"
+                            aria-label={`${providerPresentation.label} provider icon`}
+                            sx={{
+                              minWidth: 0,
+                              color: selected ? '#20354A' : '#52606D',
+                              justifyContent: 'center',
+                              alignSelf: 'center',
+                              '& img': {
+                                height: 24,
+                                width: 'auto',
+                                maxWidth: 32,
+                              },
+                              '& .MuiSvgIcon-root': {
+                                fontSize: 24,
+                              },
+                            }}
+                          >
+                            {providerPresentation.icon}
+                          </ListItemIcon>
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            alignItems="center"
+                            sx={{
+                              minWidth: 0,
+                              justifyContent: 'center',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {conversation.flags?.flow?.executionId &&
+                              !conversation.flags?.flowChild?.executionId && (
+                                <Chip
+                                  label={`Run ${conversation.flags.flow.executionId.split('-')[0]}`}
+                                  size="small"
+                                  variant="outlined"
+                                  color="default"
+                                  data-testid="conversation-run-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
+                            {conversation.flags?.flowChild?.executionId &&
+                              !conversation.flags?.flow?.executionId && (
+                                <Chip
+                                  label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
+                                  size="small"
+                                  variant="outlined"
+                                  color="default"
+                                  data-testid="conversation-run-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
+                            <Chip
+                              label={conversation.model || 'Unknown model'}
+                              size="small"
+                              variant="outlined"
+                              color="default"
+                              data-testid="conversation-model-chip"
+                              sx={{
+                                minWidth: 0,
+                                maxWidth: '100%',
+                                flexShrink: 1,
+                                '& .MuiChip-label': {
+                                  px: { xs: 0.75, sm: 1 },
+                                  fontSize: { xs: '0.67rem', sm: '0.75rem' },
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                },
+                              }}
+                            />
+                          </Stack>
                           <Chip
                             label={sourceLabel}
                             size="small"
                             variant="outlined"
                             color="default"
                             data-testid="conversation-source-chip"
+                            sx={{
+                              justifySelf: 'end',
+                              '& .MuiChip-label': {
+                                px: { xs: 0.75, sm: 1 },
+                                fontSize: { xs: '0.67rem', sm: '0.75rem' },
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              },
+                            }}
                           />
-                        </Stack>
+                        </Box>
+                        <Box sx={{ width: '100%', minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              width: '100%',
+                              minWidth: 0,
+                              display: 'grid',
+                              gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                              alignItems: 'center',
+                              columnGap: 0.75,
+                            }}
+                          >
+                            {showBulkUi && enableBulkUi && (
+                              <Checkbox
+                                size="small"
+                                checked={selectedIds.has(
+                                  conversation.conversationId,
+                                )}
+                                disabled={bulkDisabled}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  if (bulkDisabled) return;
+                                  setSelectedIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(conversation.conversationId))
+                                      next.delete(conversation.conversationId);
+                                    else next.add(conversation.conversationId);
+                                    return next;
+                                  });
+                                }}
+                                slotProps={{
+                                  input: checkboxInputProps(
+                                    'Select conversation',
+                                    'conversation-select',
+                                  ),
+                                }}
+                                sx={{ my: -0.5, ml: -0.75 }}
+                              />
+                            )}
+                            <Box
+                              sx={{
+                                minWidth: 0,
+                                display: 'flex',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                data-testid="conversation-updated"
+                                noWrap
+                                sx={{
+                                  minWidth: 0,
+                                  color: '#52606D',
+                                  fontSize: { xs: '0.72rem', sm: '0.78rem' },
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {timestamp}
+                              </Typography>
+                            </Box>
+                            {showRowActions ? (
+                              <Tooltip
+                                title={
+                                  conversation.archived
+                                    ? 'Restore conversation'
+                                    : 'Archive conversation'
+                                }
+                              >
+                                <span>
+                                  <IconButton
+                                    edge="end"
+                                    size="small"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void Promise.resolve(
+                                        conversation.archived
+                                          ? onRestore(
+                                              conversation.conversationId,
+                                            )
+                                          : onArchive(
+                                              conversation.conversationId,
+                                            ),
+                                      )
+                                        .then(() => {
+                                          setToast({
+                                            severity: 'success',
+                                            message: conversation.archived
+                                              ? 'Conversation restored'
+                                              : 'Conversation archived',
+                                          });
+                                        })
+                                        .catch((err) => {
+                                          setToast({
+                                            severity: 'error',
+                                            message:
+                                              (err as Error).message ||
+                                              (conversation.archived
+                                                ? 'Restore failed'
+                                                : 'Archive failed'),
+                                          });
+                                        });
+                                    }}
+                                    disabled={bulkDisabled}
+                                    data-testid={
+                                      conversation.archived
+                                        ? 'conversation-restore'
+                                        : 'conversation-archive'
+                                    }
+                                    aria-label={
+                                      conversation.archived
+                                        ? 'Restore conversation'
+                                        : 'Archive conversation'
+                                    }
+                                    sx={{ justifySelf: 'end', mr: -0.5 }}
+                                  >
+                                    {conversation.archived ? (
+                                      <RestoreIcon fontSize="small" />
+                                    ) : (
+                                      <ArchiveIcon fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <Box />
+                            )}
+                          </Box>
+                        </Box>
                       </Box>
                     </ListItemButton>
                   </ListItem>

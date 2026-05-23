@@ -273,8 +273,12 @@ test('chat streams end-to-end', async ({ page }) => {
 
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
+  const transcriptSurface = page.getByTestId('chat-transcript');
   const assistantBubbles = page.locator(
     '[data-testid="chat-bubble"][data-role="assistant"]',
+  );
+  const userBubbles = page.locator(
+    '[data-testid="chat-bubble"][data-role="user"]',
   );
   const errorBubbles = page.locator(
     '[data-testid="chat-bubble"][data-kind="error"]',
@@ -303,6 +307,46 @@ test('chat streams end-to-end', async ({ page }) => {
       await thinkToggle.first().click();
       await expect(thinkContent.first()).toHaveText(/mock trace/i);
     }
+
+    const firstAssistantBubble = assistantBubbles.first();
+    const firstAssistantSlice = firstAssistantBubble.getByTestId(
+      'assistant-transcript-slice',
+    );
+    await expect(firstAssistantSlice).toBeVisible();
+    await expect(firstAssistantBubble.getByTestId('bubble-info')).toBeVisible();
+    await expect(firstAssistantBubble.getByTestId('bubble-copy')).toBeVisible();
+
+    const firstUserBubble = userBubbles.first();
+    const firstUserSurface = firstUserBubble.getByTestId(
+      'user-transcript-bubble',
+    );
+    await expect(firstUserSurface).toBeVisible();
+    await expect(firstUserBubble.getByTestId('bubble-copy')).toBeVisible();
+    await expect(firstUserBubble.getByTestId('bubble-info')).toHaveCount(0);
+
+    await expect
+      .poll(() =>
+        firstAssistantSlice.evaluate(
+          (node) => getComputedStyle(node).backgroundColor,
+        ),
+      )
+      .toBe('rgb(243, 248, 255)');
+    await expect
+      .poll(() =>
+        firstUserSurface.evaluate(
+          (node) => getComputedStyle(node).backgroundColor,
+        ),
+      )
+      .toBe('rgb(17, 24, 39)');
+
+    const transcriptBox = await transcriptSurface.boundingBox();
+    const assistantBox = await firstAssistantSlice.boundingBox();
+    const userBox = await firstUserSurface.boundingBox();
+    expect(transcriptBox).not.toBeNull();
+    expect(assistantBox).not.toBeNull();
+    expect(userBox).not.toBeNull();
+    expect(assistantBox!.width).toBeGreaterThan(transcriptBox!.width * 0.85);
+    expect(userBox!.width).toBeLessThan(assistantBox!.width);
 
     await input.fill('Second follow-up from e2e');
     await send.click();
@@ -1163,7 +1207,9 @@ test('conversation pane stays vertically aligned when persistence banner is visi
   await expect(drawerPaper).toBeVisible();
 
   const drawerBox = await drawerPaper.boundingBox();
-  const chatBox = await page.getByTestId('workspace-desktop-shell').boundingBox();
+  const chatBox = await page
+    .getByTestId('workspace-desktop-shell')
+    .boundingBox();
   expect(drawerBox).not.toBeNull();
   expect(chatBox).not.toBeNull();
   expect(Math.abs((drawerBox?.y ?? 0) - (chatBox?.y ?? 0))).toBeLessThan(2);

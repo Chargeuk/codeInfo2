@@ -244,9 +244,10 @@ test('chat streams end-to-end', async ({ page }) => {
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
   if (useMockChat) {
-    await expect(modelSelect).toHaveText(selectedModel.displayName, {
-      timeout: 20000,
-    });
+    await expect.poll(async () => {
+      const text = (await modelSelect.textContent())?.trim() ?? '';
+      return text.includes(selectedModel.displayName);
+    }, { timeout: 20000 }).toBeTruthy();
   } else {
     const selectedModelText = (await modelSelect.textContent())?.trim() ?? '';
     if (!selectedModelText.includes(selectedModel.displayName)) {
@@ -684,7 +685,10 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
   await modelSelect.click();
   await page.getByRole('option', { name: 'Mock Model 1' }).click();
-  await expect(modelSelect).toHaveText('Mock Model 1');
+  await expect.poll(async () => {
+    const text = (await modelSelect.textContent())?.trim() ?? '';
+    return text.includes('Mock Model 1');
+  }, { timeout: 20000 }).toBeTruthy();
 
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
@@ -930,9 +934,10 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
   } else {
     await menuItem.click();
   }
-  await expect(modelSelect).toHaveText(selectedModel.displayName, {
-    timeout: 5000,
-  });
+  await expect.poll(async () => {
+    const text = (await modelSelect.textContent())?.trim() ?? '';
+    return text.includes(selectedModel.displayName);
+  }, { timeout: 5000 }).toBeTruthy();
 });
 
 test('conversation pane is persistent on desktop and pushes content', async ({

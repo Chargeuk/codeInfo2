@@ -410,7 +410,7 @@ The design references for this story already exist and should be treated as the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -522,7 +522,7 @@ Use the full Task Design Packet above for every numbered subtask in this task. W
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -2673,7 +2673,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20, Task 22`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 
 #### Overview
 
@@ -2737,13 +2737,15 @@ The filter-state contract must be made explicit for weak implementation agents. 
 9. [x] Current Repository: Create `client/src/test/workspaceMobileConversationsOverlay.parity.test.tsx`. Description: prove the mobile conversations overlay remains full-screen, left-anchored, and workspace-only, and prove the final top-bar structure and explanatory text are present for `Chat`, `Agents`, and `Flows`. Implementation files: `client/src/components/workspace/WorkspaceMobileConversationsOverlay.tsx`, `client/src/components/chat/ConversationSidebarToggle.tsx`, `client/src/routes/router.tsx`, and the relevant workspace shell wrappers.
 10. [x] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
 11. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+12. [ ] Current Repository: Update `client/src/components/chat/ConversationList.tsx` so the rendered `Active` and `Archived` toggle state stays visually synchronized with the explicit safe all-off fallback owned by this task. When the user turns off the last active filter, the control row must immediately restore the chosen fallback state in the visible toggle UI instead of leaving both toggles visually off while the list silently shows active conversations. Purpose: remove the ambiguous broken-state regression that manual proof found in the shared desktop and mobile control row.
+13. [ ] Current Repository: Extend `client/src/test/conversationControls.parity.test.tsx` so it clicks the rendered `Active` and `Archived` controls, proves the last-toggle-off path restores the chosen fallback state in the actual `ConversationList` UI, and guards against a hook-only fallback that leaves both toggles visually off. Implementation files: `client/src/components/chat/ConversationList.tsx` and `client/src/hooks/useConversations.ts`. Purpose: cover the manual-proof regression with UI-level automated proof instead of only hook assertions.
 
 #### Testing
 
-1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared conversation controls, shared filter-state logic, and the shared mobile conversations overlay.
-2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared conversation behavior and shared shell wrappers used across multiple pages.
-3. [x] Current Repository: Run `npm run lint --workspace client`.
-4. [x] Current Repository: Run `npm run format:check --workspace client`.
+1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared conversation controls, shared filter-state logic, and the shared mobile conversations overlay.
+2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared conversation behavior and shared shell wrappers used across multiple pages.
+3. [ ] Current Repository: Run `npm run lint --workspace client`.
+4. [ ] Current Repository: Run `npm run format:check --workspace client`.
 
 #### Manual Testing Guidance
 
@@ -2790,6 +2792,7 @@ Items to verify manually:
 - Testing step 2 repair: reran `npm run test:summary:client`, traced 31 failures to three task-owned seams, and fixed them by making fetch results server-authoritative in `useConversations` while keeping scoped websocket/update filtering strict, restoring custom header support in `mockJsonResponse`, and updating the stale sidebar tests to match the independent `Active`/`Archived` toggle contract.
 - Testing step 2 repair: verified the fixes with focused client wrapper reruns covering `useConversations`, `fetchPolyfills`, `agentsPage`, `chatSidebar`, and `flowsPage`, then reran the full `npm run test:summary:client` wrapper and it passed cleanly (`810` tests, `0` failed).
 - **RESOLVED ISSUE** The Task 23 automated-proof blocker on Testing step 2 is retired. The full client wrapper now passes, and the remaining unchecked Testing items are the later task-owned lint and format gates only.
+- Manual testing: task-scoped proof restarted the main compose stack because main-stack freshness could not be proven, confirmed clean startup at `http://localhost:5010/health` and `http://localhost:5001`, and restored the one conversation it temporarily archived during filter-state exercising. The desktop shared controls row still has a Task 23 defect: turning off the last active filter leaves both `Active` and `Archived` visually off while the list silently falls back to active conversations, which violates the task-owned safe-fallback contract because the visible state remains ambiguous. Bounded diagnosis re-read `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, and `client/src/test/conversationControls.parity.test.tsx`, confirmed that `useConversations` normalizes the all-off state while the rendered toggle UI does not, added follow-up subtasks, and reopened client build/test/lint/format because automated proof must rerun before later manual retest. Playwright screenshot staging succeeded for `manual-testing/0000058/23/proof-01-desktop-conversation-controls.png` and `manual-testing/0000058/23/proof-03-desktop-all-off-fallback-mismatch.png`, but neither the harness bind nor the documented container copy-out exposed those staged files for transfer into `codeInfoTmp/manual-testing/0000058/23/`.
 
 
 ### Task 24. Make The Mobile App Menu Match The Final Full-Screen Navigation Design Without Changing The Desktop Rail

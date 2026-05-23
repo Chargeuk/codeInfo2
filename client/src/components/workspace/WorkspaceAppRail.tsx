@@ -2,8 +2,8 @@ import {
   Box,
   List,
   ListItemButton,
-  ListItemIcon,
-  ListItemText,
+  Stack,
+  Typography,
 } from '@mui/material';
 import { NavLink, useInRouterContext, useLocation } from 'react-router-dom';
 import {
@@ -30,19 +30,19 @@ function WorkspaceAppRailContent({
       component="nav"
       aria-label="Workspace navigation"
       sx={{
-        width: 96,
+        width: 84,
         flexShrink: 0,
         bgcolor: '#172635',
         color: 'common.white',
         display: 'flex',
         flexDirection: 'column',
-        py: 1,
+        py: 1.25,
         borderRight: '1px solid',
         borderColor: 'rgba(255, 255, 255, 0.08)',
       }}
       data-testid="workspace-app-rail"
     >
-      <List disablePadding sx={{ px: 0.5, py: 0.5 }}>
+      <List disablePadding sx={{ px: 0.75, py: 0.25, display: 'grid', gap: 0.5 }}>
         {WORKSPACE_DESTINATIONS.map((destination) => {
           const selected = activePath === destination.path;
           return (
@@ -54,46 +54,54 @@ function WorkspaceAppRailContent({
               selected={selected}
               aria-label={destination.label}
               sx={{
-                my: 0.25,
                 borderRadius: 1,
                 color: 'inherit',
-                minHeight: 52,
-                px: 1,
+                minHeight: 64,
+                px: 0.5,
+                py: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+                textAlign: 'center',
                 '&.active': {
-                  bgcolor: 'rgba(255, 255, 255, 0.12)',
+                  bgcolor: 'rgba(255, 255, 255, 0.11)',
                 },
                 '&.Mui-selected': {
                   bgcolor: 'rgba(255, 255, 255, 0.14)',
                 },
                 '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  bgcolor: 'rgba(255, 255, 255, 0.08)',
                 },
               }}
             >
-              <ListItemIcon
+              <Box
                 sx={{
                   minWidth: 0,
                   color: 'inherit',
-                  mr: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   opacity: selected ? 1 : 0.82,
                 }}
               >
                 {destination.icon}
-              </ListItemIcon>
-              <ListItemText
-                primary={destination.label}
-                secondary={destination.description}
-                primaryTypographyProps={{
-                  fontSize: '0.775rem',
-                  fontWeight: 700,
-                  lineHeight: 1.15,
-                }}
-                secondaryTypographyProps={{
-                  fontSize: '0.62rem',
-                  lineHeight: 1.1,
-                  color: 'rgba(255, 255, 255, 0.7)',
-                }}
-              />
+              </Box>
+              <Stack spacing={0}>
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    lineHeight: 1.1,
+                    letterSpacing: 0,
+                    color: 'inherit',
+                  }}
+                >
+                  {destination.label}
+                </Typography>
+              </Stack>
             </ListItemButton>
           );
         })}

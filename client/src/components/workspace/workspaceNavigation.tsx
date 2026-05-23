@@ -52,6 +52,10 @@ export const WORKSPACE_DESTINATIONS: WorkspaceDestination[] = [
   },
 ];
 
+export const WORKSPACE_DESTINATION_LABELS = WORKSPACE_DESTINATIONS.map(
+  ({ label }) => label,
+);
+
 export const getWorkspaceDestinationPath = (pathname: string) => {
   if (pathname.startsWith('/chat')) return '/chat';
   if (pathname.startsWith('/agents')) return '/agents';

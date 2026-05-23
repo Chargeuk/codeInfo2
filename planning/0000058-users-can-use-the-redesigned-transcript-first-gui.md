@@ -2624,7 +2624,7 @@ The row content contract must be made explicit for weak implementation agents. I
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared conversation-row renderer used across `Chat`, `Agents`, and `Flows`.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared row rendering and timestamp logic that affect multiple shells and list tests.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared row rendering and timestamp logic that affect multiple shells and list tests.
 3. [ ] Current Repository: Run `npm run lint --workspace client`.
 4. [ ] Current Repository: Run `npm run format:check --workspace client`.
 

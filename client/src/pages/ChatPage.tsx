@@ -2170,11 +2170,7 @@ export default function ChatPage() {
         New conversation
       </Button>
       {canShowDeviceAuth ? (
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={handleDeviceAuthOpen}
-        >
+        <Button variant="outlined" size="small" onClick={handleDeviceAuthOpen}>
           Re-authenticate
         </Button>
       ) : null}

@@ -329,11 +329,15 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
               },
             );
           } catch (err) {
-            sharedTranscriptLog('warn', 'DEV-0000049:T06:transcript_measurement_error', {
-              surface,
-              conversationId: conversationId ?? null,
-              error: err instanceof Error ? err.message : String(err),
-            });
+            sharedTranscriptLog(
+              'warn',
+              'DEV-0000049:T06:transcript_measurement_error',
+              {
+                surface,
+                conversationId: conversationId ?? null,
+                error: err instanceof Error ? err.message : String(err),
+              },
+            );
           }
         });
       });

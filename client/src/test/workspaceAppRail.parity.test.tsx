@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import UtilityPageShell from '../components/utility/UtilityPageShell';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
-import UtilityPageShell from '../components/utility/UtilityPageShell';
 import {
   WORKSPACE_DESTINATIONS,
   WORKSPACE_DESTINATION_LABELS,

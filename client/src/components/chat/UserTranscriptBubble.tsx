@@ -42,16 +42,17 @@ function UserTranscriptBubble({
     severity: 'success' | 'error';
     message: string;
   } | null>(null);
-  const segments = useMemo<Extract<ChatSegment, { kind: 'text' }>[]>(() =>
-    message.segments?.length
-      ? message.segments.filter(isTextSegment)
-      : [
-          {
-            id: `${message.id}-text`,
-            kind: 'text',
-            content: message.content ?? '',
-          },
-        ],
+  const segments = useMemo<Extract<ChatSegment, { kind: 'text' }>[]>(
+    () =>
+      message.segments?.length
+        ? message.segments.filter(isTextSegment)
+        : [
+            {
+              id: `${message.id}-text`,
+              kind: 'text',
+              content: message.content ?? '',
+            },
+          ],
     [message.content, message.id, message.segments],
   );
   const visibleCopyText = useMemo(

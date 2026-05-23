@@ -2,9 +2,9 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import NavBar from '../components/NavBar';
+import UtilityPageShell from '../components/utility/UtilityPageShell';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
-import UtilityPageShell from '../components/utility/UtilityPageShell';
 import {
   WORKSPACE_DESTINATIONS,
   WORKSPACE_DESTINATION_LABELS,

@@ -31,12 +31,12 @@ import type {
 } from '../../hooks/useChatStream';
 import Markdown from '../Markdown';
 import SharedTranscriptToolDetails from './SharedTranscriptToolDetails';
-import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 import {
   buildTimingLine,
   buildStepLine,
   buildUsageLine,
 } from './chatTranscriptFormatting';
+import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 import {
   buildTranscriptInfoRows,
   formatTranscriptResponseTime,

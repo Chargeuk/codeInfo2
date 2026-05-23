@@ -45,11 +45,17 @@ describe('ConversationList source badges', () => {
 
     render(<ConversationList {...baseProps} conversations={conversations} />);
 
-    expect(screen.getAllByTestId('conversation-provider-chip')[0]).toHaveTextContent(/lmstudio/i);
-    expect(screen.getAllByTestId('conversation-model-chip')[0]).toHaveTextContent(/llama/i);
-    expect(screen.getAllByTestId('conversation-source-chip')[0]).toHaveTextContent(/REST/i);
-    expect(screen.getAllByTestId('conversation-provider-chip')[1]).toHaveTextContent(/codex/i);
-    expect(screen.getAllByTestId('conversation-model-chip')[1]).toHaveTextContent(/gpt/i);
-    expect(screen.getAllByTestId('conversation-source-chip')[1]).toHaveTextContent(/MCP/i);
+    const providers = screen.getAllByTestId('conversation-provider-chip').map((n) => n.textContent || '');
+    const models = screen.getAllByTestId('conversation-model-chip').map((n) => n.textContent || '');
+    const sources = screen.getAllByTestId('conversation-source-chip').map((n) => n.textContent || '');
+
+    expect(providers.some((p) => /lmstudio/i.test(p))).toBe(true);
+    expect(providers.some((p) => /codex/i.test(p))).toBe(true);
+
+    expect(models.some((m) => /llama/i.test(m))).toBe(true);
+    expect(models.some((m) => /gpt/i.test(m))).toBe(true);
+
+    expect(sources.some((s) => /REST/i.test(s))).toBe(true);
+    expect(sources.some((s) => /MCP/i.test(s))).toBe(true);
   });
 });

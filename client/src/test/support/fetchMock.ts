@@ -34,13 +34,15 @@ export function mockJsonResponse(
       : ({
           get(name: string) {
             const key = name.toLowerCase();
-            const providedHeaders =
-              init.headers as Record<string, string> | undefined;
+            const providedHeaders = init.headers as
+              | Record<string, string>
+              | undefined;
             return (
               providedHeaders?.[key] ??
               providedHeaders?.[
-                key.replace(/(^|-)([a-z])/g, (_, prefix, char) =>
-                  `${prefix}${char.toUpperCase()}`,
+                key.replace(
+                  /(^|-)([a-z])/g,
+                  (_, prefix, char) => `${prefix}${char.toUpperCase()}`,
                 )
               ] ??
               null

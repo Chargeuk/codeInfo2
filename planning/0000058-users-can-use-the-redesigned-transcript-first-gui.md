@@ -2742,8 +2742,8 @@ The filter-state contract must be made explicit for weak implementation agents. 
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared conversation controls, shared filter-state logic, and the shared mobile conversations overlay.
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared conversation behavior and shared shell wrappers used across multiple pages.
-3. [ ] Current Repository: Run `npm run lint --workspace client`.
-4. [ ] Current Repository: Run `npm run format:check --workspace client`.
+3. [x] Current Repository: Run `npm run lint --workspace client`.
+4. [x] Current Repository: Run `npm run format:check --workspace client`.
 
 #### Manual Testing Guidance
 

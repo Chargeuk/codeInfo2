@@ -9,7 +9,7 @@ function readPageSource(path: string) {
   const candidate = join(repoRoot, path);
   try {
     return readFileSync(candidate, 'utf8');
-  } catch (err) {
+  } catch {
     // Running inside the client workspace sets cwd to <repo>/client; try the parent repo root as a fallback.
     const alt = join(repoRoot, '..', path);
     return readFileSync(alt, 'utf8');

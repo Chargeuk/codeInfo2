@@ -161,11 +161,10 @@ describe('AgentsPage sidebar actions', () => {
     await user.click(
       screen
         .getAllByTestId('conversation-select')
-        .find(
-          (checkbox) =>
-            checkbox.closest('[data-testid="conversation-row"]')?.textContent?.includes(
-              'Archived conversation',
-            ),
+        .find((checkbox) =>
+          checkbox
+            .closest('[data-testid="conversation-row"]')
+            ?.textContent?.includes('Archived conversation'),
         )!,
     );
     expect(screen.getByTestId('conversation-bulk-restore')).toBeEnabled();

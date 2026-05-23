@@ -649,7 +649,8 @@ export function useConversations(params?: {
           return dedupeAndSort(
             applyFilter(
               prev.filter(
-                (c) => c.conversationId !== normalizedConversation.conversationId,
+                (c) =>
+                  c.conversationId !== normalizedConversation.conversationId,
               ),
             ),
           );

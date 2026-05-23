@@ -121,7 +121,7 @@ export function ConversationList({
 }: Props) {
   const log = useMemo(() => createLogger('client'), []);
   const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
-  const showBulkUi = false;
+  const showBulkUi = enableBulkUi;
   const showFilters = true;
   const showRowActions = true;
   const mutationDisabled = Boolean(disabled || selectionDisabled);
@@ -671,6 +671,25 @@ export function ConversationList({
                         },
                       }}
                     >
+                      {showBulkUi && enableBulkUi && (
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.has(conversation.conversationId)}
+                          disabled={bulkDisabled}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (bulkDisabled) return;
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(conversation.conversationId)) next.delete(conversation.conversationId);
+                              else next.add(conversation.conversationId);
+                              return next;
+                            });
+                          }}
+                          slotProps={{ input: checkboxInputProps('Select conversation', 'conversation-select') }}
+                          sx={{ mr: 1, alignSelf: 'center', mt: 0.25 }}
+                        />
+                      )}
                       <ListItemIcon
                         data-testid="conversation-provider-icon"
                         aria-label={`${providerPresentation.label} provider icon`}
@@ -735,6 +754,24 @@ export function ConversationList({
                           useFlexGap
                           sx={{ minWidth: 0, maxWidth: '100%' }}
                         >
+                          {conversation.flags?.flow?.executionId && (
+                            <Chip
+                              label={`Run ${conversation.flags.flow.executionId.split('-')[0]}`}
+                              size="small"
+                              variant="outlined"
+                              color="default"
+                              data-testid="conversation-run-chip"
+                            />
+                          )}
+                          {conversation.flags?.flowChild?.executionId && (
+                            <Chip
+                              label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
+                              size="small"
+                              variant="outlined"
+                              color="default"
+                              data-testid="conversation-run-chip"
+                            />
+                          )}
                           <Chip
                             label={providerPresentation.label}
                             size="small"

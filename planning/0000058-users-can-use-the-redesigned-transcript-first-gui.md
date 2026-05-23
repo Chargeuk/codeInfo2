@@ -2504,10 +2504,10 @@ Bring the shared desktop app rail to exact parity with the approved Story 58 des
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared navigation primitives used by workspace and utility pages.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared desktop navigation and shared destination config, and it must also prove that the mobile app-menu descriptions and mobile overlay content did not regress while desktop text was removed.
-3. [ ] Current Repository: Run `npm run lint --workspace client`.
-4. [ ] Current Repository: Run `npm run format:check --workspace client`.
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared navigation primitives used by workspace and utility pages.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared desktop navigation and shared destination config, and it must also prove that the mobile app-menu descriptions and mobile overlay content did not regress while desktop text was removed.
+3. [x] Current Repository: Run `npm run lint --workspace client`.
+4. [x] Current Repository: Run `npm run format:check --workspace client`.
 
 #### Manual Testing Guidance
 

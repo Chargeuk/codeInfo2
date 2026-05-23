@@ -67,7 +67,13 @@ export default function WorkspaceDesktopShell({
         >
           {transcript}
         </Container>
-        {composer}
+        <Box
+          sx={{
+            px: { xs: 0, sm: 1.5 },
+          }}
+        >
+          {composer}
+        </Box>
       </Box>
     </Box>
   );

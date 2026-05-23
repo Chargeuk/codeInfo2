@@ -1,11 +1,6 @@
 import { Box } from '@mui/material';
 
-type ThinkingLevel =
-  | 'none'
-  | 'low'
-  | 'medium'
-  | 'high'
-  | 'xhigh';
+type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'xhigh';
 
 type ThinkingLevelIconProps = {
   level?: string | null;

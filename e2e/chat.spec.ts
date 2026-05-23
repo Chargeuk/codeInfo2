@@ -1213,7 +1213,7 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
   expect(inputBoxBefore).not.toBeNull();
   expect(sendBox).not.toBeNull();
   expect(Math.abs((inputBoxBefore?.x ?? 0) - (infoBox?.x ?? 0))).toBeLessThan(
-    8,
+    3,
   );
   expect(
     Math.abs((inputBoxBefore?.height ?? 0) - (sendBox?.height ?? 0)),

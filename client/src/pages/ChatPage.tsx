@@ -1855,30 +1855,6 @@ export default function ChatPage() {
       onSubmit={handleSubmit}
       mainInputRow={
         <CommonComposerMainInputRow>
-          <Box
-            component="input"
-            value={workingFolder}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setWorkingFolder(event.target.value)
-            }
-            onBlur={(event: FocusEvent<HTMLInputElement>) => {
-              void persistWorkingFolder(event.target.value);
-            }}
-            disabled={chatWorkingFolderLocked}
-            data-testid="chat-working-folder"
-            aria-label="Working folder"
-            sx={{
-              position: 'absolute',
-              width: 1,
-              height: 1,
-              p: 0,
-              m: -1,
-              overflow: 'hidden',
-              clip: 'rect(0 0 0 0)',
-              whiteSpace: 'nowrap',
-              border: 0,
-            }}
-          />
           <TextField
             inputRef={inputRef}
             fullWidth
@@ -2006,6 +1982,30 @@ export default function ChatPage() {
         </CommonComposerFooter>
       }
     >
+      <Box
+        component="input"
+        value={workingFolder}
+        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+          setWorkingFolder(event.target.value)
+        }
+        onBlur={(event: FocusEvent<HTMLInputElement>) => {
+          void persistWorkingFolder(event.target.value);
+        }}
+        disabled={chatWorkingFolderLocked}
+        data-testid="chat-working-folder"
+        aria-label="Working folder"
+        sx={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          p: 0,
+          m: -1,
+          overflow: 'hidden',
+          clip: 'rect(0 0 0 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      />
       {hasComposerSupplementalContent ? (
         <Stack spacing={1.5}>{composerSupplementalContent}</Stack>
       ) : null}
@@ -2281,8 +2281,11 @@ export default function ChatPage() {
       </Box>
       <Box
         sx={{
-          mx: -2,
-          width: 'calc(100% + 32px)',
+          width: 'calc(100vw - 8px)',
+          maxWidth: 'none',
+          position: 'relative',
+          left: '50%',
+          transform: 'translateX(-50%)',
         }}
       >
         {composerSurface}

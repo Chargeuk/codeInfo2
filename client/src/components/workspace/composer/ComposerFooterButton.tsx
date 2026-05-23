@@ -150,7 +150,13 @@ export default function ComposerFooterButton({
         </Box>
         <Stack
           className="composer-footer-button-text"
-          sx={{ minWidth: 0, textAlign: 'left', overflow: 'hidden' }}
+          sx={{
+            minWidth: 0,
+            textAlign: 'left',
+            overflow: 'hidden',
+            justifyContent: 'center',
+            height: '100%',
+          }}
           display={iconOnlyOnMobile ? { xs: 'none', sm: 'flex' } : undefined}
           spacing={0}
         >

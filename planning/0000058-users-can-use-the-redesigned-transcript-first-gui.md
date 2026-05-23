@@ -3319,6 +3319,13 @@ Where the latest Story 58 follow-up direction is stricter than or conflicts with
   - command execution mode
   - saved prompt execution mode
 
+Because this task inherits the shared composer shell from `Task 26`, it must also preserve the accepted shared-shell refinements already locked there unless this task explicitly overrides them:
+- no footer header text on mobile footer controls
+- tiny centered side insets on desktop and mobile rather than edge-touching placement
+- balanced top and bottom composer padding
+- left-edge alignment between the dominant input row and the footer-control column
+- compact default input height with growth as more text is entered
+
 The unified action selector must behave as follows:
 1. first item: `Write instruction`
 2. then command entries
@@ -3354,6 +3361,7 @@ The shared primary action control in the `Agents` composer must follow the share
 
 - The `Agents` composer matches `planning/layout-ideas/plan/final-designs/agents-composer-final.png` except where this task explicitly overrides the older design packet.
 - The visible `Agents` composer uses the same shared shell structure as `Chat`.
+- The inherited shared shell refinements from `Task 26` remain intact on `Agents`, including no mobile footer headers, tiny centered side insets, balanced top/bottom padding, left-edge input alignment with the footer-control column, and the compact default input height that grows with content.
 - The `Agents` footer control order is exactly `Info`, working path, agent, command, step.
 - Desktop `Agents` footer controls open upward above the composer as anchored popovers attached to the triggering control.
 - Mobile `Agents` footer controls open as large centered modal selection surfaces.
@@ -3470,6 +3478,7 @@ Where the latest Story 58 composer direction is stricter than or conflicts with 
 - selecting a command disables text input and enables step selection
 - selecting a saved prompt disables text input and disables step selection
 - selecting `Write instruction` enables text input and disables step selection
+- preserve the accepted `Task 26` shared-shell refinements when proving `Agents`: no mobile footer headers, tiny centered side insets, balanced top/bottom composer padding, left-edge input alignment with the footer-control column, and the compact default input height that grows with content
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
 
@@ -3513,6 +3522,13 @@ Migrate the `Flows` composer onto the shared composer shell introduced by `Task 
 
 Where the latest Story 58 follow-up direction is stricter than the composer markdown wording, follow the newer requirement. In particular, desktop popovers must rise above the composer instead of opening downward, and mobile composer controls must open in the center of the screen as focused modal views.
 
+Because this task inherits the shared composer shell from `Task 26`, it must also preserve the accepted shared-shell refinements already locked there unless this task explicitly overrides them:
+- no footer header text on mobile footer controls
+- tiny centered side insets on desktop and mobile rather than edge-touching placement
+- balanced top and bottom composer padding
+- left-edge alignment between the dominant input row and the footer-control column
+- compact default input height with growth as more text is entered
+
 #### Non-Goals
 
 - Do not fork a new `Flows`-only composer shell.
@@ -3525,6 +3541,7 @@ Where the latest Story 58 follow-up direction is stricter than the composer mark
 
 - The `Flows` composer matches `planning/layout-ideas/plan/final-designs/flows-composer-final.png`.
 - The visible `Flows` composer uses the same shared shell structure as `Chat`.
+- The inherited shared shell refinements from `Task 26` remain intact on `Flows`, including no mobile footer headers, tiny centered side insets, balanced top/bottom padding, left-edge input alignment with the footer-control column, and the compact default input height that grows with content.
 - The `Flows` footer control order is exactly `Info`, working path, selected flow, title.
 - Desktop `Flows` footer controls open upward above the composer as anchored popovers attached to the triggering control.
 - Mobile `Flows` footer controls open as large centered modal selection surfaces.
@@ -3595,6 +3612,7 @@ Where the latest Story 58 composer direction is stricter than the markdown wordi
 - mobile composer control surfaces must open as large centered modal selection views
 - the visible input layout remains the same on desktop and mobile
 - the main input should take the available width
+- preserve the accepted `Task 26` shared-shell refinements when proving `Flows`: no mobile footer headers, tiny centered side insets, balanced top/bottom composer padding, left-edge input alignment with the footer-control column, and the compact default input height that grows with content
 
 Before saving final proof screenshots for this task, restart the supported main stack when client-visible code changed and capture only from a fresh browser context opened after that restart. If a captured image does not match the currently visible refreshed UI, discard it and recapture it before keeping it as proof.
 
@@ -3640,6 +3658,8 @@ Implementation order matters and must be followed in this exact sequence:
 
 Where the existing implementation conflicts with the final shell framing shown in the design packet, follow the design packet and this task. In particular, the app shell must not add generic outer `Container` gutters or top/bottom spacing around the full workspace, shared shell wrappers must not leave a generic outer right gutter around the workspace, and shared shell wrappers must not use overflow rules that prevent the user from reaching off-screen content.
 
+Do not interpret this task as permission to undo the accepted `Task 26` composer-owned spacing refinements. This task owns shell-level gutters and scrolling behavior, not the tiny intentional composer side insets, balanced composer padding, or input-alignment work already accepted inside the shared composer shell.
+
 #### Non-Goals
 
 - Do not redesign the desktop app rail visuals, transcript visuals, chat composer visuals, or conversation-list visuals in this task.
@@ -3655,6 +3675,7 @@ Where the existing implementation conflicts with the final shell framing shown i
 - The full desktop workspace has no unintended whitespace strip above the top edge of the workspace shell.
 - The full desktop workspace has no unintended whitespace strip below the bottom edge of the workspace shell.
 - The app-level outer right gutter around the main desktop workspace is removed as a generic shell behavior; only intentional component-owned internal spacing from the design packet remains.
+- The shell-level gutter removal does not flatten or undo the accepted `Task 26` composer-owned micro-insets, balanced composer padding, or left-edge input alignment inside the shared composer shell.
 - Shared app-level wrappers no longer add generic `Container` gutters, top margin, or bottom padding around the full-page workspace shell.
 - Desktop `Chat`, `Agents`, `Flows`, and utility pages can scroll vertically when their content exceeds the viewport.
 - Mobile wrappers also preserve vertical scrolling where content exceeds the viewport.
@@ -3733,6 +3754,7 @@ Items to verify manually:
 - the corrected shell framing applies when the desktop conversation pane is open
 - the corrected shell framing still applies when the desktop conversation pane is collapsed
 - the desktop shell still leaves intentional internal spacing inside components without adding generic outer shell gutters
+- the shell cleanup preserves the accepted `Task 26` composer-owned micro-insets and balanced composer spacing rather than flattening the composer back against an edge
 - at least one non-chat desktop page can scroll vertically to reveal all content when the page is taller than the viewport
 - the `Chat` desktop page still fills the available workspace height correctly after the shell changes
 - the `Agents` desktop page can scroll vertically to reveal all content when needed
@@ -3782,6 +3804,8 @@ All mobile top-bar rendering must flow through the new shared component after th
 
 Where the current implementation conflicts with the final mobile workspace shell design and this task, follow the final design and this task. In particular, mobile pages must not use a large outlined card row containing `Conversations` and `Menu` buttons as a substitute for a top bar, and mobile headers must not remain oversized in height or typography.
 
+Do not use this task’s mobile-shell cleanup to undo the accepted `Task 26` shared-composer refinements inside the bottom composer. This task owns mobile top-bar chrome and page-level shell padding, not the compact footer row, hidden mobile footer headers, tiny centered composer side insets, balanced composer padding, or left-edge input alignment already accepted for the shared composer shell.
+
 #### Non-Goals
 
 - Do not redesign transcript message surfaces in this task.
@@ -3809,6 +3833,7 @@ Where the current implementation conflicts with the final mobile workspace shell
 - The current outlined `Conversations` / `Menu` button row is removed from mobile `Chat`, `Agents`, and `Flows`.
 - The mobile top bars are much shorter vertically and no longer read as oversized headers.
 - The mobile page shell no longer adds bulky top, side, or bottom padding around the workspace framing shown in the final mobile design.
+- The mobile top-bar and shell cleanup do not reintroduce footer headers, oversized composer padding, edge-touching composer placement, or other regressions against the accepted `Task 26` shared-composer refinements.
 - The conversation-panel icon still opens the mobile conversations overlay on workspace pages.
 - The hamburger icon still opens the mobile app menu on workspace pages and utility pages.
 - The mobile shell now reads as one consistent design family across `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, and `Logs`.
@@ -3904,6 +3929,7 @@ Items to verify manually:
 - the hamburger trigger still opens the mobile app menu on workspace and utility pages
 - no page keeps a bespoke mobile-header layout after the migration
 - the mobile page chrome now feels like one family across `Home`, `Chat`, `Agents`, `Flows`, `Ingest`, and `Logs`
+- the mobile-shell cleanup preserves the accepted `Task 26` shared-composer treatment: no mobile footer headers, tiny centered side insets, balanced composer padding, compact default input height, and left-edge input alignment with the footer-control column
 
 #### Implementation Notes
 
@@ -3964,6 +3990,7 @@ Where the current implementation conflicts with this task and the updated Story 
 - When the user has scrolled away from the bottom to read older content, new activity preserves their reading position instead of snapping them back to the bottom.
 - The shared virtualized transcript path from Story 49 remains in place and continues to preserve dynamic measurement and scroll-anchor stability.
 - No page introduces page-specific transcript-ordering overrides to achieve this behavior.
+- No transcript-ordering change regresses the accepted shared-composer shell refinements from `Task 26` through `Task 28` when the bottom composer remains visible.
 
 #### Documentation Locations
 
@@ -4062,6 +4089,7 @@ Items to verify manually:
 - the ordering change does not break transcript virtualization behavior on long conversations
 - the bottom composer now matches the visible transcript direction instead of fighting against a top-prepended conversation flow
 - no page still behaves like new transcript content belongs at the top
+- while proving transcript order, confirm the visible bottom composer still preserves the accepted shared-shell refinements from `Task 26` through `Task 28` and was not shifted, re-padded, or given back mobile footer headers by the page-adapter changes
 
 #### Implementation Notes
 
@@ -4110,6 +4138,7 @@ This task must not silently narrow proof scope. If a story-level acceptance item
 - Final manual proof explicitly covers the full Story 58 acceptance contract, not just individual task-level checks.
 - Final manual proof explicitly covers the transcript-ordering contract from `Task 31`.
 - Final manual proof explicitly covers the shared composer contract from `Tasks 26`, `27`, and `28`.
+- Final manual proof explicitly treats the accepted `Task 26` shared-composer refinements as intentional story contract, including no mobile footer headers, tiny centered composer side insets, balanced top/bottom composer padding, left-edge input alignment with the footer-control column, compact default input height with growth, icon-only `Options`, the thinking-level meter model trigger, provider-logo footer treatment, and `GPT*`/`Claude*` model-selector branding.
 - Final manual proof explicitly covers shared conversation surfaces, shared shells, desktop rail, mobile app menu, mobile top bar, transcript surfaces, and utility-page behavior from `Tasks 21` through `31`.
 - Final manual proof treats `Task 21` through `Task 31` as intentional Story 58 refinements and does not record those documented refinements as deviations from older design markdown or PNG files.
 - Manual-proof artifacts are saved in the required story-level proof location with deterministic filenames.
@@ -4200,6 +4229,7 @@ Use these story and design files as the final manual checklist source:
 When older design markdown or PNG files conflict with the later Story 58 task text, use the later task text as the manual-proof source of truth. This is especially important for:
 - `Task 25` transcript-surface refinements
 - `Task 26`, `Task 27`, and `Task 28` composer interaction refinements
+- the accepted `Task 26` shared-composer shell refinements and branding refinements, including no mobile footer headers, tiny centered side insets, balanced composer padding, left-edge input alignment, compact default input height with growth, icon-only `Options`, thinking-level meter model trigger, provider logos, and `GPT*`/`Claude*` model-selector branding
 - `Task 27` unified `Agents` action-selector behavior
 - `Task 29` shell gutter and scrolling refinements
 - `Task 30` shared mobile top-bar refinements
@@ -4224,6 +4254,7 @@ Final story-level items to verify manually:
 - the mobile app menu matches the final design contract
 - the mobile top bar matches the final design contract
 - `Chat`, `Agents`, and `Flows` keep their page-specific behavior while using the shared composer shell
+- final proof preserves the accepted `Task 26` shared-composer refinements rather than treating those refinements as accidental drift from older design markdown or PNG files
 - the shared primary action swaps between arrow-send and red stop using the intended existing logic
 - `Home` absorbs LM Studio status and provider logon concerns correctly
 - `/lmstudio` redirects to `Home` correctly

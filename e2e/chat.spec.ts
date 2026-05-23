@@ -244,10 +244,15 @@ test('chat streams end-to-end', async ({ page }) => {
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
   if (useMockChat) {
-    await expect.poll(async () => {
-      const text = (await modelSelect.textContent())?.trim() ?? '';
-      return text.includes(selectedModel.displayName);
-    }, { timeout: 20000 }).toBeTruthy();
+    await expect
+      .poll(
+        async () => {
+          const text = (await modelSelect.textContent())?.trim() ?? '';
+          return text.includes(selectedModel.displayName);
+        },
+        { timeout: 20000 },
+      )
+      .toBeTruthy();
   } else {
     const selectedModelText = (await modelSelect.textContent())?.trim() ?? '';
     if (!selectedModelText.includes(selectedModel.displayName)) {
@@ -685,10 +690,15 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
   await modelSelect.click();
   await page.getByRole('option', { name: 'Mock Model 1' }).click();
-  await expect.poll(async () => {
-    const text = (await modelSelect.textContent())?.trim() ?? '';
-    return text.includes('Mock Model 1');
-  }, { timeout: 20000 }).toBeTruthy();
+  await expect
+    .poll(
+      async () => {
+        const text = (await modelSelect.textContent())?.trim() ?? '';
+        return text.includes('Mock Model 1');
+      },
+      { timeout: 20000 },
+    )
+    .toBeTruthy();
 
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
@@ -934,10 +944,15 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
   } else {
     await menuItem.click();
   }
-  await expect.poll(async () => {
-    const text = (await modelSelect.textContent())?.trim() ?? '';
-    return text.includes(selectedModel.displayName);
-  }, { timeout: 5000 }).toBeTruthy();
+  await expect
+    .poll(
+      async () => {
+        const text = (await modelSelect.textContent())?.trim() ?? '';
+        return text.includes(selectedModel.displayName);
+      },
+      { timeout: 5000 },
+    )
+    .toBeTruthy();
 });
 
 test('conversation pane is persistent on desktop and pushes content', async ({
@@ -1087,6 +1102,151 @@ test('conversation pane is closed by default on mobile and overlays content', as
   const drawerBox = await drawerPaper.boundingBox();
   expect(drawerBox).not.toBeNull();
   expect(Math.abs((drawerBox?.y ?? 0) - (boxBefore?.y ?? 0))).toBeLessThan(2);
+});
+
+test('mobile chat composer keeps one compact footer row and a centered model dialog', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  if (useMockChat) {
+    await installMockChatWs(page);
+    await page.route('**/chat/providers*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'copilot',
+              label: 'GitHub Copilot',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+          selectedProvider: 'copilot',
+          selectedModel: 'auto',
+        }),
+      }),
+    );
+    await page.route('**/chat/models*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'copilot',
+          available: true,
+          toolsAvailable: true,
+          defaultModel: 'auto',
+          models: [
+            { key: 'auto', displayName: 'Auto', type: 'copilot' },
+            {
+              key: 'claude-sonnet-4.6',
+              displayName: 'Claude Sonnet 4.6',
+              type: 'copilot',
+            },
+          ],
+        }),
+      }),
+    );
+  }
+
+  await page.goto(`${baseUrl}/chat`);
+
+  const infoButton = page.getByTestId('chat-composer-info');
+  const workingPathButton = page.getByTestId('chat-working-folder-trigger');
+  const providerButton = page.getByTestId('provider-select');
+  const modelButton = page.getByTestId('model-select');
+  const optionsButton = page.getByTestId('chat-options');
+  const input = page.getByTestId('chat-input');
+  const composer = page.getByTestId('chat-controls');
+
+  await expect(infoButton).toBeVisible();
+  await expect(workingPathButton).toBeVisible();
+  await expect(providerButton).toBeVisible();
+  await expect(modelButton).toBeVisible();
+  await expect(optionsButton).toBeVisible();
+  await expect(providerButton.locator('img')).toBeVisible();
+  await expect(input).toBeVisible();
+  await expect(
+    providerButton.locator('.composer-footer-button-text'),
+  ).not.toBeVisible();
+  await expect(
+    workingPathButton.locator('.composer-footer-button-label'),
+  ).not.toBeVisible();
+  await expect(
+    modelButton.locator('.composer-footer-button-label'),
+  ).not.toBeVisible();
+  await expect(optionsButton).not.toContainText('Default');
+  await expect(optionsButton).not.toContainText('Options');
+  await expect(modelButton).toContainText('Auto');
+  await expect(modelButton).not.toContainText('Thinking');
+  await expect(
+    modelButton.getByTestId('model-thinking-level-icon'),
+  ).toBeVisible();
+
+  const footerButtons = [
+    infoButton,
+    workingPathButton,
+    providerButton,
+    modelButton,
+    optionsButton,
+  ];
+  const footerBoxes = await Promise.all(
+    footerButtons.map(async (locator) => locator.boundingBox()),
+  );
+  footerBoxes.forEach((box) => expect(box).not.toBeNull());
+
+  const distinctRows = Array.from(
+    new Set(footerBoxes.map((box) => Math.round((box?.y ?? 0) / 6))),
+  );
+  expect(distinctRows).toHaveLength(1);
+
+  const composerBox = await composer.boundingBox();
+  const infoBox = await infoButton.boundingBox();
+  const inputBoxBefore = await input.boundingBox();
+  const sendBox = await page.getByTestId('chat-send').boundingBox();
+  expect(composerBox).not.toBeNull();
+  expect(infoBox).not.toBeNull();
+  expect(inputBoxBefore).not.toBeNull();
+  expect(sendBox).not.toBeNull();
+  expect(Math.abs((inputBoxBefore?.x ?? 0) - (infoBox?.x ?? 0))).toBeLessThan(
+    8,
+  );
+  expect(
+    Math.abs((inputBoxBefore?.height ?? 0) - (sendBox?.height ?? 0)),
+  ).toBeLessThan(12);
+
+  await input.fill('One line');
+  await input.press('Enter');
+  await input.type('Two line');
+  const inputBoxAfter = await input.boundingBox();
+  expect(inputBoxAfter).not.toBeNull();
+  expect(
+    (inputBoxAfter?.height ?? 0) - (inputBoxBefore?.height ?? 0),
+  ).toBeGreaterThan(10);
+
+  await modelButton.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole('heading', { name: 'Model', exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByText('Thinking modes')).toHaveCount(0);
+
+  const dialogBox = await dialog.boundingBox();
+  expect(dialogBox).not.toBeNull();
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  const horizontalCenterDelta = Math.abs(
+    (dialogBox?.x ?? 0) +
+      (dialogBox?.width ?? 0) / 2 -
+      (viewport?.width ?? 0) / 2,
+  );
+  expect(horizontalCenterDelta).toBeLessThan(12);
+  expect(dialogBox?.width ?? 0).toBeGreaterThan(280);
 });
 
 test('conversation pane toggle works after resizing across breakpoints', async ({

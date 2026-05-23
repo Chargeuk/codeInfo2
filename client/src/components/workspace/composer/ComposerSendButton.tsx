@@ -44,8 +44,8 @@ export default function ComposerSendButton({
       aria-label={isStopButton ? 'Stop' : 'Send'}
       sx={{
         position: 'relative',
-        width: 48,
-        height: 48,
+        width: { xs: 32, sm: 42 },
+        height: { xs: 32, sm: 42 },
         borderRadius: '50%',
         color: '#FFFFFF',
         bgcolor: isStopButton ? 'error.main' : '#111827',
@@ -61,9 +61,9 @@ export default function ComposerSendButton({
       }}
     >
       {isStopButton ? (
-        <StopRoundedIcon fontSize="medium" />
+        <StopRoundedIcon fontSize="small" />
       ) : (
-        <ArrowUpwardRoundedIcon fontSize="medium" />
+        <ArrowUpwardRoundedIcon fontSize="small" />
       )}
       <span style={srOnlyStyles}>{isStopButton ? 'Stopping' : 'Send'}</span>
     </IconButton>

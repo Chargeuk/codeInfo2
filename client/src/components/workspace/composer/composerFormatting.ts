@@ -44,7 +44,7 @@ export const formatComposerModelLabel = (
 ) => {
   const cleanedModel = cleanText(model);
   if (!cleanedModel) return formatThinkingModeLabel(thinkingMode);
-  return `${formatThinkingModeLabel(thinkingMode)} / ${cleanedModel}`;
+  return `${cleanedModel} / ${formatThinkingModeLabel(thinkingMode)}`;
 };
 
 const formatOptionValue = (value: ChatAgentFlagValue) => {

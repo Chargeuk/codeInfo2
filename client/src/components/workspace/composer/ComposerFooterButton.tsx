@@ -15,6 +15,7 @@ type ComposerFooterButtonProps = {
   ariaHaspopup?: string;
   ariaExpanded?: boolean;
   hiddenInputValue?: string;
+  iconOnlyOnMobile?: boolean;
 };
 
 export default function ComposerFooterButton({
@@ -31,6 +32,7 @@ export default function ComposerFooterButton({
   ariaHaspopup,
   ariaExpanded,
   hiddenInputValue,
+  iconOnlyOnMobile = false,
 }: ComposerFooterButtonProps) {
   if (iconOnly) {
     return (
@@ -44,9 +46,9 @@ export default function ComposerFooterButton({
         role={role}
         data-testid={dataTestId}
         sx={{
-          width: 48,
-          height: 48,
-          borderRadius: 3,
+          width: { xs: 36, sm: 48 },
+          height: { xs: 36, sm: 48 },
+          borderRadius: { xs: 2.5, sm: 3 },
           border: '1px solid',
           borderColor: selected ? 'primary.main' : 'divider',
           bgcolor: 'background.paper',
@@ -74,12 +76,20 @@ export default function ComposerFooterButton({
       aria-expanded={ariaExpanded}
       role={role}
       sx={{
-        minHeight: 48,
+        flex: iconOnlyOnMobile
+          ? { xs: '0 0 auto', sm: '0 1 auto' }
+          : { xs: '1 1 0', sm: '0 1 auto' },
+        width: iconOnlyOnMobile
+          ? { xs: 36, sm: 'auto' }
+          : { xs: 0, sm: 'auto' },
+        minHeight: { xs: 36, sm: 48 },
         minWidth: 0,
-        px: 1.5,
-        py: 0.75,
-        borderRadius: 3,
-        justifyContent: 'flex-start',
+        px: iconOnlyOnMobile ? { xs: 0.5, sm: 1.5 } : { xs: 0.75, sm: 1.5 },
+        py: { xs: 0.5, sm: 0.75 },
+        borderRadius: { xs: 2.5, sm: 3 },
+        justifyContent: iconOnlyOnMobile
+          ? { xs: 'center', sm: 'flex-start' }
+          : 'flex-start',
         textTransform: 'none',
         borderColor: selected ? 'primary.main' : 'divider',
         color: 'text.primary',
@@ -95,15 +105,20 @@ export default function ComposerFooterButton({
         },
         '& .composer-footer-button-label': {
           color: 'text.secondary',
+          fontSize: { xs: '0.62rem', sm: '0.75rem' },
+          display: { xs: 'none', sm: 'block' },
         },
         '& .composer-footer-button-value': {
           color: 'text.primary',
+          fontSize: { xs: '0.72rem', sm: '0.875rem' },
         },
       }}
     >
       <Stack
         direction="row"
-        spacing={1.25}
+        spacing={
+          iconOnlyOnMobile ? { xs: 0, sm: 1.25 } : { xs: 0.75, sm: 1.25 }
+        }
         alignItems="center"
         sx={{ minWidth: 0 }}
       >
@@ -133,7 +148,12 @@ export default function ComposerFooterButton({
         >
           {icon}
         </Box>
-        <Stack sx={{ minWidth: 0, textAlign: 'left' }} spacing={0}>
+        <Stack
+          className="composer-footer-button-text"
+          sx={{ minWidth: 0, textAlign: 'left', overflow: 'hidden' }}
+          display={iconOnlyOnMobile ? { xs: 'none', sm: 'flex' } : undefined}
+          spacing={0}
+        >
           <Typography
             className="composer-footer-button-label"
             variant="caption"
@@ -146,7 +166,7 @@ export default function ComposerFooterButton({
             <Typography
               className="composer-footer-button-value"
               variant="body2"
-              sx={{ lineHeight: 1.2, fontWeight: 500 }}
+              sx={{ lineHeight: 1.1, fontWeight: 500 }}
               noWrap
             >
               {value}

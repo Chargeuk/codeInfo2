@@ -11,10 +11,10 @@ export default function CommonComposerFooter({
   return (
     <Stack
       direction="row"
-      spacing={1.5}
+      spacing={{ xs: 0.5, sm: 1.5 }}
       alignItems="center"
-      flexWrap="wrap"
-      sx={{ minWidth: 0 }}
+      flexWrap="nowrap"
+      sx={{ minWidth: 0, width: '100%' }}
     >
       {children}
     </Stack>

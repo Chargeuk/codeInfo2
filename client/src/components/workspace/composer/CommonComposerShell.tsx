@@ -22,19 +22,20 @@ export default function CommonComposerShell({
       data-testid={dataTestId}
       style={{ flex: '0 0 auto' }}
       sx={{
-        p: 2,
-        borderRadius: 4,
+        width: '100%',
+        p: { xs: 0.75, sm: 2 },
+        borderRadius: { xs: 3, sm: 4 },
         borderColor: 'divider',
         bgcolor: 'background.paper',
         boxShadow: '0 0 0 1px rgba(15, 23, 42, 0.05)',
       }}
     >
-      <Stack spacing={2}>
+      <Stack spacing={{ xs: 1, sm: 2 }}>
         <Box component="form" onSubmit={onSubmit}>
-          <Stack spacing={1.5}>{mainInputRow}</Stack>
+          <Stack spacing={{ xs: 1, sm: 1.5 }}>{mainInputRow}</Stack>
         </Box>
-        <Stack spacing={1.5}>{footerRow}</Stack>
-        {children}
+        <Stack spacing={{ xs: 1, sm: 1.5 }}>{footerRow}</Stack>
+        {children ? children : null}
       </Stack>
     </Paper>
   );

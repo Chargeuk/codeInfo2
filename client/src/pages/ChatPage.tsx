@@ -3,7 +3,6 @@ import {
   type ChatAgentFlagKey,
   type ChatAgentFlagValue,
 } from '@codeinfo2/common';
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -64,13 +63,13 @@ import ComposerDesktopPopover from '../components/workspace/composer/ComposerDes
 import ComposerFooterButton from '../components/workspace/composer/ComposerFooterButton';
 import ComposerMobileDialog from '../components/workspace/composer/ComposerMobileDialog';
 import ComposerSendButton from '../components/workspace/composer/ComposerSendButton';
+import ThinkingLevelIcon from '../components/workspace/composer/ThinkingLevelIcon';
 import {
   buildComposerOptionSummary,
-  buildComposerOptionValueSummary,
   formatComposerModelLabel,
+  formatThinkingModeLabel,
   getComposerProviderPresentation,
   getWorkingFolderName,
-  formatThinkingModeLabel,
 } from '../components/workspace/composer/composerFormatting';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
@@ -1133,6 +1132,9 @@ export default function ChatPage() {
     composerThinkingMode,
     selectedModelDisplayName,
   );
+  const composerModelButtonValue = isMobile
+    ? selectedModelDisplayName
+    : composerModelValue;
   const composerWorkingFolderName =
     getWorkingFolderName(workingFolder) || 'Select folder';
   const composerOptionDescriptors = availableAgentFlags.filter(
@@ -1151,10 +1153,6 @@ export default function ChatPage() {
       label: formatThinkingModeLabel(value),
     }));
   }, [reasoningDescriptor, selectedModelCapabilities]);
-  const composerOptionsValue = buildComposerOptionValueSummary(
-    composerOptionDescriptors,
-    agentFlagsDraft,
-  );
   const composerInfoRows = useMemo(
     () => [
       { label: 'Provider', value: composerProviderPresentation.label },
@@ -1175,6 +1173,9 @@ export default function ChatPage() {
       composerWorkingFolderName,
     ],
   );
+  const isComposerTestMode =
+    typeof window !== 'undefined' &&
+    (window as unknown as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__;
 
   const closeComposerSurfaces = () => {
     setComposerInfoAnchorEl(null);
@@ -1669,9 +1670,11 @@ export default function ChatPage() {
     <Stack spacing={1.5}>
       {composerReasoningOptions.length > 0 ? (
         <Stack spacing={0.75}>
-          <Typography variant="overline" color="text.secondary">
-            Thinking modes
-          </Typography>
+          {isMobile ? null : (
+            <Typography variant="overline" color="text.secondary">
+              Thinking modes
+            </Typography>
+          )}
           <List
             disablePadding
             dense
@@ -1692,11 +1695,11 @@ export default function ChatPage() {
                 onClick={() => handleComposerReasoningSelection(option.value)}
               >
                 <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
-                  <AutoAwesomeOutlinedIcon fontSize="small" />
+                  <ThinkingLevelIcon level={option.value} />
                 </ListItemIcon>
                 <ListItemText
                   primary={option.label}
-                  secondary="Thinking mode"
+                  secondary={isMobile ? null : 'Thinking mode'}
                 />
               </ListItemButton>
             ))}
@@ -1728,7 +1731,13 @@ export default function ChatPage() {
               }}
             >
               <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
-                <AutoAwesomeOutlinedIcon fontSize="small" />
+                <ThinkingLevelIcon
+                  level={
+                    model.defaultReasoningEffort ??
+                    selectedModelCapabilities?.defaultReasoningEffort ??
+                    composerThinkingMode
+                  }
+                />
               </ListItemIcon>
               <ListItemText
                 primary={model.displayName}
@@ -1764,6 +1773,81 @@ export default function ChatPage() {
       )}
     </Stack>
   );
+  const composerSupplementalContent = (
+    <>
+      {isComposerTestMode && availableAgentFlags.length > 0 ? (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: -10000,
+            top: 'auto',
+            width: 320,
+          }}
+        >
+          <AgentFlagsPanel
+            descriptors={availableAgentFlags}
+            values={agentFlagsDraft}
+            onChange={handleAgentFlagChange}
+            disabled={controlsDisabled}
+          />
+        </Box>
+      ) : null}
+      {showCodexWarnings ? (
+        <Alert severity="warning" data-testid="codex-warnings-banner">
+          <Stack spacing={0.5}>
+            {codexWarningList.map((warning, index) => (
+              <Typography key={`${warning}-${index}`} variant="body2">
+                {warning}
+              </Typography>
+            ))}
+          </Stack>
+        </Alert>
+      ) : null}
+      {showCodexUnavailable ? (
+        <Alert severity="warning" data-testid="codex-unavailable-banner">
+          OpenAI Codex is unavailable. Install the CLI (`npm install -g
+          @openai/codex`), log in with `CODEX_HOME=./codex codex login` (or your
+          `~/.codex`), and ensure `./codex/config.toml` is seeded. The
+          checked-in main Compose stack exposes the host Codex home read-only at
+          `/host/codex` and seeds or repairs the writable `/app/codex` runtime
+          home from it, so container logins are not required there. If Codex
+          later fails with `refresh_token_reused` or `token_expired`, rerun
+          `codex login` against the Codex home backing the runtime you are using
+          and restart that stack. See the guidance in{' '}
+          <Link
+            href="https://github.com/Chargeuk/codeInfo2#codex-cli"
+            target="_blank"
+            rel="noreferrer"
+          >
+            README ▸ Codex (CLI)
+          </Link>
+          .
+          {providerIsCodex || codexProvider?.reason
+            ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
+            : ''}
+        </Alert>
+      ) : null}
+      {showCodexToolsMissing ? (
+        <Alert severity="warning" data-testid="codex-tools-banner">
+          Codex requires MCP tools. Ensure `config.toml` lists the `/mcp`
+          endpoints and that tools are enabled, then retry once the
+          CLI/auth/config prerequisites above are satisfied.
+        </Alert>
+      ) : null}
+      {isSending || isStopping ? (
+        <Typography variant="body2" color="text.secondary">
+          {isStopping ? 'Stopping…' : 'Responding...'}
+        </Typography>
+      ) : null}
+    </>
+  );
+  const hasComposerSupplementalContent =
+    (isComposerTestMode && availableAgentFlags.length > 0) ||
+    showCodexWarnings ||
+    showCodexUnavailable ||
+    showCodexToolsMissing ||
+    isSending ||
+    isStopping;
 
   const composerSurface = (
     <CommonComposerShell
@@ -1799,22 +1883,39 @@ export default function ChatPage() {
             inputRef={inputRef}
             fullWidth
             multiline
-            minRows={2}
+            minRows={1}
+            maxRows={6}
             size="small"
-            label="Message"
             placeholder="Type your prompt"
             value={input}
             onChange={(event) => setInput(event.target.value)}
             disabled={controlsDisabled}
             slotProps={{
-              htmlInput: { 'data-testid': 'chat-input' },
+              htmlInput: {
+                'data-testid': 'chat-input',
+                'aria-label': 'Message',
+              },
             }}
             helperText={
               providerIsCodex && (!providerAvailable || !toolsAvailable)
                 ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
                 : undefined
             }
-            sx={{ flex: 1, minWidth: 0 }}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              '& .MuiInputBase-root': {
+                minHeight: { xs: 32, sm: 42 },
+                alignItems: 'center',
+                pl: { xs: 0.125, sm: 1.25 },
+                pr: { xs: 0.75, sm: 1.25 },
+                py: { xs: 0.5, sm: 0.75 },
+              },
+              '& .MuiInputBase-inputMultiline': {
+                p: 0,
+                lineHeight: 1.35,
+              },
+            }}
           />
           <ComposerSendButton
             showStop={showStop}
@@ -1856,6 +1957,7 @@ export default function ChatPage() {
             ariaHaspopup="listbox"
             ariaExpanded={Boolean(composerProviderAnchorEl)}
             hiddenInputValue={provider ?? ''}
+            iconOnlyOnMobile
             disabled={
               providerStatus === 'loading' ||
               providerLocked ||
@@ -1863,15 +1965,25 @@ export default function ChatPage() {
             }
           />
           <ComposerFooterButton
-            icon={<AutoAwesomeOutlinedIcon fontSize="small" />}
+            icon={
+              <ThinkingLevelIcon
+                level={composerThinkingMode}
+                data-testid="model-thinking-level-icon"
+              />
+            }
             label="Model"
-            value={composerModelValue}
+            value={composerModelButtonValue}
             selected={Boolean(composerModelAnchorEl)}
             onClick={handleComposerModelOpen}
             data-testid="model-select"
             role="combobox"
             ariaHaspopup="listbox"
             ariaExpanded={Boolean(composerModelAnchorEl)}
+            ariaLabel={
+              isMobile
+                ? `Model ${selectedModelDisplayName}`
+                : `Model ${composerModelValue}`
+            }
             hiddenInputValue={selected ?? ''}
             disabled={
               isLoading ||
@@ -1885,7 +1997,8 @@ export default function ChatPage() {
           <ComposerFooterButton
             icon={<TuneRoundedIcon fontSize="small" />}
             label="Options"
-            value={composerOptionsValue}
+            iconOnly
+            ariaLabel="Options"
             selected={Boolean(composerOptionsAnchorEl)}
             onClick={handleComposerOptionsOpen}
             data-testid="chat-options"
@@ -1893,75 +2006,9 @@ export default function ChatPage() {
         </CommonComposerFooter>
       }
     >
-      <Stack spacing={1.5}>
-        {typeof window !== 'undefined' &&
-        (window as unknown as { __CODEINFO_TEST__?: boolean })
-          .__CODEINFO_TEST__ &&
-        availableAgentFlags.length > 0 ? (
-          <Box
-            sx={{
-              position: 'absolute',
-              left: -10000,
-              top: 'auto',
-              width: 320,
-            }}
-          >
-            <AgentFlagsPanel
-              descriptors={availableAgentFlags}
-              values={agentFlagsDraft}
-              onChange={handleAgentFlagChange}
-              disabled={controlsDisabled}
-            />
-          </Box>
-        ) : null}
-        {showCodexWarnings && (
-          <Alert severity="warning" data-testid="codex-warnings-banner">
-            <Stack spacing={0.5}>
-              {codexWarningList.map((warning, index) => (
-                <Typography key={`${warning}-${index}`} variant="body2">
-                  {warning}
-                </Typography>
-              ))}
-            </Stack>
-          </Alert>
-        )}
-        {showCodexUnavailable ? (
-          <Alert severity="warning" data-testid="codex-unavailable-banner">
-            OpenAI Codex is unavailable. Install the CLI (`npm install -g
-            @openai/codex`), log in with `CODEX_HOME=./codex codex login` (or
-            your `~/.codex`), and ensure `./codex/config.toml` is seeded. The
-            checked-in main Compose stack exposes the host Codex home read-only
-            at `/host/codex` and seeds or repairs the writable `/app/codex`
-            runtime home from it, so container logins are not required there. If
-            Codex later fails with `refresh_token_reused` or `token_expired`,
-            rerun `codex login` against the Codex home backing the runtime you
-            are using and restart that stack. See the guidance in{' '}
-            <Link
-              href="https://github.com/Chargeuk/codeInfo2#codex-cli"
-              target="_blank"
-              rel="noreferrer"
-            >
-              README ▸ Codex (CLI)
-            </Link>
-            .
-            {providerIsCodex || codexProvider?.reason
-              ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
-              : ''}
-          </Alert>
-        ) : null}
-        {showCodexToolsMissing && (
-          <Alert severity="warning" data-testid="codex-tools-banner">
-            Codex requires MCP tools. Ensure `config.toml` lists the `/mcp`
-            endpoints and that tools are enabled, then retry once the
-            CLI/auth/config prerequisites above are satisfied.
-          </Alert>
-        )}
-        {(isSending || isStopping) && (
-          <Typography variant="body2" color="text.secondary">
-            {isStopping ? 'Stopping…' : 'Responding...'}
-          </Typography>
-        )}
-      </Stack>
+      {hasComposerSupplementalContent ? (
+        <Stack spacing={1.5}>{composerSupplementalContent}</Stack>
+      ) : null}
 
       <ComposerDesktopPopover
         id="chat-composer-info-popover"
@@ -2232,7 +2279,14 @@ export default function ChatPage() {
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {transcriptSurface}
       </Box>
-      {composerSurface}
+      <Box
+        sx={{
+          mx: -2,
+          width: 'calc(100% + 32px)',
+        }}
+      >
+        {composerSurface}
+      </Box>
       <WorkspaceMobileConversationsOverlay
         open={mobileConversationsOpen}
         onClose={() => setMobileConversationsOpen(false)}

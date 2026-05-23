@@ -8,6 +8,7 @@ const config = {
   moduleNameMapper: {
     '@codeinfo2/common': '<rootDir>/../common/dist/index.js',
     '@mui/icons-material/(.*)$': '<rootDir>/src/test/__mocks__/muiIconMock.tsx',
+    '\\.(svg|png|jpe?g|gif|webp)$': '<rootDir>/src/test/__mocks__/fileMock.ts',
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   transform: {

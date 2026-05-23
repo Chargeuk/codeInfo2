@@ -11,8 +11,8 @@ export default function CommonComposerMainInputRow({
   return (
     <Stack
       direction="row"
-      spacing={1.5}
-      alignItems="stretch"
+      spacing={{ xs: 0.75, sm: 1.5 }}
+      alignItems="flex-end"
       sx={{ minWidth: 0 }}
     >
       {children}

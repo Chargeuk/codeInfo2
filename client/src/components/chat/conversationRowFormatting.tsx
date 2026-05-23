@@ -1,8 +1,10 @@
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import DevicesOutlinedIcon from '@mui/icons-material/DevicesOutlined';
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
-import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
+import { Box } from '@mui/material';
 import type { ReactNode } from 'react';
+import githubCopilotLogo from '../../assets/provider-logos/github-copilot.svg';
+import lmStudioLogo from '../../assets/provider-logos/lmstudio.webp';
+import openAiCodexLogo from '../../assets/provider-logos/openai-codex.svg';
 
 const conversationRelativeTimeFormatter = new Intl.RelativeTimeFormat(
   undefined,
@@ -87,6 +89,20 @@ export type ConversationProviderPresentation = {
   icon: ReactNode;
 };
 
+const ProviderLogoImage = ({ src, alt }: { src: string; alt: string }) => (
+  <Box
+    component="img"
+    src={src}
+    alt={alt}
+    sx={{
+      width: 18,
+      height: 18,
+      objectFit: 'contain',
+      display: 'block',
+    }}
+  />
+);
+
 export const getConversationProviderPresentation = (
   provider?: string | null,
   model?: string | null,
@@ -111,17 +127,24 @@ export const getConversationProviderPresentation = (
     case 'codex':
       return {
         label: 'Codex',
-        icon: <AutoAwesomeOutlinedIcon fontSize="small" />,
+        icon: (
+          <ProviderLogoImage src={openAiCodexLogo} alt="OpenAI Codex logo" />
+        ),
       };
     case 'copilot':
       return {
         label: 'Copilot',
-        icon: <SmartToyOutlinedIcon fontSize="small" />,
+        icon: (
+          <ProviderLogoImage
+            src={githubCopilotLogo}
+            alt="GitHub Copilot logo"
+          />
+        ),
       };
     case 'lmstudio':
       return {
         label: 'LM Studio',
-        icon: <TerminalOutlinedIcon fontSize="small" />,
+        icon: <ProviderLogoImage src={lmStudioLogo} alt="LM Studio logo" />,
       };
     default:
       return {

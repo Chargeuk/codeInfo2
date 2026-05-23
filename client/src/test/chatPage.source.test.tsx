@@ -45,7 +45,11 @@ describe('ConversationList source badges', () => {
 
     render(<ConversationList {...baseProps} conversations={conversations} />);
 
-    expect(screen.getByText(/lmstudio · llama · REST/i)).toBeInTheDocument();
-    expect(screen.getByText(/codex · gpt · MCP/i)).toBeInTheDocument();
+    expect(screen.getAllByTestId('conversation-provider-chip')[0]).toHaveTextContent(/lmstudio/i);
+    expect(screen.getAllByTestId('conversation-model-chip')[0]).toHaveTextContent(/llama/i);
+    expect(screen.getAllByTestId('conversation-source-chip')[0]).toHaveTextContent(/REST/i);
+    expect(screen.getAllByTestId('conversation-provider-chip')[1]).toHaveTextContent(/codex/i);
+    expect(screen.getAllByTestId('conversation-model-chip')[1]).toHaveTextContent(/gpt/i);
+    expect(screen.getAllByTestId('conversation-source-chip')[1]).toHaveTextContent(/MCP/i);
   });
 });

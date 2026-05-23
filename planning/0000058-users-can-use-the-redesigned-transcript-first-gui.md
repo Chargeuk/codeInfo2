@@ -63,6 +63,7 @@ The design references for this story already exist and should be treated as the 
 - Assistant output and user bubbles adopt the new shared transcript style defined by the approved design references.
 - `Chat` transcript footers are compact and no longer consume unnecessary vertical space.
 - On mobile, transcript footer actions use icon-only compact treatment where space is tight, while desktop keeps visible action labels.
+- Mobile icon-only controls keep clear accessible labels and remain understandable without relying only on color or position.
 - On mobile, transcript footer content fits on one horizontal row without making message-body text as small as the footer text.
 - The shared conversations pane matches the new design language and works consistently on both desktop and mobile.
 - The `Chat` conversation pane uses the compact final chrome, including a compact new-conversation icon adjacent to `Refresh`, and does not expose obsolete `Re-authenticate` workspace actions.
@@ -123,6 +124,7 @@ The design references for this story already exist and should be treated as the 
 - Later tasking should include desktop and mobile proof across both shell families, with special attention on transcript height, chronological top-to-bottom transcript ordering, opening existing conversations at the newest visible content at the bottom, bottom composer behavior, conversation-pane interactions, Home absorbing LM Studio and provider logon concerns, the `/lmstudio` redirect path, and the rule that message `Copy` actions copy only message content while scroll-away transcript reading keeps its place during new activity.
 - Later tasking should also verify that `Chat` transcript footers stay compact on desktop and mobile, that mobile transcript footer actions use icon-only treatment where intended while still fitting on one row, and that the `Chat` conversation pane uses the compact new-conversation icon near `Refresh` without showing `Re-authenticate`.
 - Final manual proof should verify that long shared composer option surfaces scroll instead of clipping, that `Flows` uses the shared arrow button as `Run` for fresh flows and `Resume` for resumable existing flows, and that `Home`, `Ingest`, and `Logs` can all scroll vertically on both desktop and mobile.
+- When mobile controls collapse to icons, manual proof should also confirm their meaning stays clear from icon choice, placement, and accessible labeling rather than from color alone.
 
 ## Decisions
 
@@ -144,6 +146,24 @@ The design references for this story already exist and should be treated as the 
    - What the answer is: Copy only the message content, not timing, status, provider, or other footer metadata.
    - Where the answer came from: User answer in this planning session, design evidence from `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`, local UI evidence from `client/src/components/chat/SharedTranscriptMessageRow.tsx`, and existing copy-action precedent in `planning/0000031-codex-device-auth-relogin.md`.
    - Why it is the best answer: It matches the design separation between `Info` and `Copy`, keeps the feature easy to understand, and avoids mixing reusable content with transient diagnostics.
+4. Chat auth entry-point ownership
+   - The question being addressed: After provider logon and LM Studio status move onto `Home`, should `Chat` still show visible workspace-level auth entry points such as `Re-authenticate`?
+   - Why the question matters: The redesign intentionally separates global runtime setup from workspace activity, so duplicated auth entry points would blur that ownership and make the shell feel inconsistent.
+   - What the answer is: `Chat` should not keep a visible workspace-level auth entry point; provider auth recovery belongs on `Home`.
+   - Where the answer came from: User direction in this planning session, design evidence from `planning/layout-ideas/plan/final-designs/home-page-final.md` and the final `Chat` cleanup task contract in this story.
+   - Why it is the best answer: It preserves one clear place for global auth/setup work, keeps the transcript workspace focused, and prevents later cleanup or review from reintroducing duplicate auth chrome.
+5. Shared settings hierarchy and overflow behavior
+   - The question being addressed: In the shared composer options surfaces, should `Agent Flags` stay behind a second-level `Settings` submenu, and should long option lists be allowed to clip when space is limited?
+   - Why the question matters: The redesign is trying to reduce interaction depth and make the shared composer feel consistent on desktop and mobile, so both hierarchy depth and overflow behavior directly affect usability.
+   - What the answer is: Former `Agent Flags` choices should be exposed as first-level `Settings` options, and existing shared popover or dialog surfaces should scroll vertically when their content exceeds the available space instead of clipping.
+   - Where the answer came from: User direction in this planning session, the accepted Task 27 shared-composer contract in this story, and current shared options-surface ownership in `client/src/pages/ChatPage.tsx` and the shared composer helpers it uses.
+   - Why it is the best answer: It removes unnecessary drill-in navigation, keeps the option model consistent across breakpoints, and solves overflow inside the established shared surfaces without inventing a second settings system.
+6. Flows shared primary action semantics
+   - The question being addressed: In the redesigned `Flows` composer, should the shared arrow-style primary action split into separate visible run and resume buttons, or keep one control whose meaning changes with flow state?
+   - Why the question matters: `Flows` must preserve existing fresh-run versus resumable-run behavior while still fitting the shared composer language used across workspace pages.
+   - What the answer is: Keep one shared arrow-style primary action; it means `Run` for a fresh flow without resumable context and `Resume` for an existing resumable flow.
+   - Where the answer came from: User direction in this planning session, current `Flows` behavior requirements already captured in the story description, and the accepted task contract for the `Flows` composer migration in this story.
+   - Why it is the best answer: It preserves the important execution distinction without breaking the shared-composer visual language or reintroducing a second family of primary action controls just for `Flows`.
 
 ## Implementation Ideas
 

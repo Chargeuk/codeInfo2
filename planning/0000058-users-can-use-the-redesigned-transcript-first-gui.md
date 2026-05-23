@@ -2673,7 +2673,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20, Task 22`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -2793,8 +2793,9 @@ Items to verify manually:
 - Subtask 13: added UI-level parity coverage that clicks the rendered controls and verifies the fallback state is restored in the controlled ConversationList harness.
 - Testing step 2 repair: reran `npm run test:summary:client`, traced 31 failures to three task-owned seams, and fixed them by making fetch results server-authoritative in `useConversations` while keeping scoped websocket/update filtering strict, restoring custom header support in `mockJsonResponse`, and updating the stale sidebar tests to match the independent `Active`/`Archived` toggle contract.
 - Testing step 2 repair: verified the fixes with focused client wrapper reruns covering `useConversations`, `fetchPolyfills`, `agentsPage`, `chatSidebar`, and `flowsPage`, then reran the full `npm run test:summary:client` wrapper and it passed cleanly (`810` tests, `0` failed).
-- **RESOLVED ISSUE** The Task 23 automated-proof blocker on Testing step 2 is retired. The full client wrapper now passes, and the remaining unchecked Testing items are the later task-owned lint and format gates only.
+- **RESOLVED ISSUE** The Task 23 automated-proof blocker on Testing step 2 is retired. The full client wrapper now passes cleanly for the reopened task scope.
 - Manual testing: task-scoped proof restarted the main compose stack because main-stack freshness could not be proven, confirmed clean startup at `http://localhost:5010/health` and `http://localhost:5001`, and restored the one conversation it temporarily archived during filter-state exercising. The desktop shared controls row still has a Task 23 defect: turning off the last active filter leaves both `Active` and `Archived` visually off while the list silently falls back to active conversations, which violates the task-owned safe-fallback contract because the visible state remains ambiguous. Bounded diagnosis re-read `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, and `client/src/test/conversationControls.parity.test.tsx`, confirmed that `useConversations` normalizes the all-off state while the rendered toggle UI does not, added follow-up subtasks, and reopened client build/test/lint/format because automated proof must rerun before later manual retest. Playwright screenshot staging succeeded for `manual-testing/0000058/23/proof-01-desktop-conversation-controls.png` and `manual-testing/0000058/23/proof-03-desktop-all-off-fallback-mismatch.png`, but neither the harness bind nor the documented container copy-out exposed those staged files for transfer into `codeInfoTmp/manual-testing/0000058/23/`.
+- Automated proof closeout: fixed the reopened task-owned proof gaps in `client/src/components/chat/ConversationList.tsx`, `client/src/test/conversationControls.parity.test.tsx`, `client/src/test/support/fetchMock.ts`, and the archived-only sidebar test flow, then reran `npm run build:summary:client`, `npm run test:summary:client`, `npm run lint --workspace client`, and `npm run format:check --workspace client` until all four Task 23 testing gates passed again.
 
 
 ### Task 24. Make The Mobile App Menu Match The Final Full-Screen Navigation Design Without Changing The Desktop Rail

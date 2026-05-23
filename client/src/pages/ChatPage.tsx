@@ -3,6 +3,11 @@ import {
   type ChatAgentFlagKey,
   type ChatAgentFlagValue,
 } from '@codeinfo2/common';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import {
   Alert,
   Button,
@@ -24,11 +29,6 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import { useTheme } from '@mui/material/styles';
 import {
   type ChangeEvent,

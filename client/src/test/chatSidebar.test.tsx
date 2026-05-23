@@ -80,7 +80,7 @@ const createBaseProps = (
   isError: false,
   error: undefined,
   hasMore: false,
-  filterState: 'active',
+  filterState: { active: true, archived: false },
   mongoConnected: true,
   disabled: false,
   onSelect: jest.fn(),
@@ -109,11 +109,9 @@ function filterConversations(
   all: ConversationListItem[],
   filterState: ConversationFilterState,
 ) {
-  return all.filter((c) => {
-    if (filterState === 'all') return true;
-    if (filterState === 'archived') return Boolean(c.archived);
-    return !c.archived;
-  });
+  if (filterState.active && filterState.archived) return all;
+  if (filterState.archived) return all.filter((c) => Boolean(c.archived));
+  return all.filter((c) => !c.archived);
 }
 
 function makeBulkArchiveResult(ids: string[]): ConversationBulkResult {
@@ -359,8 +357,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: true,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('all');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: true,
+      });
 
       return (
         <ConversationList
@@ -424,8 +424,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: false,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('active');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: false,
+      });
 
       return (
         <>
@@ -507,8 +509,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: true,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('all');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: true,
+      });
 
       return (
         <ConversationList
@@ -572,8 +576,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
     );
 
     function Wrapper() {
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('archived');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: false,
+        archived: true,
+      });
       const conversations: ConversationListItem[] = [
         {
           conversationId: 'c1',
@@ -638,8 +644,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
 
     function Wrapper() {
       const [mongoConnected, setMongoConnected] = useState(true);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('archived');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: false,
+        archived: true,
+      });
       const conversations: ConversationListItem[] = [
         {
           conversationId: 'c1',
@@ -739,8 +747,10 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
           archived: false,
         },
       ]);
-      const [filterState, setFilterState] =
-        useState<ConversationFilterState>('all');
+      const [filterState, setFilterState] = useState<ConversationFilterState>({
+        active: true,
+        archived: true,
+      });
 
       return (
         <ConversationList
@@ -854,7 +864,7 @@ describe('Chat sidebar bulk selection (ConversationList)', () => {
       <ConversationList
         {...createBaseProps({
           conversations: baseConversations,
-          filterState: 'all',
+          filterState: { active: true, archived: true },
           mongoConnected: false,
         })}
       />,

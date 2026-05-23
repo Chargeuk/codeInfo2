@@ -45,8 +45,10 @@ function WorkspaceStateHarness() {
   const [selectedConversationId, setSelectedConversationId] = useState(
     conversationFixtures[0].conversationId,
   );
-  const [filterState, setFilterState] =
-    useState<ConversationFilterState>('active');
+  const [filterState, setFilterState] = useState<ConversationFilterState>({
+    active: true,
+    archived: false,
+  });
   const [draft, setDraft] = useState('Initial shell draft');
 
   return (
@@ -170,12 +172,12 @@ describe('workspace shell primitives', () => {
       'conversation-active',
     );
     expect(screen.getByLabelText('Draft')).toHaveValue('Initial shell draft');
-    expect(screen.getByRole('button', { name: /^Active$/i })).toHaveAttribute(
+    expect(screen.getByTestId('conversation-filter-active')).toHaveAttribute(
       'aria-pressed',
       'true',
     );
 
-    await user.click(screen.getByRole('button', { name: /^Archived$/i }));
+    await user.click(screen.getByTestId('conversation-filter-archived'));
     await user.click(
       screen.getByRole('button', { name: /Archived follow-up/i }),
     );
@@ -189,7 +191,7 @@ describe('workspace shell primitives', () => {
     expect(screen.getByLabelText('Draft')).toHaveValue(
       'Initial shell draft updated',
     );
-    expect(screen.getByRole('button', { name: /^Archived$/i })).toHaveAttribute(
+    expect(screen.getByTestId('conversation-filter-archived')).toHaveAttribute(
       'aria-pressed',
       'true',
     );

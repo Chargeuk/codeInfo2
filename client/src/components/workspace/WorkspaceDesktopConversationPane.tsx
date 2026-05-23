@@ -26,6 +26,7 @@ export default function WorkspaceDesktopConversationPane({
         flexShrink: 0,
         position: 'relative',
         overflow: 'visible',
+        bgcolor: '#F4F6F8',
         transition: 'width 160ms ease',
       }}
     >
@@ -42,8 +43,9 @@ export default function WorkspaceDesktopConversationPane({
             borderTop: 0,
             borderBottom: 0,
             borderLeft: 0,
+            borderColor: '#D9E2EC',
             overflowY: 'hidden',
-            bgcolor: '#EEF2F6',
+            bgcolor: '#F4F6F8',
             display: 'flex',
             flexDirection: 'column',
             opacity: open ? 1 : 0,

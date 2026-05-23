@@ -42,11 +42,18 @@ export default function WorkspaceMobileConversationsOverlay({
           top: `${topOffsetPx}px`,
           height: drawerHeight,
           bgcolor: '#F4F6F8',
+          overflow: 'hidden',
         },
       }}
     >
       <Box
-        sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          minHeight: 0,
+          bgcolor: '#F4F6F8',
+        }}
         data-testid="workspace-mobile-conversations-overlay"
       >
         <Stack
@@ -55,25 +62,40 @@ export default function WorkspaceMobileConversationsOverlay({
           justifyContent="space-between"
           sx={{
             px: 2,
-            py: 1.5,
+            py: 1,
             minHeight: 56,
             bgcolor: '#DCE7F2',
           }}
         >
-          <Typography variant="h6" component="h2">
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{ fontWeight: 700, color: '#1F2933' }}
+          >
             Conversations
           </Typography>
           <IconButton aria-label="Close conversations" onClick={onClose}>
             <ChevronLeftIcon />
           </IconButton>
         </Stack>
-        <Divider />
-        <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
-          <Typography variant="body2" color="text.secondary">
+        <Divider sx={{ borderColor: '#D9E2EC' }} />
+        <Box sx={{ px: 2, pt: 1.5, pb: 1, bgcolor: '#F4F6F8' }}>
+          <Typography variant="body2" sx={{ color: '#52606D' }}>
             Select a conversation to return to the active workspace.
           </Typography>
         </Box>
-        <Box sx={{ flex: 1, minHeight: 0, px: 1.5, pb: 1.5 }}>{list}</Box>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            px: 1.5,
+            pb: 1.5,
+            overflow: 'hidden',
+            bgcolor: '#F4F6F8',
+          }}
+        >
+          {list}
+        </Box>
       </Box>
     </Drawer>
   );

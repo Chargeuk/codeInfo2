@@ -26,7 +26,10 @@ export type ConversationSummary = {
   previewSystemSummary?: string;
 };
 
-export type ConversationFilterState = 'active' | 'all' | 'archived';
+export type ConversationFilterState = {
+  active: boolean;
+  archived: boolean;
+};
 
 export type ConversationBulkAction = 'archive' | 'restore' | 'delete';
 
@@ -117,6 +120,10 @@ const isBulkErrorResponse = (
   );
 
 const PAGE_SIZE = 20;
+const DEFAULT_FILTER_STATE: ConversationFilterState = {
+  active: true,
+  archived: false,
+};
 
 function normalizeFlags(
   flags: ConversationFlags | null | undefined,
@@ -144,6 +151,24 @@ function normalizeConversationSummary(
   };
 }
 
+function normalizeConversationFilterState(
+  state: ConversationFilterState,
+): ConversationFilterState {
+  return state.active || state.archived ? state : { ...DEFAULT_FILTER_STATE };
+}
+
+function applyConversationFilter(
+  items: ConversationSummary[],
+  filterState: ConversationFilterState,
+) {
+  const normalized = normalizeConversationFilterState(filterState);
+  if (normalized.active && normalized.archived) return items;
+  if (normalized.archived) {
+    return items.filter((item) => Boolean(item.archived));
+  }
+  return items.filter((item) => !item.archived);
+}
+
 export function useConversations(params?: {
   agentName?: string;
   flowName?: string;
@@ -152,7 +177,7 @@ export function useConversations(params?: {
   const flowName = params?.flowName;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [filterState, setFilterState] =
-    useState<ConversationFilterState>('active');
+    useState<ConversationFilterState>(DEFAULT_FILTER_STATE);
   const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -165,17 +190,6 @@ export function useConversations(params?: {
     typeof agentName === 'string' ? agentName.trim() : '';
   const normalizedFlowName =
     typeof flowName === 'string' ? flowName.trim() : '';
-
-  const applyStateFilter = useCallback(
-    (items: ConversationSummary[]) => {
-      if (filterState === 'all') return items;
-      if (filterState === 'archived') {
-        return items.filter((item) => Boolean(item.archived));
-      }
-      return items.filter((item) => !item.archived);
-    },
-    [filterState],
-  );
 
   const applyFilter = useCallback(
     (items: ConversationSummary[]) => {
@@ -195,9 +209,9 @@ export function useConversations(params?: {
             return item.flowName === normalizedFlowName;
           })
         : agentFiltered;
-      return applyStateFilter(flowFiltered);
+      return applyConversationFilter(flowFiltered, filterState);
     },
-    [applyStateFilter, normalizedAgentName, normalizedFlowName],
+    [filterState, normalizedAgentName, normalizedFlowName],
   );
 
   const dedupeAndSort = useCallback((items: ConversationSummary[]) => {
@@ -257,7 +271,7 @@ export function useConversations(params?: {
           flowName: normalizedFlowName || '__all__',
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
-        search.set('state', filterState);
+        search.set('state', 'all');
         if (normalizedAgentName) search.set('agentName', normalizedAgentName);
         if (normalizedFlowName) search.set('flowName', normalizedFlowName);
         const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
@@ -278,7 +292,7 @@ export function useConversations(params?: {
         cursorRef.current = data.nextCursor;
         setConversations((prev) => {
           const merged = mode === 'append' ? [...prev, ...items] : items;
-          return dedupeAndSort(applyStateFilter(merged));
+          return dedupeAndSort(applyFilter(merged));
         });
         console.info('[conversations] fetch success', {
           mode,
@@ -305,7 +319,7 @@ export function useConversations(params?: {
       normalizedFlowName,
       log,
       dedupeAndSort,
-      applyStateFilter,
+      applyFilter,
     ],
   );
 
@@ -331,21 +345,17 @@ export function useConversations(params?: {
     (conversationId: string, archived: boolean) => {
       setConversations((prev) =>
         dedupeAndSort(
-          prev
-            .map((conv) =>
+          applyFilter(
+            prev.map((conv) =>
               conv.conversationId === conversationId
                 ? { ...conv, archived }
                 : conv,
-            )
-            .filter((conv) => {
-              if (filterState === 'all') return true;
-              if (filterState === 'archived') return Boolean(conv.archived);
-              return !conv.archived;
-            }),
+            ),
+          ),
         ),
       );
     },
-    [dedupeAndSort, filterState],
+    [applyFilter, dedupeAndSort],
   );
 
   const archive = useCallback(

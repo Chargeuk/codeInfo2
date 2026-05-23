@@ -21,7 +21,6 @@ import {
   Snackbar,
   Stack,
   ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -124,6 +123,7 @@ export function ConversationList({
   const showBulkUi = enableBulkUi;
   const showFilters = true;
   const showRowActions = true;
+  void showHeaderTitle;
   const mutationDisabled = Boolean(disabled || selectionDisabled);
   const bulkDisabled = Boolean(mutationDisabled || mongoConnected === false);
   const sorted = useMemo(
@@ -235,7 +235,8 @@ export function ConversationList({
     enableBulkUi &&
     !bulkDisabled &&
     selectedIds.size > 0 &&
-    filterState === 'archived' &&
+    !filterState.active &&
+    filterState.archived &&
     Boolean(onBulkDelete);
 
   const handleBulk = async (action: 'archive' | 'restore' | 'delete') => {
@@ -317,21 +318,102 @@ export function ConversationList({
   };
 
   return (
-    <Stack spacing={1} sx={{ height: '100%', minHeight: 0, width: '100%' }}>
+    <Stack
+      spacing={1}
+      sx={{ height: '100%', minHeight: 0, width: '100%', bgcolor: '#F4F6F8' }}
+    >
       <Stack
         spacing={0.75}
-        sx={{ px: 1.5 }}
+        sx={{
+          px: 1.5,
+          py: 1,
+          bgcolor: '#DCE7F2',
+          borderBottom: '1px solid',
+          borderColor: '#D9E2EC',
+        }}
         style={{ paddingLeft: 12, paddingRight: 12 }}
       >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
+          spacing={1}
+          sx={{ minWidth: 0 }}
+          data-testid="conversation-filter"
         >
-          {showHeaderTitle ? (
-            <Typography variant="subtitle1" fontWeight={700}>
-              Conversations
-            </Typography>
+          {showFilters ? (
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <ToggleButton
+                value="active"
+                selected={filterState.active}
+                onClick={() => {
+                  const next = {
+                    active: !filterState.active,
+                    archived: filterState.archived,
+                  };
+                  log('info', 'chat.sidebar.filter_changed', {
+                    filterState: next,
+                  });
+                  onFilterChange(next);
+                }}
+                data-testid="conversation-filter-active"
+                aria-label="Active conversations"
+                disabled={disabled}
+                size="small"
+                sx={{
+                  minWidth: 0,
+                  px: 1.25,
+                  py: 0.5,
+                  borderColor: '#D9E2EC',
+                  color: filterState.active ? '#F4F6F8' : '#1F2933',
+                  bgcolor: filterState.active ? '#20354A' : '#F4F6F8',
+                  '&.Mui-selected': {
+                    color: '#F4F6F8',
+                    bgcolor: '#20354A',
+                  },
+                  '&.Mui-selected:hover': {
+                    bgcolor: '#20354A',
+                  },
+                }}
+              >
+                Active
+              </ToggleButton>
+              <ToggleButton
+                value="archived"
+                selected={filterState.archived}
+                onClick={() => {
+                  const next = {
+                    active: filterState.active,
+                    archived: !filterState.archived,
+                  };
+                  log('info', 'chat.sidebar.filter_changed', {
+                    filterState: next,
+                  });
+                  onFilterChange(next);
+                }}
+                data-testid="conversation-filter-archived"
+                aria-label="Archived conversations"
+                disabled={disabled}
+                size="small"
+                sx={{
+                  minWidth: 0,
+                  px: 1.25,
+                  py: 0.5,
+                  borderColor: '#D9E2EC',
+                  color: filterState.archived ? '#F4F6F8' : '#1F2933',
+                  bgcolor: filterState.archived ? '#20354A' : '#F4F6F8',
+                  '&.Mui-selected': {
+                    color: '#F4F6F8',
+                    bgcolor: '#20354A',
+                  },
+                  '&.Mui-selected:hover': {
+                    bgcolor: '#20354A',
+                  },
+                }}
+              >
+                Archived
+              </ToggleButton>
+            </Stack>
           ) : (
             <Box />
           )}
@@ -344,6 +426,7 @@ export function ConversationList({
                   disabled={disabled}
                   aria-label="Refresh conversations"
                   data-testid="conversation-refresh"
+                  sx={{ color: '#1F2933' }}
                 >
                   <RefreshIcon fontSize="small" />
                 </IconButton>
@@ -351,42 +434,6 @@ export function ConversationList({
             </Tooltip>
           )}
         </Stack>
-
-        {showFilters && (
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            fullWidth
-            value={filterState}
-            onChange={(_event, next) => {
-              if (!next) return;
-              log('info', 'chat.sidebar.filter_changed', {
-                filterState: next as ConversationFilterState,
-              });
-              onFilterChange(next as ConversationFilterState);
-            }}
-            aria-label="Conversation filter"
-            disabled={disabled}
-            data-testid="conversation-filter"
-            sx={{ alignSelf: 'stretch', flexWrap: 'wrap' }}
-          >
-            <ToggleButton
-              value="active"
-              data-testid="conversation-filter-active"
-            >
-              Active
-            </ToggleButton>
-            <ToggleButton value="all" data-testid="conversation-filter-all">
-              Active &amp; Archived
-            </ToggleButton>
-            <ToggleButton
-              value="archived"
-              data-testid="conversation-filter-archived"
-            >
-              Archived
-            </ToggleButton>
-          </ToggleButtonGroup>
-        )}
       </Stack>
 
       {isError && (
@@ -407,10 +454,10 @@ export function ConversationList({
         data-testid="conversation-list"
         sx={{
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: '#D9E2EC',
           borderRadius: 1,
           overflow: 'hidden',
-          bgcolor: 'background.paper',
+          bgcolor: '#EEF2F6',
           flex: 1,
           width: '100%',
           minHeight: 240,
@@ -428,7 +475,7 @@ export function ConversationList({
               px: 1.5,
               py: 0.5,
               borderBottom: '1px solid',
-              borderColor: 'divider',
+              borderColor: '#D9E2EC',
               flexWrap: 'wrap',
               rowGap: 0.5,
             }}
@@ -456,11 +503,11 @@ export function ConversationList({
                   ),
                 }}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ color: '#52606D' }}>
                 {selectedIds.size} selected
               </Typography>
               {mongoConnected === false && (
-                <Typography variant="caption" color="warning.main">
+                <Typography variant="caption" sx={{ color: '#52606D' }}>
                   Bulk actions disabled (Mongo disconnected)
                 </Typography>
               )}
@@ -495,7 +542,7 @@ export function ConversationList({
               >
                 Restore
               </Button>
-              {filterState === 'archived' && (
+              {!filterState.active && filterState.archived && (
                 <Button
                   size="small"
                   variant="outlined"
@@ -522,7 +569,7 @@ export function ConversationList({
               spacing={1}
               data-testid="conversation-empty"
             >
-              <Typography color="text.secondary" align="center">
+              <Typography sx={{ color: '#52606D' }} align="center">
                 No conversations yet. Start a chat to see history here.
               </Typography>
             </Stack>
@@ -562,7 +609,7 @@ export function ConversationList({
                             gap: 0.25,
                             pl: 1,
                             borderLeft: '1px solid',
-                            borderColor: 'divider',
+                            borderColor: '#D9E2EC',
                           }}
                         >
                           <Tooltip
@@ -623,15 +670,13 @@ export function ConversationList({
                           </Tooltip>
                           <Typography
                             variant="caption"
-                            color={
-                              conversation.archived
-                                ? 'text.secondary'
-                                : 'primary'
-                            }
                             sx={{
                               lineHeight: 1.1,
                               textAlign: 'center',
                               minWidth: 0,
+                              color: conversation.archived
+                                ? '#52606D'
+                                : '#1F2933',
                             }}
                           >
                             {conversation.archived ? 'Restore' : 'Archive'}
@@ -659,10 +704,8 @@ export function ConversationList({
                         minWidth: 0,
                         width: '100%',
                         borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: selected
-                          ? 'rgba(232, 241, 251, 0.85)'
-                          : 'inherit',
+                        borderColor: '#D9E2EC',
+                        bgcolor: selected ? '#E8F1FB' : '#EEF2F6',
                         '&.Mui-selected': {
                           bgcolor: '#E8F1FB',
                         },
@@ -681,12 +724,18 @@ export function ConversationList({
                             if (bulkDisabled) return;
                             setSelectedIds((prev) => {
                               const next = new Set(prev);
-                              if (next.has(conversation.conversationId)) next.delete(conversation.conversationId);
+                              if (next.has(conversation.conversationId))
+                                next.delete(conversation.conversationId);
                               else next.add(conversation.conversationId);
                               return next;
                             });
                           }}
-                          slotProps={{ input: checkboxInputProps('Select conversation', 'conversation-select') }}
+                          slotProps={{
+                            input: checkboxInputProps(
+                              'Select conversation',
+                              'conversation-select',
+                            ),
+                          }}
                           sx={{ mr: 1, alignSelf: 'center', mt: 0.25 }}
                         />
                       )}
@@ -696,7 +745,7 @@ export function ConversationList({
                         sx={{
                           minWidth: 40,
                           mt: 0.25,
-                          color: selected ? '#20354A' : 'text.secondary',
+                          color: selected ? '#20354A' : '#52606D',
                           justifyContent: 'center',
                         }}
                       >
@@ -723,26 +772,28 @@ export function ConversationList({
                             fontWeight={selected ? 700 : 600}
                             noWrap
                             data-testid="conversation-title"
-                            sx={{ minWidth: 0, flex: 1 }}
+                            sx={{ minWidth: 0, flex: 1, color: '#1F2933' }}
                           >
                             {conversation.title || 'Untitled conversation'}
                           </Typography>
                           <Typography
                             variant="caption"
-                            color="text.secondary"
                             data-testid="conversation-updated"
                             noWrap
-                            sx={{ flexShrink: 0, pt: 0.125 }}
+                            sx={{
+                              flexShrink: 0,
+                              pt: 0.125,
+                              color: '#52606D',
+                            }}
                           >
                             {timestamp}
                           </Typography>
                         </Stack>
                         <Typography
                           variant="body2"
-                          color="text.secondary"
                           data-testid="conversation-preview"
                           noWrap
-                          sx={{ minWidth: 0 }}
+                          sx={{ minWidth: 0, color: '#52606D' }}
                         >
                           {previewText}
                         </Typography>
@@ -754,24 +805,26 @@ export function ConversationList({
                           useFlexGap
                           sx={{ minWidth: 0, maxWidth: '100%' }}
                         >
-                          {conversation.flags?.flow?.executionId && (
-                            <Chip
-                              label={`Run ${conversation.flags.flow.executionId.split('-')[0]}`}
-                              size="small"
-                              variant="outlined"
-                              color="default"
-                              data-testid="conversation-run-chip"
-                            />
-                          )}
-                          {conversation.flags?.flowChild?.executionId && (
-                            <Chip
-                              label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
-                              size="small"
-                              variant="outlined"
-                              color="default"
-                              data-testid="conversation-run-chip"
-                            />
-                          )}
+                          {conversation.flags?.flow?.executionId &&
+                            !conversation.flags?.flowChild?.executionId && (
+                              <Chip
+                                label={`Run ${conversation.flags.flow.executionId.split('-')[0]}`}
+                                size="small"
+                                variant="outlined"
+                                color="default"
+                                data-testid="conversation-run-chip"
+                              />
+                            )}
+                          {conversation.flags?.flowChild?.executionId &&
+                            !conversation.flags?.flow?.executionId && (
+                              <Chip
+                                label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
+                                size="small"
+                                variant="outlined"
+                                color="default"
+                                data-testid="conversation-run-chip"
+                              />
+                            )}
                           <Chip
                             label={providerPresentation.label}
                             size="small"

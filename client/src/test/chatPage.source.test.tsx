@@ -11,7 +11,7 @@ const baseProps: ComponentProps<typeof ConversationList> = {
   isError: false,
   error: undefined,
   hasMore: false,
-  filterState: 'active',
+  filterState: { active: true, archived: false },
   mongoConnected: true,
   disabled: false,
   onSelect: () => undefined,
@@ -45,9 +45,15 @@ describe('ConversationList source badges', () => {
 
     render(<ConversationList {...baseProps} conversations={conversations} />);
 
-    const providers = screen.getAllByTestId('conversation-provider-chip').map((n) => n.textContent || '');
-    const models = screen.getAllByTestId('conversation-model-chip').map((n) => n.textContent || '');
-    const sources = screen.getAllByTestId('conversation-source-chip').map((n) => n.textContent || '');
+    const providers = screen
+      .getAllByTestId('conversation-provider-chip')
+      .map((n) => n.textContent || '');
+    const models = screen
+      .getAllByTestId('conversation-model-chip')
+      .map((n) => n.textContent || '');
+    const sources = screen
+      .getAllByTestId('conversation-source-chip')
+      .map((n) => n.textContent || '');
 
     expect(providers.some((p) => /lm\s*studio/i.test(p))).toBe(true);
     expect(providers.some((p) => /codex/i.test(p))).toBe(true);

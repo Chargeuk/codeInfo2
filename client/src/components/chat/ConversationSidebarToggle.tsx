@@ -35,13 +35,14 @@ export default function ConversationSidebarToggle({
         transform: 'translateX(-50%)',
         zIndex: (theme) => theme.zIndex.drawer + 1,
         border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
+        borderColor: '#D9E2EC',
+        bgcolor: '#F4F6F8',
+        color: '#1F2933',
         boxShadow: 1,
         width: buttonSize,
         height: buttonSize,
         '&:hover': {
-          bgcolor: 'background.paper',
+          bgcolor: '#F4F6F8',
         },
         ...(isMobile
           ? {

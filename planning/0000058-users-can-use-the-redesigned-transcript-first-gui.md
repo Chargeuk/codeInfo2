@@ -2538,6 +2538,7 @@ Items to verify manually:
 - Kept the mobile app menu on the shared destination data path and verified the desktop rail change did not alter its row structure or sentence-style descriptions.
 - Added `client/src/test/workspaceAppRail.parity.test.tsx` to prove the desktop rail order/labels and the mobile-description preservation contract through the shared navigation data and both shell hosts.
 - Ran `npm run test:summary:client -- --file client/src/test/workspaceAppRail.parity.test.tsx`; it passed cleanly (`3` tests, `0` failed).
+- **BLOCKER** Remaining unchecked implementation subtasks after audit normalization: Subtask 10 (`npm run lint --workspace client`) and Subtask 11 (`npm run format:check --workspace client`). Evidence checked: the fresh disk reread of this Task 21 section, `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 21`, implementation commit `f98a913f`, the current `WorkspaceAppRail`, `workspaceNavigation`, and `workspaceAppRail.parity` files, and the existing Task 21 implementation notes. That evidence supports the desktop rail implementation plus targeted parity-test proof, but it does not honestly show that the required implementation lint and format gates were run for this task. Implementation cannot continue honestly without repair, narrower ownership, or planner intervention to either complete or explicitly re-shape those remaining implementation subtasks before automated proof runs.
 
 ### Task 22. Redesign Shared Conversation Rows To Match The Final Desktop And Mobile Metadata Model
 
@@ -4106,5 +4107,4 @@ Final story-level items to verify manually:
 #### Implementation Notes
 
 - None yet.
-
 

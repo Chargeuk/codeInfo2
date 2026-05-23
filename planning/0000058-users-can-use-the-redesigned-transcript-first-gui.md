@@ -2499,8 +2499,8 @@ Bring the shared desktop app rail to exact parity with the approved Story 58 des
 7. [x] Current Repository: Verify `client/src/components/utility/UtilityPageShell.tsx` and `client/src/components/workspace/WorkspaceDesktopShell.tsx` host the revised desktop rail without page-local spacing drift or destination-order drift, and verify `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` remains functionally unchanged except for shared destination ordering if that config was corrected. Purpose: keep desktop parity work isolated from mobile overlay rendering.
 8. [x] Current Repository: Create `client/src/test/workspaceAppRail.parity.test.tsx`. Description: prove the desktop rail renders exactly six destinations in the final order with one-word labels only, no descriptive secondary rail text, and the shared active-destination state. Implementation files: `client/src/components/workspace/WorkspaceAppRail.tsx`, `client/src/components/workspace/workspaceNavigation.tsx`, `client/src/components/utility/UtilityPageShell.tsx`, and `client/src/components/workspace/WorkspaceDesktopShell.tsx`.
 9. [x] Current Repository: Extend `client/src/test/workspaceAppRail.parity.test.tsx` to prove the shared navigation config still provides sentence-style secondary descriptions to `client/src/components/workspace/WorkspaceMobileAppMenuOverlay.tsx` while the desktop rail intentionally suppresses those descriptions. The proof must assert that mobile descriptions are still present and desktop descriptions are still absent. Purpose: prevent a fix that makes desktop correct by breaking the mobile app-menu contract.
-10. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
-11. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
+10. [x] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
+11. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
 
 #### Testing
 
@@ -2538,7 +2538,9 @@ Items to verify manually:
 - Kept the mobile app menu on the shared destination data path and verified the desktop rail change did not alter its row structure or sentence-style descriptions.
 - Added `client/src/test/workspaceAppRail.parity.test.tsx` to prove the desktop rail order/labels and the mobile-description preservation contract through the shared navigation data and both shell hosts.
 - Ran `npm run test:summary:client -- --file client/src/test/workspaceAppRail.parity.test.tsx`; it passed cleanly (`3` tests, `0` failed).
-- **BLOCKER** Remaining unchecked implementation subtasks after audit normalization: Subtask 10 (`npm run lint --workspace client`) and Subtask 11 (`npm run format:check --workspace client`). Evidence checked: the fresh disk reread of this Task 21 section, `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 21`, implementation commit `f98a913f`, the current `WorkspaceAppRail`, `workspaceNavigation`, and `workspaceAppRail.parity` files, and the existing Task 21 implementation notes. That evidence supports the desktop rail implementation plus targeted parity-test proof, but it does not honestly show that the required implementation lint and format gates were run for this task. Implementation cannot continue honestly without repair, narrower ownership, or planner intervention to either complete or explicitly re-shape those remaining implementation subtasks before automated proof runs.
+- Ran `npm run lint --workspace client`; it passed with only existing non-failing warnings in `client/src/hooks/useChatModel.ts` and `client/src/pages/ChatPage.tsx`, so no Task 21 lint repair was needed.
+- Ran `npm run format:check --workspace client`; it failed on `client/src/components/workspace/WorkspaceAppRail.tsx` and `client/src/test/useLmStudioStatus.test.ts`, so I applied targeted Prettier formatting to those files and reran the check until it passed cleanly.
+- **RESOLVED ISSUE** The audit blocker about unchecked implementation subtasks is now retired. Subtask 10 (`npm run lint --workspace client`) and Subtask 11 (`npm run format:check --workspace client`) were completed during this repair pass, and the remaining unchecked items for Task 21 are the later `Testing` gates only.
 
 ### Task 22. Redesign Shared Conversation Rows To Match The Final Desktop And Mobile Metadata Model
 
@@ -4107,4 +4109,3 @@ Final story-level items to verify manually:
 #### Implementation Notes
 
 - None yet.
-

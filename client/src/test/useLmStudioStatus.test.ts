@@ -233,9 +233,7 @@ describe('useLmStudioStatus', () => {
       mockJsonResponse({
         status: 'ok',
         baseUrl: 'http://newer.example:5678',
-        models: [
-          { modelKey: 'new', displayName: 'New Model', type: 'gguf' },
-        ],
+        models: [{ modelKey: 'new', displayName: 'New Model', type: 'gguf' }],
       } satisfies LmStudioStatusOk),
     );
     await act(async () => {
@@ -257,9 +255,7 @@ describe('useLmStudioStatus', () => {
       mockJsonResponse({
         status: 'ok',
         baseUrl: 'http://older.example:1234',
-        models: [
-          { modelKey: 'old', displayName: 'Old Model', type: 'gguf' },
-        ],
+        models: [{ modelKey: 'old', displayName: 'Old Model', type: 'gguf' }],
       } satisfies LmStudioStatusOk),
     );
     await act(async () => {

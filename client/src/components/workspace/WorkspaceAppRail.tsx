@@ -1,10 +1,4 @@
-import {
-  Box,
-  List,
-  ListItemButton,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, List, ListItemButton, Stack, Typography } from '@mui/material';
 import { NavLink, useInRouterContext, useLocation } from 'react-router-dom';
 import {
   WORKSPACE_DESTINATIONS,
@@ -42,7 +36,10 @@ function WorkspaceAppRailContent({
       }}
       data-testid="workspace-app-rail"
     >
-      <List disablePadding sx={{ px: 0.75, py: 0.25, display: 'grid', gap: 0.5 }}>
+      <List
+        disablePadding
+        sx={{ px: 0.75, py: 0.25, display: 'grid', gap: 0.5 }}
+      >
         {WORKSPACE_DESTINATIONS.map((destination) => {
           const selected = activePath === destination.path;
           return (

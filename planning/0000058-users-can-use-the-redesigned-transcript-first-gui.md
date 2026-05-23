@@ -3035,7 +3035,7 @@ Where the latest Story 58 follow-up direction is stricter than the transcript ma
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared assistant/user transcript rendering, shared transcript wrapper treatment, and role-specific footer behavior across desktop and mobile.  <!-- proof: client tests passed -->
 3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript behavior, footer controls, popup attachment behavior, and shared desktop/mobile reading-surface layout that should be re-proved in a real browser.  <!-- proof: e2e passed -->
 4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task changes shared frontend surfaces and adds or updates browser-path proof that may touch root-owned e2e files.  <!-- proof: lint passed -->
-5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task changes shared frontend surfaces and may also update root-owned e2e proof files.
+5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task changes shared frontend surfaces and may also update root-owned e2e proof files.  <!-- proof: format passed -->
 
 #### Manual Testing Guidance
 

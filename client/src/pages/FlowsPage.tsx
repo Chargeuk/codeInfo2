@@ -1757,7 +1757,6 @@ export default function FlowsPage() {
 
   const infoContent = (
     <Stack spacing={1.5} sx={{ maxWidth: 420 }} data-testid="flow-info-content">
-      {console.log('DEBUG_FLOW_INFO', {selectedFlowName, flowDescription, selectedFlowDetails})}
       <Stack spacing={0.5} data-testid="flow-launch-context">
         <Typography variant="subtitle2">Launch context</Typography>
         <Typography

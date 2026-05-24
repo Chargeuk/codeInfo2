@@ -4,6 +4,7 @@ model_reasoning_effort = "medium"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
 web_search = "disabled"
+model_auto_compact_token_limit=300000
 
 [features]
 view_image_tool = true

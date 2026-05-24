@@ -1,5 +1,5 @@
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import TitleRoundedIcon from '@mui/icons-material/TitleRounded';
 import {
@@ -45,6 +45,9 @@ import ConversationList from '../components/chat/ConversationList';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
+import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
+import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
+import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
 import CommonComposerFooter from '../components/workspace/composer/CommonComposerFooter';
 import CommonComposerMainInputRow from '../components/workspace/composer/CommonComposerMainInputRow';
 import CommonComposerShell from '../components/workspace/composer/CommonComposerShell';
@@ -53,9 +56,6 @@ import ComposerFooterButton from '../components/workspace/composer/ComposerFoote
 import ComposerMobileDialog from '../components/workspace/composer/ComposerMobileDialog';
 import ComposerSendButton from '../components/workspace/composer/ComposerSendButton';
 import { getWorkingFolderName } from '../components/workspace/composer/composerFormatting';
-import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
-import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
-import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
 import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns, {
@@ -144,7 +144,7 @@ export default function FlowsPage() {
   // Some headless/browser test environments report media queries inconsistently.
   // Use window.innerWidth as a fallback to determine the effective mobile
   // rendering surface so Playwright viewport sizing is respected.
-  const breakpointSm = (theme.breakpoints as any)?.values?.sm ?? 600;
+  const breakpointSm = (theme.breakpoints as { values?: { sm?: number } })?.values?.sm ?? 600;
   const effectiveIsMobile =
     typeof window !== 'undefined'
       ? isMobile || window.innerWidth <= breakpointSm
@@ -1391,14 +1391,7 @@ export default function FlowsPage() {
           return;
         }
         const message = (err as Error).message || 'Failed to run flow.';
-        const errorMessage: ChatMessage = {
-          id: makeClientConversationId(),
-          role: 'assistant',
-          content: message,
-          kind: 'error',
-          streamStatus: 'failed',
-          createdAt: new Date().toISOString(),
-        };
+
         // Show the run error at the top-level run error banner. Avoid duplicating
         // the message in both the chat transcript and the banner to prevent
         // multiple matching elements in tests and confusing UI duplication.

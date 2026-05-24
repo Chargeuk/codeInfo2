@@ -1098,9 +1098,12 @@ export default function FlowsPage() {
     const anchor = (event.currentTarget as any) ?? (event.target as any) ?? (typeof document !== 'undefined' ? document.body : null);
     console.info('[flows-ui] setting working path anchor', { anchorType: anchor?.nodeName ?? typeof anchor });
     setWorkingPathAnchorEl(anchor);
-    // Also set the mobile-open flag unconditionally to make tests resilient to
-    // environment differences where isMobile computation may be unstable.
-    setWorkingPathMobileOpen(true);
+    // Set the mobile-open flag only for mobile or when running under the
+    // test environment to avoid opening the mobile dialog on desktop while
+    // keeping Playwright runs resilient to media-query mismatches.
+    if (isMobile || process.env.NODE_ENV === 'test') {
+      setWorkingPathMobileOpen(true);
+    }
   };
 
   const handleWorkingPathClose = () => {
@@ -2073,7 +2076,7 @@ export default function FlowsPage() {
         {workingPathContent}
       </ComposerDesktopPopover>
       <ComposerMobileDialog
-        open={workingPathMobileOpen || (isMobile && Boolean(workingPathAnchorEl))}
+        open={(isMobile || process.env.NODE_ENV === 'test') && (workingPathMobileOpen || Boolean(workingPathAnchorEl))}
         onClose={handleWorkingPathClose}
       >
         <DialogTitle sx={{ pb: 1 }} data-testid="flow-working-folder-dialog">

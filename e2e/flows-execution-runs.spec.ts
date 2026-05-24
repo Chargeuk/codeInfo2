@@ -1,9 +1,9 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
-import { installMockChatWs } from './support/mockChatWs';
 import {
   knownRepositoryPathsAvailable,
   validateRequestedWorkingFolder,
 } from '../server/src/workingFolders/state';
+import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiUrl = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';

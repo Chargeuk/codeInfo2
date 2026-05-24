@@ -643,6 +643,7 @@ export default function FlowsPage() {
   const loadFlows = useCallback(async () => {
     setFlowsLoading(true);
     setFlowsError(null);
+    let nextSelectedKey: string | undefined;
     try {
       const result = await listFlows();
       setFlows(result.flows);
@@ -653,11 +654,11 @@ export default function FlowsPage() {
       if (!selectedFlowKey || !flowKeys.includes(selectedFlowKey)) {
         const firstAvailable = result.flows.find((flow) => !flow.disabled);
         if (firstAvailable) {
-          setSelectedFlowKey(buildFlowKey(firstAvailable));
+          nextSelectedKey = buildFlowKey(firstAvailable);
         } else if (result.flows.length > 0) {
-          setSelectedFlowKey(buildFlowKey(result.flows[0]));
+          nextSelectedKey = buildFlowKey(result.flows[0]);
         } else {
-          setSelectedFlowKey('');
+          nextSelectedKey = '';
         }
       }
     } catch (err) {
@@ -665,6 +666,9 @@ export default function FlowsPage() {
       setFlows([]);
     } finally {
       setFlowsLoading(false);
+      if (typeof nextSelectedKey !== 'undefined' && nextSelectedKey !== selectedFlowKey) {
+        setSelectedFlowKey(nextSelectedKey);
+      }
     }
   }, [selectedFlowKey]);
 

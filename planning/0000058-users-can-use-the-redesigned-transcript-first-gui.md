@@ -3806,7 +3806,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 27`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -3955,6 +3955,7 @@ Items to verify manually:
 - **IMPLEMENTATION NOTE** Manual testing on 2026-05-24 stayed task-scoped and restarted the checked-in main stack because the prior runtime was already running but freshness was not provable from current repo evidence. The refreshed browser still reproduces a Task 29 working-path failure on an existing `Flow: echo` conversation: selecting `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` from the visible directory picker issues `POST /conversations/hprbh7mtknt/working-folder`, logs `flow working-folder persistence failed`, and returns `WORKING_FOLDER_NOT_FOUND` while server logs show `validateKnownRepository target /data/codeinfo2/codeInfo2` without that path in the known-repository set. Retained scratch proof for this pass is under `codeInfoTmp/manual-testing/0000058/29/` (`proof-01-desktop-working-path-failure.png`, `proof-02-mobile-current-shell.png`, `support-working-folder-400.network-request`, `support-working-folder-400.network-response`, `support-console.txt`, `support-server-log.txt`); Playwright staging was also attempted with `manual-testing/0000058/29/proof-01-desktop-current-shell.png`, `proof-02-desktop-working-path-popover.png`, and `proof-03-mobile-current-shell.png`, but this runtime did not expose a host-visible copy-out path for those files, so Subtasks 15 and 16 plus Testing item 3 reopen for another repair and automated rerun before later manual retest.
 - **IMPLEMENTATION NOTE** Reopened and repaired the existing-conversation working-folder seam by accepting the mounted local execution root as a valid identity in `server/src/workingFolders/state.ts`, which lets the visible `Flows` picker save a repository path that lives under the workspace mount instead of rejecting it as `working_folder not found`. Added a focused unit test in `server/src/test/unit/agents-working-folder.test.ts` to prove the mapped host path now validates through the local execution root identity.
 - **IMPLEMENTATION NOTE** Extended `e2e/flows-execution-runs.spec.ts` so the existing-conversation working-folder browser proof uses the same validation helper as the server path, then reran the targeted browser proof successfully. The page-level `Flows` persistence logic in `client/src/pages/FlowsPage.tsx` was reviewed during the repair and already preserved the server-returned working-folder value, so no client-side code change was needed for this pass.
+- **IMPLEMENTATION NOTE** Automated-proof audit confirmed the latest full `npm run test:summary:e2e` wrapper passed cleanly (`69` passed, `0` unexpected), so the earlier manual-proof reopen notes are now historical context only. Task 29 returns to `__done__` because the parser-visible checklist is fully complete again (`16/16` subtasks, `5/5` testing, no live blocker).
 
 
 ### Task 30. Unify The Mobile Top Bar And Remove Bulky Mobile Shell Padding Across Workspace And Utility Pages

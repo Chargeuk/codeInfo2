@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { resolveAgentHomeEnv } from '../agents/roots.js';
@@ -269,11 +270,46 @@ export async function restoreSavedWorkingFolder(params: {
   if (!conversationId || !savedWorkingFolder) return undefined;
 
   try {
-    const resolved = await validateRequestedWorkingFolder({
-      workingFolder: savedWorkingFolder,
+    // Allow resolving the saved host working folder even when the local mount
+    // is not present so downstream repository membership validation can make
+    // the final decision based on ingested repository identities.
+    const resolved = await resolveSharedWorkingFolderWorkingDirectory(
+      savedWorkingFolder,
+      { allowMissingHostPath: true },
+    );
+    if (!resolved) return undefined;
+
+    // If no repository membership state was provided and the resolved path
+    // does not exist locally, treat the saved path as invalid and clear it.
+    let existsLocally = true;
+    try {
+      const st = await fs.stat(resolved);
+      existsLocally = typeof st?.isDirectory === 'function' ? st.isDirectory() : true;
+    } catch {
+      existsLocally = false;
+    }
+    if (!existsLocally && params.knownRepositoryPathsState === undefined) {
+      await params.clearPersistedWorkingFolder(conversationId);
+      appendWorkingFolderDecisionLog({
+        conversationId,
+        recordType: getConversationRecordType(params.conversation),
+        surface: params.surface,
+        action: 'clear',
+        decisionReason: 'saved_value_invalid',
+        stalePath: savedWorkingFolder,
+        level: 'warn',
+      });
+      return undefined;
+    }
+
+    const knownRepositoryError = validateKnownRepository({
+      workingFolder: resolved,
       knownRepositoryPathsState: params.knownRepositoryPathsState,
     });
-    if (!resolved) return undefined;
+    if (knownRepositoryError) {
+      throw knownRepositoryError;
+    }
+
     appendWorkingFolderDecisionLog({
       conversationId,
       recordType: getConversationRecordType(params.conversation),

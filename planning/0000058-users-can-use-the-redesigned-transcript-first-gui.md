@@ -3721,11 +3721,11 @@ The shared primary action control in the `Agents` composer must follow the share
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Agents` page.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, unified mode selection, shared summary content, and shared composer interactions across desktop and mobile.
-3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Agents`, including the summary-only `Info` surface and the working-path browse flow inside the supported compose runtime.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, unified mode selection, shared summary content, and shared composer interactions across desktop and mobile.
+3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Agents`, including the summary-only `Info` surface and the working-path browse flow inside the supported compose runtime.
 4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
 5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
-6. [ ] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this follow-up now changes the server-side `/ingest/dirs` runtime contract that the shared working-folder picker relies on in the checked-in main stack.
+6. [x] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this follow-up now changes the server-side `/ingest/dirs` runtime contract that the shared working-folder picker relies on in the checked-in main stack.
 7. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this follow-up adds server-side proof for the `/ingest/dirs` host-path versus mounted-workdir mapping behavior that the broken `Agents` picker exposed during manual proof.
 
 #### Manual Testing Guidance

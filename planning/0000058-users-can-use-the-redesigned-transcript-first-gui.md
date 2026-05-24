@@ -3963,7 +3963,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -4127,6 +4127,7 @@ Items to verify manually:
 - Kept the workspace conversations trigger wired to the overlay and restored the `aria-expanded` contract so the mobile drawer still behaves like the existing browser proofs expect.
 - Added focused client coverage for the shared top bar and a mobile-shell parity test for utility/workspace pages, then confirmed the new mobile browser proof against the rebuilt localhost stack.
 - Cleaned client lint and format issues after the implementation pass so the task-owned checks are now green.
+- Automated-proof audit confirmed Task 30 is fully closed: the current parser-visible checklist is complete (`21/21` subtasks, `5/5` testing, no live blocker), the latest client test wrapper passed (`835/835`), the latest client build wrapper completed successfully, and the latest full e2e wrapper ended with `0` unexpected failures. Task 30 now returns to `__done__` and the next implementation loop can move on to Task 31.
 
 
 ### Task 31. Reverse The Shared Transcript Reading Order And Open Existing Conversations At The Latest Content While Preserving Story 49 Virtualization

@@ -141,13 +141,22 @@ const waitForNextPaint = () =>
 export default function FlowsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // Some headless/browser test environments report media queries inconsistently.
+  // Use window.innerWidth as a fallback to determine the effective mobile
+  // rendering surface so Playwright viewport sizing is respected.
+  const breakpointSm = (theme.breakpoints as any)?.values?.sm ?? 600;
+  const effectiveIsMobile =
+    typeof window !== 'undefined'
+      ? isMobile || window.innerWidth <= breakpointSm
+      : isMobile;
+
   const drawerWidth = 320;
   const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
   const [mobileAppMenuOpen, setMobileAppMenuOpen] = useState(false);
   const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
-    isMobile ? false : true,
+    effectiveIsMobile ? false : true,
   );
-  const conversationPaneOpen = isMobile
+  const conversationPaneOpen = effectiveIsMobile
     ? mobileConversationsOpen
     : desktopDrawerOpen;
 
@@ -2036,7 +2045,7 @@ export default function FlowsPage() {
       />
 
       <ComposerDesktopPopover
-        open={!isMobile && Boolean(flowInfoAnchorEl)}
+        open={!effectiveIsMobile && Boolean(flowInfoAnchorEl)}
         anchorEl={flowInfoAnchorEl}
         onClose={handleFlowInfoClose}
         width={420}
@@ -2045,7 +2054,7 @@ export default function FlowsPage() {
         {infoContent}
       </ComposerDesktopPopover>
       <ComposerMobileDialog
-        open={isMobile && Boolean(flowInfoAnchorEl)}
+        open={effectiveIsMobile && Boolean(flowInfoAnchorEl)}
         onClose={handleFlowInfoClose}
         data-testid="flow-info-dialog"
       >
@@ -2067,7 +2076,7 @@ export default function FlowsPage() {
         </DialogActions>
       </ComposerMobileDialog>
 
-      {!isMobile && (
+      {!effectiveIsMobile && (
         <ComposerDesktopPopover
           open={Boolean(workingPathAnchorEl)}
           anchorEl={workingPathAnchorEl}
@@ -2079,7 +2088,7 @@ export default function FlowsPage() {
         </ComposerDesktopPopover>
       )}
 
-      {isMobile && (
+      {effectiveIsMobile && (
         <ComposerMobileDialog
           open={workingPathMobileOpen}
           onClose={handleWorkingPathClose}
@@ -2104,7 +2113,7 @@ export default function FlowsPage() {
       )}
 
       <ComposerDesktopPopover
-        open={!isMobile && Boolean(selectedFlowAnchorEl)}
+        open={!effectiveIsMobile && Boolean(selectedFlowAnchorEl)}
         anchorEl={selectedFlowAnchorEl}
         onClose={handleSelectedFlowClose}
         width={420}
@@ -2113,7 +2122,7 @@ export default function FlowsPage() {
         {flowSelectorContent}
       </ComposerDesktopPopover>
       <ComposerMobileDialog
-        open={isMobile && Boolean(selectedFlowAnchorEl)}
+        open={effectiveIsMobile && Boolean(selectedFlowAnchorEl)}
         onClose={handleSelectedFlowClose}
         data-testid="flow-select-dialog"
       >
@@ -2136,7 +2145,7 @@ export default function FlowsPage() {
       </ComposerMobileDialog>
 
       <ComposerDesktopPopover
-        open={!isMobile && Boolean(titleAnchorEl)}
+        open={!effectiveIsMobile && Boolean(titleAnchorEl)}
         anchorEl={titleAnchorEl}
         onClose={handleTitleClose}
         width={420}
@@ -2145,7 +2154,7 @@ export default function FlowsPage() {
         {titleEditorContent}
       </ComposerDesktopPopover>
       <ComposerMobileDialog
-        open={isMobile && Boolean(titleAnchorEl)}
+        open={effectiveIsMobile && Boolean(titleAnchorEl)}
         onClose={handleTitleClose}
         data-testid="flow-title-dialog"
       >
@@ -2183,7 +2192,7 @@ export default function FlowsPage() {
       composer={composerSurface}
       conversationPaneOpen={conversationPaneOpen}
       conversationPaneWidth={drawerWidth}
-      isMobile={isMobile}
+      isMobile={effectiveIsMobile}
       onToggleConversationPane={() => {
         setDesktopDrawerOpen((prev) => !prev);
       }}
@@ -2284,7 +2293,7 @@ export default function FlowsPage() {
           </Alert>
         )}
 
-        {isMobile ? mobileWorkspace : desktopWorkspace}
+        {effectiveIsMobile ? mobileWorkspace : desktopWorkspace}
       </Stack>
     </Box>
   );

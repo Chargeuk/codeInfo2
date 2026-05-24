@@ -4252,7 +4252,7 @@ Where the current implementation conflicts with this task and the updated Story 
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared transcript code and page adapters used across all workspace pages.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared transcript ordering, initial-open behavior, virtualization-sensitive scroll behavior, and page transcript adapters.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared transcript ordering, initial-open behavior, virtualization-sensitive scroll behavior, and page transcript adapters.
 3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript ordering and initial landing behavior in a real browser on workspace pages.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
 5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
@@ -4294,6 +4294,8 @@ Items to verify manually:
 #### Implementation Notes
 
 - Ran a preflight visual refinement pass against the live `/flows` transcript and clarified the page-level reverse adapters plus the shared top-landing refs that still drive the visible newest-first mismatch; no code was changed in this step.
+- Ran client build: `npm run build:summary:client` — PASSED with warnings (1 warning: large chunk size after minification). See `logs/test-summaries/build-client-latest.log` for details.
+- Ran client tests: `npm run test:summary:client` — FAILED initially (4 failing tests). Fixed three ordering-dependent assertions in `client/src/test/chatPage.stream.test.tsx` and made the `Flows` bubble selection order-independent in `client/src/test/flowsPage.test.tsx`. Re-ran tests and all client tests now PASS. See test log: `test-results/client-tests-2026-05-24T20-59-55-848Z.log`.
 - Ran client build: `npm run build:summary:client` — PASSED with warnings (1 warning: large chunk size after minification). See `logs/test-summaries/build-client-latest.log` for details.
 - Reversed the page adapters back to chronological order, removed the shared top-landing lock, and let the shared transcript settle at the bottom with the existing pinned-bottom behavior.
 - Added focused transcript-order unit coverage, page-level order assertions for Chat, Agents, and Flows, and a focused Playwright browser proof for the Flows ordering and scrolled-away retention path.

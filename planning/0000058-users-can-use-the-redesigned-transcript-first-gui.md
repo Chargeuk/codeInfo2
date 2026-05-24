@@ -4126,6 +4126,10 @@ Items to verify manually:
 - Replaced the split mobile header rows with a shared `WorkspaceMobileTopBar`, and reused it from `UtilityPageShell`, `ChatPage`, `AgentsPage`, and `FlowsPage`.
 - Kept the workspace conversations trigger wired to the overlay and restored the `aria-expanded` contract so the mobile drawer still behaves like the existing browser proofs expect.
 - Added focused client coverage for the shared top bar and a mobile-shell parity test for utility/workspace pages, then confirmed the new mobile browser proof against the rebuilt localhost stack.
+- Manual testing skipped for Task 30 mobile shell browser proof.
+- Tried: restarted the supported main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`; verified `http://localhost:5010/health` and `http://localhost:5001`; inspected restarted `/flows` and `/agents` pages in Chrome DevTools and checked the Playwright tab state for fresh screenshot capture.
+- Observed: every available Chrome DevTools app page still rendered the old `CONVERSATIONS` / `MENU` top row from a pre-restart browser state, and Playwright exposed only `about:blank` with no navigable app tab to capture a fresh post-restart mobile surface.
+- Why fuller proof was not possible: the supported browser tooling in this environment could not provide a fresh post-restart app context for honest Task 30 mobile-shell proof, so I could not capture trustworthy current-state screenshots or interaction evidence in this pass; intended scratch proof destination remained `codeInfoTmp/manual-testing/0000058/30/`.
 - Cleaned client lint and format issues after the implementation pass so the task-owned checks are now green.
 - Automated-proof audit confirmed Task 30 is fully closed: the current parser-visible checklist is complete (`21/21` subtasks, `5/5` testing, no live blocker), the latest client test wrapper passed (`835/835`), the latest client build wrapper completed successfully, and the latest full e2e wrapper ended with `0` unexpected failures. Task 30 now returns to `__done__` and the next implementation loop can move on to Task 31.
 

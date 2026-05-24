@@ -235,7 +235,9 @@ describe('Agents page auth dialog', () => {
     render(<RouterProvider router={router} />);
 
     await user.click(await screen.findByTestId('agent-info'));
-    await user.click(await screen.findByRole('button', { name: /re-authenticate/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /re-authenticate/i }),
+    );
 
     expect(
       await screen.findByRole('heading', { name: 'Choose Authentication' }),

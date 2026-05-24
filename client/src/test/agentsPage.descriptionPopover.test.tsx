@@ -1,10 +1,5 @@
 import { jest } from '@jest/globals';
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -267,9 +262,7 @@ describe('Agents page - command info popover', () => {
       'agent-command-option-smoke::local',
     );
     await user.click(option);
-    await waitFor(() =>
-      expect(screen.getByTestId('agent-info')).toBeEnabled(),
-    );
+    await waitFor(() => expect(screen.getByTestId('agent-info')).toBeEnabled());
   };
 
   it('renders command-info control between command select and execute button', async () => {

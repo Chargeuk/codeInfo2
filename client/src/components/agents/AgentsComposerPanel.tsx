@@ -836,16 +836,32 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           data-testid="agent-working-folder"
           value={selectedWorkingFolder}
           disabled={isWorkingFolderDisabled}
-          onChange={(e) => onWorkingFolderChange((e.target as HTMLInputElement).value)}
-          onBlur={(e) => void onCommitWorkingFolder('blur', (e.target as HTMLInputElement).value)}
+          onChange={(e) =>
+            onWorkingFolderChange((e.target as HTMLInputElement).value)
+          }
+          onBlur={(e) =>
+            void onCommitWorkingFolder(
+              'blur',
+              (e.target as HTMLInputElement).value,
+            )
+          }
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
               e.stopPropagation();
-              void onCommitWorkingFolder('enter', (e.target as HTMLInputElement).value);
+              void onCommitWorkingFolder(
+                'enter',
+                (e.target as HTMLInputElement).value,
+              );
             }
           }}
-          style={{position: 'absolute', left: -9999, width: 1, height: 1, opacity: 0}}
+          style={{
+            position: 'absolute',
+            left: -9999,
+            width: 1,
+            height: 1,
+            opacity: 0,
+          }}
         />
       ) : null}
 

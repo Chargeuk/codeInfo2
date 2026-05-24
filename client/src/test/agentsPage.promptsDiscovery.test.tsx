@@ -562,9 +562,9 @@ describe('Agents page - prompts selector state transitions', () => {
     expect(
       await screen.findByTestId(`agent-prompt-option-${leakedFullPath}`),
     ).toHaveTextContent('secret/path.md');
-    expect(screen.getByTestId(`agent-prompt-option-${leakedFullPath}`)).toHaveTextContent(
-      leakedFullPath,
-    );
+    expect(
+      screen.getByTestId(`agent-prompt-option-${leakedFullPath}`),
+    ).toHaveTextContent(leakedFullPath);
   });
 
   it('resets prompt selection immediately on committed folder changes from Enter and picker', async () => {

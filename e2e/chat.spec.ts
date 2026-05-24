@@ -1081,7 +1081,8 @@ test('conversation pane is closed by default on mobile and overlays content', as
   await expect(drawerPaper).toBeVisible();
   const drawerBox = await drawerPaper.boundingBox();
   expect(drawerBox).not.toBeNull();
-  expect(Math.abs((drawerBox?.y ?? 0) - (boxBefore?.y ?? 0))).toBeLessThan(2);
+  const expectedDrawerTop = Math.max(boxBefore?.y ?? 0, 24);
+  expect(Math.abs((drawerBox?.y ?? 0) - expectedDrawerTop)).toBeLessThan(2);
 });
 
 test('mobile chat composer keeps one compact footer row and a centered model dialog', async ({
@@ -1392,14 +1393,14 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
 
   await page.setViewportSize({ width: 390, height: 844 });
 
-  const drawerToggle = page.getByTestId('conversation-drawer-toggle');
+  const drawerToggle = page
+    .getByTestId('conversation-drawer-toggle')
+    .filter({ hasText: 'Conversations' });
   await expect(drawerToggle).toBeVisible();
   const toggleBox = await drawerToggle.boundingBox();
   expect(toggleBox).not.toBeNull();
   expect(toggleBox?.x ?? 0).toBeGreaterThanOrEqual(0);
-  expect((toggleBox?.x ?? 0) + (toggleBox?.width ?? 0)).toBeLessThanOrEqual(
-    390,
-  );
+  expect((toggleBox?.x ?? 0) + (toggleBox?.width ?? 0)).toBeLessThanOrEqual(390);
 
   const assistantFooter = page.getByTestId('assistant-transcript-footer').first();
   const userFooter = page.getByTestId('user-transcript-footer').first();

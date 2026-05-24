@@ -1031,6 +1031,12 @@ async function executeCodebaseQuestion(
       reason?: string;
       causeCode?: string;
     };
+  }
+  try {
+    console.error('effectiveWorkingFolder', String(effectiveWorkingFolder));
+  } catch (e) {
+    console.error('effectiveWorkingFolder_error', String(e));
+  }
     if (
       workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
       workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'

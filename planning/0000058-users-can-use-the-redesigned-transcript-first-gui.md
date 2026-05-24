@@ -3806,7 +3806,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 27`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -3940,8 +3940,9 @@ Items to verify manually:
 - Ran `npm run lint --workspace client`; it passed without requiring task-local lint fixes.
 - Ran `npm run format:check --workspace client`; it initially failed on `client/src/pages/FlowsPage.tsx`, so `npm run format --workspace client` reformatted that task-owned file and the rerun of `npm run format:check --workspace client` passed.
 - **RESOLVED ISSUE** Cleared the Task 29 proof-authoring blocker from subtasks 11 through 14. Targeted verification passed with `npm run test:summary:client -- --file client/src/test/flowsPage.composer.test.tsx` (`1/1`) and `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows composer footer controls use upward desktop popovers and centered mobile dialogs"` (`1/1`), so the live blocker now retires while the later full Task 29 `Testing` section remains intentionally unchecked.
-- **RESOLVED ISSUE** Repaired the Task 29 full client-proof blocker by updating the stale `Flows` run/resume/stop tests to match the shared composer contract: launch identity now proves through the `Info` surface, fresh-run seams are re-entered explicitly before retrying from resumable context, the rapid double-click guard accepts either disabled `Run` or visible enabled `Stop` during the protected window, and title-entry assertions wait for the hidden test seam to become actionable before typing. Targeted rerun coverage passed with `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsPage.stop.test.tsx` (`44/44`), and the task-owned wrapper `npm run test:summary:client` now passes (`827/827`). Testing item 2 is complete; remaining Task 29 automated proof steps stay intentionally unchecked.
-- **RESOLVED ISSUE** The full Task 29 browser-path wrapper now passes: `npm run test:summary:e2e` completed cleanly (`68/68`), so Testing item 3 is complete and the prior e2e blocker retires. The remaining repository-root proof gates (`npm run lint` and `npm run format:check`) stay intentionally unchecked without a generic live blocker.
+- **RESOLVED ISSUE** Repaired the Task 29 full client-proof blocker by updating the stale `Flows` run/resume/stop tests to match the shared composer contract: launch identity now proves through the `Info` surface, fresh-run seams are re-entered explicitly before retrying from resumable context, the rapid double-click guard accepts either disabled `Run` or visible enabled `Stop` during the protected window, and title-entry assertions wait for the hidden test seam to become actionable before typing. Targeted rerun coverage passed with `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --file client/src/test/flowsPage.runGuard.test.tsx --file client/src/test/flowsPage.stop.test.tsx` (`44/44`), and the task-owned wrapper `npm run test:summary:client` now passes (`827/827`). Later proof passes completed the remaining automated gates, so this note no longer leaves Task 29 open.
+- **RESOLVED ISSUE** The full Task 29 browser-path wrapper now passes: `npm run test:summary:e2e` completed cleanly (`68/68`), so Testing item 3 is complete and the prior e2e blocker retires. The later repository-root proof gates (`npm run lint` and `npm run format:check`) also completed, so this note no longer leaves any automated-proof remainder.
+- **IMPLEMENTATION NOTE** Automated-proof audit normalization confirmed the parser-visible Task 29 checklist is fully complete (`14/14` subtasks, `5/5` testing, no live blocker), so Task 29 now flips to `__done__` and the next active implementation loop can move on to Task 30.
 
 
 ### Task 30. Unify The Mobile Top Bar And Remove Bulky Mobile Shell Padding Across Workspace And Utility Pages

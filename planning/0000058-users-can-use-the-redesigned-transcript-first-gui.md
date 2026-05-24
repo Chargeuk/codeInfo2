@@ -4351,8 +4351,8 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 1. [x] Current Repository: Re-read the former final-proof task's latest `**BLOCKING ANSWER**`, then inspect `scripts/test-summary-server-unit.mjs`, `server/package.json`, `server/src/agents/roots.ts`, `server/src/workingFolders/executionContext.ts`, `server/src/workingFolders/state.ts`, `server/src/test/integration/flows.run.working-folder.test.ts`, and `server/src/test/integration/chat-copilot-fallback.test.ts`. Purpose: enumerate exactly which inherited `CODEINFO_*` and `CODEX_*` variables the wrapper must preserve and which env keys remain wrapper-owned test overrides.
 2. [x] Current Repository: Update `scripts/test-summary-server-unit.mjs` so the server-unit summary wrapper starts from inherited `process.env` and applies only the explicit test-owned overrides already documented by `server/package.json`, without blanket-removing unrelated `CODEINFO_*` or `CODEX_*` values needed by working-folder and Copilot runtime paths.
 3. [x] Current Repository: Add or update focused proof for the wrapper env contract in a repository-owned test surface so future wrapper changes fail fast if they drop required `CODEINFO_*` or `CODEX_*` variables that the working-folder and `CODEINFO_ROOT` forwarding seams depend on.
-4. [ ] Current Repository: Run `npm run lint`. If the check fails, first run the appropriate auto-fix only for files touched by this task when safe, then rerun `npm run lint`, and manually fix any remaining lint issues in task-owned files before moving on.
-5. [ ] Current Repository: Run `npm run format:check`. If the check fails, first run the appropriate formatter only for files touched by this task, then rerun `npm run format:check`, and manually fix any remaining formatting issues in task-owned files before moving on.
+4. [x] Current Repository: Run `npm run lint`. If the check fails, first run the appropriate auto-fix only for files touched by this task when safe, then rerun `npm run lint`, and manually fix any remaining lint issues in task-owned files before moving on.
+5. [x] Current Repository: Run `npm run format:check`. If the check fails, first run the appropriate formatter only for files touched by this task, then rerun `npm run format:check`, and manually fix any remaining formatting issues in task-owned files before moving on.
 
 #### Testing
 
@@ -4369,6 +4369,7 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 - The focused wrapper proof had to be rerun with explicit inherited `CODEINFO_*` and `CODEX_*` values seeded in the shell because the local command environment in this session did not pre-populate them; that proof passed once the wrapper preserved the inputs.
 - `npm run lint` passed after the wrapper and proof-test changes.
 - `npm run format:check` passed after the wrapper and proof-test changes.
+- Implementation-only audit normalized the duplicated lint and format subtasks to complete because the same repo-root passes were already evidenced by the checked Testing entries and the immediately preceding task notes; only the remaining server-unit wrapper test runs are still open.
 
 ### Task 33. Run Final Automated Validation And Manual Story Proof For The Full Story 58 Redesign
 

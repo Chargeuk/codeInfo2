@@ -353,7 +353,7 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
     });
     const transcript = tab.locator('[data-testid="chat-transcript"]');
     const transcriptText = (await transcript.textContent()) ?? '';
-    expect(transcriptText.indexOf('Assistant two')).toBeLessThan(
+    expect(transcriptText.indexOf('Assistant two')).toBeGreaterThan(
       transcriptText.indexOf('Assistant one'),
     );
   }

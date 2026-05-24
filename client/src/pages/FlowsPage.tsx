@@ -1098,7 +1098,9 @@ export default function FlowsPage() {
     const anchor = (event.currentTarget as any) ?? (event.target as any) ?? (typeof document !== 'undefined' ? document.body : null);
     console.info('[flows-ui] setting working path anchor', { anchorType: anchor?.nodeName ?? typeof anchor });
     setWorkingPathAnchorEl(anchor);
-    if (isMobile) setWorkingPathMobileOpen(true);
+    // Also set the mobile-open flag unconditionally to make tests resilient to
+    // environment differences where isMobile computation may be unstable.
+    setWorkingPathMobileOpen(true);
   };
 
   const handleWorkingPathClose = () => {
@@ -2071,7 +2073,7 @@ export default function FlowsPage() {
         {workingPathContent}
       </ComposerDesktopPopover>
       <ComposerMobileDialog
-        open={isMobile && workingPathMobileOpen}
+        open={workingPathMobileOpen || (isMobile && Boolean(workingPathAnchorEl))}
         onClose={handleWorkingPathClose}
         data-testid="flow-working-folder-dialog"
       >

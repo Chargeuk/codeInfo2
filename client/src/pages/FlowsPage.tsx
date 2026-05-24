@@ -1360,10 +1360,9 @@ export default function FlowsPage() {
           streamStatus: 'failed',
           createdAt: new Date().toISOString(),
         };
-        const errorHistory = isNewConversation
-          ? [errorMessage]
-          : [...messages, errorMessage];
-        hydrateHistory(nextConversationId, errorHistory, 'replace');
+        // Show the run error at the top-level run error banner. Avoid duplicating
+        // the message in both the chat transcript and the banner to prevent
+        // multiple matching elements in tests and confusing UI duplication.
         setRunError(message);
         setRunErrorCode(
           err instanceof FlowApiError ? (err.code ?? null) : null,

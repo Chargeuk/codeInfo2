@@ -3794,6 +3794,15 @@ Items to verify manually:
   - Suggested ownership: keep the Agents test migration under Task 28 ownership, but consider creating a separate test-migration story for parallel work to avoid blocking other tasks.
 
 
+- **BLOCKER** Automated proof stopped at Testing step: `Current Repository: Run npm run test:summary:client` (Testing item 2).
+  - Which testing step: `npm run test:summary:client` (client wrapper).
+  - What was run and what happened: ran the full client wrapper; the run failed. Log: `test-results/client-tests-2026-05-24T02-31-00-948Z.log` (22 failing client tests remain, focused on Agents page suites).
+  - What was tried (credible, in-scope repairs):
+    1. Removed duplicate `data-testid` attribute from the visible working-folder TextField in `client/src/components/agents/AgentsComposerPanel.tsx` (reduced failures from 24 → 22).
+    2. Attempted to remove a test-only choose-folder button to reduce duplication, but this regressed other tests and was reverted (restored the choose-folder test shim).
+  - Exact reason blocked: a family of failing client tests assert legacy DOM/layout or timing contracts removed by this task (execute-button/prompt-row chrome, inline device-auth visibility, websocket-driven sidebar/turn refresh timing). Fixing requires migrating multiple Agents test files to the new shared-composer contract or updating harness timing/fixtures; this is beyond small, bounded repair attempts and should be handled as a dedicated follow-up migration task.
+  - Recommendation: create a follow-up story owned by the Agents feature author to migrate the remaining Agents client tests to the shared-composer contract (rewrite tests to open footer triggers and assert overlay content; update timing to use `findBy*`/`waitFor` for async state and WebSocket-driven events). Leave Task 28 `__in_progress__` until that migration completes.
+
 
 ### Task 29. Migrate The Flows Composer Onto The Shared Composer Shell And Match The Final Flows Footer Contract
 

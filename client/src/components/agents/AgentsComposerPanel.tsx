@@ -498,7 +498,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           );
         }}
         disabled={isWorkingFolderDisabled}
-        inputProps={{ 'data-testid': 'agent-working-folder', 'aria-label': 'working_folder', name: 'working_folder' }}
+        inputProps={{ 'aria-label': 'working_folder', name: 'working_folder' }}
       />
       <Stack direction="row" spacing={1.25} justifyContent="space-between">
         <Button
@@ -761,6 +761,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         data-testid="agent-working-path-trigger"
         disabled={isWorkingFolderDisabled}
       />
+
       {process.env.NODE_ENV === 'test' ? (
         <Button
           type="button"
@@ -774,6 +775,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           Choose folder…
         </Button>
       ) : null}
+
       <ComposerFooterButton
         icon={<PersonOutlineOutlinedIcon fontSize="small" />}
         label="Agent"

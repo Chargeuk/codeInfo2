@@ -40,6 +40,23 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
   );
 }
 
+async function openCommandSelector(user: ReturnType<typeof userEvent.setup>) {
+  const commandSelect = await screen.findByRole('combobox', {
+    name: /command/i,
+  });
+  await waitFor(() => expect(commandSelect).toBeEnabled());
+  await user.click(commandSelect);
+  return commandSelect;
+}
+
+async function selectCommandOption(
+  user: ReturnType<typeof userEvent.setup>,
+  testId: string,
+) {
+  await openCommandSelector(user);
+  await user.click(await screen.findByTestId(testId));
+}
+
 describe('Agents page - commands list', () => {
   it('refreshes the commands dropdown when switching agents', async () => {
     const user = userEvent.setup();
@@ -90,9 +107,7 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const agentSelect = await screen.findByRole('combobox', {
-      name: /agent/i,
-    });
+    const agentSelect = await screen.findByTestId('agent-select-trigger');
     await waitFor(() => expect(agentSelect).toHaveTextContent('a1'));
 
     const commandSelect = await screen.findByRole('combobox', {
@@ -107,7 +122,8 @@ describe('Agents page - commands list', () => {
     await user.keyboard('{Escape}');
 
     await user.click(agentSelect);
-    const a2Option = await screen.findByRole('option', { name: 'a2' });
+    const agentPopover = await screen.findByTestId('agent-selector-popover');
+    const a2Option = within(agentPopover).getByText('a2');
     await user.click(a2Option);
     await waitFor(() => expect(agentSelect).toHaveTextContent('a2'));
 
@@ -175,7 +191,7 @@ describe('Agents page - commands list', () => {
     expect(
       screen.queryByText('Select a command to see its description.'),
     ).toBeNull();
-    expect(screen.getByTestId('agent-command-execute')).toBeDisabled();
+    expect(screen.getByTestId('agent-send')).toBeDisabled();
   });
 
   it('shows command names with underscores replaced by spaces', async () => {
@@ -289,16 +305,15 @@ describe('Agents page - commands list', () => {
     await screen.findByTestId('agent-command-option-build::/data/repo-a');
     await screen.findByTestId('agent-command-option-build::/data/repo-b');
 
-    const optionLabels = screen
-      .getAllByRole('option')
-      .map((option) => option.textContent ?? '')
-      .filter((label) => label && label !== 'Select a command');
-
-    expect(optionLabels).toEqual([
-      'build',
-      'build - [Repo A]',
-      'build - [Repo B]',
-    ]);
+    expect(
+      screen.getByTestId('agent-command-option-build::local'),
+    ).toHaveTextContent('build');
+    expect(
+      screen.getByTestId('agent-command-option-build::/data/repo-a'),
+    ).toHaveTextContent('build - [Repo A]');
+    expect(
+      screen.getByTestId('agent-command-option-build::/data/repo-b'),
+    ).toHaveTextContent('build - [Repo B]');
   });
 
   it('does not render the legacy inline command description area', async () => {
@@ -417,11 +432,7 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
-    await waitFor(() => expect(commandSelect).toBeEnabled());
-    await user.click(commandSelect);
+    const commandSelect = await openCommandSelector(user);
     const option = await screen.findByTestId(
       'agent-command-option-improve_plan::local',
     );
@@ -429,7 +440,10 @@ describe('Agents page - commands list', () => {
     await waitFor(() =>
       expect(commandSelect).toHaveTextContent('improve plan'),
     );
-    expect(screen.getByTestId('agent-command-info')).toBeEnabled();
+    await user.click(screen.getByTestId('agent-info'));
+    expect(await screen.findByTestId('command-info-text')).toHaveTextContent(
+      'Improves a plan step-by-step.',
+    );
     expect(screen.queryByTestId('agent-command-description')).toBeNull();
   });
 
@@ -469,18 +483,10 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const executeButton = await screen.findByTestId('agent-command-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     expect(executeButton).toBeDisabled();
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
-    await waitFor(() => expect(commandSelect).toBeEnabled());
-    await user.click(commandSelect);
-    const option = await screen.findByTestId(
-      'agent-command-option-improve_plan::local',
-    );
-    await user.click(option);
+    await selectCommandOption(user, 'agent-command-option-improve_plan::local');
 
     await waitFor(() => expect(executeButton).toBeEnabled());
   });
@@ -547,16 +553,9 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
-    await waitFor(() => expect(commandSelect).toBeEnabled());
-    await user.click(commandSelect);
-    await user.click(
-      await screen.findByTestId('agent-command-option-improve_plan::local'),
-    );
+    await selectCommandOption(user, 'agent-command-option-improve_plan::local');
 
-    const executeButton = await screen.findByTestId('agent-command-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     await waitFor(() => expect(executeButton).toBeEnabled());
     await user.click(executeButton);
 
@@ -596,17 +595,16 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandRow = await screen.findByTestId('agent-command-row');
-    const commandSelect = within(commandRow).getByRole('combobox', {
+    const commandSelect = await screen.findByRole('combobox', {
       name: /command/i,
     });
-    const startStepSelect = within(commandRow).getByRole('combobox', {
-      name: /start step/i,
-    });
+    const startStepSelect = await screen.findByTestId('agent-step-trigger');
 
-    expect(commandSelect.compareDocumentPosition(startStepSelect)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(commandSelect.parentElement).toBe(startStepSelect.parentElement);
+    expect(
+      commandSelect.compareDocumentPosition(startStepSelect) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('keeps Start step disabled until a command is selected', async () => {
@@ -641,9 +639,7 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const startStepSelect = await screen.findByRole('combobox', {
-      name: /start step/i,
-    });
+    const startStepSelect = await screen.findByTestId('agent-step-trigger');
     expect(startStepSelect).toHaveAttribute('aria-disabled', 'true');
 
     const commandSelect = await screen.findByRole('combobox', {
@@ -692,24 +688,17 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
-    const startStepSelect = await screen.findByRole('combobox', {
-      name: /start step/i,
-    });
+    const startStepSelect = await screen.findByTestId('agent-step-trigger');
 
-    await user.click(commandSelect);
-    await user.click(
-      await screen.findByTestId('agent-command-option-build::local'),
-    );
+    await selectCommandOption(user, 'agent-command-option-build::local');
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
 
     await user.click(startStepSelect);
-    expect(await screen.findByRole('option', { name: 'Step 1' })).toBeVisible();
-    expect(await screen.findByRole('option', { name: 'Step 2' })).toBeVisible();
-    expect(await screen.findByRole('option', { name: 'Step 3' })).toBeVisible();
-    expect(screen.queryByRole('option', { name: 'Step 4' })).toBeNull();
+    const stepPopover = await screen.findByTestId('agent-step-popover');
+    expect(within(stepPopover).getByText('Step 1')).toBeVisible();
+    expect(within(stepPopover).getByText('Step 2')).toBeVisible();
+    expect(within(stepPopover).getByText('Step 3')).toBeVisible();
+    expect(within(stepPopover).queryByText('Step 4')).toBeNull();
   });
 
   it('resets Start step back to Step 1 when command changes', async () => {
@@ -750,25 +739,15 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
-    const startStepSelect = await screen.findByRole('combobox', {
-      name: /start step/i,
-    });
+    const startStepSelect = await screen.findByTestId('agent-step-trigger');
 
-    await user.click(commandSelect);
-    await user.click(
-      await screen.findByTestId('agent-command-option-build::local'),
-    );
+    await selectCommandOption(user, 'agent-command-option-build::local');
     await user.click(startStepSelect);
-    await user.click(await screen.findByRole('option', { name: 'Step 3' }));
+    const stepPopover = await screen.findByTestId('agent-step-popover');
+    await user.click(within(stepPopover).getByText('Step 3'));
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 3'));
 
-    await user.click(commandSelect);
-    await user.click(
-      await screen.findByTestId('agent-command-option-deploy::local'),
-    );
+    await selectCommandOption(user, 'agent-command-option-deploy::local');
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
   });
 
@@ -804,17 +783,11 @@ describe('Agents page - commands list', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
     const startStepSelect = await screen.findByRole('combobox', {
       name: /start step/i,
     });
 
-    await user.click(commandSelect);
-    await user.click(
-      await screen.findByTestId('agent-command-option-single::local'),
-    );
+    await selectCommandOption(user, 'agent-command-option-single::local');
 
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 1'));
     expect(startStepSelect).toHaveAttribute('aria-disabled', 'true');
@@ -875,12 +848,9 @@ describe('Agents page - commands list', () => {
     const startStepSelect = await screen.findByRole('combobox', {
       name: /start step/i,
     });
-    const executeButton = await screen.findByTestId('agent-command-execute');
+    const executeButton = await screen.findByTestId('agent-send');
 
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
-    await user.click(commandSelect);
+    await openCommandSelector(user);
     const disabledOption = await screen.findByTestId(
       'agent-command-option-bad::local',
     );

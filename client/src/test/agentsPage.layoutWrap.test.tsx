@@ -133,13 +133,14 @@ describe('Agents shared shell layout wrap', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandRow = await screen.findByTestId('agent-command-row');
+    const commandTrigger = await screen.findByTestId('agent-command-trigger');
+    const stepTrigger = await screen.findByTestId('agent-step-trigger');
+
+    expect(commandTrigger.parentElement).toBe(stepTrigger.parentElement);
     expect(
-      within(commandRow).getByTestId('agent-command-select'),
-    ).toBeInTheDocument();
-    expect(
-      within(commandRow).getByTestId('agent-command-execute'),
-    ).toBeInTheDocument();
+      commandTrigger.compareDocumentPosition(stepTrigger) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('renders the instruction input and action buttons in the same row', async () => {
@@ -148,100 +149,78 @@ describe('Agents shared shell layout wrap', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const instructionRow = await screen.findByTestId('agent-instruction-row');
-    expect(
-      within(instructionRow).getByTestId('agent-input'),
-    ).toBeInTheDocument();
-    expect(
-      within(instructionRow).getByTestId('agent-send'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('agent-input')).toBeInTheDocument();
+    expect(await screen.findByTestId('agent-send')).toBeInTheDocument();
   });
 
-  it('moves the stop button out of the header row', async () => {
+  it('renders only the shared send control while no run is active', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const headerRow = await screen.findByTestId('agent-header-row');
-    expect(within(headerRow).queryByTestId('agent-stop')).toBeNull();
-
-    const instructionRow = await screen.findByTestId('agent-instruction-row');
-    expect(
-      within(instructionRow).getByTestId('agent-action-slot'),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('agent-send')).toBeInTheDocument();
+    expect(screen.queryByTestId('agent-stop')).toBeNull();
   });
 
-  it('keeps the action slot width fixed', async () => {
+  it('keeps the shared footer trigger order intact', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const actionSlot = await screen.findByTestId('agent-action-slot');
-    expect(actionSlot).toHaveStyle({ minWidth: '120px' });
+    const footerButtons = [
+      await screen.findByTestId('agent-info'),
+      await screen.findByTestId('agent-working-path-trigger'),
+      await screen.findByTestId('agent-select-trigger'),
+      await screen.findByTestId('agent-command-trigger'),
+      await screen.findByTestId('agent-step-trigger'),
+    ];
+
+    footerButtons.reduce((previous, current) => {
+      expect(
+        previous.compareDocumentPosition(current) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      return current;
+    });
   });
 
-  it('renders a single action button in the slot', async () => {
+  it('renders a single primary action button', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const actionSlot = await screen.findByTestId('agent-action-slot');
-    expect(within(actionSlot).getByTestId('agent-send')).toBeInTheDocument();
-    expect(within(actionSlot).queryByTestId('agent-stop')).toBeNull();
+    expect(await screen.findByTestId('agent-send')).toBeInTheDocument();
+    expect(screen.queryByTestId('agent-stop')).toBeNull();
   });
 
-  it('applies size="small" and variant rules to agent controls', async () => {
+  it('applies the shared small-input and outlined-trigger styles to agent controls', async () => {
     mockAgentsFetch();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
-
-    const agentSelect = await screen.findByTestId('agent-select');
-    const agentSelectRoot = agentSelect.closest('.MuiInputBase-root');
-    expect(agentSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
-
-    const commandSelect = await screen.findByTestId('agent-command-select');
-    const commandSelectRoot = commandSelect.closest('.MuiInputBase-root');
-    expect(commandSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
-
-    const workingFolder = await screen.findByTestId('agent-working-folder');
-    const workingFolderRoot = workingFolder.closest('.MuiInputBase-root');
-    expect(workingFolderRoot).toHaveClass('MuiInputBase-sizeSmall');
 
     const instructionInput = await screen.findByTestId('agent-input');
     const instructionRoot = instructionInput.closest('.MuiInputBase-root');
     expect(instructionRoot).toHaveClass('MuiInputBase-sizeSmall');
 
-    const executeButton = await screen.findByTestId('agent-command-execute');
-    expect(executeButton).toHaveClass(
-      'MuiButton-contained',
-      'MuiButton-sizeSmall',
-    );
-
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    expect(newConversationButton).toHaveClass(
+    expect(await screen.findByTestId('agent-working-path-trigger')).toHaveClass(
       'MuiButton-outlined',
-      'MuiButton-sizeSmall',
     );
-
-    const chooseFolderButton = screen.getByTestId(
-      'agent-working-folder-picker',
-    );
-    expect(chooseFolderButton).toHaveClass(
+    expect(await screen.findByTestId('agent-select-trigger')).toHaveClass(
       'MuiButton-outlined',
-      'MuiButton-sizeSmall',
+    );
+    expect(await screen.findByTestId('agent-command-trigger')).toHaveClass(
+      'MuiButton-outlined',
+    );
+    expect(await screen.findByTestId('agent-step-trigger')).toHaveClass(
+      'MuiButton-outlined',
     );
 
     const sendButton = await screen.findByTestId('agent-send');
-    expect(sendButton).toHaveClass(
-      'MuiButton-contained',
-      'MuiButton-sizeSmall',
-    );
+    expect(sendButton).toHaveClass('MuiIconButton-root');
   });
 
   it('uses the shared pinned-bottom and scroll-away rules on Agents', async () => {

@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
@@ -40,7 +46,7 @@ function okJson(payload: unknown, init?: { status?: number }) {
 }
 
 function setupExecutePromptFetch(params?: {
-  agents?: Array<{ name: string }>;
+  agents?: Array<{ name: string; disabled?: boolean }>;
   agentDetails?: Record<string, unknown> | null;
   runResponse?:
     | { status: 202; payload?: Record<string, unknown> }
@@ -156,13 +162,13 @@ async function commitWorkingFolderByBlur(value: string) {
 
 async function selectPrompt(
   user: ReturnType<typeof userEvent.setup>,
-  label: string,
+  prompt: { relativePath: string; fullPath: string },
 ) {
-  const promptsSelect = await screen.findByRole('combobox', {
-    name: /prompts/i,
-  });
-  await user.click(promptsSelect);
-  await user.click(await screen.findByRole('option', { name: label }));
+  const actionSelect = await screen.findByTestId('agent-command-trigger');
+  await user.click(actionSelect);
+  await user.click(
+    await screen.findByTestId(`agent-prompt-option-${prompt.fullPath}`),
+  );
 }
 
 describe('Agents page - execute prompt', () => {
@@ -172,7 +178,7 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace');
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
 
     await user.click(await screen.findByTestId('agent-send'));
 
@@ -196,7 +202,7 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/runtime/agents');
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
     await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runBodies.length).toBe(1));
@@ -212,7 +218,7 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace/committed-folder');
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
     await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runBodies.length).toBe(1));
@@ -228,18 +234,17 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace');
-    const executePromptButton = await screen.findByTestId(
-      'agent-send',
-    );
+    const executePromptButton = await screen.findByTestId('agent-send');
     expect(executePromptButton).toBeDisabled();
 
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
     expect(executePromptButton).toBeEnabled();
   });
 
-  it('blocks Execute Prompt once selected-agent details mark the target disabled', async () => {
+  it('blocks Execute Prompt once the selected agent is disabled', async () => {
     const user = userEvent.setup();
     const { runUrls, prompt } = setupExecutePromptFetch({
+      agents: [{ name: 'coding_agent', disabled: true }],
       agentDetails: {
         name: 'coding_agent',
         description: '# Coding agent',
@@ -261,16 +266,9 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace');
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
 
-    const executePromptButton = await screen.findByTestId(
-      'agent-send',
-    );
-    expect(executePromptButton).toBeEnabled();
-
-    await user.click(await screen.findByTestId('agent-info'));
-
-    await screen.findByTestId('agent-disabled');
+    const executePromptButton = await screen.findByTestId('agent-send');
     await waitFor(() => expect(executePromptButton).toBeDisabled());
 
     expect(runUrls).toHaveLength(0);
@@ -296,7 +294,7 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace');
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
     await user.click(await screen.findByTestId('agent-send'));
 
     const banner = await screen.findByTestId('agents-run-error');
@@ -320,7 +318,7 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace');
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
     await user.click(await screen.findByTestId('agent-send'));
 
     const banner = await screen.findByTestId('agents-run-error');
@@ -333,7 +331,7 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace');
-    await selectPrompt(user, prompt.relativePath);
+    await selectPrompt(user, prompt);
     await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runUrls.length).toBe(1));
@@ -362,24 +360,28 @@ describe('Agents page - execute prompt', () => {
     await mountAgentsPage();
 
     await commitWorkingFolderByBlur('/workspace/coding');
-    await selectPrompt(user, 'coding/start.md');
+    await selectPrompt(user, {
+      relativePath: 'coding/start.md',
+      fullPath: '/workspace/coding/start.md',
+    });
     expect(await screen.findByTestId('agent-send')).toBeEnabled();
 
-    const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
+    const agentSelect = await screen.findByTestId('agent-select-trigger');
     await user.click(agentSelect);
-    await user.click(
-      await screen.findByRole('option', { name: 'review_agent' }),
-    );
+    const agentPopover = await screen.findByTestId('agent-selector-popover');
+    await user.click(within(agentPopover).getByText('review_agent'));
 
     await waitFor(() =>
-      expect(screen.queryByTestId('agent-prompts-row')).not.toBeInTheDocument(),
+      expect(
+        screen.getByRole('combobox', { name: /command/i }),
+      ).toHaveTextContent('Write instruction'),
     );
 
     await commitWorkingFolderByBlur('/workspace/review');
     const executeButton = await screen.findByTestId('agent-send');
     expect(
-      await screen.findByRole('combobox', { name: /prompts/i }),
-    ).toHaveTextContent('No prompt selected');
+      await screen.findByRole('combobox', { name: /command/i }),
+    ).toHaveTextContent('Write instruction');
     expect(executeButton).toBeDisabled();
   });
 });

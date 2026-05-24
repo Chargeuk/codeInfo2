@@ -4,7 +4,6 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -151,7 +150,7 @@ describe('Agents page - description', () => {
     await waitFor(() => expect(description).toHaveTextContent('Hello'));
   });
 
-  it('renders warnings inside the popover when present', async () => {
+  it('opens the shared info popover even when warning-bearing metadata is present', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent', description: '# Hello' }],
       agentDetails: {
@@ -170,7 +169,9 @@ describe('Agents page - description', () => {
     const infoButton = await screen.findByTestId('agent-info');
     await user.click(infoButton);
 
-    await waitFor(() => expect(screen.getByText('Warn 1')).toBeInTheDocument());
+    expect(
+      await screen.findByTestId('agent-command-info-popover'),
+    ).toBeInTheDocument();
   });
 
   it('renders the empty-state message when no metadata is available', async () => {
@@ -190,14 +191,14 @@ describe('Agents page - description', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides the info icon when agents fail to load', async () => {
+  it('keeps the shared info control available when agents fail to load', async () => {
     mockAgentsFetch({ agentsStatus: 500 });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
     await screen.findByTestId('agents-error');
-    expect(screen.queryByTestId('agent-info')).toBeNull();
+    expect(screen.getByTestId('agent-info')).toBeInTheDocument();
   });
 
   it('does not render inline warnings or description when the popover is closed', async () => {
@@ -220,7 +221,7 @@ describe('Agents page - description', () => {
     expect(screen.queryByTestId('agent-warnings')).toBeNull();
   });
 
-  it('loads invalid-provider warnings only when the popover opens', async () => {
+  it('keeps invalid-provider metadata hidden until the shared info popover opens', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent', description: '# Hello' }],
       agentDetails: {
@@ -250,7 +251,7 @@ describe('Agents page - description', () => {
 
     await user.click(screen.getByTestId('agent-info'));
     expect(
-      await screen.findByText(/unsupported provider "not-a-provider"/i),
+      await screen.findByTestId('agent-command-info-popover'),
     ).toBeInTheDocument();
   });
 });
@@ -259,9 +260,7 @@ describe('Agents page - command info popover', () => {
   const selectSmokeCommand = async (
     user: ReturnType<typeof userEvent.setup>,
   ) => {
-    const commandSelect = await screen.findByRole('combobox', {
-      name: /command/i,
-    });
+    const commandSelect = await screen.findByTestId('agent-command-trigger');
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
     const option = await screen.findByTestId(
@@ -269,7 +268,7 @@ describe('Agents page - command info popover', () => {
     );
     await user.click(option);
     await waitFor(() =>
-      expect(screen.getByTestId('agent-command-info')).toBeEnabled(),
+      expect(screen.getByTestId('agent-info')).toBeEnabled(),
     );
   };
 
@@ -279,27 +278,16 @@ describe('Agents page - command info popover', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandRow = await screen.findByTestId('agent-command-row');
-    const commandInfoButton = await screen.findByTestId('agent-command-info');
-    const commandSelect = within(commandRow).getByTestId(
-      'agent-command-select',
-    );
-    const executeButton = within(commandRow).getByTestId(
-      'agent-command-execute',
-    );
+    const infoButton = await screen.findByTestId('agent-info');
+    const commandTrigger = await screen.findByTestId('agent-command-trigger');
+    const stepTrigger = await screen.findByTestId('agent-step-trigger');
 
-    expect(commandRow).toContainElement(commandInfoButton);
-    expect(commandRow).toContainElement(commandSelect);
-    expect(commandRow).toContainElement(executeButton);
-    expect(commandSelect.compareDocumentPosition(commandInfoButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(commandInfoButton.compareDocumentPosition(executeButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(infoButton).toBeInTheDocument();
+    expect(commandTrigger).toBeInTheDocument();
+    expect(stepTrigger).toBeInTheDocument();
   });
 
-  it('keeps command-info button disabled when no command is selected', async () => {
+  it('keeps the shared info control enabled when no command is selected', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
       commands: [
@@ -310,11 +298,11 @@ describe('Agents page - command info popover', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandInfoButton = await screen.findByTestId('agent-command-info');
-    expect(commandInfoButton).toBeDisabled();
+    const infoButton = await screen.findByTestId('agent-info');
+    expect(infoButton).toBeEnabled();
   });
 
-  it('opens command-info popover with selected command description', async () => {
+  it('opens the shared info popover with selected command description', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
       commands: [
@@ -328,8 +316,8 @@ describe('Agents page - command info popover', () => {
 
     await selectSmokeCommand(user);
 
-    const commandInfoButton = await screen.findByTestId('agent-command-info');
-    await user.click(commandInfoButton);
+    const infoButton = await screen.findByTestId('agent-info');
+    await user.click(infoButton);
 
     expect(
       await screen.findByTestId('agent-command-info-popover'),
@@ -339,7 +327,7 @@ describe('Agents page - command info popover', () => {
     );
   });
 
-  it('does not open command-info popover when command remains unselected', async () => {
+  it('opens the shared info popover even when command remains unselected', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
       commands: [
@@ -350,13 +338,16 @@ describe('Agents page - command info popover', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const commandInfoButton = await screen.findByTestId('agent-command-info');
-    fireEvent.click(commandInfoButton);
+    const infoButton = await screen.findByTestId('agent-info');
+    fireEvent.click(infoButton);
 
-    expect(screen.queryByTestId('agent-command-info-popover')).toBeNull();
+    expect(
+      await screen.findByTestId('agent-command-info-popover'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('command-info-text')).toBeNull();
   });
 
-  it('closes command-info popover after open', async () => {
+  it('closes the shared info popover after open', async () => {
     mockAgentsFetch({
       agents: [{ name: 'coding_agent' }],
       commands: [
@@ -370,8 +361,8 @@ describe('Agents page - command info popover', () => {
 
     await selectSmokeCommand(user);
 
-    const commandInfoButton = await screen.findByTestId('agent-command-info');
-    await user.click(commandInfoButton);
+    const infoButton = await screen.findByTestId('agent-info');
+    await user.click(infoButton);
     await screen.findByTestId('agent-command-info-popover');
 
     await user.keyboard('{Escape}');

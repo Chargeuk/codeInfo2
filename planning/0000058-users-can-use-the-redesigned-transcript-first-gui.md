@@ -4138,7 +4138,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 20, Task 25`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -4303,6 +4303,7 @@ Items to verify manually:
 - Reversed the page adapters back to chronological order, removed the shared top-landing lock, and let the shared transcript settle at the bottom with the existing pinned-bottom behavior.
 - Added focused transcript-order unit coverage, page-level order assertions for Chat, Agents, and Flows, and a focused Playwright browser proof for the Flows ordering and scrolled-away retention path.
 - Confirmed the focused client lint and format gates are green after the transcript-order change.
+- Automated-proof audit confirmed Task 31 is fully closed: the parser-visible checklist is complete (`17/17` subtasks, `5/5` testing, no live blocker), the latest client test wrapper passed (`837/837`), the latest client build wrapper completed successfully, and the latest full e2e wrapper ended with `0` unexpected failures. Task 31 now returns to `__done__` and the story can move on to Task 32 final validation and proof.
 
 ### Task 32. Run Final Automated Validation And Manual Story Proof For The Full Story 58 Redesign
 

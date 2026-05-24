@@ -1,17 +1,15 @@
 # Goal
 
-Before implementation starts on the current task, inspect the live supported UI surface for that task, identify the concrete visual or interaction gaps that are already visible now, and map those gaps back to the most likely owning files and implementation seams without editing code or changing the plan.
+Before implementation starts on the current task, inspect the live supported UI surface for that task and, only when the task truly owns visual or interaction-facing work, refine the current task in the plan so its existing implementation guidance describes the real visual work concretely enough for a weak implementation agent to execute it correctly without further human interpretation.
 
 <critical_rules>
 
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - Read `codeInfoStatus/flow-state/current-task.json` after `current-plan.json`.
+- Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its `active_selected_task` as the authoritative bound task.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- Re-open the exact relative `plan_path` from disk before deciding what to inspect.
-- Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` after reading the handoff files and treat its current JSON output as the authoritative current-task resolution for this step.
-- Use the `active_selected_task` from that script output as the bound task when it is present.
-- If that script reports `has_valid_current_task_handoff: false`, stop and say `current-task handoff is stale and must be regenerated`.
+- Re-open the exact relative `plan_path` from disk before deciding what to inspect or edit.
 - Read the bound task's full task block from the plan, including:
   - `Overview`
   - `Non-Goals`
@@ -20,22 +18,25 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `Task Design Packet`
   - `Subtasks`
   - `Manual Testing Guidance`
-- Treat every listed subtask as in scope for this diagnosis pass.
-- Do not rewrite the plan, do not propose narrowing task scope, and do not mark any subtask as out of scope.
-- Do not make file changes in this step.
+- Treat every listed subtask as in scope for this refinement pass.
+- Do not rewrite task ownership.
+- Do not create a different candidate task.
+- Do not narrow task scope.
+- Do not mark subtasks complete.
+- Do not implement code in this step.
 - Do not run implementation tests in this step.
-- This is a diagnosis-and-mapping pass only.
+- This is a plan-refinement step, not an implementation step.
 
 </critical_rules>
 
 <early_exit_rules>
 
-- If `current-task.json` does not clearly resolve a task and the handoff-validation script does not provide one, stop and say `current-task handoff is stale and must be regenerated`.
-- If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop early and return:
-  - `visual diagnosis not applicable`
+- If `check_current_task_handoff.py` does not clearly resolve an active task, stop and report `current-task handoff is stale and must be regenerated`.
+- If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop early and report:
+  - `visual refinement not applicable`
   - a one-sentence reason tied to the current task's own exit criteria
-- Only use this early exit when the task truly has no visual surface to inspect.
-- Do not use the early exit just because the task is hard, incomplete, or spans shared logic.
+- Only use this early exit when the task truly has no visual or interaction-facing surface to inspect.
+- Do not use the early exit just because the task is difficult, broad, or shared.
 
 </early_exit_rules>
 
@@ -45,15 +46,15 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `AGENTS.md`
   - `README.md`
   - `codeinfo_markdown/repository_information.md` if it exists
-- Use the supported main stack for this diagnosis when the task has a browser-visible surface:
+- When the task has a visual surface, use the supported main stack for this refinement:
   - `npm run compose:build`
   - `npm run compose:up`
 - Verify the supported surfaces before diagnosis:
   - `http://localhost:5010/health`
   - `http://localhost:5001`
 - If the stack was already running, treat it as stale unless freshness is explicitly proven from current repository evidence.
-- If you started the stack in this step, leave it running unless repository guidance or the user says otherwise.
-- If the task's visible proof surface lives in a declared additional repository, you may inspect that repository too.
+- If you started the stack in this step, leave it running unless repository guidance says otherwise.
+- If the task's visible surface lives in a declared additional repository, you may inspect that repository too.
 - Do not treat a supporting repository outside `additional_repositories` as a blocker by itself when honest diagnosis needs it.
 
 </scope_and_runtime_rules>
@@ -68,47 +69,59 @@ Before implementation starts on the current task, inspect the live supported UI 
   - z-index and layering
   - scroll-container ownership
   - visible control state
-  - basic console and network sanity
+  - console and network sanity when directly relevant
 - Use Playwright after diagnosis for:
   - clean desktop and mobile viewport confirmation
-  - retained screenshots
-  - simple interaction confirmation
-- Prefer Playwright screenshots as the kept proof images for this step.
-- When screenshots are kept, save them under `codeInfoTmp/manual-testing/<story-number>/<task-number>/` with deterministic names such as:
-  - `diagnosis-01-desktop-current.png`
-  - `diagnosis-02-mobile-current.png`
-  - `support-visual-diagnosis.json`
-- If Playwright output is not directly host-visible, record that honestly and keep the diagnosis text-only rather than inventing a fake saved path.
+  - retained screenshots only when they materially help the refinement
+- Prefer Playwright screenshots as kept artifacts for this step when screenshots are useful.
+- Save any kept artifacts under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`.
+- If screenshot export is not honestly available, do not invent a saved path.
 
 </browser_tool_rules>
 
-<diagnosis_rules>
+<refinement_rules>
 
 - Diagnose only what the current task owns.
 - Use the task's `Non-Goals` to avoid drifting into later-task work.
 - Read the current UI against the task's exact contract first, then against the story-level design references named by that task.
-- For each visible issue you identify:
-  - state the issue plainly
-  - state why it violates the current task's own contract
-  - name the most likely owning file or files
-  - name the most likely component seam
-  - describe the likely kind of change needed
-- Be concrete about likely seams, for example:
-  - page adapter
-  - shared shell wrapper
-  - footer primitive
-  - popover component
-  - mobile dialog component
-  - state resolver
-  - handler branch
-  - test seam
-- When a likely fix spans both page logic and a shared component, say so explicitly.
-- If a task-owned behavior is currently blocked by old architecture still being present, say that directly.
-- If a visible issue actually belongs to a later task, record it separately as `visible but later-task-owned` and do not count it as a current-task finding.
-- Do not invent speculative backend work when the visible problem is clearly frontend-owned.
-- Do not mutate the task or add subtasks in this step.
+- If the current task is visual, update the current task in the plan so its implementation guidance reflects the actual visible work more concretely.
+- Allowed edit targets inside the current task only:
+  - `Overview`
+  - `Task Exit Criteria`
+  - `Subtasks`
+  - `Manual Testing Guidance`
+  - `Task Design Packet` only when a missing design/source reference is needed
+  - `Implementation Notes` only to record that this preflight refinement happened
+- Do not edit other tasks.
+- Do not renumber tasks.
+- Do not add blockers.
+- Do not add testing checkboxes.
+- Do not mark any checkbox complete.
+- Do not add vague subtasks such as `investigate`, `debug`, or `review layout`.
+- Convert visual findings into concrete implementation guidance:
+  - exact files when known
+  - exact components when known
+  - exact layout seam when known
+  - exact behavior mismatch when known
+- Prefer sharpening existing subtasks over adding many new ones.
+- Add a new subtask only when the current task truly lacks a necessary visual implementation step.
+- De-duplicate against the existing task text.
+- Preserve the existing task intent and scope.
+- Do not rewrite the whole task unless the current wording is too vague to execute honestly.
+- When a visible issue belongs to a later task, do not edit the current task to absorb it.
+- If a current task subtask is too weak for a junior agent to implement from, rewrite that subtask into a concrete file-owning instruction.
+- If the current task already describes the visual work concretely enough, do not make cosmetic plan edits just to say you changed something.
 
-</diagnosis_rules>
+</refinement_rules>
+
+<implementation_note_rule>
+
+- If you refine the task text, add one concise `Implementation Notes` bullet at the end of the current task stating:
+  - that a preflight visual refinement pass was run
+  - which visible seams were clarified
+  - that no code was changed in this step
+
+</implementation_note_rule>
 
 <output_contract>
 
@@ -118,7 +131,7 @@ Return a concise report with these exact sections:
    - task number and title
 
 2. `Applicability`
-   - either `visual diagnosis ran` or `visual diagnosis not applicable`
+   - either `visual refinement applied` or `visual refinement not applicable`
 
 3. `Runtime`
    - whether you restarted the main stack
@@ -130,40 +143,42 @@ Return a concise report with these exact sections:
    - mobile
    - any supporting repository surface if one was needed
 
-5. `Current-State Findings`
-   - a flat list of task-owned visible issues
+5. `Plan Changes`
+   - list exactly what changed in the current task
+   - include which sections were updated
+   - include which subtasks were sharpened or added
+
+6. `Key Visual Findings`
+   - a flat list of the task-owned visual mismatches that drove the refinement
    - each item must include:
-     - the issue
+     - the visible issue
      - why it conflicts with the task contract
-     - likely owning file(s)
-     - likely seam
-     - likely change direction
+     - the likely owning file(s) or component seam reflected in the updated task text
 
-6. `Later-Task-Owned Observations`
-   - only include this section if you saw visible issues that belong to later tasks
-
-7. `Likely Proof Seams`
-   - the most likely client-test and browser-test files that will need updates for this task
-
-8. `Artifacts`
+7. `Artifacts`
    - list any kept screenshots or support artifacts saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`
-   - if screenshots were attempted but could not be copied out honestly, say so
+   - if none were kept, say so
 
-9. `No-Edit Confirmation`
-   - confirm that you did not edit code, did not edit the plan, and did not change task scope
+8. `No-Code-Change Confirmation`
+   - confirm that you did not edit code
+   - confirm that you did not run implementation tests
+   - confirm that you did not change task scope beyond sharpening the current task’s visual implementation guidance
 
 </output_contract>
 
 <verification_loop>
 
 - Confirm you used the stored current-plan and current-task handoff.
-- Confirm you ran `check_current_task_handoff.py` and used its current output.
+- Confirm you ran `check_current_task_handoff.py`.
 - Confirm you re-opened the plan from disk.
-- Confirm you treated every subtask as in scope for diagnosis.
-- Confirm you did not rewrite the task or narrow its scope.
-- Confirm you used Chrome DevTools first for diagnosis and Playwright for retained screenshots when possible.
-- Confirm you did not make file changes.
+- Confirm you treated every existing subtask as in scope.
+- Confirm you exited early without plan edits if the task had no visual surface.
+- Confirm you used Chrome DevTools first for diagnosis and Playwright for retained screenshots when useful.
+- Confirm you edited only the current task.
+- Confirm you did not change task ownership or scope.
+- Confirm you did not mark any checklist item complete.
+- Confirm you did not add vague subtasks.
+- Confirm you did not edit code.
 - Confirm you did not run implementation tests.
-- Confirm any early exit was used only because there was no honest visual surface to inspect.
 
 </verification_loop>

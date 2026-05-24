@@ -439,7 +439,9 @@ describe('Flows page stop control', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
-    await waitFor(() => expect(screen.getByTestId('flow-stop')).toBeDisabled());
+    await waitFor(() =>
+      expect(screen.queryByTestId('flow-stop')).not.toBeInTheDocument(),
+    );
     expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /^Stopping\.\.\.$/i }),
@@ -689,7 +691,7 @@ describe('Flows page stop control', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
-    expect(screen.getByTestId('flow-stop')).toBeDisabled();
+    expect(screen.queryByTestId('flow-stop')).not.toBeInTheDocument();
     expect(screen.queryByText(/^Stopping$/i)).not.toBeInTheDocument();
   });
 });

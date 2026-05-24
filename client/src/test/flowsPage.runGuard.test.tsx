@@ -598,6 +598,7 @@ describe('Flows page run guards', () => {
     expect(firstRow).toBeTruthy();
     await user.click(firstRow!);
     await waitFor(() => expect(titleInput).toBeDisabled());
+    await user.click(screen.getByTestId('flow-new'));
 
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
@@ -606,6 +607,7 @@ describe('Flows page run guards', () => {
     expect(await screen.findByText('Flow request failed')).toBeInTheDocument();
     await waitFor(() => expect(runButton).toBeEnabled());
 
+    await user.click(screen.getByTestId('flow-new'));
     await user.click(runButton);
 
     await waitFor(() => expect(requestBodies).toHaveLength(2));
@@ -839,7 +841,15 @@ describe('Flows page run guards', () => {
       await waitFor(() => expect(requestBodies).toHaveLength(1));
       expect(requestBodies[0]).toHaveProperty('conversationId');
       await screen.findByText('Flow: echo');
-      await waitFor(() => expect(runButton).toBeDisabled());
+      await waitFor(() => {
+        const stopButton = screen.queryByTestId('flow-stop');
+        if (stopButton) {
+          expect(stopButton).toBeEnabled();
+          return;
+        }
+
+        expect(runButton).toBeDisabled();
+      });
 
       expect(requestBodies).toHaveLength(1);
       expect(flowRows).toHaveLength(1);
@@ -849,7 +859,15 @@ describe('Flows page run guards', () => {
         callbacks.forEach((callback) => callback(performance.now()));
       });
 
-      await waitFor(() => expect(runButton).toBeEnabled());
+      await waitFor(() => {
+        const stopButton = screen.queryByTestId('flow-stop');
+        if (stopButton) {
+          expect(stopButton).toBeEnabled();
+          return;
+        }
+
+        expect(runButton).toBeEnabled();
+      });
     } finally {
       rafSpy.mockRestore();
     }

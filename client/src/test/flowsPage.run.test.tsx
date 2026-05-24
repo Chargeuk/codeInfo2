@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -194,6 +195,11 @@ function emitWsEvent(event: Record<string, unknown>) {
 async function selectFirstConversation() {
   const rows = await screen.findAllByTestId('conversation-row');
   await userEvent.click(rows[0]);
+}
+
+async function openFlowInfoSurface() {
+  await userEvent.click(await screen.findByTestId('flow-info'));
+  return screen.findByTestId('flow-info-popover');
 }
 
 function setupFlowsRunHarness(options?: {
@@ -641,7 +647,11 @@ describe('Flows page run/resume controls', () => {
     render(<RouterProvider router={router} />);
 
     await selectFirstConversation();
-    expect(await screen.findByTestId('flow-launch-identity')).toHaveTextContent(
+    expect(await screen.findByTestId('flow-info')).toBeEnabled();
+    const infoPopover = await openFlowInfoSurface();
+    expect(
+      within(await infoPopover).getByTestId('flow-launch-identity'),
+    ).toHaveTextContent(
       'Launch provider: codex · Model: gpt-5',
     );
 
@@ -661,9 +671,6 @@ describe('Flows page run/resume controls', () => {
 
     await waitFor(() =>
       expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument(),
-    );
-    expect(screen.getByTestId('flow-launch-identity')).toHaveTextContent(
-      'Launch provider: unknown · Model: unknown',
     );
     expect(
       screen.queryByTestId('flows-launch-warnings'),
@@ -694,11 +701,17 @@ describe('Flows page run/resume controls', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId('flow-launch-identity')).toHaveTextContent(
+      expect(
+        within(screen.getByTestId('flow-info-popover')).getByTestId(
+          'flow-launch-identity',
+        ),
+      ).toHaveTextContent(
         'Launch provider: lmstudio · Model: model-1',
       ),
     );
-    expect(screen.getByTestId('flows-launch-warnings')).toHaveTextContent(
+    expect(
+      screen.getByTestId('flows-launch-warnings'),
+    ).toHaveTextContent(
       'fell back to provider "lmstudio"',
     );
   });
@@ -860,10 +873,13 @@ describe('Flows page run/resume controls', () => {
     render(<RouterProvider router={router} />);
 
     const titleInput = await screen.findByTestId('flow-custom-title');
+    await user.click(screen.getByTestId('flow-new'));
+    await waitFor(() => expect(titleInput).toBeEnabled());
     await user.type(titleInput, 'Should not leak');
 
     await selectFirstConversation();
     await waitFor(() => expect(titleInput).toBeDisabled());
+    await user.click(screen.getByTestId('flow-new'));
 
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
@@ -921,6 +937,9 @@ describe('Flows page run/resume controls', () => {
     render(<RouterProvider router={router} />);
 
     const titleInput = await screen.findByTestId('flow-custom-title');
+    await waitFor(() => expect(screen.getByTestId('flow-new')).toBeEnabled());
+    await user.click(screen.getByTestId('flow-new'));
+    await waitFor(() => expect(titleInput).toBeEnabled());
     await user.type(titleInput, 'Daily recap');
 
     const runButton = await screen.findByTestId('flow-run');

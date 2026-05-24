@@ -367,6 +367,20 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
             {modeLabel}
           </Typography>
         </Stack>
+        {selectedCommandOption ? (
+          <Stack data-testid="agent-command-info-section">
+            <Typography variant="caption" color="text.secondary">
+              Command details
+            </Typography>
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              data-testid="command-info-text"
+            >
+              {selectedCommandOption.description || 'No description provided.'}
+            </Typography>
+          </Stack>
+        ) : null}
         <Stack>
           <Typography variant="caption" color="text.secondary">
             Step
@@ -403,7 +417,16 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
             Warnings
           </Typography>
           {warningMessages.map((warning) => (
-            <Typography key={warning} variant="body2" color="warning.main">
+            <Typography
+              key={warning}
+              variant="body2"
+              color="warning.main"
+              data-testid={
+                agentDisabledReason?.message === warning
+                  ? 'agent-disabled'
+                  : undefined
+              }
+            >
               {warning}
             </Typography>
           ))}
@@ -565,6 +588,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
               key={command.key}
               component="div"
               role="option"
+              data-testid={`agent-command-option-${command.key}`}
               selected={selectedActionMode === modeValue}
               aria-selected={selectedActionMode === modeValue}
               disabled={command.disabled || commandsLoading}
@@ -593,6 +617,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
               key={prompt.fullPath}
               component="div"
               role="option"
+              data-testid={`agent-prompt-option-${prompt.fullPath}`}
               selected={selectedActionMode === modeValue}
               aria-selected={selectedActionMode === modeValue}
               onClick={() => {
@@ -716,15 +741,17 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
 
   const footerRow = (
     <CommonComposerFooter>
-      <ComposerFooterButton
-        icon={<InfoOutlinedIcon fontSize="small" />}
-        label="Info"
-        iconOnly
-        ariaLabel="Composer info"
-        selected={Boolean(infoAnchorEl)}
-        onClick={(event) => setInfoAnchorEl(event.currentTarget)}
-        data-testid="agent-composer-info"
-      />
+      <Box data-testid="agent-composer-info">
+        <ComposerFooterButton
+          icon={<InfoOutlinedIcon fontSize="small" />}
+          label="Info"
+          iconOnly
+          ariaLabel="Composer info"
+          selected={Boolean(infoAnchorEl)}
+          onClick={(event) => setInfoAnchorEl(event.currentTarget)}
+          data-testid="agent-info"
+        />
+      </Box>
       <ComposerFooterButton
         icon={<FolderOutlinedIcon fontSize="small" />}
         label="Working path"
@@ -769,6 +796,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         selected={Boolean(stepAnchorEl)}
         onClick={(event) => setStepAnchorEl(event.currentTarget)}
         data-testid="agent-step-trigger"
+        ariaLabel="Start step"
         disabled={startStepDisabled}
         ariaHaspopup="listbox"
         ariaExpanded={Boolean(stepAnchorEl)}
@@ -793,7 +821,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         width={420}
         data-testid="agent-info-popover"
       >
-        {infoContent}
+        <Box data-testid="agent-command-info-popover">{infoContent}</Box>
       </ComposerDesktopPopover>
       <ComposerMobileDialog
         open={isMobile && Boolean(infoAnchorEl)}

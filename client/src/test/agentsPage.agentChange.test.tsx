@@ -173,9 +173,8 @@ describe('Agents page - agent change', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const workingFolder = await screen.findByRole('textbox', {
-      name: 'working_folder',
-    });
+    await user.click(await screen.findByTestId('agent-working-path-trigger'));
+    const workingFolder = await screen.findByTestId('agent-working-folder');
     await user.type(workingFolder, '/tmp/stale');
 
     await act(async () => {
@@ -363,9 +362,10 @@ describe('Agents page - agent change', () => {
       expect(registry?.last()?.readyState).toBe(1);
     });
 
-    const workingFolder = await screen.findByRole('textbox', {
-      name: 'working_folder',
-    });
+    await userEvent.click(
+      await screen.findByTestId('agent-working-path-trigger'),
+    );
+    const workingFolder = await screen.findByTestId('agent-working-folder');
     const input = await screen.findByTestId('agent-input');
     const send = await screen.findByTestId('agent-send');
 
@@ -404,9 +404,7 @@ describe('Agents page - agent change', () => {
 
     await waitFor(() => expect(screen.queryByText('Do work')).toBeNull());
     await waitFor(() =>
-      expect(
-        screen.getByRole('textbox', { name: 'working_folder' }),
-      ).toHaveValue(''),
+      expect(screen.getByTestId('agent-working-folder')).toHaveValue(''),
     );
 
     const inputAfter = await screen.findByTestId('agent-input');

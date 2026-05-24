@@ -132,7 +132,7 @@ describe('Agents page - command start errors', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     await screen.findByTestId('agents-run-error');
@@ -238,7 +238,7 @@ describe('Agents page - command start errors', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     await screen.findByTestId('agents-run-error');
@@ -356,7 +356,7 @@ describe('Agents page - command start errors', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     const errorBanner = await screen.findByTestId('agents-run-error');
@@ -463,7 +463,7 @@ describe('Agents page - command start errors', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     const errorBanner = await screen.findByTestId('agents-run-error');

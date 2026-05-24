@@ -180,9 +180,8 @@ describe('Agents page run guards', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const folder = await screen.findByRole('textbox', {
-      name: 'working_folder',
-    });
+    await user.click(await screen.findByTestId('agent-working-path-trigger'));
+    const folder = await screen.findByTestId('agent-working-folder');
     await waitFor(() =>
       expect(screen.getByTestId('agent-send')).toBeDisabled(),
     );
@@ -309,9 +308,8 @@ describe('Agents page run guards', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const folder = await screen.findByRole('textbox', {
-      name: 'working_folder',
-    });
+    await user.click(await screen.findByTestId('agent-working-path-trigger'));
+    const folder = await screen.findByTestId('agent-working-folder');
     await user.type(folder, '/tmp/stale');
     await user.type(await screen.findByTestId('agent-input'), 'Do work');
 
@@ -439,13 +437,13 @@ describe('Agents page run guards', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByTestId('agent-command-row');
+    await screen.findByTestId('agent-command-trigger');
     await user.click(screen.getByLabelText('Command'));
     await user.click(
       await screen.findByTestId('agent-command-option-improve_plan::local'),
     );
 
-    const execute = screen.getByTestId('agent-command-execute');
+    const execute = screen.getByTestId('agent-send');
     await waitFor(() => expect(execute).toBeEnabled());
 
     await act(async () => {

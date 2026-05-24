@@ -98,7 +98,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
     );
     await user.click(option);
 
-    const execute = await screen.findByTestId('agent-command-execute');
+    const execute = await screen.findByTestId('agent-send');
     await waitFor(() => expect(execute).toBeEnabled());
     await user.click(execute);
 
@@ -169,7 +169,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
     );
     await user.click(option);
 
-    const execute = await screen.findByTestId('agent-command-execute');
+    const execute = await screen.findByTestId('agent-send');
     await waitFor(() => expect(execute).toBeEnabled());
     await user.click(execute);
 
@@ -302,7 +302,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
     );
     await user.click(option);
 
-    const execute = await screen.findByTestId('agent-command-execute');
+    const execute = await screen.findByTestId('agent-send');
     await waitFor(() => expect(execute).toBeEnabled());
     await user.click(execute);
 

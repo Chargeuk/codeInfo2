@@ -486,7 +486,7 @@ describe('Agents page - prompts selector state transitions', () => {
       await screen.findByTestId('agent-prompts-select'),
     ).toBeInTheDocument();
     expect(
-      await screen.findByTestId('agent-prompt-execute'),
+      await screen.findByTestId('agent-send'),
     ).toBeInTheDocument();
 
     await commitWorkingFolderByBlur('/with-error');
@@ -600,11 +600,11 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/folder-a');
     await selectPromptOption(user, 'a.md');
-    expect(await screen.findByTestId('agent-prompt-execute')).toBeEnabled();
+    expect(await screen.findByTestId('agent-send')).toBeEnabled();
 
     await commitWorkingFolderByEnter(user, '/folder-b');
     await waitFor(() =>
-      expect(screen.getByTestId('agent-prompt-execute')).toBeDisabled(),
+      expect(screen.getByTestId('agent-send')).toBeDisabled(),
     );
     expect(
       screen.getByRole('combobox', { name: /prompts/i }),
@@ -623,7 +623,7 @@ describe('Agents page - prompts selector state transitions', () => {
       ).not.toBeInTheDocument(),
     );
     const executeButtonAfterPicker = screen.queryByTestId(
-      'agent-prompt-execute',
+      'agent-send',
     );
     if (executeButtonAfterPicker) {
       expect(executeButtonAfterPicker).toBeDisabled();
@@ -740,7 +740,7 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/agent-a');
     await selectPromptOption(user, 'agent-a.md');
-    expect(await screen.findByTestId('agent-prompt-execute')).toBeEnabled();
+    expect(await screen.findByTestId('agent-send')).toBeEnabled();
 
     const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
     await user.click(agentSelect);
@@ -753,7 +753,7 @@ describe('Agents page - prompts selector state transitions', () => {
     );
 
     await commitWorkingFolderByBlur('/agent-b');
-    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     expect(
       await screen.findByRole('combobox', { name: /prompts/i }),
     ).toHaveTextContent('No prompt selected');
@@ -779,7 +779,7 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/enable-folder');
 
-    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     expect(executeButton).toBeDisabled();
     await selectPromptOption(user, 'enable.md');
     expect(executeButton).toBeEnabled();
@@ -807,7 +807,7 @@ describe('Agents page - prompts selector state transitions', () => {
     await screen.findByRole('combobox', { name: /agent/i });
     await commitWorkingFolderByBlur('/clear-option-folder');
 
-    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     await selectPromptOption(user, 'choose-me.md');
     expect(executeButton).toBeEnabled();
     await selectPromptOption(user, 'No prompt selected');

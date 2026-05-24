@@ -174,7 +174,7 @@ describe('Agents page - execute prompt', () => {
     await commitWorkingFolderByBlur('/workspace');
     await selectPrompt(user, prompt.relativePath);
 
-    await user.click(await screen.findByTestId('agent-prompt-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(runBodies[0]).toMatchObject({
@@ -197,7 +197,7 @@ describe('Agents page - execute prompt', () => {
 
     await commitWorkingFolderByBlur('/runtime/agents');
     await selectPrompt(user, prompt.relativePath);
-    await user.click(await screen.findByTestId('agent-prompt-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(String(runBodies[0].instruction)).toContain(prompt.fullPath);
@@ -213,7 +213,7 @@ describe('Agents page - execute prompt', () => {
 
     await commitWorkingFolderByBlur('/workspace/committed-folder');
     await selectPrompt(user, prompt.relativePath);
-    await user.click(await screen.findByTestId('agent-prompt-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(runBodies[0]).toHaveProperty(
@@ -229,7 +229,7 @@ describe('Agents page - execute prompt', () => {
 
     await commitWorkingFolderByBlur('/workspace');
     const executePromptButton = await screen.findByTestId(
-      'agent-prompt-execute',
+      'agent-send',
     );
     expect(executePromptButton).toBeDisabled();
 
@@ -264,7 +264,7 @@ describe('Agents page - execute prompt', () => {
     await selectPrompt(user, prompt.relativePath);
 
     const executePromptButton = await screen.findByTestId(
-      'agent-prompt-execute',
+      'agent-send',
     );
     expect(executePromptButton).toBeEnabled();
 
@@ -297,7 +297,7 @@ describe('Agents page - execute prompt', () => {
 
     await commitWorkingFolderByBlur('/workspace');
     await selectPrompt(user, prompt.relativePath);
-    await user.click(await screen.findByTestId('agent-prompt-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     const banner = await screen.findByTestId('agents-run-error');
     expect(banner).toHaveTextContent(
@@ -321,7 +321,7 @@ describe('Agents page - execute prompt', () => {
 
     await commitWorkingFolderByBlur('/workspace');
     await selectPrompt(user, prompt.relativePath);
-    await user.click(await screen.findByTestId('agent-prompt-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     const banner = await screen.findByTestId('agents-run-error');
     expect(banner).toHaveTextContent('Prompt file no longer exists');
@@ -334,7 +334,7 @@ describe('Agents page - execute prompt', () => {
 
     await commitWorkingFolderByBlur('/workspace');
     await selectPrompt(user, prompt.relativePath);
-    await user.click(await screen.findByTestId('agent-prompt-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runUrls.length).toBe(1));
     expect(commandRunUrls).toHaveLength(0);
@@ -363,7 +363,7 @@ describe('Agents page - execute prompt', () => {
 
     await commitWorkingFolderByBlur('/workspace/coding');
     await selectPrompt(user, 'coding/start.md');
-    expect(await screen.findByTestId('agent-prompt-execute')).toBeEnabled();
+    expect(await screen.findByTestId('agent-send')).toBeEnabled();
 
     const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
     await user.click(agentSelect);
@@ -376,7 +376,7 @@ describe('Agents page - execute prompt', () => {
     );
 
     await commitWorkingFolderByBlur('/workspace/review');
-    const executeButton = await screen.findByTestId('agent-prompt-execute');
+    const executeButton = await screen.findByTestId('agent-send');
     expect(
       await screen.findByRole('combobox', { name: /prompts/i }),
     ).toHaveTextContent('No prompt selected');

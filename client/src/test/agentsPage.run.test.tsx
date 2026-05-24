@@ -204,9 +204,8 @@ describe('Agents page - run', () => {
     const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
     await waitFor(() => expect(agentSelect).toHaveTextContent('coding_agent'));
 
-    const workingFolder = await screen.findByRole('textbox', {
-      name: 'working_folder',
-    });
+    await user.click(await screen.findByTestId('agent-working-path-trigger'));
+    const workingFolder = await screen.findByTestId('agent-working-folder');
     await user.type(workingFolder, '/abs/path');
 
     const input = await screen.findByTestId('agent-input');

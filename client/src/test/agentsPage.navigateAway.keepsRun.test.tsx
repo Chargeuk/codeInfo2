@@ -149,7 +149,7 @@ describe('Agents page - navigate away keeps run', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     const firstWs = wsRegistry?.instances?.at(-1);
@@ -339,7 +339,7 @@ describe('Agents page - navigate away keeps run', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByTestId('agent-command-execute'));
+      await user.click(screen.getByTestId('agent-send'));
     });
 
     const ws = wsRegistry?.last();
@@ -376,6 +376,6 @@ describe('Agents page - navigate away keeps run', () => {
       });
     });
     expect(input).toHaveValue('draft text');
-    expect(screen.getByTestId('agent-command-execute')).toBeDisabled();
+    expect(screen.getByTestId('agent-send')).toBeDisabled();
   });
 });

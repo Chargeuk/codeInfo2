@@ -84,7 +84,7 @@ describe('Agents page - command execute disabled when persistence unavailable', 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    const execute = await screen.findByTestId('agent-command-execute');
+    const execute = await screen.findByTestId('agent-send');
     await waitFor(() => expect(execute).toBeDisabled());
     expect(
       await screen.findByTestId('agent-command-persistence-note'),
@@ -195,7 +195,7 @@ describe('Agents page - command execute disabled when persistence unavailable', 
     await user.click(await screen.findByRole('option', { name: 'Step 2' }));
     await waitFor(() => expect(startStepSelect).toHaveTextContent('Step 2'));
 
-    await user.click(await screen.findByTestId('agent-command-execute'));
+    await user.click(await screen.findByTestId('agent-send'));
 
     await waitFor(() => expect(runBodies).toHaveLength(1));
     expect(runBodies[0]?.startStep).toBe(2);

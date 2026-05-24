@@ -1585,6 +1585,11 @@ Repair the runtime auth-seeding seam so the supported main and e2e stacks once a
 
 #### Implementation Notes
 
+- **BLOCKER** Stopped at Testing step: `Current Repository: Run npm run test:summary:server:unit` (Testing item 7).
+  - What was tried: Ran the full server unit wrapper and captured logs; re-ran only the failing integration file; inspected test output and failing traces; grepped the code (mcp2 router, dispatch, callTool, codebaseQuestion) and working-folder mapping functions.
+  - Blocker reason: Three failing integration subtests persist (WebSocket timeouts and JSON-RPC method-not-found). The root cause appears to be server-side MCP runtime behavior (working-folder resolution and RPC routing) that requires deeper backend/harness debugging beyond this automated-proof step.
+  - Recommended next step: Assign to a backend owner to reproduce locally, instrument RPC and working-folder resolution, and iteratively fix. Consider splitting into a focused backend bugfix story if needed.
+
 - Split-home Compose now points `/host/codex` at the real host Codex home in the main and e2e stacks while keeping the local stack untouched, and the runtime mount-count contract was realigned to match the repaired mount shape.
 - `ensureCodexAuthFromHost` now treats same-path aliases and same backing stores as shared runtime homes, keeping startup on the seed-only path without adding any destructive cleanup behavior.
 - Added direct unit coverage for the runtime-auth, missing-host, and duplicate-alias helper invariants, plus integration coverage for repeated startup, read-only host seed, and no-delete/no-rename behavior.

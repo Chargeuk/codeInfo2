@@ -129,11 +129,18 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
             },
           });
           // Also write to stderr so test harness captures the raw exception for diagnosis
-          console.error('mcp2_tools_call_error', {
-            tool: name,
-            message: err instanceof Error ? err.message : String(err),
-            stack: err instanceof Error ? err.stack : undefined,
-          });
+          try {
+            console.error('mcp2_tools_call_error', {
+              tool: name,
+              err: JSON.stringify(err, Object.getOwnPropertyNames(err), 2),
+            });
+          } catch (e) {
+            console.error('mcp2_tools_call_error_cant_stringify', {
+              tool: name,
+              stringifyError: String(e),
+            });
+            console.error('mcp2_tools_call_error_raw', err);
+          }
           if (err instanceof InvalidParamsError) {
             if (name === REINGEST_REPOSITORY_TOOL_NAME) {
               append({

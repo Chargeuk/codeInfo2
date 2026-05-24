@@ -4254,7 +4254,7 @@ Where the current implementation conflicts with this task and the updated Story 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared transcript code and page adapters used across all workspace pages.
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared transcript ordering, initial-open behavior, virtualization-sensitive scroll behavior, and page transcript adapters.
 3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible transcript ordering and initial landing behavior in a real browser on workspace pages.
-4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
+4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
 5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
 
 #### Manual Testing Guidance
@@ -4297,6 +4297,7 @@ Items to verify manually:
 - Ran client build: `npm run build:summary:client` — PASSED with warnings (1 warning: large chunk size after minification). See `logs/test-summaries/build-client-latest.log` for details.
 - Ran client tests: `npm run test:summary:client` — FAILED initially (4 failing tests). Fixed three ordering-dependent assertions in `client/src/test/chatPage.stream.test.tsx` and made the `Flows` bubble selection order-independent in `client/src/test/flowsPage.test.tsx`. Re-ran tests and all client tests now PASS. See test log: `test-results/client-tests-2026-05-24T20-59-55-848Z.log`.
 - Ran e2e tests: `npm run test:summary:e2e` — FAILED initially (1 failing spec: chat-multiwindow). Fixed ordering assertion in `e2e/chat-multiwindow.spec.ts` to match chronological top-to-bottom ordering, re-ran e2e, and all e2e tests now PASS. See test log: `logs/test-summaries/e2e-tests-latest.log`.
+- Ran repository lint: `npm run lint` — FAILED initially due to an import/order warning in `e2e/flows-execution-runs.spec.ts`. Reordered the imports in that file to satisfy the lint rule; re-ran lint and it now PASSES.
 - Ran client build: `npm run build:summary:client` — PASSED with warnings (1 warning: large chunk size after minification). See `logs/test-summaries/build-client-latest.log` for details.
 - Reversed the page adapters back to chronological order, removed the shared top-landing lock, and let the shared transcript settle at the bottom with the existing pinned-bottom behavior.
 - Added focused transcript-order unit coverage, page-level order assertions for Chat, Agents, and Flows, and a focused Playwright browser proof for the Flows ordering and scrolled-away retention path.

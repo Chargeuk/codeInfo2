@@ -117,6 +117,17 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
           }
           return jsonRpcResult(requestId, result);
         } catch (err) {
+          append({
+            level: 'error',
+            source: 'server',
+            timestamp: new Date().toISOString(),
+            message: 'DEV-0000040:TXX:mcp2_tools_call_error',
+            requestId: requestIdText,
+            context: {
+              tool: name,
+              error: err instanceof Error ? err.stack ?? err.message : String(err),
+            },
+          });
           if (err instanceof InvalidParamsError) {
             if (name === REINGEST_REPOSITORY_TOOL_NAME) {
               append({

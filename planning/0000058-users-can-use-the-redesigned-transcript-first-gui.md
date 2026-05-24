@@ -3792,8 +3792,6 @@ Items to verify manually:
   - Exact reason blocked: a broad family of client tests assert legacy DOM or layout contracts removed by this task (execute-button, stacked command/prompt rows, inline device-auth visibility) and must be migrated to the shared-shell contract. Completing that migration requires touching dozens of test files and/or agreeing a shared-shell baseline seam for two chat layout gutter assertions — this is beyond the small, bounded repairs appropriate for an automated-proof pass.
   - Recommended next step: split or create a follow-up story to migrate the remaining Agents client tests onto the shared composer contract (rewrite tests to open footer triggers and assert overlay content, and adjust layout baselines). If desired, temporarily maintain a small, approved test shim strategy until tests are rewritten, but any shim should be explicitly documented and retired by the migration story.
   - Suggested ownership: keep the Agents test migration under Task 28 ownership, but consider creating a separate test-migration story for parallel work to avoid blocking other tasks.
-
-
 - **BLOCKER** Automated proof stopped at Testing step: `Current Repository: Run npm run test:summary:client` (Testing item 2).
   - Which testing step: `npm run test:summary:client` (client wrapper).
   - What was run and what happened: ran the full client wrapper; the run failed. Log: `test-results/client-tests-2026-05-24T02-31-00-948Z.log` (22 failing client tests remain, focused on Agents page suites).

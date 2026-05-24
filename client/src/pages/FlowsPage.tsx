@@ -309,7 +309,8 @@ export default function FlowsPage() {
     selectedFlowDetails?.disabled ?? selectedFlow?.disabled,
   );
   const selectedFlowLabel = selectedFlow?.label ?? 'Select flow';
-  const titleLabel = customTitle.trim().length > 0 ? customTitle.trim() : 'Set title';
+  const titleLabel =
+    customTitle.trim().length > 0 ? customTitle.trim() : 'Set title';
   const workingFolderName = useMemo(
     () => getWorkingFolderName(workingFolder) || 'Select folder',
     [workingFolder],
@@ -1427,8 +1428,13 @@ export default function FlowsPage() {
     !wsTranscriptReady;
   const mainActionDisabled = showStop ? isStopping : mainRunDisabled;
   const mainInputDisabled =
-    flowsLoading || !!flowsError || persistenceUnavailable || !wsTranscriptReady || showStop;
-  const titleDisabled = flowTitleDisabled || showStop || Boolean(resumeStepPath);
+    flowsLoading ||
+    !!flowsError ||
+    persistenceUnavailable ||
+    !wsTranscriptReady ||
+    showStop;
+  const titleDisabled =
+    flowTitleDisabled || showStop || Boolean(resumeStepPath);
   const selectedFlowTriggerDisabled =
     flowsLoading || !!flowsError || flowOptions.length === 0 || showStop;
 
@@ -1795,7 +1801,11 @@ export default function FlowsPage() {
         </Stack>
       ) : null}
       {flowDescription ? (
-        <Paper variant="outlined" sx={{ p: 1.5 }} data-testid="flow-description">
+        <Paper
+          variant="outlined"
+          sx={{ p: 1.5 }}
+          data-testid="flow-description"
+        >
           <Markdown content={flowDescription} />
         </Paper>
       ) : null}

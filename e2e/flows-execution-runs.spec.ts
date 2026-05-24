@@ -211,12 +211,11 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
   );
   await page
     .getByTestId('workspace-mobile-app-menu-overlay')
-    .getByRole('link', { name: 'Flows' })
+  .getByRole('link', { name: 'Flows' })
     .click();
   await expect(page).toHaveURL(/\/flows$/);
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
 
-  await page.getByTestId('flow-new').click();
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => runBodies.length, {
@@ -250,10 +249,10 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
   await expect(
     page.getByTestId('workspace-mobile-conversations-overlay'),
   ).toBeHidden({ timeout: 20000 });
-  await expect(page.getByTestId('flow-resume')).toBeEnabled({
+  await expect(page.getByTestId('flow-run')).toBeEnabled({
     timeout: 20000,
   });
-  await page.getByTestId('flow-resume').click();
+  await page.getByTestId('flow-run').click();
   await expect
     .poll(() => runBodies.length, {
       timeout: 10000,
@@ -262,7 +261,6 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
     .toBe(3);
   expect(runBodies[2]).not.toHaveProperty('retryOwnershipId');
 
-  await page.getByTestId('flow-new').click();
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
   await page.getByTestId('flow-run').click();
   await expect
@@ -383,11 +381,186 @@ test('flows warning rendering and disabled run guard stay visible at the browser
   await page.goto(`${baseUrl}/flows`);
   await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
 
-  await page.getByTestId('flow-working-folder').fill('/tmp/stale');
+  await page.getByTestId('flow-working-folder-trigger').click();
+  await expect(page.getByTestId('flow-working-folder-dialog')).toBeVisible({
+    timeout: 20000,
+  });
+  await page.getByTestId('flow-working-folder-input').fill('/tmp/stale');
+  await page
+    .getByTestId('flow-working-folder-dialog')
+    .getByRole('button', { name: 'Close' })
+    .click();
   await page.getByTestId('flow-info').click();
 
   await expect(page.getByText('Primary provider unavailable')).toBeVisible();
   await expect(page.getByText('No usable provider remains')).toBeVisible();
   await expect(page.getByTestId('flow-run')).toBeDisabled();
   expect(runBodies).toHaveLength(0);
+});
+
+test('flows composer footer controls use upward desktop popovers and centered mobile dialogs', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  await installMockChatWs(page);
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const method = req.method();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const path = url.pathname;
+
+    if (path === '/health' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+
+    if (path === '/flows' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+        }),
+      });
+      return;
+    }
+
+    if (path === '/flows/daily' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (path === '/conversations' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    if (path.startsWith('/conversations/') && path.endsWith('/turns')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  const expectDesktopPopoverAboveTrigger = async (
+    triggerTestId: string,
+    popoverTestId: string,
+    contentTestId: string,
+  ) => {
+    const trigger = page.getByTestId(triggerTestId);
+    await trigger.click();
+    const popover = page.getByTestId(popoverTestId);
+    await expect(popover).toBeVisible({ timeout: 20000 });
+    const content = page.getByTestId(contentTestId);
+    await expect(content).toBeVisible({ timeout: 20000 });
+
+    const triggerBox = await trigger.boundingBox();
+    const popoverBox = await content.boundingBox();
+    expect(triggerBox).not.toBeNull();
+    expect(popoverBox).not.toBeNull();
+    expect(popoverBox?.y ?? 0).toBeLessThan(triggerBox?.y ?? 0);
+    expect((popoverBox?.y ?? 0) + (popoverBox?.height ?? 0)).toBeLessThanOrEqual(
+      (triggerBox?.y ?? 0) + 12,
+    );
+
+    await page.keyboard.press('Escape');
+    await expect(popover).toBeHidden({ timeout: 20000 });
+  };
+
+  const expectCenteredMobileDialog = async (
+    triggerTestId: string,
+    dialogTestId: string,
+    heading: string,
+  ) => {
+    const trigger = page.getByTestId(triggerTestId);
+    await trigger.click();
+    const dialog = page.getByTestId(dialogTestId);
+    await expect(dialog).toBeVisible({ timeout: 20000 });
+    await expect(
+      dialog.getByRole('heading', { name: heading, exact: true }),
+    ).toBeVisible();
+
+    const dialogBox = await dialog.boundingBox();
+    const viewport = page.viewportSize();
+    expect(dialogBox).not.toBeNull();
+    expect(viewport).not.toBeNull();
+
+    const horizontalCenterDelta = Math.abs(
+      (dialogBox?.x ?? 0) +
+        (dialogBox?.width ?? 0) / 2 -
+        (viewport?.width ?? 0) / 2,
+    );
+
+    expect(horizontalCenterDelta).toBeLessThan(12);
+    expect(dialogBox?.width ?? 0).toBeGreaterThan(280);
+
+    await dialog.getByRole('button', { name: 'Close' }).last().click();
+    await expect(dialog).toBeHidden({ timeout: 20000 });
+  };
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('flow-select-trigger')).toContainText('daily');
+
+  await expectDesktopPopoverAboveTrigger(
+    'flow-info',
+    'flow-info-popover',
+    'flow-info-content',
+  );
+  await expectDesktopPopoverAboveTrigger(
+    'flow-select-trigger',
+    'flow-select-popover',
+    'flow-selector-content',
+  );
+  await expectDesktopPopoverAboveTrigger(
+    'flow-title-trigger',
+    'flow-title-popover',
+    'flow-title-content',
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
+
+  await expectCenteredMobileDialog('flow-info', 'flow-info-dialog', 'Info');
+  await expectCenteredMobileDialog(
+    'flow-select-trigger',
+    'flow-select-dialog',
+    'Flow',
+  );
+  await expectCenteredMobileDialog(
+    'flow-title-trigger',
+    'flow-title-dialog',
+    'Title',
+  );
 });

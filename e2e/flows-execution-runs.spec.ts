@@ -1,5 +1,9 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import {
+  knownRepositoryPathsAvailable,
+  validateRequestedWorkingFolder,
+} from '../server/src/workingFolders/state';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiUrl = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -593,6 +597,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
   await installMockChatWs(page);
 
   const workingFolderBodies: Array<Record<string, unknown>> = [];
+  const knownRepositoryPathsState = knownRepositoryPathsAvailable([]);
 
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
@@ -698,23 +703,47 @@ test('flows existing-conversation working-folder picker applies a local reposito
         typeof payload.workingFolder === 'string'
           ? payload.workingFolder
           : undefined;
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          status: 'ok',
-          conversation: {
-            conversationId: 'flow-1',
-            title: 'Flow: daily',
-            provider: 'codex',
-            model: 'gpt-5.2',
-            source: 'REST',
-            archived: false,
-            flowName: 'daily',
-            flags: workingFolder ? { workingFolder } : {},
-          },
-        }),
-      });
+      try {
+        const validatedWorkingFolder = await validateRequestedWorkingFolder({
+          workingFolder,
+          knownRepositoryPathsState,
+        });
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'ok',
+            conversation: {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5.2',
+              source: 'REST',
+              archived: false,
+              flowName: 'daily',
+              flags: validatedWorkingFolder
+                ? { workingFolder: validatedWorkingFolder }
+                : {},
+            },
+          }),
+        });
+      } catch (error) {
+        const err = error as { code?: string; reason?: string };
+        await route.fulfill({
+          status: err.code === 'WORKING_FOLDER_UNAVAILABLE' ? 503 : 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error:
+              err.code === 'WORKING_FOLDER_UNAVAILABLE'
+                ? 'working_folder_unavailable'
+                : 'invalid_request',
+            code: err.code ?? 'WORKING_FOLDER_INVALID',
+            message:
+              err.reason ??
+              'working_folder validation failed',
+          }),
+        });
+      }
       return;
     }
 

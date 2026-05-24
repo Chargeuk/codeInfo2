@@ -227,4 +227,42 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
       await fs.rm(tmp, { recursive: true, force: true });
     }
   });
+
+  it('accepts the mounted local execution root identity when validating requested working folders', async () => {
+    if (process.platform === 'win32') return;
+
+    const snapshot = {
+      CODEINFO_HOST_INGEST_DIR: process.env.CODEINFO_HOST_INGEST_DIR,
+      CODEINFO_CODEX_WORKDIR: process.env.CODEINFO_CODEX_WORKDIR,
+      CODEX_WORKDIR: process.env.CODEX_WORKDIR,
+    };
+
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'agents-working-folder-execution-root-'),
+    );
+    const hostIngestDir = path.join(tmp, 'host', 'base');
+    const codexWorkdir = path.join(tmp, 'data');
+    const workingFolder = path.join(hostIngestDir, 'codeinfo2', 'codeinfo2');
+    const mappedWorkingFolder = path.join(codexWorkdir, 'codeinfo2', 'codeinfo2');
+
+    try {
+      process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
+      process.env.CODEINFO_CODEX_WORKDIR = codexWorkdir;
+      delete process.env.CODEX_WORKDIR;
+
+      await fs.mkdir(mappedWorkingFolder, { recursive: true });
+
+      const resolved = await validateRequestedWorkingFolder({
+        workingFolder,
+        knownRepositoryPathsState: knownRepositoryPathsAvailable([]),
+      });
+
+      assert.equal(resolved, mappedWorkingFolder);
+    } finally {
+      process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
+      process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
+      process.env.CODEX_WORKDIR = snapshot.CODEX_WORKDIR;
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
 });

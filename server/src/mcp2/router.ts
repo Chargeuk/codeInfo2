@@ -128,6 +128,12 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
               error: err instanceof Error ? err.stack ?? err.message : String(err),
             },
           });
+          // Also write to stderr so test harness captures the raw exception for diagnosis
+          console.error('mcp2_tools_call_error', {
+            tool: name,
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          });
           if (err instanceof InvalidParamsError) {
             if (name === REINGEST_REPOSITORY_TOOL_NAME) {
               append({

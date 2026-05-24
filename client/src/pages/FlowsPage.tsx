@@ -2087,7 +2087,7 @@ export default function FlowsPage() {
 
       {!effectiveIsMobile && (
         <ComposerDesktopPopover
-          open={Boolean(workingPathAnchorEl)}
+          open={Boolean(workingPathAnchorEl) && !workingPathMobileOpen}
           anchorEl={workingPathAnchorEl}
           onClose={handleWorkingPathClose}
           width={420}
@@ -2097,7 +2097,7 @@ export default function FlowsPage() {
         </ComposerDesktopPopover>
       )}
 
-      {effectiveIsMobile && (
+      {workingPathMobileOpen && (
         <ComposerMobileDialog
           open={workingPathMobileOpen}
           onClose={handleWorkingPathClose}

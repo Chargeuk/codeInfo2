@@ -1361,18 +1361,9 @@ describe('Agents page - run', () => {
     await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(1));
     expect(runBodies[0]).toHaveProperty('conversationId', 'c-existing');
 
-    await user.click(await screen.findByTestId('agent-info'));
-    await user.click(
-      await screen.findByRole('button', { name: /new conversation/i }),
-    );
-    await user.clear(input);
-    await user.type(input, 'Create a new conversation id');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await user.click(sendButton);
-    await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(2));
-    expect(typeof runBodies[1].conversationId).toBe('string');
-    expect((runBodies[1].conversationId as string).length).toBeGreaterThan(0);
-    expect(runBodies[1].conversationId).not.toBe('c-existing');
+    // New conversation action removed from Agents info; skip UI new-conversation path.
+    // Instead, assert that reuse behavior worked for the selected conversation above.
+    // Creating a new conversation is handled outside the Agents composer (Chat conversation controls).
   }, 10000);
 
   it('preserves run state transitions for standard Send path', async () => {

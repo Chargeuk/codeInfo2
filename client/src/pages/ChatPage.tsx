@@ -632,10 +632,7 @@ export default function ChatPage() {
     }
   }, [provider, refreshModels, refreshProviders]);
 
-  const orderedMessages = useMemo<ChatMessage[]>(
-    () => [...messages].reverse(),
-    [messages],
-  );
+  const orderedMessages = messages;
 
   useEffect(() => {
     orderedMessages.forEach((message) => {

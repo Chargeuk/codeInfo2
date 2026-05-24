@@ -289,10 +289,7 @@ export default function FlowsPage() {
     getAssistantMessageIdForInflight,
   } = useChatStream(flowModelId, flowProviderId);
 
-  const displayMessages = useMemo<ChatMessage[]>(
-    () => [...messages].reverse(),
-    [messages],
-  );
+  const displayMessages = messages;
   const hasFlowMetaLine = useMemo(
     () =>
       displayMessages.some(
@@ -636,8 +633,7 @@ export default function FlowsPage() {
           surface: 'flows',
         });
         const persistedWorkingFolder =
-          result.flags &&
-          typeof result.flags.workingFolder === 'string'
+          result.flags && typeof result.flags.workingFolder === 'string'
             ? result.flags.workingFolder.trim()
             : trimmedWorkingFolder;
         if (persistedWorkingFolder !== trimmedWorkingFolder) {

@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
@@ -18,7 +19,48 @@ function buildMessages(count: number) {
 }
 
 describe('Shared transcript scroll and bottom-follow behavior', () => {
-  it('opens an existing conversation at the top after history finishes loading', async () => {
+  it('renders transcript rows in chronological top-to-bottom order', async () => {
+    render(
+      <SharedTranscript
+        surface="chat"
+        conversationId="chronological-order"
+        messages={[
+          {
+            id: 'user-1',
+            role: 'user',
+            content: 'Older user prompt',
+            createdAt: '2026-03-19T00:00:00.000Z',
+          },
+          {
+            id: 'assistant-1',
+            role: 'assistant',
+            content: 'Newer assistant reply',
+            createdAt: '2026-03-19T00:01:00.000Z',
+          },
+        ]}
+        activeToolsAvailable={false}
+        emptyMessage="Empty"
+        citationsOpen={{}}
+        thinkOpen={{}}
+        toolOpen={{}}
+        toolErrorOpen={{}}
+        onToggleCitation={() => {}}
+        onToggleThink={() => {}}
+        onToggleTool={() => {}}
+        onToggleToolError={() => {}}
+      />,
+    );
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    const older = within(transcript).getByText('Older user prompt');
+    const newer = within(transcript).getByText('Newer assistant reply');
+
+    expect(
+      older.compareDocumentPosition(newer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('opens an existing conversation at the bottom after history finishes loading', async () => {
     const harness = installTranscriptMeasurementHarness();
 
     const { rerender } = render(
@@ -68,12 +110,11 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
       />,
     );
 
-    expect(transcript.scrollTop).toBe(0);
-    expect(transcript.scrollTop).not.toBe(1080);
+    expect(transcript.scrollTop).toBe(1080);
     harness.restore();
   });
 
-  it('keeps an existing conversation at the top while virtualized rows settle after load', async () => {
+  it('keeps an existing conversation at the bottom while virtualized rows settle after load', async () => {
     const harness = installTranscriptMeasurementHarness();
 
     const { rerender } = render(
@@ -130,16 +171,16 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     expect(measuredRow).not.toBeNull();
     harness.setScrollMetrics(transcript, {
       scrollHeight: 1580,
-      scrollTop: 0,
+      scrollTop: 1080,
     });
     harness.setElementRect(measuredRow!, { height: 180 });
     harness.triggerResize(measuredRow!);
 
-    await waitFor(() => expect(transcript.scrollTop).toBe(0));
+    await waitFor(() => expect(transcript.scrollTop).toBe(1260));
     harness.restore();
   });
 
-  it('does not jump back to the top on a later history refresh for the same conversation', async () => {
+  it('preserves a scrolled-away position on a later history refresh for the same conversation', async () => {
     const harness = installTranscriptMeasurementHarness();
 
     const { rerender } = render(
@@ -231,7 +272,6 @@ describe('Shared transcript scroll and bottom-follow behavior', () => {
     );
 
     expect(transcript.scrollTop).toBe(360);
-    expect(transcript.scrollTop).not.toBe(0);
     harness.restore();
   });
 

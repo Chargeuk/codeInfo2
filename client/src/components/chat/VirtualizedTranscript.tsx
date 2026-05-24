@@ -23,8 +23,6 @@ type VirtualizedTranscriptProps = {
     scrollHeight: number;
     clientHeight: number;
   } | null;
-  historyTopLockActive: boolean;
-  onHistoryTopSettled: () => void;
 };
 
 const virtualizedTranscriptLog = createLogger('client');
@@ -32,7 +30,6 @@ const VIRTUALIZED_TRANSCRIPT_OVERSCAN = 6;
 const VIRTUALIZED_TRANSCRIPT_ESTIMATE_SIZE_PX = 240;
 const VIRTUALIZED_TRANSCRIPT_ROW_GAP_PX = 8;
 const VIRTUALIZED_TRANSCRIPT_INITIAL_RECT = { width: 0, height: 400 };
-const VIRTUALIZED_HISTORY_TOP_SETTLE_DEBOUNCE_MS = 200;
 
 export default function VirtualizedTranscript({
   surface,
@@ -42,8 +39,6 @@ export default function VirtualizedTranscript({
   renderMessageRow,
   measurementKeyByMessageId,
   getScrollSnapshot,
-  historyTopLockActive,
-  onHistoryTopSettled,
 }: VirtualizedTranscriptProps) {
   const lastWindowKeyRef = useRef<string | null>(null);
   const rowElementsRef = useRef(new Map<string, HTMLDivElement>());
@@ -59,29 +54,7 @@ export default function VirtualizedTranscript({
     >(),
   );
   const growthSettleTimersRef = useRef(new Map<string, number>());
-  const historyTopSettleTimerRef = useRef<number | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const scheduleHistoryTopSettle = useMemo(
-    () => () => {
-      if (!historyTopLockActive) {
-        return;
-      }
-      if (historyTopSettleTimerRef.current != null) {
-        window.clearTimeout(historyTopSettleTimerRef.current);
-      }
-      historyTopSettleTimerRef.current = window.setTimeout(() => {
-        historyTopSettleTimerRef.current = null;
-        if (
-          pendingRowGrowthRef.current.size > 0 ||
-          growthSettleTimersRef.current.size > 0
-        ) {
-          return;
-        }
-        onHistoryTopSettled();
-      }, VIRTUALIZED_HISTORY_TOP_SETTLE_DEBOUNCE_MS);
-    },
-    [historyTopLockActive, onHistoryTopSettled],
-  );
   // TanStack Virtual's hook is a documented incompatible-library seam for the compiler.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
@@ -232,9 +205,7 @@ export default function VirtualizedTranscript({
             Number.isFinite(rowStart) &&
             rowStart < beforeSnapshot.scrollTop;
           const shouldPreservePinnedBottom =
-            !historyTopLockActive &&
-            beforeSnapshot?.scrollMode === 'pinned-bottom' &&
-            deltaHeight > 0;
+            beforeSnapshot?.scrollMode === 'pinned-bottom' && deltaHeight > 0;
           const expectedScrollTop = !beforeSnapshot
             ? null
             : shouldPreserveAnchor || shouldPreservePinnedBottom
@@ -268,7 +239,6 @@ export default function VirtualizedTranscript({
           );
           pendingRowGrowthRef.current.delete(messageId);
           growthSettleTimersRef.current.delete(messageId);
-          scheduleHistoryTopSettle();
         }, 0);
 
         growthSettleTimersRef.current.set(messageId, timerId);
@@ -284,33 +254,16 @@ export default function VirtualizedTranscript({
         window.clearTimeout(timerId);
       });
       growthSettleTimers.clear();
-      if (historyTopSettleTimerRef.current != null) {
-        window.clearTimeout(historyTopSettleTimerRef.current);
-        historyTopSettleTimerRef.current = null;
-      }
       observer.disconnect();
       resizeObserverRef.current = null;
     };
   }, [
     conversationId,
     getScrollSnapshot,
-    historyTopLockActive,
-    scheduleHistoryTopSettle,
     surface,
     transcriptContainerRef,
     virtualizer,
   ]);
-
-  useEffect(() => {
-    if (!historyTopLockActive || messages.length === 0) {
-      if (historyTopSettleTimerRef.current != null) {
-        window.clearTimeout(historyTopSettleTimerRef.current);
-        historyTopSettleTimerRef.current = null;
-      }
-      return;
-    }
-    scheduleHistoryTopSettle();
-  }, [historyTopLockActive, messages.length, scheduleHistoryTopSettle]);
 
   useLayoutEffect(() => {
     messages.forEach((message) => {

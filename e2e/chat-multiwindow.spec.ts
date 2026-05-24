@@ -99,7 +99,7 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
 
     const existing = turnsByConversationId[params.conversationId]?.items ?? [];
 
-    // API returns newest-first.
+    // API returns newest-first, but the shared transcript now renders chronologically.
     turnsByConversationId[params.conversationId] = {
       items: [assistantTurn, userTurn, ...existing],
       nextCursor: null,

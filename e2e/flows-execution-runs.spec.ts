@@ -780,3 +780,203 @@ test('flows existing-conversation working-folder picker applies a local reposito
   await expect(page.getByText('working_folder not found')).toHaveCount(0);
   expect(workingFolderBodies).toEqual([{ workingFolder: '/base/repo/child' }]);
 });
+
+test('flows existing conversations open at the newest visible content and preserve scrolled-away reading position', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  const mockWs = await installMockChatWs(page);
+
+  const flowTurns = Array.from({ length: 12 }, (_, index) => ({
+    turnId: `turn-${index + 1}`,
+    conversationId: 'flow-1',
+    role: index % 2 === 0 ? 'user' : 'assistant',
+    content:
+      index === 0
+        ? 'Reply with a short greeting.'
+        : index === 1
+          ? 'Hello. No tools were used.'
+          : `Flow history message ${index + 1}`,
+    provider: 'codex',
+    model: 'gpt-5',
+    status: 'ok',
+    createdAt: `2025-01-01T00:0${index}:00.000Z`,
+  }));
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const method = req.method();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const path = url.pathname;
+
+    if (path === '/health' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+
+    if (path === '/flows' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flows: [{ name: 'echo', description: 'Echo flow', disabled: false }],
+        }),
+      });
+      return;
+    }
+
+    if (path === '/flows/echo' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'echo',
+            description: 'Echo flow',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (path === '/conversations' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: echo',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: '2025-01-01T00:11:00.000Z',
+              archived: false,
+              flowName: 'echo',
+              flags: {},
+            },
+          ],
+          nextCursor: null,
+        }),
+      });
+      return;
+    }
+
+    if (path.startsWith('/conversations/') && path.endsWith('/turns')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: flowTurns, nextCursor: null }),
+      });
+      return;
+    }
+
+    if (
+      path === '/conversations/flow-1/working-folder' &&
+      method === 'POST'
+    ) {
+      const payload = req.postDataJSON?.() ?? {};
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'ok',
+          conversation: {
+            conversationId: 'flow-1',
+            title: 'Flow: echo',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            archived: false,
+            flowName: 'echo',
+            flags:
+              typeof (payload as { workingFolder?: string }).workingFolder ===
+              'string'
+                ? {
+                    workingFolder: (
+                      payload as { workingFolder: string }
+                    ).workingFolder,
+                  }
+                : {},
+          },
+        }),
+      });
+      return;
+    }
+
+    if (path === '/ingest/dirs' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(defaultDirs),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByTestId('flow-run')).toBeVisible({ timeout: 20000 });
+  await page.getByTestId('conversation-row').first().click();
+
+  const transcript = page.getByTestId('flows-transcript');
+  await expect(transcript).toBeVisible();
+
+  const transcriptText = await transcript.evaluate(
+    (node) => node.textContent ?? '',
+  );
+  expect(transcriptText.indexOf('Reply with a short greeting.')).toBeLessThan(
+    transcriptText.indexOf('Hello. No tools were used.'),
+  );
+
+  const initialMetrics = await transcript.evaluate((node) => {
+    const element = node as HTMLElement;
+    return {
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
+  });
+  expect(initialMetrics.scrollTop).toBeGreaterThan(0);
+
+  const scrolledTop = await transcript.evaluate((node) => {
+    const element = node as HTMLElement;
+    element.scrollTop = Math.max(0, element.scrollTop - 220);
+    element.dispatchEvent(new Event('scroll', { bubbles: true }));
+    return element.scrollTop;
+  });
+
+  await mockWs.waitForConversationSubscription('flow-1');
+  await mockWs.sendUserTurn({
+    conversationId: 'flow-1',
+    inflightId: 'flow-inflight-1',
+    content: 'A newer flow turn is arriving.',
+  });
+  await mockWs.sendAssistantDelta({
+    conversationId: 'flow-1',
+    inflightId: 'flow-inflight-1',
+    delta: 'Preserve my reading position.',
+  });
+  await mockWs.sendFinal({
+    conversationId: 'flow-1',
+    inflightId: 'flow-inflight-1',
+    status: 'ok',
+  });
+
+  await expect.poll(async () =>
+    transcript.evaluate((node) => (node as HTMLElement).scrollTop),
+  ).toBe(scrolledTop);
+});

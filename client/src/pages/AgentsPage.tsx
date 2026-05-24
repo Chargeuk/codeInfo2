@@ -165,16 +165,16 @@ export default function AgentsPage() {
     runKind: 'instruction' | 'command';
   } | null>(null);
 
-  const displayMessages = useMemo<ChatMessage[]>(
-    () => [...messages].reverse(),
-    [messages],
-  );
-  const latestAssistantMessageId = useMemo(
-    () =>
-      displayMessages.find((message) => message.role === 'assistant')?.id ??
-      null,
-    [displayMessages],
-  );
+  const displayMessages = messages;
+  const latestAssistantMessageId = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role === 'assistant') {
+        return message.id;
+      }
+    }
+    return null;
+  }, [messages]);
 
   const toolMatchCountByKey = useMemo(() => {
     const map = new Map<string, number>();

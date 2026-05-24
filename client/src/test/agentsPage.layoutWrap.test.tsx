@@ -258,6 +258,12 @@ describe('Agents shared shell layout wrap', () => {
     await waitFor(() =>
       expect(screen.getAllByTestId('chat-bubble')).toHaveLength(14),
     );
+    const firstMessage = within(transcript).getByText('Agent message 1');
+    const secondMessage = within(transcript).getByText('Agent message 2');
+    expect(
+      firstMessage.compareDocumentPosition(secondMessage) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     measurementHarness.setContainerMetrics(transcript, {
       width: 640,

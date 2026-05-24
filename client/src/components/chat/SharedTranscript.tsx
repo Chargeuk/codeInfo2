@@ -7,7 +7,6 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
   type UIEventHandler,
 } from 'react';
@@ -110,14 +109,11 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
     const measurementReadyRef = useRef<string | null>(null);
     const missingRowLoggedRef = useRef(new Set<string>());
     const scrollModeRef = useRef<SharedTranscriptScrollMode>('pinned-bottom');
-    const initialHistoryOpenHandledRef = useRef(false);
-    const openHistoryAtTopRef = useRef(false);
     const scrollMetricsRef = useRef<{
       conversationKey: string;
       scrollHeight: number;
       scrollTop: number;
     } | null>(null);
-    const [historyTopLockActive, setHistoryTopLockActive] = useState(false);
     const hasWarningState = turnsError;
     const hasEmptyState = messages.length === 0;
     const conversationKey = `${surface}:${conversationId ?? 'none'}`;
@@ -355,36 +351,10 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
 
     useEffect(() => {
       scrollModeRef.current = 'pinned-bottom';
-      initialHistoryOpenHandledRef.current = false;
       scrollMetricsRef.current = null;
-      openHistoryAtTopRef.current = false;
-      setHistoryTopLockActive(false);
     }, [conversationKey]);
 
-    useEffect(() => {
-      if (!turnsLoading || initialHistoryOpenHandledRef.current) {
-        return;
-      }
-      scrollMetricsRef.current = null;
-      openHistoryAtTopRef.current = true;
-      setHistoryTopLockActive(true);
-    }, [turnsLoading]);
-
     useLayoutEffect(() => {
-      const transcriptElement = transcriptContainerRef.current;
-      if (transcriptElement && openHistoryAtTopRef.current && !turnsLoading) {
-        initialHistoryOpenHandledRef.current = true;
-        openHistoryAtTopRef.current = false;
-        transcriptElement.scrollTop = 0;
-        setScrollMode('scrolled-away');
-        syncScrollMetrics();
-        return;
-      }
-      if (openHistoryAtTopRef.current && !turnsLoading) {
-        initialHistoryOpenHandledRef.current = true;
-        openHistoryAtTopRef.current = false;
-        setHistoryTopLockActive(false);
-      }
       reconcileScrollPosition();
     }, [
       reconcileScrollPosition,
@@ -393,9 +363,7 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
       thinkOpen,
       toolOpen,
       toolErrorOpen,
-      turnsLoading,
       turnsError,
-      setScrollMode,
       syncScrollMetrics,
     ]);
 
@@ -548,10 +516,6 @@ const SharedTranscript = forwardRef<HTMLDivElement, SharedTranscriptProps>(
             renderMessageRow={renderMessageRow}
             measurementKeyByMessageId={measurementKeyByMessageId}
             getScrollSnapshot={getScrollSnapshot}
-            historyTopLockActive={historyTopLockActive}
-            onHistoryTopSettled={() => {
-              setHistoryTopLockActive(false);
-            }}
           />
         </Stack>
       </Box>

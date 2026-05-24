@@ -324,6 +324,51 @@ describe('Flows page run/resume controls', () => {
     expect(customTitleInput).toBeInTheDocument();
   });
 
+  it('renders existing flow transcript turns in chronological top-to-bottom order', async () => {
+    setupFlowsRunHarness({
+      turns: {
+        items: [
+          {
+            turnId: 'turn-1',
+            conversationId: 'flow-1',
+            role: 'user',
+            content: 'Reply with a short greeting.',
+            provider: 'codex',
+            model: 'gpt-5',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:00.000Z',
+          },
+          {
+            turnId: 'turn-2',
+            conversationId: 'flow-1',
+            role: 'assistant',
+            content: 'Hello. No tools were used.',
+            provider: 'codex',
+            model: 'gpt-5',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:01.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    const transcript = await screen.findByTestId('flows-transcript');
+    await waitFor(() =>
+      expect(screen.getAllByTestId('chat-bubble')).toHaveLength(2),
+    );
+
+    const older = within(transcript).getByText('Reply with a short greeting.');
+    const newer = within(transcript).getByText('Hello. No tools were used.');
+    expect(
+      older.compareDocumentPosition(newer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('disables the custom title input during resume and inflight states', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation(

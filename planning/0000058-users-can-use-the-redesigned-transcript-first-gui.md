@@ -4401,7 +4401,7 @@ This task must not silently narrow proof scope. If a story-level acceptance item
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this is the final story-level server build proof.
-2. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this is the final story-level client build proof.
+2. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this is the final story-level client build proof.
 3. [ ] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this is the final story-level server unit/integration proof.
 4. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use the supported wrapper because this is the final story-level server acceptance-style proof.
 5. [ ] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this is the final story-level client proof across all redesigned surfaces.
@@ -4477,5 +4477,6 @@ Final story-level items to verify manually:
 #### Implementation Notes
 
 - `npm run build:summary:server` passed; log: `logs/test-summaries/build-server-latest.log`.
+- `npm run build:summary:client` passed with warnings (1); log: `logs/test-summaries/build-client-latest.log`.
 - `npm run lint --workspace client` passed without requiring any fixes.
 - `npm run format:check --workspace client` passed without requiring any fixes.

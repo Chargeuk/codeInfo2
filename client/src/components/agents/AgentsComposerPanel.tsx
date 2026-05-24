@@ -218,7 +218,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   input,
   showStop,
   isStopping,
-  canShowDeviceAuth,
   controlsDisabled,
   submitDisabledForRun,
   startStepDisabled,
@@ -233,13 +232,11 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   onCommandModeSelect,
   onPromptModeSelect,
   onStepSelect,
-  onResetConversation,
   onWorkingFolderChange,
   onCommitWorkingFolder,
   onOpenDirPicker,
   onInputChange,
   onStopClick,
-  onDeviceAuthOpen,
   onDeviceAuthClose,
   onDeviceAuthSuccess,
   onAgentInfoOpen,
@@ -453,31 +450,6 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           {agentInfoEmptyMessage}
         </Typography>
       ) : null}
-
-      <Stack direction="row" spacing={1} flexWrap="wrap">
-        <Button
-          variant="outlined"
-          onClick={() => {
-            setInfoAnchorEl(null);
-            onResetConversation();
-          }}
-          data-testid="agent-new-conversation"
-        >
-          New conversation
-        </Button>
-        {canShowDeviceAuth ? (
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={() => {
-              setInfoAnchorEl(null);
-              onDeviceAuthOpen();
-            }}
-          >
-            Re-authenticate
-          </Button>
-        ) : null}
-      </Stack>
     </Stack>
   );
 

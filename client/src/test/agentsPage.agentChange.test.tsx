@@ -495,51 +495,25 @@ describe('Agents page - device auth', () => {
     render(<RouterProvider router={router} />);
   };
 
-  it('keeps re-authenticate visible when an agent is selected and Codex is available', async () => {
+  it('keeps the info summary free of re-authenticate actions when an agent is selected and Codex is available', async () => {
     setup(true);
     await userEvent.click(await screen.findByTestId('agent-info'));
 
     expect(
-      await screen.findByRole('button', {
+      screen.queryByRole('button', {
         name: 'Re-authenticate',
       }),
-    ).toBeInTheDocument();
-
-    expect(
-      await screen.findByRole('button', {
-        name: 'Re-authenticate',
-      }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
-  it('opens shared device-auth dialog without target selector', async () => {
-    setup(true);
-    await userEvent.click(await screen.findByTestId('agent-info'));
-    const button = await screen.findByRole('button', {
-      name: 'Re-authenticate',
-    });
-    await act(async () => {
-      await userEvent.click(button);
-    });
-
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
-  });
-
-  it('keeps re-authenticate visible when Codex is unavailable', async () => {
+  it('keeps the info summary free of re-authenticate actions when Codex is unavailable', async () => {
     setup(false);
     await userEvent.click(await screen.findByTestId('agent-info'));
 
     expect(
-      await screen.findByRole('button', {
+      screen.queryByRole('button', {
         name: 'Re-authenticate',
       }),
-    ).toBeInTheDocument();
-
-    expect(
-      await screen.findByRole('button', {
-        name: 'Re-authenticate',
-      }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 });

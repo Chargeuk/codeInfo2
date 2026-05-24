@@ -39,6 +39,7 @@ export function createIngestDirsRouter() {
 
   router.get('/ingest/dirs', async (req, res) => {
     const base = process.env.CODEINFO_HOST_INGEST_DIR || '/data';
+    const codexWorkdir = process.env.CODEINFO_CODEX_WORKDIR || base;
     const raw = typeof req.query.path === 'string' ? req.query.path : '';
     const requested = raw.trim() || base;
 
@@ -49,7 +50,7 @@ export function createIngestDirsRouter() {
 
     const mapped = mapHostWorkingFolderToWorkdir({
       hostIngestDir: base,
-      codexWorkdir: '/',
+      codexWorkdir,
       hostWorkingFolder: requested,
     });
     if ('error' in mapped) {
@@ -62,7 +63,7 @@ export function createIngestDirsRouter() {
 
     let st: Awaited<ReturnType<typeof stat>>;
     try {
-      st = await stat(requested);
+      st = await stat(mapped.mappedPath);
     } catch {
       return replyError(res, { base, path: requested, code: 'NOT_FOUND' }, 404);
     }
@@ -77,7 +78,7 @@ export function createIngestDirsRouter() {
 
     let entries: Dirent[];
     try {
-      entries = (await readdir(requested, {
+      entries = (await readdir(mapped.mappedPath, {
         withFileTypes: true,
       })) as unknown as Dirent[];
     } catch {

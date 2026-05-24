@@ -208,4 +208,19 @@ describe('AgentsComposerPanel parity', () => {
       '/workflows/prompts/review.md',
     );
   });
+
+  it('keeps the info surface summary-only without workspace action buttons', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.click(screen.getByTestId('agent-info'));
+    const infoPopover = await screen.findByTestId('agent-info-popover');
+
+    expect(
+      within(infoPopover).queryByRole('button', { name: 'New conversation' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(infoPopover).queryByRole('button', { name: 'Re-authenticate' }),
+    ).not.toBeInTheDocument();
+  });
 });

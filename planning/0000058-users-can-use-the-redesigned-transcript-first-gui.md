@@ -3715,7 +3715,7 @@ The shared primary action control in the `Agents` composer must follow the share
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Agents` page.
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Agents` page.
 2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, unified mode selection, and shared composer interactions across desktop and mobile.
 3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Agents`, including upward desktop popovers, centered mobile modal selection surfaces, and single-button execution behavior.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.

@@ -1067,6 +1067,7 @@ async function executeCodebaseQuestion(
       agentHomeResolution.activeEnvName !== 'default'
         ? agentHomeResolution.codeInfoRoot
         : undefined,
+    allowMissingWorkingFolder: effectiveWorkingFolder !== undefined,
   });
   const envOverrides: NodeJS.ProcessEnv = {
     CODEINFO_ROOT: executionContext.repositoryMetadata.selectedRepositoryPath,

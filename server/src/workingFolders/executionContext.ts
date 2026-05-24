@@ -158,6 +158,7 @@ export async function resolveWorkingFolderWorkingDirectory(
 export async function resolveSharedExecutionContext(params: {
   workingFolder?: string;
   defaultRepositoryRoot?: string;
+  allowMissingWorkingFolder?: boolean;
 }): Promise<SharedExecutionContext> {
   const requestedDefaultRepositoryRoot = normalizeOptionalRoot(
     params.defaultRepositoryRoot,
@@ -169,6 +170,9 @@ export async function resolveSharedExecutionContext(params: {
       : resolveDefaultExecutionRoot();
   const resolvedWorkingFolder = await resolveWorkingFolderWorkingDirectory(
     params.workingFolder,
+    {
+      allowMissingHostPath: params.allowMissingWorkingFolder,
+    },
   );
   const selectedRepositoryPath = resolvedWorkingFolder ?? defaultExecutionRoot;
   const fallbackUsed = resolvedWorkingFolder === undefined;

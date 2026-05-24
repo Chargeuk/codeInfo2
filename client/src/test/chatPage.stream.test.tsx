@@ -975,7 +975,7 @@ describe('Chat WS streaming UI', () => {
 
     const transcript = screen.getByTestId('chat-transcript');
     const text = transcript.textContent ?? '';
-    expect(text.indexOf('Assistant B')).toBeLessThan(text.indexOf('User B'));
+    expect(text.indexOf('Assistant B')).toBeGreaterThan(text.indexOf('User B'));
   });
 
   it('renders same-createdAt turns deterministically when turnId is present', async () => {
@@ -1043,7 +1043,7 @@ describe('Chat WS streaming UI', () => {
 
     const transcript = screen.getByTestId('chat-transcript');
     const text = transcript.textContent ?? '';
-    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+    expect(text.indexOf('Assistant A')).toBeGreaterThan(text.indexOf('User A'));
   });
 
   it('renders same-createdAt turns deterministically when turnId is missing (legacy)', async () => {
@@ -1109,7 +1109,7 @@ describe('Chat WS streaming UI', () => {
 
     const transcript = screen.getByTestId('chat-transcript');
     const text = transcript.textContent ?? '';
-    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+    expect(text.indexOf('Assistant A')).toBeGreaterThan(text.indexOf('User A'));
   });
 
   it('dedupes ws user_turn against the sender tab optimistic bubble', async () => {

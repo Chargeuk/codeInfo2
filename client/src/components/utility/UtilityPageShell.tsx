@@ -1,9 +1,6 @@
-import MenuIcon from '@mui/icons-material/Menu';
 import {
   Box,
   Container,
-  Divider,
-  IconButton,
   Stack,
   Typography,
   useMediaQuery,
@@ -12,6 +9,7 @@ import { useTheme } from '@mui/material/styles';
 import { type ReactNode, useState } from 'react';
 import WorkspaceAppRail from '../workspace/WorkspaceAppRail';
 import WorkspaceMobileAppMenuOverlay from '../workspace/WorkspaceMobileAppMenuOverlay';
+import WorkspaceMobileTopBar from '../workspace/WorkspaceMobileTopBar';
 
 type UtilityPageShellProps = {
   title: string;
@@ -52,29 +50,12 @@ export default function UtilityPageShell({
       >
         {isMobile ? (
           <>
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              sx={{
-                px: 2,
-                py: 1.5,
-                minHeight: 64,
-                bgcolor: 'background.paper',
-              }}
-            >
-              <Typography variant="h5" component="h1">
-                {title}
-              </Typography>
-              <IconButton
-                aria-label="Open menu"
-                onClick={() => setMobileMenuOpen(true)}
-                edge="end"
-              >
-                <MenuIcon />
-              </IconButton>
-            </Stack>
-            <Divider />
+            <WorkspaceMobileTopBar
+              title={title}
+              showConversationsButton={false}
+              onConversationsClick={() => undefined}
+              onMenuClick={() => setMobileMenuOpen(true)}
+            />
             <WorkspaceMobileAppMenuOverlay
               open={mobileMenuOpen}
               onClose={() => setMobileMenuOpen(false)}
@@ -101,9 +82,9 @@ export default function UtilityPageShell({
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            px: { xs: 2, md: 3 },
-            pt: { xs: 2, md: 2.5 },
-            pb: { xs: 3, md: 4 },
+            px: { xs: 1.25, md: 3 },
+            pt: { xs: 1.25, md: 2.5 },
+            pb: { xs: 1.5, md: 4 },
             overflowY: 'auto',
             overflowX: 'hidden',
           }}

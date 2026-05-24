@@ -178,7 +178,10 @@ export async function getFlowDetails(params: {
     record = data.flow as Record<string, unknown>;
   } else if (Array.isArray(data.flows)) {
     const found = data.flows.find(
-      (f: unknown) => f && typeof f === 'object' && (f as Record<string, unknown>).name === params.flowName,
+      (f: unknown) =>
+        f &&
+        typeof f === 'object' &&
+        (f as Record<string, unknown>).name === params.flowName,
     );
     if (found && typeof found === 'object') {
       record = found as Record<string, unknown>;

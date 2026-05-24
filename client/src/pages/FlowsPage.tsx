@@ -14,7 +14,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Paper,
   Stack,
   TextField,
   Typography,
@@ -48,6 +47,7 @@ import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
 import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
+import WorkspaceMobileTopBar from '../components/workspace/WorkspaceMobileTopBar';
 import CommonComposerFooter from '../components/workspace/composer/CommonComposerFooter';
 import CommonComposerMainInputRow from '../components/workspace/composer/CommonComposerMainInputRow';
 import CommonComposerShell from '../components/workspace/composer/CommonComposerShell';
@@ -160,6 +160,15 @@ export default function FlowsPage() {
   const conversationPaneOpen = effectiveIsMobile
     ? mobileConversationsOpen
     : desktopDrawerOpen;
+
+  useEffect(() => {
+    if (!effectiveIsMobile || typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('codeinfo-mobile-conversations-overlay-change', {
+        detail: { open: mobileConversationsOpen },
+      }),
+    );
+  }, [effectiveIsMobile, mobileConversationsOpen]);
 
   const [flows, setFlows] = useState<FlowSummary[]>([]);
   const [flowDetailsByKey, setFlowDetailsByKey] = useState<
@@ -1117,10 +1126,11 @@ export default function FlowsPage() {
     // Some automation or browser environments may provide a null currentTarget.
     // Fall back to a sensible non-null element so mobile dialogs still open in tests.
     // Prefer the real target when available to allow desktop popovers to anchor correctly.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentTarget = event.currentTarget as HTMLElement | null;
+    const eventTarget = event.target as HTMLElement | null;
     const anchor =
-      (event.currentTarget as any) ??
-      (event.target as any) ??
+      currentTarget ??
+      eventTarget ??
       (typeof document !== 'undefined' ? document.body : null);
     console.info('[flows-ui] setting working path anchor', {
       anchorType: anchor?.nodeName ?? typeof anchor,
@@ -2234,33 +2244,15 @@ export default function FlowsPage() {
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
+        gap: 0,
       }}
     >
-      <Paper
-        variant="outlined"
-        sx={{ p: 1.5, display: 'flex', gap: 1, alignItems: 'center' }}
-      >
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setMobileConversationsOpen(true)}
-          data-testid="conversation-drawer-toggle"
-          aria-controls="conversation-drawer"
-          aria-expanded={mobileConversationsOpen}
-          sx={{ flex: 1 }}
-        >
-          Conversations
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setMobileAppMenuOpen(true)}
-          sx={{ flex: 1 }}
-        >
-          Menu
-        </Button>
-      </Paper>
+      <WorkspaceMobileTopBar
+        title="Flows"
+        showConversationsButton
+        onConversationsClick={() => setMobileConversationsOpen(true)}
+        onMenuClick={() => setMobileAppMenuOpen(true)}
+      />
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {transcriptSurface}
       </Box>

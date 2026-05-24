@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Paper, Stack, useMediaQuery } from '@mui/material';
+import { Alert, Box, Stack, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   FormEvent,
@@ -34,6 +34,7 @@ import useSharedTranscriptState from '../components/chat/useSharedTranscriptStat
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
 import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
+import WorkspaceMobileTopBar from '../components/workspace/WorkspaceMobileTopBar';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   type ChatMessage,
@@ -91,6 +92,15 @@ export default function AgentsPage() {
   const conversationPaneOpen = isMobile
     ? mobileConversationsOpen
     : desktopDrawerOpen;
+
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('codeinfo-mobile-conversations-overlay-change', {
+        detail: { open: mobileConversationsOpen },
+      }),
+    );
+  }, [isMobile, mobileConversationsOpen]);
 
   const [agents, setAgents] = useState<AgentListEntry[]>([]);
   const [agentDetailsByName, setAgentDetailsByName] = useState<
@@ -2180,33 +2190,15 @@ export default function AgentsPage() {
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
+        gap: 0,
       }}
     >
-      <Paper
-        variant="outlined"
-        sx={{ p: 1.5, display: 'flex', gap: 1, alignItems: 'center' }}
-      >
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setMobileConversationsOpen(true)}
-          data-testid="conversation-drawer-toggle"
-          aria-controls="conversation-drawer"
-          aria-expanded={mobileConversationsOpen}
-          sx={{ flex: 1 }}
-        >
-          Conversations
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setMobileAppMenuOpen(true)}
-          sx={{ flex: 1 }}
-        >
-          Menu
-        </Button>
-      </Paper>
+      <WorkspaceMobileTopBar
+        title="Agents"
+        showConversationsButton
+        onConversationsClick={() => setMobileConversationsOpen(true)}
+        onMenuClick={() => setMobileAppMenuOpen(true)}
+      />
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {transcriptSurface}
       </Box>

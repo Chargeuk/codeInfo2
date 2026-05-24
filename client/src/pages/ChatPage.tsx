@@ -59,6 +59,7 @@ import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
 import WorkspaceMobileAppMenuOverlay from '../components/workspace/WorkspaceMobileAppMenuOverlay';
 import WorkspaceMobileConversationsOverlay from '../components/workspace/WorkspaceMobileConversationsOverlay';
+import WorkspaceMobileTopBar from '../components/workspace/WorkspaceMobileTopBar';
 import CommonComposerFooter from '../components/workspace/composer/CommonComposerFooter';
 import CommonComposerMainInputRow from '../components/workspace/composer/CommonComposerMainInputRow';
 import CommonComposerShell from '../components/workspace/composer/CommonComposerShell';
@@ -204,6 +205,15 @@ export default function ChatPage() {
   const conversationPaneOpen = isMobile
     ? mobileConversationsOpen
     : desktopDrawerOpen;
+
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('codeinfo-mobile-conversations-overlay-change', {
+        detail: { open: mobileConversationsOpen },
+      }),
+    );
+  }, [isMobile, mobileConversationsOpen]);
 
   useEffect(() => {
     if (isMobile) {
@@ -2430,38 +2440,12 @@ export default function ChatPage() {
         gap: 0,
       }}
     >
-      <Box
-        sx={{
-          p: 1.5,
-          display: 'flex',
-          gap: 1,
-          alignItems: 'center',
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setMobileConversationsOpen(true)}
-          data-testid="conversation-drawer-toggle"
-          aria-controls="conversation-drawer"
-          aria-expanded={mobileConversationsOpen}
-          sx={{ flex: 1 }}
-        >
-          Conversations
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setMobileAppMenuOpen(true)}
-          sx={{ flex: 1 }}
-        >
-          Menu
-        </Button>
-      </Box>
+      <WorkspaceMobileTopBar
+        title="Chat"
+        showConversationsButton
+        onConversationsClick={() => setMobileConversationsOpen(true)}
+        onMenuClick={() => setMobileAppMenuOpen(true)}
+      />
       <Box
         sx={{
           ...chatContentFrameSx,

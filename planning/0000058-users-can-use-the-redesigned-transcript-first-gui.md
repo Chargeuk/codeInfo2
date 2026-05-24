@@ -3568,7 +3568,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 27`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -3784,6 +3784,7 @@ Items to verify manually:
 - **RESOLVED ISSUE** Stopped at Testing step: `Current Repository: Run npm run test:summary:client` (Testing item 2).
 - **RESOLVED ISSUE** Cleared the blocked `npm run test:summary:e2e` proof step after finishing the remaining shared-composer browser-proof migration. The final repair made the shared `routeAgentsApis` helper backward-compatible with older options-only call sites, added the missing mocked `/agents/coding_agent/commands/run` path plus paged conversation payload shape, dismissed trigger-opened popovers before later interactions, replaced exact popover-edge comparisons with a small geometry tolerance, and tightened the chat mobile chrome assertion to the visible text-bearing toggle instead of the desktop chevron seam. A focused rerun over `e2e/agents.spec.ts` and `e2e/chat.spec.ts` now passes `67/67`, and the full `npm run test:summary:e2e` wrapper also passes `67/67` in `logs/test-summaries/e2e-tests-latest.log`.
 - **RESOLVED ISSUE** Completed the blocked `npm run test:summary:client` proof step after finishing the remaining shared-composer proof migration. The final repair wired the `Agents` info trigger back into page-level lazy detail loading, migrated the last stale Agents suites away from removed inline auth / disabled-agent / execute-button assumptions, and updated the shared-shell gutter assertions to the current workspace frame contract. Focused reruns over the touched suites passed `67/67`, and the full client wrapper now passes `826/826` (`test-results/client-tests-2026-05-24T02-49-34-597Z.log`).
+- Automated-proof audit closed Task 28 after the current plan state reached five checked testing items with no live blocker. The supporting evidence on disk includes the passing full client wrapper artifacts `test-results/client-tests-2026-05-24T02-49-25-304Z.json` and `test-results/client-tests-2026-05-24T02-49-34-597Z.json`, the passing full e2e wrapper log `logs/test-summaries/e2e-tests-latest.log`, and the follow-up lint/format commits `ecf37b65` and `17ce7e2b` that updated the remaining proof gates. This note closes the structurally stale `__in_progress__` state rather than introducing new implementation work.
 
 
 ### Task 29. Migrate The Flows Composer Onto The Shared Composer Shell And Match The Final Flows Footer Contract

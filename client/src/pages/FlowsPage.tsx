@@ -299,7 +299,7 @@ export default function FlowsPage() {
     ]),
   );
   const flowInfoOpen = Boolean(flowInfoAnchorEl);
-  const flowInfoDisabled = flowsLoading || !!flowsError || !selectedFlowName;
+  const flowInfoDisabled = !!flowsError || !selectedFlowName;
   const flowInfoEmpty =
     !flowDescription && flowWarnings.length === 0 && !flowDetailsError;
   const flowInfoEmptyMessage =

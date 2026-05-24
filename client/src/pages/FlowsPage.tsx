@@ -1110,8 +1110,10 @@ export default function FlowsPage() {
     // Only set the mobile-open flag when running on a mobile viewport.
     // Avoid forcing test-mode behavior here; media queries should reflect the
     // Playwright viewport sizing so the correct surface (popover vs dialog)
-    // is rendered.
-    if (isMobile) {
+    // is rendered. Use the computed effectiveIsMobile so test viewports that
+    // rely on window.innerWidth are respected even when matchMedia is
+    // inconsistent in headless environments.
+    if (effectiveIsMobile) {
       setWorkingPathMobileOpen(true);
     }
   };
@@ -1355,7 +1357,11 @@ export default function FlowsPage() {
         await refreshConversations();
         console.info('[flows-ui] refreshConversations (after)');
         if (shouldGuardFreshRun) {
+          // Allow the UI to paint and then refresh once more to ensure the
+          // latest server-side run appears in conversation lists in environments
+          // where async routing or rapid replays can cause timing races.
           await waitForNextPaint();
+          await refreshConversations();
         }
       } catch (err) {
         if (
@@ -2092,8 +2098,9 @@ export default function FlowsPage() {
         <ComposerMobileDialog
           open={workingPathMobileOpen}
           onClose={handleWorkingPathClose}
+          data-testid="flow-working-folder-dialog"
         >
-          <DialogTitle sx={{ pb: 1 }} data-testid="flow-working-folder-dialog">
+          <DialogTitle sx={{ pb: 1 }}>
             <Stack
               direction="row"
               alignItems="center"

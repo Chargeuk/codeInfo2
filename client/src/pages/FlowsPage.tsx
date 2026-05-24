@@ -1085,12 +1085,17 @@ export default function FlowsPage() {
   };
 
   const handleWorkingPathOpen = (event: MouseEvent<HTMLElement>) => {
-    if (isWorkingFolderDisabled) return;
+    console.info('[flows-ui] handleWorkingPathOpen called', { isWorkingFolderDisabled });
+    if (isWorkingFolderDisabled) {
+      console.info('[flows-ui] working path open aborted - disabled');
+      return;
+    }
     // Some automation or browser environments may provide a null currentTarget.
     // Fall back to a sensible non-null element so mobile dialogs still open in tests.
     // Prefer the real target when available to allow desktop popovers to anchor correctly.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anchor = (event.currentTarget as any) ?? (typeof document !== 'undefined' ? document.body : null);
+    const anchor = (event.currentTarget as any) ?? (event.target as any) ?? (typeof document !== 'undefined' ? document.body : null);
+    console.info('[flows-ui] setting working path anchor', { anchorType: anchor?.nodeName ?? typeof anchor });
     setWorkingPathAnchorEl(anchor);
   };
 

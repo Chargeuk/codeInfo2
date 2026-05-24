@@ -475,7 +475,7 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           );
         }}
         disabled={isWorkingFolderDisabled}
-        inputProps={{ 'data-testid': 'agent-working-folder' }}
+        inputProps={{ 'data-testid': 'agent-working-folder', 'aria-label': 'working_folder', name: 'working_folder' }}
       />
       <Stack direction="row" spacing={1.25} justifyContent="space-between">
         <Button

@@ -1113,7 +1113,10 @@ export default function FlowsPage() {
     // is rendered. Use the computed effectiveIsMobile so test viewports that
     // rely on window.innerWidth are respected even when matchMedia is
     // inconsistent in headless environments.
-    if (effectiveIsMobile) {
+    // Use the live window width at click time to determine mobile surface
+    // in environments where matchMedia may be inconsistent. This makes the
+    // dialog open reliably in Playwright viewports.
+    if (typeof window !== 'undefined' ? window.innerWidth <= breakpointSm : isMobile) {
       setWorkingPathMobileOpen(true);
     }
   };

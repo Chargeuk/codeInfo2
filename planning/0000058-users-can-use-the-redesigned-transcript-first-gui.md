@@ -3806,7 +3806,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 27`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Overview
 
@@ -3951,6 +3951,7 @@ Items to verify manually:
 - **IMPLEMENTATION NOTE** The same manual pass found a Task 29 working-path regression on existing flow conversations: selecting `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` from the visible directory picker updated the footer label to `codeInfo2` but surfaced `working_folder not found` 400s for existing-conversation persistence. Bounded diagnosis narrowed the failure to the `client/src/pages/FlowsPage.tsx` working-folder persistence path and server known-repository validation in `server/src/workingFolders/state.ts`, so Task 29 reopens with concrete repair and browser-proof subtasks and Testing item 3 is reopened for the follow-up rerun.
 - **IMPLEMENTATION NOTE** Repaired the reopened working-path seam by teaching `client/src/pages/FlowsPage.tsx` to retain the server-returned working-folder value after an existing-conversation picker save and by widening `server/src/workingFolders/state.ts` validation to accept the mounted identity of the local CodeInfo root, not just the literal root string. Targeted proof passed with `npm run test:summary:server:unit -- --file server/src/test/unit/agents-working-folder.test.ts --test-name "accepts the mounted local codeinfo root identity when validating requested working folders"` (`1/1`) and `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --test-name "writes the selected folder into the working folder input"` (`1/1`).
 - **IMPLEMENTATION NOTE** Extended `e2e/flows-execution-runs.spec.ts` with the reopened existing-conversation browser path, including the nested picker flow and the no-`working_folder not found` assertion. The first browser pass failed because the picker mock was missing an `/ingest/dirs` response for `/base/repo`; after adding that route, the rerun passed with `npm run test:summary:e2e -- --grep "flows existing-conversation working-folder picker applies a local repository without a not found error"` (`1/1`).
+- **IMPLEMENTATION NOTE** Automated-proof audit confirmed the reopened existing-conversation follow-up is now fully closed: the full `npm run test:summary:e2e` wrapper passed cleanly (`69` passed, `0` unexpected), Task 29 now has `16/16` subtasks and `5/5` testing items complete, and the task returns to `__done__` with no live blocker.
 
 
 ### Task 30. Unify The Mobile Top Bar And Remove Bulky Mobile Shell Padding Across Workspace And Utility Pages

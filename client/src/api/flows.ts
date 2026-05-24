@@ -172,11 +172,21 @@ export async function getFlowDetails(params: {
     await throwFlowApiError(res, `Failed to load flow details (${res.status})`);
   }
 
-  const data = (await res.json()) as { flow?: unknown };
-  if (!data.flow || typeof data.flow !== 'object') {
+  const data = (await res.json()) as { flow?: unknown; flows?: unknown[] };
+  let record: Record<string, unknown> | undefined;
+  if (data.flow && typeof data.flow === 'object') {
+    record = data.flow as Record<string, unknown>;
+  } else if (Array.isArray((data as any).flows)) {
+    const found = (data as any).flows.find(
+      (f: unknown) => f && typeof f === 'object' && (f as Record<string, unknown>).name === params.flowName,
+    );
+    if (found && typeof found === 'object') {
+      record = found as Record<string, unknown>;
+    }
+  }
+  if (!record) {
     throw new Error('Invalid flow details response');
   }
-  const record = data.flow as Record<string, unknown>;
   const name = typeof record.name === 'string' ? record.name : undefined;
   if (!name) {
     throw new Error('Invalid flow details response');

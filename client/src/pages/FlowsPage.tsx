@@ -1098,10 +1098,11 @@ export default function FlowsPage() {
     const anchor = (event.currentTarget as any) ?? (event.target as any) ?? (typeof document !== 'undefined' ? document.body : null);
     console.info('[flows-ui] setting working path anchor', { anchorType: anchor?.nodeName ?? typeof anchor });
     setWorkingPathAnchorEl(anchor);
-    // Set the mobile-open flag only for mobile or when running under the
-    // test environment to avoid opening the mobile dialog on desktop while
-    // keeping Playwright runs resilient to media-query mismatches.
-    if (isMobile || process.env.NODE_ENV === 'test') {
+    // Only set the mobile-open flag when running on a mobile viewport.
+    // Avoid forcing test-mode behavior here; media queries should reflect the
+    // Playwright viewport sizing so the correct surface (popover vs dialog)
+    // is rendered.
+    if (isMobile) {
       setWorkingPathMobileOpen(true);
     }
   };
@@ -2066,36 +2067,41 @@ export default function FlowsPage() {
         </DialogActions>
       </ComposerMobileDialog>
 
-      <ComposerDesktopPopover
-        open={!isMobile && Boolean(workingPathAnchorEl)}
-        anchorEl={workingPathAnchorEl}
-        onClose={handleWorkingPathClose}
-        width={420}
-        data-testid="flow-working-folder-popover"
-      >
-        {workingPathContent}
-      </ComposerDesktopPopover>
-      <ComposerMobileDialog
-        open={(isMobile || process.env.NODE_ENV === 'test') && (workingPathMobileOpen || Boolean(workingPathAnchorEl))}
-        onClose={handleWorkingPathClose}
-      >
-        <DialogTitle sx={{ pb: 1 }} data-testid="flow-working-folder-dialog">
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Typography variant="h6">Working path</Typography>
-            <IconButton onClick={handleWorkingPathClose} aria-label="Close">
-              ×
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent dividers>{workingPathContent}</DialogContent>
-        <DialogActions>
-          <Button onClick={handleWorkingPathClose}>Close</Button>
-        </DialogActions>
-      </ComposerMobileDialog>
+      {!isMobile && (
+        <ComposerDesktopPopover
+          open={Boolean(workingPathAnchorEl)}
+          anchorEl={workingPathAnchorEl}
+          onClose={handleWorkingPathClose}
+          width={420}
+          data-testid="flow-working-folder-popover"
+        >
+          {workingPathContent}
+        </ComposerDesktopPopover>
+      )}
+
+      {isMobile && (
+        <ComposerMobileDialog
+          open={workingPathMobileOpen}
+          onClose={handleWorkingPathClose}
+        >
+          <DialogTitle sx={{ pb: 1 }} data-testid="flow-working-folder-dialog">
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <Typography variant="h6">Working path</Typography>
+              <IconButton onClick={handleWorkingPathClose} aria-label="Close">
+                ×
+              </IconButton>
+            </Stack>
+          </DialogTitle>
+          <DialogContent dividers>{workingPathContent}</DialogContent>
+          <DialogActions>
+            <Button onClick={handleWorkingPathClose}>Close</Button>
+          </DialogActions>
+        </ComposerMobileDialog>
+      )}
 
       <ComposerDesktopPopover
         open={!isMobile && Boolean(selectedFlowAnchorEl)}

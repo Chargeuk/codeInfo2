@@ -4084,7 +4084,7 @@ Do not use this task’s mobile-shell cleanup to undo the accepted `Task 27` sha
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes shared mobile page chrome used across utility and workspace pages.
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes shared mobile header rendering, page-shell spacing, and overlay-trigger behavior across multiple pages.
-3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible mobile shell framing, top-bar interactions, and overlay entry points in a real browser.
+3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible mobile shell framing, top-bar interactions, and overlay entry points in a real browser.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may add or update browser-path proof in addition to shared client code.
 5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may add or update browser-path proof in addition to shared client code.
 

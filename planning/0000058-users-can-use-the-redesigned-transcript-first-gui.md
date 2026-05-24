@@ -3891,6 +3891,28 @@ Because this task inherits the shared composer shell from `Task 27`, it must als
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
 5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
 
+#### Implementation Notes
+
+- **BLOCKER**: Automated browser e2e proof failing at testing step 3 (`npm run test:summary:e2e`). Two failing specs in `e2e/flows-execution-runs.spec.ts` persist across multiple repair attempts. Evidence: wrapper summary `logs/test-summaries/e2e-tests-latest.log` (see failure stacks and Playwright JSON traces) and Playwright artifacts under `playwright-output/flows-execution-runs-*` (test-failed-1.png, trace.zip, error-context.md).
+
+- What was tried (in-scope, up to 3+ attempts):
+  1. Removed duplicate data-testid usage and ensured only one working-path surface mounts to avoid Playwright strict-mode conflicts.
+  2. Made mobile detection more robust and used runtime window.innerWidth at click time so mobile dialog mounts reliably in headless Playwright viewports.
+  3. Moved the working-path dialog testid to the dialog root and prevented popover/dialog duplication; additionally called `refreshConversations()` a second time after a paint to mitigate UI/server timing races that left conversation rows missing.
+
+- Exact testing step where work stopped: Task 29 Testing item 3 — `npm run test:summary:e2e` — two failing Playwright specs: (a) "flows keep one accepted launch for an ambiguous fresh-run retry and clear stale retry ownership on resume and later fresh runs" (flowRows count assertion); (b) "flows warning rendering and disabled run guard stay visible at the browser surface" (working-path dialog visibility/locator). Both failures reproduce consistently in wrapper runs and traces.
+
+- Why this is blocked now:
+  - The failures persist after multiple bounded in-scope fixes and require interactive Playwright trace debugging to reproduce and inspect DOM and runtime message flows in a headed session. The root cause appears to be a timing/race condition between runFlow, the client-side refresh of conversations, and how Playwright route mocks are observed by the client; additionally, dialog mounting behavior in the headless environment is sensitive to media-query and portal rendering timing that needs trace-level inspection.
+
+- Recommended next actions (out of scope for this automated-proof step):
+  1. Run the single failing spec(s) in headed/debug mode and use `npx playwright show-trace <trace.zip>` to inspect DOM snapshots and console logs interactively.
+  2. Instrument the client to expose a transient test-visible DOM marker when `refreshConversations()` completes (or use page.waitForResponse on `/conversations`) to confirm the client saw the mocked responses in the wrapper environment.
+  3. If the issue is a real UI race, add a deterministic client-side acknowledgement path (such as waiting for the POST /flows response then forcing an additional refresh after paint) or adjust the test harness timing/mocks to avoid the brittle timing window.
+
+- Recommendation regarding task ownership: keep Task 29 `__in_progress__` and create a short follow-up debugging task owned by the same implementer (or a QA engineer) whose steps are: reproduce failing spec locally in headed mode, capture trace, determine root cause, implement minimal fix or propose a targeted test harness adjustment, and re-run wrapper proof. If the fix requires re-architecture or an out-of-scope harness change, split or re-order the work accordingly.
+
+
 #### Manual Testing Guidance
 
 Use these design files and sections as the manual checklist source:

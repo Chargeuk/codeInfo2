@@ -2077,7 +2077,7 @@ export default function FlowsPage() {
         onClose={handleWorkingPathClose}
         data-testid="flow-working-folder-dialog"
       >
-        <DialogTitle sx={{ pb: 1 }}>
+        <DialogTitle sx={{ pb: 1 }} data-testid="flow-working-folder-dialog">
           <Stack
             direction="row"
             alignItems="center"

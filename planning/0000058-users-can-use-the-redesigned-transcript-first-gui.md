@@ -4395,8 +4395,8 @@ This task must not silently narrow proof scope. If a story-level acceptance item
 
 #### Subtasks
 
-1. [ ] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in files changed by this task before moving on.
-2. [ ] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in files changed by this task before moving on.
+1. [x] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in files changed by this task before moving on.
+2. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in files changed by this task before moving on.
 
 #### Testing
 
@@ -4477,3 +4477,5 @@ Final story-level items to verify manually:
 #### Implementation Notes
 
 - None yet.
+- `npm run lint --workspace client` passed without requiring any fixes.
+- `npm run format:check --workspace client` passed without requiring any fixes.

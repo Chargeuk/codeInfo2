@@ -22,7 +22,11 @@ export default function ComposerSendButton({
 }: ComposerSendButtonProps) {
   const isStopButton = showStop;
   const effectiveTestId =
-    isStopButton && dataTestId === 'chat-send' ? 'chat-stop' : dataTestId;
+    isStopButton && dataTestId
+      ? dataTestId.endsWith('-send')
+        ? `${dataTestId.slice(0, -5)}-stop`
+        : dataTestId
+      : dataTestId;
   const srOnlyStyles: CSSProperties = {
     border: 0,
     clip: 'rect(0 0 0 0)',

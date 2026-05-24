@@ -18,9 +18,23 @@ const skipIfUnreachable = async (page: Page) => {
 const routeAgentsApis = async (
   page: Page,
   runBodies: Array<Record<string, unknown>>,
+  commandRunBodies: Array<Record<string, unknown>> = runBodies,
   options?: {
     conversations?: Array<Record<string, unknown>>;
     turnsByConversationId?: Record<string, Array<Record<string, unknown>>>;
+    commandsByAgent?: Record<
+      string,
+      Array<{
+        name: string;
+        description: string;
+        disabled?: boolean;
+        stepCount: number;
+      }>
+    >;
+    promptsByAgent?: Record<
+      string,
+      Array<{ relativePath: string; fullPath: string }>
+    >;
   },
 ) => {
   await page.route('**/*', async (route: Route) => {
@@ -55,7 +69,20 @@ const routeAgentsApis = async (
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ commands: [] }),
+        body: JSON.stringify({
+          commands: options?.commandsByAgent?.coding_agent ?? [],
+        }),
+      });
+      return;
+    }
+
+    if (path === '/agents/coding_agent/prompts' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          prompts: options?.promptsByAgent?.coding_agent ?? [],
+        }),
       });
       return;
     }
@@ -164,6 +191,121 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
   await input.fill('   \n   ');
   await expect(send).toBeDisabled();
   expect(runBodies).toHaveLength(1);
+});
+
+test('agents composer popovers open upward on desktop and centered on mobile', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const commandRunBodies: Array<Record<string, unknown>> = [];
+  await routeAgentsApis(page, runBodies, commandRunBodies, {
+    commandsByAgent: {
+      coding_agent: [
+        {
+          name: 'build',
+          description: 'Build the workspace',
+          disabled: false,
+          stepCount: 3,
+        },
+      ],
+    },
+    promptsByAgent: {
+      coding_agent: [
+        {
+          relativePath: 'workflows/prompts/review.md',
+          fullPath: '/workflows/prompts/review.md',
+        },
+      ],
+    },
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${baseUrl}/agents`);
+
+  const infoTrigger = page.getByTestId('agent-composer-info');
+  const agentTrigger = page.getByTestId('agent-select-trigger');
+  const commandTrigger = page.getByTestId('agent-command-trigger');
+
+  await infoTrigger.click();
+  const infoPopover = page.getByTestId('agent-info-popover');
+  await expect(infoPopover).toBeVisible();
+  const infoTriggerBox = await infoTrigger.boundingBox();
+  const infoPopoverBox = await infoPopover.boundingBox();
+  expect(infoTriggerBox).not.toBeNull();
+  expect(infoPopoverBox).not.toBeNull();
+  expect((infoPopoverBox?.y ?? 0) + (infoPopoverBox?.height ?? 0)).toBeLessThan(
+    infoTriggerBox?.y ?? 0,
+  );
+
+  await agentTrigger.click();
+  const agentPopover = page.getByTestId('agent-selector-popover');
+  await expect(agentPopover).toBeVisible();
+  const agentTriggerBox = await agentTrigger.boundingBox();
+  const agentPopoverBox = await agentPopover.boundingBox();
+  expect(agentTriggerBox).not.toBeNull();
+  expect(agentPopoverBox).not.toBeNull();
+  expect((agentPopoverBox?.y ?? 0) + (agentPopoverBox?.height ?? 0)).toBeLessThan(
+    agentTriggerBox?.y ?? 0,
+  );
+
+  await commandTrigger.click();
+  const commandPopover = page.getByTestId('agent-command-popover');
+  await expect(commandPopover).toBeVisible();
+  const commandTriggerBox = await commandTrigger.boundingBox();
+  const commandPopoverBox = await commandPopover.boundingBox();
+  expect(commandTriggerBox).not.toBeNull();
+  expect(commandPopoverBox).not.toBeNull();
+  expect(
+    (commandPopoverBox?.y ?? 0) + (commandPopoverBox?.height ?? 0),
+  ).toBeLessThan(commandTriggerBox?.y ?? 0);
+
+  await page.getByRole('option', { name: 'Build' }).click();
+  await page.getByTestId('agent-step-trigger').click();
+  const stepPopover = page.getByTestId('agent-step-popover');
+  await expect(stepPopover).toBeVisible();
+  const stepTriggerBox = await page.getByTestId('agent-step-trigger').boundingBox();
+  const stepPopoverBox = await stepPopover.boundingBox();
+  expect(stepTriggerBox).not.toBeNull();
+  expect(stepPopoverBox).not.toBeNull();
+  expect((stepPopoverBox?.y ?? 0) + (stepPopoverBox?.height ?? 0)).toBeLessThan(
+    stepTriggerBox?.y ?? 0,
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/agents`);
+
+  const mobileCommandTrigger = page.getByTestId('agent-command-trigger');
+  await mobileCommandTrigger.click();
+  const mobileCommandDialog = page.getByTestId('agent-command-dialog');
+  await expect(mobileCommandDialog).toBeVisible();
+  const dialogBox = await mobileCommandDialog.boundingBox();
+  const viewport = page.viewportSize();
+  expect(dialogBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(
+    Math.abs(
+      (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - (viewport?.width ?? 0) / 2,
+    ),
+  ).toBeLessThan(80);
+
+  await page.getByRole('option', { name: 'Build' }).click();
+  await expect(page.getByTestId('agent-input')).toBeDisabled();
+  await page.getByTestId('agent-step-trigger').click();
+  await page.getByRole('option', { name: 'Step 2' }).click();
+  await page.getByTestId('agent-send').click();
+
+  await expect
+    .poll(() => commandRunBodies.length, {
+      timeout: 10000,
+      message: 'Expected one command run POST request from the shared send button',
+    })
+    .toBe(1);
+  expect(commandRunBodies[0]).toMatchObject({
+    commandName: 'build',
+    startStep: 2,
+  });
 });
 
 test('agents hydrated user markdown matches assistant list/code/mermaid rendering', async ({
@@ -433,9 +575,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
     }
 
     if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
-      commandRunBodies.push(
-        (req.postDataJSON?.() ?? {}) as Record<string, unknown>,
-      );
+      commandRunBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
         contentType: 'application/json',

@@ -1,5 +1,4 @@
 import { Alert, Box, Button, Paper, Stack, useMediaQuery } from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material/Select';
 import { useTheme } from '@mui/material/styles';
 import {
   FormEvent,
@@ -22,6 +21,7 @@ import {
   AgentApiError,
 } from '../api/agents';
 import AgentsComposerPanel from '../components/agents/AgentsComposerPanel';
+import type { AgentsActionMode } from '../components/agents/AgentsComposerPanel';
 import AgentsTranscriptPane from '../components/agents/AgentsTranscriptPane';
 import ConversationList from '../components/chat/ConversationList';
 import {
@@ -122,8 +122,9 @@ export default function AgentsPage() {
   >([]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
-  const [selectedCommandKey, setSelectedCommandKey] = useState('');
   const [startStep, setStartStep] = useState<number>(1);
+  const [selectedActionMode, setSelectedActionMode] =
+    useState<AgentsActionMode>('instruction');
 
   const [agentModelId, setAgentModelId] = useState<string>('unknown');
   const {
@@ -200,7 +201,6 @@ export default function AgentsPage() {
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [promptsError, setPromptsError] = useState<string | null>(null);
   const [promptEntries, setPromptEntries] = useState<AgentPromptEntry[]>([]);
-  const [selectedPromptFullPath, setSelectedPromptFullPath] = useState('');
   const [committedWorkingFolder, setCommittedWorkingFolder] = useState('');
   const lastCommittedWorkingFolderRef = useRef('');
   const persistConversationWorkingFolderRef = useRef<
@@ -302,7 +302,9 @@ export default function AgentsPage() {
       setPromptsLoading(false);
       setPromptsError(null);
       setPromptEntries([]);
-      setSelectedPromptFullPath('');
+      setSelectedActionMode((prev) =>
+        prev.startsWith('prompt:') ? 'instruction' : prev,
+      );
       if (params.clearCommittedWorkingFolder) {
         setCommittedWorkingFolder('');
         lastCommittedWorkingFolderRef.current = '';
@@ -529,7 +531,7 @@ export default function AgentsPage() {
       setCommands([]);
       setCommandsError(null);
       setCommandsLoading(false);
-      setSelectedCommandKey('');
+      setSelectedActionMode('instruction');
       setStartStep(1);
       return;
     }
@@ -541,19 +543,20 @@ export default function AgentsPage() {
         if (cancelled) return;
         const nextCommands = result.commands ?? [];
         setCommands(nextCommands);
-        setSelectedCommandKey((prev) => {
-          if (!prev) return '';
+        setSelectedActionMode((prev) => {
+          if (!prev.startsWith('command:')) return prev;
+          const prevKey = prev.slice('command:'.length);
           const isStillValid = nextCommands.some(
-            (cmd) => buildCommandKey(cmd) === prev && !cmd.disabled,
+            (cmd) => buildCommandKey(cmd) === prevKey && !cmd.disabled,
           );
-          return isStillValid ? prev : '';
+          return isStillValid ? prev : 'instruction';
         });
       })
       .catch((err) => {
         if (cancelled) return;
         setCommandsError((err as Error).message);
         setCommands([]);
-        setSelectedCommandKey('');
+        setSelectedActionMode('instruction');
         setStartStep(1);
       })
       .finally(() => {
@@ -654,6 +657,16 @@ export default function AgentsPage() {
     return options.sort((a, b) => a.label.localeCompare(b.label));
   }, [commands]);
 
+  const selectedCommandKey = useMemo(() => {
+    if (!selectedActionMode.startsWith('command:')) return '';
+    return selectedActionMode.slice('command:'.length);
+  }, [selectedActionMode]);
+
+  const selectedPromptFullPath = useMemo(() => {
+    if (!selectedActionMode.startsWith('prompt:')) return '';
+    return selectedActionMode.slice('prompt:'.length);
+  }, [selectedActionMode]);
+
   const selectedCommand = useMemo(
     () => commandOptions.find((cmd) => cmd.key === selectedCommandKey),
     [commandOptions, selectedCommandKey],
@@ -688,16 +701,6 @@ export default function AgentsPage() {
       setStartStep(1);
     }
   }, [selectedCommand, startStep]);
-
-  useEffect(() => {
-    if (!selectedPromptFullPath) return;
-    const stillValid = promptEntries.some(
-      (entry) => entry.fullPath === selectedPromptFullPath,
-    );
-    if (!stillValid) {
-      setSelectedPromptFullPath('');
-    }
-  }, [promptEntries, selectedPromptFullPath]);
 
   useEffect(() => {
     if (hasPromptEntries) {
@@ -751,8 +754,10 @@ export default function AgentsPage() {
     );
   }, [selectedPromptEntry]);
 
-  const handlePromptSelectionChange = (event: SelectChangeEvent<string>) => {
-    setSelectedPromptFullPath(event.target.value);
+  const handlePromptSelectionChange = (nextPromptFullPath: string) => {
+    setSelectedActionMode(
+      nextPromptFullPath ? `prompt:${nextPromptFullPath}` : 'instruction',
+    );
   };
   useEffect(() => {
     console.info('[agents.commandDescription.inlineRemoved] rendered=false');
@@ -1161,6 +1166,7 @@ export default function AgentsPage() {
   const resetConversation = useCallback(() => {
     setStartPending(false);
     setRunError(null);
+    setSelectedActionMode('instruction');
     invalidatePromptDiscoveryState({
       reason: 'selected_agent_reset',
       clearCommittedWorkingFolder: true,
@@ -1183,7 +1189,7 @@ export default function AgentsPage() {
 
   const clearSelectedAgentRunState = useCallback(
     (reason: 'agent_disabled' | 'agent_unrunnable') => {
-      setSelectedCommandKey('');
+      setSelectedActionMode('instruction');
       setStartStep(1);
       setCommandInfoAnchorEl(null);
       invalidatePromptDiscoveryState({
@@ -1255,11 +1261,10 @@ export default function AgentsPage() {
   ]);
 
   const handleAgentChange = useCallback(
-    (event: SelectChangeEvent<string>) => {
-      const next = event.target.value;
+    (next: string) => {
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
-      setSelectedCommandKey('');
+      setSelectedActionMode('instruction');
       setStartStep(1);
       setAgentModelId('unknown');
       resetConversation();
@@ -1267,24 +1272,19 @@ export default function AgentsPage() {
     [resetConversation, selectedAgentName],
   );
 
-  const handleCommandChange = useCallback(
-    (event: SelectChangeEvent<string>) => {
-      setSelectedCommandKey(event.target.value);
-      setStartStep(1);
-    },
-    [],
-  );
+  const handleCommandChange = useCallback((nextCommandKey: string) => {
+    setSelectedActionMode(
+      nextCommandKey ? `command:${nextCommandKey}` : 'instruction',
+    );
+    setStartStep(1);
+  }, []);
 
-  const handleStartStepChange = useCallback(
-    (event: SelectChangeEvent<string>) => {
-      const parsed = Number.parseInt(event.target.value, 10);
-      if (!Number.isInteger(parsed) || parsed < 1) {
-        return;
-      }
-      setStartStep(parsed);
-    },
-    [],
-  );
+  const handleStartStepChange = useCallback((step: number) => {
+    if (!Number.isInteger(step) || step < 1) {
+      return;
+    }
+    setStartStep(step);
+  }, []);
 
   const handleToggleTool = useCallback(
     (id: string, messageId: string) => {
@@ -1528,6 +1528,18 @@ export default function AgentsPage() {
     event.preventDefault();
     setRunError(null);
     const rawInstruction = input;
+    if (selectedActionMode !== 'instruction') {
+      if (selectedActionMode.startsWith('command:')) {
+        await handleExecuteCommand();
+        return;
+      }
+
+      if (selectedActionMode.startsWith('prompt:')) {
+        await handleExecutePrompt();
+        return;
+      }
+    }
+
     const hasNonWhitespaceContent = rawInstruction.trim().length > 0;
     const blockedBySelection = !selectedAgentName;
     const blockedByPending = startPending;
@@ -1800,7 +1812,11 @@ export default function AgentsPage() {
     !wsTranscriptReady ||
     selectedAgentDisabled;
   const isInstructionInputDisabled =
-    !inputEditableDuringRun || !wsTranscriptReady || selectedAgentDisabled;
+    selectedActionMode !== 'instruction' ||
+    !inputEditableDuringRun ||
+    !wsTranscriptReady ||
+    selectedAgentDisabled ||
+    controlsDisabled;
   const conversationListDisabled =
     !sidebarSelectableDuringRun || persistenceUnavailable;
   const lastSelectedAgentDisabledStateRef = useRef<{
@@ -2066,20 +2082,28 @@ export default function AgentsPage() {
     <AgentsComposerPanel
       agentsLoading={agentsLoading}
       agentsError={agentsError}
+      agents={agents}
       selectedAgentName={selectedAgentName}
-      selectedCommandKey={selectedCommandKey}
-      startStep={startStep}
-      selectedCommandStepCount={selectedCommandStepCount}
-      selectedCommandDescription={selectedCommandDescription}
+      selectedAgentDisabled={selectedAgentDisabled}
+      selectedAgentDescription={agentDescription}
       agentWarnings={agentWarnings}
-      agentDescription={agentDescription}
       agentDisabledReason={selectedAgentDetails?.disabledReason}
-      agentInfoDisabled={agentInfoDisabled}
-      showAgentInfoButton={showAgentInfoButton}
       agentInfoEmpty={agentInfoEmpty}
       agentInfoEmptyMessage={agentInfoEmptyMessage}
+      agentModelId={agentModelId}
       commandsError={commandsError}
       commandsLoading={commandsLoading}
+      commandOptions={commandOptions}
+      promptEntries={promptEntries}
+      promptsError={promptsError}
+      selectedActionMode={selectedActionMode}
+      selectedCommandStepCount={selectedCommandStepCount}
+      selectedStep={startStep}
+      selectedWorkingFolder={workingFolder}
+      input={input}
+      showStop={showStop}
+      isStopping={isStopping}
+      canShowDeviceAuth={canShowDeviceAuth}
       controlsDisabled={controlsDisabled}
       submitDisabledForRun={submitDisabledForRun}
       startStepDisabled={startStepDisabled}
@@ -2087,38 +2111,26 @@ export default function AgentsPage() {
       wsTranscriptReady={wsTranscriptReady}
       isWorkingFolderDisabled={isWorkingFolderDisabled}
       isInstructionInputDisabled={isInstructionInputDisabled}
+      commandInfoDisabled={commandInfoDisabled}
+      selectedCommandKey={selectedCommandKey}
+      selectedCommandDescription={selectedCommandDescription}
+      selectedPromptFullPath={selectedPromptFullPath}
       hasPromptEntries={hasPromptEntries}
       shouldShowPromptsError={shouldShowPromptsError}
       shouldShowPromptsRow={shouldShowPromptsRow}
       executePromptEnabled={executePromptEnabled}
-      selectedPromptFullPath={selectedPromptFullPath}
-      input={input}
       workingFolder={workingFolder}
-      showStop={showStop}
-      isStopping={isStopping}
-      canShowDeviceAuth={canShowDeviceAuth}
-      commandInfoDisabled={commandInfoDisabled}
       actionSlotMinWidth={actionSlotMinWidth}
-      selectedAgentDisabled={selectedAgentDisabled}
-      agents={agents}
-      commandOptions={commandOptions}
-      promptEntries={promptEntries}
       onSubmit={handleSubmit}
-      onAgentChange={handleAgentChange}
-      onCommandChange={handleCommandChange}
-      onStartStepChange={handleStartStepChange}
+      onAgentSelect={handleAgentChange}
+      onInstructionModeSelect={() => setSelectedActionMode('instruction')}
+      onCommandModeSelect={handleCommandChange}
+      onPromptModeSelect={handlePromptSelectionChange}
+      onStepSelect={handleStartStepChange}
       onResetConversation={handleResetConversation}
-      onAgentInfoOpen={handleAgentInfoOpen}
-      onAgentInfoClose={handleAgentInfoClose}
-      onCommandInfoAttempt={handleCommandInfoAttempt}
-      onCommandInfoOpen={handleCommandInfoOpen}
-      onCommandInfoClose={handleCommandInfoClose}
-      onExecuteCommand={handleExecuteCommand}
       onWorkingFolderChange={setWorkingFolder}
       onCommitWorkingFolder={commitWorkingFolder}
       onOpenDirPicker={handleOpenDirPicker}
-      onPromptSelectionChange={handlePromptSelectionChange}
-      onExecutePrompt={handleExecutePrompt}
       onInputChange={handleComposerInputChange}
       onStopClick={handleStopClick}
       onDeviceAuthOpen={handleDeviceAuthOpen}
@@ -2128,15 +2140,23 @@ export default function AgentsPage() {
       onCloseDirPicker={handleCloseDirPicker}
       onPickDir={handlePickDir}
       deviceAuthOpen={deviceAuthOpen}
+      inputRef={inputRef}
+      agentInfoDisabled={agentInfoDisabled}
+      showAgentInfoButton={showAgentInfoButton}
       agentInfoId={agentInfoId}
       agentInfoOpen={agentInfoOpen}
       agentInfoAnchorEl={agentInfoAnchorEl}
+      commandInfoDisabled={commandInfoDisabled}
       commandInfoId={commandInfoId}
       commandInfoOpen={commandInfoOpen}
       commandInfoAnchorEl={commandInfoAnchorEl}
-      inputRef={inputRef}
-      conversationId={activeConversationId}
-      promptsError={promptsError}
+      onAgentInfoOpen={handleAgentInfoOpen}
+      onAgentInfoClose={handleAgentInfoClose}
+      onCommandInfoAttempt={handleCommandInfoAttempt}
+      onCommandInfoOpen={handleCommandInfoOpen}
+      onCommandInfoClose={handleCommandInfoClose}
+      onExecuteCommand={handleExecuteCommand}
+      onExecutePrompt={handleExecutePrompt}
     />
   );
 

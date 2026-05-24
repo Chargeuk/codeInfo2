@@ -1,31 +1,47 @@
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import {
   Alert,
   Box,
   Button,
-  FormControl,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Popover,
-  Select,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material/Select';
+import { useTheme } from '@mui/material/styles';
 import {
   memo,
   useMemo,
-  type FormEvent,
-  type MouseEvent,
+  useState,
+  type FormEventHandler,
   type RefObject,
 } from 'react';
-import { createLogger } from '../../logging/logger';
 import Markdown from '../Markdown';
 import CodexDeviceAuthDialog from '../codex/CodexDeviceAuthDialog';
 import DirectoryPickerDialog from '../ingest/DirectoryPickerDialog';
+import CommonComposerFooter from '../workspace/composer/CommonComposerFooter';
+import CommonComposerMainInputRow from '../workspace/composer/CommonComposerMainInputRow';
+import CommonComposerShell from '../workspace/composer/CommonComposerShell';
+import ComposerDesktopPopover from '../workspace/composer/ComposerDesktopPopover';
+import ComposerFooterButton from '../workspace/composer/ComposerFooterButton';
+import ComposerMobileDialog from '../workspace/composer/ComposerMobileDialog';
+import ComposerSendButton from '../workspace/composer/ComposerSendButton';
+import { getWorkingFolderName } from '../workspace/composer/composerFormatting';
 
 type AgentOption = {
   name: string;
@@ -48,6 +64,7 @@ type CommandOption = {
   key: string;
   label: string;
   disabled: boolean;
+  description: string;
 };
 
 type PromptEntry = {
@@ -55,23 +72,36 @@ type PromptEntry = {
   relativePath: string;
 };
 
+export type AgentsActionMode =
+  | 'instruction'
+  | `command:${string}`
+  | `prompt:${string}`;
+
 type AgentsComposerPanelProps = {
   agentsLoading: boolean;
   agentsError: string | null;
+  agents: AgentOption[];
   selectedAgentName: string;
-  selectedCommandKey: string;
-  startStep: number;
-  selectedCommandStepCount: number;
-  selectedCommandDescription: string;
+  selectedAgentDisabled: boolean;
+  selectedAgentDescription?: string;
   agentWarnings: AgentWarningDetails[];
-  agentDescription?: string;
   agentDisabledReason?: AgentDisabledReason;
-  agentInfoDisabled: boolean;
-  showAgentInfoButton: boolean;
   agentInfoEmpty: boolean;
   agentInfoEmptyMessage: string;
+  agentModelId: string;
   commandsError: string | null;
   commandsLoading: boolean;
+  commandOptions: CommandOption[];
+  promptEntries: PromptEntry[];
+  promptsError: string | null;
+  selectedActionMode: AgentsActionMode;
+  selectedCommandStepCount: number;
+  selectedStep: number;
+  selectedWorkingFolder: string;
+  input: string;
+  showStop: boolean;
+  isStopping: boolean;
+  canShowDeviceAuth: boolean;
   controlsDisabled: boolean;
   submitDisabledForRun: boolean;
   startStepDisabled: boolean;
@@ -79,41 +109,20 @@ type AgentsComposerPanelProps = {
   wsTranscriptReady: boolean;
   isWorkingFolderDisabled: boolean;
   isInstructionInputDisabled: boolean;
-  hasPromptEntries: boolean;
-  shouldShowPromptsError: boolean;
-  shouldShowPromptsRow: boolean;
-  executePromptEnabled: boolean;
-  selectedPromptFullPath: string;
-  input: string;
-  workingFolder: string;
-  showStop: boolean;
-  isStopping: boolean;
-  canShowDeviceAuth: boolean;
-  commandInfoDisabled: boolean;
-  actionSlotMinWidth: number;
-  selectedAgentDisabled: boolean;
-  agents: AgentOption[];
-  commandOptions: CommandOption[];
-  promptEntries: PromptEntry[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onAgentChange: (event: SelectChangeEvent<string>) => void;
-  onCommandChange: (event: SelectChangeEvent<string>) => void;
-  onStartStepChange: (event: SelectChangeEvent<string>) => void;
+  inputRef?: RefObject<HTMLInputElement | null>;
+  onSubmit: FormEventHandler<HTMLFormElement>;
+  onAgentSelect: (name: string) => void;
+  onInstructionModeSelect: () => void;
+  onCommandModeSelect: (commandKey: string) => void;
+  onPromptModeSelect: (promptFullPath: string) => void;
+  onStepSelect: (step: number) => void;
   onResetConversation: () => void;
-  onAgentInfoOpen: (event: MouseEvent<HTMLElement>) => void;
-  onAgentInfoClose: () => void;
-  onCommandInfoAttempt: () => void;
-  onCommandInfoOpen: (event: MouseEvent<HTMLElement>) => void;
-  onCommandInfoClose: () => void;
-  onExecuteCommand: () => void;
   onWorkingFolderChange: (value: string) => void;
   onCommitWorkingFolder: (
     trigger: 'blur' | 'enter' | 'picker',
     value: string,
   ) => Promise<unknown>;
   onOpenDirPicker: () => void;
-  onPromptSelectionChange: (event: SelectChangeEvent<string>) => void;
-  onExecutePrompt: () => void;
   onInputChange: (value: string) => void;
   onStopClick: () => void;
   onDeviceAuthOpen: () => void;
@@ -123,36 +132,90 @@ type AgentsComposerPanelProps = {
   onCloseDirPicker: () => void;
   onPickDir: (path: string) => void;
   deviceAuthOpen: boolean;
-  agentInfoId?: string;
-  agentInfoOpen: boolean;
-  agentInfoAnchorEl: HTMLElement | null;
-  commandInfoId?: string;
-  commandInfoOpen: boolean;
-  commandInfoAnchorEl: HTMLElement | null;
-  inputRef?: RefObject<HTMLInputElement | null>;
-  conversationId?: string;
-  promptsError: string | null;
+} & Record<string, unknown>;
+
+const extractMode = (mode: AgentsActionMode) => {
+  if (mode === 'instruction') {
+    return { kind: 'instruction' as const, value: '' };
+  }
+
+  if (mode.startsWith('command:')) {
+    return {
+      kind: 'command' as const,
+      value: mode.slice('command:'.length),
+    };
+  }
+
+  return {
+    kind: 'prompt' as const,
+    value: mode.slice('prompt:'.length),
+  };
 };
 
-const agentsComposerLog = createLogger('client');
+const getModeLabel = (
+  mode: AgentsActionMode,
+  commandOptions: CommandOption[],
+  promptEntries: PromptEntry[],
+) => {
+  if (mode === 'instruction') return 'Write instruction';
+
+  const extracted = extractMode(mode);
+  if (extracted.kind === 'command') {
+    return (
+      commandOptions.find((option) => option.key === extracted.value)?.label ??
+      'Select command'
+    );
+  }
+
+  return (
+    promptEntries.find((entry) => entry.fullPath === extracted.value)
+      ?.relativePath ?? 'Select prompt'
+  );
+};
+
+const getCommandOption = (mode: AgentsActionMode, options: CommandOption[]) => {
+  if (!mode.startsWith('command:')) return null;
+  return (
+    options.find((option) => option.key === mode.slice('command:'.length)) ??
+    null
+  );
+};
+
+const getPromptEntry = (mode: AgentsActionMode, entries: PromptEntry[]) => {
+  if (!mode.startsWith('prompt:')) return null;
+  return (
+    entries.find((entry) => entry.fullPath === mode.slice('prompt:'.length)) ??
+    null
+  );
+};
+
+const buildStepLabel = (step: number) => `Step ${step}`;
 
 const AgentsComposerPanel = memo(function AgentsComposerPanel({
   agentsLoading,
   agentsError,
+  agents,
   selectedAgentName,
-  selectedCommandKey,
-  startStep,
-  selectedCommandStepCount,
-  selectedCommandDescription,
+  selectedAgentDisabled,
+  selectedAgentDescription,
   agentWarnings,
-  agentDescription,
   agentDisabledReason,
-  agentInfoDisabled,
-  showAgentInfoButton,
   agentInfoEmpty,
   agentInfoEmptyMessage,
+  agentModelId,
   commandsError,
   commandsLoading,
+  commandOptions,
+  promptEntries,
+  promptsError,
+  selectedActionMode,
+  selectedCommandStepCount,
+  selectedStep,
+  selectedWorkingFolder,
+  input,
+  showStop,
+  isStopping,
+  canShowDeviceAuth,
   controlsDisabled,
   submitDisabledForRun,
   startStepDisabled,
@@ -160,38 +223,17 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   wsTranscriptReady,
   isWorkingFolderDisabled,
   isInstructionInputDisabled,
-  hasPromptEntries,
-  shouldShowPromptsError,
-  shouldShowPromptsRow,
-  executePromptEnabled,
-  selectedPromptFullPath,
-  input,
-  workingFolder,
-  showStop,
-  isStopping,
-  canShowDeviceAuth,
-  commandInfoDisabled,
-  actionSlotMinWidth,
-  selectedAgentDisabled,
-  agents,
-  commandOptions,
-  promptEntries,
+  inputRef,
   onSubmit,
-  onAgentChange,
-  onCommandChange,
-  onStartStepChange,
+  onAgentSelect,
+  onInstructionModeSelect,
+  onCommandModeSelect,
+  onPromptModeSelect,
+  onStepSelect,
   onResetConversation,
-  onAgentInfoOpen,
-  onAgentInfoClose,
-  onCommandInfoAttempt,
-  onCommandInfoOpen,
-  onCommandInfoClose,
-  onExecuteCommand,
   onWorkingFolderChange,
   onCommitWorkingFolder,
   onOpenDirPicker,
-  onPromptSelectionChange,
-  onExecutePrompt,
   onInputChange,
   onStopClick,
   onDeviceAuthOpen,
@@ -201,16 +243,68 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   onCloseDirPicker,
   onPickDir,
   deviceAuthOpen,
-  agentInfoId,
-  agentInfoOpen,
-  agentInfoAnchorEl,
-  commandInfoId,
-  commandInfoOpen,
-  commandInfoAnchorEl,
-  inputRef,
-  conversationId,
-  promptsError,
 }: AgentsComposerPanelProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const [agentAnchorEl, setAgentAnchorEl] = useState<HTMLElement | null>(null);
+  const [actionAnchorEl, setActionAnchorEl] = useState<HTMLElement | null>(
+    null,
+  );
+  const [stepAnchorEl, setStepAnchorEl] = useState<HTMLElement | null>(null);
+  const [workingPathAnchorEl, setWorkingPathAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [infoAnchorEl, setInfoAnchorEl] = useState<HTMLElement | null>(null);
+
+  const workingFolderName = useMemo(
+    () => getWorkingFolderName(selectedWorkingFolder) || 'Select folder',
+    [selectedWorkingFolder],
+  );
+
+  const selectedCommandOption = useMemo(
+    () => getCommandOption(selectedActionMode, commandOptions),
+    [commandOptions, selectedActionMode],
+  );
+  const selectedPromptEntry = useMemo(
+    () => getPromptEntry(selectedActionMode, promptEntries),
+    [promptEntries, selectedActionMode],
+  );
+  const modeLabel = useMemo(
+    () => getModeLabel(selectedActionMode, commandOptions, promptEntries),
+    [commandOptions, promptEntries, selectedActionMode],
+  );
+
+  const commandSendDisabled =
+    controlsDisabled ||
+    submitDisabledForRun ||
+    !wsTranscriptReady ||
+    persistenceUnavailable ||
+    selectedAgentDisabled ||
+    !selectedCommandOption ||
+    selectedCommandOption.disabled;
+  const promptSendDisabled =
+    controlsDisabled ||
+    submitDisabledForRun ||
+    !wsTranscriptReady ||
+    persistenceUnavailable ||
+    selectedAgentDisabled ||
+    !selectedPromptEntry;
+  const instructionSendDisabled =
+    controlsDisabled ||
+    submitDisabledForRun ||
+    !wsTranscriptReady ||
+    persistenceUnavailable ||
+    selectedAgentDisabled ||
+    !input.trim();
+  const sendDisabled = showStop
+    ? isStopping
+    : selectedActionMode === 'instruction'
+      ? instructionSendDisabled
+      : selectedActionMode.startsWith('command:')
+        ? commandSendDisabled
+        : promptSendDisabled;
+
+  const selectedAgentInfo = selectedAgentDescription?.trim() ?? '';
   const warningMessages = useMemo(
     () =>
       Array.from(
@@ -221,503 +315,660 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
       ),
     [agentDisabledReason, agentWarnings],
   );
-  const startStepValue = useMemo(
-    () => (selectedCommandKey ? `${startStep}` : ''),
-    [selectedCommandKey, startStep],
+
+  const infoContent = (
+    <Stack spacing={1.75} data-testid="agent-composer-info-content">
+      <Box
+        sx={{
+          p: 1.5,
+          borderRadius: 3,
+          border: `1px solid ${theme.palette.divider}`,
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Stack spacing={0.5}>
+          <Typography variant="overline" color="text.secondary">
+            Current mode
+          </Typography>
+          <Typography variant="subtitle2" fontWeight={700}>
+            {selectedActionMode === 'instruction'
+              ? 'Instruction mode'
+              : selectedActionMode.startsWith('command:')
+                ? 'Command mode'
+                : 'Saved prompt mode'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {modeLabel}
+          </Typography>
+        </Stack>
+      </Box>
+
+      <Stack
+        spacing={1}
+        sx={{
+          p: 1.5,
+          border: `1px solid ${theme.palette.divider}`,
+          borderRadius: 3,
+        }}
+      >
+        <Stack>
+          <Typography variant="caption" color="text.secondary">
+            Agent
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {selectedAgentName || 'Select agent'}
+          </Typography>
+        </Stack>
+        <Stack>
+          <Typography variant="caption" color="text.secondary">
+            Action
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {modeLabel}
+          </Typography>
+        </Stack>
+        <Stack>
+          <Typography variant="caption" color="text.secondary">
+            Step
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {selectedActionMode.startsWith('command:')
+              ? buildStepLabel(selectedStep)
+              : 'Not applicable'}
+          </Typography>
+        </Stack>
+        <Stack>
+          <Typography variant="caption" color="text.secondary">
+            Working path
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {workingFolderName}
+          </Typography>
+        </Stack>
+        <Stack>
+          <Typography variant="caption" color="text.secondary">
+            Model
+          </Typography>
+          <Typography variant="body2" fontWeight={600}>
+            {agentModelId && agentModelId !== 'unknown'
+              ? agentModelId
+              : 'Unknown'}
+          </Typography>
+        </Stack>
+      </Stack>
+
+      {warningMessages.length > 0 ? (
+        <Stack spacing={0.5}>
+          <Typography variant="subtitle2" color="warning.main">
+            Warnings
+          </Typography>
+          {warningMessages.map((warning) => (
+            <Typography key={warning} variant="body2" color="warning.main">
+              {warning}
+            </Typography>
+          ))}
+        </Stack>
+      ) : null}
+
+      {selectedAgentInfo ? (
+        <Box data-testid="agent-description">
+          <Markdown content={selectedAgentInfo} />
+        </Box>
+      ) : null}
+
+      {agentInfoEmpty ? (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          data-testid="agent-info-empty"
+        >
+          {agentInfoEmptyMessage}
+        </Typography>
+      ) : null}
+
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Button
+          variant="outlined"
+          onClick={() => {
+            setInfoAnchorEl(null);
+            onResetConversation();
+          }}
+          data-testid="agent-new-conversation"
+        >
+          New conversation
+        </Button>
+        {canShowDeviceAuth ? (
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={() => {
+              setInfoAnchorEl(null);
+              onDeviceAuthOpen();
+            }}
+          >
+            Re-authenticate
+          </Button>
+        ) : null}
+      </Stack>
+    </Stack>
+  );
+
+  const workingPathContent = (
+    <Stack spacing={2} data-testid="agent-working-path-content">
+      <TextField
+        fullWidth
+        size="small"
+        label="Working folder"
+        placeholder="Absolute host path (optional)"
+        value={selectedWorkingFolder}
+        onChange={(event) => onWorkingFolderChange(event.target.value)}
+        onBlur={(event) =>
+          void onCommitWorkingFolder('blur', event.target.value)
+        }
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          event.stopPropagation();
+          void onCommitWorkingFolder(
+            'enter',
+            (event.currentTarget as HTMLInputElement).value,
+          );
+        }}
+        disabled={isWorkingFolderDisabled}
+        inputProps={{ 'data-testid': 'agent-working-folder' }}
+      />
+      <Stack direction="row" spacing={1.25} justifyContent="space-between">
+        <Button
+          type="button"
+          variant="outlined"
+          size="small"
+          onClick={onOpenDirPicker}
+          disabled={isWorkingFolderDisabled}
+          data-testid="agent-working-folder-picker"
+        >
+          Choose folder…
+        </Button>
+        <Button
+          type="button"
+          variant="text"
+          size="small"
+          onClick={() => void onCommitWorkingFolder('picker', '')}
+          disabled={isWorkingFolderDisabled}
+        >
+          Clear
+        </Button>
+      </Stack>
+    </Stack>
+  );
+
+  const agentListContent = (
+    <List disablePadding dense role="listbox" aria-label="Agent options">
+      {agentsError ? (
+        <ListItemButton disabled>
+          <ListItemText
+            primary="Unable to load agents"
+            secondary={agentsError}
+          />
+        </ListItemButton>
+      ) : null}
+      {agents.map((agent) => (
+        <ListItemButton
+          key={agent.name}
+          component="div"
+          role="option"
+          aria-selected={agent.name === selectedAgentName}
+          selected={agent.name === selectedAgentName}
+          disabled={agentsLoading}
+          onClick={() => {
+            setAgentAnchorEl(null);
+            onAgentSelect(agent.name);
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+            <PersonOutlineOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary={agent.name} />
+        </ListItemButton>
+      ))}
+    </List>
+  );
+
+  const commandListContent = (
+    <Stack spacing={1.25} data-testid="agent-command-selector-content">
+      {commandsError ? <Alert severity="error">{commandsError}</Alert> : null}
+      <List disablePadding dense role="listbox" aria-label="Action options">
+        <ListItemButton
+          component="div"
+          role="option"
+          selected={selectedActionMode === 'instruction'}
+          aria-selected={selectedActionMode === 'instruction'}
+          onClick={() => {
+            setActionAnchorEl(null);
+            onInstructionModeSelect();
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+            <AutoAwesomeRoundedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Write instruction"
+            secondary="Freeform instruction mode"
+          />
+        </ListItemButton>
+
+        {commandOptions.length > 0 ? <Divider sx={{ my: 0.5 }} /> : null}
+
+        {commandOptions.map((command) => {
+          const modeValue = `command:${command.key}` as const;
+          return (
+            <ListItemButton
+              key={command.key}
+              component="div"
+              role="option"
+              selected={selectedActionMode === modeValue}
+              aria-selected={selectedActionMode === modeValue}
+              disabled={command.disabled || commandsLoading}
+              onClick={() => {
+                setActionAnchorEl(null);
+                onCommandModeSelect(command.key);
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+                <TerminalRoundedIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={command.label}
+                secondary={command.description}
+              />
+            </ListItemButton>
+          );
+        })}
+
+        {promptEntries.length > 0 ? <Divider sx={{ my: 0.5 }} /> : null}
+
+        {promptEntries.map((prompt) => {
+          const modeValue = `prompt:${prompt.fullPath}` as const;
+          return (
+            <ListItemButton
+              key={prompt.fullPath}
+              component="div"
+              role="option"
+              selected={selectedActionMode === modeValue}
+              aria-selected={selectedActionMode === modeValue}
+              onClick={() => {
+                setActionAnchorEl(null);
+                onPromptModeSelect(prompt.fullPath);
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}>
+                <PlayArrowRoundedIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={prompt.relativePath}
+                secondary={prompt.fullPath}
+              />
+            </ListItemButton>
+          );
+        })}
+
+        {!commandOptions.length && !promptEntries.length ? (
+          <ListItemButton disabled>
+            <ListItemText
+              primary="No commands or prompts"
+              secondary="Select an agent and working path first."
+            />
+          </ListItemButton>
+        ) : null}
+      </List>
+      {promptsError && !promptEntries.length ? (
+        <Alert severity="error" data-testid="agent-prompts-error">
+          {promptsError}
+        </Alert>
+      ) : null}
+    </Stack>
+  );
+
+  const stepListContent = (
+    <Stack spacing={1.25} data-testid="agent-step-selector-content">
+      <Typography variant="body2" color="text.secondary">
+        {selectedActionMode.startsWith('command:')
+          ? 'Choose the command step.'
+          : 'Step selection is only available for command mode.'}
+      </Typography>
+      <List disablePadding dense role="listbox" aria-label="Step options">
+        {selectedActionMode.startsWith('command:')
+          ? Array.from(
+              { length: Math.max(1, selectedCommandStepCount) },
+              (_, i) => {
+                const step = i + 1;
+                return (
+                  <ListItemButton
+                    key={step}
+                    component="div"
+                    role="option"
+                    selected={step === selectedStep}
+                    aria-selected={step === selectedStep}
+                    onClick={() => {
+                      setStepAnchorEl(null);
+                      onStepSelect(step);
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{ minWidth: 36, color: 'text.secondary' }}
+                    >
+                      <TuneRoundedIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary={buildStepLabel(step)} />
+                  </ListItemButton>
+                );
+              },
+            )
+          : null}
+      </List>
+    </Stack>
+  );
+
+  const mainInputRow = (
+    <CommonComposerMainInputRow>
+      <TextField
+        inputRef={inputRef}
+        fullWidth
+        multiline
+        minRows={2}
+        maxRows={6}
+        size="small"
+        placeholder={
+          selectedActionMode === 'instruction'
+            ? 'Type your instruction'
+            : 'Select an action from the footer'
+        }
+        value={input}
+        onChange={(event) => onInputChange(event.target.value)}
+        disabled={isInstructionInputDisabled}
+        slotProps={{
+          htmlInput: { 'data-testid': 'agent-input', 'aria-label': 'Message' },
+        }}
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          '& .MuiInputBase-root': {
+            minHeight: { xs: 32, sm: 42 },
+            alignItems: 'center',
+            pl: { xs: 0.125, sm: 1.25 },
+            pr: { xs: 0.75, sm: 1.25 },
+            py: { xs: 0.5, sm: 0.75 },
+          },
+          '& .MuiInputBase-inputMultiline': {
+            p: 0,
+            lineHeight: 1.35,
+          },
+        }}
+      />
+      <ComposerSendButton
+        showStop={showStop}
+        isStopping={isStopping}
+        disabled={sendDisabled}
+        onClick={showStop ? onStopClick : undefined}
+        data-testid="agent-send"
+      />
+    </CommonComposerMainInputRow>
+  );
+
+  const footerRow = (
+    <CommonComposerFooter>
+      <ComposerFooterButton
+        icon={<InfoOutlinedIcon fontSize="small" />}
+        label="Info"
+        iconOnly
+        ariaLabel="Composer info"
+        selected={Boolean(infoAnchorEl)}
+        onClick={(event) => setInfoAnchorEl(event.currentTarget)}
+        data-testid="agent-composer-info"
+      />
+      <ComposerFooterButton
+        icon={<FolderOutlinedIcon fontSize="small" />}
+        label="Working path"
+        value={workingFolderName}
+        selected={Boolean(workingPathAnchorEl)}
+        onClick={(event) => setWorkingPathAnchorEl(event.currentTarget)}
+        data-testid="agent-working-path-trigger"
+        disabled={isWorkingFolderDisabled}
+      />
+      <ComposerFooterButton
+        icon={<PersonOutlineOutlinedIcon fontSize="small" />}
+        label="Agent"
+        value={selectedAgentName || 'Select agent'}
+        selected={Boolean(agentAnchorEl)}
+        onClick={(event) => setAgentAnchorEl(event.currentTarget)}
+        data-testid="agent-select-trigger"
+        disabled={agentsLoading || !!agentsError}
+      />
+      <ComposerFooterButton
+        icon={<TerminalRoundedIcon fontSize="small" />}
+        label="Command"
+        value={modeLabel}
+        selected={Boolean(actionAnchorEl)}
+        onClick={(event) => setActionAnchorEl(event.currentTarget)}
+        data-testid="agent-command-trigger"
+        disabled={controlsDisabled || !!agentsError || commandsLoading}
+      />
+      <ComposerFooterButton
+        icon={<TuneRoundedIcon fontSize="small" />}
+        label="Step"
+        value={
+          selectedActionMode.startsWith('command:')
+            ? buildStepLabel(selectedStep)
+            : 'Not used'
+        }
+        selected={Boolean(stepAnchorEl)}
+        onClick={(event) => setStepAnchorEl(event.currentTarget)}
+        data-testid="agent-step-trigger"
+        disabled={startStepDisabled}
+      />
+    </CommonComposerFooter>
   );
 
   return (
     <>
-      <Paper
-        variant="outlined"
+      <CommonComposerShell
         data-testid="chat-controls"
-        style={{ flex: '0 0 auto' }}
-        sx={{
-          p: 2,
-          borderRadius: 0,
-          borderLeft: 0,
-          borderRight: 0,
-          borderBottom: 0,
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Stack spacing={2} component="form" onSubmit={onSubmit}>
-          <Stack
-            data-testid="agent-header-row"
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1}
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-          >
-            <Stack
-              direction="row"
-              spacing={0.5}
-              alignItems="center"
-              sx={{ flex: 1, minWidth: 0 }}
-            >
-              <FormControl
-                fullWidth
-                size="small"
-                disabled={agentsLoading || !!agentsError}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                <InputLabel id="agent-select-label">Agent</InputLabel>
-                <Select
-                  labelId="agent-select-label"
-                  label="Agent"
-                  value={selectedAgentName}
-                  onChange={onAgentChange}
-                  inputProps={{ 'data-testid': 'agent-select' }}
-                >
-                  {agents.map((agent) => (
-                    <MenuItem key={agent.name} value={agent.name}>
-                      {agent.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+        onSubmit={onSubmit}
+        mainInputRow={mainInputRow}
+        footerRow={footerRow}
+      />
 
-              {showAgentInfoButton ? (
-                <IconButton
-                  aria-describedby={agentInfoId}
-                  onClick={onAgentInfoOpen}
-                  disabled={agentInfoDisabled}
-                  size="small"
-                  data-testid="agent-info"
-                  sx={{ flexShrink: 0 }}
-                >
-                  <InfoOutlinedIcon fontSize="small" />
-                </IconButton>
-              ) : null}
-            </Stack>
-
-            <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-              <Button
-                type="button"
-                variant="outlined"
-                size="small"
-                onClick={onResetConversation}
-                disabled={agentsLoading}
-                data-testid="agent-new-conversation"
-                sx={{ flex: 1 }}
-              >
-                New conversation
-              </Button>
-              {canShowDeviceAuth ? (
-                <Button
-                  type="button"
-                  variant="outlined"
-                  color="secondary"
-                  size="small"
-                  onClick={onDeviceAuthOpen}
-                  disabled={agentsLoading}
-                  sx={{ flex: 1 }}
-                >
-                  Re-authenticate
-                </Button>
-              ) : null}
-            </Stack>
-          </Stack>
-
-          {commandsError ? (
-            <Alert severity="error" data-testid="agent-commands-error">
-              {commandsError}
-            </Alert>
-          ) : null}
-
-          <Stack
-            data-testid="agent-command-row"
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1}
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-          >
-            <Stack
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              sx={{ flex: 1, minWidth: 0 }}
-            >
-              <FormControl
-                fullWidth
-                size="small"
-                disabled={
-                  controlsDisabled ||
-                  submitDisabledForRun ||
-                  selectedAgentDisabled ||
-                  commandsLoading
-                }
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                <InputLabel id="agent-command-select-label">Command</InputLabel>
-                <Select
-                  labelId="agent-command-select-label"
-                  label="Command"
-                  value={selectedCommandKey}
-                  onChange={onCommandChange}
-                  inputProps={{ 'data-testid': 'agent-command-select' }}
-                >
-                  <MenuItem value="" disabled>
-                    Select a command
-                  </MenuItem>
-                  {commandOptions.map((cmd) => (
-                    <MenuItem
-                      key={cmd.key}
-                      value={cmd.key}
-                      disabled={cmd.disabled}
-                      data-testid={`agent-command-option-${cmd.key}`}
-                    >
-                      <Stack spacing={0.25}>
-                        <Typography variant="body2">{cmd.label}</Typography>
-                        {cmd.disabled ? (
-                          <Typography variant="caption" color="text.secondary">
-                            Invalid command file
-                          </Typography>
-                        ) : null}
-                      </Stack>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Stack
-                direction="row"
-                spacing={0.5}
-                alignItems="center"
-                sx={{ flexShrink: 0 }}
-              >
-                <FormControl
-                  size="small"
-                  disabled={startStepDisabled}
-                  sx={{ flex: '0 0 144px', minWidth: 120 }}
-                >
-                  <InputLabel id="agent-command-start-step-label">
-                    Start step
-                  </InputLabel>
-                  <Select
-                    labelId="agent-command-start-step-label"
-                    label="Start step"
-                    value={startStepValue}
-                    onChange={onStartStepChange}
-                    displayEmpty
-                    inputProps={{
-                      'data-testid': 'agent-command-start-step-select',
-                    }}
-                  >
-                    {!selectedCommandKey ? (
-                      <MenuItem value="" disabled>
-                        Select command first
-                      </MenuItem>
-                    ) : null}
-                    {Array.from(
-                      { length: Math.max(1, selectedCommandStepCount) },
-                      (_, index) => {
-                        const step = index + 1;
-                        return (
-                          <MenuItem
-                            key={step}
-                            value={`${step}`}
-                            data-testid={`agent-command-start-step-option-${step}`}
-                          >
-                            {`Step ${step}`}
-                          </MenuItem>
-                        );
-                      },
-                    )}
-                  </Select>
-                </FormControl>
-
-                <Box
-                  onMouseDownCapture={onCommandInfoAttempt}
-                  sx={{ flexShrink: 0 }}
-                >
-                  <IconButton
-                    aria-describedby={commandInfoId}
-                    aria-label="Command info"
-                    onClick={onCommandInfoOpen}
-                    disabled={commandInfoDisabled}
-                    size="small"
-                    data-testid="agent-command-info"
-                  >
-                    <InfoOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Stack>
-            </Stack>
-
-            <Button
-              type="button"
-              variant="contained"
-              size="small"
-              disabled={
-                !selectedCommandKey ||
-                submitDisabledForRun ||
-                persistenceUnavailable ||
-                !wsTranscriptReady ||
-                controlsDisabled ||
-                selectedAgentDisabled
-              }
-              onClick={onExecuteCommand}
-              data-testid="agent-command-execute"
-              sx={{ flexShrink: 0 }}
-            >
-              Execute command
-            </Button>
-          </Stack>
-
-          {persistenceUnavailable ? (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              data-testid="agent-command-persistence-note"
-            >
-              Commands require conversation history (Mongo) to display
-              multi-step results.
-            </Typography>
-          ) : !wsTranscriptReady ? (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              data-testid="agent-command-ws-note"
-            >
-              Commands require an open WebSocket connection.
-            </Typography>
-          ) : null}
-
-          {selectedAgentDisabled ? (
-            <Alert severity="warning" data-testid="agent-disabled">
-              {agentDisabledReason?.message ??
-                'This agent is currently disabled.'}
-            </Alert>
-          ) : null}
-
-          <Stack direction="row" spacing={1} alignItems="flex-start">
-            <TextField
-              fullWidth
-              size="small"
-              label="working_folder"
-              placeholder="Absolute host path (optional)"
-              value={workingFolder}
-              onChange={(event) => onWorkingFolderChange(event.target.value)}
-              onBlur={(event) =>
-                void onCommitWorkingFolder('blur', event.target.value)
-              }
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                event.stopPropagation();
-                void onCommitWorkingFolder(
-                  'enter',
-                  (event.currentTarget as HTMLInputElement).value,
-                );
-              }}
-              disabled={isWorkingFolderDisabled}
-              inputProps={{ 'data-testid': 'agent-working-folder' }}
-            />
-            <Button
-              type="button"
-              variant="outlined"
-              size="small"
-              disabled={isWorkingFolderDisabled}
-              onClick={onOpenDirPicker}
-              data-testid="agent-working-folder-picker"
-              sx={{ flexShrink: 0 }}
-            >
-              Choose folder…
-            </Button>
-          </Stack>
-
-          {shouldShowPromptsRow ? (
-            <Stack
-              data-testid="agent-prompts-row"
-              direction="row"
-              spacing={1}
-              alignItems="flex-start"
-            >
-              {hasPromptEntries ? (
-                <>
-                  <FormControl
-                    fullWidth
-                    size="small"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    <InputLabel id="agent-prompts-label">Prompts</InputLabel>
-                    <Select
-                      labelId="agent-prompts-label"
-                      label="Prompts"
-                      value={selectedPromptFullPath}
-                      onChange={onPromptSelectionChange}
-                      displayEmpty
-                      data-testid="agent-prompts-select"
-                    >
-                      <MenuItem value="">No prompt selected</MenuItem>
-                      {promptEntries.map((entry) => (
-                        <MenuItem key={entry.fullPath} value={entry.fullPath}>
-                          {entry.relativePath}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <Button
-                    type="button"
-                    variant="contained"
-                    size="small"
-                    disabled={!executePromptEnabled || !wsTranscriptReady}
-                    onClick={onExecutePrompt}
-                    data-testid="agent-prompt-execute"
-                    sx={{ flexShrink: 0 }}
-                  >
-                    Execute Prompt
-                  </Button>
-                </>
-              ) : null}
-              {shouldShowPromptsError ? (
-                <Alert severity="error" data-testid="agent-prompts-error">
-                  {promptsError}
-                </Alert>
-              ) : null}
-            </Stack>
-          ) : null}
-
-          <Stack
-            data-testid="agent-instruction-row"
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1}
-            alignItems={{ xs: 'stretch', sm: 'flex-start' }}
-          >
-            <TextField
-              inputRef={inputRef}
-              fullWidth
-              multiline
-              minRows={2}
-              size="small"
-              label="Instruction"
-              placeholder="Type your instruction"
-              value={input}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                agentsComposerLog(
-                  'info',
-                  'DEV-0000049:T02:agents_composer_input_changed',
-                  {
-                    conversationId: conversationId ?? null,
-                    inputLength: nextValue.length,
-                  },
-                );
-                onInputChange(nextValue);
-              }}
-              disabled={isInstructionInputDisabled}
-              inputProps={{ 'data-testid': 'agent-input' }}
-              sx={{ flex: 1 }}
-            />
-            <Box
-              data-testid="agent-action-slot"
-              style={{ minWidth: actionSlotMinWidth }}
-              sx={{ flexShrink: 0 }}
-            >
-              <Stack direction="row" justifyContent="flex-end">
-                {showStop ? (
-                  <Button
-                    type="button"
-                    variant="contained"
-                    color="error"
-                    size="small"
-                    onClick={onStopClick}
-                    data-testid="agent-stop"
-                    disabled={isStopping}
-                  >
-                    {isStopping ? 'Stopping...' : 'Stop'}
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="small"
-                    disabled={
-                      controlsDisabled ||
-                      submitDisabledForRun ||
-                      !wsTranscriptReady ||
-                      !selectedAgentName ||
-                      !input.trim() ||
-                      selectedAgentDisabled
-                    }
-                    data-testid="agent-send"
-                  >
-                    Send
-                  </Button>
-                )}
-              </Stack>
-            </Box>
-          </Stack>
-
-          <DirectoryPickerDialog
-            open={dirPickerOpen}
-            path={workingFolder}
-            onClose={onCloseDirPicker}
-            onPick={onPickDir}
-          />
-          <CodexDeviceAuthDialog
-            open={deviceAuthOpen}
-            onClose={onDeviceAuthClose}
-            source="agents"
-            onSuccess={onDeviceAuthSuccess}
-          />
-        </Stack>
-      </Paper>
-
-      <Popover
-        id={commandInfoId}
-        open={commandInfoOpen}
-        anchorEl={commandInfoAnchorEl}
-        onClose={onCommandInfoClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        data-testid="agent-command-info-popover"
-      >
-        <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
-          <Typography variant="subtitle2">Command</Typography>
-          <Typography variant="body2" data-testid="command-info-text">
-            {selectedCommandDescription}
-          </Typography>
-        </Stack>
-      </Popover>
-
-      <Popover
-        id={agentInfoId}
-        open={agentInfoOpen}
-        anchorEl={agentInfoAnchorEl}
-        onClose={onAgentInfoClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      <ComposerDesktopPopover
+        open={!isMobile && Boolean(infoAnchorEl)}
+        anchorEl={infoAnchorEl}
+        onClose={() => setInfoAnchorEl(null)}
+        width={420}
         data-testid="agent-info-popover"
       >
-        <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
-          {warningMessages.length > 0 ? (
-            <Stack spacing={0.5} data-testid="agent-warnings">
-              <Typography variant="subtitle2" color="warning.main">
-                Warnings
-              </Typography>
-              {warningMessages.map((warning) => (
-                <Typography key={warning} variant="body2" color="warning.main">
-                  {warning}
-                </Typography>
-              ))}
-            </Stack>
-          ) : null}
-          {agentDescription ? (
-            <Box data-testid="agent-description">
-              <Markdown content={agentDescription} />
-            </Box>
-          ) : null}
-          {agentInfoEmpty ? (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              data-testid="agent-info-empty"
+        {infoContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(infoAnchorEl)}
+        onClose={() => setInfoAnchorEl(null)}
+        data-testid="agent-info-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Info</Typography>
+            <IconButton
+              onClick={() => setInfoAnchorEl(null)}
+              aria-label="Close"
             >
-              {agentInfoEmptyMessage}
-            </Typography>
-          ) : null}
-        </Stack>
-      </Popover>
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{infoContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setInfoAnchorEl(null)}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        open={!isMobile && Boolean(workingPathAnchorEl)}
+        anchorEl={workingPathAnchorEl}
+        onClose={() => setWorkingPathAnchorEl(null)}
+        width={420}
+        data-testid="agent-working-path-popover"
+      >
+        {workingPathContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(workingPathAnchorEl)}
+        onClose={() => setWorkingPathAnchorEl(null)}
+        data-testid="agent-working-path-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Working path</Typography>
+            <IconButton
+              onClick={() => setWorkingPathAnchorEl(null)}
+              aria-label="Close"
+            >
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{workingPathContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWorkingPathAnchorEl(null)}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        open={!isMobile && Boolean(agentAnchorEl)}
+        anchorEl={agentAnchorEl}
+        onClose={() => setAgentAnchorEl(null)}
+        width={360}
+        data-testid="agent-selector-popover"
+      >
+        <Box>
+          <Stack spacing={1.5}>
+            {agentsError ? <Alert severity="error">{agentsError}</Alert> : null}
+            {agentListContent}
+          </Stack>
+        </Box>
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(agentAnchorEl)}
+        onClose={() => setAgentAnchorEl(null)}
+        data-testid="agent-selector-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Agent</Typography>
+            <IconButton
+              onClick={() => setAgentAnchorEl(null)}
+              aria-label="Close"
+            >
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{agentListContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAgentAnchorEl(null)}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        open={!isMobile && Boolean(actionAnchorEl)}
+        anchorEl={actionAnchorEl}
+        onClose={() => setActionAnchorEl(null)}
+        width={480}
+        data-testid="agent-command-popover"
+      >
+        {commandListContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(actionAnchorEl)}
+        onClose={() => setActionAnchorEl(null)}
+        data-testid="agent-command-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Command</Typography>
+            <IconButton
+              onClick={() => setActionAnchorEl(null)}
+              aria-label="Close"
+            >
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{commandListContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActionAnchorEl(null)}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <ComposerDesktopPopover
+        open={!isMobile && Boolean(stepAnchorEl)}
+        anchorEl={stepAnchorEl}
+        onClose={() => setStepAnchorEl(null)}
+        width={320}
+        data-testid="agent-step-popover"
+      >
+        {stepListContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={isMobile && Boolean(stepAnchorEl)}
+        onClose={() => setStepAnchorEl(null)}
+        data-testid="agent-step-dialog"
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography variant="h6">Step</Typography>
+            <IconButton
+              onClick={() => setStepAnchorEl(null)}
+              aria-label="Close"
+            >
+              ×
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>{stepListContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStepAnchorEl(null)}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
+
+      <DirectoryPickerDialog
+        open={dirPickerOpen}
+        path={selectedWorkingFolder}
+        onClose={onCloseDirPicker}
+        onPick={onPickDir}
+      />
+      <CodexDeviceAuthDialog
+        open={deviceAuthOpen}
+        onClose={onDeviceAuthClose}
+        source="agents"
+        onSuccess={onDeviceAuthSuccess}
+      />
     </>
   );
 });

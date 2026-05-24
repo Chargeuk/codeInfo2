@@ -742,6 +742,9 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         onClick={(event) => setAgentAnchorEl(event.currentTarget)}
         data-testid="agent-select-trigger"
         disabled={agentsLoading || !!agentsError}
+        ariaHaspopup="listbox"
+        ariaExpanded={Boolean(agentAnchorEl)}
+        role="combobox"
       />
       <ComposerFooterButton
         icon={<TerminalRoundedIcon fontSize="small" />}
@@ -751,6 +754,9 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         onClick={(event) => setActionAnchorEl(event.currentTarget)}
         data-testid="agent-command-trigger"
         disabled={controlsDisabled || !!agentsError || commandsLoading}
+        ariaHaspopup="listbox"
+        ariaExpanded={Boolean(actionAnchorEl)}
+        role="combobox"
       />
       <ComposerFooterButton
         icon={<TuneRoundedIcon fontSize="small" />}
@@ -764,6 +770,9 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         onClick={(event) => setStepAnchorEl(event.currentTarget)}
         data-testid="agent-step-trigger"
         disabled={startStepDisabled}
+        ariaHaspopup="listbox"
+        ariaExpanded={Boolean(stepAnchorEl)}
+        role="combobox"
       />
     </CommonComposerFooter>
   );

@@ -2146,7 +2146,6 @@ export default function AgentsPage() {
       agentInfoId={agentInfoId}
       agentInfoOpen={agentInfoOpen}
       agentInfoAnchorEl={agentInfoAnchorEl}
-      commandInfoDisabled={commandInfoDisabled}
       commandInfoId={commandInfoId}
       commandInfoOpen={commandInfoOpen}
       commandInfoAnchorEl={commandInfoAnchorEl}

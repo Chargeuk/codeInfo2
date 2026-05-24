@@ -1086,7 +1086,12 @@ export default function FlowsPage() {
 
   const handleWorkingPathOpen = (event: MouseEvent<HTMLElement>) => {
     if (isWorkingFolderDisabled) return;
-    setWorkingPathAnchorEl(event.currentTarget);
+    // Some automation or browser environments may provide a null currentTarget.
+    // Fall back to a sensible non-null element so mobile dialogs still open in tests.
+    // Prefer the real target when available to allow desktop popovers to anchor correctly.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anchor = (event.currentTarget as any) ?? (typeof document !== 'undefined' ? document.body : null);
+    setWorkingPathAnchorEl(anchor);
   };
 
   const handleWorkingPathClose = () => {
@@ -1323,7 +1328,9 @@ export default function FlowsPage() {
         if (result.modelId) {
           setFlowModelId(result.modelId);
         }
+        console.info('[flows-ui] refreshConversations (before)', { selectedFlowName });
         await refreshConversations();
+        console.info('[flows-ui] refreshConversations (after)');
         if (shouldGuardFreshRun) {
           await waitForNextPaint();
         }

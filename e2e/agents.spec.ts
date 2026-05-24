@@ -15,6 +15,10 @@ const skipIfUnreachable = async (page: Page) => {
   }
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1400 });
+});
+
 const routeAgentsApis = async (
   page: Page,
   runBodies: Array<Record<string, unknown>>,
@@ -162,10 +166,10 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
 
   await page.goto(`${baseUrl}/agents`);
 
-  const agentSelect = page.getByTestId('agent-select');
+  const agentSelect = page.getByTestId('agent-select-trigger');
   await expect(agentSelect).toBeVisible({ timeout: 20000 });
   await expect
-    .poll(async () => await agentSelect.inputValue(), {
+    .poll(async () => await agentSelect.innerText(), {
       timeout: 20000,
       message: 'Expected agent select to hydrate coding_agent',
     })
@@ -614,7 +618,6 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   const infoButton = page.getByTestId('agent-info');
   const sendButton = page.getByTestId('agent-send');
   const commandSelect = page.getByRole('combobox', { name: 'Command' });
-  const executeCommandButton = page.getByTestId('agent-command-execute');
   const folder = page.getByRole('textbox', { name: 'working_folder' });
 
   await expect(infoButton).toBeVisible({ timeout: 20000 });
@@ -623,7 +626,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   ).toHaveCount(0);
   await commandSelect.click();
   await page.getByRole('option', { name: 'Improve' }).click();
-  await expect(executeCommandButton).toBeEnabled();
+  await expect(sendButton).toBeEnabled();
 
   await folder.fill('/tmp/stale');
   await infoButton.click();
@@ -635,7 +638,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
     'No usable provider remains',
   );
   await expect(sendButton).toBeDisabled();
-  await expect(executeCommandButton).toBeDisabled();
+  await expect(sendButton).toBeDisabled();
   expect(runBodies).toHaveLength(0);
   expect(commandRunBodies).toHaveLength(0);
 });

@@ -456,7 +456,7 @@ The design references for this story already exist and should be treated as the 
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 2`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Git Commits:
 
 #### Overview
@@ -3806,7 +3806,7 @@ Items to verify manually:
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 27`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 
 #### Overview
 
@@ -3882,14 +3882,14 @@ Because this task inherits the shared composer shell from `Task 27`, it must als
 12. [x] Current Repository: Extend the relevant browser-path `Flows` proof, likely in the existing e2e flow that covers `Flows`, so it proves desktop `Flows` popovers open upward above the composer and mobile `Flows` selectors open as centered modal surfaces. The proof must cover at least `Info`, `Selected flow`, and `Title`. Purpose: add browser-level validation for the shared interaction contract on `Flows`.
 13. [x] Current Repository: Run `npm run lint --workspace client`. If the check fails, first run `npm run lint:fix --workspace client`, then rerun `npm run lint --workspace client`, and manually fix any remaining lint issues in the files changed by this task before moving on.
 14. [x] Current Repository: Run `npm run format:check --workspace client`. If the check fails, first run `npm run format --workspace client`, then rerun `npm run format:check --workspace client`, and manually fix any remaining formatting issues in the files changed by this task before moving on.
-15. [x] Current Repository: Update the existing-conversation working-path persistence seam in `client/src/pages/FlowsPage.tsx` and the server-side known-repository validation path in `server/src/workingFolders/state.ts` so a repository path returned by the visible `Flows` directory picker can be applied to an existing flow conversation without surfacing `working_folder not found` for a picker-exposed local repository. Purpose: keep the Task 29 working-path footer honest for both fresh and existing flow conversation contexts instead of only the fresh-run shell state.
-16. [x] Current Repository: Extend `e2e/flows-execution-runs.spec.ts` so browser proof covers the visible existing-conversation working-path edit path on `Flows`: pick a repository path from the footer-driven directory picker, verify the footer label updates to the leaf folder name, and verify the browser surface does not surface the current `working_folder not found` failure. Purpose: give the reopened working-path regression its own browser-visible proof home on the same Task 29 surface that exposed it during manual testing.
+15. [ ] Current Repository: Update the existing-conversation working-path persistence seam in `client/src/pages/FlowsPage.tsx` and the server-side known-repository validation path in `server/src/workingFolders/state.ts` so a repository path returned by the visible `Flows` directory picker can be applied to an existing flow conversation without surfacing `working_folder not found` for a picker-exposed local repository. Purpose: keep the Task 29 working-path footer honest for both fresh and existing flow conversation contexts instead of only the fresh-run shell state.
+16. [ ] Current Repository: Extend `e2e/flows-execution-runs.spec.ts` so browser proof covers the visible existing-conversation working-path edit path on `Flows`: pick a repository path from the footer-driven directory picker, verify the footer label updates to the leaf folder name, and verify the browser surface does not surface the current `working_folder not found` failure. Purpose: give the reopened working-path regression its own browser-visible proof home on the same Task 29 surface that exposed it during manual testing.
 
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Flows` page.
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Flows` composer rendering, title behavior, and shared composer interactions across desktop and mobile.
-3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Flows`, including upward desktop popovers and centered mobile modal selection surfaces.
+3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Flows`, including upward desktop popovers and centered mobile modal selection surfaces.
 4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
 5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
 
@@ -3952,6 +3952,7 @@ Items to verify manually:
 - **IMPLEMENTATION NOTE** Repaired the reopened working-path seam by teaching `client/src/pages/FlowsPage.tsx` to retain the server-returned working-folder value after an existing-conversation picker save and by widening `server/src/workingFolders/state.ts` validation to accept the mounted identity of the local CodeInfo root, not just the literal root string. Targeted proof passed with `npm run test:summary:server:unit -- --file server/src/test/unit/agents-working-folder.test.ts --test-name "accepts the mounted local codeinfo root identity when validating requested working folders"` (`1/1`) and `npm run test:summary:client -- --file client/src/test/flowsPage.run.test.tsx --test-name "writes the selected folder into the working folder input"` (`1/1`).
 - **IMPLEMENTATION NOTE** Extended `e2e/flows-execution-runs.spec.ts` with the reopened existing-conversation browser path, including the nested picker flow and the no-`working_folder not found` assertion. The first browser pass failed because the picker mock was missing an `/ingest/dirs` response for `/base/repo`; after adding that route, the rerun passed with `npm run test:summary:e2e -- --grep "flows existing-conversation working-folder picker applies a local repository without a not found error"` (`1/1`).
 - **IMPLEMENTATION NOTE** Automated-proof audit confirmed the reopened existing-conversation follow-up is now fully closed: the full `npm run test:summary:e2e` wrapper passed cleanly (`69` passed, `0` unexpected), Task 29 now has `16/16` subtasks and `5/5` testing items complete, and the task returns to `__done__` with no live blocker.
+- **IMPLEMENTATION NOTE** Manual testing on 2026-05-24 stayed task-scoped and restarted the checked-in main stack because the prior runtime was already running but freshness was not provable from current repo evidence. The refreshed browser still reproduces a Task 29 working-path failure on an existing `Flow: echo` conversation: selecting `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` from the visible directory picker issues `POST /conversations/hprbh7mtknt/working-folder`, logs `flow working-folder persistence failed`, and returns `WORKING_FOLDER_NOT_FOUND` while server logs show `validateKnownRepository target /data/codeinfo2/codeInfo2` without that path in the known-repository set. Retained scratch proof for this pass is under `codeInfoTmp/manual-testing/0000058/29/` (`proof-01-desktop-working-path-failure.png`, `proof-02-mobile-current-shell.png`, `support-working-folder-400.network-request`, `support-working-folder-400.network-response`, `support-console.txt`, `support-server-log.txt`); Playwright staging was also attempted with `manual-testing/0000058/29/proof-01-desktop-current-shell.png`, `proof-02-desktop-working-path-popover.png`, and `proof-03-mobile-current-shell.png`, but this runtime did not expose a host-visible copy-out path for those files, so Subtasks 15 and 16 plus Testing item 3 reopen for another repair and automated rerun before later manual retest.
 
 
 ### Task 30. Unify The Mobile Top Bar And Remove Bulky Mobile Shell Padding Across Workspace And Utility Pages

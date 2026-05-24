@@ -5,6 +5,7 @@ import TitleRoundedIcon from '@mui/icons-material/TitleRounded';
 import {
   Alert,
   Box,
+  Paper,
   Button,
   DialogActions,
   DialogContent,
@@ -635,9 +636,9 @@ export default function FlowsPage() {
           surface: 'flows',
         });
         const persistedWorkingFolder =
-          result.conversation.flags &&
-          typeof result.conversation.flags.workingFolder === 'string'
-            ? result.conversation.flags.workingFolder.trim()
+          result.flags &&
+          typeof result.flags.workingFolder === 'string'
+            ? result.flags.workingFolder.trim()
             : trimmedWorkingFolder;
         if (persistedWorkingFolder !== trimmedWorkingFolder) {
           setWorkingFolder(persistedWorkingFolder);

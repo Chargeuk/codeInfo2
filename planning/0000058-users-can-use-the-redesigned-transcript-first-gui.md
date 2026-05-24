@@ -3885,7 +3885,7 @@ Because this task inherits the shared composer shell from `Task 27`, it must als
 
 #### Testing
 
-1. [ ] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Flows` page.
+1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Flows` page.
 2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Flows` composer rendering, title behavior, and shared composer interactions across desktop and mobile.
 3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Flows`, including upward desktop popovers and centered mobile modal selection surfaces.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.

@@ -764,8 +764,9 @@ describe('Flows page basics', () => {
       },
     });
 
-    const bubbles = await screen.findAllByTestId('chat-bubble');
-    const bubble = bubbles[bubbles.length - 1] as HTMLElement | undefined;
+    const bubble = (await screen.findAllByTestId('chat-bubble')).find((item) =>
+      item.textContent?.includes('Flow content Two'),
+    ) as HTMLElement | undefined;
     expect(bubble).toBeDefined();
     await openBubbleInfoPopover(bubble!);
     expect(await screen.findByTestId('bubble-flow-meta')).toHaveTextContent(

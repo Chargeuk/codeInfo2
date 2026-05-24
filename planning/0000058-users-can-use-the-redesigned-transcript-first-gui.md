@@ -3888,12 +3888,14 @@ Because this task inherits the shared composer shell from `Task 27`, it must als
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Flows` page.
 2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Flows` composer rendering, title behavior, and shared composer interactions across desktop and mobile.
 3. [x] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Flows`, including upward desktop popovers and centered mobile modal selection surfaces.
-4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
-5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
+4. [x] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
+5. [x] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
 
 #### Implementation Notes
 
 - **RESOLVED ISSUE** Cleared the automated browser-proof blocker on Testing item 3 by repairing two stale `e2e/flows-execution-runs.spec.ts` assumptions: the warning-surface proof now checks the desktop working-path popover instead of a mobile-only dialog, and the retry-ownership proof now models the post-resume conversation lifecycle honestly before asserting a later fresh run. Targeted rerun coverage passed with `npm run test:summary:e2e -- --file e2e/flows-execution-runs.spec.ts --grep "flows keep one accepted launch for an ambiguous fresh-run retry and clear stale retry ownership on resume and later fresh runs|flows warning rendering and disabled run guard stay visible at the browser surface"` (`2/2`).
+
+- **IMPLEMENTATION NOTE** Completed Testing items 4 and 5: ran `npm run lint` and `npm run format:check`. Fixed linter errors by replacing explicit `any` casts, removing an unused `errorMessage` object, and reordering imports to satisfy ESLint import/order. Ran Prettier formatting to fix code style. Changes were committed (DEV-58 - Fix lint issues blocking automated proof).
 
 
 #### Manual Testing Guidance

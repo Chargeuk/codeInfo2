@@ -585,3 +585,169 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     'Title',
   );
 });
+
+test('flows existing-conversation working-folder picker applies a local repository without a not found error', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  await installMockChatWs(page);
+
+  const workingFolderBodies: Array<Record<string, unknown>> = [];
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const method = req.method();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const path = url.pathname;
+
+    if (path === '/health' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+
+    if (path === '/flows' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+        }),
+      });
+      return;
+    }
+
+    if (path === '/flows/daily' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'daily',
+            description: 'Daily flow',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+
+    if (path === '/conversations' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5.2',
+              source: 'REST',
+              lastMessageAt: '2025-01-01T00:00:00.000Z',
+              archived: false,
+              flowName: 'daily',
+              flags: { workingFolder: '/base/repo' },
+            },
+          ],
+          nextCursor: null,
+        }),
+      });
+      return;
+    }
+
+    if (path.startsWith('/conversations/') && path.endsWith('/turns')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    if (path === '/ingest/dirs' && method === 'GET') {
+      const requestedPath = url.searchParams.get('path') ?? '/base/repo';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          base: '/base',
+          path: requestedPath,
+          dirs:
+            requestedPath === '/base/repo' ? ['child'] : [],
+        }),
+      });
+      return;
+    }
+
+    if (
+      path === '/conversations/flow-1/working-folder' &&
+      method === 'POST'
+    ) {
+      const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      workingFolderBodies.push(payload);
+      const workingFolder =
+        typeof payload.workingFolder === 'string'
+          ? payload.workingFolder
+          : undefined;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'ok',
+          conversation: {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5.2',
+            source: 'REST',
+            archived: false,
+            flowName: 'daily',
+            flags: workingFolder ? { workingFolder } : {},
+          },
+        }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByText('Flow: daily')).toBeVisible({ timeout: 20000 });
+  await page.locator('[data-testid="conversation-row"]').first().click();
+
+  await expect(page.getByTestId('flow-working-folder-trigger')).toContainText(
+    'repo',
+  );
+
+  await page.getByTestId('flow-working-folder-trigger').click();
+  await expect(page.getByTestId('flow-working-folder-popover')).toBeVisible({
+    timeout: 20000,
+  });
+  await page
+    .getByTestId('flow-working-folder-popover')
+    .getByRole('button', { name: 'Choose folder…' })
+    .click();
+
+  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toBeVisible(
+    { timeout: 20000 },
+  );
+  await page.getByRole('button', { name: 'child' }).click();
+  await page.getByRole('button', { name: 'Use this folder' }).click();
+
+  await expect(page.getByTestId('flow-working-folder-trigger')).toContainText(
+    'child',
+  );
+  await expect(page.getByText('working_folder not found')).toHaveCount(0);
+  expect(workingFolderBodies).toEqual([{ workingFolder: '/base/repo/child' }]);
+});

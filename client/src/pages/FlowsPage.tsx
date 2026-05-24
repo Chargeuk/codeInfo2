@@ -144,7 +144,8 @@ export default function FlowsPage() {
   // Some headless/browser test environments report media queries inconsistently.
   // Use window.innerWidth as a fallback to determine the effective mobile
   // rendering surface so Playwright viewport sizing is respected.
-  const breakpointSm = (theme.breakpoints as { values?: { sm?: number } })?.values?.sm ?? 600;
+  const breakpointSm =
+    (theme.breakpoints as { values?: { sm?: number } })?.values?.sm ?? 600;
   const effectiveIsMobile =
     typeof window !== 'undefined'
       ? isMobile || window.innerWidth <= breakpointSm
@@ -619,11 +620,19 @@ export default function FlowsPage() {
         return;
       }
       try {
-        await updateWorkingFolder({
+        const result = await updateWorkingFolder({
           conversationId: selectedConversationIdRef.current,
           workingFolder: trimmedWorkingFolder || null,
           surface: 'flows',
         });
+        const persistedWorkingFolder =
+          result.conversation.flags &&
+          typeof result.conversation.flags.workingFolder === 'string'
+            ? result.conversation.flags.workingFolder.trim()
+            : trimmedWorkingFolder;
+        if (persistedWorkingFolder !== trimmedWorkingFolder) {
+          setWorkingFolder(persistedWorkingFolder);
+        }
       } catch (error) {
         console.error('flow working-folder persistence failed', error);
       }
@@ -676,7 +685,10 @@ export default function FlowsPage() {
       setFlows([]);
     } finally {
       setFlowsLoading(false);
-      if (typeof nextSelectedKey !== 'undefined' && nextSelectedKey !== selectedFlowKey) {
+      if (
+        typeof nextSelectedKey !== 'undefined' &&
+        nextSelectedKey !== selectedFlowKey
+      ) {
         setSelectedFlowKey(nextSelectedKey);
       }
     }
@@ -1095,7 +1107,9 @@ export default function FlowsPage() {
   };
 
   const handleWorkingPathOpen = (event: MouseEvent<HTMLElement>) => {
-    console.info('[flows-ui] handleWorkingPathOpen called', { isWorkingFolderDisabled });
+    console.info('[flows-ui] handleWorkingPathOpen called', {
+      isWorkingFolderDisabled,
+    });
     if (isWorkingFolderDisabled) {
       console.info('[flows-ui] working path open aborted - disabled');
       return;
@@ -1104,8 +1118,13 @@ export default function FlowsPage() {
     // Fall back to a sensible non-null element so mobile dialogs still open in tests.
     // Prefer the real target when available to allow desktop popovers to anchor correctly.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anchor = (event.currentTarget as any) ?? (event.target as any) ?? (typeof document !== 'undefined' ? document.body : null);
-    console.info('[flows-ui] setting working path anchor', { anchorType: anchor?.nodeName ?? typeof anchor });
+    const anchor =
+      (event.currentTarget as any) ??
+      (event.target as any) ??
+      (typeof document !== 'undefined' ? document.body : null);
+    console.info('[flows-ui] setting working path anchor', {
+      anchorType: anchor?.nodeName ?? typeof anchor,
+    });
     setWorkingPathAnchorEl(anchor);
     // Only set the mobile-open flag when running on a mobile viewport.
     // Avoid forcing test-mode behavior here; media queries should reflect the
@@ -1116,7 +1135,11 @@ export default function FlowsPage() {
     // Use the live window width at click time to determine mobile surface
     // in environments where matchMedia may be inconsistent. This makes the
     // dialog open reliably in Playwright viewports.
-    if (typeof window !== 'undefined' ? window.innerWidth <= breakpointSm : isMobile) {
+    if (
+      typeof window !== 'undefined'
+        ? window.innerWidth <= breakpointSm
+        : isMobile
+    ) {
       setWorkingPathMobileOpen(true);
     }
   };
@@ -1356,7 +1379,9 @@ export default function FlowsPage() {
         if (result.modelId) {
           setFlowModelId(result.modelId);
         }
-        console.info('[flows-ui] refreshConversations (before)', { selectedFlowName });
+        console.info('[flows-ui] refreshConversations (before)', {
+          selectedFlowName,
+        });
         await refreshConversations();
         console.info('[flows-ui] refreshConversations (after)');
         if (shouldGuardFreshRun) {

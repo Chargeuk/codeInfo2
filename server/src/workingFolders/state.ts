@@ -145,11 +145,27 @@ export async function resolveKnownRepositoryPathsState(
 
 const getLocalCodeInfo2Root = () => resolveAgentHomeEnv().codeInfoRoot;
 
-const validateKnownRepository = (params: {
+const getLocalCodeInfo2IdentityPaths = async () => {
+  const codeInfoRoot = getLocalCodeInfo2Root();
+  const resolved = await resolveSharedWorkingFolderWorkingDirectory(
+    codeInfoRoot,
+    { allowMissingHostPath: true },
+  );
+  return new Set(
+    [codeInfoRoot, resolved].filter(
+      (value): value is string => typeof value === 'string' && value.length > 0,
+    ),
+  );
+};
+
+const validateKnownRepository = async (params: {
   workingFolder: string;
   knownRepositoryPathsState?: KnownRepositoryPathsState;
-}): WorkingFolderValidationError | null => {
+}): Promise<WorkingFolderValidationError | null> => {
   if (params.workingFolder === getLocalCodeInfo2Root()) return null;
+  if ((await getLocalCodeInfo2IdentityPaths()).has(params.workingFolder)) {
+    return null;
+  }
 
   const knownRepositoriesState = params.knownRepositoryPathsState;
   if (
@@ -256,7 +272,7 @@ export async function validateRequestedWorkingFolder(params: {
     params.workingFolder,
   );
   if (!resolved) return undefined;
-  const knownRepositoryError = validateKnownRepository({
+  const knownRepositoryError = await validateKnownRepository({
     workingFolder: resolved,
     knownRepositoryPathsState: params.knownRepositoryPathsState,
   });
@@ -311,7 +327,7 @@ export async function restoreSavedWorkingFolder(params: {
       return undefined;
     }
 
-    const knownRepositoryError = validateKnownRepository({
+    const knownRepositoryError = await validateKnownRepository({
       workingFolder: resolved,
       knownRepositoryPathsState: params.knownRepositoryPathsState,
     });

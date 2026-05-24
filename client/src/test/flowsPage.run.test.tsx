@@ -651,9 +651,7 @@ describe('Flows page run/resume controls', () => {
     const infoPopover = await openFlowInfoSurface();
     expect(
       within(await infoPopover).getByTestId('flow-launch-identity'),
-    ).toHaveTextContent(
-      'Launch provider: codex · Model: gpt-5',
-    );
+    ).toHaveTextContent('Launch provider: codex · Model: gpt-5');
 
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeEnabled());
@@ -705,13 +703,9 @@ describe('Flows page run/resume controls', () => {
         within(screen.getByTestId('flow-info-popover')).getByTestId(
           'flow-launch-identity',
         ),
-      ).toHaveTextContent(
-        'Launch provider: lmstudio · Model: model-1',
-      ),
+      ).toHaveTextContent('Launch provider: lmstudio · Model: model-1'),
     );
-    expect(
-      screen.getByTestId('flows-launch-warnings'),
-    ).toHaveTextContent(
+    expect(screen.getByTestId('flows-launch-warnings')).toHaveTextContent(
       'fell back to provider "lmstudio"',
     );
   });

@@ -916,6 +916,13 @@ const ensureAgentState = async (params: {
   const key = getAgentKey(params.agentType, params.identifier);
   const existing = params.runtimeState.get(key);
   if (existing) {
+    // Prefer explicit requestedProviderId from params, otherwise consult existing conversation flags.
+    const existingConversation = await getConversation(existing.conversationId);
+    const requestedProviderIdToUse =
+      (typeof params.requestedProviderId === 'string' && params.requestedProviderId.trim())
+        ? params.requestedProviderId.trim()
+        : getSavedRequestedProviderId(existingConversation);
+
     await ensureFlowAgentConversation({
       conversationId: existing.conversationId,
       flowName: params.flowName,
@@ -924,7 +931,7 @@ const ensureAgentState = async (params: {
       executionId: params.executionId,
       providerId: params.providerId,
       modelId: params.modelId,
-      requestedProviderId: params.requestedProviderId,
+      requestedProviderId: requestedProviderIdToUse,
       customTitle: params.customTitle,
       source: params.source,
       workingFolder: params.workingFolder,
@@ -937,7 +944,7 @@ const ensureAgentState = async (params: {
     existing.workingFolder = params.workingFolder;
     existing.providerId = params.providerId;
     existing.modelId = params.modelId;
-    existing.requestedProviderId = params.requestedProviderId;
+    if (requestedProviderIdToUse) existing.requestedProviderId = requestedProviderIdToUse;
     return { state: existing, isNew: false };
   }
 

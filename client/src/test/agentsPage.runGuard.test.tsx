@@ -180,7 +180,6 @@ describe('Agents page run guards', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    await user.click(await screen.findByTestId('agent-working-path-trigger'));
     const folder = await screen.findByTestId('agent-working-folder');
     await waitFor(() =>
       expect(screen.getByTestId('agent-send')).toBeDisabled(),
@@ -308,19 +307,18 @@ describe('Agents page run guards', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    await user.click(await screen.findByTestId('agent-working-path-trigger'));
     const folder = await screen.findByTestId('agent-working-folder');
     await user.type(folder, '/tmp/stale');
     await user.type(await screen.findByTestId('agent-input'), 'Do work');
-
-    await act(async () => {
-      await user.click(screen.getByTestId('agent-info'));
-    });
-
-    await screen.findByTestId('agent-disabled');
+    const send = await screen.findByTestId('agent-send');
+    await waitFor(() => expect(send).toBeEnabled());
+    await user.click(send);
     await waitFor(() => expect(folder).toHaveValue(''));
     await waitFor(() =>
       expect(screen.getByTestId('agent-send')).toBeDisabled(),
+    );
+    expect(await screen.findByTestId('agents-run-error')).toHaveTextContent(
+      'No usable provider remains',
     );
 
     expect(runRequests).toBe(0);
@@ -438,7 +436,7 @@ describe('Agents page run guards', () => {
     render(<RouterProvider router={router} />);
 
     await screen.findByTestId('agent-command-trigger');
-    await user.click(screen.getByLabelText('Command'));
+    await user.click(screen.getByTestId('agent-command-trigger'));
     await user.click(
       await screen.findByTestId('agent-command-option-improve_plan::local'),
     );
@@ -446,12 +444,11 @@ describe('Agents page run guards', () => {
     const execute = screen.getByTestId('agent-send');
     await waitFor(() => expect(execute).toBeEnabled());
 
-    await act(async () => {
-      await user.click(screen.getByTestId('agent-info'));
-    });
-
-    await screen.findByTestId('agent-disabled');
+    await user.click(execute);
     await waitFor(() => expect(execute).toBeDisabled());
+    expect(await screen.findByTestId('agents-run-error')).toHaveTextContent(
+      'No usable provider remains',
+    );
 
     expect(commandRunRequests).toBe(0);
     expect(

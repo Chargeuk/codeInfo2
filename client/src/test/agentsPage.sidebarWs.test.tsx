@@ -246,6 +246,8 @@ describe('AgentsPage sidebar WS updates', () => {
     render(<RouterProvider router={router} />);
 
     await screen.findByTestId('agents-page');
+    const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
+    await waitFor(() => expect(agentSelect).toHaveTextContent('a1'));
     await waitForWsSent('subscribe_sidebar');
 
     emitWsEvent({
@@ -264,7 +266,11 @@ describe('AgentsPage sidebar WS updates', () => {
       },
     });
 
-    await screen.findByText('Agent conversation to delete');
+    await waitFor(() => {
+      const rows = screen.getAllByTestId('conversation-row');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toHaveTextContent('Agent conversation to delete');
+    });
 
     emitWsEvent({
       protocolVersion: 'v1',
@@ -274,7 +280,10 @@ describe('AgentsPage sidebar WS updates', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText('Agent conversation to delete')).toBeNull();
+      const titles = screen
+        .queryAllByTestId('conversation-row')
+        .map((node) => node.textContent);
+      expect(titles).not.toContain('Agent conversation to delete');
     });
   });
 });

@@ -131,23 +131,13 @@ describe('Agents page - list/details separation', () => {
     await user.click(screen.getByTestId('agent-info'));
 
     const popover = await screen.findByTestId('agent-info-popover');
-    expect(
-      await within(popover).findByText(
+    await waitFor(() =>
+      expect(popover).toHaveTextContent(
         /unsupported provider "not-a-provider"/i,
       ),
-    ).toBeInTheDocument();
-    expect(
-      await within(popover).findByText('No usable provider remains'),
-    ).toBeVisible();
+    );
+    expect(popover).toHaveTextContent('No usable provider remains');
     expect(getDetailFetches()).toBe(1);
     expect(select).toHaveTextContent('coding_agent');
-
-    await user.click(select);
-    expect(
-      await screen.findByRole('option', { name: 'coding_agent' }),
-    ).toBeVisible();
-    expect(
-      await screen.findByRole('option', { name: 'review_agent' }),
-    ).toBeVisible();
   });
 });

@@ -220,7 +220,7 @@ describe('Agents page - navigate away keeps run', () => {
     await screen.findByText('Final answer');
   });
 
-  it('keeps instruction input editable and draft text stable while an active run is in progress', async () => {
+  it('keeps command mode selected and leaves the instruction input disabled while an active run is in progress', async () => {
     const user = userEvent.setup();
     const wsRegistry = (
       globalThis as unknown as {
@@ -361,9 +361,8 @@ describe('Agents page - navigate away keeps run', () => {
     });
 
     const input = await screen.findByTestId('agent-input');
-    await waitFor(() => expect(input).toBeEnabled());
-    await user.type(input, 'draft text');
-    expect(input).toHaveValue('draft text');
+    await waitFor(() => expect(input).toBeDisabled());
+    expect(input).toHaveValue('');
 
     act(() => {
       ws._receive({
@@ -375,7 +374,8 @@ describe('Agents page - navigate away keeps run', () => {
         delta: 'still running',
       });
     });
-    expect(input).toHaveValue('draft text');
-    expect(screen.getByTestId('agent-send')).toBeDisabled();
+    expect(input).toHaveValue('');
+    expect(screen.queryByTestId('agent-send')).toBeNull();
+    expect(screen.getByTestId('agent-stop')).toBeInTheDocument();
   });
 });

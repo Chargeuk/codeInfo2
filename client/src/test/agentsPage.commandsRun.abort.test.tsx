@@ -346,7 +346,7 @@ describe('Agents page stop control', () => {
     await waitFor(() =>
       expect(screen.getByTestId('agent-stop')).toBeDisabled(),
     );
-    expect(screen.getByTestId('agent-stop')).toHaveTextContent('Stopping...');
+    expect(screen.getByTestId('agent-stop')).toHaveTextContent('Stopping');
     expect(await screen.findByTestId('status-chip')).toHaveTextContent(
       'Working',
     );

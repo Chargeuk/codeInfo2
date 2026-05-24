@@ -29,6 +29,7 @@ import {
   useMemo,
   useState,
   type FormEventHandler,
+  type MouseEvent,
   type RefObject,
 } from 'react';
 import Markdown from '../Markdown';
@@ -128,6 +129,8 @@ type AgentsComposerPanelProps = {
   onDeviceAuthOpen: () => void;
   onDeviceAuthClose: () => void;
   onDeviceAuthSuccess: () => void;
+  onAgentInfoOpen?: (event: MouseEvent<HTMLElement>) => void;
+  onAgentInfoClose?: () => void;
   dirPickerOpen: boolean;
   onCloseDirPicker: () => void;
   onPickDir: (path: string) => void;
@@ -239,6 +242,8 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
   onDeviceAuthOpen,
   onDeviceAuthClose,
   onDeviceAuthSuccess,
+  onAgentInfoOpen,
+  onAgentInfoClose,
   dirPickerOpen,
   onCloseDirPicker,
   onPickDir,
@@ -748,7 +753,10 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           iconOnly
           ariaLabel="Composer info"
           selected={Boolean(infoAnchorEl)}
-          onClick={(event) => setInfoAnchorEl(event.currentTarget)}
+          onClick={(event) => {
+            setInfoAnchorEl(event.currentTarget);
+            onAgentInfoOpen?.(event);
+          }}
           data-testid="agent-info"
         />
       </Box>
@@ -851,7 +859,10 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
       <ComposerDesktopPopover
         open={!isMobile && Boolean(infoAnchorEl)}
         anchorEl={infoAnchorEl}
-        onClose={() => setInfoAnchorEl(null)}
+        onClose={() => {
+          setInfoAnchorEl(null);
+          onAgentInfoClose?.();
+        }}
         width={420}
         data-testid="agent-info-popover"
       >
@@ -859,7 +870,10 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
       </ComposerDesktopPopover>
       <ComposerMobileDialog
         open={isMobile && Boolean(infoAnchorEl)}
-        onClose={() => setInfoAnchorEl(null)}
+        onClose={() => {
+          setInfoAnchorEl(null);
+          onAgentInfoClose?.();
+        }}
         data-testid="agent-info-dialog"
       >
         <DialogTitle sx={{ pb: 1 }}>
@@ -870,7 +884,10 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
           >
             <Typography variant="h6">Info</Typography>
             <IconButton
-              onClick={() => setInfoAnchorEl(null)}
+              onClick={() => {
+                setInfoAnchorEl(null);
+                onAgentInfoClose?.();
+              }}
               aria-label="Close"
             >
               ×
@@ -879,7 +896,14 @@ const AgentsComposerPanel = memo(function AgentsComposerPanel({
         </DialogTitle>
         <DialogContent dividers>{infoContent}</DialogContent>
         <DialogActions>
-          <Button onClick={() => setInfoAnchorEl(null)}>Close</Button>
+          <Button
+            onClick={() => {
+              setInfoAnchorEl(null);
+              onAgentInfoClose?.();
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </ComposerMobileDialog>
 

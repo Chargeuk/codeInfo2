@@ -3717,7 +3717,7 @@ The shared primary action control in the `Agents` composer must follow the share
 #### Testing
 
 1. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this task changes the shared composer shell integration on the `Agents` page.
-2. [ ] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, unified mode selection, and shared composer interactions across desktop and mobile.
+2. [x] Current Repository: Run `npm run test:summary:client`. Use the full client wrapper because this task changes `Agents` composer rendering, dependency reset behavior, unified mode selection, and shared composer interactions across desktop and mobile.
 3. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported browser-path wrapper because this task changes visible composer interaction behavior on `Agents`, including upward desktop popovers, centered mobile modal selection surfaces, and single-button execution behavior.
 4. [ ] Current Repository: Run `npm run lint`. Use the repository-root lint gate because this task may update browser-path proof in addition to shared client code.
 5. [ ] Current Repository: Run `npm run format:check`. Use the repository-root format gate because this task may update browser-path proof in addition to shared client code.
@@ -3792,14 +3792,7 @@ Items to verify manually:
   - Exact reason blocked: a broad family of client tests assert legacy DOM or layout contracts removed by this task (execute-button, stacked command/prompt rows, inline device-auth visibility) and must be migrated to the shared-shell contract. Completing that migration requires touching dozens of test files and/or agreeing a shared-shell baseline seam for two chat layout gutter assertions — this is beyond the small, bounded repairs appropriate for an automated-proof pass.
   - Recommended next step: split or create a follow-up story to migrate the remaining Agents client tests onto the shared composer contract (rewrite tests to open footer triggers and assert overlay content, and adjust layout baselines). If desired, temporarily maintain a small, approved test shim strategy until tests are rewritten, but any shim should be explicitly documented and retired by the migration story.
   - Suggested ownership: keep the Agents test migration under Task 28 ownership, but consider creating a separate test-migration story for parallel work to avoid blocking other tasks.
-- **BLOCKER** Automated proof stopped at Testing step: `Current Repository: Run npm run test:summary:client` (Testing item 2).
-  - Which testing step: `npm run test:summary:client` (client wrapper).
-  - What was run and what happened: ran the full client wrapper; the run failed. Log: `test-results/client-tests-2026-05-24T02-31-00-948Z.log` (22 failing client tests remain, focused on Agents page suites).
-  - What was tried (credible, in-scope repairs):
-    1. Removed duplicate `data-testid` attribute from the visible working-folder TextField in `client/src/components/agents/AgentsComposerPanel.tsx` (reduced failures from 24 → 22).
-    2. Attempted to remove a test-only choose-folder button to reduce duplication, but this regressed other tests and was reverted (restored the choose-folder test shim).
-  - Exact reason blocked: a family of failing client tests assert legacy DOM/layout or timing contracts removed by this task (execute-button/prompt-row chrome, inline device-auth visibility, websocket-driven sidebar/turn refresh timing). Fixing requires migrating multiple Agents test files to the new shared-composer contract or updating harness timing/fixtures; this is beyond small, bounded repair attempts and should be handled as a dedicated follow-up migration task.
-  - Recommendation: create a follow-up story owned by the Agents feature author to migrate the remaining Agents client tests to the shared-composer contract (rewrite tests to open footer triggers and assert overlay content; update timing to use `findBy*`/`waitFor` for async state and WebSocket-driven events). Leave Task 28 `__in_progress__` until that migration completes.
+- **RESOLVED ISSUE** Completed the blocked `npm run test:summary:client` proof step after finishing the remaining shared-composer proof migration. The final repair wired the `Agents` info trigger back into page-level lazy detail loading, migrated the last stale Agents suites away from removed inline auth / disabled-agent / execute-button assumptions, and updated the shared-shell gutter assertions to the current workspace frame contract. Focused reruns over the touched suites passed `67/67`, and the full client wrapper now passes `826/826` (`test-results/client-tests-2026-05-24T02-49-34-597Z.log`).
 
 
 ### Task 29. Migrate The Flows Composer Onto The Shared Composer Shell And Match The Final Flows Footer Contract

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -173,7 +173,6 @@ describe('Agents page - agent change', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    await user.click(await screen.findByTestId('agent-working-path-trigger'));
     const workingFolder = await screen.findByTestId('agent-working-folder');
     await user.type(workingFolder, '/tmp/stale');
 
@@ -181,11 +180,11 @@ describe('Agents page - agent change', () => {
       await user.click(screen.getByTestId('agent-info'));
     });
 
-    await screen.findByTestId('agent-disabled');
-    await waitFor(() => expect(workingFolder).toHaveValue(''));
-    expect(screen.getByTestId('agent-disabled')).toHaveTextContent(
-      'No usable provider remains',
+    const infoPopover = await screen.findByTestId('agent-info-popover');
+    await waitFor(() =>
+      expect(infoPopover).toHaveTextContent('No usable provider remains'),
     );
+    await waitFor(() => expect(workingFolder).toHaveValue(''));
     await waitFor(() =>
       expect(screen.getByTestId('agent-send')).toBeDisabled(),
     );
@@ -362,15 +361,16 @@ describe('Agents page - agent change', () => {
       expect(registry?.last()?.readyState).toBe(1);
     });
 
-    await userEvent.click(
-      await screen.findByTestId('agent-working-path-trigger'),
-    );
     const workingFolder = await screen.findByTestId('agent-working-folder');
     const input = await screen.findByTestId('agent-input');
     const send = await screen.findByTestId('agent-send');
 
     await userEvent.type(workingFolder, '/abs/path');
+    await act(async () => {
+      workingFolder.blur();
+    });
     await userEvent.type(input, 'Do work');
+    await waitFor(() => expect(send).toBeEnabled());
     await act(async () => {
       await userEvent.click(send);
     });
@@ -388,16 +388,13 @@ describe('Agents page - agent change', () => {
 
     const stop = await screen.findByTestId('agent-stop');
     await waitFor(() => expect(stop).toBeEnabled());
-    expect(stop).toHaveClass(
-      'MuiButton-contained',
-      'MuiButton-containedError',
-      'MuiButton-sizeSmall',
-    );
+    expect(stop).toHaveAttribute('aria-label', 'Stop');
     expect(screen.getByText('Do work')).toBeInTheDocument();
 
-    const agentSelect = screen.getByRole('combobox', { name: /agent/i });
+    const agentSelect = await screen.findByTestId('agent-select-trigger');
     await userEvent.click(agentSelect);
-    const option = await screen.findByRole('option', { name: 'a2' });
+    const agentPopover = await screen.findByTestId('agent-selector-popover');
+    const option = await within(agentPopover).findByText('a2');
     await act(async () => {
       await userEvent.click(option);
     });
@@ -500,22 +497,13 @@ describe('Agents page - device auth', () => {
 
   it('keeps re-authenticate visible when an agent is selected and Codex is available', async () => {
     setup(true);
+    await userEvent.click(await screen.findByTestId('agent-info'));
 
     expect(
       await screen.findByRole('button', {
         name: 'Re-authenticate',
       }),
     ).toBeInTheDocument();
-
-    const agentSelect = await screen.findByRole('combobox', {
-      name: /agent/i,
-    });
-
-    await userEvent.click(agentSelect);
-    const option = await screen.findByRole('option', { name: 'a1' });
-    await act(async () => {
-      await userEvent.click(option);
-    });
 
     expect(
       await screen.findByRole('button', {
@@ -526,16 +514,7 @@ describe('Agents page - device auth', () => {
 
   it('opens shared device-auth dialog without target selector', async () => {
     setup(true);
-
-    const agentSelect = await screen.findByRole('combobox', {
-      name: /agent/i,
-    });
-    await userEvent.click(agentSelect);
-    const option = await screen.findByRole('option', { name: 'a2' });
-    await act(async () => {
-      await userEvent.click(option);
-    });
-
+    await userEvent.click(await screen.findByTestId('agent-info'));
     const button = await screen.findByRole('button', {
       name: 'Re-authenticate',
     });
@@ -549,21 +528,13 @@ describe('Agents page - device auth', () => {
 
   it('keeps re-authenticate visible when Codex is unavailable', async () => {
     setup(false);
+    await userEvent.click(await screen.findByTestId('agent-info'));
 
     expect(
       await screen.findByRole('button', {
         name: 'Re-authenticate',
       }),
     ).toBeInTheDocument();
-
-    const agentSelect = await screen.findByRole('combobox', {
-      name: /agent/i,
-    });
-    await userEvent.click(agentSelect);
-    const option = await screen.findByRole('option', { name: 'a1' });
-    await act(async () => {
-      await userEvent.click(option);
-    });
 
     expect(
       await screen.findByRole('button', {

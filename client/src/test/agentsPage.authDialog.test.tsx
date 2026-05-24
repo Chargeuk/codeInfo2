@@ -33,6 +33,8 @@ const routes = [
 
 describe('Agents page auth dialog', () => {
   it('shows re-authenticate even when Codex is currently unavailable', async () => {
+    const user = userEvent.setup();
+
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
       if (href.includes('/health')) {
@@ -119,6 +121,7 @@ describe('Agents page auth dialog', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
+    await user.click(await screen.findByTestId('agent-info'));
     expect(
       await screen.findByRole('button', { name: /re-authenticate/i }),
     ).toBeInTheDocument();
@@ -231,11 +234,8 @@ describe('Agents page auth dialog', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
-    await user.click(
-      await screen.findByRole('button', {
-        name: /re-authenticate/i,
-      }),
-    );
+    await user.click(await screen.findByTestId('agent-info'));
+    await user.click(await screen.findByRole('button', { name: /re-authenticate/i }));
 
     expect(
       await screen.findByRole('heading', { name: 'Choose Authentication' }),

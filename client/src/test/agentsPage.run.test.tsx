@@ -204,9 +204,11 @@ describe('Agents page - run', () => {
     const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
     await waitFor(() => expect(agentSelect).toHaveTextContent('coding_agent'));
 
-    await user.click(await screen.findByTestId('agent-working-path-trigger'));
     const workingFolder = await screen.findByTestId('agent-working-folder');
     await user.type(workingFolder, '/abs/path');
+    await act(async () => {
+      workingFolder.blur();
+    });
 
     const input = await screen.findByTestId('agent-input');
     await user.type(input, 'Question');
@@ -1359,6 +1361,7 @@ describe('Agents page - run', () => {
     await waitFor(() => expect(runBodies.length).toBeGreaterThanOrEqual(1));
     expect(runBodies[0]).toHaveProperty('conversationId', 'c-existing');
 
+    await user.click(await screen.findByTestId('agent-info'));
     await user.click(
       await screen.findByRole('button', { name: /new conversation/i }),
     );

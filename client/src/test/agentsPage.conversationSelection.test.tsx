@@ -288,9 +288,7 @@ describe('Agents page - conversation selection', () => {
     });
     expect(input).toHaveValue('draft text');
 
-    const executeButton = screen.getByTestId('agent-send');
-    expect(executeButton).toBeDisabled();
-    expect(screen.queryByTestId('agent-send')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('agent-send')).toBeNull();
     expect(screen.getByTestId('agent-stop')).toBeInTheDocument();
 
     const refreshedRows = await screen.findAllByTestId('conversation-row');

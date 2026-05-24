@@ -168,12 +168,7 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
 
   const agentSelect = page.getByTestId('agent-select-trigger');
   await expect(agentSelect).toBeVisible({ timeout: 20000 });
-  await expect
-    .poll(async () => await agentSelect.innerText(), {
-      timeout: 20000,
-      message: 'Expected agent select to hydrate coding_agent',
-    })
-    .toBe('coding_agent');
+  await expect(agentSelect).toContainText('coding_agent', { timeout: 20000 });
 
   const input = page.getByTestId('agent-input');
   const send = page.getByTestId('agent-send');

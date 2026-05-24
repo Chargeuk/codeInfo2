@@ -1393,9 +1393,7 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
 
   await page.setViewportSize({ width: 390, height: 844 });
 
-  const drawerToggle = page
-    .getByTestId('conversation-drawer-toggle')
-    .filter({ hasText: 'Conversations' });
+  const drawerToggle = page.getByRole('button', { name: 'Open conversations' });
   await expect(drawerToggle).toBeVisible();
   const toggleBox = await drawerToggle.boundingBox();
   expect(toggleBox).not.toBeNull();

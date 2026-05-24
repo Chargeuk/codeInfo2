@@ -2075,7 +2075,6 @@ export default function FlowsPage() {
       <ComposerMobileDialog
         open={workingPathMobileOpen || (isMobile && Boolean(workingPathAnchorEl))}
         onClose={handleWorkingPathClose}
-        data-testid="flow-working-folder-dialog"
       >
         <DialogTitle sx={{ pb: 1 }} data-testid="flow-working-folder-dialog">
           <Stack

@@ -4623,10 +4623,24 @@ export async function startFlowRun(
         });
       }
     }
+    // Build runtimeState from the persisted resumeState and backfill requestedProviderId
+    // from any existing child conversations so the persisted flow state includes
+    // agentRequestedProviders when the child conversation already saved a request.
+    const runtimeStateForPersist = hydrateFlowAgentState(resumeState);
+    for (const [key, state] of runtimeStateForPersist) {
+      if (!state.requestedProviderId) {
+        const maybeConv = await getConversation(state.conversationId);
+        const savedRequested = getSavedRequestedProviderId(maybeConv);
+        if (savedRequested) {
+          state.requestedProviderId = savedRequested;
+        }
+      }
+    }
+
     await persistFlowResumeState({
       conversationId,
       executionId,
-      runtimeState: hydrateFlowAgentState(resumeState),
+      runtimeState: runtimeStateForPersist,
       stepPath: resumeState?.stepPath ?? [],
       loopStack: (resumeState?.loopStack ?? []).map((frame) => ({
         loopStepPath: [...frame.loopStepPath],

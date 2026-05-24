@@ -1,8 +1,8 @@
+import { jest } from '@jest/globals';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { type ComponentProps } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { jest } from '@jest/globals';
 import AgentsComposerPanel from './AgentsComposerPanel';
 
 const theme = createTheme();

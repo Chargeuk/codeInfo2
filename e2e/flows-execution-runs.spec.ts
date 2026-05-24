@@ -128,6 +128,23 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
       }
 
       if (Array.isArray(payload.resumeStepPath)) {
+        flowRows.splice(
+          0,
+          flowRows.length,
+          ...flowRows.map((row) =>
+            row.conversationId === freshConversationId
+              ? {
+                  ...row,
+                  lastMessageAt: timestamp,
+                  flags: {
+                    flow: {
+                      executionId: `run0000${runIndex}-execution-id`,
+                    },
+                  },
+                }
+              : row,
+          ),
+        );
         await route.fulfill({
           status: 202,
           contentType: 'application/json',
@@ -261,7 +278,11 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
     .toBe(3);
   expect(runBodies[2]).not.toHaveProperty('retryOwnershipId');
 
-  await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page).toHaveURL(/\/flows$/);
+  await expect(page.getByTestId('flow-run')).toBeEnabled({
+    timeout: 20000,
+  });
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => flowRows.length, {
@@ -382,12 +403,12 @@ test('flows warning rendering and disabled run guard stay visible at the browser
   await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
 
   await page.getByTestId('flow-working-folder-trigger').click();
-  await expect(page.getByTestId('flow-working-folder-dialog')).toBeVisible({
+  await expect(page.getByTestId('flow-working-folder-popover')).toBeVisible({
     timeout: 20000,
   });
   await page.getByTestId('flow-working-folder-input').fill('/tmp/stale');
   await page
-    .getByTestId('flow-working-folder-dialog')
+    .getByTestId('flow-working-folder-popover')
     .getByRole('button', { name: 'Close' })
     .click();
   await page.getByTestId('flow-info').click();

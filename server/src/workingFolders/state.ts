@@ -170,6 +170,15 @@ const validateKnownRepository = (params: {
   const knownRepositories = getKnownRepositorySet(
     knownRepositoriesState.knownRepositoryPaths,
   );
+  try {
+    console.error('validateKnownRepository target', String(params.workingFolder));
+    console.error(
+      'validateKnownRepository knownRepositories',
+      Array.from(knownRepositories),
+    );
+  } catch (e) {
+    console.error('validateKnownRepository_error', String(e));
+  }
   if (knownRepositories.has(params.workingFolder)) return null;
 
   return {

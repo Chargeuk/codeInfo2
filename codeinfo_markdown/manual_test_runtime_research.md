@@ -175,9 +175,12 @@ When browser proof may use Playwright MCP, also record the artifact-transfer pat
 - the target artifact repository root that owns the active `plan_path`
 - how that target artifact repository root was resolved, such as the active working repository path or `git rev-parse --show-toplevel` from the directory containing `plan_path`
 - the intended target artifact destination relative to that target repository
+- for this repository, treat the manual-testing agent's Playwright MCP runtime as the local agent stack unless current repository evidence explicitly proves a different runtime is active
+- for this repository, record `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` as the normal first place the manual-testing agent should look for captured Playwright MCP screenshots
+- do not infer the screenshot source from the app-under-test compose stack alone; record the Playwright MCP runtime separately from the runtime being proved whenever those differ
 - the Playwright MCP output root inside the Playwright runtime, normally `/tmp/playwright-output`
 - whether the harness repo exposes that output as `$CODEINFO_ROOT/playwright-output-local`
-- the supported copy-out fallback when no host bind mount exposes the output, such as copying from the documented `playwright-mcp` container for the Compose file in use
+- the exact fallback container or copy-out source to use when the bind path is unavailable, using the Playwright MCP runtime rather than a guessed container from the app-under-test stack
 - do not claim Playwright MCP can write directly to the target repository unless repository/runtime evidence proves that exact write path exists
 
 </dependency_checks>
@@ -290,9 +293,13 @@ Create or update `codeInfoStatus/flow-state/manual-testing-runtime.json` with th
             "target_repository_root": "/abs/path/to/repo-that-owns-plan",
             "target_destination": "codeInfoTmp/manual-testing/0000059/7/",
             "curated_story_destination": "codeInfoStatus/manual-proof/0000059/",
+            "playwright_mcp_runtime": "local agent stack",
+            "playwright_mcp_compose_profile": "local",
             "playwright_mcp_output_root": "/tmp/playwright-output",
             "harness_playwright_output_bind": "$CODEINFO_ROOT/playwright-output-local",
-            "copy_out": "Capture with a relative Playwright MCP filename, then copy from the harness output bind when present or from the documented playwright-mcp container output path into the target destination."
+            "primary_transfer_path": "$CODEINFO_ROOT/playwright-output-local/<staging-filename>",
+            "fallback_container_name": "codeinfo2-playwright-mcp-local",
+            "copy_out": "Capture with a relative Playwright MCP filename, then copy from $CODEINFO_ROOT/playwright-output-local when present; only fall back to docker copy-out from codeinfo2-playwright-mcp-local when current runtime evidence proves the bind path is unavailable."
           }
         }
       ]

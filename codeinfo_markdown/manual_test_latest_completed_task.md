@@ -133,8 +133,11 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - After capture, transfer the screenshot into `codeInfoTmp/manual-testing/<story-number>/<task-number>/` as a direct child file of that task folder, for example `codeInfoTmp/manual-testing/<story-number>/<task-number>/proof-01-home.png`.
 - Do not recreate the Playwright staging subdirectories such as `manual-testing/<story-number>/<task-number>/` inside the repository destination folder.
 - After capture, transfer the image into the target repository artifact destination from `<manual_proof_artifact_rules>`.
-- When the Playwright output is host-visible through the harness repository, copy or move from `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` into the target repository destination.
-- When `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` does not exist because the active Playwright MCP uses a Docker-managed output volume, copy the file out of the supported `playwright-mcp` container for the runtime recorded in `manual-testing-runtime.json`, for example by resolving the container with the relevant Compose file under `CODEINFO_ROOT` and copying `/tmp/playwright-output/<staging-filename>` into the target repository destination.
+- For this repository, when the manual-testing agent is using its normal Playwright MCP runtime, treat the local agent stack as the screenshot-producing runtime and look first in `$CODEINFO_ROOT/playwright-output-local/<staging-filename>`.
+- Do not assume the app-under-test compose stack is also the source of Playwright MCP screenshots; the tested runtime and the screenshot-producing Playwright runtime may differ.
+- Only skip the `$CODEINFO_ROOT/playwright-output-local/<staging-filename>` check when current runtime evidence explicitly proves the active Playwright MCP runtime does not expose that bind path.
+- When the bind path is unavailable, copy the file out of the exact Playwright MCP runtime recorded in `manual-testing-runtime.json`; do not guess a container from the app-under-test stack.
+- For this repository, prefer the recorded local Playwright MCP container such as `codeinfo2-playwright-mcp-local` when a container copy-out fallback is genuinely needed.
 - Create the target destination directory in the target repository before copying artifacts into it.
 - Verify the target repository file exists after transfer and inspect the saved image before relying on it as proof.
 - Record both the Playwright staging filename and the final target repository-relative artifact path in the implementation notes.

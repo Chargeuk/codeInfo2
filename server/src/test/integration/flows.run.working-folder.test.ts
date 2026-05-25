@@ -16,6 +16,7 @@ import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
+  updateMemoryConversationWorkingFolder,
 } from '../../chat/memoryPersistence.js';
 import {
   __resetFlowServiceDepsForTests,
@@ -228,7 +229,7 @@ test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE messa
   });
 });
 
-test('a stale saved path is cleared before a flow restore uses it', async () => {
+test('a stale saved path yields to a newer saved working folder before a flow restore completes', async () => {
   resetStore();
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -242,6 +243,8 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  const staleWorkingFolder = '/definitely/missing/path';
+  const refreshedWorkingFolder = '/repos/newer-flow-working-folder';
   memoryConversations.set('flow-stale-restore', {
     _id: 'flow-stale-restore',
     provider: 'codex',
@@ -249,11 +252,28 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
-    flags: { workingFolder: '/definitely/missing/path' },
+    flags: { workingFolder: staleWorkingFolder },
     createdAt: new Date(),
     updatedAt: new Date(),
     lastMessageAt: new Date(),
     archivedAt: null,
+  });
+
+  let statHookUsed = false;
+  setWorkingFolderStatForTests(async (targetPath) => {
+    if (!statHookUsed && targetPath === staleWorkingFolder) {
+      statHookUsed = true;
+      updateMemoryConversationWorkingFolder({
+        conversationId: 'flow-stale-restore',
+        workingFolder: refreshedWorkingFolder,
+      });
+      const error = new Error('missing path') as NodeJS.ErrnoException;
+      error.code = 'ENOENT';
+      throw error;
+    }
+    return {
+      isDirectory: () => true,
+    } as never;
   });
 
   const app = express();
@@ -270,12 +290,13 @@ test('a stale saved path is cleared before a flow restore uses it', async () => 
   try {
     const res = await supertest(app).get('/conversations?flowName=llm-basic');
     assert.equal(res.status, 200);
-    assert.equal(res.body.items[0].flags.workingFolder, undefined);
+    assert.equal(res.body.items[0].flags.workingFolder, refreshedWorkingFolder);
     assert.equal(
       memoryConversations.get('flow-stale-restore')?.flags?.workingFolder,
-      undefined,
+      refreshedWorkingFolder,
     );
   } finally {
+    setWorkingFolderStatForTests(undefined);
     memoryConversations.delete('flow-stale-restore');
     memoryTurns.delete('flow-stale-restore');
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;

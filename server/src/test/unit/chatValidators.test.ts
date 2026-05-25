@@ -506,6 +506,52 @@ test('chat validation rejects existing absolute working_folder when it is not in
   );
 });
 
+test('chat validation rejects a mounted local execution-root child working_folder when it is not ingested', async () => {
+  const snapshot = {
+    CODEINFO_HOST_INGEST_DIR: process.env.CODEINFO_HOST_INGEST_DIR,
+    CODEINFO_CODEX_WORKDIR: process.env.CODEINFO_CODEX_WORKDIR,
+    CODEX_WORKDIR: process.env.CODEX_WORKDIR,
+  };
+
+  const tmp = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-working-folder-execution-root-'),
+  );
+  const hostIngestDir = path.join(tmp, 'host', 'base');
+  const codexWorkdir = path.join(tmp, 'data');
+  const workingFolder = path.join(hostIngestDir, 'codeinfo2', 'codeinfo2');
+  const mappedWorkingFolder = path.join(codexWorkdir, 'codeinfo2', 'codeinfo2');
+
+  try {
+    process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
+    process.env.CODEINFO_CODEX_WORKDIR = codexWorkdir;
+    delete process.env.CODEX_WORKDIR;
+
+    await fs.mkdir(mappedWorkingFolder, { recursive: true });
+
+    await assert.rejects(
+      async () =>
+        await validateChatRequest(
+          {
+            model: 'gpt-5.2-codex',
+            message: 'hello',
+            conversationId: 'chat-working-folder-execution-root',
+            provider: 'codex',
+            working_folder: workingFolder,
+          },
+          {
+            knownRepositoryPathsState: knownRepositoryPathsAvailable([]),
+          },
+        ),
+      /working_folder not found/,
+    );
+  } finally {
+    process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
+    process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;
+    process.env.CODEX_WORKDIR = snapshot.CODEX_WORKDIR;
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('chat validation accepts an ingested absolute working_folder', async () => {
   const workingFolder = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-working-folder-ingested-valid-'),

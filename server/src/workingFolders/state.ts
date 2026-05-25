@@ -6,7 +6,6 @@ import { mapIngestPath, resolveMountedIngestPath } from '../ingest/pathMap.js';
 import { append } from '../logStore.js';
 import {
   resolveWorkingFolderWorkingDirectory as resolveSharedWorkingFolderWorkingDirectory,
-  resolveDefaultExecutionRoot,
   setExecutionContextStatForTests,
 } from './executionContext.js';
 
@@ -159,28 +158,6 @@ const getLocalCodeInfo2IdentityPaths = async () => {
   );
 };
 
-const isPathWithinRoot = (root: string, candidate: string) => {
-  const normalizedRoot = path.resolve(root);
-  const normalizedCandidate = path.resolve(candidate);
-  return (
-    normalizedCandidate === normalizedRoot ||
-    normalizedCandidate.startsWith(`${normalizedRoot}${path.sep}`)
-  );
-};
-
-const getLocalExecutionRootIdentityPaths = async () => {
-  const defaultExecutionRoot = resolveDefaultExecutionRoot();
-  const resolvedDefaultExecutionRoot =
-    await resolveSharedWorkingFolderWorkingDirectory(defaultExecutionRoot, {
-      allowMissingHostPath: true,
-    });
-  return new Set(
-    [defaultExecutionRoot, resolvedDefaultExecutionRoot].filter(
-      (value): value is string => typeof value === 'string' && value.length > 0,
-    ),
-  );
-};
-
 const validateKnownRepository = async (params: {
   workingFolder: string;
   knownRepositoryPathsState?: KnownRepositoryPathsState;
@@ -188,11 +165,6 @@ const validateKnownRepository = async (params: {
   if (params.workingFolder === getLocalCodeInfo2Root()) return null;
   if ((await getLocalCodeInfo2IdentityPaths()).has(params.workingFolder)) {
     return null;
-  }
-  for (const localExecutionRoot of await getLocalExecutionRootIdentityPaths()) {
-    if (isPathWithinRoot(localExecutionRoot, params.workingFolder)) {
-      return null;
-    }
   }
 
   const knownRepositoriesState = params.knownRepositoryPathsState;
@@ -304,7 +276,10 @@ export async function validateRequestedWorkingFolder(params: {
 export async function restoreSavedWorkingFolder(params: {
   conversation: ConversationLike;
   surface: string;
-  clearPersistedWorkingFolder: (conversationId: string) => Promise<void>;
+  clearPersistedWorkingFolder: (
+    conversationId: string,
+    expectedWorkingFolder?: string,
+  ) => Promise<string | undefined>;
   knownRepositoryPathsState?: KnownRepositoryPathsState;
 }): Promise<string | undefined> {
   const conversationId = getConversationId(params.conversation);
@@ -328,12 +303,27 @@ export async function restoreSavedWorkingFolder(params: {
     let existsLocally = true;
     try {
       const st = await fs.stat(resolved);
-      existsLocally = typeof st?.isDirectory === 'function' ? st.isDirectory() : true;
+      existsLocally =
+        typeof st?.isDirectory === 'function' ? st.isDirectory() : true;
     } catch {
       existsLocally = false;
     }
     if (!existsLocally && params.knownRepositoryPathsState === undefined) {
-      await params.clearPersistedWorkingFolder(conversationId);
+      const clearedWorkingFolder = await params.clearPersistedWorkingFolder(
+        conversationId,
+        savedWorkingFolder,
+      );
+      if (clearedWorkingFolder) {
+        appendWorkingFolderDecisionLog({
+          conversationId,
+          recordType: getConversationRecordType(params.conversation),
+          surface: params.surface,
+          action: 'restore',
+          decisionReason: 'saved_value_valid',
+          workingFolder: clearedWorkingFolder,
+        });
+        return clearedWorkingFolder;
+      }
       appendWorkingFolderDecisionLog({
         conversationId,
         recordType: getConversationRecordType(params.conversation),
@@ -384,7 +374,21 @@ export async function restoreSavedWorkingFolder(params: {
       throw error;
     }
 
-    await params.clearPersistedWorkingFolder(conversationId);
+    const clearedWorkingFolder = await params.clearPersistedWorkingFolder(
+      conversationId,
+      savedWorkingFolder,
+    );
+    if (clearedWorkingFolder) {
+      appendWorkingFolderDecisionLog({
+        conversationId,
+        recordType: getConversationRecordType(params.conversation),
+        surface: params.surface,
+        action: 'restore',
+        decisionReason: 'saved_value_valid',
+        workingFolder: clearedWorkingFolder,
+      });
+      return clearedWorkingFolder;
+    }
     appendWorkingFolderDecisionLog({
       conversationId,
       recordType: getConversationRecordType(params.conversation),

@@ -483,8 +483,11 @@ describe('ChatInterface.run persistence', () => {
         },
       },
       surface: 'chat_run',
-      clearPersistedWorkingFolder: async (conversationId) => {
+      clearPersistedWorkingFolder: async (
+        conversationId,
+      ): Promise<string | undefined> => {
         clearedConversationId = conversationId;
+        return undefined;
       },
     });
 
@@ -518,8 +521,11 @@ describe('ChatInterface.run persistence', () => {
             },
           },
           surface: 'chat_run',
-          clearPersistedWorkingFolder: async (conversationId) => {
+          clearPersistedWorkingFolder: async (
+            conversationId,
+          ): Promise<string | undefined> => {
             clearedConversationId = conversationId;
+            return undefined;
           },
         }),
       (error) =>
@@ -549,8 +555,11 @@ describe('ChatInterface.run persistence', () => {
             },
           },
           surface: 'chat_run',
-          clearPersistedWorkingFolder: async (conversationId) => {
+          clearPersistedWorkingFolder: async (
+            conversationId,
+          ): Promise<string | undefined> => {
             clearedConversationId = conversationId;
+            return undefined;
           },
           knownRepositoryPathsState: knownRepositoryPathsUnavailable(
             new Error('repo list offline'),
@@ -586,15 +595,18 @@ describe('ChatInterface.run persistence', () => {
       const restored = await restoreSavedWorkingFolder({
         conversation: memoryConversations.get('chat-working-folder-clear')!,
         surface: 'chat_run',
-        clearPersistedWorkingFolder: async (conversationId) => {
+        clearPersistedWorkingFolder: async (
+          conversationId,
+        ): Promise<string | undefined> => {
           const current = memoryConversations.get(conversationId);
-          if (!current) return;
+          if (!current) return undefined;
           const nextFlags = { ...(current.flags ?? {}) };
           delete nextFlags.workingFolder;
           memoryConversations.set(conversationId, {
             ...current,
             flags: nextFlags,
           } as never);
+          return undefined;
         },
       });
 

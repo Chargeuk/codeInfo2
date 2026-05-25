@@ -913,12 +913,24 @@ async function getConversation(
 const persistConversationWorkingFolder = async (params: {
   conversationId: string;
   workingFolder?: string | null;
-}) => {
+  expectedWorkingFolder?: string | null;
+}): Promise<string | undefined> => {
   if (shouldUseMemoryPersistence()) {
-    updateMemoryConversationWorkingFolder(params);
-    return;
+    const updated = updateMemoryConversationWorkingFolder(params);
+    return updated?.flags?.workingFolder?.trim();
   }
-  await updateConversationWorkingFolder(params);
+  const updated = await updateConversationWorkingFolder(params);
+  if (updated?.flags?.workingFolder) {
+    return updated.flags.workingFolder.trim();
+  }
+  if (!params.workingFolder && params.expectedWorkingFolder) {
+    return (
+      (
+        await getConversation(params.conversationId)
+      )?.flags?.workingFolder?.trim() ?? undefined
+    );
+  }
+  return undefined;
 };
 
 const resolveConversationWorkingFolderForRun = async (params: {
@@ -954,11 +966,20 @@ const resolveConversationWorkingFolderForRun = async (params: {
   return await restoreSavedWorkingFolder({
     conversation: params.conversation,
     surface: params.surface,
-    clearPersistedWorkingFolder: async (conversationId) => {
-      await persistConversationWorkingFolder({
+    clearPersistedWorkingFolder: async (
+      conversationId,
+      expectedWorkingFolder,
+    ) => {
+      const updatedWorkingFolder = await persistConversationWorkingFolder({
         conversationId,
         workingFolder: null,
+        expectedWorkingFolder,
       });
+      if (updatedWorkingFolder) return updatedWorkingFolder;
+      if (!expectedWorkingFolder) return undefined;
+      return (
+        await getConversation(conversationId)
+      )?.flags?.workingFolder?.trim();
     },
     knownRepositoryPathsState: params.knownRepositoryPathsState,
   });

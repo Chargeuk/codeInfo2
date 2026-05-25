@@ -99,23 +99,23 @@ test('updateConversationFlowState persists flags.flow via the legitimate nested 
     configurable: true,
   });
 
-  const original = ConversationModel.findByIdAndUpdate;
+  const original = ConversationModel.findOneAndUpdate;
   const captured: Array<{
-    id: unknown;
+    filter: unknown;
     update: unknown;
     options: unknown;
   }> = [];
 
-  ConversationModel.findByIdAndUpdate = ((
-    id: unknown,
+  ConversationModel.findOneAndUpdate = ((
+    filter: unknown,
     update: unknown,
     options: unknown,
   ) => {
-    captured.push({ id, update, options });
+    captured.push({ filter, update, options });
     return { exec: async () => null } as unknown as ReturnType<
-      typeof ConversationModel.findByIdAndUpdate
+      typeof ConversationModel.findOneAndUpdate
     >;
-  }) as typeof ConversationModel.findByIdAndUpdate;
+  }) as typeof ConversationModel.findOneAndUpdate;
 
   try {
     await updateConversationFlowState({
@@ -131,7 +131,7 @@ test('updateConversationFlowState persists flags.flow via the legitimate nested 
       },
     });
   } finally {
-    ConversationModel.findByIdAndUpdate = original;
+    ConversationModel.findOneAndUpdate = original;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,
       configurable: true,
@@ -139,7 +139,7 @@ test('updateConversationFlowState persists flags.flow via the legitimate nested 
   }
 
   assert.equal(captured.length, 1);
-  assert.equal(captured[0]?.id, 'flow-1');
+  assert.deepEqual(captured[0]?.filter, { _id: 'flow-1' });
   assert.deepEqual(captured[0]?.update, {
     $set: {
       'flags.flow': {
@@ -162,23 +162,23 @@ test('updateConversationWorkingFolder persists flags.workingFolder via nested $s
     configurable: true,
   });
 
-  const original = ConversationModel.findByIdAndUpdate;
+  const original = ConversationModel.findOneAndUpdate;
   const captured: Array<{
-    id: unknown;
+    filter: unknown;
     update: unknown;
     options: unknown;
   }> = [];
 
-  ConversationModel.findByIdAndUpdate = ((
-    id: unknown,
+  ConversationModel.findOneAndUpdate = ((
+    filter: unknown,
     update: unknown,
     options: unknown,
   ) => {
-    captured.push({ id, update, options });
+    captured.push({ filter, update, options });
     return { exec: async () => null } as unknown as ReturnType<
-      typeof ConversationModel.findByIdAndUpdate
+      typeof ConversationModel.findOneAndUpdate
     >;
-  }) as typeof ConversationModel.findByIdAndUpdate;
+  }) as typeof ConversationModel.findOneAndUpdate;
 
   try {
     await updateConversationWorkingFolder({
@@ -186,7 +186,7 @@ test('updateConversationWorkingFolder persists flags.workingFolder via nested $s
       workingFolder: '/repos/working-root',
     });
   } finally {
-    ConversationModel.findByIdAndUpdate = original;
+    ConversationModel.findOneAndUpdate = original;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,
       configurable: true,
@@ -194,7 +194,7 @@ test('updateConversationWorkingFolder persists flags.workingFolder via nested $s
   }
 
   assert.equal(captured.length, 1);
-  assert.equal(captured[0]?.id, 'flow-2');
+  assert.deepEqual(captured[0]?.filter, { _id: 'flow-2' });
   assert.deepEqual(captured[0]?.update, {
     $set: {
       'flags.workingFolder': '/repos/working-root',
@@ -270,15 +270,15 @@ test('writing flags.workingFolder does not replace sibling flags such as threadI
     configurable: true,
   });
 
-  const original = ConversationModel.findByIdAndUpdate;
+  const original = ConversationModel.findOneAndUpdate;
   let capturedUpdate: unknown;
 
-  ConversationModel.findByIdAndUpdate = ((_id: unknown, update: unknown) => {
+  ConversationModel.findOneAndUpdate = ((_filter: unknown, update: unknown) => {
     capturedUpdate = update;
     return { exec: async () => null } as unknown as ReturnType<
-      typeof ConversationModel.findByIdAndUpdate
+      typeof ConversationModel.findOneAndUpdate
     >;
-  }) as typeof ConversationModel.findByIdAndUpdate;
+  }) as typeof ConversationModel.findOneAndUpdate;
 
   try {
     await updateConversationWorkingFolder({
@@ -286,7 +286,7 @@ test('writing flags.workingFolder does not replace sibling flags such as threadI
       workingFolder: '/repos/working-root',
     });
   } finally {
-    ConversationModel.findByIdAndUpdate = original;
+    ConversationModel.findOneAndUpdate = original;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,
       configurable: true,
@@ -390,15 +390,15 @@ test('clearing flags.workingFolder uses nested $unset so flags.flow is preserved
     configurable: true,
   });
 
-  const original = ConversationModel.findByIdAndUpdate;
+  const original = ConversationModel.findOneAndUpdate;
   let capturedUpdate: unknown;
 
-  ConversationModel.findByIdAndUpdate = ((_id: unknown, update: unknown) => {
+  ConversationModel.findOneAndUpdate = ((_filter: unknown, update: unknown) => {
     capturedUpdate = update;
     return { exec: async () => null } as unknown as ReturnType<
-      typeof ConversationModel.findByIdAndUpdate
+      typeof ConversationModel.findOneAndUpdate
     >;
-  }) as typeof ConversationModel.findByIdAndUpdate;
+  }) as typeof ConversationModel.findOneAndUpdate;
 
   try {
     await updateConversationWorkingFolder({
@@ -406,13 +406,57 @@ test('clearing flags.workingFolder uses nested $unset so flags.flow is preserved
       workingFolder: '',
     });
   } finally {
-    ConversationModel.findByIdAndUpdate = original;
+    ConversationModel.findOneAndUpdate = original;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,
       configurable: true,
     });
   }
 
+  assert.deepEqual(capturedUpdate, {
+    $unset: {
+      'flags.workingFolder': 1,
+    },
+  });
+});
+
+test('clearing flags.workingFolder with an expected value adds a compare-and-swap filter', async () => {
+  const originalReady = mongoose.connection.readyState;
+  Object.defineProperty(mongoose.connection, 'readyState', {
+    value: 1,
+    configurable: true,
+  });
+
+  const original = ConversationModel.findOneAndUpdate;
+  let capturedFilter: unknown;
+  let capturedUpdate: unknown;
+
+  ConversationModel.findOneAndUpdate = ((filter: unknown, update: unknown) => {
+    capturedFilter = filter;
+    capturedUpdate = update;
+    return { exec: async () => null } as unknown as ReturnType<
+      typeof ConversationModel.findOneAndUpdate
+    >;
+  }) as typeof ConversationModel.findOneAndUpdate;
+
+  try {
+    await updateConversationWorkingFolder({
+      conversationId: 'flow-4-cas',
+      workingFolder: null,
+      expectedWorkingFolder: '/repos/stale-root',
+    });
+  } finally {
+    ConversationModel.findOneAndUpdate = original;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: originalReady,
+      configurable: true,
+    });
+  }
+
+  assert.deepEqual(capturedFilter, {
+    _id: 'flow-4-cas',
+    'flags.workingFolder': '/repos/stale-root',
+  });
   assert.deepEqual(capturedUpdate, {
     $unset: {
       'flags.workingFolder': 1,
@@ -427,15 +471,15 @@ test('working-folder persistence avoids replacing the entire Mixed flags object'
     configurable: true,
   });
 
-  const original = ConversationModel.findByIdAndUpdate;
+  const original = ConversationModel.findOneAndUpdate;
   let capturedUpdate: unknown;
 
-  ConversationModel.findByIdAndUpdate = ((_id: unknown, update: unknown) => {
+  ConversationModel.findOneAndUpdate = ((_filter: unknown, update: unknown) => {
     capturedUpdate = update;
     return { exec: async () => null } as unknown as ReturnType<
-      typeof ConversationModel.findByIdAndUpdate
+      typeof ConversationModel.findOneAndUpdate
     >;
-  }) as typeof ConversationModel.findByIdAndUpdate;
+  }) as typeof ConversationModel.findOneAndUpdate;
 
   try {
     await updateConversationWorkingFolder({
@@ -443,7 +487,7 @@ test('working-folder persistence avoids replacing the entire Mixed flags object'
       workingFolder: '/repos/working-root',
     });
   } finally {
-    ConversationModel.findByIdAndUpdate = original;
+    ConversationModel.findOneAndUpdate = original;
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,
       configurable: true,

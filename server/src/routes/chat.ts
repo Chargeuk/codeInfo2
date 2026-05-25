@@ -646,7 +646,21 @@ export function createChatRouter({
         effectiveWorkingFolder = await restoreSavedWorkingFolder({
           conversation: existingConversation,
           surface: 'chat_run',
-          clearPersistedWorkingFolder: async (id) => {
+          clearPersistedWorkingFolder: async (
+            id,
+            expectedWorkingFolder,
+          ): Promise<string | undefined> => {
+            const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+            if (trimmedExpectedWorkingFolder) {
+              const currentWorkingFolder = shouldUseMemoryPersistence()
+                ? memoryConversations.get(id)?.flags?.workingFolder?.trim()
+                : (
+                    await ConversationModel.findById(id).lean().exec()
+                  )?.flags?.workingFolder?.trim();
+              if (currentWorkingFolder !== trimmedExpectedWorkingFolder) {
+                return currentWorkingFolder ?? undefined;
+              }
+            }
             const nextFlags = { ...(existingConversation?.flags ?? {}) };
             delete nextFlags.workingFolder;
             existingConversation = {
@@ -654,6 +668,7 @@ export function createChatRouter({
               flags: nextFlags,
             } as Conversation;
             void id;
+            return existingConversation.flags?.workingFolder?.trim();
           },
           knownRepositoryPathsState,
         });

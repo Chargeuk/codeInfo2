@@ -228,7 +228,7 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     }
   });
 
-  it('accepts the mounted local execution root identity when validating requested working folders', async () => {
+  it('rejects the mounted local execution root child path when validating requested working folders', async () => {
     if (process.platform === 'win32') return;
 
     const snapshot = {
@@ -243,7 +243,11 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
     const hostIngestDir = path.join(tmp, 'host', 'base');
     const codexWorkdir = path.join(tmp, 'data');
     const workingFolder = path.join(hostIngestDir, 'codeinfo2', 'codeinfo2');
-    const mappedWorkingFolder = path.join(codexWorkdir, 'codeinfo2', 'codeinfo2');
+    const mappedWorkingFolder = path.join(
+      codexWorkdir,
+      'codeinfo2',
+      'codeinfo2',
+    );
 
     try {
       process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
@@ -252,12 +256,14 @@ describe('resolveWorkingFolderWorkingDirectory', () => {
 
       await fs.mkdir(mappedWorkingFolder, { recursive: true });
 
-      const resolved = await validateRequestedWorkingFolder({
-        workingFolder,
-        knownRepositoryPathsState: knownRepositoryPathsAvailable([]),
-      });
-
-      assert.equal(resolved, mappedWorkingFolder);
+      await assert.rejects(
+        validateRequestedWorkingFolder({
+          workingFolder,
+          knownRepositoryPathsState: knownRepositoryPathsAvailable([]),
+        }),
+        (error) =>
+          (error as { code?: string }).code === 'WORKING_FOLDER_NOT_FOUND',
+      );
     } finally {
       process.env.CODEINFO_HOST_INGEST_DIR = snapshot.CODEINFO_HOST_INGEST_DIR;
       process.env.CODEINFO_CODEX_WORKDIR = snapshot.CODEINFO_CODEX_WORKDIR;

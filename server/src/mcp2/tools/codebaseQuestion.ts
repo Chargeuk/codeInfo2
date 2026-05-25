@@ -979,12 +979,24 @@ async function executeCodebaseQuestion(
         ),
       ),
   );
-  const persistWorkingFolder = async (workingFolder?: string | null) => {
+  const persistWorkingFolder = async (
+    workingFolder?: string | null,
+    expectedWorkingFolder?: string | null,
+  ): Promise<string | undefined> => {
     if (!conversationId) return;
     if (shouldUseCodebaseQuestionMemoryPersistence()) {
       const existing = memoryConversations.get(conversationId);
       if (!existing) return;
       const nextFlags = { ...(existing.flags ?? {}) };
+      const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+      if (
+        !workingFolder &&
+        trimmedExpectedWorkingFolder &&
+        (existing.flags?.workingFolder?.trim() ?? undefined) !==
+          trimmedExpectedWorkingFolder
+      ) {
+        return;
+      }
       if (workingFolder && workingFolder.trim().length > 0) {
         nextFlags.workingFolder = workingFolder;
       } else {
@@ -994,12 +1006,16 @@ async function executeCodebaseQuestion(
         ...existing,
         flags: nextFlags,
       } as Conversation);
-      return;
+      return memoryConversations
+        .get(conversationId)
+        ?.flags?.workingFolder?.trim();
     }
-    await updateConversationWorkingFolder({
+    const updated = await updateConversationWorkingFolder({
       conversationId,
       workingFolder,
+      expectedWorkingFolder,
     });
+    return updated?.flags?.workingFolder?.trim();
   };
 
   try {
@@ -1007,14 +1023,34 @@ async function executeCodebaseQuestion(
       effectiveWorkingFolder = await restoreSavedWorkingFolder({
         conversation: mutableConversation,
         surface: 'mcp_codebase_question',
-        clearPersistedWorkingFolder: async () => {
-          await persistWorkingFolder(null);
-          const nextFlags = { ...(mutableConversation?.flags ?? {}) };
-          delete nextFlags.workingFolder;
-          mutableConversation = {
-            ...mutableConversation!,
-            flags: nextFlags,
-          } as Conversation;
+        clearPersistedWorkingFolder: async (
+          _conversationId,
+          expectedWorkingFolder,
+        ) => {
+          const updatedWorkingFolder = await persistWorkingFolder(
+            null,
+            expectedWorkingFolder,
+          );
+          if (updatedWorkingFolder) {
+            return updatedWorkingFolder;
+          }
+          const currentConversation = await getConversation(_conversationId);
+          const currentWorkingFolder =
+            currentConversation?.flags?.workingFolder?.trim();
+          const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+          if (
+            !trimmedExpectedWorkingFolder ||
+            currentWorkingFolder === trimmedExpectedWorkingFolder
+          ) {
+            const nextFlags = { ...(mutableConversation?.flags ?? {}) };
+            delete nextFlags.workingFolder;
+            mutableConversation = {
+              ...mutableConversation!,
+              flags: nextFlags,
+            } as Conversation;
+            return mutableConversation.flags?.workingFolder?.trim();
+          }
+          return currentWorkingFolder;
         },
         knownRepositoryPathsState,
       });

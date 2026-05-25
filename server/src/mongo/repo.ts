@@ -83,6 +83,7 @@ export interface UpdateConversationMetaInput {
 export interface UpdateConversationWorkingFolderInput {
   conversationId: string;
   workingFolder?: string | null;
+  expectedWorkingFolder?: string | null;
 }
 
 export interface AppendTurnInput {
@@ -236,19 +237,27 @@ export async function updateConversationFlowChildExecution({
 export async function updateConversationWorkingFolder({
   conversationId,
   workingFolder,
+  expectedWorkingFolder,
 }: UpdateConversationWorkingFolderInput): Promise<Conversation | null> {
   if (mongoose.connection.readyState !== 1) return null;
 
   const trimmedWorkingFolder = workingFolder?.trim();
+  const trimmedExpectedWorkingFolder = expectedWorkingFolder?.trim();
+  const filter = trimmedWorkingFolder
+    ? { _id: conversationId }
+    : trimmedExpectedWorkingFolder
+      ? {
+          _id: conversationId,
+          'flags.workingFolder': trimmedExpectedWorkingFolder,
+        }
+      : { _id: conversationId };
   const update = trimmedWorkingFolder
     ? { $set: { 'flags.workingFolder': trimmedWorkingFolder } }
     : { $unset: { 'flags.workingFolder': 1 } };
 
-  const updated = await ConversationModel.findByIdAndUpdate(
-    conversationId,
-    update,
-    { new: true },
-  ).exec();
+  const updated = await ConversationModel.findOneAndUpdate(filter, update, {
+    new: true,
+  }).exec();
   if (updated) {
     append({
       level: 'info',
@@ -654,7 +663,9 @@ export async function bulkDeleteConversations(
         .exec()) as Pick<Conversation, '_id'>[]
     ).map((doc) => doc._id),
   );
-  const deletedConversationIds = uniqueIds.filter((id) => !remainingIds.has(id));
+  const deletedConversationIds = uniqueIds.filter(
+    (id) => !remainingIds.has(id),
+  );
   deletedConversationIds.forEach((conversationId) =>
     emitConversationDelete(conversationId),
   );

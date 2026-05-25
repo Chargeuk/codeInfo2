@@ -239,13 +239,10 @@ const rememberFreshRunRetryOwnership = (params: {
   runToken: string;
   result: FlowRunStartResult;
 }) => {
-  freshRunRetryOwnershipByKey.set(
-    makeFreshRunRetryOwnershipKey(params),
-    {
-      runToken: params.runToken,
-      result: cloneFlowRunStartResult(params.result),
-    },
-  );
+  freshRunRetryOwnershipByKey.set(makeFreshRunRetryOwnershipKey(params), {
+    runToken: params.runToken,
+    result: cloneFlowRunStartResult(params.result),
+  });
 };
 
 const getFreshRunRetryOwnership = (params: {
@@ -574,12 +571,24 @@ export function __getFlowResumeTestDepsForTests(): FlowResumeTestDeps {
 const persistConversationWorkingFolder = async (params: {
   conversationId: string;
   workingFolder?: string | null;
-}) => {
+  expectedWorkingFolder?: string | null;
+}): Promise<string | undefined> => {
   if (shouldUseMemoryPersistence()) {
-    updateMemoryConversationWorkingFolder(params);
-    return;
+    const updated = updateMemoryConversationWorkingFolder(params);
+    return updated?.flags?.workingFolder?.trim();
   }
-  await updateConversationWorkingFolder(params);
+  const updated = await updateConversationWorkingFolder(params);
+  if (updated?.flags?.workingFolder) {
+    return updated.flags.workingFolder.trim();
+  }
+  if (!params.workingFolder && params.expectedWorkingFolder) {
+    return (
+      (
+        await getConversation(params.conversationId)
+      )?.flags?.workingFolder?.trim() ?? undefined
+    );
+  }
+  return undefined;
 };
 
 const resolveConversationWorkingFolderForRun = async (params: {
@@ -615,11 +624,20 @@ const resolveConversationWorkingFolderForRun = async (params: {
   return await restoreSavedWorkingFolder({
     conversation: params.conversation,
     surface: params.surface,
-    clearPersistedWorkingFolder: async (conversationId) => {
-      await persistConversationWorkingFolder({
+    clearPersistedWorkingFolder: async (
+      conversationId,
+      expectedWorkingFolder,
+    ) => {
+      const updatedWorkingFolder = await persistConversationWorkingFolder({
         conversationId,
         workingFolder: null,
+        expectedWorkingFolder,
       });
+      if (updatedWorkingFolder) return updatedWorkingFolder;
+      if (!expectedWorkingFolder) return undefined;
+      return (
+        await getConversation(conversationId)
+      )?.flags?.workingFolder?.trim();
     },
     knownRepositoryPathsState: params.knownRepositoryPathsState,
   });
@@ -919,7 +937,8 @@ const ensureAgentState = async (params: {
     // Prefer explicit requestedProviderId from params, otherwise consult existing conversation flags.
     const existingConversation = await getConversation(existing.conversationId);
     const requestedProviderIdToUse =
-      (typeof params.requestedProviderId === 'string' && params.requestedProviderId.trim())
+      typeof params.requestedProviderId === 'string' &&
+      params.requestedProviderId.trim()
         ? params.requestedProviderId.trim()
         : getSavedRequestedProviderId(existingConversation);
 
@@ -944,7 +963,8 @@ const ensureAgentState = async (params: {
     existing.workingFolder = params.workingFolder;
     existing.providerId = params.providerId;
     existing.modelId = params.modelId;
-    if (requestedProviderIdToUse) existing.requestedProviderId = requestedProviderIdToUse;
+    if (requestedProviderIdToUse)
+      existing.requestedProviderId = requestedProviderIdToUse;
     return { state: existing, isNew: false };
   }
 
@@ -2528,11 +2548,12 @@ const validateResumeAgentConversations = async (
   const entries = Object.entries(resumeState.agentConversations);
   for (const [key, conversationId] of entries) {
     const agentType = key.split(':')[0] ?? '';
-    const validation = await flowResumeTestDeps.ensureFlowChildConversationOwnership({
-      conversationId,
-      agentType,
-      executionId: resumeState.executionId,
-    });
+    const validation =
+      await flowResumeTestDeps.ensureFlowChildConversationOwnership({
+        conversationId,
+        agentType,
+        executionId: resumeState.executionId,
+      });
     if (validation.needsExecutionIdBackfill) {
       childExecutionBackfills.push(conversationId);
     }
@@ -2589,7 +2610,9 @@ const buildFlowCommandCandidates = (params: {
   );
   if (!validatedAgentType.ok) {
     return Promise.reject(
-      new Error(`Flow agent "${params.agentType}" ${validatedAgentType.message}.`),
+      new Error(
+        `Flow agent "${params.agentType}" ${validatedAgentType.message}.`,
+      ),
     );
   }
   const ownerRepositoryPath = params.context.flowSourceId?.trim()
@@ -3064,8 +3087,9 @@ async function runFlowUnlocked(params: {
       if (persistedConversation?.agentName === params.agentType) {
         agentState.providerId = persistedConversation.provider;
         agentState.modelId = persistedConversation.model;
-        agentState.requestedProviderId =
-          getSavedRequestedProviderId(persistedConversation);
+        agentState.requestedProviderId = getSavedRequestedProviderId(
+          persistedConversation,
+        );
       }
     }
 
@@ -4454,9 +4478,7 @@ export async function startFlowRun(
       }));
     const listedRepos = listedReposResult.repos;
     const sourceRepo = sourceId
-      ? listedRepos.find(
-          (item) => item.containerPath === sourceId,
-        )
+      ? listedRepos.find((item) => item.containerPath === sourceId)
       : undefined;
     if (sourceId) {
       if (!sourceRepo) {

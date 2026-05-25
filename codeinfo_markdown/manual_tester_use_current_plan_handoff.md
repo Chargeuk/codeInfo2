@@ -54,7 +54,7 @@ When validation succeeds, return a concise response that includes:
 7. If `Design Contract Present` is true, the named design assets or plan sections the manual tester must use as the visual comparison source.
 8. If `Design Contract Present` is true and the final story task expects story-wide screenshots, say that explicitly so the later manual-testing pass knows it must try to capture the whole implemented frontend surface, not only the current task-local seam.
 9. The expected Playwright artifact transfer path for this codeInfo2 harness workflow, including that any Playwright MCP artifact saved under `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime will normally appear at `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host unless fresher runtime evidence explicitly proves a different runtime is active.
-10. If the current task is the final visual-validation task, say whether its screenshots are expected to serve as the primary final-state proof for the story's visual surfaces and whether any earlier screenshots already appear likely to remain uniquely necessary.
+10. If the current task is the final visual-validation task, say whether the current plan and any existing proof context indicate that its screenshots should serve as the primary final-state proof for the story's visual surfaces, and mention any earlier screenshot surfaces that already appear uniquely necessary from that same available context.
 11. What is still remaining to be done.
 12. Any additional supporting repositories that later manual proof may need beyond the declared story repositories, when that is already evident.
 

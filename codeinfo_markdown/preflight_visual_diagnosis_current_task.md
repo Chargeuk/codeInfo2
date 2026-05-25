@@ -12,7 +12,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 - When selector stdout JSON is available, treat the `current-task.json` disk read as a persistence check and stop if the two disagree.
 - Determine the meaning of `current-task.json` from what it contains rather than depending on an exact JSON shape.
 - Run `python3 "$CODEINFO_ROOT/scripts/check_current_task_handoff.py"` and use its JSON output to validate whether the persisted handoff is currently valid.
-- If `current-task.json` clearly resolves a task, use that persisted task as the authoritative bound task for this step.
+- If `current-task.json` clearly resolves a task and `check_current_task_handoff.py` does not invalidate the persisted handoff, use that persisted task as the authoritative bound task for this step.
 - If `check_current_task_handoff.py` reports an `active_selected_task`, you may mention it as freshness or diagnostic context, but do not let it override a clearly resolved persisted task from `current-task.json`.
 - Treat the stored `plan_path` and `additional_repositories` as the primary scope for this step.
 - Expand beyond that primary scope only when needed to inspect a supporting repository for honest visual diagnosis, and report any such scope expansion in the response.
@@ -47,7 +47,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 - If the bound task has no browser-visible, layout-visible, or otherwise visually inspectable surface of its own, stop further visual refinement work, but still return the full `output_contract`.
 - For that visual-not-applicable case:
   - set `Applicability` to `visual refinement not applicable`
-  - include a one-sentence reason tied to the current task's own exit criteria
+  - include in `Task` a one-sentence reason tied to the current task's own exit criteria
   - fill the remaining required output-contract sections honestly, using `not run` or `n/a` where appropriate
 - Only use this early exit when the task truly has no visual or interaction-facing surface to inspect.
 - Do not use the early exit just because the task is difficult, broad, or shared.
@@ -147,6 +147,7 @@ Return a concise report with these exact sections:
 1. `Task`
    - task number and title
    - or an explicit statement that no trustworthy bound task was available because the current-task handoff was stale
+   - when `Applicability` is `visual refinement not applicable`, include the one-sentence reason tied to the current task's own exit criteria here
 
 2. `Applicability`
    - one of:
@@ -193,7 +194,7 @@ Return a concise report with these exact sections:
 - Confirm you read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` first.
 - Confirm you used the stored current-plan and current-task handoff.
 - Confirm you ran `check_current_task_handoff.py`.
-- Confirm you used the persisted task from `current-task.json` as the bound task when it clearly resolved one.
+- Confirm you used the persisted task from `current-task.json` as the bound task only when it clearly resolved one and the validator did not invalidate the persisted handoff.
 - Confirm you re-opened the plan from disk.
 - Confirm you treated every existing subtask as in scope when a trustworthy bound task was resolved.
 - Confirm you returned the full `output_contract` even when an early-exit condition applied.

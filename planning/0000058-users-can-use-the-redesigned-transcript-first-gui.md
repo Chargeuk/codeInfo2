@@ -4378,7 +4378,7 @@ This task must not mutate Story 58 product behavior unless the wrapper repair pr
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 21, Task 22, Task 23, Task 24, Task 25, Task 26, Task 27, Task 28, Task 29, Task 30, Task 31, Task 32`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Overview
 

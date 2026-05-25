@@ -298,11 +298,7 @@ export function releaseAllControlledEmbeddingCalls(embedding?: number[]) {
 const wsProtocolError = (url: string) =>
   `Failed to construct LMStudioClient. The baseUrl passed in must have protocol "ws" or "wss". Received: ${url}`;
 
-const toWebSocketUrl = (value: string) => {
-  if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
-  if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
-  return value;
-};
+const toWebSocketUrl = (value: string) => value;
 
 export class MockLMStudioClient {
   constructor(baseUrl?: string) {

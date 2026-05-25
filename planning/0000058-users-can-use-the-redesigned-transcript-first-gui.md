@@ -4473,7 +4473,7 @@ This task must not silently narrow proof scope. If a story-level acceptance item
 1. [x] Current Repository: Run `npm run build:summary:server`. Use the supported wrapper because this is the final story-level server build proof.
 2. [x] Current Repository: Run `npm run build:summary:client`. Use the supported wrapper because this is the final story-level client build proof.
 3. [x] Current Repository: Run `npm run test:summary:server:unit`. Use the supported wrapper because this is the final story-level server unit/integration proof.
-4. [ ] Current Repository: Run `npm run test:summary:server:cucumber`. Use the supported wrapper because this is the final story-level server acceptance-style proof.
+4. [x] Current Repository: Run `npm run test:summary:server:cucumber`. Use the supported wrapper because this is the final story-level server acceptance-style proof.
 5. [ ] Current Repository: Run `npm run test:summary:client`. Use the supported wrapper because this is the final story-level client proof across all redesigned surfaces.
 6. [ ] Current Repository: Run `npm run test:summary:e2e`. Use the supported wrapper because this is the final browser-level story proof across desktop and mobile.
 7. [ ] Current Repository: Run `npm run compose:build:summary`. Use the supported wrapper because final story closeout must prove the checked-in stack build path.

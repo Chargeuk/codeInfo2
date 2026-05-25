@@ -4611,9 +4611,10 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 
 #### Proof Mapping
 
-- `P1.` Shared repository-membership proof for the chat and agents callers: proof homes are `server/src/test/unit/chatValidators.test.ts` and `server/src/test/unit/agents-working-folder.test.ts`, and the proof must show a mounted execution-root child path stays rejected until repository membership is explicitly proven.
-- `P2.` Flow-owned restore and stale-clear ordering proof: proof home is `server/src/test/integration/flows.run.working-folder.test.ts`, and the proof must exercise the exact stale-read then newer-save interleaving that used to let a later clear wipe the fresher saved folder.
-- `P3.` Broad server regression for the repaired shared seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
+- `P1.` Requirement: mounted execution-root subdirectories are not accepted without ingested-repository proof. Implementation owners: `server/src/workingFolders/state.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, and `server/src/agents/service.ts`. Proof homes: `server/src/test/unit/chatValidators.test.ts` and `server/src/test/unit/agents-working-folder.test.ts`.
+- `P2.` Requirement: degraded restore and missing-mount handling still preserves the intended success-versus-rejection contract after the shared validator repair. Implementation owners: `server/src/workingFolders/state.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts`. Proof homes: `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-working-folder.test.ts`, and `server/src/test/integration/flows.run.working-folder.test.ts`.
+- `P3.` Requirement: stale restore cleanup cannot clear a newer persisted working-folder value after a stale read. Implementation owners: `server/src/workingFolders/state.ts`, `server/src/mongo/repo.ts`, and `server/src/flows/service.ts`. Proof home: `server/src/test/integration/flows.run.working-folder.test.ts`.
+- `P4.` Broad server regression for the repaired shared seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
 
 #### Risk Ownership
 
@@ -4637,7 +4638,7 @@ Repair the shared server working-folder seam so chat, agents, flows, and restore
 1. [ ] Current Repository: Re-read `finding-2` and `finding-3`, then trace the shared contract across `server/src/workingFolders/state.ts`, `server/src/mongo/repo.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` so the repair keeps one repository-membership rule and one stale-clear owner.
 2. [ ] Current Repository: Patch `server/src/workingFolders/state.ts`, `server/src/mongo/repo.ts`, and the directly affected chat, agents, and flows call sites so a mounted execution-root child path stays rejected until an ingested-repository lookup proves ownership, stale restore cleanup only clears the exact inspected saved value via a compare-and-swap guard or equivalent write check, and the existing missing-mount and degraded-restore allowances still behave exactly as intended.
 3. [ ] Current Repository: Re-check `server/src/routes/chat.ts`, `server/src/agents/service.ts`, and `server/src/flows/service.ts` after the shared patch so degraded restore outcomes, validation failures, and accepted repository-owned paths still map onto the intended route/service responses without reintroducing a caller-specific `/data` fallback.
-4. [ ] Current Repository: Add or update proof in `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-working-folder.test.ts`, and `server/src/test/integration/flows.run.working-folder.test.ts` so the kept assertions cover both seams: mounted-but-not-ingested rejection across the shared validator surfaces, and the stale-read then newer-save interleaving that previously let restore cleanup wipe a fresher saved folder.
+4. [ ] Current Repository: Add or update proof in `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-working-folder.test.ts`, and `server/src/test/integration/flows.run.working-folder.test.ts` so each kept assertion is traceable to one requirement: mounted-but-not-ingested rejection across the shared validator surfaces, preserved degraded restore and missing-mount behavior after the shared patch, and the stale-read then newer-save interleaving that previously let restore cleanup wipe a fresher saved folder.
 
 #### Testing
 
@@ -4676,9 +4677,10 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 
 #### Proof Mapping
 
-- `P1.` Fresh-run replay contradiction proof: proof homes are `server/src/test/integration/flows.run.basic.test.ts` and `server/src/test/integration/flows.run.errors.test.ts`, and the proof must cover the exact second-request contradiction where the same `retryOwnershipId` reappears with different launch-defining fields after the first request was accepted.
-- `P2.` Resume provider-precedence and persistence-round-trip proof: proof home is `server/src/test/integration/flows.run.resume.identity.test.ts`, and the proof must cover the mixed parent-versus-child history case where the parent already has a stronger persisted requested-provider value.
-- `P3.` Broad server regression for the repaired flow identity seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
+- `P1.` Requirement: a reused `retryOwnershipId` cannot accept a contradictory fresh-run payload without revalidating all launch-defining fields. Implementation owners: `server/src/routes/flowsRun.ts` and `server/src/flows/service.ts`. Proof homes: `server/src/test/integration/flows.run.basic.test.ts` and `server/src/test/integration/flows.run.errors.test.ts`.
+- `P2.` Requirement: the parent flow’s persisted `requestedProviderId` stays canonical over weaker child history during resume hydration and persistence round-trip. Implementation owners: `server/src/flows/service.ts`. Proof home: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+- `P3.` Requirement: a truly missing parent provider value can still backfill from child history without weakening the stronger-parent precedence path. Implementation owners: `server/src/flows/service.ts`. Proof home: `server/src/test/integration/flows.run.resume.identity.test.ts`.
+- `P4.` Broad server regression for the repaired flow identity seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
 
 #### Risk Ownership
 
@@ -4698,7 +4700,7 @@ Repair the server flow-run identity seam so fresh-run replay ownership and resum
 1. [ ] Current Repository: Re-read `finding-1` and `finding-12`, then trace the authoritative request-intent fields across `server/src/routes/flowsRun.ts`, `server/src/flows/service.ts`, and the persisted resume state so the replay and resume fixes keep one source of truth for accepted launch identity.
 2. [ ] Current Repository: Patch `server/src/flows/service.ts` plus the route-owned launch admission or persistence seams it depends on so reusing a `retryOwnershipId` revalidates every launch-defining field before replay is accepted, the parent flow’s persisted `requestedProviderId` stays canonical over weaker child history, and true-missing parent values still backfill from child history when that is the intended repair path.
 3. [ ] Current Repository: Re-check the route-owned launch admission path and the flow runtime-selection/persistence writers so the same authoritative provider field and replay identity drive both accepted runtime state and the later persisted resume state.
-4. [ ] Current Repository: Add or update integration proof in `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts` so the kept assertions cover the contradictory second-request replay case and the mixed parent-versus-child provider-precedence round-trip.
+4. [ ] Current Repository: Add or update integration proof in `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/integration/flows.run.resume.identity.test.ts` so each kept assertion is traceable to one requirement: contradictory second-request replay rejection, stronger-parent provider precedence during resume, and true-missing parent backfill that still preserves the repaired precedence rule.
 
 #### Testing
 
@@ -4737,10 +4739,11 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 
 #### Proof Mapping
 
-- `P1.` Flow accepted-launch refresh-failure proof: proof home is `client/src/test/flowsPage.run.test.tsx`, and the proof must show the run remains accepted after the server result is adopted but the later conversations refresh rejects.
-- `P2.` Agent accepted-launch refresh-failure proof: proof home is `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`, and the proof must show the same accepted-then-refresh-fails ordering on the agent launch surface.
-- `P3.` Shared stale-abort loading-state proof: proof home is `client/src/test/useConversations.loadingState.test.ts`, and the proof must hold request A in flight, start request B, abort A, and prove `isLoading` stays true until request B settles.
-- `P4.` Broad client regression for the repaired lifecycle seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
+- `P1.` Requirement: an accepted flow launch stays accepted after the server result is adopted even when the later conversations refresh rejects. Implementation owners: `client/src/pages/FlowsPage.tsx` and any directly touched conversations API helpers. Proof home: `client/src/test/flowsPage.run.test.tsx`.
+- `P2.` Requirement: an accepted agent launch stays accepted after the server result is adopted even when the later conversations refresh rejects. Implementation owners: `client/src/pages/AgentsPage.tsx` and any directly touched conversations API helpers. Proof home: `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`.
+- `P3.` Requirement: only the active request/controller lifecycle can clear `isLoading` or related affordance gates after overlapping conversations requests. Implementation owners: `client/src/hooks/useConversations.ts` and any directly touched conversations API helpers. Proof home: `client/src/test/useConversations.loadingState.test.ts`.
+- `P4.` Requirement: the repaired launch and loading-state seam still preserves existing `RUN_IN_PROGRESS`, list-refresh, websocket-upsert, and workspace-navigation behavior. Implementation owners: `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/hooks/useConversations.ts`. Proof homes: `client/src/test/flowsPage.run.test.tsx`, `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`, and `client/src/test/useConversations.loadingState.test.ts`.
+- `P5.` Broad client regression for the repaired lifecycle seam: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
 
 #### Risk Ownership
 
@@ -4762,7 +4765,7 @@ Repair the shared client launch and conversations lifecycle so accepted runs sta
 1. [ ] Current Repository: Re-read `finding-6` and `finding-7`, then trace the accepted-launch and active-request boundaries across `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useConversations.ts`, and any directly involved conversations API helpers before changing code.
 2. [ ] Current Repository: Patch `client/src/pages/FlowsPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useConversations.ts`, and any directly touched conversations API helpers so accepted launch state, adopted conversation identity, and existing `RUN_IN_PROGRESS` conflict handling remain authoritative after a later refresh failure, and only the active request/controller lifecycle can clear `isLoading` or related affordance gates.
 3. [ ] Current Repository: Re-check the shared conversations consumers after the patch so list refresh, websocket upserts, and workspace navigation still follow the repaired active-request contract instead of reviving a second stale-state path through a caller-specific shortcut.
-4. [ ] Current Repository: Add or update focused client proof in `client/src/test/flowsPage.run.test.tsx`, `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`, and `client/src/test/useConversations.loadingState.test.ts` so the kept assertions cover accepted-then-refresh-fails ordering on both launch surfaces and the request-A/request-B stale-abort loading race in the shared hook.
+4. [ ] Current Repository: Add or update focused client proof in `client/src/test/flowsPage.run.test.tsx`, `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`, and `client/src/test/useConversations.loadingState.test.ts` so each kept assertion is traceable to one requirement: accepted-then-refresh-fails ordering on the flow surface, accepted-then-refresh-fails ordering on the agent surface, the request-A/request-B stale-abort loading race, and preserved `RUN_IN_PROGRESS` plus shared-consumer behavior after the hook repair.
 
 #### Testing
 
@@ -4804,6 +4807,11 @@ Repair the retained Story 58 visual-proof chain so the durable manual-proof arti
 - `P1.` Supported-stack retained desktop/mobile Chat capture proof: proof home is the repository-owned Story 58 manual-proof directory refreshed by this task.
 - `P2.` Durable proof-chain honesty proof: proof homes are the updated retained artifacts plus the plan references that name them.
 - `P3.` Broad story regression for the refreshed retained proof chain: proof home is the later review-cycle final revalidation task for review pass `0000058-20260525T060243Z-e4ce8252`.
+
+#### Visual Proof Map
+
+- `V1.` Source priority: current task requirements plus `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`, `planning/layout-ideas/plan/final-designs/chat-composer-final.md`, and `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`. Owned invariant: the retained desktop Chat surface matches the final workspace-shell, transcript, and composer contract now owned by Story 58. Implementation surface: the already-shipped Story 58 frontend shell and chat UI represented by the retained proof chain. Proof owner: repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: desktop chat workspace shell, transcript region, and composer state.
+- `V2.` Source priority: current task requirements plus `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`, supported by the paired retained Story 58 proof chain. Owned invariant: the retained mobile Chat surface matches the final mobile shell and conversations overlay contract now owned by Story 58. Implementation surface: the already-shipped Story 58 mobile shell and conversation overlay represented by the retained proof chain. Proof owner: repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: mobile chat workspace shell, transcript state, and conversations overlay state.
 
 #### Risk Ownership
 
@@ -4875,6 +4883,11 @@ This is the one final revalidation owner for review cycle `0000058-rc-20260525T0
 - `P2.` Review-created client repair regression proof: proof homes are the client build, client test, and e2e wrappers rerun by this task.
 - `P3.` Supported-stack retained-proof and manual-validation proof: proof homes are the compose wrappers plus the refreshed Story 58 retained proof and support notes kept by this review cycle.
 - `P4.` Review-cycle routing and inline-minor coverage proof: proof homes are this task, the current review-created findings block, `## Minor Review Fixes`, and `codeInfoStatus/flow-state/review-disposition-state.json`.
+
+#### Visual Proof Map
+
+- `V1.` Source priority: the current review-created tasks, then Story 58 plan requirements, then `planning/layout-ideas/plan/final-designs/desktop-workspace-shell-final.md`, `planning/layout-ideas/plan/final-designs/chat-composer-final.md`, and `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`. Owned invariant: final revalidation must prove the full Story 58 desktop frontend surfaces still match the accepted workspace-shell, transcript, composer, and launch-state contract after Tasks 34 through 37 land. Implementation surfaces: the Story 58 desktop chat, flow launch, and agent launch UI represented by the current repository frontend. Proof owner: this task’s wrapper-first regression plus repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: desktop chat shell, accepted flow launch state, accepted agent launch state, and refreshed desktop retained chat proof.
+- `V2.` Source priority: the current review-created tasks, then Story 58 plan requirements, then `planning/layout-ideas/plan/final-designs/mobile-workspace-shell-conversations-final.md`, supported by the paired retained visual proof. Owned invariant: final revalidation must prove the full Story 58 mobile frontend surfaces still match the accepted mobile shell and conversations overlay contract after Tasks 34 through 37 land. Implementation surfaces: the Story 58 mobile chat and conversations overlay represented by the current repository frontend. Proof owner: this task’s manual guidance plus repository-owned retained artifacts under `codeInfoStatus/manual-proof/0000058/`. Later screenshot views: mobile chat shell, mobile conversations overlay, and refreshed mobile retained chat proof.
 
 #### Risk Ownership
 
